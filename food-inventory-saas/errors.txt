@@ -1,0 +1,9 @@
+[Nest] 65098  - 09/06/2025, 11:22:05 PM   ERROR [ExceptionHandler] Nest can't resolve dependencies of the TenantGuard (?). Please make sure that the argument "TenantModel" at index [0] is available in the ProductsModule context.
+
+Potential solutions:
+- Is ProductsModule a valid NestJS module?
+- If "TenantModel" is a provider, is it part of the current ProductsModule?
+- If "TenantModel" is exported from a separate @Module, is that module imported within ProductsModule?
+  @Module({
+    imports: [ /* the Module containing "TenantModel" */ ]
+  })
