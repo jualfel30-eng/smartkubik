@@ -11,6 +11,7 @@ import { Search, X, ShoppingCart, Clock, CheckCircle, XCircle, DollarSign, Trash
 import { fetchApi } from '@/lib/api';
 import { useCrmContext } from '@/context/CrmContext.jsx';
 import { venezuelaData } from '@/lib/venezuela-data.js';
+import { PaymentDialog } from './PaymentDialog.jsx';
 
 const statusMap = {
   draft: { label: 'Borrador', colorClassName: 'bg-gray-200 text-gray-800' },
@@ -42,13 +43,22 @@ const initialNewOrderState = {
   }
 };
 
+
+const paymentMethods = [
+    { id: 'efectivo_ves', name: 'Efectivo (VES)', igtfApplicable: false },
+    { id: 'pago_movil_ves', name: 'Pago Móvil (VES)', igtfApplicable: false },
+    { id: 'transferencia_ves', name: 'Transferencia (VES)', igtfApplicable: false },
+    { id: 'tarjeta_ves', name: 'Tarjeta (VES)', igtfApplicable: false },
+    { id: 'efectivo_usd', name: 'Efectivo (USD)', igtfApplicable: true },
+    { id: 'zelle_usd', name: 'Zelle', igtfApplicable: true },
+    { id: 'transferencia_usd', name: 'Transferencia (USD)', igtfApplicable: true },
+    { id: 'pago_mixto', name: 'Pago Mixto', igtfApplicable: false },
+];
+
 function NewOrderForm() {
-  const [newOrder, setNewOrder] = useState(initialNewOrderState);
+  const [newOrder, setNewOrder] = useState({...initialNewOrderState, paymentMethod: paymentMethods[0].id });
   const [products, setProducts] = useState([]);
   const { crmData: customers, loading: crmLoading, loadCustomers } = useCrmContext();
-
-  const [paymentMethods, setPaymentMethods] = useState([]);
-  const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(true);
 
   const [customerSearch, setCustomerSearch] = useState('');
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
@@ -66,28 +76,7 @@ function NewOrderForm() {
       } catch (err) { console.error("Failed to load products", err); }
     };
     
-    const loadPaymentMethods = async () => {
-      try {
-        setLoadingPaymentMethods(true);
-        const response = await fetchApi('/payments/methods');
-        if (response.success) {
-          const availableMethods = response.data.methods.filter(m => m.available) || [];
-          setPaymentMethods(availableMethods);
-          if (availableMethods.length > 0) {
-            setNewOrder(prev => ({ ...prev, paymentMethod: availableMethods[0].id }));
-          }
-        } else {
-          throw new Error(response.message || 'Failed to fetch payment methods');
-        }
-      } catch (err) {
-        console.error("Failed to load payment methods:", err);
-      } finally {
-        setLoadingPaymentMethods(false);
-      }
-    };
-
     loadProducts();
-    loadPaymentMethods();
   }, []);
 
   useEffect(() => {
@@ -294,11 +283,14 @@ function NewOrderForm() {
     const subtotal = newOrder.items.reduce((sum, item) => sum + (item.total || 0), 0);
     const iva = newOrder.items.reduce((sum, item) => item.ivaApplicable ? sum + (item.total || 0) * 0.16 : sum, 0);
     const selectedPaymentMethod = paymentMethods.find(m => m.id === newOrder.paymentMethod);
-    const igtf = selectedPaymentMethod?.igtfApplicable
+    
+    // IGTF se calcula solo si el método de pago lo aplica y no es 'pago_mixto'
+    const igtf = selectedPaymentMethod?.igtfApplicable && newOrder.paymentMethod !== 'pago_mixto'
       ? newOrder.items.reduce((sum, item) => !item.igtfExempt ? sum + (item.total || 0) * 0.03 : sum, 0)
       : 0;
+
     return { subtotal, iva, igtf, total: subtotal + iva + igtf };
-  }, [newOrder.items, newOrder.paymentMethod, paymentMethods]);
+  }, [newOrder.items, newOrder.paymentMethod]);
 
   return (
     <Card className="mb-4">
@@ -418,7 +410,7 @@ function NewOrderForm() {
         {/* Footer */}
         <div className="space-y-4 pt-4">
           {newOrder.items.length > 0 && (<div className="flex justify-end"><div className="w-full md:w-1/2 lg:w-1/3 space-y-2"><Label>Resumen de Pago</Label><div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg space-y-1 text-sm"><div className="flex justify-between"><span>Subtotal:</span> <span>${totals.subtotal.toFixed(2)}</span></div><div className="flex justify-between"><span>IVA (16%):</span> <span>${totals.iva.toFixed(2)}</span></div>{totals.igtf > 0 && <div className="flex justify-between"><span>IGTF (3%):</span> <span>${totals.igtf.toFixed(2)}</span></div>}<div className="flex justify-between font-bold border-t pt-1"><span>Total:</span> <span>${totals.total.toFixed(2)}</span></div></div></div></div>)}
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 pt-4"><div className="flex-grow space-y-2"><Label htmlFor="notes">Notas Adicionales</Label><Input id="notes" value={newOrder.notes} onChange={(e) => setNewOrder(p => ({ ...p, notes: e.target.value }))} placeholder="Información adicional..."/></div><div className="flex items-end space-x-4"><div className="space-y-2 w-48"><Label htmlFor="paymentMethod">Forma de Pago</Label><Select value={newOrder.paymentMethod} onValueChange={(v) => setNewOrder(p => ({ ...p, paymentMethod: v }))} disabled={loadingPaymentMethods}><SelectTrigger><SelectValue placeholder={loadingPaymentMethods ? "Cargando..." : "Selecciona un método"} /></SelectTrigger><SelectContent>{paymentMethods.map(method => (<SelectItem key={method.id} value={method.id}>{method.name}</SelectItem>))}</SelectContent></Select></div><Button onClick={handleCreateOrder} disabled={!newOrder.customerId && !newOrder.customerName || newOrder.items.length === 0} className="h-10">Crear Orden</Button></div></div>
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 pt-4"><div className="flex-grow space-y-2"><Label htmlFor="notes">Notas Adicionales</Label><Input id="notes" value={newOrder.notes} onChange={(e) => setNewOrder(p => ({ ...p, notes: e.target.value }))} placeholder="Información adicional..."/></div><div className="flex items-end space-x-4"><div className="space-y-2 w-48"><Label htmlFor="paymentMethod">Forma de Pago</Label><Select value={newOrder.paymentMethod} onValueChange={(v) => setNewOrder(p => ({ ...p, paymentMethod: v }))}><SelectTrigger><SelectValue placeholder={"Selecciona un método"} /></SelectTrigger><SelectContent>{paymentMethods.map(method => (<SelectItem key={method.id} value={method.id}>{method.name}</SelectItem>))}</SelectContent></Select></div><Button onClick={handleCreateOrder} disabled={!newOrder.customerId && !newOrder.customerName || newOrder.items.length === 0} className="h-10">Crear Orden</Button></div></div>
         </div>
       </CardContent>
     </Card>
@@ -431,6 +423,8 @@ function OrdersManagement() {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
 
   const loadOrders = useCallback(async () => {
     try { setLoading(true); const response = await fetchApi('/orders'); setOrders(response.data || []); } catch (err) { setError(err.message); } finally { setLoading(false); }
@@ -529,14 +523,24 @@ function OrdersManagement() {
                         <TableCell>${order.totalAmount.toFixed(2)}</TableCell>
                         <TableCell>{getStatusBadge(order.status)}</TableCell>
                         <TableCell>
-                          <Select onValueChange={(newStatus) => handleStatusChange(order._id, newStatus)} value={order.status}>
-                            <SelectTrigger className="w-[150px]"><SelectValue placeholder="Cambiar estado" /></SelectTrigger>
-                            <SelectContent>
-                              {orderStatuses.map(status => (
-                                <SelectItem key={status} value={status}>{statusMap[status].label}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <div className="flex items-center gap-2">
+                            <Select onValueChange={(newStatus) => handleStatusChange(order._id, newStatus)} value={order.status}>
+                              <SelectTrigger className="w-[150px]"><SelectValue placeholder="Cambiar estado" /></SelectTrigger>
+                              <SelectContent>
+                                {orderStatuses.map(status => (
+                                  <SelectItem key={status} value={status}>{statusMap[status].label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => { setSelectedOrder(order); setPaymentDialogOpen(true); }}
+                              disabled={order.paymentStatus === 'paid'}
+                            >
+                              Pagar
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -587,6 +591,15 @@ function OrdersManagement() {
           </Card>
         </div>
       </div>
+      <PaymentDialog 
+        open={paymentDialogOpen}
+        onOpenChange={setPaymentDialogOpen}
+        order={selectedOrder}
+        onPaymentSuccess={() => {
+          setPaymentDialogOpen(false);
+          loadOrders();
+        }}
+      />
     </div>
   );
 }

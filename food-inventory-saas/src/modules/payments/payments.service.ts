@@ -29,7 +29,10 @@ export class PaymentsService {
     }
 
     const newPayment: OrderPayment = {
-      ...createPaymentDto,
+      amount: createPaymentDto.amount,
+      method: createPaymentDto.method,
+      date: new Date(createPaymentDto.date),
+      reference: createPaymentDto.reference,
       currency: 'VES', // Assuming VES for now, this should be part of the DTO later
       status: 'confirmed', // Assuming payment is confirmed upon creation
       confirmedAt: new Date(),
