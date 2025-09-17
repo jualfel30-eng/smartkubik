@@ -77,6 +77,7 @@ export class CustomersService {
         { lastName: { $regex: search, $options: 'i' } },
         { companyName: { $regex: search, $options: 'i' } },
         { customerNumber: { $regex: search, $options: 'i' } },
+        { 'taxInfo.taxId': { $regex: search, $options: 'i' } },
       ];
     }
 

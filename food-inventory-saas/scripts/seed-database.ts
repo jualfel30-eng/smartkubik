@@ -1,16 +1,29 @@
-import { connect, disconnect } from 'mongoose';
+import { connect, disconnect, model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
-import { Tenant } from '../src/schemas/tenant.schema';
-import { User } from '../src/schemas/user.schema';
+import { Tenant, TenantSchema } from '../src/schemas/tenant.schema';
+import { User, UserSchema } from '../src/schemas/user.schema';
 
 async function seedDatabase() {
   const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/food-inventory-saas';
   await connect(MONGODB_URI);
+  console.log(`Connected to database at ${MONGODB_URI}`);
+
+  console.log('---!!! DROPPING DATABASE !!!---');
+  await model('User', UserSchema).db.dropDatabase();
+  console.log('--- Database dropped successfully ---');
 
   console.log('Seeding database...');
 
-  // Crear tenant de prueba
-  const tenant = await Tenant.create({
+  // 1. Create Mongoose Models from Schemas
+  const TenantModel = model(Tenant.name, TenantSchema);
+  const UserModel = model(User.name, UserSchema);
+
+  // 2. Use the Models to create documents
+  // First, delete existing data to avoid duplicates on re-run
+  // This is now redundant since we drop the DB, but we'll leave it
+  await TenantModel.deleteMany({ code: 'EARLYADOPTER' });
+
+  const tenant = await TenantModel.create({
     code: 'EARLYADOPTER',
     name: 'Early Adopter Inc.',
     businessType: 'retail',
@@ -83,9 +96,12 @@ async function seedDatabase() {
 
   console.log(`Tenant created: ${tenant.name}`);
 
+  // Delete existing admin user for this tenant to avoid duplicates
+  await UserModel.deleteMany({ email: 'admin@earlyadopter.com', tenantId: tenant._id });
+
   // Crear usuario administrador
   const hashedPassword = await bcrypt.hash('Admin1234!', 12);
-  const adminUser = await User.create({
+  const adminUser = await UserModel.create({
     email: 'admin@earlyadopter.com',
     password: hashedPassword,
     firstName: 'Admin',
@@ -106,5 +122,3 @@ seedDatabase().catch(err => {
   console.error('Error seeding database:', err);
   process.exit(1);
 });
-
-

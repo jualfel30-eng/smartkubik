@@ -12,58 +12,79 @@ import {
   IsMongoId,
   IsObject,
   IsEmail,
-  IsPhoneNumber
+  IsPhoneNumber,
+  IsDateString,
+  Validate,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
+  ValidationArguments
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+// --- Custom Validator for Supplier Contacts ---
+@ValidatorConstraint({ name: 'isContactMandatoryForSupplier', async: false })
+export class IsContactMandatoryForSupplier implements ValidatorConstraintInterface {
+  validate(contacts: any[], args: ValidationArguments) {
+    const object = args.object as CreateCustomerDto;
+    if (object.customerType === 'supplier') {
+      // For suppliers, contacts array must exist and have at least one valid entry.
+      return Array.isArray(contacts) && contacts.length > 0 && contacts.some(c => c.value && c.value.trim() !== '');
+    }
+    return true; // For other customer types, this validation is not enforced.
+  }
+
+  defaultMessage(args: ValidationArguments) {
+    return 'Debe proporcionar al menos un método de contacto (teléfono o email) para los proveedores.';
+  }
+}
+
+// --- DTOs de Sub-documentos ---
+export class CustomerTaxInfoDto {
+  @ApiProperty({ description: 'Número de Identificación Fiscal (Cédula o RIF)' })
+  @IsString()
+  @IsNotEmpty()
+  taxId: string;
+
+  @ApiProperty({ description: 'Tipo de Identificación', enum: ['V', 'E', 'J', 'G'] })
+  @IsEnum(['V', 'E', 'J', 'G'])
+  taxType: string;
+
+  @ApiPropertyOptional({ description: 'Nombre fiscal o razón social' })
+  @IsOptional()
+  @IsString()
+  taxName?: string;
+}
 
 export class CustomerAddressDto {
   @ApiProperty({ description: 'Tipo de dirección', enum: ['billing', 'shipping', 'both'] })
   @IsEnum(['billing', 'shipping', 'both'])
   type: string;
 
-  @ApiProperty({ description: 'Calle' })
-  @IsString()
-  @IsNotEmpty()
-  street: string;
-
-  @ApiProperty({ description: 'Ciudad' })
-  @IsString()
-  @IsNotEmpty()
-  city: string;
-
-  @ApiProperty({ description: 'Estado' })
-  @IsString()
-  @IsNotEmpty()
-  state: string;
-
-  @ApiPropertyOptional({ description: 'Código postal' })
+  @ApiPropertyOptional({ description: 'Calle' })
   @IsOptional()
   @IsString()
-  zipCode?: string;
+  street?: string;
 
-  @ApiPropertyOptional({ description: 'País', default: 'Venezuela' })
+  @ApiPropertyOptional({ description: 'Ciudad' })
   @IsOptional()
   @IsString()
-  country?: string = 'Venezuela';
+  city?: string;
 
-  @ApiPropertyOptional({ description: 'Coordenadas GPS' })
+  @ApiPropertyOptional({ description: 'Municipio' })
   @IsOptional()
-  @IsObject()
-  coordinates?: {
-    lat: number;
-    lng: number;
-  };
+  @IsString()
+  municipality?: string;
+
+  @ApiPropertyOptional({ description: 'Estado' })
+  @IsOptional()
+  @IsString()
+  state?: string;
 
   @ApiPropertyOptional({ description: 'Es dirección por defecto', default: false })
   @IsOptional()
   @IsBoolean()
   isDefault?: boolean;
-
-  @ApiPropertyOptional({ description: 'Notas adicionales' })
-  @IsOptional()
-  @IsString()
-  notes?: string;
 }
 
 export class CustomerContactDto {
@@ -80,69 +101,100 @@ export class CustomerContactDto {
   @IsOptional()
   @IsBoolean()
   isPrimary?: boolean;
+}
 
-  @ApiPropertyOptional({ description: 'Notas del contacto' })
+export class CustomerCreditInfoDto {
+  @ApiPropertyOptional({ description: 'Límite de crédito', default: 0 })
+  @IsOptional()
+  @IsNumber()
+  creditLimit?: number;
+
+  @ApiPropertyOptional({ description: 'Crédito disponible', default: 0 })
+  @IsOptional()
+  @IsNumber()
+  availableCredit?: number;
+
+  @ApiPropertyOptional({ description: 'Condiciones de pago (días)', default: 0 })
+  @IsOptional()
+  @IsNumber()
+  paymentTerms?: number;
+}
+
+// --- DTOs Principales ---
+
+export class CreateCustomerDto {
+  @ApiProperty({ description: 'Nombre del cliente o contacto' })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiPropertyOptional({ description: 'Nombre de la empresa (si aplica)' })
+  @IsOptional()
+  @IsString()
+  companyName?: string;
+
+  @ApiProperty({ description: 'Tipo de cliente', enum: ['individual', 'business', 'supplier', 'employee', 'admin', 'manager', 'Repartidor', 'Cajero', 'Mesonero'] })
+  @IsEnum(['individual', 'business', 'supplier', 'employee', 'admin', 'manager', 'Repartidor', 'Cajero', 'Mesonero'])
+  customerType: string;
+
+  @ApiPropertyOptional({ description: 'Información fiscal', type: CustomerTaxInfoDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CustomerTaxInfoDto)
+  taxInfo?: CustomerTaxInfoDto;
+
+  @ApiPropertyOptional({ description: 'Direcciones del cliente', type: [CustomerAddressDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CustomerAddressDto)
+  addresses?: CustomerAddressDto[];
+
+  @ApiPropertyOptional({ description: 'Contactos del cliente', type: [CustomerContactDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CustomerContactDto)
+  @Validate(IsContactMandatoryForSupplier)
+  contacts?: CustomerContactDto[];
+
+  @ApiPropertyOptional({ description: 'Información de crédito', type: CustomerCreditInfoDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CustomerCreditInfoDto)
+  creditInfo?: CustomerCreditInfoDto;
+
+  @ApiPropertyOptional({ description: 'Notas del cliente' })
   @IsOptional()
   @IsString()
   notes?: string;
 }
 
-export class CustomerPaymentMethodDto {
-  @ApiProperty({ description: 'Tipo de método de pago', enum: ['cash', 'card', 'transfer', 'usd_cash', 'usd_transfer'] })
-  @IsEnum(['cash', 'card', 'transfer', 'usd_cash', 'usd_transfer'])
-  type: string;
-
-  @ApiPropertyOptional({ description: 'Banco' })
+export class UpdateCustomerDto {
+  @ApiPropertyOptional({ description: 'Nombre del cliente' })
   @IsOptional()
   @IsString()
-  bank?: string;
-
-  @ApiPropertyOptional({ description: 'Últimos 4 dígitos de cuenta/tarjeta' })
-  @IsOptional()
-  @IsString()
-  accountNumber?: string;
-
-  @ApiPropertyOptional({ description: 'Tipo de tarjeta' })
-  @IsOptional()
-  @IsString()
-  cardType?: string;
-
-  @ApiPropertyOptional({ description: 'Es método preferido', default: false })
-  @IsOptional()
-  @IsBoolean()
-  isPreferred?: boolean;
-}
-
-export class CreateCustomerDto {
-  @ApiProperty({ description: 'Nombre del cliente' })
-  @IsString()
-  @IsNotEmpty()
-  name: string;
-
-  @ApiPropertyOptional({ description: 'Apellido del cliente' })
-  @IsOptional()
-  @IsString()
-  lastName?: string;
+  name?: string;
 
   @ApiPropertyOptional({ description: 'Nombre de la empresa' })
   @IsOptional()
   @IsString()
   companyName?: string;
 
-  @ApiProperty({ description: 'Tipo de cliente', enum: ['individual', 'business'] })
-  @IsEnum(['individual', 'business'])
-  customerType: string;
-
-  @ApiPropertyOptional({ description: 'Información fiscal' })
+  @ApiPropertyOptional({ description: 'Tipo de cliente', enum: ['individual', 'business', 'supplier', 'employee', 'admin', 'manager', 'Repartidor', 'Cajero', 'Mesonero'] })
   @IsOptional()
-  @IsObject()
-  taxInfo?: {
-    taxId?: string;
-    taxType?: string;
-    taxName?: string;
-    isRetentionAgent?: boolean;
-    retentionPercentage?: number;
-  };
+  @IsEnum(['individual', 'business', 'supplier', 'employee', 'admin', 'manager', 'Repartidor', 'Cajero', 'Mesonero'])
+  customerType?: string;
+
+  @ApiPropertyOptional({ description: 'Estado del cliente' })
+  @IsOptional()
+  @IsEnum(['active', 'inactive', 'suspended', 'blocked'])
+  status?: string;
+
+  @ApiPropertyOptional({ description: 'Nivel del cliente (tier)' })
+  @IsOptional()
+  @IsString()
+  tier?: string;
 
   @ApiPropertyOptional({ description: 'Direcciones del cliente', type: [CustomerAddressDto] })
   @IsOptional()
@@ -158,150 +210,23 @@ export class CreateCustomerDto {
   @Type(() => CustomerContactDto)
   contacts?: CustomerContactDto[];
 
-  @ApiPropertyOptional({ description: 'Métodos de pago del cliente', type: [CustomerPaymentMethodDto] })
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => CustomerPaymentMethodDto)
-  paymentMethods?: CustomerPaymentMethodDto[];
-
-  @ApiPropertyOptional({ description: 'Preferencias del cliente' })
-  @IsOptional()
-  @IsObject()
-  preferences?: {
-    preferredCurrency: string;
-    preferredPaymentMethod: string;
-    preferredDeliveryMethod: string;
-    communicationChannel: string;
-    marketingOptIn: boolean;
-    invoiceRequired: boolean;
-    specialInstructions?: string;
-  };
-
-  @ApiPropertyOptional({ description: 'Información de crédito' })
-  @IsOptional()
-  @IsObject()
-  creditInfo?: {
-    creditLimit: number;
-    paymentTerms: number;
-    creditRating: string;
-  };
-
-  @ApiPropertyOptional({ description: 'Fuente de registro', enum: ['manual', 'web', 'whatsapp', 'referral', 'import'], default: 'manual' })
-  @IsOptional()
-  @IsEnum(['manual', 'web', 'whatsapp', 'referral', 'import'])
-  source?: string = 'manual';
-
-  @ApiPropertyOptional({ description: 'Cliente que lo refirió' })
-  @IsOptional()
-  @IsMongoId()
-  referredBy?: string;
-
-  @ApiPropertyOptional({ description: 'Vendedor asignado' })
-  @IsOptional()
-  @IsMongoId()
-  assignedTo?: string;
-
   @ApiPropertyOptional({ description: 'Notas del cliente' })
   @IsOptional()
   @IsString()
   notes?: string;
-
-  @ApiPropertyOptional({ description: 'Notas internas' })
-  @IsOptional()
-  @IsString()
-  internalNotes?: string;
-}
-
-export class UpdateCustomerDto {
-  @ApiPropertyOptional({ description: 'Nombre del cliente' })
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  name?: string;
-
-  @ApiPropertyOptional({ description: 'Apellido del cliente' })
-  @IsOptional()
-  @IsString()
-  lastName?: string;
-
-  @ApiPropertyOptional({ description: 'Nombre de la empresa' })
-  @IsOptional()
-  @IsString()
-  companyName?: string;
-
-  @ApiPropertyOptional({ description: 'Tipo de cliente' })
-  @IsOptional()
-  @IsEnum(['individual', 'business'])
-  customerType?: string;
-
-  @ApiPropertyOptional({ description: 'Estado del cliente' })
-  @IsOptional()
-  @IsEnum(['active', 'inactive', 'suspended', 'blocked'])
-  status?: string;
-
-  @ApiPropertyOptional({ description: 'Razón de inactividad' })
-  @IsOptional()
-  @IsString()
-  inactiveReason?: string;
-
-  @ApiPropertyOptional({ description: 'Vendedor asignado' })
-  @IsOptional()
-  @IsMongoId()
-  assignedTo?: string;
-
-  @ApiPropertyOptional({ description: 'Notas del cliente' })
-  @IsOptional()
-  @IsString()
-  notes?: string;
-
-  @ApiPropertyOptional({ description: 'Notas internas' })
-  @IsOptional()
-  @IsString()
-  internalNotes?: string;
-}
-
-export class CustomerInteractionDto {
-  @ApiProperty({ description: 'Tipo de interacción', enum: ['call', 'email', 'whatsapp', 'visit', 'complaint', 'compliment'] })
-  @IsEnum(['call', 'email', 'whatsapp', 'visit', 'complaint', 'compliment'])
-  type: string;
-
-  @ApiProperty({ description: 'Canal de comunicación', enum: ['phone', 'email', 'whatsapp', 'in_person', 'web'] })
-  @IsEnum(['phone', 'email', 'whatsapp', 'in_person', 'web'])
-  channel: string;
-
-  @ApiProperty({ description: 'Asunto de la interacción' })
-  @IsString()
-  @IsNotEmpty()
-  subject: string;
-
-  @ApiPropertyOptional({ description: 'Descripción detallada' })
-  @IsOptional()
-  @IsString()
-  description?: string;
-
-  @ApiPropertyOptional({ description: 'Estado de la interacción', enum: ['pending', 'in_progress', 'completed', 'cancelled'], default: 'completed' })
-  @IsOptional()
-  @IsEnum(['pending', 'in_progress', 'completed', 'cancelled'])
-  status?: string = 'completed';
-
-  @ApiPropertyOptional({ description: 'Fecha de seguimiento' })
-  @IsOptional()
-  @Type(() => Date)
-  followUpDate?: Date;
 }
 
 export class CustomerQueryDto {
   @ApiPropertyOptional({ description: 'Página', default: 1 })
   @IsOptional()
-  @Transform(({ value }) => parseInt(value))
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   page?: number = 1;
 
   @ApiPropertyOptional({ description: 'Límite por página', default: 20 })
   @IsOptional()
-  @Transform(({ value }) => parseInt(value))
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   @Max(100)
@@ -312,9 +237,9 @@ export class CustomerQueryDto {
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ description: 'Tipo de cliente' })
+  @ApiPropertyOptional({ description: 'Tipo de cliente', enum: ['individual', 'business', 'supplier', 'employee', 'admin', 'manager', 'Repartidor', 'Cajero', 'Mesonero'] })
   @IsOptional()
-  @IsEnum(['individual', 'business'])
+  @IsEnum(['individual', 'business', 'supplier', 'employee', 'admin', 'manager', 'Repartidor', 'Cajero', 'Mesonero'])
   customerType?: string;
 
   @ApiPropertyOptional({ description: 'Estado del cliente' })
@@ -322,20 +247,10 @@ export class CustomerQueryDto {
   @IsEnum(['active', 'inactive', 'suspended', 'blocked'])
   status?: string;
 
-  @ApiPropertyOptional({ description: 'Vendedor asignado' })
+  @ApiPropertyOptional({ description: 'ID de usuario asignado' })
   @IsOptional()
   @IsMongoId()
   assignedTo?: string;
-
-  @ApiPropertyOptional({ description: 'Segmento del cliente' })
-  @IsOptional()
-  @IsString()
-  segment?: string;
-
-  @ApiPropertyOptional({ description: 'Fuente de registro' })
-  @IsOptional()
-  @IsEnum(['manual', 'web', 'whatsapp', 'referral', 'import'])
-  source?: string;
 
   @ApiPropertyOptional({ description: 'Ordenar por', enum: ['name', 'createdAt', 'lastOrderDate', 'totalSpent'] })
   @IsOptional()
@@ -347,4 +262,3 @@ export class CustomerQueryDto {
   @IsEnum(['asc', 'desc'])
   sortOrder?: string = 'desc';
 }
-

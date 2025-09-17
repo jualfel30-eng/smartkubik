@@ -262,7 +262,7 @@ export class InventoryController {
     }
   }
 
-  @Get('alerts/expiration')
+  @Get('alerts/near-expiration')
   @RequirePermissions('inventory', ['read'])
   @ApiOperation({ summary: 'Obtener alertas de productos próximos a vencer' })
   @ApiResponse({ status: 200, description: 'Alertas obtenidas exitosamente' })

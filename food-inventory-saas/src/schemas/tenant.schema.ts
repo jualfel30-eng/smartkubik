@@ -4,6 +4,23 @@ import { Document } from 'mongoose';
 export type TenantDocument = Tenant & Document;
 
 @Schema()
+export class PaymentMethodSetting {
+  @Prop({ required: true })
+  id: string; // e.g., 'efectivo_usd'
+
+  @Prop({ required: true })
+  name: string; // e.g., 'Efectivo (USD)'
+
+  @Prop({ required: true, default: true })
+  enabled: boolean;
+
+  @Prop({ required: true, default: false })
+  igtfApplicable: boolean;
+}
+
+const PaymentMethodSettingSchema = SchemaFactory.createForClass(PaymentMethodSetting);
+
+@Schema()
 export class TenantSettings {
   @Prop({ type: Object })
   currency: {
@@ -51,6 +68,9 @@ export class TenantSettings {
     expirationAlerts: boolean;
     orderAlerts: boolean;
   };
+
+  @Prop({ type: [PaymentMethodSettingSchema], default: undefined })
+  paymentMethods: PaymentMethodSetting[];
 }
 
 @Schema({ timestamps: true })

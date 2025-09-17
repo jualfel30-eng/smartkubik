@@ -1,9 +1,32 @@
-[Nest] 65098  - 09/06/2025, 11:22:05 PM   ERROR [ExceptionHandler] Nest can't resolve dependencies of the TenantGuard (?). Please make sure that the argument "TenantModel" at index [0] is available in the ProductsModule context.
-
-Potential solutions:
-- Is ProductsModule a valid NestJS module?
-- If "TenantModel" is a provider, is it part of the current ProductsModule?
-- If "TenantModel" is exported from a separate @Module, is that module imported within ProductsModule?
-  @Module({
-    imports: [ /* the Module containing "TenantModel" */ ]
-  })
+npm error code ERESOLVE
+npm error ERESOLVE could not resolve
+npm error
+npm error While resolving: @nestjs/serve-static@5.0.3
+npm error Found: @nestjs/common@10.4.20
+npm error node_modules/@nestjs/common
+npm error   @nestjs/common@"^10.0.0" from the root project
+npm error   peer @nestjs/common@"^8.0.0 || ^9.0.0 || ^10.0.0" from @nestjs/config@3.3.0
+npm error   node_modules/@nestjs/config
+npm error     @nestjs/config@"^3.1.1" from the root project
+npm error   9 more (@nestjs/core, @nestjs/jwt, @nestjs/mapped-types, ...)
+npm error
+npm error Could not resolve dependency:
+npm error peer @nestjs/common@"^11.0.2" from @nestjs/serve-static@5.0.3
+npm error node_modules/@nestjs/serve-static
+npm error   @nestjs/serve-static@"^5.0.3" from the root project
+npm error
+npm error Conflicting peer dependency: @nestjs/common@11.1.6
+npm error node_modules/@nestjs/common
+npm error   peer @nestjs/common@"^11.0.2" from @nestjs/serve-static@5.0.3
+npm error   node_modules/@nestjs/serve-static
+npm error     @nestjs/serve-static@"^5.0.3" from the root project
+npm error
+npm error Fix the upstream dependency conflict, or retry
+npm error this command with --force or --legacy-peer-deps
+npm error to accept an incorrect (and potentially broken) dependency resolution.
+npm error
+npm error
+npm error For a full report see:
+npm error /Users/jualfelsantamaria/.npm/_logs/2025-09-10T00_28_41_207Z-eresolve-report.txt
+npm error A complete log of this run can be found in: /Users/jualfelsantamaria/.npm/_logs/2025-09-10T00_28_41_207Z-debug-0.log
+jualfelsantamaria@MacBook-Pro-de-Jualfel food-inventory-saas % npm run start:dev

@@ -169,6 +169,11 @@ export class InventoryMovementDto {
   @IsOptional()
   @IsString()
   lotNumber?: string;
+
+  @ApiPropertyOptional({ description: 'Fecha de vencimiento del lote' })
+  @IsOptional()
+  @IsDateString()
+  expirationDate?: string;
 }
 
 export class ReserveInventoryDto {

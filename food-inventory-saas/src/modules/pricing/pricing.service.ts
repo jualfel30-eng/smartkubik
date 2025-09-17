@@ -18,36 +18,36 @@ export class PricingService {
     const itemsWithTaxes: any[] = [];
 
     // Calcular cada item
-    for (const item of items) {
-      const itemTotal = item.quantity * item.unitPrice;
-      const itemIva = itemTotal * ivaRate;
+    // for (const item of items) {
+    //   const itemTotal = item.quantity * item.unitPrice;
+    //   const itemIva = itemTotal * ivaRate;
       
-      // IGTF solo aplica para pagos en divisas o tarjetas (simplificado)
-      const applyIgtf = paymentMethod && ['card', 'usd_cash', 'usd_transfer'].includes(paymentMethod);
-      const itemIgtf = applyIgtf ? itemTotal * igtfRate : 0;
+    //   // IGTF solo aplica para pagos en divisas o tarjetas (simplificado)
+    //   const applyIgtf = paymentMethod && ['card', 'usd_cash', 'usd_transfer'].includes(paymentMethod);
+    //   const itemIgtf = applyIgtf ? itemTotal * igtfRate : 0;
 
-      // Ajustes por método de pago (descuentos/recargos)
-      let adjustmentRate = 0;
-      if (paymentMethod === 'cash') {
-        adjustmentRate = -0.05; // 5% descuento por efectivo
-      } else if (paymentMethod === 'card') {
-        adjustmentRate = 0.03; // 3% recargo por tarjeta
-      }
+    //   // Ajustes por método de pago (descuentos/recargos)
+    //   let adjustmentRate = 0;
+    //   if (paymentMethod === 'cash') {
+    //     adjustmentRate = -0.05; // 5% descuento por efectivo
+    //   } else if (paymentMethod === 'card') {
+    //     adjustmentRate = 0.03; // 3% recargo por tarjeta
+    //   }
 
-      const adjustment = itemTotal * adjustmentRate;
-      const finalItemPrice = itemTotal + itemIva + itemIgtf + adjustment;
+    //   const adjustment = itemTotal * adjustmentRate;
+    //   const finalItemPrice = itemTotal + itemIva + itemIgtf + adjustment;
 
-      itemsWithTaxes.push({
-        ...item,
-        subtotal: itemTotal,
-        ivaAmount: itemIva,
-        igtfAmount: itemIgtf,
-        adjustment,
-        finalPrice: finalItemPrice,
-      });
+    //   itemsWithTaxes.push({
+    //     ...item,
+    //     subtotal: itemTotal,
+    //     ivaAmount: itemIva,
+    //     igtfAmount: itemIgtf,
+    //     adjustment,
+    //     finalPrice: finalItemPrice,
+    //   });
 
-      subtotal += itemTotal;
-    }
+    //   subtotal += itemTotal;
+    // }
 
     // Totales generales
     const totalIva = itemsWithTaxes.reduce((sum, item) => sum + item.ivaAmount, 0);
@@ -78,11 +78,7 @@ export class PricingService {
         ivaRate: ivaRate * 100, // Convertir a porcentaje
         igtfRate: igtfRate * 100,
         igtfApplied: itemsWithTaxes.some(item => item.igtfAmount > 0),
-      },
-      paymentMethod: {
-        method: paymentMethod,
-        adjustmentRate: paymentMethod === 'cash' ? -5 : paymentMethod === 'card' ? 3 : 0,
-      },
+      }
     };
   }
 

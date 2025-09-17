@@ -1,19 +1,7 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Query,
-  UseGuards,
-  Request,
-  HttpStatus,
-  HttpException,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Query, UseGuards, Request, HttpStatus, HttpException, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
-import { CreateOrderDto, UpdateOrderDto, OrderQueryDto } from '../../dto/order.dto';
+import { CreateOrderDto, UpdateOrderDto, OrderQueryDto, OrderCalculationDto } from '../../dto/order.dto';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { TenantGuard } from '../../guards/tenant.guard';
 import { PermissionsGuard } from '../../guards/permissions.guard';
@@ -24,6 +12,8 @@ import { RequirePermissions } from '../../decorators/permissions.decorator';
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class OrdersController {
+  private readonly logger = new Logger(OrdersController.name);
+
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
@@ -31,6 +21,7 @@ export class OrdersController {
   @ApiOperation({ summary: 'Crear nueva orden' })
   @ApiResponse({ status: 201, description: 'Orden creada exitosamente' })
   async create(@Body() createOrderDto: CreateOrderDto, @Request() req) {
+    this.logger.log(`Attempting to create order with DTO: ${JSON.stringify(createOrderDto)}`);
     try {
       const order = await this.ordersService.create(createOrderDto, req.user);
       return {
@@ -41,6 +32,26 @@ export class OrdersController {
     } catch (error) {
       throw new HttpException(
         error.message || 'Error al crear la orden',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Post('calculate')
+  @RequirePermissions('orders', ['create']) // Usa el mismo permiso que 'create'
+  @ApiOperation({ summary: 'Calcular totales de una orden sin guardarla' })
+  @ApiResponse({ status: 200, description: 'Cálculo exitoso' })
+  async calculateTotals(@Body() calculationDto: OrderCalculationDto, @Request() req) {
+    try {
+      const totals = await this.ordersService.calculateTotals(calculationDto, req.user);
+      return {
+        success: true,
+        message: 'Cálculo de totales exitoso',
+        data: totals,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Error al calcular los totales',
         HttpStatus.BAD_REQUEST,
       );
     }

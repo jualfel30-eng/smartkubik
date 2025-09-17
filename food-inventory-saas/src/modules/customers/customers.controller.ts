@@ -1,17 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Query,
-  UseGuards,
-  Request,
-  HttpStatus,
-  HttpException,
-  Delete,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Query, UseGuards, Request, HttpStatus, HttpException, Delete, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto, UpdateCustomerDto, CustomerQueryDto } from '../../dto/customer.dto';
@@ -25,6 +12,8 @@ import { RequirePermissions } from '../../decorators/permissions.decorator';
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class CustomersController {
+  private readonly logger = new Logger(CustomersController.name);
+
   constructor(private readonly customersService: CustomersService) {}
 
   @Post()
@@ -32,6 +21,7 @@ export class CustomersController {
   @ApiOperation({ summary: 'Crear nuevo cliente' })
   @ApiResponse({ status: 201, description: 'Cliente creado exitosamente' })
   async create(@Body() createCustomerDto: CreateCustomerDto, @Request() req) {
+    this.logger.log(`Attempting to create customer with DTO: ${JSON.stringify(createCustomerDto)}`);
     try {
       const customer = await this.customersService.create(createCustomerDto, req.user);
       return {

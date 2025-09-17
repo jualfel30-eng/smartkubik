@@ -122,12 +122,12 @@ export class CreateProductDto {
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty({ description: 'Categoría del producto' })
+  @ApiProperty({ description: 'Categorías del producto', type: String })
   @IsString()
   @IsNotEmpty()
   category: string;
 
-  @ApiProperty({ description: 'Subcategoría del producto' })
+  @ApiProperty({ description: 'Subcategorías del producto', type: String })
   @IsString()
   @IsNotEmpty()
   subcategory: string;
@@ -141,6 +141,11 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({ description: 'Ingredientes del producto' })
+  @IsOptional()
+  @IsString()
+  ingredients?: string;
 
   @ApiPropertyOptional({ description: 'Etiquetas del producto' })
   @IsOptional()
@@ -245,17 +250,19 @@ export class UpdateProductDto {
   @IsNotEmpty()
   name?: string;
 
-  @ApiPropertyOptional({ description: 'Categoría del producto' })
+  @ApiPropertyOptional({ description: 'Categorías del producto', type: [String] })
   @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  category?: string;
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMinSize(1)
+  category?: string[];
 
-  @ApiPropertyOptional({ description: 'Subcategoría del producto' })
+  @ApiPropertyOptional({ description: 'Subcategorías del producto', type: [String] })
   @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  subcategory?: string;
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMinSize(1)
+  subcategory?: string[];
 
   @ApiPropertyOptional({ description: 'Marca del producto' })
   @IsOptional()
@@ -267,6 +274,11 @@ export class UpdateProductDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiPropertyOptional({ description: 'Ingredientes del producto' })
+  @IsOptional()
+  @IsString()
+  ingredients?: string;
 
   @ApiPropertyOptional({ description: 'Etiquetas del producto' })
   @IsOptional()

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, DollarSign, Banknote, Smartphone } from 'lucide-react'
+import { Plus, DollarSign, Banknote, Smartphone, CreditCard, Globe } from 'lucide-react'
+import { fetchApi } from '@/lib/api.js';
 
 // Datos de muestra
 const availableProducts = [
@@ -27,15 +28,40 @@ function OrdersDemo() {
   const [selectedCustomer, setSelectedCustomer] = useState('1')
   const [selectedProduct, setSelectedProduct] = useState('2')
   const [quantity, setQuantity] = useState(5)
-  const [paymentMethod, setPaymentMethod] = useState('transferencia_ves')
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(true);
+  const [paymentMethod, setPaymentMethod] = useState('')
+
+  useEffect(() => {
+    const loadPaymentMethods = async () => {
+      try {
+        setLoadingPaymentMethods(true);
+        const response = await fetchApi('/payments/methods');
+        if (response.success) {
+          const availableMethods = response.data.methods.filter(m => m.available) || [];
+          setPaymentMethods(availableMethods);
+          if (availableMethods.length > 0) {
+            setPaymentMethod(availableMethods[0].id);
+          }
+        } else {
+          throw new Error(response.message || 'Failed to fetch payment methods');
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingPaymentMethods(false);
+      }
+    };
+    loadPaymentMethods();
+  }, []);
 
   // Función para calcular precios con impuestos venezolanos
-  const calculatePricing = (subtotal, paymentMethod) => {
+  const calculatePricing = (subtotal, methodId) => {
+    const method = paymentMethods.find(m => m.id === methodId);
     const iva = subtotal * 0.16 // IVA 16%
     let igtf = 0
     
-    // IGTF 3% solo para divisas (USD)
-    if (paymentMethod.includes('usd') || paymentMethod === 'zelle_usd' || paymentMethod === 'efectivo_usd') {
+    if (method?.igtfApplicable) {
       igtf = subtotal * 0.03
     }
     
@@ -53,15 +79,28 @@ function OrdersDemo() {
   const { iva, igtf, total } = calculatePricing(subtotal, paymentMethod)
 
   // Función para obtener el badge del método de pago
-  const getPaymentMethodBadge = (method) => {
-    const badges = {
-      transferencia_ves: <Badge className="bg-blue-100 text-blue-800"><Banknote className="h-3 w-3 mr-1" />Transferencia VES</Badge>,
-      zelle_usd: <Badge className="bg-green-100 text-green-800"><DollarSign className="h-3 w-3 mr-1" />Zelle USD</Badge>,
-      efectivo_ves: <Badge className="bg-gray-100 text-gray-800"><Banknote className="h-3 w-3 mr-1" />Efectivo VES</Badge>,
-      efectivo_usd: <Badge className="bg-green-100 text-green-800"><DollarSign className="h-3 w-3 mr-1" />Efectivo USD</Badge>,
-      pago_movil: <Badge className="bg-purple-100 text-purple-800"><Smartphone className="h-3 w-3 mr-1" />Pago Móvil</Badge>
+  const getPaymentMethodBadge = (methodId) => {
+    const method = paymentMethods.find(m => m.id === methodId);
+    if (!method) return <Badge variant="secondary">{methodId}</Badge>;
+
+    const icons = {
+        efectivo_ves: <Banknote className="h-3 w-3 mr-1" />,
+        pago_movil_ves: <Smartphone className="h-3 w-3 mr-1" />,
+        transferencia_ves: <Banknote className="h-3 w-3 mr-1" />,
+        tarjeta_ves: <CreditCard className="h-3 w-3 mr-1" />,
+        efectivo_usd: <DollarSign className="h-3 w-3 mr-1" />,
+        transferencia_usd: <Globe className="h-3 w-3 mr-1" />,
+        zelle_usd: <DollarSign className="h-3 w-3 mr-1" />,
+        pago_mixto: <Plus className="h-3 w-3 mr-1" />
     }
-    return badges[method] || <Badge variant="secondary">{method}</Badge>
+
+    const colors = {
+        VES: 'bg-blue-100 text-blue-800',
+        USD: 'bg-green-100 text-green-800',
+        MIXED: 'bg-purple-100 text-purple-800'
+    }
+
+    return <Badge className={colors[method.currency] || 'bg-gray-100'}>{icons[method.id]}{method.name}</Badge>;
   }
 
   // Función para obtener el badge del tier del cliente
@@ -151,16 +190,16 @@ function OrdersDemo() {
             {/* Método de pago */}
             <div className="space-y-2">
               <Label>Método de Pago</Label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+              <Select value={paymentMethod} onValueChange={setPaymentMethod} disabled={loadingPaymentMethods}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder={loadingPaymentMethods ? "Cargando..." : "Selecciona un método"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="transferencia_ves">Transferencia VES</SelectItem>
-                  <SelectItem value="zelle_usd">Zelle USD</SelectItem>
-                  <SelectItem value="efectivo_ves">Efectivo VES</SelectItem>
-                  <SelectItem value="efectivo_usd">Efectivo USD</SelectItem>
-                  <SelectItem value="pago_movil">Pago Móvil</SelectItem>
+                  {paymentMethods.map((method) => (
+                    <SelectItem key={method.id} value={method.id}>
+                      {method.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <div>{getPaymentMethodBadge(paymentMethod)}</div>
@@ -199,7 +238,7 @@ function OrdersDemo() {
                   
                   {igtf > 0 && (
                     <div className="flex justify-between items-center">
-                      <span>IGTF (3% - Divisas):</span>
+                      <span>IGTF (3%):</span>
                       <span className="font-medium text-orange-600">${igtf.toFixed(2)}</span>
                     </div>
                   )}
@@ -218,7 +257,7 @@ function OrdersDemo() {
                   <ul className="space-y-1 text-blue-700">
                     <li>• IVA 16% aplicado automáticamente</li>
                     {igtf > 0 ? (
-                      <li>• IGTF 3% aplicado por pago en divisas (USD)</li>
+                      <li>• IGTF 3% aplicado por pago en divisas</li>
                     ) : (
                       <li>• Sin IGTF - Pago en bolívares (VES)</li>
                     )}
@@ -256,24 +295,19 @@ function OrdersDemo() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {[
-                'transferencia_ves',
-                'pago_movil', 
-                'efectivo_ves',
-                'zelle_usd',
-                'efectivo_usd'
-              ].map((method) => {
-                const calc = calculatePricing(subtotal, method)
-                const difference = calc.total - calculatePricing(subtotal, 'transferencia_ves').total
+              {paymentMethods.map((method) => {
+                const calc = calculatePricing(subtotal, method.id)
+                const baseCalc = calculatePricing(subtotal, paymentMethods[0]?.id || '')
+                const difference = calc.total - baseCalc.total
                 return (
-                  <TableRow key={method} className={method === paymentMethod ? 'bg-blue-50' : ''}>
-                    <TableCell>{getPaymentMethodBadge(method)}</TableCell>
+                  <TableRow key={method.id} className={method.id === paymentMethod ? 'bg-blue-50' : ''}>
+                    <TableCell>{getPaymentMethodBadge(method.id)}</TableCell>
                     <TableCell>${subtotal.toFixed(2)}</TableCell>
                     <TableCell>${calc.iva.toFixed(2)}</TableCell>
                     <TableCell>{calc.igtf > 0 ? `$${calc.igtf.toFixed(2)}` : '-'}</TableCell>
                     <TableCell className="font-bold">${calc.total.toFixed(2)}</TableCell>
-                    <TableCell className={difference > 0 ? 'text-red-600' : 'text-green-600'}>
-                      {difference > 0 ? `+$${difference.toFixed(2)}` : difference < 0 ? `$${difference.toFixed(2)}` : '$0.00'}
+                    <TableCell className={difference > 0 ? 'text-red-600' : (difference < 0 ? 'text-green-600' : '')}>
+                      {difference > 0 ? `+$${difference.toFixed(2)}` : difference < 0 ? `-$${Math.abs(difference).toFixed(2)}` : '$0.00'}
                     </TableCell>
                   </TableRow>
                 )
@@ -287,4 +321,3 @@ function OrdersDemo() {
 }
 
 export default OrdersDemo
-

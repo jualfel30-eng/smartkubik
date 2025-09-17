@@ -1,8 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import { InjectModel, InjectConnection } from '@nestjs/mongoose';
+import { Model, Types, Connection } from 'mongoose';
 import { Product, ProductDocument } from '../../schemas/product.schema';
 import { CreateProductDto, UpdateProductDto, ProductQueryDto } from '../../dto/product.dto';
+import { CreateProductWithPurchaseDto } from '../../dto/composite.dto';
+import { CustomersService } from '../customers/customers.service'; // CHANGED
+import { InventoryService } from '../inventory/inventory.service';
+import { PurchasesService } from '../purchases/purchases.service';
+import { CreateCustomerDto } from '../../dto/customer.dto'; // CHANGED
 
 @Injectable()
 export class ProductsService {
@@ -10,347 +15,157 @@ export class ProductsService {
 
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
+    private readonly customersService: CustomersService, // CHANGED
+    private readonly inventoryService: InventoryService,
+    private readonly purchasesService: PurchasesService,
+    @InjectConnection() private readonly connection: Connection,
   ) {}
+
+  async createWithInitialPurchase(dto: CreateProductWithPurchaseDto, user: any) {
+    const existingProduct = await this.productModel.findOne({ sku: dto.product.sku, tenantId: user.tenantId });
+    if (existingProduct) {
+      throw new BadRequestException(`El producto con SKU "${dto.product.sku}" ya existe.`);
+    }
+
+    try {
+      // 1. Supplier (now a Customer of type 'supplier')
+      let supplierId = dto.supplier.supplierId;
+      let supplierName = '';
+      if (!supplierId) {
+        if (!dto.supplier.newSupplierName || !dto.supplier.newSupplierRif || !dto.supplier.newSupplierContactName) {
+          throw new BadRequestException('New supplier data is incomplete.');
+        }
+        // Create a DTO that matches what the CRM form would create
+        const newCustomerDto: CreateCustomerDto = {
+          name: dto.supplier.newSupplierContactName, // Salesperson Name
+          companyName: dto.supplier.newSupplierName, // Company Name
+          customerType: 'supplier',
+          taxInfo: {
+            taxId: dto.supplier.newSupplierRif,
+            taxType: dto.supplier.newSupplierRif.charAt(0),
+          },
+          contacts: [
+            { type: 'phone', value: dto.supplier.newSupplierContactPhone ?? '', isPrimary: true }
+          ].filter(c => c.value)
+        };
+        const newSupplier = await this.customersService.create(newCustomerDto, user);
+        supplierId = newSupplier._id.toString();
+        supplierName = newSupplier.companyName || newSupplier.name; // Use companyName for consistency
+      } else {
+        const existingSupplier = await this.customersService.findOne(supplierId, user.tenantId);
+        if (!existingSupplier) {
+            throw new NotFoundException(`Supplier (Customer) with ID "${supplierId}" not found.`);
+        }
+        supplierName = existingSupplier.companyName || existingSupplier.name;
+      }
+
+      // 2. Product
+      const productData = {
+        ...dto.product,
+        suppliers: [{
+            supplierId: new Types.ObjectId(supplierId),
+            supplierName: supplierName,
+            costPrice: dto.inventory.costPrice,
+            supplierSku: dto.product.sku, // Default to product SKU
+            leadTimeDays: 1, // Default
+            minimumOrderQuantity: 1, // Default
+        }],
+        createdBy: user.id,
+        tenantId: user.tenantId,
+      };
+      const createdProduct = new this.productModel(productData);
+      const savedProduct = await createdProduct.save();
+
+      // 3. Inventory
+      const inventoryDto: any = {
+        productId: savedProduct._id,
+        productSku: savedProduct.sku,
+        productName: savedProduct.name,
+        totalQuantity: dto.inventory.quantity,
+        averageCostPrice: dto.inventory.costPrice,
+        lots: []
+      };
+
+      if (savedProduct.isPerishable) {
+        if (!dto.inventory.lotNumber || !dto.inventory.expirationDate) {
+            throw new BadRequestException('Lot number and expiration date are required for perishable products.');
+        }
+        inventoryDto.lots.push({
+            lotNumber: dto.inventory.lotNumber,
+            quantity: dto.inventory.quantity,
+            expirationDate: new Date(dto.inventory.expirationDate),
+            costPrice: dto.inventory.costPrice,
+            receivedDate: new Date(dto.purchaseDate),
+        });
+      }
+      await this.inventoryService.create(inventoryDto, user);
+
+      // 4. Purchase Order
+      const purchaseDto: any = {
+        supplierId: supplierId,
+        purchaseDate: dto.purchaseDate,
+        items: [{
+            productId: savedProduct._id.toString(),
+            productName: savedProduct.name,
+            productSku: savedProduct.sku,
+            quantity: dto.inventory.quantity,
+            costPrice: dto.inventory.costPrice,
+        }],
+        notes: dto.notes,
+      };
+      await this.purchasesService.create(purchaseDto, user);
+
+      return savedProduct;
+
+    } catch (error) {
+      this.logger.error(`Failed to create product with initial purchase: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
 
   async create(createProductDto: CreateProductDto, user: any): Promise<ProductDocument> {
     this.logger.log(`Creating product with SKU: ${createProductDto.sku}`);
-
-    // Generar número único de producto si no se proporciona
-    const productNumber = await this.generateProductNumber(user.tenantId);
-
-    // Validar que el SKU no exista
-    const existingProduct = await this.productModel.findOne({
-      sku: createProductDto.sku,
-      tenantId: user.tenantId,
-    });
-
+    const existingProduct = await this.productModel.findOne({ sku: createProductDto.sku, tenantId: user.tenantId });
     if (existingProduct) {
       throw new Error(`El SKU ${createProductDto.sku} ya existe`);
     }
-
-    // Validar SKUs de variantes únicos
-    const variantSkus = createProductDto.variants.map(v => v.sku);
-    const duplicateSkus = variantSkus.filter((sku, index) => variantSkus.indexOf(sku) !== index);
-    if (duplicateSkus.length > 0) {
-      throw new Error(`SKUs de variantes duplicados: ${duplicateSkus.join(', ')}`);
-    }
-
-    // Validar códigos de barras únicos
-    const barcodes = createProductDto.variants.map(v => v.barcode);
-    const duplicateBarcodes = barcodes.filter((barcode, index) => barcodes.indexOf(barcode) !== index);
-    if (duplicateBarcodes.length > 0) {
-      throw new Error(`Códigos de barras duplicados: ${duplicateBarcodes.join(', ')}`);
-    }
-
-    // Validaciones específicas para productos perecederos
-    if (createProductDto.isPerishable) {
-      if (!createProductDto.shelfLifeDays || createProductDto.shelfLifeDays <= 0) {
-        throw new Error('Los productos perecederos deben tener una vida útil válida');
-      }
-      if (!createProductDto.storageTemperature) {
-        throw new Error('Los productos perecederos deben especificar temperatura de almacenamiento');
-      }
-      // Habilitar FEFO automáticamente para productos perecederos
-      createProductDto.inventoryConfig.fefoEnabled = true;
-      createProductDto.inventoryConfig.trackExpiration = true;
-    }
-
-    // Validar configuración de precios
-    if (createProductDto.pricingRules.minimumMargin < 0 || createProductDto.pricingRules.minimumMargin > 1) {
-      throw new Error('El margen mínimo debe estar entre 0 y 1 (0% - 100%)');
-    }
-
-    const productData = {
-      ...createProductDto,
-      createdBy: user.id,
-      tenantId: user.tenantId,
-    };
-
+    const productData = { ...createProductDto, createdBy: user.id, tenantId: user.tenantId };
     const createdProduct = new this.productModel(productData);
-    const savedProduct = await createdProduct.save();
-
-    this.logger.log(`Product created successfully with ID: ${savedProduct._id}`);
-    return savedProduct;
+    return createdProduct.save();
   }
 
   async findAll(query: ProductQueryDto, tenantId: string) {
-    this.logger.log(`Finding products for tenant: ${tenantId}`);
-
-    const {
-      page = 1,
-      limit = 20,
-      search,
-      category,
-      brand,
-      isActive = true,
-      isPerishable,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
-    } = query;
-
-    const filter: any = { tenantId: new Types.ObjectId(tenantId) };
-
-    // Filtro por estado activo
-    if (isActive !== undefined) {
-      filter.isActive = isActive;
-    }
-
-    // Filtro por productos perecederos
-    if (isPerishable !== undefined) {
-      filter.isPerishable = isPerishable;
-    }
-
-    // Filtro por categoría
-    if (category) {
-      filter.category = { $regex: category, $options: 'i' };
-    }
-
-    // Filtro por marca
-    if (brand) {
-      filter.brand = { $regex: brand, $options: 'i' };
-    }
-
-    // Búsqueda de texto
-    if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { sku: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search, 'i')] } },
-        { 'variants.sku': { $regex: search, $options: 'i' } },
-        { 'variants.barcode': { $regex: search, $options: 'i' } },
-      ];
-    }
-
-    const sortOptions: any = {};
-    sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
-
+    const { page = 1, limit = 20, search, category, brand, isActive = true } = query;
+    const filter: any = { tenantId: new Types.ObjectId(tenantId), isActive };
+    if (search) { filter.$text = { $search: search }; }
+    if (category) { filter.category = category; }
+    if (brand) { filter.brand = brand; }
     const skip = (page - 1) * limit;
-
     const [products, total] = await Promise.all([
-      this.productModel
-        .find(filter)
-        .sort(sortOptions)
-        .skip(skip)
-        .limit(limit)
-        .populate('suppliers.supplierId', 'name')
-        .exec(),
+      this.productModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).exec(),
       this.productModel.countDocuments(filter),
     ]);
-
-    return {
-      products,
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    };
+    return { products, page, limit, total, totalPages: Math.ceil(total / limit) };
   }
 
   async findOne(id: string, tenantId: string): Promise<ProductDocument | null> {
-    this.logger.log(`Finding product by ID: ${id}`);
-
-    return this.productModel
-      .findOne({ _id: id, tenantId })
-      .populate('suppliers.supplierId', 'name contactInfo')
-      .populate('createdBy', 'firstName lastName')
-      .populate('updatedBy', 'firstName lastName')
-      .exec();
+    return this.productModel.findOne({ _id: id, tenantId }).exec();
   }
 
-  async findBySku(sku: string, tenantId: string): Promise<ProductDocument | null> {
-    this.logger.log(`Finding product by SKU: ${sku}`);
-
-    return this.productModel
-      .findOne({ sku, tenantId })
-      .populate('suppliers.supplierId', 'name contactInfo')
-      .exec();
+  async update(id: string, updateProductDto: UpdateProductDto, user: any): Promise<ProductDocument | null> {
+    const updateData = { ...updateProductDto, updatedBy: user.id };
+    return this.productModel.findByIdAndUpdate(id, updateData, { new: true }).exec();
   }
 
-  async update(
-    id: string,
-    updateProductDto: UpdateProductDto,
-    user: any,
-  ): Promise<ProductDocument | null> {
-    this.logger.log(`Updating product with ID: ${id}`);
-
-    // Validaciones específicas para productos perecederos
-    if (updateProductDto.isPerishable !== undefined) {
-      if (updateProductDto.isPerishable && updateProductDto.shelfLifeDays && updateProductDto.shelfLifeDays <= 0) {
-        throw new Error('Los productos perecederos deben tener una vida útil válida');
-      }
-    }
-
-    const updateData = {
-      ...updateProductDto,
-      updatedBy: user.id,
-    };
-
-    return this.productModel
-      .findOneAndUpdate(
-        { _id: id, tenantId: user.tenantId },
-        updateData,
-        { new: true, runValidators: true },
-      )
-      .populate('suppliers.supplierId', 'name')
-      .exec();
-  }
-
-  async remove(id: string, tenantId: string): Promise<boolean> {
-    this.logger.log(`Soft deleting product with ID: ${id}`);
-
-    const result = await this.productModel.updateOne(
-      { _id: id, tenantId },
-      { isActive: false },
-    );
-
-    return result.modifiedCount > 0;
+  async remove(id: string, tenantId: string): Promise<any> {
+    return this.productModel.deleteOne({ _id: id, tenantId }).exec();
   }
 
   async getCategories(tenantId: string): Promise<string[]> {
-    this.logger.log(`Getting categories for tenant: ${tenantId}`);
-
-    const categories = await this.productModel.distinct('category', {
-      tenantId,
-      isActive: true,
-    });
-
-    return categories.sort();
+    return this.productModel.distinct('category', { tenantId: new Types.ObjectId(tenantId) }).exec();
   }
 
-  async getBrands(tenantId: string): Promise<string[]> {
-    this.logger.log(`Getting brands for tenant: ${tenantId}`);
-
-    const brands = await this.productModel.distinct('brand', {
-      tenantId,
-      isActive: true,
-    });
-
-    return brands.sort();
-  }
-
-  async addVariant(id: string, variantDto: any, user: any): Promise<ProductDocument | null> {
-    this.logger.log(`Adding variant to product: ${id}`);
-
-    // Validar que el SKU de la variante no exista
-    const existingProduct = await this.productModel.findOne({
-      $or: [
-        { 'variants.sku': variantDto.sku },
-        { 'variants.barcode': variantDto.barcode },
-      ],
-      tenantId: user.tenantId,
-    });
-
-    if (existingProduct) {
-      throw new Error('El SKU o código de barras de la variante ya existe');
-    }
-
-    return this.productModel
-      .findOneAndUpdate(
-        { _id: id, tenantId: user.tenantId },
-        {
-          $push: { variants: variantDto },
-          updatedBy: user.id,
-        },
-        { new: true, runValidators: true },
-      )
-      .exec();
-  }
-
-  async addSupplier(id: string, supplierDto: any, user: any): Promise<ProductDocument | null> {
-    this.logger.log(`Adding supplier to product: ${id}`);
-
-    // Validar que el proveedor no esté ya asociado
-    const existingProduct = await this.productModel.findOne({
-      _id: id,
-      'suppliers.supplierId': supplierDto.supplierId,
-      tenantId: user.tenantId,
-    });
-
-    if (existingProduct) {
-      throw new Error('El proveedor ya está asociado a este producto');
-    }
-
-    return this.productModel
-      .findOneAndUpdate(
-        { _id: id, tenantId: user.tenantId },
-        {
-          $push: { suppliers: supplierDto },
-          updatedBy: user.id,
-        },
-        { new: true, runValidators: true },
-      )
-      .exec();
-  }
-
-  async findByVariantSku(variantSku: string, tenantId: string): Promise<ProductDocument | null> {
-    this.logger.log(`Finding product by variant SKU: ${variantSku}`);
-
-    return this.productModel
-      .findOne({
-        'variants.sku': variantSku,
-        tenantId,
-        isActive: true,
-      })
-      .exec();
-  }
-
-  async findByBarcode(barcode: string, tenantId: string): Promise<ProductDocument | null> {
-    this.logger.log(`Finding product by barcode: ${barcode}`);
-
-    return this.productModel
-      .findOne({
-        'variants.barcode': barcode,
-        tenantId,
-        isActive: true,
-      })
-      .exec();
-  }
-
-  async getPerishableProducts(tenantId: string, daysToExpire: number = 7): Promise<ProductDocument[]> {
-    this.logger.log(`Getting perishable products expiring in ${daysToExpire} days`);
-
-    return this.productModel
-      .find({
-        tenantId,
-        isActive: true,
-        isPerishable: true,
-        shelfLifeDays: { $lte: daysToExpire },
-      })
-      .exec();
-  }
-
-  private async generateProductNumber(tenantId: string): Promise<string> {
-    const count = await this.productModel.countDocuments({ tenantId });
-    return `PROD-${(count + 1).toString().padStart(6, '0')}`;
-  }
-
-  async validateProductAvailability(
-    productSku: string,
-    variantSku: string | undefined,
-    tenantId: string,
-  ): Promise<{ isAvailable: boolean; product: ProductDocument | null }> {
-    const product = await this.productModel
-      .findOne({
-        sku: productSku,
-        tenantId,
-        isActive: true,
-      })
-      .exec();
-
-    if (!product) {
-      return { isAvailable: false, product: null };
-    }
-
-    // Si se especifica variante, validar que exista y esté activa
-    if (variantSku) {
-      const variant = product.variants.find(v => v.sku === variantSku && v.isActive);
-      if (!variant) {
-        return { isAvailable: false, product };
-      }
-    }
-
-    return { isAvailable: true, product };
+  async getSubcategories(tenantId: string): Promise<string[]> {
+    return this.productModel.distinct('subcategory', { tenantId: new Types.ObjectId(tenantId) }).exec();
   }
 }
-

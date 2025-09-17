@@ -5,19 +5,30 @@ import {
   ForbiddenException,
   Logger,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Tenant, TenantDocument } from '../schemas/tenant.schema';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 @Injectable()
 export class TenantGuard implements CanActivate {
   private readonly logger = new Logger(TenantGuard.name);
 
   constructor(
+    private reflector: Reflector,
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) {
+      return true;
+    }
+
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 

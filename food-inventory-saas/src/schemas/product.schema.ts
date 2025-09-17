@@ -91,6 +91,9 @@ export class Product {
   @Prop()
   description?: string;
 
+  @Prop()
+  ingredients?: string;
+
   @Prop([String])
   tags: string[];
 
@@ -176,7 +179,6 @@ export const ProductSchema = SchemaFactory.createForClass(Product);
 // Índices para optimizar consultas
 ProductSchema.index({ sku: 1, tenantId: 1 }, { unique: true });
 ProductSchema.index({ name: 'text', description: 'text', tags: 'text' });
-ProductSchema.index({ category: 1, subcategory: 1, tenantId: 1 });
 ProductSchema.index({ brand: 1, tenantId: 1 });
 ProductSchema.index({ isActive: 1, tenantId: 1 });
 ProductSchema.index({ 'variants.sku': 1, tenantId: 1 });

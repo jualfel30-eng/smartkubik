@@ -13,43 +13,127 @@ import {
   IsObject,
   IsDateString,
   IsDate,
-  IsEmail,
-  IsPhoneNumber,
   ArrayMinSize
 } from 'class-validator';
-import { Type, Transform } from 'class-transformer';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateOrderItemDto {
-  @ApiProperty({ description: 'SKU del producto' })
-  @IsString()
-  @IsNotEmpty()
-  productSku: string;
-
-  @ApiPropertyOptional({ description: 'SKU de la variante' })
-  @IsOptional()
-  @IsString()
-  variantSku?: string;
+  @ApiProperty({ description: 'ID del producto' })
+  @IsMongoId()
+  productId: string;
 
   @ApiProperty({ description: 'Cantidad solicitada' })
   @IsNumber()
   @Min(0.01)
   quantity: number;
+}
 
-  @ApiProperty({ description: 'Precio unitario sin impuestos' })
+export class CreateOrderDto {
+  @ApiProperty({ description: 'ID del cliente' })
+  @IsMongoId()
+  customerId: string;
+
+  @ApiPropertyOptional({ description: 'Nombre del cliente' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  customerName?: string;
+
+  @ApiProperty({ description: 'Items de la orden', type: [CreateOrderItemDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrderItemDto)
+  items: CreateOrderItemDto[];
+
+  @ApiPropertyOptional({ description: 'Subtotal de la orden (sin impuestos)' })
+  @IsOptional()
   @IsNumber()
-  @Min(0)
-  unitPrice: number;
+  subtotal?: number;
 
-  @ApiPropertyOptional({ description: 'Notas del item' })
+  @ApiPropertyOptional({ description: 'Monto total de IVA de la orden' })
+  @IsOptional()
+  @IsNumber()
+  ivaTotal?: number;
+
+  @ApiPropertyOptional({ description: 'Monto total de IGTF de la orden' })
+  @IsOptional()
+  @IsNumber()
+  igtfTotal?: number;
+
+  @ApiPropertyOptional({ description: 'Costo de envío' })
+  @IsOptional()
+  @IsNumber()
+  shippingCost?: number;
+
+  @ApiPropertyOptional({ description: 'Monto de descuento' })
+  @IsOptional()
+  @IsNumber()
+  discountAmount?: number;
+
+  @ApiPropertyOptional({ description: 'Monto total final de la orden' })
+  @IsOptional()
+  @IsNumber()
+  totalAmount?: number;
+
+  @ApiPropertyOptional({ description: 'Canal de la orden', enum: ['online', 'phone', 'whatsapp', 'in_store', 'in_person', 'web'], default: 'in_person' })
+  @IsOptional()
+  @IsEnum(['online', 'phone', 'whatsapp', 'in_store', 'in_person', 'web'])
+  channel?: string = 'in_person';
+
+  @ApiPropertyOptional({ description: 'Tipo de orden', enum: ['retail', 'wholesale', 'b2b'], default: 'retail' })
+  @IsOptional()
+  @IsEnum(['retail', 'wholesale', 'b2b'])
+  type?: string = 'retail';
+
+  @ApiPropertyOptional({ description: 'Notas de la orden' })
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'Reservar inventario automáticamente', default: true })
+  @IsOptional()
+  @IsBoolean()
+  autoReserve?: boolean = true;
+
+  @ApiProperty({ description: 'Método de pago' })
+  @IsString()
+  @IsNotEmpty()
+  paymentMethod: string;
+}
+
+export class UpdateOrderDto {
+  @ApiPropertyOptional({ description: 'Estado de la orden', enum: ['draft', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'] })
+  @IsOptional()
+  @IsEnum(['draft', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'])
+  status?: string;
+
+  @ApiPropertyOptional({ description: 'Estado de pago', enum: ['pending', 'partial', 'paid', 'overpaid', 'refunded'] })
+  @IsOptional()
+  @IsEnum(['pending', 'partial', 'paid', 'overpaid', 'refunded'])
+  paymentStatus?: string;
+
+  @ApiPropertyOptional({ description: 'Usuario asignado' })
+  @IsOptional()
+  @IsMongoId()
+  assignedTo?: string;
+
+  @ApiPropertyOptional({ description: 'Notas de la orden' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @ApiPropertyOptional({ description: 'Notas internas' })
+  @IsOptional()
+  @IsString()
+  internalNotes?: string;
 }
 
 export class OrderPaymentDto {
-  @ApiProperty({ description: 'Método de pago', enum: ['cash', 'card', 'transfer', 'usd_cash', 'usd_transfer', 'mixed'] })
-  @IsEnum(['cash', 'card', 'transfer', 'usd_cash', 'usd_transfer', 'mixed'])
+  @ApiProperty({ description: 'Método de pago' })
+  @IsString()
+  @IsNotEmpty()
   method: string;
 
   @ApiProperty({ description: 'Moneda', enum: ['VES', 'USD'] })
@@ -76,153 +160,6 @@ export class OrderPaymentDto {
   @IsOptional()
   @IsString()
   bank?: string;
-}
-
-export class OrderShippingDto {
-  @ApiProperty({ description: 'Método de envío', enum: ['pickup', 'delivery', 'courier'] })
-  @IsEnum(['pickup', 'delivery', 'courier'])
-  method: string;
-
-  @ApiPropertyOptional({ description: 'Dirección de envío' })
-  @IsOptional()
-  @IsObject()
-  address?: {
-    street: string;
-    city: string;
-    state: string;
-    zipCode?: string;
-    country: string;
-    coordinates?: {
-      lat: number;
-      lng: number;
-    };
-  };
-
-  @ApiPropertyOptional({ description: 'Fecha programada de entrega' })
-  @IsOptional()
-  @IsDate()
-  @Type(() => Date)
-  scheduledDate?: Date;
-
-  @ApiPropertyOptional({ description: 'Costo de envío' })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  cost?: number;
-
-  @ApiPropertyOptional({ description: 'Compañía de courier' })
-  @IsOptional()
-  @IsString()
-  courierCompany?: string;
-
-  @ApiPropertyOptional({ description: 'Notas de envío' })
-  @IsOptional()
-  @IsString()
-  notes?: string;
-}
-
-export class CreateOrderDto {
-  @ApiProperty({ description: 'ID del cliente' })
-  @IsMongoId()
-  customerId: string;
-
-  @ApiProperty({ description: 'Items de la orden', type: [CreateOrderItemDto] })
-  @IsArray()
-  @ArrayMinSize(1)
-  @ValidateNested({ each: true })
-  @Type(() => CreateOrderItemDto)
-  items: CreateOrderItemDto[];
-
-  @ApiPropertyOptional({ description: 'Información de pago', type: [OrderPaymentDto] })
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => OrderPaymentDto)
-  payments?: OrderPaymentDto[];
-
-  @ApiPropertyOptional({ description: 'Información de envío', type: OrderShippingDto })
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => OrderShippingDto)
-  shipping?: OrderShippingDto;
-
-  @ApiPropertyOptional({ description: 'Monto de descuento', default: 0 })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  discountAmount?: number = 0;
-
-  @ApiPropertyOptional({ description: 'Canal de la orden', enum: ['online', 'phone', 'whatsapp', 'in_store'], default: 'online' })
-  @IsOptional()
-  @IsEnum(['online', 'phone', 'whatsapp', 'in_store'])
-  channel?: string = 'online';
-
-  @ApiPropertyOptional({ description: 'Tipo de orden', enum: ['retail', 'wholesale', 'b2b'], default: 'retail' })
-  @IsOptional()
-  @IsEnum(['retail', 'wholesale', 'b2b'])
-  type?: string = 'retail';
-
-  @ApiPropertyOptional({ description: 'Información fiscal' })
-  @IsOptional()
-  @IsObject()
-  taxInfo?: {
-    customerTaxId?: string;
-    customerTaxType?: string;
-    invoiceRequired: boolean;
-  };
-
-  @ApiPropertyOptional({ description: 'Notas de la orden' })
-  @IsOptional()
-  @IsString()
-  notes?: string;
-
-  @ApiPropertyOptional({ description: 'Notas internas' })
-  @IsOptional()
-  @IsString()
-  internalNotes?: string;
-
-  @ApiPropertyOptional({ description: 'Reservar inventario automáticamente', default: true })
-  @IsOptional()
-  @IsBoolean()
-  autoReserve?: boolean = true;
-}
-
-export class UpdateOrderDto {
-  @ApiPropertyOptional({ description: 'Estado de la orden', enum: ['draft', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'] })
-  @IsOptional()
-  @IsEnum(['draft', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'])
-  status?: string;
-
-  @ApiPropertyOptional({ description: 'Estado de pago', enum: ['pending', 'partial', 'paid', 'overpaid', 'refunded'] })
-  @IsOptional()
-  @IsEnum(['pending', 'partial', 'paid', 'overpaid', 'refunded'])
-  paymentStatus?: string;
-
-  @ApiPropertyOptional({ description: 'Información de envío actualizada', type: OrderShippingDto })
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => OrderShippingDto)
-  shipping?: OrderShippingDto;
-
-  @ApiPropertyOptional({ description: 'Usuario asignado' })
-  @IsOptional()
-  @IsMongoId()
-  assignedTo?: string;
-
-  @ApiPropertyOptional({ description: 'Notas de la orden' })
-  @IsOptional()
-  @IsString()
-  notes?: string;
-
-  @ApiPropertyOptional({ description: 'Notas internas' })
-  @IsOptional()
-  @IsString()
-  internalNotes?: string;
-
-  @ApiPropertyOptional({ description: 'Número de tracking' })
-  @IsOptional()
-  @IsString()
-  trackingNumber?: string;
 }
 
 export class AddOrderPaymentDto {
@@ -256,14 +193,14 @@ export class ConfirmOrderPaymentDto {
 export class OrderQueryDto {
   @ApiPropertyOptional({ description: 'Página', default: 1 })
   @IsOptional()
-  @Transform(({ value }) => parseInt(value))
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   page?: number = 1;
 
   @ApiPropertyOptional({ description: 'Límite por página', default: 20 })
   @IsOptional()
-  @Transform(({ value }) => parseInt(value))
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   @Max(100)
@@ -279,64 +216,20 @@ export class OrderQueryDto {
   @IsEnum(['draft', 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'])
   status?: string;
 
-  @ApiPropertyOptional({ description: 'Estado de pago' })
-  @IsOptional()
-  @IsEnum(['pending', 'partial', 'paid', 'overpaid', 'refunded'])
-  paymentStatus?: string;
-
-  @ApiPropertyOptional({ description: 'Canal de la orden' })
-  @IsOptional()
-  @IsEnum(['online', 'phone', 'whatsapp', 'in_store'])
-  channel?: string;
-
-  @ApiPropertyOptional({ description: 'Tipo de orden' })
-  @IsOptional()
-  @IsEnum(['retail', 'wholesale', 'b2b'])
-  type?: string;
-
   @ApiPropertyOptional({ description: 'ID del cliente' })
   @IsOptional()
   @IsMongoId()
   customerId?: string;
 
-  @ApiPropertyOptional({ description: 'Usuario asignado' })
+  @ApiPropertyOptional({ description: 'Campo para ordenar', default: 'createdAt' })
   @IsOptional()
-  @IsMongoId()
-  assignedTo?: string;
-
-  @ApiPropertyOptional({ description: 'Fecha desde (ISO string)' })
-  @IsOptional()
-  @IsDateString()
-  dateFrom?: string;
-
-  @ApiPropertyOptional({ description: 'Fecha hasta (ISO string)' })
-  @IsOptional()
-  @IsDateString()
-  dateTo?: string;
-
-  @ApiPropertyOptional({ description: 'Monto mínimo' })
-  @IsOptional()
-  @Transform(({ value }) => parseFloat(value))
-  @IsNumber()
-  @Min(0)
-  minAmount?: number;
-
-  @ApiPropertyOptional({ description: 'Monto máximo' })
-  @IsOptional()
-  @Transform(({ value }) => parseFloat(value))
-  @IsNumber()
-  @Min(0)
-  maxAmount?: number;
-
-  @ApiPropertyOptional({ description: 'Ordenar por', enum: ['orderNumber', 'createdAt', 'totalAmount', 'customerName'] })
-  @IsOptional()
-  @IsEnum(['orderNumber', 'createdAt', 'totalAmount', 'customerName'])
+  @IsString()
   sortBy?: string = 'createdAt';
 
-  @ApiPropertyOptional({ description: 'Orden', enum: ['asc', 'desc'] })
+  @ApiPropertyOptional({ description: 'Orden de clasificación', enum: ['asc', 'desc'], default: 'desc' })
   @IsOptional()
   @IsEnum(['asc', 'desc'])
-  sortOrder?: string = 'desc';
+  sortOrder?: 'asc' | 'desc' = 'desc';
 }
 
 export class OrderCalculationDto {
@@ -347,26 +240,21 @@ export class OrderCalculationDto {
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
 
-  @ApiPropertyOptional({ description: 'ID del cliente (para precios especiales)' })
-  @IsOptional()
-  @IsMongoId()
-  customerId?: string;
-
   @ApiPropertyOptional({ description: 'Método de pago principal' })
   @IsOptional()
-  @IsEnum(['cash', 'card', 'transfer', 'usd_cash', 'usd_transfer'])
+  @IsString()
+  @IsNotEmpty()
   paymentMethod?: string;
 
-  @ApiPropertyOptional({ description: 'Monto de descuento' })
+  @ApiPropertyOptional({ description: 'Monto de descuento', default: 0 })
   @IsOptional()
   @IsNumber()
   @Min(0)
-  discountAmount?: number;
+  discountAmount?: number = 0;
 
-  @ApiPropertyOptional({ description: 'Costo de envío' })
+  @ApiPropertyOptional({ description: 'Costo de envío', default: 0 })
   @IsOptional()
   @IsNumber()
   @Min(0)
-  shippingCost?: number;
+  shippingCost?: number = 0;
 }
-

@@ -1,697 +1,594 @@
-import React, { useState, useEffect } from 'react'
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Plus, Search, Filter, Eye, Edit, Trash2, Clock, CheckCircle, XCircle, DollarSign, Banknote, Smartphone } from 'lucide-react'
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Button } from '@/components/ui/button.jsx';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card.jsx';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
+import { Input } from '@/components/ui/input.jsx';
+import { Label } from '@/components/ui/label.jsx';
+import { Badge } from '@/components/ui/badge.jsx';
+import { Textarea } from '@/components/ui/textarea.jsx';
+import { Search, X, ShoppingCart, Clock, CheckCircle, XCircle, DollarSign, Trash2, RefreshCw } from 'lucide-react';
+import { fetchApi } from '@/lib/api';
+import { useCrmContext } from '@/context/CrmContext.jsx';
+import { venezuelaData } from '@/lib/venezuela-data.js';
 
-// Datos de muestra para productos disponibles
-const availableProducts = [
-  { id: 1, sku: 'ARR-001', name: 'Arroz Blanco Diana 1kg', price: 2.50, stock: 50, reserved: 45 },
-  { id: 2, sku: 'ACE-001', name: 'Aceite Vegetal Mazeite 1L', price: 4.75, stock: 30, reserved: 18 },
-  { id: 3, sku: 'HAR-001', name: 'Harina de Maíz Blanco P.A.N. 1kg', price: 1.85, stock: 75, reserved: 30 },
-  { id: 4, sku: 'AZU-001', name: 'Azúcar Blanca Santa Barbara 1kg', price: 1.20, stock: 60, reserved: 32 }
-]
+const statusMap = {
+  draft: { label: 'Borrador', colorClassName: 'bg-gray-200 text-gray-800' },
+  pending: { label: 'Pendiente', colorClassName: 'bg-yellow-100 text-yellow-800' },
+  confirmed: { label: 'Confirmado', colorClassName: 'bg-blue-100 text-blue-800' },
+  processing: { label: 'Procesando', colorClassName: 'bg-purple-100 text-purple-800' },
+  shipped: { label: 'Enviado', colorClassName: 'bg-indigo-100 text-indigo-800' },
+  delivered: { label: 'Entregado', colorClassName: 'bg-green-100 text-green-800' },
+  cancelled: { label: 'Cancelado', colorClassName: 'bg-red-100 text-red-800' },
+  refunded: { label: 'Reembolsado', colorClassName: 'bg-pink-100 text-pink-800' },
+};
+const orderStatuses = Object.keys(statusMap);
 
-// Datos de muestra para clientes disponibles
-const availableCustomers = [
-  { id: 1, name: 'María González', company: 'Restaurante El Sabor', tier: 'diamante', totalSpent: 15420.50 },
-  { id: 2, name: 'Ana Rodríguez', company: 'Panadería La Espiga', tier: 'oro', totalSpent: 8750.25 },
-  { id: 3, name: 'Luis Martínez', company: 'Supermercado Los Andes', tier: 'plata', totalSpent: 4320.80 },
-  { id: 4, name: 'Roberto Silva', company: 'Bodega Mi Barrio', tier: 'bronce', totalSpent: 1250.00 }
-]
-
-// Datos de muestra para órdenes
-const sampleOrdersData = [
-  {
-    id: 1234,
-    customerId: 1,
-    customerName: 'María González',
-    customerCompany: 'Restaurante El Sabor',
-    customerTier: 'diamante',
-    items: [
-      { productId: 1, sku: 'ARR-001', name: 'Arroz Blanco Diana 1kg', quantity: 10, unitPrice: 2.50, total: 25.00 },
-      { productId: 2, sku: 'ACE-001', name: 'Aceite Vegetal Mazeite 1L', quantity: 5, unitPrice: 4.75, total: 23.75 }
-    ],
-    subtotal: 48.75,
-    iva: 7.80, // 16%
-    igtf: 0, // No aplica para VES
-    total: 56.55,
-    paymentMethod: 'transferencia_ves',
-    status: 'completada',
-    createdAt: '2024-09-03T10:30:00Z',
-    updatedAt: '2024-09-03T11:15:00Z',
-    notes: 'Cliente VIP - Entrega prioritaria'
+const initialNewOrderState = {
+  customerId: '',
+  customerName: '',
+  items: [],
+  paymentMethod: '',
+  notes: '',
+  shippingAddress: {
+    estado: 'Carabobo',
+    municipio: 'Valencia',
+    ciudad: 'Valencia',
+    direccion: ''
   },
-  {
-    id: 1235,
-    customerId: 4,
-    customerName: 'Luis Martínez',
-    customerCompany: 'Supermercado Los Andes',
-    customerTier: 'plata',
-    items: [
-      { productId: 3, sku: 'HAR-001', name: 'Harina de Maíz Blanco P.A.N. 1kg', quantity: 20, unitPrice: 1.85, total: 37.00 },
-      { productId: 4, sku: 'AZU-001', name: 'Azúcar Blanca Santa Barbara 1kg', quantity: 15, unitPrice: 1.20, total: 18.00 }
-    ],
-    subtotal: 55.00,
-    iva: 8.80, // 16%
-    igtf: 1.92, // 3% para USD
-    total: 65.72,
-    paymentMethod: 'zelle_usd',
-    status: 'en_proceso',
-    createdAt: '2024-09-04T14:20:00Z',
-    updatedAt: '2024-09-04T14:20:00Z',
-    notes: 'Pago pendiente de verificación'
+  taxInfo: {
+    customerTaxType: 'V',
+    customerTaxId: ''
   }
-]
+};
+
+function NewOrderForm() {
+  const [newOrder, setNewOrder] = useState(initialNewOrderState);
+  const [products, setProducts] = useState([]);
+  const { crmData: customers, loading: crmLoading, loadCustomers } = useCrmContext();
+
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [loadingPaymentMethods, setLoadingPaymentMethods] = useState(true);
+
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [productSearch, setProductSearch] = useState('');
+  const [showProductSuggestions, setShowProductSuggestions] = useState(false);
+  const [highlightedProductIndex, setHighlightedProductIndex] = useState(-1);
+  const [municipios, setMunicipios] = useState([]);
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const response = await fetchApi('/products');
+        setProducts(response.data || []);
+      } catch (err) { console.error("Failed to load products", err); }
+    };
+    
+    const loadPaymentMethods = async () => {
+      try {
+        setLoadingPaymentMethods(true);
+        const response = await fetchApi('/payments/methods');
+        if (response.success) {
+          const availableMethods = response.data.methods.filter(m => m.available) || [];
+          setPaymentMethods(availableMethods);
+          if (availableMethods.length > 0) {
+            setNewOrder(prev => ({ ...prev, paymentMethod: availableMethods[0].id }));
+          }
+        } else {
+          throw new Error(response.message || 'Failed to fetch payment methods');
+        }
+      } catch (err) {
+        console.error("Failed to load payment methods:", err);
+      } finally {
+        setLoadingPaymentMethods(false);
+      }
+    };
+
+    loadProducts();
+    loadPaymentMethods();
+  }, []);
+
+  useEffect(() => {
+    const selectedState = venezuelaData.find(v => v.estado === newOrder.shippingAddress.estado);
+    setMunicipios(selectedState ? selectedState.municipios : []);
+  }, [newOrder.shippingAddress.estado]);
+
+  const handleCustomerNameChange = (e) => {
+    const name = e.target.value;
+    setNewOrder(prev => ({ ...prev, customerName: name, customerId: '' }));
+    setCustomerSearch(name);
+    setShowCustomerSuggestions(true);
+    setHighlightedIndex(-1);
+  };
+
+  const handleCustomerSelect = (customer) => {
+    setNewOrder(prev => ({
+      ...prev,
+      customerId: customer._id,
+      customerName: customer.name,
+      shippingAddress: {
+        ...prev.shippingAddress,
+        direccion: customer.addresses?.[0]?.street || prev.shippingAddress.direccion,
+        estado: customer.addresses?.[0]?.state || prev.shippingAddress.estado,
+        municipio: customer.addresses?.[0]?.municipality || prev.shippingAddress.municipio,
+        ciudad: customer.addresses?.[0]?.city || prev.shippingAddress.ciudad,
+      },
+      taxInfo: {
+        ...prev.taxInfo,
+        customerTaxId: customer.taxInfo?.taxId || '',
+        customerTaxType: customer.taxInfo?.taxType || 'V',
+      }
+    }));
+    setCustomerSearch(customer.name);
+    setShowCustomerSuggestions(false);
+  };
+
+  const handleCustomerKeyDown = (e) => {
+    if (showCustomerSuggestions) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlightedIndex(prevIndex =>
+          prevIndex < filteredCustomers.length - 1 ? prevIndex + 1 : prevIndex
+        );
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlightedIndex(prevIndex => (prevIndex > 0 ? prevIndex - 1 : 0));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (highlightedIndex > -1 && filteredCustomers[highlightedIndex]) {
+          handleCustomerSelect(filteredCustomers[highlightedIndex]);
+        }
+      }
+    }
+  };
+
+  const handleProductSelect = (product) => {
+    const existingItem = newOrder.items.find(item => item.productId === product._id);
+    if (existingItem) {
+      return;
+    }
+
+    const variant = product.variants?.[0];
+    const newItem = {
+      productId: product._id,
+      sku: variant.sku,
+      name: product.name,
+      quantity: 1,
+      unitPrice: variant.basePrice || 0,
+      total: variant.basePrice || 0,
+      ivaApplicable: product.ivaApplicable,
+      igtfExempt: product.igtfExempt,
+    };
+    setNewOrder(prev => ({ ...prev, items: [...prev.items, newItem] }));
+    setProductSearch('');
+    setShowProductSuggestions(false);
+  };
+
+  const handleProductKeyDown = (e) => {
+    if (showProductSuggestions) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setHighlightedProductIndex(prevIndex =>
+          prevIndex < filteredProducts.length - 1 ? prevIndex + 1 : prevIndex
+        );
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setHighlightedProductIndex(prevIndex => (prevIndex > 0 ? prevIndex - 1 : 0));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (highlightedProductIndex > -1 && filteredProducts[highlightedProductIndex]) {
+          handleProductSelect(filteredProducts[highlightedProductIndex]);
+        }
+      }
+    }
+  };
+
+  const handleQuantityChange = (productId, quantity) => {
+    const updatedItems = newOrder.items.map(item => {
+      if (item.productId === productId) {
+        const newTotal = item.unitPrice * quantity;
+        return { ...item, quantity, total: newTotal };
+      }
+      return item;
+    });
+    setNewOrder(prev => ({ ...prev, items: updatedItems }));
+  };
+
+  const removeProductFromOrder = (productId) => {
+    setNewOrder(prev => ({ ...prev, items: prev.items.filter(item => item.productId !== productId) }));
+  };
+
+  const handleAddressChange = (field, value) => {
+    const newAddress = { ...newOrder.shippingAddress, [field]: value };
+    if (field === 'estado') {
+      newAddress.municipio = '';
+    }
+    setNewOrder(p => ({ ...p, shippingAddress: newAddress }));
+  };
+
+  const handleCreateOrder = async () => {
+    if ((!newOrder.customerId && !newOrder.customerName) || newOrder.items.length === 0) {
+      return alert('Selecciona o ingresa un cliente y agrega al menos un producto');
+    }
+
+    let customerId = newOrder.customerId;
+
+    if (!customerId && newOrder.customerName) {
+      const existingCustomerByTaxId = customers.find(
+        c => c.taxInfo?.taxId === newOrder.taxInfo.customerTaxId && newOrder.taxInfo.customerTaxId
+      );
+
+      if (existingCustomerByTaxId) {
+        customerId = existingCustomerByTaxId._id;
+      } else {
+        try {
+          const newCustomerPayload = {
+            name: newOrder.customerName,
+            customerType: 'individual',
+          };
+          if (newOrder.taxInfo.customerTaxId) {
+              newCustomerPayload.taxInfo = {
+                  taxType: newOrder.taxInfo.customerTaxType,
+                  taxId: newOrder.taxInfo.customerTaxId
+              }
+          }
+          const response = await fetchApi('/customers', {
+            method: 'POST',
+            body: JSON.stringify(newCustomerPayload),
+          });
+          customerId = response.data._id;
+          loadCustomers();
+        } catch (err) {
+          return alert(`Error al crear el nuevo cliente: ${err.message}`);
+        }
+      }
+    }
+
+    if (!customerId) {
+        return alert('No se pudo obtener el ID del cliente.');
+    }
+
+    const { subtotal, iva, igtf, total } = totals;
+
+    const payload = {
+      ...newOrder,
+      customerId,
+      subtotal,
+      ivaTotal: iva,
+      igtfTotal: igtf,
+      totalAmount: total,
+      status: 'draft',
+      items: newOrder.items.map(({ productId, quantity, unitPrice, total }) => ({ productId, quantity, unitPrice, total }))
+    };
+
+    try {
+      await fetchApi('/orders', { method: 'POST', body: JSON.stringify(payload) });
+      setNewOrder({
+        ...initialNewOrderState,
+        paymentMethod: paymentMethods.length > 0 ? paymentMethods[0].id : ''
+      });
+      setCustomerSearch('');
+    } catch (err) { alert(`Error al crear la orden: ${err.message}`); }
+  };
+
+  const filteredCustomers = useMemo(() =>
+    customers.filter(c =>
+      customerSearch === '' ||
+      c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+      (c.taxInfo?.taxId && `${c.taxInfo.taxType}-${c.taxInfo.taxId}`.toLowerCase().includes(customerSearch.toLowerCase()))
+    ), [customers, customerSearch]);
+
+  const filteredProducts = useMemo(() =>
+    products.filter(p =>
+      productSearch === '' ||
+      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+      p.sku.toLowerCase().includes(productSearch.toLowerCase()) ||
+      (p.category && p.category.toLowerCase().includes(productSearch.toLowerCase())) ||
+      (p.subcategory && p.subcategory.toLowerCase().includes(productSearch.toLowerCase())) ||
+      (p.brand && p.brand.toLowerCase().includes(productSearch.toLowerCase()))
+    ), [products, productSearch]);
+
+  const totals = useMemo(() => {
+    const subtotal = newOrder.items.reduce((sum, item) => sum + (item.total || 0), 0);
+    const iva = newOrder.items.reduce((sum, item) => item.ivaApplicable ? sum + (item.total || 0) * 0.16 : sum, 0);
+    const selectedPaymentMethod = paymentMethods.find(m => m.id === newOrder.paymentMethod);
+    const igtf = selectedPaymentMethod?.igtfApplicable
+      ? newOrder.items.reduce((sum, item) => !item.igtfExempt ? sum + (item.total || 0) * 0.03 : sum, 0)
+      : 0;
+    return { subtotal, iva, igtf, total: subtotal + iva + igtf };
+  }, [newOrder.items, newOrder.paymentMethod, paymentMethods]);
+
+  return (
+    <Card className="mb-4">
+      <CardHeader><CardTitle>Crear Nueva Orden</CardTitle></CardHeader>
+      <CardContent className="pt-4 space-y-6">
+        {/* Customer and Address */}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2 relative">
+              <Label>Buscar o Crear Cliente</Label>
+              <Input
+                type="text"
+                placeholder="Escribe un nombre para buscar o crear..."
+                value={newOrder.customerName || customerSearch}
+                onChange={handleCustomerNameChange}
+                onFocus={() => setShowCustomerSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowCustomerSuggestions(false), 200)}
+                onKeyDown={handleCustomerKeyDown}
+              />
+              {showCustomerSuggestions && filteredCustomers.length > 0 && (
+                <div className="absolute z-10 w-full bg-popover border rounded-md mt-1 max-h-60 overflow-y-auto">
+                  {filteredCustomers.map((customer, index) => (
+                    <div
+                      key={customer._id}
+                      className={`p-2 cursor-pointer ${
+                        index === highlightedIndex ? 'bg-primary text-primary-foreground' : 'hover:bg-accent/50'
+                      }`}
+                      onMouseDown={() => handleCustomerSelect(customer)}
+                    >
+                      {customer.name} - {customer.taxInfo?.taxType}-{customer.taxInfo?.taxId}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="space-y-2">
+                <Label>Documento de Identificación</Label>
+                <div className="flex items-center gap-2">
+                    <div className="w-20">
+                        <Select value={newOrder.taxInfo.customerTaxType} onValueChange={(v) => setNewOrder(p => ({ ...p, taxInfo: { ...p.taxInfo, customerTaxType: v } }))}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="V">V</SelectItem>
+                                <SelectItem value="E">E</SelectItem>
+                                <SelectItem value="J">J</SelectItem>
+                                <SelectItem value="G">G</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="flex-1">
+                        <Input id="taxId" value={newOrder.taxInfo.customerTaxId} onChange={(e) => setNewOrder(p => ({ ...p, taxInfo: { ...p.taxInfo, customerTaxId: e.target.value } }))} placeholder="Número"/>
+                    </div>
+                </div>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="direccion">Dirección de Envío</Label>
+            <Textarea id="direccion" value={newOrder.shippingAddress.direccion} onChange={(e) => handleAddressChange('direccion', e.target.value)} placeholder="Calle, Av, Casa/Apto"/>
+          </div>
+          <div className="w-full md:w-1/2 pr-2">
+            <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-2">
+                <Label htmlFor="estado">Estado</Label>
+                <Select value={newOrder.shippingAddress.estado} onValueChange={(v) => handleAddressChange('estado', v)}>
+                  <SelectTrigger><SelectValue placeholder="Estado" /></SelectTrigger>
+                  <SelectContent>{venezuelaData.map(i => <SelectItem key={i.estado} value={i.estado}>{i.estado}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="municipio">Municipio</Label>
+                <Select value={newOrder.shippingAddress.municipio} onValueChange={(v) => handleAddressChange('municipio', v)} disabled={!newOrder.shippingAddress.estado}>
+                  <SelectTrigger><SelectValue placeholder="Municipio" /></SelectTrigger>
+                  <SelectContent>{municipios.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ciudad">Ciudad</Label>
+                <Input id="ciudad" value={newOrder.shippingAddress.ciudad} onChange={(e) => handleAddressChange('ciudad', e.target.value)} placeholder="Ciudad"/>
+              </div>
+            </div>
+          </div>
+        </div>
+        {/* Product Search */}
+        <div className="space-y-2 relative">
+          <Label>Buscar Producto</Label>
+          <Input
+            type="text"
+            placeholder="Escribe un nombre de producto para buscar..."
+            value={productSearch}
+            onChange={(e) => {
+              setProductSearch(e.target.value);
+              setShowProductSuggestions(true);
+              setHighlightedProductIndex(-1);
+            }}
+            onFocus={() => setShowProductSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowProductSuggestions(false), 200)}
+            onKeyDown={handleProductKeyDown}
+          />
+          {showProductSuggestions && filteredProducts.length > 0 && (
+            <div className="absolute z-10 w-full bg-popover border rounded-md mt-1 max-h-60 overflow-y-auto">
+              {filteredProducts.map((product, index) => (
+                <div
+                  key={product._id}
+                  className={`p-2 cursor-pointer ${
+                    index === highlightedProductIndex ? 'bg-primary text-primary-foreground' : 'hover:bg-accent/50'
+                  }`}
+                  onMouseDown={() => handleProductSelect(product)}
+                >
+                  {product.name} - {product.sku} (Stock: {product.variants?.[0]?.stock ?? 0})
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* Items Table */}
+        <div className="border rounded-lg"><Table><TableHeader><TableRow><TableHead>Producto</TableHead><TableHead className="w-[100px]">Cantidad</TableHead><TableHead className="w-[120px]">Precio Unit.</TableHead><TableHead className="w-[120px]">Subtotal</TableHead><TableHead className="w-[100px]">IVA</TableHead><TableHead className="w-[100px]">IGTF</TableHead><TableHead className="w-[50px]">Acc.</TableHead></TableRow></TableHeader><TableBody>{newOrder.items.length > 0 ? newOrder.items.map(item => { const itemIva = item.ivaApplicable ? (item.total || 0) * 0.16 : 0; const selectedPaymentMethod = paymentMethods.find(m => m.id === newOrder.paymentMethod); const itemIgtf = !item.igtfExempt && selectedPaymentMethod?.igtfApplicable ? (item.total || 0) * 0.03 : 0; return (<TableRow key={item.productId}><TableCell><div className="font-medium">{item.name}</div><div className="text-sm text-muted-foreground">{item.sku}</div></TableCell><TableCell><Input type="number" min="1" value={item.quantity} onChange={(e) => handleQuantityChange(item.productId, parseInt(e.target.value) || 1)} className="w-20"/></TableCell><TableCell>${(item.unitPrice || 0).toFixed(2)}</TableCell><TableCell>${(item.total || 0).toFixed(2)}</TableCell><TableCell>${itemIva.toFixed(2)}</TableCell><TableCell>${itemIgtf.toFixed(2)}</TableCell><TableCell><Button variant="ghost" size="icon" onClick={() => removeProductFromOrder(item.productId)}><Trash2 className="h-4 w-4 text-red-500" /></Button></TableCell></TableRow>);}) : <TableRow><TableCell colSpan="7" className="text-center text-muted-foreground">No hay productos en la orden.</TableCell></TableRow>}</TableBody></Table></div>
+        {/* Footer */}
+        <div className="space-y-4 pt-4">
+          {newOrder.items.length > 0 && (<div className="flex justify-end"><div className="w-full md:w-1/2 lg:w-1/3 space-y-2"><Label>Resumen de Pago</Label><div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg space-y-1 text-sm"><div className="flex justify-between"><span>Subtotal:</span> <span>${totals.subtotal.toFixed(2)}</span></div><div className="flex justify-between"><span>IVA (16%):</span> <span>${totals.iva.toFixed(2)}</span></div>{totals.igtf > 0 && <div className="flex justify-between"><span>IGTF (3%):</span> <span>${totals.igtf.toFixed(2)}</span></div>}<div className="flex justify-between font-bold border-t pt-1"><span>Total:</span> <span>${totals.total.toFixed(2)}</span></div></div></div></div>)}
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 pt-4"><div className="flex-grow space-y-2"><Label htmlFor="notes">Notas Adicionales</Label><Input id="notes" value={newOrder.notes} onChange={(e) => setNewOrder(p => ({ ...p, notes: e.target.value }))} placeholder="Información adicional..."/></div><div className="flex items-end space-x-4"><div className="space-y-2 w-48"><Label htmlFor="paymentMethod">Forma de Pago</Label><Select value={newOrder.paymentMethod} onValueChange={(v) => setNewOrder(p => ({ ...p, paymentMethod: v }))} disabled={loadingPaymentMethods}><SelectTrigger><SelectValue placeholder={loadingPaymentMethods ? "Cargando..." : "Selecciona un método"} /></SelectTrigger><SelectContent>{paymentMethods.map(method => (<SelectItem key={method.id} value={method.id}>{method.name}</SelectItem>))}</SelectContent></Select></div><Button onClick={handleCreateOrder} disabled={!newOrder.customerId && !newOrder.customerName || newOrder.items.length === 0} className="h-10">Crear Orden</Button></div></div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 function OrdersManagement() {
-  const [ordersData, setOrdersData] = useState(sampleOrdersData)
-  const [filteredData, setFilteredData] = useState(sampleOrdersData)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filterStatus, setFilterStatus] = useState('all')
-  const [isNewOrderDialogOpen, setIsNewOrderDialogOpen] = useState(false)
-  const [isEditOrderDialogOpen, setIsEditOrderDialogOpen] = useState(false)
-  const [selectedOrder, setSelectedOrder] = useState(null)
-  
-  // Estado para nueva orden
-  const [newOrder, setNewOrder] = useState({
-    customerId: '',
-    items: [],
-    paymentMethod: 'transferencia_ves',
-    notes: ''
-  })
-  
-  // Estado para agregar productos
-  const [selectedProduct, setSelectedProduct] = useState('')
-  const [productQuantity, setProductQuantity] = useState(1)
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
-  // Filtrar datos basado en búsqueda y filtros
-  useEffect(() => {
-    let filtered = ordersData
+  const loadOrders = useCallback(async () => {
+    try { setLoading(true); const response = await fetchApi('/orders'); setOrders(response.data || []); } catch (err) { setError(err.message); } finally { setLoading(false); }
+  }, []);
 
-    // Filtro por término de búsqueda
-    if (searchTerm) {
-      filtered = filtered.filter(order => 
-        order.id.toString().includes(searchTerm) ||
-        order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        order.customerCompany.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    }
+  useEffect(() => { loadOrders(); }, [loadOrders]);
 
-    // Filtro por estado
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(order => order.status === filterStatus)
-    }
+  const handleStatusChange = async (orderId, newStatus) => {
+    try { 
+      await fetchApi(`/orders/${orderId}`, { method: 'PATCH', body: JSON.stringify({ status: newStatus }) }); 
+      loadOrders();
+    } catch (err) { alert(`Error al actualizar estado: ${err.message}`); }
+  };
 
-    setFilteredData(filtered)
-  }, [ordersData, searchTerm, filterStatus])
+  const filteredOrders = useMemo(() => {
+    return orders
+      .filter(order => statusFilter === 'all' || order.status === statusFilter)
+      .filter(order => searchTerm === '' || order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) || (order.customerName && order.customerName.toLowerCase().includes(searchTerm.toLowerCase())));
+  }, [orders, searchTerm, statusFilter]);
 
-  // Función para calcular precios con impuestos venezolanos
-  const calculatePricing = (subtotal, paymentMethod) => {
-    const iva = subtotal * 0.16 // IVA 16%
-    let igtf = 0
-    
-    // IGTF 3% solo para divisas (USD)
-    if (paymentMethod.includes('usd') || paymentMethod === 'zelle_usd' || paymentMethod === 'efectivo_usd') {
-      igtf = subtotal * 0.03
-    }
-    
-    const total = subtotal + iva + igtf
-    
-    return { iva, igtf, total }
-  }
+  const orderStats = useMemo(() => {
+    const today = new Date().setHours(0, 0, 0, 0);
+    const todaysOrders = orders.filter(o => new Date(o.createdAt).setHours(0, 0, 0, 0) === today);
+    return {
+      totalSalesToday: todaysOrders.reduce((acc, o) => (o.status !== 'cancelled' && o.status !== 'refunded') ? acc + o.totalAmount : acc, 0),
+      pendingCount: orders.filter(o => ['pending', 'confirmed', 'processing'].includes(o.status)).length,
+      completedCount: orders.filter(o => o.status === 'delivered').length,
+      cancelledCount: orders.filter(o => ['cancelled', 'refunded'].includes(o.status)).length,
+    };
+  }, [orders]);
 
-  // Función para obtener el badge del estado
   const getStatusBadge = (status) => {
-    const badges = {
-      en_proceso: <Badge className="bg-yellow-100 text-yellow-800"><Clock className="h-3 w-3 mr-1" />En Proceso</Badge>,
-      completada: <Badge className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Completada</Badge>,
-      cancelada: <Badge className="bg-red-100 text-red-800"><XCircle className="h-3 w-3 mr-1" />Cancelada</Badge>
-    }
-    return badges[status] || <Badge variant="secondary">{status}</Badge>
-  }
+    const statusInfo = statusMap[status] || { label: status, colorClassName: 'bg-gray-200' };
+    return <Badge className={statusInfo.colorClassName}>{statusInfo.label}</Badge>;
+  };
 
-  // Función para obtener el badge del método de pago
-  const getPaymentMethodBadge = (method) => {
-    const badges = {
-      transferencia_ves: <Badge className="bg-blue-100 text-blue-800"><Banknote className="h-3 w-3 mr-1" />Transferencia VES</Badge>,
-      zelle_usd: <Badge className="bg-green-100 text-green-800"><DollarSign className="h-3 w-3 mr-1" />Zelle USD</Badge>,
-      efectivo_ves: <Badge className="bg-gray-100 text-gray-800"><Banknote className="h-3 w-3 mr-1" />Efectivo VES</Badge>,
-      efectivo_usd: <Badge className="bg-green-100 text-green-800"><DollarSign className="h-3 w-3 mr-1" />Efectivo USD</Badge>,
-      pago_movil: <Badge className="bg-purple-100 text-purple-800"><Smartphone className="h-3 w-3 mr-1" />Pago Móvil</Badge>
-    }
-    return badges[method] || <Badge variant="secondary">{method}</Badge>
-  }
-
-  // Función para agregar producto a la orden
-  const addProductToOrder = () => {
-    if (!selectedProduct || productQuantity <= 0) {
-      alert('Selecciona un producto y cantidad válida')
-      return
-    }
-    
-    const product = availableProducts.find(p => p.id === parseInt(selectedProduct))
-    if (!product) {
-      alert('Producto no encontrado')
-      return
-    }
-    
-    // Verificar stock disponible
-    const availableStock = product.stock - product.reserved
-    if (productQuantity > availableStock) {
-      alert(`Stock insuficiente. Disponible: ${availableStock} unidades`)
-      return
-    }
-    
-    const existingItemIndex = newOrder.items.findIndex(item => item.productId === product.id)
-    
-    if (existingItemIndex >= 0) {
-      // Actualizar cantidad si el producto ya existe
-      const updatedItems = [...newOrder.items]
-      updatedItems[existingItemIndex].quantity += productQuantity
-      updatedItems[existingItemIndex].total = updatedItems[existingItemIndex].quantity * product.price
-      setNewOrder({...newOrder, items: updatedItems})
-    } else {
-      // Agregar nuevo producto
-      const newItem = {
-        productId: product.id,
-        sku: product.sku,
-        name: product.name,
-        quantity: productQuantity,
-        unitPrice: product.price,
-        total: productQuantity * product.price
-      }
-      setNewOrder({...newOrder, items: [...newOrder.items, newItem]})
-    }
-    
-    setSelectedProduct('')
-    setProductQuantity(1)
-  }
-
-  // Función para remover producto de la orden
-  const removeProductFromOrder = (productId) => {
-    setNewOrder({
-      ...newOrder,
-      items: newOrder.items.filter(item => item.productId !== productId)
-    })
-  }
-
-  // Función para crear nueva orden
-  const handleCreateOrder = () => {
-    if (!newOrder.customerId || newOrder.items.length === 0) {
-      alert('Selecciona un cliente y agrega al menos un producto')
-      return
-    }
-    
-    const customer = availableCustomers.find(c => c.id === parseInt(newOrder.customerId))
-    const subtotal = newOrder.items.reduce((sum, item) => sum + item.total, 0)
-    const { iva, igtf, total } = calculatePricing(subtotal, newOrder.paymentMethod)
-    
-    const orderToAdd = {
-      id: Math.max(...ordersData.map(o => o.id)) + 1,
-      customerId: customer.id,
-      customerName: customer.name,
-      customerCompany: customer.company,
-      customerTier: customer.tier,
-      items: newOrder.items,
-      subtotal,
-      iva,
-      igtf,
-      total,
-      paymentMethod: newOrder.paymentMethod,
-      status: 'en_proceso',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      notes: newOrder.notes
-    }
-    
-    setOrdersData([orderToAdd, ...ordersData])
-    
-    // Resetear formulario
-    setNewOrder({
-      customerId: '',
-      items: [],
-      paymentMethod: 'transferencia_ves',
-      notes: ''
-    })
-    setIsNewOrderDialogOpen(false)
-    
-    alert(`Orden #${orderToAdd.id} creada exitosamente por $${total.toFixed(2)}`)
-  }
-
-  // Función para completar orden
-  const completeOrder = (orderId) => {
-    setOrdersData(ordersData.map(order => 
-      order.id === orderId 
-        ? { ...order, status: 'completada', updatedAt: new Date().toISOString() }
-        : order
-    ))
-    setIsEditOrderDialogOpen(false)
-    alert('Orden marcada como completada. Inventario actualizado.')
-  }
-
-  // Estadísticas calculadas
-  const stats = {
-    total: ordersData.length,
-    today: ordersData.filter(o => new Date(o.createdAt).toDateString() === new Date().toDateString()).length,
-    pending: ordersData.filter(o => o.status === 'en_proceso').length,
-    revenue: ordersData.filter(o => o.status === 'completada').reduce((sum, o) => sum + o.total, 0)
-  }
+  if (loading) return <div>Cargando órdenes...</div>;
+  if (error) return <div className="text-red-500">Error: {error}</div>;
 
   return (
     <div className="space-y-6">
-      {/* Estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Órdenes</CardTitle>
-            <div className="h-4 w-4 text-muted-foreground">🛒</div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground">Órdenes registradas</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Órdenes Hoy</CardTitle>
-            <div className="h-4 w-4 text-muted-foreground">📅</div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.today}</div>
-            <p className="text-xs text-muted-foreground">Nuevas hoy</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
-            <div className="h-4 w-4 text-muted-foreground">⏳</div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.pending}</div>
-            <p className="text-xs text-muted-foreground">En proceso</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ingresos</CardTitle>
-            <div className="h-4 w-4 text-muted-foreground">💰</div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${stats.revenue.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">Órdenes completadas</p>
-          </CardContent>
-        </Card>
+      <div className="flex justify-between items-center">
+        <h2 className="text-3xl font-bold text-foreground">Gestión de Órdenes</h2>
       </div>
 
-      {/* Encabezado y controles */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-bold">Gestión de Órdenes</h2>
-          <p className="text-muted-foreground">Toma pedidos, gestiona reservas de inventario y controla estados de órdenes</p>
-        </div>
-        
-        <Dialog open={isNewOrderDialogOpen} onOpenChange={setIsNewOrderDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-orange-600 hover:bg-orange-700">
-              <Plus className="h-4 w-4 mr-2" />
-              Nueva Orden
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Crear Nueva Orden</DialogTitle>
-              <DialogDescription>
-                Selecciona cliente, productos y método de pago para crear una nueva orden
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-6">
-              {/* Selección de cliente */}
-              <div className="space-y-2">
-                <Label htmlFor="customer">Cliente</Label>
-                <Select value={newOrder.customerId} onValueChange={(value) => setNewOrder({...newOrder, customerId: value})}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un cliente" />
-                  </SelectTrigger>
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Main content on the left */}
+        <div className="flex-grow space-y-6">
+          <NewOrderForm />
+
+          {/* TABLA DE ORDENES (HISTORIAL) */}
+          <Card>
+            <CardHeader>
+              <div className="flex justify-between items-center">
+                <div><CardTitle>Historial de Órdenes</CardTitle><CardDescription>Visualiza y administra todas las órdenes.</CardDescription></div>
+                <Button onClick={loadOrders} disabled={loading} variant="outline" size="sm">
+                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  {loading ? 'Actualizando...' : 'Actualizar'}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex space-x-4 mb-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input placeholder="Buscar por # o cliente..." className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                </div>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[180px]"><SelectValue placeholder="Filtrar por estado" /></SelectTrigger>
                   <SelectContent>
-                    {availableCustomers.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id.toString()}>
-                        {customer.name} - {customer.company}
-                      </SelectItem>
+                    <SelectItem value="all">Todos los Estados</SelectItem>
+                    {orderStatuses.map(status => (
+                      <SelectItem key={status} value={status}>{statusMap[status].label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* Agregar productos */}
-              <div className="space-y-4">
-                <Label>Productos</Label>
-                <div className="flex gap-2">
-                  <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Selecciona un producto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableProducts.map((product) => (
-                        <SelectItem key={product.id} value={product.id.toString()}>
-                          {product.name} - ${product.price} (Stock: {product.stock - product.reserved})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={productQuantity}
-                    onChange={(e) => setProductQuantity(parseInt(e.target.value) || 1)}
-                    className="w-20"
-                    placeholder="Cant."
-                  />
-                  <Button onClick={addProductToOrder} disabled={!selectedProduct}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                {/* Lista de productos agregados */}
-                {newOrder.items.length > 0 && (
-                  <div className="border rounded-lg">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Producto</TableHead>
-                          <TableHead>Cantidad</TableHead>
-                          <TableHead>Precio Unit.</TableHead>
-                          <TableHead>Total</TableHead>
-                          <TableHead>Acciones</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {newOrder.items.map((item) => (
-                          <TableRow key={item.productId}>
-                            <TableCell>
-                              <div>
-                                <div className="font-medium">{item.name}</div>
-                                <div className="text-sm text-muted-foreground">{item.sku}</div>
-                              </div>
-                            </TableCell>
-                            <TableCell>{item.quantity}</TableCell>
-                            <TableCell>${item.unitPrice.toFixed(2)}</TableCell>
-                            <TableCell>${item.total.toFixed(2)}</TableCell>
-                            <TableCell>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => removeProductFromOrder(item.productId)}
-                                className="text-red-600"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead># Orden</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Monto</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredOrders.map(order => (
+                      <TableRow key={order._id}>
+                        <TableCell className="font-medium">{order.orderNumber}</TableCell>
+                        <TableCell>{order.customerName}</TableCell>
+                        <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell>${order.totalAmount.toFixed(2)}</TableCell>
+                        <TableCell>{getStatusBadge(order.status)}</TableCell>
+                        <TableCell>
+                          <Select onValueChange={(newStatus) => handleStatusChange(order._id, newStatus)} value={order.status}>
+                            <SelectTrigger className="w-[150px]"><SelectValue placeholder="Cambiar estado" /></SelectTrigger>
+                            <SelectContent>
+                              {orderStatuses.map(status => (
+                                <SelectItem key={status} value={status}>{statusMap[status].label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
-
-              {/* Método de pago y cálculos */}
-              {newOrder.items.length > 0 && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="paymentMethod">Método de Pago</Label>
-                    <Select value={newOrder.paymentMethod} onValueChange={(value) => setNewOrder({...newOrder, paymentMethod: value})}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="transferencia_ves">Transferencia VES</SelectItem>
-                        <SelectItem value="zelle_usd">Zelle USD</SelectItem>
-                        <SelectItem value="efectivo_ves">Efectivo VES</SelectItem>
-                        <SelectItem value="efectivo_usd">Efectivo USD</SelectItem>
-                        <SelectItem value="pago_movil">Pago Móvil</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Resumen de Pago</Label>
-                    <div className="bg-gray-50 p-3 rounded-lg space-y-1 text-sm">
-                      {(() => {
-                        const subtotal = newOrder.items.reduce((sum, item) => sum + item.total, 0)
-                        const { iva, igtf, total } = calculatePricing(subtotal, newOrder.paymentMethod)
-                        return (
-                          <>
-                            <div className="flex justify-between">
-                              <span>Subtotal:</span>
-                              <span>${subtotal.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>IVA (16%):</span>
-                              <span>${iva.toFixed(2)}</span>
-                            </div>
-                            {igtf > 0 && (
-                              <div className="flex justify-between">
-                                <span>IGTF (3%):</span>
-                                <span>${igtf.toFixed(2)}</span>
-                              </div>
-                            )}
-                            <div className="flex justify-between font-bold border-t pt-1">
-                              <span>Total:</span>
-                              <span>${total.toFixed(2)}</span>
-                            </div>
-                          </>
-                        )
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Notas */}
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notas (Opcional)</Label>
-                <Input
-                  id="notes"
-                  value={newOrder.notes}
-                  onChange={(e) => setNewOrder({...newOrder, notes: e.target.value})}
-                  placeholder="Información adicional sobre la orden..."
-                />
-              </div>
-
-              {/* Botones de acción */}
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsNewOrderDialogOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button onClick={handleCreateOrder} disabled={newOrder.items.length === 0}>
-                  Crear Orden
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      {/* Filtros y búsqueda */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
-            placeholder="Buscar por ID, cliente o empresa..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+            </CardContent>
+          </Card>
         </div>
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-full sm:w-48">
-            <SelectValue placeholder="Todos los estados" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los estados</SelectItem>
-            <SelectItem value="en_proceso">En Proceso</SelectItem>
-            <SelectItem value="completada">Completada</SelectItem>
-            <SelectItem value="cancelada">Cancelada</SelectItem>
-          </SelectContent>
-        </Select>
+
+        {/* Sticky sidebar on the right */}
+        <div className="lg:w-56 lg:sticky top-6 h-fit space-y-4">
+          <Card className="aspect-square relative p-4 flex flex-col justify-between">
+            <div>
+              <DollarSign className="h-6 w-6 text-muted-foreground" />
+              <CardTitle className="text-base font-bold mt-2">Ventas del Día</CardTitle>
+            </div>
+            <div className="self-end">
+              <div className="text-3xl font-bold">${orderStats.totalSalesToday.toFixed(2)}</div>
+            </div>
+          </Card>
+          <Card className="aspect-square relative p-4 flex flex-col justify-between">
+            <div>
+              <Clock className="h-6 w-6 text-muted-foreground" />
+              <CardTitle className="text-base font-bold mt-2">Órdenes Pendientes</CardTitle>
+            </div>
+            <div className="self-end">
+              <div className="text-3xl font-bold">{orderStats.pendingCount}</div>
+            </div>
+          </Card>
+          <Card className="aspect-square relative p-4 flex flex-col justify-between">
+            <div>
+              <CheckCircle className="h-6 w-6 text-muted-foreground" />
+              <CardTitle className="text-base font-bold mt-2">Completadas</CardTitle>
+            </div>
+            <div className="self-end">
+              <div className="text-3xl font-bold">{orderStats.completedCount}</div>
+            </div>
+          </Card>
+          <Card className="aspect-square relative p-4 flex flex-col justify-between">
+            <div>
+              <XCircle className="h-6 w-6 text-muted-foreground" />
+              <CardTitle className="text-base font-bold mt-2">Canceladas</CardTitle>
+            </div>
+            <div className="self-end">
+              <div className="text-3xl font-bold">{orderStats.cancelledCount}</div>
+            </div>
+          </Card>
+        </div>
       </div>
-
-      {/* Tabla de órdenes */}
-      <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Orden #</TableHead>
-              <TableHead>Cliente</TableHead>
-              <TableHead>Items</TableHead>
-              <TableHead>Total</TableHead>
-              <TableHead>Pago</TableHead>
-              <TableHead>Estado</TableHead>
-              <TableHead>Fecha</TableHead>
-              <TableHead>Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredData.map((order) => (
-              <TableRow key={order.id}>
-                <TableCell className="font-medium">#{order.id}</TableCell>
-                <TableCell>
-                  <div>
-                    <div className="font-medium">{order.customerName}</div>
-                    <div className="text-sm text-muted-foreground">{order.customerCompany}</div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div>
-                    <div className="font-medium">{order.items.length} productos</div>
-                    <div className="text-sm text-muted-foreground">
-                      {order.items.reduce((sum, item) => sum + item.quantity, 0)} unidades
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="font-medium">${order.total.toFixed(2)}</div>
-                  {order.igtf > 0 && (
-                    <div className="text-xs text-muted-foreground">Inc. IGTF</div>
-                  )}
-                </TableCell>
-                <TableCell>{getPaymentMethodBadge(order.paymentMethod)}</TableCell>
-                <TableCell>{getStatusBadge(order.status)}</TableCell>
-                <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
-                <TableCell>
-                  <div className="flex gap-1">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" onClick={() => setSelectedOrder(order)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-2xl">
-                        <DialogHeader>
-                          <DialogTitle>Detalles de Orden #{selectedOrder?.id}</DialogTitle>
-                          <DialogDescription>Información completa de la orden</DialogDescription>
-                        </DialogHeader>
-                        {selectedOrder && (
-                          <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <Label>Cliente</Label>
-                                <div className="font-medium">{selectedOrder.customerName}</div>
-                                <div className="text-sm text-muted-foreground">{selectedOrder.customerCompany}</div>
-                              </div>
-                              <div>
-                                <Label>Estado</Label>
-                                <div>{getStatusBadge(selectedOrder.status)}</div>
-                              </div>
-                            </div>
-                            
-                            <div>
-                              <Label>Productos</Label>
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead>Producto</TableHead>
-                                    <TableHead>Cantidad</TableHead>
-                                    <TableHead>Precio</TableHead>
-                                    <TableHead>Total</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {selectedOrder.items.map((item) => (
-                                    <TableRow key={item.productId}>
-                                      <TableCell>
-                                        <div className="font-medium">{item.name}</div>
-                                        <div className="text-sm text-muted-foreground">{item.sku}</div>
-                                      </TableCell>
-                                      <TableCell>{item.quantity}</TableCell>
-                                      <TableCell>${item.unitPrice}</TableCell>
-                                      <TableCell>${item.total.toFixed(2)}</TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <Label>Método de Pago</Label>
-                                <div>{getPaymentMethodBadge(selectedOrder.paymentMethod)}</div>
-                              </div>
-                              <div>
-                                <Label>Resumen de Pago</Label>
-                                <div className="space-y-1 text-sm">
-                                  <div className="flex justify-between">
-                                    <span>Subtotal:</span>
-                                    <span>${selectedOrder.subtotal.toFixed(2)}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>IVA (16%):</span>
-                                    <span>${selectedOrder.iva.toFixed(2)}</span>
-                                  </div>
-                                  {selectedOrder.igtf > 0 && (
-                                    <div className="flex justify-between">
-                                      <span>IGTF (3%):</span>
-                                      <span>${selectedOrder.igtf.toFixed(2)}</span>
-                                    </div>
-                                  )}
-                                  <div className="flex justify-between font-bold border-t pt-1">
-                                    <span>Total:</span>
-                                    <span>${selectedOrder.total.toFixed(2)}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            {selectedOrder.notes && (
-                              <div>
-                                <Label>Notas</Label>
-                                <div className="text-sm">{selectedOrder.notes}</div>
-                              </div>
-                            )}
-
-                            <div className="flex justify-end gap-2">
-                              <Button variant="outline">Cerrar</Button>
-                              {selectedOrder.status === 'en_proceso' && (
-                                <Button onClick={() => completeOrder(selectedOrder.id)}>
-                                  Marcar como Completada
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </DialogContent>
-                    </Dialog>
-                    
-                    {order.status === 'en_proceso' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => completeOrder(order.id)}
-                        className="text-green-600"
-                      >
-                        <CheckCircle className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
     </div>
-  )
+  );
 }
 
-export default OrdersManagement
-
+export default OrdersManagement;

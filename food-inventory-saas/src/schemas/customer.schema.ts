@@ -57,7 +57,7 @@ export class CustomerContact {
 @Schema()
 export class CustomerPaymentMethod {
   @Prop({ required: true })
-  type: string; // cash, card, transfer, usd_cash, usd_transfer
+  type: string; // cash, card, transfer, usd_cash, usd_transfer, pagomovil
 
   @Prop()
   bank?: string;
@@ -135,7 +135,7 @@ export class Customer {
   companyName?: string;
 
   @Prop({ required: true })
-  customerType: string; // individual, business
+  customerType: string; // individual, business, supplier, employee, admin, manager
 
   // Información fiscal venezolana
   @Prop({ type: Object })
@@ -190,6 +190,9 @@ export class Customer {
     cancellationRate: number; // tasa de cancelación
     paymentDelayDays: number; // días promedio de retraso en pagos
   };
+
+  @Prop()
+  tier: string; // e.g., bronze, silver, gold
 
   // Información de crédito
   @Prop({ type: Object })
@@ -249,34 +252,3 @@ export class Customer {
 }
 
 export const CustomerSchema = SchemaFactory.createForClass(Customer);
-
-// Índices para optimizar consultas de clientes
-CustomerSchema.index({ customerNumber: 1, tenantId: 1 }, { unique: true });
-CustomerSchema.index({ name: 1, tenantId: 1 });
-CustomerSchema.index({ lastName: 1, tenantId: 1 });
-CustomerSchema.index({ companyName: 1, tenantId: 1 });
-CustomerSchema.index({ customerType: 1, tenantId: 1 });
-CustomerSchema.index({ 'taxInfo.taxId': 1, tenantId: 1 });
-CustomerSchema.index({ status: 1, tenantId: 1 });
-CustomerSchema.index({ assignedTo: 1, tenantId: 1 });
-CustomerSchema.index({ createdAt: -1, tenantId: 1 });
-CustomerSchema.index({ 'metrics.lastOrderDate': -1, tenantId: 1 });
-CustomerSchema.index({ 'metrics.totalSpent': -1, tenantId: 1 });
-CustomerSchema.index({ 'segments.name': 1, tenantId: 1 });
-CustomerSchema.index({ source: 1, tenantId: 1 });
-CustomerSchema.index({ nextFollowUpDate: 1, tenantId: 1 });
-
-// Índice de texto para búsqueda
-CustomerSchema.index({ 
-  name: 'text', 
-  lastName: 'text',
-  companyName: 'text',
-  customerNumber: 'text',
-  'taxInfo.taxId': 'text',
-  'contacts.value': 'text'
-});
-
-// Índices para contactos
-CustomerSchema.index({ 'contacts.type': 1, 'contacts.value': 1, tenantId: 1 });
-CustomerSchema.index({ 'contacts.isPrimary': 1, tenantId: 1 });
-

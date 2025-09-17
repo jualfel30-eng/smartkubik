@@ -80,7 +80,7 @@ export class OrderItem {
 @Schema()
 export class OrderPayment {
   @Prop({ required: true })
-  method: string; // cash, card, transfer, usd_cash, usd_transfer, mixed
+  method: string; // efectivo_ves, pago_movil_ves, transferencia_ves, tarjeta_ves, efectivo_usd, transferencia_usd, zelle_usd, pago_mixto
 
   @Prop({ required: true })
   currency: string; // VES, USD

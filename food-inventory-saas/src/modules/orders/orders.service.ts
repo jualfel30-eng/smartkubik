@@ -1,9 +1,14 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Order, OrderDocument } from '../../schemas/order.schema';
-import { CreateOrderDto, UpdateOrderDto, OrderQueryDto } from '../../dto/order.dto';
+import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import { InjectModel, InjectConnection } from '@nestjs/mongoose';
+import { Model, Types, Connection } from 'mongoose';
+import { Order, OrderDocument, OrderItem } from '../../schemas/order.schema';
+import { Customer, CustomerDocument } from '../../schemas/customer.schema';
+import { Product, ProductDocument } from '../../schemas/product.schema';
+import { Tenant, TenantDocument } from '../../schemas/tenant.schema'; // Importar Tenant
+import { CreateOrderDto, UpdateOrderDto, OrderQueryDto, OrderCalculationDto } from '../../dto/order.dto';
 import { InventoryService } from '../inventory/inventory.service';
+import { PaymentsService } from '../payments/payments.service';
+import { AccountingService } from '../accounting/accounting.service'; // Import AccountingService
 
 @Injectable()
 export class OrdersService {
@@ -11,106 +16,223 @@ export class OrdersService {
 
   constructor(
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
+    @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>,
+    @InjectModel(Product.name) private productModel: Model<ProductDocument>,
+    @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>, // Inyectar TenantModel
     private readonly inventoryService: InventoryService,
+    private readonly paymentsService: PaymentsService,
+    private readonly accountingService: AccountingService, // Inject AccountingService
+    @InjectConnection() private readonly connection: Connection,
   ) {}
 
   async create(createOrderDto: CreateOrderDto, user: any): Promise<OrderDocument> {
     this.logger.log(`Creating order for customer: ${createOrderDto.customerId}`);
+    try {
+      const [customer, products, tenant] = await Promise.all([
+        this.customerModel.findById(createOrderDto.customerId),
+        this.productModel.find({ _id: { $in: createOrderDto.items.map(i => i.productId) } }),
+        this.tenantModel.findById(user.tenantId), // Cargar el tenant completo
+      ]);
 
-    const orderNumber = await this.generateOrderNumber(user.tenantId);
+      if (!customer) {
+        throw new NotFoundException(`Cliente con ID "${createOrderDto.customerId}" no encontrado.`);
+      }
+      if (!tenant) {
+        throw new BadRequestException('Información de tenant no encontrada.');
+      }
 
-    const subtotal = createOrderDto.items.reduce((sum, item) => 
-      sum + (item.quantity * item.unitPrice), 0
-    );
-    
-    const ivaTotal = subtotal * 0.16; // Simplified
-    const igtfTotal = 0; // Simplified
-    const totalAmount = subtotal + ivaTotal + igtfTotal - (createOrderDto.discountAmount || 0);
+      const paymentMethodsResponse = await this.paymentsService.getPaymentMethods(tenant);
+      const selectedPaymentMethod = paymentMethodsResponse.methods.find(m => m.id === createOrderDto.paymentMethod);
+      const appliesIgtf = selectedPaymentMethod ? selectedPaymentMethod.igtfApplicable : false;
 
-    const orderData = {
-      ...createOrderDto,
-      orderNumber,
+      const detailedItems: OrderItem[] = [];
+      let subtotal = 0;
+      let ivaTotal = 0;
+      let igtfTotal = 0;
+
+      for (const itemDto of createOrderDto.items) {
+        const product = products.find(p => p._id.toString() === itemDto.productId);
+        if (!product) {
+          throw new NotFoundException(`Producto con ID "${itemDto.productId}" no encontrado.`);
+        }
+        const variant = product.variants?.[0];
+        const unitPrice = variant?.basePrice ?? 0;
+        const costPrice = variant?.costPrice ?? 0;
+        const totalPrice = unitPrice * itemDto.quantity;
+        const ivaAmount = product.ivaApplicable ? totalPrice * 0.16 : 0;
+        const igtfAmount = appliesIgtf && !product.igtfExempt ? totalPrice * 0.03 : 0;
+        const finalPrice = totalPrice + ivaAmount + igtfAmount;
+
+        detailedItems.push({
+          productId: product._id,
+          productSku: product.sku,
+          productName: product.name,
+          quantity: itemDto.quantity,
+          unitPrice,
+          costPrice,
+          totalPrice,
+          ivaAmount,
+          igtfAmount,
+          finalPrice,
+          status: 'pending',
+        } as OrderItem);
+
+        subtotal += totalPrice;
+        ivaTotal += ivaAmount;
+        igtfTotal += igtfAmount;
+      }
+
+      const shippingCost = createOrderDto.shippingCost || 0;
+      const discountAmount = createOrderDto.discountAmount || 0;
+      const totalAmount = subtotal + ivaTotal + igtfTotal + shippingCost - discountAmount;
+
+      const orderNumber = await this.generateOrderNumber(user.tenantId);
+
+      const orderData = {
+        orderNumber,
+        customerId: createOrderDto.customerId,
+        customerName: customer.name,
+        items: detailedItems,
+        subtotal,
+        ivaTotal,
+        igtfTotal,
+        shippingCost,
+        discountAmount,
+        totalAmount,
+        notes: createOrderDto.notes,
+        channel: createOrderDto.channel,
+        status: 'pending',
+        paymentStatus: 'pending',
+        inventoryReservation: { isReserved: false },
+        createdBy: user.id,
+        tenantId: user.tenantId,
+      };
+
+      const order = new this.orderModel(orderData);
+      const savedOrder = await order.save();
+
+      // --- Automatic Journal Entry Creation ---
+      try {
+        this.logger.log(`Attempting to create journal entry for order ${savedOrder.orderNumber}`);
+        await this.accountingService.createJournalEntryForSale(savedOrder, user.tenantId);
+      } catch (accountingError) {
+        this.logger.error(
+          `Failed to create journal entry for order ${savedOrder.orderNumber}. The sale was processed correctly, but accounting needs review.`,
+          accountingError.stack,
+        );
+        // IMPORTANT: Do not re-throw the error. The sale must not fail if accounting fails.
+      }
+      // --- End of Automatic Journal Entry Creation ---
+
+      const customerUpdate = {
+        $inc: { 
+          'metrics.totalSpent': savedOrder.totalAmount,
+          'metrics.totalOrders': 1,
+        },
+        $set: { 'metrics.lastOrderDate': new Date() }
+      };
+      if (!customer.metrics.firstOrderDate) {
+        customerUpdate.$set['metrics.firstOrderDate'] = new Date();
+      }
+      await this.customerModel.findByIdAndUpdate(customer._id, customerUpdate);
+      this.logger.log(`Customer ${customer._id} metrics updated atomically after new order.`);
+
+      if (createOrderDto.autoReserve) {
+        this.logger.log(`Reserving inventory for order: ${savedOrder.orderNumber}`);
+        const reservationItems = savedOrder.items.map(item => ({ productSku: item.productSku, quantity: item.quantity }));
+        await this.inventoryService.reserveInventory({ orderId: savedOrder._id.toString(), items: reservationItems }, user, undefined);
+        savedOrder.inventoryReservation = { isReserved: true, reservedAt: new Date() };
+        await savedOrder.save();
+      }
+
+      this.logger.log(`Order created successfully with number: ${orderNumber}`);
+      return savedOrder;
+    } catch (error) {
+      this.logger.error(`Failed to create order: ${error.message}`, error.stack);
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException(`Error al crear la orden: ${error.message}`);
+    }
+  }
+
+  async calculateTotals(calculationDto: OrderCalculationDto, user: any) {
+    const { items, paymentMethod, shippingCost = 0, discountAmount = 0 } = calculationDto;
+
+    const [products, tenant] = await Promise.all([
+        this.productModel.find({ _id: { $in: items.map(i => i.productId) } }),
+        this.tenantModel.findById(user.tenantId), // Cargar el tenant completo
+    ]);
+
+    if (!tenant) {
+      throw new BadRequestException('Información de tenant no encontrada.');
+    }
+
+    if (products.length !== items.length) {
+      throw new BadRequestException('Uno o más productos no fueron encontrados.');
+    }
+
+    const paymentMethodsResponse = await this.paymentsService.getPaymentMethods(tenant);
+    const selectedPaymentMethod = paymentMethodsResponse.methods.find(m => m.id === paymentMethod);
+    const appliesIgtf = selectedPaymentMethod ? selectedPaymentMethod.igtfApplicable : false;
+
+    let subtotal = 0;
+    let ivaTotal = 0;
+    let igtfTotal = 0;
+
+    for (const itemDto of items) {
+      const product = products.find(p => p._id.toString() === itemDto.productId);
+      if (!product) {
+        throw new NotFoundException(`Producto con ID "${itemDto.productId}" no encontrado durante el cálculo.`);
+      }
+      
+      const variant = product.variants?.[0];
+      const unitPrice = variant?.basePrice ?? 0;
+      const totalPrice = unitPrice * itemDto.quantity;
+      
+      const ivaAmount = product.ivaApplicable ? totalPrice * 0.16 : 0;
+      const igtfAmount = appliesIgtf && !product.igtfExempt ? totalPrice * 0.03 : 0;
+
+      subtotal += totalPrice;
+      ivaTotal += ivaAmount;
+      igtfTotal += igtfAmount;
+    }
+
+    const totalAmount = subtotal + ivaTotal + igtfTotal + (shippingCost || 0) - (discountAmount || 0);
+
+    return {
       subtotal,
       ivaTotal,
       igtfTotal,
-      shippingCost: 0,
+      shippingCost: shippingCost || 0,
+      discountAmount: discountAmount || 0,
       totalAmount,
-      status: 'pending',
-      paymentStatus: 'pending',
-      inventoryReservation: {
-        isReserved: false,
-      },
-      metrics: {
-        totalMargin: 0,
-        marginPercentage: 0,
-      },
-      createdBy: user.id,
-      tenantId: user.tenantId,
     };
-
-    const order = new this.orderModel(orderData);
-    const savedOrder = await order.save();
-
-    this.logger.log(`Order created successfully with number: ${orderNumber}`);
-    return savedOrder;
   }
 
   async findAll(query: OrderQueryDto, tenantId: string) {
-    const {
-      page = 1,
-      limit = 20,
-      search,
-      status,
-      paymentStatus,
-      customerId,
-      sortBy = 'createdAt',
-      sortOrder = 'desc',
-    } = query;
-
+    const { page = 1, limit = 20, search, status, customerId, sortBy = 'createdAt', sortOrder = 'desc' } = query;
     const filter: any = { tenantId: new Types.ObjectId(tenantId) };
-
     if (status) filter.status = status;
-    if (paymentStatus) filter.paymentStatus = paymentStatus;
     if (customerId) filter.customerId = new Types.ObjectId(customerId);
-
     if (search) {
       filter.$or = [
         { orderNumber: { $regex: search, $options: 'i' } },
         { customerName: { $regex: search, $options: 'i' } },
       ];
     }
-
     const sortOptions: any = {};
     sortOptions[sortBy] = sortOrder === 'asc' ? 1 : -1;
-
     const skip = (page - 1) * limit;
-
     const [orders, total] = await Promise.all([
-      this.orderModel
-        .find(filter)
-        .sort(sortOptions)
-        .skip(skip)
-        .limit(limit)
-        .populate('customerId', 'name customerNumber')
-        .exec(),
+      this.orderModel.find(filter).sort(sortOptions).skip(skip).limit(limit).populate('customerId', 'name').exec(),
       this.orderModel.countDocuments(filter),
     ]);
-
-    return {
-      orders,
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-    };
+    return { orders, page, limit, total, totalPages: Math.ceil(total / limit) };
   }
 
   async findOne(id: string, tenantId: string): Promise<OrderDocument | null> {
-    return this.orderModel
-      .findOne({ _id: id, tenantId })
-      .populate('customerId', 'name customerNumber email phone')
-      .populate('createdBy', 'firstName lastName')
-      .exec();
+    return this.orderModel.findOne({ _id: id, tenantId }).exec();
   }
 
   async update(
@@ -119,34 +241,68 @@ export class OrdersService {
     user: any,
   ): Promise<OrderDocument | null> {
     this.logger.log(`Updating order ${id} with status ${updateOrderDto.status}`);
+    try {
+      const order = await this.orderModel.findById(id);
+      if (!order) {
+        throw new NotFoundException('Orden no encontrada');
+      }
+      const oldStatus = order.status;
+      const newStatus = updateOrderDto.status;
 
-    const order = await this.findOne(id, user.tenantId);
-    if (!order) {
-      throw new BadRequestException('Orden no encontrada');
+      if (newStatus && newStatus !== oldStatus) {
+        if ((newStatus === 'delivered' || newStatus === 'confirmed') && oldStatus !== 'delivered' && oldStatus !== 'confirmed') {
+          this.logger.log(`Order ${id} confirmed. Committing inventory.`);
+          await this.inventoryService.commitInventory(order, user, undefined);
+        }
+        
+        if ((newStatus === 'cancelled' || newStatus === 'refunded') && oldStatus !== 'cancelled' && oldStatus !== 'refunded') {
+          this.logger.log(`Releasing inventory for cancelled order ${id}`);
+          await this.inventoryService.releaseInventory({ orderId: id }, user, undefined);
+
+          this.logger.log(`Order ${id} cancelled. Reverting customer metrics.`);
+          const customer = await this.customerModel.findById(order.customerId);
+          if (customer) {
+            await this.customerModel.findByIdAndUpdate(customer._id, {
+              $inc: {
+                'metrics.totalSpent': -order.totalAmount, 
+                'metrics.totalOrders': -1, 
+              }
+            });
+            this.logger.log(`Customer ${customer._id} metrics reverted atomically due to cancellation.`);
+          } else {
+            this.logger.warn(`Customer ${order.customerId} not found for order ${id}. Cannot update metrics on cancellation.`);
+          }
+        }
+      }
+      const updateData = { ...updateOrderDto, updatedBy: user.id };
+      const updatedOrder = await this.orderModel.findByIdAndUpdate(id, updateData, { new: true });
+      return updatedOrder;
+    } catch (error) {
+      this.logger.error(`Failed to update order ${id}: ${error.message}`);
+      throw new BadRequestException(`Error al actualizar la orden: ${error.message}`);
     }
+  }
 
-    if (
-      (updateOrderDto.status === 'cancelled' || updateOrderDto.status === 'refunded') &&
-      order.status !== 'cancelled' &&
-      order.status !== 'refunded'
-    ) {
-      this.logger.log(`Releasing inventory for cancelled order ${id}`);
-      await this.inventoryService.releaseInventory({ orderId: id }, user);
-    }
-
-    const updateData = {
-      ...updateOrderDto,
-      updatedBy: user.id,
-    };
-
-    return this.orderModel.findByIdAndUpdate(id, updateData, { new: true });
+  private calculateCustomerTier(totalSpent: number): string {
+    if (totalSpent >= 10000) return 'diamante';
+    if (totalSpent >= 5000) return 'oro';
+    if (totalSpent >= 2000) return 'plata';
+    if (totalSpent > 0) return 'bronce';
+    return 'bronce';
   }
 
   private async generateOrderNumber(tenantId: string): Promise<string> {
-    const count = await this.orderModel.countDocuments({ tenantId });
-    const today = new Date();
-    const year = today.getFullYear().toString().slice(-2);
-    const month = (today.getMonth() + 1).toString().padStart(2, '0');
-    return `ORD-${year}${month}-${(count + 1).toString().padStart(6, '0')}`;
+    const now = new Date();
+    const year = now.getFullYear().toString().slice(-2);
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const day = now.getDate().toString().padStart(2, '0');
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    
+    // Get the last 4 digits of the timestamp for some randomness
+    const randomPart = now.getTime().toString().slice(-4);
+
+    return `ORD-${year}${month}${day}-${hours}${minutes}${seconds}-${randomPart}`;
   }
 }
