@@ -94,6 +94,9 @@ export class OrderPayment {
   @Prop()
   reference?: string; // referencia de transferencia o tarjeta
 
+  @Prop({ required: true })
+  date: Date;
+
   @Prop()
   bank?: string;
 
