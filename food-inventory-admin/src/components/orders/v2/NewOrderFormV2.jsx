@@ -41,14 +41,11 @@ export function NewOrderFormV2({ onOrderCreated }) {
     const newMunicipios = selectedStateData ? selectedStateData.municipios : [];
     setMunicipios(newMunicipios);
 
-    // If the current city (municipality) isn't in the new list, update it to the first one.
     const cityExists = newMunicipios.includes(newOrder.shippingAddress.city);
     if (!cityExists && newMunicipios.length > 0) {
       handleAddressChange('city', newMunicipios[0]);
     }
   }, [newOrder.shippingAddress.state]);
-
-  // selectedProduct and productQuantity states are no longer needed
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -72,15 +69,32 @@ export function NewOrderFormV2({ onOrderCreated }) {
   }, [paymentMethods, newOrder.paymentMethod]);
 
   const handleCustomerSelection = (selectedOption) => {
-    if (!selectedOption) { // Cleared
+    if (!selectedOption) {
       setNewOrder(prev => ({ ...prev, customerId: '', customerName: '', customerRif: '', taxType: 'V' }));
       return;
     }
-
-    // __isNew__ is a property that react-select/creatable adds to a newly created option
     if (selectedOption.__isNew__) {
       setNewOrder(prev => ({ ...prev, customerId: '', customerName: selectedOption.label, customerRif: '', taxType: 'V' }));
-    } else { // An existing customer was selected
+    } else {
+      const { customer } = selectedOption;
+      setNewOrder(prev => ({
+        ...prev,
+        customerId: customer._id,
+        customerName: customer.name,
+        customerRif: customer.taxInfo?.taxId || '',
+        taxType: customer.taxInfo?.taxType || 'V',
+      }));
+    }
+  };
+
+  const handleRifSelection = (selectedOption) => {
+    if (!selectedOption) {
+      setNewOrder(prev => ({ ...prev, customerId: '', customerName: '', customerRif: '', taxType: 'V' }));
+      return;
+    }
+    if (selectedOption.__isNew__) {
+      setNewOrder(prev => ({ ...prev, customerId: '', customerName: '', customerRif: selectedOption.label, taxType: 'V' }));
+    } else {
       const { customer } = selectedOption;
       setNewOrder(prev => ({
         ...prev,
@@ -105,20 +119,15 @@ export function NewOrderFormV2({ onOrderCreated }) {
 
   const handleProductSelection = (selectedOption) => {
     if (!selectedOption) return;
-
     const product = selectedOption.product;
     if (!product) return;
-
     const variant = product.variants?.[0];
     if (!variant) {
         alert(`El producto seleccionado (${product.name}) no tiene variantes configuradas y no se puede añadir.`);
         return;
     }
-
     const existingItem = newOrder.items.find(item => item.productId === product._id);
-
     if (existingItem) {
-      // If item exists, just increment quantity by 1
       const updatedItems = newOrder.items.map(item => 
         item.productId === product._id 
           ? { ...item, quantity: item.quantity + 1 } 
@@ -126,12 +135,11 @@ export function NewOrderFormV2({ onOrderCreated }) {
       );
       setNewOrder(prev => ({ ...prev, items: updatedItems }));
     } else {
-      // If item doesn't exist, add it with quantity 1
       const newItem = {
         productId: product._id,
         name: product.name,
         sku: variant.sku,
-        quantity: 1, // Default quantity
+        quantity: 1,
         unitPrice: variant.basePrice || 0,
         ivaApplicable: product.ivaApplicable,
         igtfExempt: product.igtfExempt,
@@ -144,8 +152,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
     const quantity = Math.max(0, parseInt(newQuantity) || 0);
     const updatedItems = newOrder.items.map(item =>
       item.productId === productId ? { ...item, quantity } : item
-    ).filter(item => item.quantity > 0); // Remove item if quantity is 0
-
+    ).filter(item => item.quantity > 0);
     setNewOrder(prev => ({ ...prev, items: updatedItems }));
   };
 
@@ -166,7 +173,6 @@ export function NewOrderFormV2({ onOrderCreated }) {
         alert('Debes seleccionar un método de pago.');
         return;
     }
-
     const payload = {
       customerId: newOrder.customerId || undefined,
       customerName: newOrder.customerName,
@@ -177,7 +183,6 @@ export function NewOrderFormV2({ onOrderCreated }) {
       notes: newOrder.notes,
       shippingAddress: newOrder.shippingAddress.street ? newOrder.shippingAddress : undefined,
     };
-
     try {
       await fetchApi('/orders', { method: 'POST', body: JSON.stringify(payload) });
       alert('¡Orden creada con éxito!');
@@ -196,8 +201,16 @@ export function NewOrderFormV2({ onOrderCreated }) {
       value: customer._id,
       label: `${customer.name} - ${customer.taxInfo?.taxId || 'N.A.'}`,
       customer: customer,
-    })),
-  [customers]);
+    })),[customers]);
+
+  const rifOptions = useMemo(() =>
+    customers
+      .filter(customer => customer.taxInfo?.taxId)
+      .map(customer => ({
+        value: customer.taxInfo.taxId,
+        label: customer.taxInfo.taxId,
+        customer: customer,
+      })),[customers]);
 
   const productOptions = useMemo(() => 
     products.map(p => ({ value: p._id, label: `${p.name} (${p.sku})` })), 
@@ -207,15 +220,12 @@ export function NewOrderFormV2({ onOrderCreated }) {
     const subtotal = newOrder.items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
     const iva = newOrder.items.reduce((sum, item) => 
         item.ivaApplicable ? sum + (item.unitPrice * item.quantity * 0.16) : sum, 0);
-    
     const selectedPayMethod = paymentMethods.find(m => m.id === newOrder.paymentMethod);
     const appliesIgtf = selectedPayMethod?.igtfApplicable || false;
-
     const igtf = appliesIgtf 
       ? newOrder.items.reduce((sum, item) => 
           !item.igtfExempt ? sum + (item.unitPrice * item.quantity * 0.03) : sum, 0)
       : 0;
-
     const total = subtotal + iva + igtf;
     return { subtotal, iva, igtf, total };
   }, [newOrder.items, newOrder.paymentMethod, paymentMethods]);
@@ -224,11 +234,36 @@ export function NewOrderFormV2({ onOrderCreated }) {
 
   return (
     <Card className="mb-8">
-      <CardHeader><CardTitle>Crear Nueva Orden (V2)</CardTitle></CardHeader>
+      
       <CardContent className="space-y-6">
         <div className="p-4 border rounded-lg space-y-4">
           <Label className="text-base font-semibold">Datos del Cliente</Label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>RIF / C.I.</Label>
+              <div className="flex items-center gap-2">
+                <div className="w-[80px] flex-shrink-0">
+                  <Select value={newOrder.taxType} onValueChange={(value) => handleFieldChange('taxType', value)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="V">V</SelectItem>
+                      <SelectItem value="E">E</SelectItem>
+                      <SelectItem value="J">J</SelectItem>
+                      <SelectItem value="G">G</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-grow">
+                  <SearchableSelect
+                    isCreatable
+                    options={rifOptions}
+                    onSelection={handleRifSelection}
+                    value={newOrder.customerRif ? { value: newOrder.customerRif, label: newOrder.customerRif } : null}
+                    placeholder="Escriba o seleccione un RIF..."
+                  />
+                </div>
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="customerName">Nombre o Razón Social</Label>
               <SearchableSelect
@@ -245,56 +280,39 @@ export function NewOrderFormV2({ onOrderCreated }) {
                 placeholder="Escriba o seleccione un cliente..."
               />
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="space-y-2 col-span-1">
-                <Label htmlFor="taxType">Tipo</Label>
-                <Select value={newOrder.taxType} onValueChange={(value) => handleFieldChange('taxType', value)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="V">V</SelectItem>
-                    <SelectItem value="E">E</SelectItem>
-                    <SelectItem value="J">J</SelectItem>
-                    <SelectItem value="G">G</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 col-span-2">
-                <Label htmlFor="customerRif">RIF / C.I.</Label>
-                <Input
-                  id="customerRif"
-                  value={newOrder.customerRif}
-                  onChange={(e) => handleFieldChange('customerRif', e.target.value)}
-                  placeholder="RIF / C.I."
-                />
-              </div>
-            </div>
           </div>
         </div>
 
         <div className="p-4 border rounded-lg space-y-4">
-          <Label className="text-base font-semibold">Dirección de Envío</Label>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Estado</Label>
-              <Select value={newOrder.shippingAddress.state} onValueChange={(v) => handleAddressChange('state', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {venezuelaData.map(e => <SelectItem key={e.estado} value={e.estado}>{e.estado}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Municipio / Ciudad</Label>
-              <Select value={newOrder.shippingAddress.city} onValueChange={(v) => handleAddressChange('city', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {municipios.map((m, index) => <SelectItem key={`${m}-${index}`} value={m}>{m}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="md:col-span-2 space-y-2">
               <Label>Dirección</Label>
-              <Textarea value={newOrder.shippingAddress.street} onChange={(e) => handleAddressChange('street', e.target.value)} placeholder="Ej: Av. Bolívar, Edificio ABC, Piso 1, Apto 1A" />
+              <Textarea 
+                value={newOrder.shippingAddress.street} 
+                onChange={(e) => handleAddressChange('street', e.target.value)} 
+                placeholder="Ej: Av. Bolívar, Edificio ABC, Piso 1, Apto 1A"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Estado</Label>
+                <Select value={newOrder.shippingAddress.state} onValueChange={(v) => handleAddressChange('state', v)}>
+                  <SelectTrigger className="w-[240px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {venezuelaData.map(e => <SelectItem key={e.estado} value={e.estado}>{e.estado}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Municipio / Ciudad</Label>
+                <Select value={newOrder.shippingAddress.city} onValueChange={(v) => handleAddressChange('city', v)}>
+                  <SelectTrigger className="w-[240px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {municipios.map((m, index) => <SelectItem key={`${m}-${index}`} value={m}>{m}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </div>
@@ -310,7 +328,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
                       product: p,
                     }))}
                     onSelection={handleProductSelection}
-                    value={null} // This select is for adding, not for holding a value
+                    value={null}
                     placeholder={loadingProducts ? "Cargando productos..." : "Buscar y añadir producto..."}
                     isDisabled={loadingProducts}
                   />

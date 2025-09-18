@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { fetchApi } from '@/lib/api';
 import { OrdersDataTableV2 } from './OrdersDataTableV2';
 import { Badge } from "@/components/ui/badge";
@@ -8,12 +9,15 @@ import { PaymentDialogV2 } from './PaymentDialogV2';
 import { OrderStatusSelector } from './OrderStatusSelector';
 import { OrderDetailsDialog } from './OrderDetailsDialog';
 import { Button } from "@/components/ui/button";
-import { Eye, CreditCard, RefreshCw } from "lucide-react";
+import { Eye, CreditCard, RefreshCw, Search } from "lucide-react";
+import { useDebounce } from '@/hooks/use-debounce.js';
 
 export function OrdersManagementV2() {
   const [data, setData] = useState({ orders: [], pagination: null });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
   // Estado para el diálogo de pago
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
@@ -23,10 +27,11 @@ export function OrdersManagementV2() {
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedOrderForDetails, setSelectedOrderForDetails] = useState(null);
 
-  const fetchOrders = useCallback(async (page = 1) => {
+  const fetchOrders = useCallback(async (page = 1, search = '') => {
     try {
       setLoading(true);
-      const response = await fetchApi(`/orders?page=${page}&limit=10&_=${new Date().getTime()}`);
+      const url = `/orders?page=${page}&limit=10&search=${search}&_=${new Date().getTime()}`;
+      const response = await fetchApi(url);
       
       setData({
         orders: response.data || [],
@@ -41,13 +46,18 @@ export function OrdersManagementV2() {
     }
   }, []);
 
+  // Effect for initial load and search term changes
   useEffect(() => {
-    fetchOrders(1);
-  }, [fetchOrders]);
+    fetchOrders(1, debouncedSearchTerm);
+  }, [debouncedSearchTerm, fetchOrders]);
 
   const handleRefresh = useCallback(() => {
-    fetchOrders(data.pagination?.page || 1);
-  }, [data.pagination, fetchOrders]);
+    fetchOrders(data.pagination?.page || 1, debouncedSearchTerm);
+  }, [data.pagination, fetchOrders, debouncedSearchTerm]);
+
+  const handlePageChange = (newPage) => {
+    fetchOrders(newPage, debouncedSearchTerm);
+  };
 
   // Handlers para el diálogo de pago
   const handleOpenPaymentDialog = useCallback((order) => {
@@ -62,8 +72,8 @@ export function OrdersManagementV2() {
 
   const handlePaymentSuccess = useCallback(() => {
     handleClosePaymentDialog();
-    fetchOrders(data.pagination?.page || 1);
-  }, [data.pagination, fetchOrders, handleClosePaymentDialog]);
+    handleRefresh(); // Use handleRefresh to refetch with current search term
+  }, [handleClosePaymentDialog, handleRefresh]);
 
   // Handlers para el diálogo de detalles
   const handleOpenDetailsDialog = useCallback((order) => {
@@ -146,45 +156,61 @@ export function OrdersManagementV2() {
     },
   ], [handleOpenPaymentDialog, handleRefresh, handleOpenDetailsDialog]);
 
-  const handlePageChange = (newPage) => {
-    fetchOrders(newPage);
-  };
-
   const handleOrderCreated = () => {
-    fetchOrders(1);
+    fetchOrders(1, searchTerm);
   };
 
   return (
-    <>
-      <div className="space-y-8">
-        <NewOrderFormV2 onOrderCreated={handleOrderCreated} />
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Historial de Órdenes (V2)</CardTitle>
-              <CardDescription>
-                Versión refactorizada para consulta de órdenes con paginación.
-              </CardDescription>
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold">Gestión de Pedidos</h1>
+          <p className="text-muted-foreground">
+            Crea nuevas órdenes y administra el historial de pedidos.
+          </p>
+        </div>
+      </div>
+
+      <NewOrderFormV2 onOrderCreated={handleOrderCreated} />
+      
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Historial de Órdenes</CardTitle>
+            <CardDescription>
+              Consulta, busca y administra todas las órdenes registradas.
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Buscar por cliente, RIF o N°..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8 sm:w-[300px]"
+              />
             </div>
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Actualizar
             </Button>
-          </CardHeader>
-          <CardContent>
-            {loading && <p>Cargando órdenes...</p>}
-            {error && <p className="text-red-500">Error al cargar las órdenes: {error}</p>}
-            {!loading && !error && (
-              <OrdersDataTableV2
-                columns={columns}
-                data={data.orders}
-                pagination={data.pagination}
-                onPageChange={handlePageChange}
-              />
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading && <p>Cargando órdenes...</p>}
+          {error && <p className="text-red-500">Error al cargar las órdenes: {error}</p>}
+          {!loading && !error && (
+            <OrdersDataTableV2
+              columns={columns}
+              data={data.orders}
+              pagination={data.pagination}
+              onPageChange={handlePageChange}
+            />
+          )}
+        </CardContent>
+      </Card>
 
       <PaymentDialogV2
         isOpen={isPaymentDialogOpen}
@@ -198,6 +224,6 @@ export function OrdersManagementV2() {
         onClose={handleCloseDetailsDialog}
         order={selectedOrderForDetails}
       />
-    </>
+    </div>
   );
 }
