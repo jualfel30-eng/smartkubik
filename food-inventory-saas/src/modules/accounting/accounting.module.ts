@@ -1,10 +1,16 @@
-import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { AccountingController } from './accounting.controller';
-import { AccountingService } from './accounting.service';
-import { ChartOfAccounts, ChartOfAccountsSchema } from '../../schemas/chart-of-accounts.schema';
-import { Tenant, TenantSchema } from '../../schemas/tenant.schema';
-import { JournalEntry, JournalEntrySchema } from '../../schemas/journal-entry.schema';
+import { Module } from "@nestjs/common";
+import { MongooseModule } from "@nestjs/mongoose";
+import { AccountingController } from "./accounting.controller";
+import { AccountingService } from "./accounting.service";
+import {
+  ChartOfAccounts,
+  ChartOfAccountsSchema,
+} from "../../schemas/chart-of-accounts.schema";
+import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
+import {
+  JournalEntry,
+  JournalEntrySchema,
+} from "../../schemas/journal-entry.schema";
 
 @Module({
   imports: [

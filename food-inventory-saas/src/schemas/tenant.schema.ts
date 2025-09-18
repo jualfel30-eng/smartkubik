@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document } from "mongoose";
 
 export type TenantDocument = Tenant & Document;
 
@@ -18,7 +18,8 @@ export class PaymentMethodSetting {
   igtfApplicable: boolean;
 }
 
-const PaymentMethodSettingSchema = SchemaFactory.createForClass(PaymentMethodSetting);
+const PaymentMethodSettingSchema =
+  SchemaFactory.createForClass(PaymentMethodSetting);
 
 @Schema()
 export class TenantSettings {
@@ -111,13 +112,13 @@ export class Tenant {
   @Prop({ type: TenantSettings })
   settings: TenantSettings;
 
-  @Prop({ required: true, default: 'trial' })
+  @Prop({ required: true, default: "trial" })
   subscriptionPlan: string; // trial, basic, premium, enterprise
 
   @Prop()
   subscriptionExpiresAt?: Date;
 
-  @Prop({ required: true, default: 'active' })
+  @Prop({ required: true, default: "active" })
   status: string; // active, suspended, cancelled
 
   @Prop()
@@ -145,10 +146,10 @@ export class Tenant {
   @Prop()
   website?: string;
 
-  @Prop({ default: 'America/Caracas' })
+  @Prop({ default: "America/Caracas" })
   timezone: string;
 
-  @Prop({ default: 'es' })
+  @Prop({ default: "es" })
   language: string;
 }
 
@@ -159,4 +160,3 @@ TenantSchema.index({ code: 1 }, { unique: true });
 TenantSchema.index({ status: 1 });
 TenantSchema.index({ subscriptionPlan: 1 });
 TenantSchema.index({ subscriptionExpiresAt: 1 });
-

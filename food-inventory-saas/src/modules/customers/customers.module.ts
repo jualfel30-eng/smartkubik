@@ -1,9 +1,9 @@
-import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { CustomersController } from './customers.controller';
-import { CustomersService } from './customers.service';
-import { AuthModule } from '../../auth/auth.module';
-import { Customer, CustomerSchema } from '../../schemas/customer.schema';
+import { Module } from "@nestjs/common";
+import { MongooseModule } from "@nestjs/mongoose";
+import { CustomersController } from "./customers.controller";
+import { CustomersService } from "./customers.service";
+import { AuthModule } from "../../auth/auth.module";
+import { Customer, CustomerSchema } from "../../schemas/customer.schema";
 
 @Module({
   imports: [
@@ -17,4 +17,3 @@ import { Customer, CustomerSchema } from '../../schemas/customer.schema';
   exports: [CustomersService],
 })
 export class CustomersModule {}
-

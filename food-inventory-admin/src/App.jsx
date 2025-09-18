@@ -44,6 +44,8 @@ import { CrmProvider } from './context/CrmContext.jsx';
 import { FormStateProvider } from './context/FormStateContext.jsx';
 import DashboardView from './components/DashboardView.jsx';
 import AccountingManagement from './components/AccountingManagement.jsx';
+import SettingsPage from './components/SettingsPage.jsx';
+import PayablesManagement from '@/components/PayablesManagement.jsx';
 
 
 
@@ -88,6 +90,9 @@ function AdminLayout() {
           <div className="flex items-center space-x-4">
              <span className="text-sm text-muted-foreground">Hola, {user?.firstName || 'Usuario'}</span>
             <ThemeToggle />
+            <Button variant="outline" size="icon" onClick={() => navigate('/settings')}>
+              <Settings className="h-4 w-4" />
+            </Button>
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Cerrar Sesión
@@ -99,12 +104,13 @@ function AdminLayout() {
       {/* Navigation Tabs */}
       <div className="bg-card border-b border-border py-2">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="px-6">
-          <TabsList className="grid w-full grid-cols-8 max-w-5xl">
+          <TabsList className="grid w-full grid-cols-9 max-w-7xl">
             <TabsTrigger value="dashboard" className="flex items-center space-x-2"> <BarChart3 className="h-4 w-4" /> <span>Dashboard</span> </TabsTrigger>
             <TabsTrigger value="products" className="flex items-center space-x-2"> <Package className="h-4 w-4" /> <span>Producto</span> </TabsTrigger>
             <TabsTrigger value="inventory" className="flex items-center space-x-2"> <Package className="h-4 w-4" /> <span>Inventario</span> </TabsTrigger>
             <TabsTrigger value="orders" className="flex items-center space-x-2"> <ShoppingCart className="h-4 w-4" /> <span>Órdenes</span> </TabsTrigger>
             <TabsTrigger value="purchases" className="flex items-center space-x-2"> <Truck className="h-4 w-4" /> <span>Compras</span> </TabsTrigger>
+            <TabsTrigger value="payables" className="flex items-center space-x-2"> <BookCopy className="h-4 w-4" /> <span>Pagos</span> </TabsTrigger>
             <TabsTrigger value="crm" className="flex items-center space-x-2"> <Users className="h-4 w-4" /> <span>CRM</span> </TabsTrigger>
             <TabsTrigger value="calendar" className="flex items-center space-x-2"> <CalendarDays className="h-4 w-4" /> <span>Calendario</span> </TabsTrigger>
             <TabsTrigger value="accounting" className="flex items-center space-x-2"> <BookCopy className="h-4 w-4" /> <span>Contabilidad</span> </TabsTrigger>
@@ -121,8 +127,10 @@ function AdminLayout() {
           <Route path="/orders" element={<OrdersView />} />
           <Route path="/products" element={<ProductsView />} />
           <Route path="/purchases" element={<ComprasView />} />
+          <Route path="/payables" element={<PayablesManagement />} />
           <Route path="/calendar" element={<CalendarView />} />
           <Route path="/accounting" element={<AccountingView />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>
       </main>

@@ -22,8 +22,8 @@ const ChartOfAccountsView = () => {
   const loadAccounts = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await fetchChartOfAccounts();
-      setAccounts(data);
+      const response = await fetchChartOfAccounts();
+      setAccounts(response.data);
     } catch (err) {
       setError(err.message);
     } finally {

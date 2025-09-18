@@ -1,13 +1,15 @@
-
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Schema as MongooseSchema, Types } from 'mongoose';
-import { ChartOfAccounts } from './chart-of-accounts.schema';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Schema as MongooseSchema, Types } from "mongoose";
 
 export type JournalEntryDocument = JournalEntry & Document;
 
 @Schema()
 class JournalLine {
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'ChartOfAccounts', required: true })
+  @Prop({
+    type: MongooseSchema.Types.ObjectId,
+    ref: "ChartOfAccounts",
+    required: true,
+  })
   account: MongooseSchema.Types.ObjectId;
 
   @Prop({ required: true })
@@ -33,7 +35,7 @@ export class JournalEntry {
   @Prop([JournalLineSchema])
   lines: JournalLine[];
 
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })
   tenantId: Types.ObjectId;
 
   @Prop({ required: true, default: false })

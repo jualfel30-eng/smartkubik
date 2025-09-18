@@ -3,13 +3,13 @@ import {
   ExecutionContext,
   UnauthorizedException,
   Logger,
-} from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
-import { Reflector } from '@nestjs/core';
-import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+} from "@nestjs/common";
+import { AuthGuard } from "@nestjs/passport";
+import { Reflector } from "@nestjs/core";
+import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
 
 @Injectable()
-export class JwtAuthGuard extends AuthGuard('jwt') {
+export class JwtAuthGuard extends AuthGuard("jwt") {
   private readonly logger = new Logger(JwtAuthGuard.name);
 
   constructor(private reflector: Reflector) {
@@ -32,27 +32,28 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
   handleRequest(err: any, user: any, info: any, context: ExecutionContext) {
     const request = context.switchToHttp().getRequest();
-    
+
     if (err || !user) {
-      this.logger.warn(`Authentication failed for ${request.method} ${request.url}: ${info?.message || err?.message}`);
-      
-      if (info?.name === 'TokenExpiredError') {
-        throw new UnauthorizedException('Token expirado');
+      this.logger.warn(
+        `Authentication failed for ${request.method} ${request.url}: ${info?.message || err?.message}`,
+      );
+
+      if (info?.name === "TokenExpiredError") {
+        throw new UnauthorizedException("Token expirado");
       }
-      
-      if (info?.name === 'JsonWebTokenError') {
-        throw new UnauthorizedException('Token inválido');
+
+      if (info?.name === "JsonWebTokenError") {
+        throw new UnauthorizedException("Token inválido");
       }
-      
-      throw new UnauthorizedException('No autorizado');
+
+      throw new UnauthorizedException("No autorizado");
     }
 
     // Agregar información adicional al usuario
     user.ip = request.ip;
-    user.userAgent = request.get('User-Agent');
-    
+    user.userAgent = request.get("User-Agent");
+
     this.logger.log(`User authenticated: ${user.email} (${user.id})`);
     return user;
   }
 }
-

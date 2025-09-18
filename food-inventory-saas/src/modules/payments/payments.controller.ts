@@ -1,25 +1,25 @@
-import { Controller, Post, Body, Param, UseGuards, Request, Get } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Req } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from '../../dto/payment.dto';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { TenantGuard } from '../../guards/tenant.guard';
+import { Request } from 'express';
 
-@Controller('orders') // Listen on /orders route
 @UseGuards(JwtAuthGuard, TenantGuard)
+@Controller('payments')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
-  @Get('__lookup/payment-methods')
-  getPaymentMethods(@Request() req) {
-    return this.paymentsService.getPaymentMethods(req.user);
+  @Post()
+  create(@Body() createPaymentDto: CreatePaymentDto, @Req() req: any) {
+    const tenantId = req.user.tenantId;
+    const userId = req.user.id;
+    return this.paymentsService.create(createPaymentDto, tenantId, userId);
   }
 
-  @Post(':orderId/payments')
-  createPaymentForOrder(
-    @Param('orderId') orderId: string,
-    @Body() createPaymentDto: CreatePaymentDto,
-    @Request() req,
-  ) {
-    return this.paymentsService.createPayment(orderId, createPaymentDto, req.user);
+  @Get()
+  findAll(@Req() req: any) {
+    const tenantId = req.user.tenantId;
+    return this.paymentsService.findAll(tenantId);
   }
 }

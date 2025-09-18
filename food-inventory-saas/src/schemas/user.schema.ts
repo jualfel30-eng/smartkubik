@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 export type UserDocument = User & Document;
 
@@ -14,7 +14,7 @@ export class UserPermission {
   @Prop({ default: Date.now })
   grantedAt: Date;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   grantedBy: Types.ObjectId;
 }
 
@@ -71,10 +71,10 @@ export class User {
   @Prop()
   lockUntil?: Date;
 
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })
   tenantId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   createdBy?: Types.ObjectId;
 }
 
@@ -87,4 +87,3 @@ UserSchema.index({ isActive: 1, tenantId: 1 });
 UserSchema.index({ emailVerificationToken: 1 });
 UserSchema.index({ passwordResetToken: 1 });
 UserSchema.index({ lockUntil: 1 });
-

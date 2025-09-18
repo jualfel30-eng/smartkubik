@@ -74,7 +74,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
       return;
     }
     if (selectedOption.__isNew__) {
-      setNewOrder(prev => ({ ...prev, customerId: '', customerName: selectedOption.label, customerRif: '', taxType: 'V' }));
+      setNewOrder(prev => ({ ...prev, customerId: '', customerName: selectedOption.label }));
     } else {
       const { customer } = selectedOption;
       setNewOrder(prev => ({
@@ -93,7 +93,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
       return;
     }
     if (selectedOption.__isNew__) {
-      setNewOrder(prev => ({ ...prev, customerId: '', customerName: '', customerRif: selectedOption.label, taxType: 'V' }));
+      setNewOrder(prev => ({ ...prev, customerId: '', customerRif: selectedOption.label }));
     } else {
       const { customer } = selectedOption;
       setNewOrder(prev => ({

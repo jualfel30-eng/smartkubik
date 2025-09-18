@@ -1,7 +1,7 @@
-import { Module } from '@nestjs/common';
-import { AuthModule } from '../../auth/auth.module';
-import { PricingController } from './pricing.controller';
-import { PricingService } from './pricing.service';
+import { Module } from "@nestjs/common";
+import { AuthModule } from "../../auth/auth.module";
+import { PricingController } from "./pricing.controller";
+import { PricingService } from "./pricing.service";
 
 @Module({
   imports: [AuthModule],
@@ -10,4 +10,3 @@ import { PricingService } from './pricing.service';
   exports: [PricingService],
 })
 export class PricingModule {}
-

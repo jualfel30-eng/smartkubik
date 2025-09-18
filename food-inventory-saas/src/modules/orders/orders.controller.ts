@@ -1,14 +1,37 @@
-import { Controller, Get, Post, Body, Patch, Param, Query, UseGuards, Request, HttpStatus, HttpException, Logger } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { OrdersService } from './orders.service';
-import { CreateOrderDto, UpdateOrderDto, OrderQueryDto, OrderCalculationDto } from '../../dto/order.dto';
-import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
-import { TenantGuard } from '../../guards/tenant.guard';
-import { PermissionsGuard } from '../../guards/permissions.guard';
-import { RequirePermissions } from '../../decorators/permissions.decorator';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Query,
+  UseGuards,
+  Request,
+  HttpStatus,
+  HttpException,
+  Logger,
+} from "@nestjs/common";
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from "@nestjs/swagger";
+import { OrdersService } from "./orders.service";
+import {
+  CreateOrderDto,
+  UpdateOrderDto,
+  OrderQueryDto,
+  OrderCalculationDto,
+} from "../../dto/order.dto";
+import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
+import { TenantGuard } from "../../guards/tenant.guard";
+import { PermissionsGuard } from "../../guards/permissions.guard";
+import { RequirePermissions } from "../../decorators/permissions.decorator";
 
-@ApiTags('orders')
-@Controller('orders')
+@ApiTags("orders")
+@Controller("orders")
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class OrdersController {
@@ -17,56 +40,82 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
-  @RequirePermissions('orders', ['create'])
-  @ApiOperation({ summary: 'Crear nueva orden' })
-  @ApiResponse({ status: 201, description: 'Orden creada exitosamente' })
+  @RequirePermissions("orders", ["create"])
+  @ApiOperation({ summary: "Crear nueva orden" })
+  @ApiResponse({ status: 201, description: "Orden creada exitosamente" })
   async create(@Body() createOrderDto: CreateOrderDto, @Request() req) {
-    this.logger.log(`Attempting to create order with DTO: ${JSON.stringify(createOrderDto)}`);
+    this.logger.log(
+      `Attempting to create order with DTO: ${JSON.stringify(createOrderDto)}`,
+    );
     try {
       const order = await this.ordersService.create(createOrderDto, req.user);
       return {
         success: true,
-        message: 'Orden creada exitosamente',
+        message: "Orden creada exitosamente",
         data: order,
       };
     } catch (error) {
       throw new HttpException(
-        error.message || 'Error al crear la orden',
+        error.message || "Error al crear la orden",
         HttpStatus.BAD_REQUEST,
       );
     }
   }
 
-  @Post('calculate')
-  @RequirePermissions('orders', ['create']) // Usa el mismo permiso que 'create'
-  @ApiOperation({ summary: 'Calcular totales de una orden sin guardarla' })
-  @ApiResponse({ status: 200, description: 'Cálculo exitoso' })
-  async calculateTotals(@Body() calculationDto: OrderCalculationDto, @Request() req) {
+  @Get('__lookup/payment-methods')
+  @ApiOperation({ summary: 'Obtener lista de métodos de pago' })
+  async getPaymentMethods(@Request() req) {
     try {
-      const totals = await this.ordersService.calculateTotals(calculationDto, req.user);
+      const methods = await this.ordersService.getPaymentMethods(req.user);
       return {
         success: true,
-        message: 'Cálculo de totales exitoso',
+        message: 'Métodos de pago obtenidos exitosamente',
+        data: methods,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al obtener los métodos de pago",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post("calculate")
+  @RequirePermissions("orders", ["create"]) // Usa el mismo permiso que 'create'
+  @ApiOperation({ summary: "Calcular totales de una orden sin guardarla" })
+  @ApiResponse({ status: 200, description: "Cálculo exitoso" })
+  async calculateTotals(
+    @Body() calculationDto: OrderCalculationDto,
+    @Request() req,
+  ) {
+    try {
+      const totals = await this.ordersService.calculateTotals(
+        calculationDto,
+        req.user,
+      );
+      return {
+        success: true,
+        message: "Cálculo de totales exitoso",
         data: totals,
       };
     } catch (error) {
       throw new HttpException(
-        error.message || 'Error al calcular los totales',
+        error.message || "Error al calcular los totales",
         HttpStatus.BAD_REQUEST,
       );
     }
   }
 
   @Get()
-  @RequirePermissions('orders', ['read'])
-  @ApiOperation({ summary: 'Obtener lista de órdenes' })
-  @ApiResponse({ status: 200, description: 'Órdenes obtenidas exitosamente' })
+  @RequirePermissions("orders", ["read"])
+  @ApiOperation({ summary: "Obtener lista de órdenes" })
+  @ApiResponse({ status: 200, description: "Órdenes obtenidas exitosamente" })
   async findAll(@Query() query: OrderQueryDto, @Request() req) {
     try {
       const result = await this.ordersService.findAll(query, req.user.tenantId);
       return {
         success: true,
-        message: 'Órdenes obtenidas exitosamente',
+        message: "Órdenes obtenidas exitosamente",
         data: result.orders,
         pagination: {
           page: result.page,
@@ -77,25 +126,25 @@ export class OrdersController {
       };
     } catch (error) {
       throw new HttpException(
-        error.message || 'Error al obtener las órdenes',
+        error.message || "Error al obtener las órdenes",
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
-  @Get(':id')
-  @RequirePermissions('orders', ['read'])
-  @ApiOperation({ summary: 'Obtener orden por ID' })
-  @ApiResponse({ status: 200, description: 'Orden obtenida exitosamente' })
-  async findOne(@Param('id') id: string, @Request() req) {
+  @Get(":id")
+  @RequirePermissions("orders", ["read"])
+  @ApiOperation({ summary: "Obtener orden por ID" })
+  @ApiResponse({ status: 200, description: "Orden obtenida exitosamente" })
+  async findOne(@Param("id") id: string, @Request() req) {
     try {
       const order = await this.ordersService.findOne(id, req.user.tenantId);
       if (!order) {
-        throw new HttpException('Orden no encontrada', HttpStatus.NOT_FOUND);
+        throw new HttpException("Orden no encontrada", HttpStatus.NOT_FOUND);
       }
       return {
         success: true,
-        message: 'Orden obtenida exitosamente',
+        message: "Orden obtenida exitosamente",
         data: order,
       };
     } catch (error) {
@@ -103,34 +152,37 @@ export class OrdersController {
         throw error;
       }
       throw new HttpException(
-        error.message || 'Error al obtener la orden',
+        error.message || "Error al obtener la orden",
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
-  @Patch(':id')
-  @RequirePermissions('orders', ['update'])
-  @ApiOperation({ summary: 'Actualizar una orden' })
-  @ApiResponse({ status: 200, description: 'Orden actualizada exitosamente' })
+  @Patch(":id")
+  @RequirePermissions("orders", ["update"])
+  @ApiOperation({ summary: "Actualizar una orden" })
+  @ApiResponse({ status: 200, description: "Orden actualizada exitosamente" })
   async update(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() updateOrderDto: UpdateOrderDto,
     @Request() req,
   ) {
     try {
-      const order = await this.ordersService.update(id, updateOrderDto, req.user);
+      const order = await this.ordersService.update(
+        id,
+        updateOrderDto,
+        req.user,
+      );
       return {
         success: true,
-        message: 'Orden actualizada exitosamente',
+        message: "Orden actualizada exitosamente",
         data: order,
       };
     } catch (error) {
       throw new HttpException(
-        error.message || 'Error al actualizar la orden',
+        error.message || "Error al actualizar la orden",
         HttpStatus.BAD_REQUEST,
       );
     }
   }
 }
-

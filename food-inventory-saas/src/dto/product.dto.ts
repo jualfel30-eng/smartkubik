@@ -1,10 +1,10 @@
-import { 
-  IsString, 
-  IsNumber, 
-  IsBoolean, 
-  IsOptional, 
-  IsArray, 
-  ValidateNested, 
+import {
+  IsString,
+  IsNumber,
+  IsBoolean,
+  IsOptional,
+  IsArray,
+  ValidateNested,
   IsNotEmpty,
   Min,
   Max,
@@ -12,59 +12,58 @@ import {
   IsMongoId,
   ArrayMinSize,
   IsObject,
-  IsDateString
-} from 'class-validator';
-import { Type, Transform } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+} from "class-validator";
+import { Type, Transform } from "class-transformer";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class CreateProductVariantDto {
-  @ApiProperty({ description: 'Nombre de la variante' })
+  @ApiProperty({ description: "Nombre de la variante" })
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty({ description: 'SKU único de la variante' })
+  @ApiProperty({ description: "SKU único de la variante" })
   @IsString()
   @IsNotEmpty()
   sku: string;
 
-  @ApiProperty({ description: 'Código de barras' })
+  @ApiProperty({ description: "Código de barras" })
   @IsString()
   @IsNotEmpty()
   barcode: string;
 
-  @ApiProperty({ description: 'Unidad de medida', example: 'kg' })
+  @ApiProperty({ description: "Unidad de medida", example: "kg" })
   @IsString()
   @IsNotEmpty()
   unit: string;
 
-  @ApiProperty({ description: 'Tamaño de la unidad', example: 500 })
+  @ApiProperty({ description: "Tamaño de la unidad", example: 500 })
   @IsNumber()
   @Min(0.01)
   unitSize: number;
 
-  @ApiProperty({ description: 'Precio base en VES' })
+  @ApiProperty({ description: "Precio base en VES" })
   @IsNumber()
   @Min(0)
   basePrice: number;
 
-  @ApiProperty({ description: 'Precio de costo en VES' })
+  @ApiProperty({ description: "Precio de costo en VES" })
   @IsNumber()
   @Min(0)
   costPrice: number;
 
-  @ApiPropertyOptional({ description: 'Descripción de la variante' })
+  @ApiPropertyOptional({ description: "Descripción de la variante" })
   @IsOptional()
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ description: 'URLs de imágenes' })
+  @ApiPropertyOptional({ description: "URLs de imágenes" })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   images?: string[];
 
-  @ApiPropertyOptional({ description: 'Dimensiones del producto' })
+  @ApiPropertyOptional({ description: "Dimensiones del producto" })
   @IsOptional()
   @IsObject()
   dimensions?: {
@@ -76,124 +75,139 @@ export class CreateProductVariantDto {
 }
 
 export class CreateProductSupplierDto {
-  @ApiProperty({ description: 'ID del proveedor' })
+  @ApiProperty({ description: "ID del proveedor" })
   @IsMongoId()
   supplierId: string;
 
-  @ApiProperty({ description: 'Nombre del proveedor' })
+  @ApiProperty({ description: "Nombre del proveedor" })
   @IsString()
   @IsNotEmpty()
   supplierName: string;
 
-  @ApiProperty({ description: 'SKU del proveedor' })
+  @ApiProperty({ description: "SKU del proveedor" })
   @IsString()
   @IsNotEmpty()
   supplierSku: string;
 
-  @ApiProperty({ description: 'Precio de costo' })
+  @ApiProperty({ description: "Precio de costo" })
   @IsNumber()
   @Min(0)
   costPrice: number;
 
-  @ApiProperty({ description: 'Tiempo de entrega en días' })
+  @ApiProperty({ description: "Tiempo de entrega en días" })
   @IsNumber()
   @Min(1)
   leadTimeDays: number;
 
-  @ApiProperty({ description: 'Cantidad mínima de pedido' })
+  @ApiProperty({ description: "Cantidad mínima de pedido" })
   @IsNumber()
   @Min(1)
   minimumOrderQuantity: number;
 
-  @ApiPropertyOptional({ description: 'Es proveedor preferido', default: false })
+  @ApiPropertyOptional({
+    description: "Es proveedor preferido",
+    default: false,
+  })
   @IsOptional()
   @IsBoolean()
   isPreferred?: boolean;
 }
 
 export class CreateProductDto {
-  @ApiProperty({ description: 'SKU único del producto' })
+  @ApiProperty({ description: "SKU único del producto" })
   @IsString()
   @IsNotEmpty()
   sku: string;
 
-  @ApiProperty({ description: 'Nombre del producto' })
+  @ApiProperty({ description: "Nombre del producto" })
   @IsString()
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty({ description: 'Categorías del producto', type: String })
+  @ApiProperty({ description: "Categorías del producto", type: String })
   @IsString()
   @IsNotEmpty()
   category: string;
 
-  @ApiProperty({ description: 'Subcategorías del producto', type: String })
+  @ApiProperty({ description: "Subcategorías del producto", type: String })
   @IsString()
   @IsNotEmpty()
   subcategory: string;
 
-  @ApiProperty({ description: 'Marca del producto' })
+  @ApiProperty({ description: "Marca del producto" })
   @IsString()
   @IsNotEmpty()
   brand: string;
 
-  @ApiPropertyOptional({ description: 'Descripción del producto' })
+  @ApiPropertyOptional({ description: "Descripción del producto" })
   @IsOptional()
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Ingredientes del producto' })
+  @ApiPropertyOptional({ description: "Ingredientes del producto" })
   @IsOptional()
   @IsString()
   ingredients?: string;
 
-  @ApiPropertyOptional({ description: 'Etiquetas del producto' })
+  @ApiPropertyOptional({ description: "Etiquetas del producto" })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   tags?: string[];
 
-  @ApiProperty({ description: 'Variantes del producto', type: [CreateProductVariantDto] })
+  @ApiProperty({
+    description: "Variantes del producto",
+    type: [CreateProductVariantDto],
+  })
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreateProductVariantDto)
   variants: CreateProductVariantDto[];
 
-  @ApiPropertyOptional({ description: 'Proveedores del producto', type: [CreateProductSupplierDto] })
+  @ApiPropertyOptional({
+    description: "Proveedores del producto",
+    type: [CreateProductSupplierDto],
+  })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateProductSupplierDto)
   suppliers?: CreateProductSupplierDto[];
 
-  @ApiProperty({ description: 'Es producto perecedero' })
+  @ApiProperty({ description: "Es producto perecedero" })
   @IsBoolean()
   isPerishable: boolean;
 
-  @ApiPropertyOptional({ description: 'Vida útil en días' })
+  @ApiPropertyOptional({ description: "Vida útil en días" })
   @IsOptional()
   @IsNumber()
   @Min(1)
   shelfLifeDays?: number;
 
-  @ApiPropertyOptional({ description: 'Temperatura de almacenamiento', enum: ['ambiente', 'refrigerado', 'congelado'] })
+  @ApiPropertyOptional({
+    description: "Temperatura de almacenamiento",
+    enum: ["ambiente", "refrigerado", "congelado"],
+  })
   @IsOptional()
-  @IsEnum(['ambiente', 'refrigerado', 'congelado'])
+  @IsEnum(["ambiente", "refrigerado", "congelado"])
   storageTemperature?: string;
 
-  @ApiPropertyOptional({ description: 'Humedad de almacenamiento', enum: ['baja', 'media', 'alta'] })
+  @ApiPropertyOptional({
+    description: "Humedad de almacenamiento",
+    enum: ["baja", "media", "alta"],
+  })
   @IsOptional()
-  @IsEnum(['baja', 'media', 'alta'])
+  @IsEnum(["baja", "media", "alta"])
   storageHumidity?: string;
 
-  @ApiPropertyOptional({ description: 'Alérgenos' })
+  @ApiPropertyOptional({ description: "Alérgenos" })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   allergens?: string[];
 
-  @ApiPropertyOptional({ description: 'Información nutricional' })
+  @ApiPropertyOptional({ description: "Información nutricional" })
   @IsOptional()
   @IsObject()
   nutritionalInfo?: {
@@ -205,7 +219,7 @@ export class CreateProductDto {
     sodium: number;
   };
 
-  @ApiProperty({ description: 'Reglas de precios' })
+  @ApiProperty({ description: "Reglas de precios" })
   @IsObject()
   pricingRules: {
     cashDiscount: number;
@@ -215,7 +229,7 @@ export class CreateProductDto {
     maximumDiscount: number;
   };
 
-  @ApiProperty({ description: 'Configuración de inventario' })
+  @ApiProperty({ description: "Configuración de inventario" })
   @IsObject()
   inventoryConfig: {
     trackLots: boolean;
@@ -227,82 +241,88 @@ export class CreateProductDto {
     fefoEnabled: boolean;
   };
 
-  @ApiPropertyOptional({ description: 'Aplica IVA 16%', default: true })
+  @ApiPropertyOptional({ description: "Aplica IVA 16%", default: true })
   @IsOptional()
   @IsBoolean()
   ivaApplicable?: boolean;
 
-  @ApiPropertyOptional({ description: 'Exento de IGTF 3%', default: false })
+  @ApiPropertyOptional({ description: "Exento de IGTF 3%", default: false })
   @IsOptional()
   @IsBoolean()
   igtfExempt?: boolean;
 
-  @ApiProperty({ description: 'Categoría fiscal del producto' })
+  @ApiProperty({ description: "Categoría fiscal del producto" })
   @IsString()
   @IsNotEmpty()
   taxCategory: string;
 }
 
 export class UpdateProductDto {
-  @ApiPropertyOptional({ description: 'Nombre del producto' })
+  @ApiPropertyOptional({ description: "Nombre del producto" })
   @IsOptional()
   @IsString()
   @IsNotEmpty()
   name?: string;
 
-  @ApiPropertyOptional({ description: 'Categorías del producto', type: [String] })
+  @ApiPropertyOptional({
+    description: "Categorías del producto",
+    type: [String],
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   @ArrayMinSize(1)
   category?: string[];
 
-  @ApiPropertyOptional({ description: 'Subcategorías del producto', type: [String] })
+  @ApiPropertyOptional({
+    description: "Subcategorías del producto",
+    type: [String],
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   @ArrayMinSize(1)
   subcategory?: string[];
 
-  @ApiPropertyOptional({ description: 'Marca del producto' })
+  @ApiPropertyOptional({ description: "Marca del producto" })
   @IsOptional()
   @IsString()
   @IsNotEmpty()
   brand?: string;
 
-  @ApiPropertyOptional({ description: 'Descripción del producto' })
+  @ApiPropertyOptional({ description: "Descripción del producto" })
   @IsOptional()
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ description: 'Ingredientes del producto' })
+  @ApiPropertyOptional({ description: "Ingredientes del producto" })
   @IsOptional()
   @IsString()
   ingredients?: string;
 
-  @ApiPropertyOptional({ description: 'Etiquetas del producto' })
+  @ApiPropertyOptional({ description: "Etiquetas del producto" })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   tags?: string[];
 
-  @ApiPropertyOptional({ description: 'Es producto perecedero' })
+  @ApiPropertyOptional({ description: "Es producto perecedero" })
   @IsOptional()
   @IsBoolean()
   isPerishable?: boolean;
 
-  @ApiPropertyOptional({ description: 'Vida útil en días' })
+  @ApiPropertyOptional({ description: "Vida útil en días" })
   @IsOptional()
   @IsNumber()
   @Min(1)
   shelfLifeDays?: number;
 
-  @ApiPropertyOptional({ description: 'Temperatura de almacenamiento' })
+  @ApiPropertyOptional({ description: "Temperatura de almacenamiento" })
   @IsOptional()
-  @IsEnum(['ambiente', 'refrigerado', 'congelado'])
+  @IsEnum(["ambiente", "refrigerado", "congelado"])
   storageTemperature?: string;
 
-  @ApiPropertyOptional({ description: 'Reglas de precios' })
+  @ApiPropertyOptional({ description: "Reglas de precios" })
   @IsOptional()
   @IsObject()
   pricingRules?: {
@@ -313,7 +333,7 @@ export class UpdateProductDto {
     maximumDiscount: number;
   };
 
-  @ApiPropertyOptional({ description: 'Configuración de inventario' })
+  @ApiPropertyOptional({ description: "Configuración de inventario" })
   @IsOptional()
   @IsObject()
   inventoryConfig?: {
@@ -326,21 +346,21 @@ export class UpdateProductDto {
     fefoEnabled: boolean;
   };
 
-  @ApiPropertyOptional({ description: 'Estado activo del producto' })
+  @ApiPropertyOptional({ description: "Estado activo del producto" })
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 }
 
 export class ProductQueryDto {
-  @ApiPropertyOptional({ description: 'Página', default: 1 })
+  @ApiPropertyOptional({ description: "Página", default: 1 })
   @IsOptional()
   @Transform(({ value }) => parseInt(value))
   @IsNumber()
   @Min(1)
   page?: number = 1;
 
-  @ApiPropertyOptional({ description: 'Límite por página', default: 20 })
+  @ApiPropertyOptional({ description: "Límite por página", default: 20 })
   @IsOptional()
   @Transform(({ value }) => parseInt(value))
   @IsNumber()
@@ -348,41 +368,43 @@ export class ProductQueryDto {
   @Max(100)
   limit?: number = 20;
 
-  @ApiPropertyOptional({ description: 'Término de búsqueda' })
+  @ApiPropertyOptional({ description: "Término de búsqueda" })
   @IsOptional()
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ description: 'Categoría' })
+  @ApiPropertyOptional({ description: "Categoría" })
   @IsOptional()
   @IsString()
   category?: string;
 
-  @ApiPropertyOptional({ description: 'Marca' })
+  @ApiPropertyOptional({ description: "Marca" })
   @IsOptional()
   @IsString()
   brand?: string;
 
-  @ApiPropertyOptional({ description: 'Solo productos activos', default: true })
+  @ApiPropertyOptional({ description: "Solo productos activos", default: true })
   @IsOptional()
-  @Transform(({ value }) => value === 'true')
+  @Transform(({ value }) => value === "true")
   @IsBoolean()
   isActive?: boolean = true;
 
-  @ApiPropertyOptional({ description: 'Solo productos perecederos' })
+  @ApiPropertyOptional({ description: "Solo productos perecederos" })
   @IsOptional()
-  @Transform(({ value }) => value === 'true')
+  @Transform(({ value }) => value === "true")
   @IsBoolean()
   isPerishable?: boolean;
 
-  @ApiPropertyOptional({ description: 'Ordenar por', enum: ['name', 'category', 'createdAt', 'updatedAt'] })
+  @ApiPropertyOptional({
+    description: "Ordenar por",
+    enum: ["name", "category", "createdAt", "updatedAt"],
+  })
   @IsOptional()
-  @IsEnum(['name', 'category', 'createdAt', 'updatedAt'])
-  sortBy?: string = 'createdAt';
+  @IsEnum(["name", "category", "createdAt", "updatedAt"])
+  sortBy?: string = "createdAt";
 
-  @ApiPropertyOptional({ description: 'Orden', enum: ['asc', 'desc'] })
+  @ApiPropertyOptional({ description: "Orden", enum: ["asc", "desc"] })
   @IsOptional()
-  @IsEnum(['asc', 'desc'])
-  sortOrder?: string = 'desc';
+  @IsEnum(["asc", "desc"])
+  sortOrder?: string = "desc";
 }
-

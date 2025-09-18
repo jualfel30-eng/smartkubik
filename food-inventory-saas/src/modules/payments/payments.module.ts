@@ -1,21 +1,21 @@
 import { Module } from '@nestjs/common';
-import { PaymentsService } from './payments.service';
-import { PaymentsController } from './payments.controller';
 import { MongooseModule } from '@nestjs/mongoose';
-import { Order, OrderSchema } from '../../schemas/order.schema';
+import { PaymentsController } from './payments.controller';
+import { PaymentsService } from './payments.service';
+import { Payment, PaymentSchema } from '../../schemas/payment.schema';
+import { Payable, PayableSchema } from '../../schemas/payable.schema';
 import { Tenant, TenantSchema } from '../../schemas/tenant.schema';
-import { AccountingModule } from '../accounting/accounting.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: Order.name, schema: OrderSchema },
-      { name: Tenant.name, schema: TenantSchema },
+      { name: Payment.name, schema: PaymentSchema },
+      { name: Payable.name, schema: PayableSchema },
+      { name: Tenant.name, schema: TenantSchema }, // For TenantGuard
     ]),
-    AccountingModule,
   ],
   controllers: [PaymentsController],
   providers: [PaymentsService],
-  exports: [PaymentsService], // Export service for other modules to use
+  exports: [PaymentsService],
 })
 export class PaymentsModule {}

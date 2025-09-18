@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 export type InventoryDocument = Inventory & Document;
 export type InventoryLotDocument = InventoryLot & Document;
@@ -31,13 +31,13 @@ export class InventoryLot {
   @Prop()
   manufacturingDate?: Date;
 
-  @Prop({ type: Types.ObjectId, ref: 'Supplier' })
+  @Prop({ type: Types.ObjectId, ref: "Supplier" })
   supplierId?: Types.ObjectId;
 
   @Prop()
   supplierInvoice?: string;
 
-  @Prop({ required: true, default: 'available' })
+  @Prop({ required: true, default: "available" })
   status: string; // available, reserved, expired, damaged, sold
 
   @Prop({ type: Object })
@@ -51,13 +51,13 @@ export class InventoryLot {
     notes?: string;
   };
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   createdBy: Types.ObjectId;
 }
 
 @Schema({ timestamps: true })
 export class Inventory {
-  @Prop({ type: Types.ObjectId, ref: 'Product', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Product", required: true })
   productId: Types.ObjectId;
 
   @Prop({ required: true })
@@ -66,7 +66,7 @@ export class Inventory {
   @Prop({ required: true })
   productName: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'ProductVariant' })
+  @Prop({ type: Types.ObjectId, ref: "ProductVariant" })
   variantId?: Types.ObjectId;
 
   @Prop()
@@ -126,22 +126,22 @@ export class Inventory {
   @Prop({ default: true })
   isActive: boolean;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   createdBy: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   updatedBy: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })
   tenantId: Types.ObjectId;
 }
 
 @Schema({ timestamps: true })
 export class InventoryMovement {
-  @Prop({ type: Types.ObjectId, ref: 'Inventory', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Inventory", required: true })
   inventoryId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Product', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Product", required: true })
   productId: Types.ObjectId;
 
   @Prop({ required: true })
@@ -168,10 +168,10 @@ export class InventoryMovement {
   @Prop()
   reference?: string; // número de orden, factura, etc.
 
-  @Prop({ type: Types.ObjectId, ref: 'Order' })
+  @Prop({ type: Types.ObjectId, ref: "Order" })
   orderId?: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Supplier' })
+  @Prop({ type: Types.ObjectId, ref: "Supplier" })
   supplierId?: Types.ObjectId;
 
   @Prop({ type: Object })
@@ -182,28 +182,29 @@ export class InventoryMovement {
     averageCostPrice: number;
   };
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })
   tenantId: Types.ObjectId;
 }
 
 export const InventorySchema = SchemaFactory.createForClass(Inventory);
 export const InventoryLotSchema = SchemaFactory.createForClass(InventoryLot);
-export const InventoryMovementSchema = SchemaFactory.createForClass(InventoryMovement);
+export const InventoryMovementSchema =
+  SchemaFactory.createForClass(InventoryMovement);
 
 // Índices para optimizar consultas de inventario
 InventorySchema.index({ productId: 1, tenantId: 1 }, { unique: true });
 InventorySchema.index({ productSku: 1, tenantId: 1 });
 InventorySchema.index({ variantSku: 1, tenantId: 1 });
 InventorySchema.index({ availableQuantity: 1, tenantId: 1 });
-InventorySchema.index({ 'alerts.lowStock': 1, tenantId: 1 });
-InventorySchema.index({ 'alerts.nearExpiration': 1, tenantId: 1 });
-InventorySchema.index({ 'alerts.expired': 1, tenantId: 1 });
-InventorySchema.index({ 'lots.expirationDate': 1, tenantId: 1 });
-InventorySchema.index({ 'lots.status': 1, tenantId: 1 });
-InventorySchema.index({ 'location.warehouse': 1, tenantId: 1 });
+InventorySchema.index({ "alerts.lowStock": 1, tenantId: 1 });
+InventorySchema.index({ "alerts.nearExpiration": 1, tenantId: 1 });
+InventorySchema.index({ "alerts.expired": 1, tenantId: 1 });
+InventorySchema.index({ "lots.expirationDate": 1, tenantId: 1 });
+InventorySchema.index({ "lots.status": 1, tenantId: 1 });
+InventorySchema.index({ "location.warehouse": 1, tenantId: 1 });
 
 // Índices para movimientos de inventario
 InventoryMovementSchema.index({ inventoryId: 1, createdAt: -1 });
@@ -213,4 +214,3 @@ InventoryMovementSchema.index({ orderId: 1, tenantId: 1 });
 InventoryMovementSchema.index({ supplierId: 1, createdAt: -1, tenantId: 1 });
 InventoryMovementSchema.index({ createdAt: -1, tenantId: 1 });
 InventoryMovementSchema.index({ lotNumber: 1, tenantId: 1 });
-

@@ -1,52 +1,82 @@
-import { Injectable, InternalServerErrorException, Logger, BadRequestException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import * as moment from 'moment-timezone';
-import { ChartOfAccounts, ChartOfAccountsDocument } from '../../schemas/chart-of-accounts.schema';
-import { JournalEntry, JournalEntryDocument } from '../../schemas/journal-entry.schema';
-import { CreateChartOfAccountDto, CreateJournalEntryDto } from '../../dto/accounting.dto';
-import { OrderDocument, OrderPayment } from '../../schemas/order.schema';
-import { PurchaseOrderDocument } from '../../schemas/purchase-order.schema';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  BadRequestException,
+} from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import * as moment from "moment-timezone";
+import {
+  ChartOfAccounts,
+  ChartOfAccountsDocument,
+} from "../../schemas/chart-of-accounts.schema";
+import {
+  JournalEntry,
+  JournalEntryDocument,
+} from "../../schemas/journal-entry.schema";
+import {
+  CreateChartOfAccountDto,
+  CreateJournalEntryDto,
+} from "../../dto/accounting.dto";
+import { OrderDocument, OrderPayment } from "../../schemas/order.schema";
+import { PurchaseOrderDocument } from "../../schemas/purchase-order.schema";
+import { PayableDocument } from "../../schemas/payable.schema";
 
 @Injectable()
 export class AccountingService {
   private readonly logger = new Logger(AccountingService.name);
 
   constructor(
-    @InjectModel(ChartOfAccounts.name) private chartOfAccountsModel: Model<ChartOfAccountsDocument>,
-    @InjectModel(JournalEntry.name) private journalEntryModel: Model<JournalEntryDocument>,
+    @InjectModel(ChartOfAccounts.name)
+    private chartOfAccountsModel: Model<ChartOfAccountsDocument>,
+    @InjectModel(JournalEntry.name)
+    private journalEntryModel: Model<JournalEntryDocument>,
   ) {}
 
-  private async generateNextCode(type: string, tenantId: string): Promise<string> {
+  private async generateNextCode(
+    type: string,
+    tenantId: string,
+  ): Promise<string> {
     const typePrefix = {
-      'Activo': '1',
-      'Pasivo': '2',
-      'Patrimonio': '3',
-      'Ingreso': '4',
-      'Gasto': '5',
+      Activo: "1",
+      Pasivo: "2",
+      Patrimonio: "3",
+      Ingreso: "4",
+      Gasto: "5",
     }[type];
 
     if (!typePrefix) {
-      throw new InternalServerErrorException(`Prefijo de tipo de cuenta inválido: ${type}`);
+      throw new InternalServerErrorException(
+        `Prefijo de tipo de cuenta inválido: ${type}`,
+      );
     }
 
-    const lastAccount = await this.chartOfAccountsModel.findOne(
-      { tenantId: new Types.ObjectId(tenantId), code: { $regex: `^${typePrefix}` } },
-      { code: 1 },
-      { sort: { code: -1 } }
-    ).exec();
+    const lastAccount = await this.chartOfAccountsModel
+      .findOne(
+        {
+          tenantId: new Types.ObjectId(tenantId),
+          code: { $regex: `^${typePrefix}` },
+        },
+        { code: 1 },
+        { sort: { code: -1 } },
+      )
+      .exec();
 
     if (lastAccount && lastAccount.code) {
       const lastNumber = parseInt(lastAccount.code.slice(1), 10);
-      return `${typePrefix}${(lastNumber + 1).toString().padStart(2, '0')}`;
+      return `${typePrefix}${(lastNumber + 1).toString().padStart(2, "0")}`;
     }
 
     return `${typePrefix}01`;
   }
 
-  async createAccount(createAccountDto: CreateChartOfAccountDto, tenantId: string): Promise<ChartOfAccounts> {
+  async createAccount(
+    createAccountDto: CreateChartOfAccountDto,
+    tenantId: string,
+  ): Promise<ChartOfAccounts> {
     const code = await this.generateNextCode(createAccountDto.type, tenantId);
-    
+
     const newAccount = new this.chartOfAccountsModel({
       ...createAccountDto,
       tenantId: new Types.ObjectId(tenantId),
@@ -56,18 +86,26 @@ export class AccountingService {
   }
 
   async findAllAccounts(tenantId: string): Promise<ChartOfAccounts[]> {
-    return this.chartOfAccountsModel.find({ tenantId: new Types.ObjectId(tenantId) }).sort({ code: 1 }).exec();
+    return this.chartOfAccountsModel
+      .find({ tenantId: new Types.ObjectId(tenantId) })
+      .sort({ code: 1 })
+      .exec();
   }
 
-  async findAllJournalEntries(tenantId: string, page: number, limit: number): Promise<any> {
+  async findAllJournalEntries(
+    tenantId: string,
+    page: number,
+    limit: number,
+  ): Promise<any> {
     const tenantObjectId = new Types.ObjectId(tenantId);
     const skip = (page - 1) * limit;
     const [entries, total] = await Promise.all([
-      this.journalEntryModel.find({ tenantId: tenantObjectId })
+      this.journalEntryModel
+        .find({ tenantId: tenantObjectId })
         .sort({ date: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('lines.account', 'name code')
+        .populate("lines.account", "name code")
         .exec(),
       this.journalEntryModel.countDocuments({ tenantId: tenantObjectId }),
     ]);
@@ -84,14 +122,16 @@ export class AccountingService {
   async fixJournalEntryDates(tenantId: string): Promise<void> {
     const stringEntries = await this.journalEntryModel.find({
       tenantId: new Types.ObjectId(tenantId),
-      date: { $type: 'string' } as any,
+      date: { $type: "string" } as any,
     });
 
     if (stringEntries.length > 0) {
-      this.logger.log(`[DateFixer] Found ${stringEntries.length} journal entries with string dates to fix.`);
+      this.logger.log(
+        `[DateFixer] Found ${stringEntries.length} journal entries with string dates to fix.`,
+      );
       for (const entry of stringEntries) {
         const dateStr = entry.date as any;
-        const parts = dateStr.split('/');
+        const parts = dateStr.split("/");
         if (parts.length === 3) {
           const year = parseInt(parts[2], 10);
           const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
@@ -101,7 +141,7 @@ export class AccountingService {
           if (!isNaN(validDate.getTime())) {
             await this.journalEntryModel.updateOne(
               { _id: entry._id },
-              { $set: { date: validDate } }
+              { $set: { date: validDate } },
             );
           }
         }
@@ -109,28 +149,36 @@ export class AccountingService {
     }
   }
 
-  async createJournalEntry(createDto: CreateJournalEntryDto, tenantId: string): Promise<JournalEntryDocument> {
+  async createJournalEntry(
+    createDto: CreateJournalEntryDto,
+    tenantId: string,
+  ): Promise<JournalEntryDocument> {
     const { lines, description } = createDto;
 
     const totalDebits = lines.reduce((sum, line) => sum + (line.debit || 0), 0);
-    const totalCredits = lines.reduce((sum, line) => sum + (line.credit || 0), 0);
+    const totalCredits = lines.reduce(
+      (sum, line) => sum + (line.credit || 0),
+      0,
+    );
 
     if (Math.abs(totalDebits - totalCredits) > 0.001) {
-      throw new BadRequestException('Total debits must equal total credits.');
+      throw new BadRequestException("Total debits must equal total credits.");
     }
-    
+
     if (totalDebits === 0 && totalCredits === 0) {
-      throw new BadRequestException('Journal entry must have non-zero debit or credit values.');
+      throw new BadRequestException(
+        "Journal entry must have non-zero debit or credit values.",
+      );
     }
 
     const newJournalEntry = new this.journalEntryModel({
       ...createDto,
       date: new Date(createDto.date),
-      lines: createDto.lines.map(line => ({
+      lines: createDto.lines.map((line) => ({
         account: line.accountId,
         debit: line.debit,
         credit: line.credit,
-        description: line.description || description, 
+        description: line.description || description,
       })),
       tenantId: new Types.ObjectId(tenantId),
       isAutomatic: false,
@@ -139,23 +187,43 @@ export class AccountingService {
     return newJournalEntry.save();
   }
 
-  private async findAccountByCode(code: string, tenantId: string): Promise<ChartOfAccountsDocument> {
-    const account = await this.chartOfAccountsModel.findOne({ code, tenantId: new Types.ObjectId(tenantId) }).exec();
+  private async findAccountByCode(
+    code: string,
+    tenantId: string,
+  ): Promise<ChartOfAccountsDocument> {
+    const account = await this.chartOfAccountsModel
+      .findOne({ code, tenantId: new Types.ObjectId(tenantId) })
+      .exec();
     if (!account) {
-      this.logger.error(`Automatic accounting failed: Account with code "${code}" not found for tenant "${tenantId}".`);
-      throw new InternalServerErrorException(`Configuración de cuenta contable automática faltante: No se encontró la cuenta con código ${code}.`);
+      this.logger.error(
+        `Automatic accounting failed: Account with code "${code}" not found for tenant "${tenantId}".`,
+      );
+      throw new InternalServerErrorException(
+        `Configuración de cuenta contable automática faltante: No se encontró la cuenta con código ${code}.`,
+      );
     }
     return account;
   }
 
-  private async findOrCreateAccount(accountDetails: { code: string; name: string; type: 'Activo' | 'Pasivo' | 'Patrimonio' | 'Ingreso' | 'Gasto'; }, tenantId: string): Promise<ChartOfAccountsDocument> {
+  private async findOrCreateAccount(
+    accountDetails: {
+      code: string;
+      name: string;
+      type: "Activo" | "Pasivo" | "Patrimonio" | "Ingreso" | "Gasto";
+    },
+    tenantId: string,
+  ): Promise<ChartOfAccountsDocument> {
     const tenantObjectId = new Types.ObjectId(tenantId);
-    const existingAccount = await this.chartOfAccountsModel.findOne({ code: accountDetails.code, tenantId: tenantObjectId }).exec();
+    const existingAccount = await this.chartOfAccountsModel
+      .findOne({ code: accountDetails.code, tenantId: tenantObjectId })
+      .exec();
     if (existingAccount) {
       return existingAccount;
     }
 
-    this.logger.log(`Account with code ${accountDetails.code} not found, creating it: "${accountDetails.name}"`);
+    this.logger.log(
+      `Account with code ${accountDetails.code} not found, creating it: "${accountDetails.name}"`,
+    );
     const newAccount = new this.chartOfAccountsModel({
       ...accountDetails,
       isSystemAccount: true,
@@ -165,22 +233,50 @@ export class AccountingService {
     return newAccount.save();
   }
 
-  async createJournalEntryForSale(order: OrderDocument, tenantId: string): Promise<JournalEntryDocument> {
-    this.logger.log(`Creating automatic journal entry for sale ${order.orderNumber}`);
+  async createJournalEntryForSale(
+    order: OrderDocument,
+    tenantId: string,
+  ): Promise<JournalEntryDocument> {
+    this.logger.log(
+      `Creating detailed automatic journal entry for sale ${order.orderNumber}`,
+    );
 
+    // 1. Get all necessary accounts
     const accountsReceivableAcc = await this.findAccountByCode("1102", tenantId);
     const salesRevenueAcc = await this.findAccountByCode("4101", tenantId);
     const taxPayableAcc = await this.findAccountByCode("2102", tenantId);
+    
+    const shippingIncomeAcc = order.shippingCost > 0 ? await this.findOrCreateAccount(
+      { code: "4102", name: "Ingresos por Envío", type: "Ingreso" },
+      tenantId,
+    ) : null;
 
+    const salesDiscountAcc = order.discountAmount > 0 ? await this.findOrCreateAccount(
+      { code: "4103", name: "Descuentos sobre Venta", type: "Ingreso" }, // Contra-revenue
+      tenantId,
+    ) : null;
+
+    // 2. Build the journal entry lines
     const lines: { accountId: string; debit: number; credit: number; description: string; }[] = [];
 
+    // Debit side
     lines.push({
       accountId: accountsReceivableAcc._id.toString(),
       debit: order.totalAmount,
       credit: 0,
-      description: `Venta según orden ${order.orderNumber}`,
+      description: `Cuentas por cobrar por orden ${order.orderNumber}`,
     });
 
+    if (salesDiscountAcc && order.discountAmount > 0) {
+      lines.push({
+        accountId: salesDiscountAcc._id.toString(),
+        debit: order.discountAmount,
+        credit: 0,
+        description: `Descuento en venta para la orden ${order.orderNumber}`,
+      });
+    }
+
+    // Credit side
     lines.push({
       accountId: salesRevenueAcc._id.toString(),
       debit: 0,
@@ -198,6 +294,16 @@ export class AccountingService {
       });
     }
 
+    if (shippingIncomeAcc && order.shippingCost > 0) {
+      lines.push({
+        accountId: shippingIncomeAcc._id.toString(),
+        debit: 0,
+        credit: order.shippingCost,
+        description: `Ingreso por envío para la orden ${order.orderNumber}`,
+      });
+    }
+
+    // 3. Create and save the journal entry
     const entryDto: CreateJournalEntryDto = {
       date: new Date().toISOString(),
       description: `Asiento automático por venta de orden ${order.orderNumber}`,
@@ -205,37 +311,128 @@ export class AccountingService {
     };
 
     const newEntry = new this.journalEntryModel({
-        ...entryDto,
-        date: new Date(entryDto.date),
-        lines: entryDto.lines.map(line => ({
-            account: line.accountId,
-            debit: line.debit,
-            credit: line.credit,
-            description: line.description,
-        })),
-        tenantId: new Types.ObjectId(tenantId),
-        isAutomatic: true,
+      ...entryDto,
+      date: new Date(entryDto.date),
+      lines: entryDto.lines.map((line) => ({
+        account: line.accountId,
+        debit: line.debit,
+        credit: line.credit,
+        description: line.description,
+      })),
+      tenantId: new Types.ObjectId(tenantId),
+      isAutomatic: true,
     });
 
     return newEntry.save();
   }
 
-  async createJournalEntryForPurchase(purchaseOrder: PurchaseOrderDocument, tenantId: string): Promise<JournalEntryDocument> {
-    this.logger.log(`Creating automatic journal entry for purchase ${purchaseOrder.poNumber}`);
+  async createJournalEntryForCOGS(
+    order: OrderDocument,
+    tenantId: string,
+  ): Promise<JournalEntryDocument | null> {
+    this.logger.log(
+      `Creating automatic COGS journal entry for sale ${order.orderNumber}`,
+    );
 
-    const inventoryAccount = await this.findOrCreateAccount({
-      code: "1103",
-      name: "Inventario",
-      type: "Activo",
-    }, tenantId);
+    const totalCost = order.items.reduce(
+      (sum, item) => sum + (item.costPrice || 0) * item.quantity,
+      0,
+    );
 
-    const accountsPayableAcc = await this.findOrCreateAccount({
-      code: "2101",
-      name: "Cuentas por Pagar",
-      type: "Pasivo",
-    }, tenantId);
+    if (totalCost === 0) {
+      this.logger.log(
+        `COGS for order ${order.orderNumber} is zero. Skipping journal entry.`,
+      );
+      return null;
+    }
 
-    const lines: { accountId: string; debit: number; credit: number; description: string; }[] = [
+    const inventoryAcc = await this.findOrCreateAccount(
+      {
+        code: "1103",
+        name: "Inventario",
+        type: "Activo",
+      },
+      tenantId,
+    );
+
+    const cogsAcc = await this.findOrCreateAccount(
+      {
+        code: "5101",
+        name: "Costo de Mercancía Vendida",
+        type: "Gasto",
+      },
+      tenantId,
+    );
+
+    const lines: { accountId: string; debit: number; credit: number, description: string }[] = [
+      {
+        accountId: cogsAcc._id.toString(),
+        debit: totalCost,
+        credit: 0,
+        description: `Costo de venta para la orden ${order.orderNumber}`,
+      },
+      {
+        accountId: inventoryAcc._id.toString(),
+        debit: 0,
+        credit: totalCost,
+        description: `Disminución de inventario por orden ${order.orderNumber}`,
+      },
+    ];
+
+    const entryDto: CreateJournalEntryDto = {
+      date: new Date().toISOString(),
+      description: `Asiento de costo de venta para la orden ${order.orderNumber}`,
+      lines,
+    };
+
+    const newEntry = new this.journalEntryModel({
+      ...entryDto,
+      date: new Date(entryDto.date),
+      lines: entryDto.lines.map((line) => ({
+        account: line.accountId,
+        debit: line.debit,
+        credit: line.credit,
+        description: line.description,
+      })),
+      tenantId: new Types.ObjectId(tenantId),
+      isAutomatic: true,
+    });
+
+    return newEntry.save();
+  }
+
+  async createJournalEntryForPurchase(
+    purchaseOrder: PurchaseOrderDocument,
+    tenantId: string,
+  ): Promise<JournalEntryDocument> {
+    this.logger.log(
+      `Creating automatic journal entry for purchase ${purchaseOrder.poNumber}`,
+    );
+
+    const inventoryAccount = await this.findOrCreateAccount(
+      {
+        code: "1103",
+        name: "Inventario",
+        type: "Activo",
+      },
+      tenantId,
+    );
+
+    const accountsPayableAcc = await this.findOrCreateAccount(
+      {
+        code: "2101",
+        name: "Cuentas por Pagar",
+        type: "Pasivo",
+      },
+      tenantId,
+    );
+
+    const lines: {
+      accountId: string;
+      debit: number;
+      credit: number;
+      description: string;
+    }[] = [
       {
         accountId: inventoryAccount._id.toString(),
         debit: purchaseOrder.totalAmount,
@@ -251,7 +448,10 @@ export class AccountingService {
     ];
 
     const entryDto: CreateJournalEntryDto = {
-      date: moment.tz(purchaseOrder.purchaseDate, 'America/Caracas').startOf('day').toISOString(),
+      date: moment
+        .tz(purchaseOrder.purchaseDate, "America/Caracas")
+        .startOf("day")
+        .toISOString(),
       description: `Asiento automático por compra ${purchaseOrder.poNumber}`,
       lines,
     };
@@ -259,7 +459,7 @@ export class AccountingService {
     const newEntry = new this.journalEntryModel({
       date: new Date(entryDto.date),
       description: entryDto.description,
-      lines: entryDto.lines.map(line => ({
+      lines: entryDto.lines.map((line) => ({
         account: line.accountId,
         debit: line.debit,
         credit: line.credit,
@@ -272,13 +472,99 @@ export class AccountingService {
     return newEntry.save();
   }
 
-  async createJournalEntryForPayment(order: OrderDocument, payment: OrderPayment, tenantId: string, igtfAmount = 0): Promise<JournalEntryDocument> {
-    this.logger.log(`Creating automatic journal entry for payment on order ${order.orderNumber}, IGTF: ${igtfAmount}`);
+  async createJournalEntryForPayable(
+    payable: PayableDocument,
+    tenantId: string,
+  ): Promise<JournalEntryDocument> {
+    this.logger.log(
+      `Creating automatic journal entry for payable ${payable.payableNumber}`,
+    );
+
+    const accountsPayableAcc = await this.findOrCreateAccount(
+      {
+        code: "2101",
+        name: "Cuentas por Pagar",
+        type: "Pasivo",
+      },
+      tenantId,
+    );
+
+    const lines: { accountId: string; debit: number; credit: number; description: string }[] = [];
+
+    // Debit each expense account from the payable lines, verifying it exists first
+    for (const line of payable.lines) {
+      const expenseAccount = await this.chartOfAccountsModel.findById(line.accountId).exec();
+      if (!expenseAccount) {
+        throw new BadRequestException(
+          `La cuenta de gasto con ID "${line.accountId}" para la línea "${line.description}" no fue encontrada.`
+        );
+      }
+      lines.push({
+        accountId: expenseAccount._id.toString(),
+        debit: line.amount,
+        credit: 0,
+        description: line.description || `Gasto por ${payable.description}`,
+      });
+    }
+
+    // Credit the total to Accounts Payable
+    lines.push({
+      accountId: accountsPayableAcc._id.toString(),
+      debit: 0,
+      credit: payable.totalAmount,
+      description: `Cuentas por pagar por ${payable.payableNumber}`,
+    });
+
+    const totalDebits = lines.reduce((sum, l) => sum + l.debit, 0);
+    const totalCredits = lines.reduce((sum, l) => sum + l.credit, 0);
+    if (Math.abs(totalDebits - totalCredits) > 0.01) {
+        throw new InternalServerErrorException("El asiento para la cuenta por pagar está desbalanceado.");
+    }
+
+    const entryDto: CreateJournalEntryDto = {
+      date: new Date(payable.issueDate).toISOString(),
+      description: `Asiento automático por cuenta por pagar ${payable.payableNumber}: ${payable.description}`,
+      lines,
+    };
+
+    const newEntry = new this.journalEntryModel({
+      date: new Date(entryDto.date),
+      description: entryDto.description,
+      lines: entryDto.lines.map((line) => ({
+        account: line.accountId,
+        debit: line.debit,
+        credit: line.credit,
+        description: line.description,
+      })),
+      tenantId: new Types.ObjectId(tenantId),
+      isAutomatic: true,
+    });
+
+    return newEntry.save();
+  }
+
+  async createJournalEntryForPayment(
+    order: OrderDocument,
+    payment: OrderPayment,
+    tenantId: string,
+    igtfAmount = 0,
+  ): Promise<JournalEntryDocument> {
+    this.logger.log(
+      `Creating automatic journal entry for payment on order ${order.orderNumber}, IGTF: ${igtfAmount}`,
+    );
 
     const cashOrBankAcc = await this.findAccountByCode("1101", tenantId);
-    const accountsReceivableAcc = await this.findAccountByCode("1102", tenantId);
+    const accountsReceivableAcc = await this.findAccountByCode(
+      "1102",
+      tenantId,
+    );
 
-    const lines: { accountId: string; debit: number; credit: number; description: string; }[] = [
+    const lines: {
+      accountId: string;
+      debit: number;
+      credit: number;
+      description: string;
+    }[] = [
       {
         accountId: cashOrBankAcc._id.toString(),
         debit: payment.amount,
@@ -294,26 +580,29 @@ export class AccountingService {
     ];
 
     if (igtfAmount > 0) {
-      const igtfExpenseAccount = await this.findOrCreateAccount({ 
-        code: "599",
-        name: "Gasto IGTF", 
-        type: "Gasto"
-      }, tenantId);
-      
+      const igtfExpenseAccount = await this.findOrCreateAccount(
+        {
+          code: "599",
+          name: "Gasto IGTF",
+          type: "Gasto",
+        },
+        tenantId,
+      );
+
       const taxPayableAccount = await this.findAccountByCode("2102", tenantId);
 
       lines.push({
         accountId: igtfExpenseAccount._id.toString(),
         debit: igtfAmount,
         credit: 0,
-        description: `Gasto IGTF por cobro de orden ${order.orderNumber}`
+        description: `Gasto IGTF por cobro de orden ${order.orderNumber}`,
       });
 
       lines.push({
         accountId: taxPayableAccount._id.toString(),
         debit: 0,
         credit: igtfAmount,
-        description: `Provisión IGTF por cobro de orden ${order.orderNumber}`
+        description: `Provisión IGTF por cobro de orden ${order.orderNumber}`,
       });
     }
 
@@ -322,18 +611,18 @@ export class AccountingService {
       description: `Asiento automático por cobro de orden ${order.orderNumber}`,
       lines,
     };
-    
+
     const newEntry = new this.journalEntryModel({
-        ...entryDto,
-        date: new Date(entryDto.date),
-        lines: entryDto.lines.map(line => ({
-            account: line.accountId,
-            debit: line.debit,
-            credit: line.credit,
-            description: line.description,
-        })),
-        tenantId: new Types.ObjectId(tenantId),
-        isAutomatic: true,
+      ...entryDto,
+      date: new Date(entryDto.date),
+      lines: entryDto.lines.map((line) => ({
+        account: line.accountId,
+        debit: line.debit,
+        credit: line.credit,
+        description: line.description,
+      })),
+      tenantId: new Types.ObjectId(tenantId),
+      isAutomatic: true,
     });
 
     return newEntry.save();
@@ -343,20 +632,25 @@ export class AccountingService {
     await this.fixJournalEntryDates(tenantId);
     const tenantObjectId = new Types.ObjectId(tenantId);
 
-    const allAccounts = await this.chartOfAccountsModel.find({ tenantId: tenantObjectId }).exec();
-    
-    const incomeAccountIds = allAccounts
-      .filter(a => a.type === 'Ingreso' || a.type === 'Ingresos')
-      .map(a => a._id);
-      
-    const expenseAccountIds = allAccounts
-      .filter(a => a.type === 'Gasto' || a.type === 'Gastos')
-      .map(a => a._id);
+    const allAccounts = await this.chartOfAccountsModel
+      .find({ tenantId: tenantObjectId })
+      .exec();
 
-    const journalEntries = await this.journalEntryModel.find({
-      tenantId: tenantObjectId,
-      date: { $gte: from, $lte: to },
-    }).populate('lines.account').exec();
+    const incomeAccountIds = allAccounts
+      .filter((a) => a.type === "Ingreso" || a.type === "Ingresos")
+      .map((a) => a._id);
+
+    const expenseAccountIds = allAccounts
+      .filter((a) => a.type === "Gasto" || a.type === "Gastos")
+      .map((a) => a._id);
+
+    const journalEntries = await this.journalEntryModel
+      .find({
+        tenantId: tenantObjectId,
+        date: { $gte: from, $lte: to },
+      })
+      .populate("lines.account")
+      .exec();
 
     let totalIncome = 0;
     let totalExpenses = 0;
@@ -366,10 +660,10 @@ export class AccountingService {
         if (!line.account) continue;
 
         const accountId = (line.account as any)._id;
-        if (incomeAccountIds.some(id => id.equals(accountId))) {
+        if (incomeAccountIds.some((id) => id.equals(accountId))) {
           totalIncome += line.credit - line.debit;
         }
-        if (expenseAccountIds.some(id => id.equals(accountId))) {
+        if (expenseAccountIds.some((id) => id.equals(accountId))) {
           totalExpenses += line.debit - line.credit;
         }
       }
@@ -392,11 +686,15 @@ export class AccountingService {
     await this.fixJournalEntryDates(tenantId);
     const tenantObjectId = new Types.ObjectId(tenantId);
 
-    const allAccounts = await this.chartOfAccountsModel.find({ tenantId: tenantObjectId }).lean();
-    const journalEntries = await this.journalEntryModel.find({
-      tenantId: tenantObjectId,
-      date: { $lte: asOfDate },
-    }).lean();
+    const allAccounts = await this.chartOfAccountsModel
+      .find({ tenantId: tenantObjectId })
+      .lean();
+    const journalEntries = await this.journalEntryModel
+      .find({
+        tenantId: tenantObjectId,
+        date: { $lte: asOfDate },
+      })
+      .lean();
 
     const accountBalances = new Map<string, number>();
 
@@ -419,43 +717,43 @@ export class AccountingService {
 
     for (const account of allAccounts) {
       const accountId = account._id.toString();
-      let balance = accountBalances.get(accountId) || 0;
+      const balance = accountBalances.get(accountId) || 0;
 
       if (balance === 0) continue;
 
       const accountInfo = {
         name: account.name,
         code: account.code,
-        balance: 0, 
+        balance: 0,
       };
 
       switch (account.type) {
-        case 'Activo':
+        case "Activo":
           accountInfo.balance = balance;
           assets.push(accountInfo);
           totalAssets += balance;
           break;
-        case 'Pasivo':
-          accountInfo.balance = -balance; 
+        case "Pasivo":
+          accountInfo.balance = -balance;
           liabilities.push(accountInfo);
           totalLiabilities += accountInfo.balance;
           break;
-        case 'Patrimonio':
-          accountInfo.balance = -balance; 
+        case "Patrimonio":
+          accountInfo.balance = -balance;
           equity.push(accountInfo);
           totalEquity += accountInfo.balance;
           break;
-        case 'Ingreso':
-        case 'Ingresos':
-          netIncome -= balance; 
+        case "Ingreso":
+        case "Ingresos":
+          netIncome -= balance;
           break;
-        case 'Gasto':
-        case 'Gastos':
+        case "Gasto":
+        case "Gastos":
           netIncome += balance;
           break;
       }
     }
-    
+
     equity.push({
       name: "Utilidad Neta del Período",
       code: "399",
@@ -480,7 +778,7 @@ export class AccountingService {
       verification: {
         totalLiabilitiesAndEquity: totalLiabilities + totalEquity,
         difference: totalAssets - (totalLiabilities + totalEquity),
-      }
+      },
     };
   }
 }

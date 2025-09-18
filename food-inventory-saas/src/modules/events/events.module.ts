@@ -1,9 +1,9 @@
-import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { EventsService } from './events.service';
-import { EventsController } from './events.controller';
-import { Event, EventSchema } from '../../schemas/event.schema';
-import { AuthModule } from '../../auth/auth.module';
+import { Module } from "@nestjs/common";
+import { MongooseModule } from "@nestjs/mongoose";
+import { EventsService } from "./events.service";
+import { EventsController } from "./events.controller";
+import { Event, EventSchema } from "../../schemas/event.schema";
+import { AuthModule } from "../../auth/auth.module";
 
 @Module({
   imports: [

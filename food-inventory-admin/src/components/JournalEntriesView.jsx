@@ -104,7 +104,11 @@ const JournalEntriesView = () => {
         </TableRow>
         {entry.lines.map((line, index) => (
           <TableRow key={`${entry._id}-${index}`}>
-            <TableCell className="pl-10">{line.account.name} ({line.account.code})</TableCell>
+            <TableCell className="pl-10">
+              {line.account 
+                ? `${line.account.name} (${line.account.code})` 
+                : <i className="text-muted-foreground">(Cuenta eliminada)</i>}
+            </TableCell>
             <TableCell>{line.description}</TableCell>
             <TableCell className="text-right font-mono">{line.debit > 0 ? formatCurrency(line.debit) : ''}</TableCell>
             <TableCell className="text-right font-mono">{line.credit > 0 ? formatCurrency(line.credit) : ''}</TableCell>

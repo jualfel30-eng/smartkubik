@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 export type OrderDocument = Order & Document;
 export type OrderItemDocument = OrderItem & Document;
@@ -27,7 +27,7 @@ export class OrderItemLot {
 
 @Schema()
 export class OrderItem {
-  @Prop({ type: Types.ObjectId, ref: 'Product', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Product", required: true })
   productId: Types.ObjectId;
 
   @Prop({ required: true })
@@ -36,7 +36,7 @@ export class OrderItem {
   @Prop({ required: true })
   productName: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'ProductVariant' })
+  @Prop({ type: Types.ObjectId, ref: "ProductVariant" })
   variantId?: Types.ObjectId;
 
   @Prop()
@@ -67,7 +67,7 @@ export class OrderItem {
   @Prop({ required: true })
   finalPrice: number; // precio final con impuestos
 
-  @Prop({ required: true, default: 'pending' })
+  @Prop({ required: true, default: "pending" })
   status: string; // pending, reserved, allocated, picked, shipped, delivered, cancelled
 
   @Prop()
@@ -100,13 +100,13 @@ export class OrderPayment {
   @Prop()
   bank?: string;
 
-  @Prop({ required: true, default: 'pending' })
+  @Prop({ required: true, default: "pending" })
   status: string; // pending, confirmed, failed, refunded
 
   @Prop()
   confirmedAt?: Date;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   confirmedBy?: Types.ObjectId;
 }
 
@@ -152,7 +152,7 @@ export class Order {
   @Prop({ required: true, unique: true })
   orderNumber: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'Customer', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Customer", required: true })
   customerId: Types.ObjectId;
 
   @Prop({ required: true })
@@ -190,7 +190,7 @@ export class Order {
   @Prop([OrderPayment])
   payments: OrderPayment[];
 
-  @Prop({ required: true, default: 'pending' })
+  @Prop({ required: true, default: "pending" })
   paymentStatus: string; // pending, partial, paid, overpaid, refunded
 
   // Información de envío
@@ -198,13 +198,13 @@ export class Order {
   shipping?: OrderShipping;
 
   // Estados de la orden
-  @Prop({ required: true, default: 'draft' })
+  @Prop({ required: true, default: "draft" })
   status: string; // draft, pending, confirmed, processing, shipped, delivered, cancelled, refunded
 
-  @Prop({ required: true, default: 'online' })
+  @Prop({ required: true, default: "online" })
   channel: string; // online, phone, whatsapp, in_store
 
-  @Prop({ required: true, default: 'retail' })
+  @Prop({ required: true, default: "retail" })
   type: string; // retail, wholesale, b2b
 
   // Fechas importantes
@@ -254,13 +254,13 @@ export class Order {
   @Prop()
   internalNotes?: string; // notas internas no visibles al cliente
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   assignedTo?: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })
   tenantId: Types.ObjectId;
 }
 
@@ -275,16 +275,15 @@ OrderSchema.index({ channel: 1, createdAt: -1, tenantId: 1 });
 OrderSchema.index({ type: 1, createdAt: -1, tenantId: 1 });
 OrderSchema.index({ createdAt: -1, tenantId: 1 });
 OrderSchema.index({ confirmedAt: -1, tenantId: 1 });
-OrderSchema.index({ 'inventoryReservation.isReserved': 1, tenantId: 1 });
-OrderSchema.index({ 'inventoryReservation.expiresAt': 1, tenantId: 1 });
+OrderSchema.index({ "inventoryReservation.isReserved": 1, tenantId: 1 });
+OrderSchema.index({ "inventoryReservation.expiresAt": 1, tenantId: 1 });
 OrderSchema.index({ assignedTo: 1, status: 1, tenantId: 1 });
 OrderSchema.index({ totalAmount: -1, createdAt: -1, tenantId: 1 });
 
 // Índice de texto para búsqueda
-OrderSchema.index({ 
-  orderNumber: 'text', 
-  customerName: 'text', 
-  customerEmail: 'text',
-  customerPhone: 'text'
+OrderSchema.index({
+  orderNumber: "text",
+  customerName: "text",
+  customerEmail: "text",
+  customerPhone: "text",
 });
-

@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 export type SupplierDocument = Supplier & Document;
 
@@ -112,7 +112,7 @@ export class Supplier {
     paymentDelayDays: number;
   };
 
-  @Prop({ required: true, default: 'active' })
+  @Prop({ required: true, default: "active" })
   status: string; // active, inactive, suspended, blocked
 
   @Prop()
@@ -127,13 +127,13 @@ export class Supplier {
   @Prop()
   internalNotes?: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   assignedTo?: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })
   tenantId: Types.ObjectId;
 }
 
@@ -143,17 +143,16 @@ export const SupplierSchema = SchemaFactory.createForClass(Supplier);
 SupplierSchema.index({ supplierNumber: 1, tenantId: 1 }, { unique: true });
 SupplierSchema.index({ name: 1, tenantId: 1 });
 SupplierSchema.index({ supplierType: 1, tenantId: 1 });
-SupplierSchema.index({ 'taxInfo.rif': 1, tenantId: 1 });
+SupplierSchema.index({ "taxInfo.rif": 1, tenantId: 1 });
 SupplierSchema.index({ status: 1, tenantId: 1 });
 SupplierSchema.index({ categories: 1, tenantId: 1 });
 SupplierSchema.index({ assignedTo: 1, tenantId: 1 });
 SupplierSchema.index({ createdAt: -1, tenantId: 1 });
 
 // Índice de texto para búsqueda
-SupplierSchema.index({ 
-  name: 'text', 
-  tradeName: 'text',
-  supplierNumber: 'text',
-  'taxInfo.rif': 'text'
+SupplierSchema.index({
+  name: "text",
+  tradeName: "text",
+  supplierNumber: "text",
+  "taxInfo.rif": "text",
 });
-

@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 export type ProductDocument = Product & Document;
 
@@ -46,7 +46,7 @@ export class ProductVariant {
 
 @Schema()
 export class ProductSupplier {
-  @Prop({ type: Types.ObjectId, ref: 'Supplier', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Supplier", required: true })
   supplierId: Types.ObjectId;
 
   @Prop({ required: true })
@@ -164,13 +164,13 @@ export class Product {
   @Prop({ default: true })
   isActive: boolean;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   createdBy: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   updatedBy: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })
   tenantId: Types.ObjectId;
 }
 
@@ -178,11 +178,10 @@ export const ProductSchema = SchemaFactory.createForClass(Product);
 
 // Índices para optimizar consultas
 ProductSchema.index({ sku: 1, tenantId: 1 }, { unique: true });
-ProductSchema.index({ name: 'text', description: 'text', tags: 'text' });
+ProductSchema.index({ name: "text", description: "text", tags: "text" });
 ProductSchema.index({ brand: 1, tenantId: 1 });
 ProductSchema.index({ isActive: 1, tenantId: 1 });
-ProductSchema.index({ 'variants.sku': 1, tenantId: 1 });
-ProductSchema.index({ 'variants.barcode': 1, tenantId: 1 });
+ProductSchema.index({ "variants.sku": 1, tenantId: 1 });
+ProductSchema.index({ "variants.barcode": 1, tenantId: 1 });
 ProductSchema.index({ isPerishable: 1, tenantId: 1 });
 ProductSchema.index({ createdAt: -1, tenantId: 1 });
-

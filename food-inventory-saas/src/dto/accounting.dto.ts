@@ -1,16 +1,16 @@
-import { 
-  IsString, 
-  IsNotEmpty, 
-  IsEnum, 
-  IsOptional, 
-  IsDateString, 
-  IsArray, 
-  ArrayMinSize, 
-  ValidateNested, 
-  IsNumber, 
-  Min 
-} from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  IsString,
+  IsNotEmpty,
+  IsEnum,
+  IsOptional,
+  IsDateString,
+  IsArray,
+  ArrayMinSize,
+  ValidateNested,
+  IsNumber,
+  Min,
+} from "class-validator";
+import { Type } from "class-transformer";
 
 // Los tipos de cuenta deben coincidir con los del frontend
 const ACCOUNT_TYPES = ["Ingreso", "Gasto", "Activo", "Pasivo", "Patrimonio"];

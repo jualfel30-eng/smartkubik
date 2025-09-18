@@ -1,11 +1,16 @@
-import { Injectable, Logger, UnauthorizedException, BadRequestException } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import * as bcrypt from 'bcrypt';
-import { v4 as uuidv4 } from 'uuid';
-import { User, UserDocument } from '../schemas/user.schema';
-import { Tenant, TenantDocument } from '../schemas/tenant.schema';
+import {
+  Injectable,
+  Logger,
+  UnauthorizedException,
+  BadRequestException,
+} from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
+import * as bcrypt from "bcrypt";
+import { v4 as uuidv4 } from "uuid";
+import { User, UserDocument } from "../schemas/user.schema";
+import { Tenant, TenantDocument } from "../schemas/tenant.schema";
 import {
   LoginDto,
   RegisterDto,
@@ -13,7 +18,7 @@ import {
   ChangePasswordDto,
   ForgotPasswordDto,
   ResetPasswordDto,
-} from '../dto/auth.dto';
+} from "../dto/auth.dto";
 
 @Injectable()
 export class AuthService {
@@ -26,68 +31,64 @@ export class AuthService {
   ) {}
 
   async login(loginDto: LoginDto) {
-    this.logger.log(`Login attempt for email: ${loginDto.email}`);
+    const email = loginDto.email.trim();
+    this.logger.log(`Login attempt for email: ${email}`);
 
-    // Buscar usuario por email
-    let user: UserDocument | null = null;
-    
-    if (loginDto.tenantCode) {
-      // Login con código de tenant específico
-      const tenant = await this.tenantModel.findOne({ code: loginDto.tenantCode });
-      if (!tenant) {
-        throw new UnauthorizedException('Tenant no encontrado');
-      }
-      
-      user = await this.userModel.findOne({
-        email: loginDto.email,
-        tenantId: tenant._id,
-      });
-    } else {
-      // Login sin tenant específico (buscar en todos los tenants)
-      user = await this.userModel.findOne({ email: loginDto.email });
-    }
+    // 1. Find user by email
+    const user = await this.userModel.findOne({ email }).exec();
 
     if (!user) {
-      throw new UnauthorizedException('Credenciales inválidas');
+      this.logger.warn(`Login failed: User not found for email ${email}`);
+      throw new UnauthorizedException("Credenciales inválidas");
     }
 
-    // Verificar si el usuario está bloqueado
+    // 2. Check for account lock
     if (user.lockUntil && user.lockUntil > new Date()) {
-      const remainingTime = Math.ceil((user.lockUntil.getTime() - Date.now()) / 60000);
-      throw new UnauthorizedException(`Cuenta bloqueada. Intente en ${remainingTime} minutos.`);
+      const remainingTime = Math.ceil(
+        (user.lockUntil.getTime() - Date.now()) / 60000,
+      );
+      throw new UnauthorizedException(
+        `Cuenta bloqueada. Intente en ${remainingTime} minutos.`,
+      );
     }
 
-    // Verificar contraseña
-    const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
-    
+    // 3. Validate password
+    const isPasswordValid = await bcrypt.compare(
+      loginDto.password,
+      user.password,
+    );
+
     if (!isPasswordValid) {
-      // Incrementar intentos fallidos
       await this.handleFailedLogin(user);
-      throw new UnauthorizedException('Credenciales inválidas');
+      throw new UnauthorizedException("Credenciales inválidas");
     }
 
-    // Verificar que el usuario esté activo
+    // 4. Check if user is active
     if (!user.isActive) {
-      throw new UnauthorizedException('Usuario inactivo');
+      throw new UnauthorizedException("Usuario inactivo");
     }
 
-    // Verificar que el tenant esté activo
-    const tenant = await this.tenantModel.findById(user.tenantId);
-    if (!tenant || tenant.status !== 'active') {
-      throw new UnauthorizedException('Tenant inactivo');
+    // 5. Find and check if tenant is active
+    const tenant = await this.tenantModel.findById(user.tenantId).exec();
+    if (!tenant) {
+        this.logger.error(`CRITICAL: User ${user.email} has an invalid tenantId: ${user.tenantId}`);
+        throw new UnauthorizedException("Error de configuración de la cuenta: Tenant asociado no encontrado.");
+    }
+    if (tenant.status !== "active") {
+      throw new UnauthorizedException("La organización (tenant) está inactiva");
     }
 
-    // Resetear intentos fallidos y actualizar último login
+    // 6. Success: Reset failed attempts and update last login
     await this.userModel.updateOne(
       { _id: user._id },
       {
         $unset: { loginAttempts: 1, lockUntil: 1 },
         lastLoginAt: new Date(),
-        lastLoginIP: loginDto.ip || 'unknown',
+        lastLoginIP: loginDto.ip || "unknown",
       },
     );
 
-    // Generar tokens
+    // 7. Generate tokens
     const tokens = await this.generateTokens(user, tenant);
 
     this.logger.log(`Successful login for user: ${user.email}`);
@@ -116,9 +117,11 @@ export class AuthService {
     this.logger.log(`Registration attempt for email: ${registerDto.email}`);
 
     // Verificar que el tenant existe
-    const tenant = await this.tenantModel.findOne({ code: registerDto.tenantCode });
+    const tenant = await this.tenantModel.findOne({
+      code: registerDto.tenantCode,
+    });
     if (!tenant) {
-      throw new BadRequestException('Tenant no encontrado');
+      throw new BadRequestException("Tenant no encontrado");
     }
 
     // Verificar que el email no esté en uso en este tenant
@@ -128,7 +131,9 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new BadRequestException('El email ya está registrado en este tenant');
+      throw new BadRequestException(
+        "El email ya está registrado en este tenant",
+      );
     }
 
     // Hash de la contraseña
@@ -169,7 +174,9 @@ export class AuthService {
   }
 
   async createUser(createUserDto: CreateUserDto, currentUser: any) {
-    this.logger.log(`Creating user: ${createUserDto.email} by ${currentUser.email}`);
+    this.logger.log(
+      `Creating user: ${createUserDto.email} by ${currentUser.email}`,
+    );
 
     // Verificar que el email no esté en uso en este tenant
     const existingUser = await this.userModel.findOne({
@@ -178,7 +185,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new BadRequestException('El email ya está registrado');
+      throw new BadRequestException("El email ya está registrado");
     }
 
     // Hash de la contraseña temporal
@@ -215,17 +222,17 @@ export class AuthService {
 
       const user = await this.userModel.findById(payload.sub);
       if (!user || !user.isActive) {
-        throw new UnauthorizedException('Usuario inválido');
+        throw new UnauthorizedException("Usuario inválido");
       }
 
       const tenant = await this.tenantModel.findById(user.tenantId);
-      if (!tenant || tenant.status !== 'active') {
-        throw new UnauthorizedException('Tenant inválido');
+      if (!tenant || tenant.status !== "active") {
+        throw new UnauthorizedException("Tenant inválido");
       }
 
       return this.generateTokens(user, tenant);
     } catch (error) {
-      throw new UnauthorizedException('Refresh token inválido');
+      throw new UnauthorizedException("Refresh token inválido");
     }
   }
 
@@ -234,7 +241,7 @@ export class AuthService {
 
     const userDoc = await this.userModel.findById(user.id);
     if (!userDoc) {
-      throw new UnauthorizedException('Usuario no encontrado');
+      throw new UnauthorizedException("Usuario no encontrado");
     }
 
     // Verificar contraseña actual
@@ -244,11 +251,14 @@ export class AuthService {
     );
 
     if (!isCurrentPasswordValid) {
-      throw new BadRequestException('Contraseña actual incorrecta');
+      throw new BadRequestException("Contraseña actual incorrecta");
     }
 
     // Hash de la nueva contraseña
-    const hashedNewPassword = await bcrypt.hash(changePasswordDto.newPassword, 12);
+    const hashedNewPassword = await bcrypt.hash(
+      changePasswordDto.newPassword,
+      12,
+    );
 
     await this.userModel.updateOne(
       { _id: user.id },
@@ -259,12 +269,16 @@ export class AuthService {
   }
 
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
-    this.logger.log(`Password reset request for email: ${forgotPasswordDto.email}`);
+    this.logger.log(
+      `Password reset request for email: ${forgotPasswordDto.email}`,
+    );
 
     let user: UserDocument | null = null;
 
     if (forgotPasswordDto.tenantCode) {
-      const tenant = await this.tenantModel.findOne({ code: forgotPasswordDto.tenantCode });
+      const tenant = await this.tenantModel.findOne({
+        code: forgotPasswordDto.tenantCode,
+      });
       if (tenant) {
         user = await this.userModel.findOne({
           email: forgotPasswordDto.email,
@@ -293,7 +307,9 @@ export class AuthService {
   }
 
   async resetPassword(resetPasswordDto: ResetPasswordDto) {
-    this.logger.log(`Password reset attempt with token: ${resetPasswordDto.token}`);
+    this.logger.log(
+      `Password reset attempt with token: ${resetPasswordDto.token}`,
+    );
 
     const user = await this.userModel.findOne({
       passwordResetToken: resetPasswordDto.token,
@@ -301,7 +317,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new BadRequestException('Token de reseteo inválido o expirado');
+      throw new BadRequestException("Token de reseteo inválido o expirado");
     }
 
     // Hash de la nueva contraseña
@@ -326,12 +342,12 @@ export class AuthService {
   async getProfile(userId: string) {
     const user = await this.userModel
       .findById(userId)
-      .select('-password -passwordResetToken -emailVerificationToken')
-      .populate('tenantId', 'code name businessType')
+      .select("-password -passwordResetToken -emailVerificationToken")
+      .populate("tenantId", "code name businessType")
       .exec();
 
     if (!user) {
-      throw new UnauthorizedException('Usuario no encontrado');
+      throw new UnauthorizedException("Usuario no encontrado");
     }
 
     return user;
@@ -353,18 +369,18 @@ export class AuthService {
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
-        expiresIn: process.env.JWT_EXPIRES_IN || '15m',
+        expiresIn: process.env.JWT_EXPIRES_IN || "15m",
       }),
       this.jwtService.signAsync(payload, {
         secret: process.env.JWT_REFRESH_SECRET,
-        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
       }),
     ]);
 
     return {
       accessToken,
       refreshToken,
-      expiresIn: process.env.JWT_EXPIRES_IN || '15m',
+      expiresIn: process.env.JWT_EXPIRES_IN || "15m",
     };
   }
 
@@ -384,4 +400,3 @@ export class AuthService {
     await this.userModel.updateOne({ _id: user._id }, updates);
   }
 }
-

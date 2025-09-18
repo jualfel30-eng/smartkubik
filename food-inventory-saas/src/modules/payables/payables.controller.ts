@@ -1,0 +1,123 @@
+import { Controller, Post, Body, Request, UseGuards, HttpException, HttpStatus, Get, Param, Patch, Delete } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { PayablesService, CreatePayableDto, UpdatePayableDto } from './payables.service';
+import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
+import { TenantGuard } from '../../guards/tenant.guard';
+import { PermissionsGuard } from '../../guards/permissions.guard';
+import { RequirePermissions } from '../../decorators/permissions.decorator';
+
+@ApiTags('payables')
+@Controller('payables')
+@UseGuards(JwtAuthGuard, TenantGuard)
+@ApiBearerAuth()
+export class PayablesController {
+  constructor(private readonly payablesService: PayablesService) {}
+
+  @Post()
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions('payables', ['create'])
+  @ApiOperation({ summary: 'Crear una nueva cuenta por pagar (payable)' })
+  @ApiResponse({ status: 201, description: 'La cuenta por pagar ha sido creada exitosamente.' })
+  @ApiResponse({ status: 400, description: 'Datos de entrada inválidos.' })
+  async create(@Request() req, @Body() createPayableDto: CreatePayableDto) {
+    try {
+      const newPayable = await this.payablesService.create(
+        createPayableDto,
+        req.user.tenantId,
+        req.user.id,
+      );
+      return {
+        success: true,
+        message: 'Cuenta por pagar creada exitosamente',
+        data: newPayable,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Error al crear la cuenta por pagar',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get()
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions('payables', ['read'])
+  @ApiOperation({ summary: 'Obtener todas las cuentas por pagar del tenant' })
+  async findAll(@Request() req) {
+    try {
+      const payables = await this.payablesService.findAll(req.user.tenantId);
+      return {
+        success: true,
+        data: payables,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Error al obtener las cuentas por pagar',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get(':id')
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions('payables', ['read'])
+  @ApiOperation({ summary: 'Obtener una cuenta por pagar por su ID' })
+  async findOne(@Request() req, @Param('id') id: string) {
+    try {
+      const payable = await this.payablesService.findOne(id, req.user.tenantId);
+      return {
+        success: true,
+        data: payable,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Error al obtener la cuenta por pagar',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Patch(':id')
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions('payables', ['update'])
+  @ApiOperation({ summary: 'Actualizar una cuenta por pagar' })
+  async update(
+    @Request() req,
+    @Param('id') id: string,
+    @Body() updatePayableDto: UpdatePayableDto,
+  ) {
+    try {
+      const updatedPayable = await this.payablesService.update(
+        id,
+        req.user.tenantId,
+        updatePayableDto,
+      );
+      return {
+        success: true,
+        message: 'Cuenta por pagar actualizada exitosamente',
+        data: updatedPayable,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Error al actualizar la cuenta por pagar',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Delete(':id')
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions('payables', ['delete'])
+  @ApiOperation({ summary: 'Anular una cuenta por pagar' })
+  async remove(@Request() req, @Param('id') id: string) {
+    try {
+      const result = await this.payablesService.remove(id, req.user.tenantId);
+      return result;
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Error al anular la cuenta por pagar',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+}

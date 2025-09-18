@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 export type CustomerDocument = Customer & Document;
 
@@ -20,7 +20,7 @@ export class CustomerAddress {
   @Prop()
   zipCode?: string;
 
-  @Prop({ required: true, default: 'Venezuela' })
+  @Prop({ required: true, default: "Venezuela" })
   country: string;
 
   @Prop({ type: Object })
@@ -86,7 +86,7 @@ export class CustomerSegment {
   @Prop({ required: true })
   assignedAt: Date;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   assignedBy: Types.ObjectId;
 
   @Prop()
@@ -107,10 +107,10 @@ export class CustomerInteraction {
   @Prop()
   description?: string;
 
-  @Prop({ required: true, default: 'completed' })
+  @Prop({ required: true, default: "completed" })
   status: string; // pending, in_progress, completed, cancelled
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: "User", required: true })
   handledBy: Types.ObjectId;
 
   @Prop()
@@ -206,7 +206,7 @@ export class Customer {
   };
 
   // Estado del cliente
-  @Prop({ required: true, default: 'active' })
+  @Prop({ required: true, default: "active" })
   status: string; // active, inactive, suspended, blocked
 
   @Prop()
@@ -222,19 +222,19 @@ export class Customer {
   internalNotes?: string; // notas internas no visibles al cliente
 
   // Información de registro
-  @Prop({ required: true, default: 'manual' })
+  @Prop({ required: true, default: "manual" })
   source: string; // manual, web, whatsapp, referral, import
 
-  @Prop({ type: Types.ObjectId, ref: 'Customer' })
+  @Prop({ type: Types.ObjectId, ref: "Customer" })
   referredBy?: Types.ObjectId; // cliente que lo refirió
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   assignedTo?: Types.ObjectId; // vendedor asignado
 
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })
   tenantId: Types.ObjectId;
 
   // Fechas importantes

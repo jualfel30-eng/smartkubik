@@ -1,11 +1,11 @@
-import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { DashboardController } from './dashboard.controller';
-import { DashboardService } from './dashboard.service';
-import { AuthModule } from '../../auth/auth.module';
-import { Order, OrderSchema } from '../../schemas/order.schema';
-import { Customer, CustomerSchema } from '../../schemas/customer.schema';
-import { Inventory, InventorySchema } from '../../schemas/inventory.schema';
+import { Module } from "@nestjs/common";
+import { MongooseModule } from "@nestjs/mongoose";
+import { DashboardController } from "./dashboard.controller";
+import { DashboardService } from "./dashboard.service";
+import { AuthModule } from "../../auth/auth.module";
+import { Order, OrderSchema } from "../../schemas/order.schema";
+import { Customer, CustomerSchema } from "../../schemas/customer.schema";
+import { Inventory, InventorySchema } from "../../schemas/inventory.schema";
 
 @Module({
   imports: [

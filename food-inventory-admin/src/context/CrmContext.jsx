@@ -31,8 +31,8 @@ export const CrmProvider = ({ children }) => {
     console.log('[CrmContext] Ejecutando loadPaymentMethods...');
     try {
       const response = await fetchApi('/orders/__lookup/payment-methods');
-      if (response.methods) {
-        setPaymentMethods(response.methods);
+      if (response.data && response.data.methods) {
+        setPaymentMethods(response.data.methods);
       } else {
         throw new Error(response.message || 'Failed to fetch payment methods');
       }

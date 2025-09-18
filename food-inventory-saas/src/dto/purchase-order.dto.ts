@@ -1,5 +1,15 @@
-import { IsString, IsOptional, IsDateString, IsArray, ValidateNested, IsMongoId, IsNumber, IsPositive, ValidateIf } from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  IsString,
+  IsOptional,
+  IsDateString,
+  IsArray,
+  ValidateNested,
+  IsMongoId,
+  IsNumber,
+  IsPositive,
+  ValidateIf,
+} from "class-validator";
+import { Type } from "class-transformer";
 
 class PurchaseOrderItemDto {
   @IsMongoId()
@@ -34,15 +44,15 @@ export class CreatePurchaseOrderDto {
   supplierId?: string; // Optional: for existing suppliers
 
   // These fields are for creating a new supplier on the fly
-  @ValidateIf(o => !o.supplierId)
+  @ValidateIf((o) => !o.supplierId)
   @IsString()
   newSupplierName?: string;
 
-  @ValidateIf(o => !o.supplierId)
+  @ValidateIf((o) => !o.supplierId)
   @IsString()
   newSupplierRif?: string;
 
-  @ValidateIf(o => !o.supplierId)
+  @ValidateIf((o) => !o.supplierId)
   @IsString()
   newSupplierContactName?: string;
 
