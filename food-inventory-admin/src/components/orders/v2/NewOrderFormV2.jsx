@@ -11,6 +11,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { fetchApi } from '@/lib/api.js';
 import { useCrmContext } from '@/context/CrmContext.jsx';
 import { venezuelaData } from '@/lib/venezuela-data.js';
+import { SearchableSelect } from './custom/SearchableSelect';
 
 const initialOrderState = {
   customerId: '',
@@ -36,18 +37,19 @@ export function NewOrderFormV2({ onOrderCreated }) {
   const [municipios, setMunicipios] = useState([]);
 
   useEffect(() => {
-    const selectedState = venezuelaData.find(v => v.estado === newOrder.shippingAddress.state);
-    setMunicipios(selectedState ? selectedState.municipios : []);
-    if (selectedState && !selectedState.municipios.some(m => m.municipio === newOrder.shippingAddress.city)) {
-      handleAddressChange('city', selectedState.municipios[0]?.municipio || '');
+    const selectedStateData = venezuelaData.find(v => v.estado === newOrder.shippingAddress.state);
+    const newMunicipios = selectedStateData ? selectedStateData.municipios : [];
+    setMunicipios(newMunicipios);
+
+    // If the current city (municipality) isn't in the new list, update it to the first one.
+    const cityExists = newMunicipios.includes(newOrder.shippingAddress.city);
+    if (!cityExists && newMunicipios.length > 0) {
+      handleAddressChange('city', newMunicipios[0]);
     }
   }, [newOrder.shippingAddress.state]);
 
-  // UI State
-  const [selectedProduct, setSelectedProduct] = useState('');
-  const [productQuantity, setProductQuantity] = useState(1);
+  // selectedProduct and productQuantity states are no longer needed
 
-  // Fetch products for the combobox
   useEffect(() => {
     const loadProducts = async () => {
       try {
@@ -63,16 +65,23 @@ export function NewOrderFormV2({ onOrderCreated }) {
     loadProducts();
   }, []);
 
-  // Set default payment method once loaded
   useEffect(() => {
     if (paymentMethods.length > 0 && !newOrder.paymentMethod) {
       setNewOrder(prev => ({ ...prev, paymentMethod: paymentMethods[0].id }));
     }
   }, [paymentMethods, newOrder.paymentMethod]);
 
-  const handleCustomerSelect = (customerId) => {
-    const customer = customers.find(c => c._id === customerId);
-    if (customer) {
+  const handleCustomerSelection = (selectedOption) => {
+    if (!selectedOption) { // Cleared
+      setNewOrder(prev => ({ ...prev, customerId: '', customerName: '', customerRif: '', taxType: 'V' }));
+      return;
+    }
+
+    // __isNew__ is a property that react-select/creatable adds to a newly created option
+    if (selectedOption.__isNew__) {
+      setNewOrder(prev => ({ ...prev, customerId: '', customerName: selectedOption.label, customerRif: '', taxType: 'V' }));
+    } else { // An existing customer was selected
+      const { customer } = selectedOption;
       setNewOrder(prev => ({
         ...prev,
         customerId: customer._id,
@@ -94,9 +103,10 @@ export function NewOrderFormV2({ onOrderCreated }) {
     }));
   };
 
-  const addProductToOrder = () => {
-    if (!selectedProduct || productQuantity <= 0) return;
-    const product = products.find(p => p._id === selectedProduct);
+  const handleProductSelection = (selectedOption) => {
+    if (!selectedOption) return;
+
+    const product = selectedOption.product;
     if (!product) return;
 
     const variant = product.variants?.[0];
@@ -108,27 +118,35 @@ export function NewOrderFormV2({ onOrderCreated }) {
     const existingItem = newOrder.items.find(item => item.productId === product._id);
 
     if (existingItem) {
+      // If item exists, just increment quantity by 1
       const updatedItems = newOrder.items.map(item => 
         item.productId === product._id 
-          ? { ...item, quantity: item.quantity + productQuantity } 
+          ? { ...item, quantity: item.quantity + 1 } 
           : item
       );
-      setNewOrder({ ...newOrder, items: updatedItems });
+      setNewOrder(prev => ({ ...prev, items: updatedItems }));
     } else {
+      // If item doesn't exist, add it with quantity 1
       const newItem = {
         productId: product._id,
         name: product.name,
         sku: variant.sku,
-        quantity: productQuantity,
+        quantity: 1, // Default quantity
         unitPrice: variant.basePrice || 0,
         ivaApplicable: product.ivaApplicable,
         igtfExempt: product.igtfExempt,
       };
-      setNewOrder({ ...newOrder, items: [...newOrder.items, newItem] });
+      setNewOrder(prev => ({ ...prev, items: [...prev.items, newItem] }));
     }
+  };
 
-    setSelectedProduct('');
-    setProductQuantity(1);
+  const handleItemQuantityChange = (productId, newQuantity) => {
+    const quantity = Math.max(0, parseInt(newQuantity) || 0);
+    const updatedItems = newOrder.items.map(item =>
+      item.productId === productId ? { ...item, quantity } : item
+    ).filter(item => item.quantity > 0); // Remove item if quantity is 0
+
+    setNewOrder(prev => ({ ...prev, items: updatedItems }));
   };
 
   const removeProductFromOrder = (productId) => {
@@ -173,8 +191,12 @@ export function NewOrderFormV2({ onOrderCreated }) {
     }
   };
 
-  const customerOptions = useMemo(() => 
-    customers.map(c => ({ value: c._id, label: `${c.name} - ${c.taxInfo?.taxId || 'Sin RIF'}` })), 
+  const customerOptions = useMemo(() =>
+    customers.map(customer => ({
+      value: customer._id,
+      label: `${customer.name} - ${customer.taxInfo?.taxId || 'N.A.'}`,
+      customer: customer,
+    })),
   [customers]);
 
   const productOptions = useMemo(() => 
@@ -206,27 +228,44 @@ export function NewOrderFormV2({ onOrderCreated }) {
       <CardContent className="space-y-6">
         <div className="p-4 border rounded-lg space-y-4">
           <Label className="text-base font-semibold">Datos del Cliente</Label>
-          <Combobox 
-            options={customerOptions} 
-            value={newOrder.customerId} 
-            onChange={handleCustomerSelect} 
-            placeholder="Buscar cliente existente..."
-            searchPlaceholder="Buscar por nombre o RIF..."
-            emptyPlaceholder={contextLoading ? "Cargando clientes..." : "No se encontraron clientes."}
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="customerName">Nombre o Razón Social</Label>
-              <Input id="customerName" value={newOrder.customerName} onChange={(e) => handleFieldChange('customerName', e.target.value)} placeholder="Nombre del cliente" />
+              <SearchableSelect
+                isCreatable
+                options={customerOptions}
+                onSelection={handleCustomerSelection}
+                value={
+                  newOrder.customerId
+                    ? { value: newOrder.customerId, label: newOrder.customerName }
+                    : newOrder.customerName
+                      ? { value: newOrder.customerName, label: newOrder.customerName }
+                      : null
+                }
+                placeholder="Escriba o seleccione un cliente..."
+              />
             </div>
             <div className="grid grid-cols-3 gap-2">
               <div className="space-y-2 col-span-1">
                 <Label htmlFor="taxType">Tipo</Label>
-                <Select value={newOrder.taxType} onValueChange={(value) => handleFieldChange('taxType', value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="V">V</SelectItem><SelectItem value="E">E</SelectItem><SelectItem value="J">J</SelectItem><SelectItem value="G">G</SelectItem></SelectContent></Select>
+                <Select value={newOrder.taxType} onValueChange={(value) => handleFieldChange('taxType', value)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="V">V</SelectItem>
+                    <SelectItem value="E">E</SelectItem>
+                    <SelectItem value="J">J</SelectItem>
+                    <SelectItem value="G">G</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2 col-span-2">
                 <Label htmlFor="customerRif">RIF / C.I.</Label>
-                <Input id="customerRif" value={newOrder.customerRif} onChange={(e) => handleFieldChange('customerRif', e.target.value)} placeholder="123456789" />
+                <Input
+                  id="customerRif"
+                  value={newOrder.customerRif}
+                  onChange={(e) => handleFieldChange('customerRif', e.target.value)}
+                  placeholder="RIF / C.I."
+                />
               </div>
             </div>
           </div>
@@ -245,16 +284,16 @@ export function NewOrderFormV2({ onOrderCreated }) {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Municipio</Label>
+              <Label>Municipio / Ciudad</Label>
               <Select value={newOrder.shippingAddress.city} onValueChange={(v) => handleAddressChange('city', v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {municipios.map(m => <SelectItem key={m.municipio} value={m.municipio}>{m.municipio}</SelectItem>)}
+                  {municipios.map((m, index) => <SelectItem key={`${m}-${index}`} value={m}>{m}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="md:col-span-2 space-y-2">
-              <Label>Dirección o Calle</Label>
+              <Label>Dirección</Label>
               <Textarea value={newOrder.shippingAddress.street} onChange={(e) => handleAddressChange('street', e.target.value)} placeholder="Ej: Av. Bolívar, Edificio ABC, Piso 1, Apto 1A" />
             </div>
           </div>
@@ -263,39 +302,54 @@ export function NewOrderFormV2({ onOrderCreated }) {
         <div className="p-4 border rounded-lg space-y-4">
             <Label className="text-base font-semibold">Productos</Label>
             <div className="flex space-x-2">
-                <div className="flex-grow min-w-0"><Combobox options={productOptions} value={selectedProduct} onChange={setSelectedProduct} placeholder="Selecciona un producto" searchPlaceholder="Buscar por SKU o nombre..." emptyPlaceholder={loadingProducts ? "Cargando productos..." : "No hay productos."} /></div>
-                <Input type="number" min="1" value={productQuantity} onChange={(e) => setProductQuantity(parseInt(e.target.value) || 1)} className="w-24" placeholder="Cant." />
-                <Button onClick={addProductToOrder} disabled={!selectedProduct}><Plus className="h-4 w-4 mr-2" /> Añadir</Button>
+                <div className="flex-grow min-w-0">
+                  <SearchableSelect
+                    options={products.map(p => ({
+                      value: p._id,
+                      label: `${p.name} (${p.sku || 'N/A'})`,
+                      product: p,
+                    }))}
+                    onSelection={handleProductSelection}
+                    value={null} // This select is for adding, not for holding a value
+                    placeholder={loadingProducts ? "Cargando productos..." : "Buscar y añadir producto..."}
+                    isDisabled={loadingProducts}
+                  />
+                </div>
             </div>
-            <div className="border rounded-lg mt-4"><Table><TableHeader><TableRow><TableHead>Producto</TableHead><TableHead>Cant.</TableHead><TableHead>Precio Unit.</TableHead><TableHead>Total</TableHead><TableHead>Acción</TableHead></TableRow></TableHeader><TableBody>{newOrder.items.length > 0 ? newOrder.items.map(item => (<TableRow key={item.productId}><TableCell>{item.name}<div className="text-sm text-muted-foreground">{item.sku}</div></TableCell><TableCell>{item.quantity}</TableCell><TableCell>${(item.unitPrice || 0).toFixed(2)}</TableCell><TableCell>${((item.unitPrice || 0) * item.quantity).toFixed(2)}</TableCell><TableCell><Button variant="ghost" size="icon" onClick={() => removeProductFromOrder(item.productId)}><Trash2 className="h-4 w-4 text-red-500" /></Button></TableCell></TableRow>)) : <TableRow><TableCell colSpan="5" className="text-center">No hay productos en la orden</TableCell></TableRow>}</TableBody></Table></div>
-        </div>
-
-        <div className="p-4 border rounded-lg space-y-4">
-          <Label className="text-base font-semibold">Dirección de Envío</Label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Estado</Label>
-              <Select value={newOrder.shippingAddress.state} onValueChange={(v) => handleAddressChange('state', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {venezuelaData.map(e => <SelectItem key={e.estado} value={e.estado}>{e.estado}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Municipio</Label>
-              <Select value={newOrder.shippingAddress.city} onValueChange={(v) => handleAddressChange('city', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {municipios.map(m => <SelectItem key={m.municipio} value={m.municipio}>{m.municipio}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="md:col-span-2 space-y-2">
-              <Label>Dirección o Calle</Label>
-              <Textarea value={newOrder.shippingAddress.street} onChange={(e) => handleAddressChange('street', e.target.value)} placeholder="Ej: Av. Bolívar, Edificio ABC, Piso 1, Apto 1A" />
-            </div>
-          </div>
+            <div className="border rounded-lg mt-4"><Table><TableHeader><TableRow><TableHead>Producto</TableHead><TableHead className="w-24">Cant.</TableHead><TableHead>Precio Unit.</TableHead><TableHead>Total</TableHead><TableHead>Acción</TableHead></TableRow></TableHeader><TableBody>
+              {newOrder.items.length > 0 ? (
+                newOrder.items.map(item => (
+                  <TableRow key={item.productId}>
+                    <TableCell>
+                      {item.name}
+                      <div className="text-sm text-muted-foreground">{item.sku}</div>
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => handleItemQuantityChange(item.productId, e.target.value)}
+                        className="w-20 h-8 text-center"
+                      />
+                    </TableCell>
+                    <TableCell>${(item.unitPrice || 0).toFixed(2)}</TableCell>
+                    <TableCell>${((item.unitPrice || 0) * item.quantity).toFixed(2)}</TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="icon" onClick={() => removeProductFromOrder(item.productId)}>
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan="5" className="text-center">
+                    No hay productos en la orden
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody></Table></div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -311,16 +365,16 @@ export function NewOrderFormV2({ onOrderCreated }) {
             </div>
         </div>
       </CardContent>
-      <CardFooter className="flex justify-between items-center">
-        <div className="w-1/3">
+      <CardFooter className="flex justify-end items-center pt-6">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setNewOrder(initialOrderState)}>Limpiar Formulario</Button>
+          <div className="w-48">
             <Select value={newOrder.paymentMethod} onValueChange={(value) => handleFieldChange('paymentMethod', value)} disabled={contextLoading}>
                 <SelectTrigger><SelectValue placeholder="Forma de Pago" /></SelectTrigger>
                 <SelectContent>{paymentMethods.map(method => (<SelectItem key={method.id} value={method.id}>{method.name}</SelectItem>))}</SelectContent>
             </Select>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setNewOrder(initialOrderState)}>Limpiar Formulario</Button>
-          <Button onClick={handleCreateOrder} disabled={isCreateDisabled}>Crear Orden</Button>
+          </div>
+                              <Button onClick={handleCreateOrder} disabled={isCreateDisabled} size="lg" className="bg-[#FB923C] text-white hover:bg-[#F97316]">Crear Orden</Button>
         </div>
       </CardFooter>
     </Card>

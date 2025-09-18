@@ -5,17 +5,23 @@ import { OrdersDataTableV2 } from './OrdersDataTableV2';
 import { Badge } from "@/components/ui/badge";
 import { NewOrderFormV2 } from './NewOrderFormV2';
 import { PaymentDialogV2 } from './PaymentDialogV2';
+import { OrderStatusSelector } from './OrderStatusSelector';
+import { OrderDetailsDialog } from './OrderDetailsDialog';
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, RefreshCw } from "lucide-react";
+import { Eye, CreditCard, RefreshCw } from "lucide-react";
 
 export function OrdersManagementV2() {
   const [data, setData] = useState({ orders: [], pagination: null });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Estado para el diálogo de pago
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [selectedOrderForPayment, setSelectedOrderForPayment] = useState(null);
+
+  // Estado para el diálogo de detalles
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  const [selectedOrderForDetails, setSelectedOrderForDetails] = useState(null);
 
   const fetchOrders = useCallback(async (page = 1) => {
     try {
@@ -39,6 +45,11 @@ export function OrdersManagementV2() {
     fetchOrders(1);
   }, [fetchOrders]);
 
+  const handleRefresh = useCallback(() => {
+    fetchOrders(data.pagination?.page || 1);
+  }, [data.pagination, fetchOrders]);
+
+  // Handlers para el diálogo de pago
   const handleOpenPaymentDialog = useCallback((order) => {
     setSelectedOrderForPayment(order);
     setIsPaymentDialogOpen(true);
@@ -53,6 +64,17 @@ export function OrdersManagementV2() {
     handleClosePaymentDialog();
     fetchOrders(data.pagination?.page || 1);
   }, [data.pagination, fetchOrders, handleClosePaymentDialog]);
+
+  // Handlers para el diálogo de detalles
+  const handleOpenDetailsDialog = useCallback((order) => {
+    setSelectedOrderForDetails(order);
+    setIsDetailsDialogOpen(true);
+  }, []);
+
+  const handleCloseDetailsDialog = useCallback(() => {
+    setIsDetailsDialogOpen(false);
+    setSelectedOrderForDetails(null);
+  }, []);
 
   const columns = useMemo(() => [
     { accessorKey: "orderNumber", header: "Número de Orden" },
@@ -88,26 +110,41 @@ export function OrdersManagementV2() {
        }
     },
     {
-      id: "actions",
-      header: "Acciones",
+      accessorKey: "status",
+      header: "Estado de la Orden",
+      cell: ({ row }) => (
+        <OrderStatusSelector order={row.original} onStatusChange={handleRefresh} />
+      )
+    },
+    {
+      id: "view",
+      header: () => <div className="text-center">Ver</div>,
+      cell: ({ row }) => (
+        <div className="text-center">
+          <Button variant="ghost" size="icon" onClick={() => handleOpenDetailsDialog(row.original)}>
+            <Eye className="h-4 w-4" />
+          </Button>
+        </div>
+      ),
+    },
+    {
+      id: "pay",
+      header: () => <div className="text-center">Pagar</div>,
       cell: ({ row }) => {
         const order = row.original;
         const balance = (order.totalAmount || 0) - (order.paidAmount || 0);
+        if (balance <= 0) return <div className="text-center">-</div>;
+        
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => alert(`Ver detalles de la orden ${order.orderNumber}`)}>Ver Detalles</DropdownMenuItem>
-              {balance > 0 && (
-                <DropdownMenuItem onClick={() => handleOpenPaymentDialog(order)}>Registrar Pago</DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="text-center">
+            <Button variant="ghost" size="icon" onClick={() => handleOpenPaymentDialog(order)}>
+              <CreditCard className="h-4 w-4" />
+            </Button>
+          </div>
         );
       },
     },
-  ], [handleOpenPaymentDialog]);
+  ], [handleOpenPaymentDialog, handleRefresh, handleOpenDetailsDialog]);
 
   const handlePageChange = (newPage) => {
     fetchOrders(newPage);
@@ -115,10 +152,6 @@ export function OrdersManagementV2() {
 
   const handleOrderCreated = () => {
     fetchOrders(1);
-  };
-
-  const handleRefresh = () => {
-    fetchOrders(data.pagination?.page || 1);
   };
 
   return (
@@ -158,6 +191,12 @@ export function OrdersManagementV2() {
         onClose={handleClosePaymentDialog}
         order={selectedOrderForPayment}
         onPaymentSuccess={handlePaymentSuccess}
+      />
+
+      <OrderDetailsDialog
+        isOpen={isDetailsDialogOpen}
+        onClose={handleCloseDetailsDialog}
+        order={selectedOrderForDetails}
       />
     </>
   );

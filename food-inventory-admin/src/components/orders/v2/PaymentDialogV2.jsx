@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -84,8 +84,8 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
 
     try {
       setIsSubmitting(true);
-      // This endpoint needs verification based on backend routes
-      await fetchApi(`/payments/order/${order._id}`, { 
+      // Corrected endpoint based on backend controller
+      await fetchApi(`/orders/${order._id}/payments`, { 
         method: 'POST', 
         body: JSON.stringify({ payments: paymentsPayload }) 
       });
@@ -110,9 +110,9 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
       <DialogContent className="sm:max-w-[625px]">
         <DialogHeader>
           <DialogTitle>Registrar Pago</DialogTitle>
-          <p className="text-sm text-muted-foreground">
+          <DialogDescription>
             Orden: {order.orderNumber} | Balance Pendiente: ${remainingAmount.toFixed(2)}
-          </p>
+          </DialogDescription>
         </DialogHeader>
         
         <div className="py-4 space-y-4">
