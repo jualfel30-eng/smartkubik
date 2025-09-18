@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.j
 import { Badge } from '@/components/ui/badge.jsx';
 import InventoryManagement from '@/components/InventoryManagement.jsx';
 import CRMManagement from '@/components/CRMManagement.jsx';
-import OrdersManagement from '@/components/OrdersManagement-Fixed.jsx';
+import { OrdersManagementV2 as OrdersManagement } from '@/components/orders/v2/OrdersManagementV2.jsx';
 import ProductsManagement from '@/components/ProductsManagement.jsx';
 import { CalendarView } from '@/components/CalendarView.jsx';
 import ComprasManagement from '@/components/ComprasManagement.jsx';

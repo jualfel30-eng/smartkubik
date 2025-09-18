@@ -7,13 +7,13 @@ const CrmContext = createContext();
 // 2. Crear el Proveedor del Contexto
 export const CrmProvider = ({ children }) => {
   const [crmData, setCrmData] = useState([]);
+  const [paymentMethods, setPaymentMethods] = useState([]); // New state for payment methods
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const loadCustomers = useCallback(async () => {
     console.log('[CrmContext] Ejecutando loadCustomers...');
     try {
-      setLoading(true);
       const response = await fetchApi('/customers?limit=100');
       console.log('[CrmContext] Datos de clientes recibidos del backend:', response.data);
       if (response.data) {
@@ -22,15 +22,33 @@ export const CrmProvider = ({ children }) => {
         throw new Error(response.message || 'Failed to fetch customers');
       }
     } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      // Not setting global error for this, as other things might load
+      console.error("Error loading customers:", err.message);
+    }
+  }, []);
+
+  const loadPaymentMethods = useCallback(async () => {
+    console.log('[CrmContext] Ejecutando loadPaymentMethods...');
+    try {
+      const response = await fetchApi('/orders/__lookup/payment-methods');
+      if (response.methods) {
+        setPaymentMethods(response.methods);
+      } else {
+        throw new Error(response.message || 'Failed to fetch payment methods');
+      }
+    } catch (err) {
+      console.error("Error loading payment methods:", err.message);
     }
   }, []);
 
   useEffect(() => {
-    loadCustomers();
-  }, [loadCustomers]);
+    const loadInitialData = async () => {
+      setLoading(true);
+      await Promise.all([loadCustomers(), loadPaymentMethods()]);
+      setLoading(false);
+    }
+    loadInitialData();
+  }, [loadCustomers, loadPaymentMethods]);
 
   const addCustomer = async (customerData) => {
     try {
@@ -72,6 +90,7 @@ export const CrmProvider = ({ children }) => {
 
   const value = {
     crmData,
+    paymentMethods, // Export payment methods
     loading,
     error,
     addCustomer,

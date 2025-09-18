@@ -1,8 +1,10 @@
-import { IsString, IsNotEmpty, IsNumber, Min, IsDateString, IsOptional } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, Min, IsDateString, IsOptional, IsArray, ValidateNested, ArrayMinSize } from 'class-validator';
+import { Type } from 'class-transformer';
 
-export class CreatePaymentDto {
+// Represents a single payment in a potentially mixed-payment transaction
+export class PaymentLineDto {
   @IsNumber()
-  @Min(0)
+  @Min(0.01)
   amount: number;
 
   @IsString()
@@ -16,6 +18,13 @@ export class CreatePaymentDto {
   @IsString()
   @IsOptional()
   reference?: string;
+}
 
-  // We might need more fields later, but this is a good start.
+// The DTO to create payments for an order. It can be one or multiple payments.
+export class CreatePaymentDto {
+  @IsArray()
+  @ValidateNested({ each: true })
+  @ArrayMinSize(1)
+  @Type(() => PaymentLineDto)
+  payments: PaymentLineDto[];
 }

@@ -26,17 +26,56 @@ export class OrdersService {
   ) {}
 
   async create(createOrderDto: CreateOrderDto, user: any): Promise<OrderDocument> {
-    this.logger.log(`Creating order for customer: ${createOrderDto.customerId}`);
-    try {
-      const [customer, products, tenant] = await Promise.all([
-        this.customerModel.findById(createOrderDto.customerId),
-        this.productModel.find({ _id: { $in: createOrderDto.items.map(i => i.productId) } }),
-        this.tenantModel.findById(user.tenantId), // Cargar el tenant completo
-      ]);
+    const { customerId, customerName, customerRif, taxType, items } = createOrderDto;
+    this.logger.log(`Initiating order creation with customerId: ${customerId} or customerRif: ${customerRif}`);
+
+    let customer: CustomerDocument | null;
+
+    // Phase 1: Find or Create Customer
+    if (customerId) {
+      customer = await this.customerModel.findById(customerId).exec();
+      if (!customer) {
+        throw new NotFoundException(`Cliente con ID "${customerId}" no encontrado.`);
+      }
+      this.logger.log(`Found existing customer by ID: ${customer._id}`);
+    } else if (customerRif && customerName) {
+      customer = await this.customerModel.findOne({ 'taxInfo.taxId': customerRif, tenantId: user.tenantId }).exec();
 
       if (!customer) {
-        throw new NotFoundException(`Cliente con ID "${createOrderDto.customerId}" no encontrado.`);
+        this.logger.log(`Customer with RIF ${customerRif} not found. Creating new customer.`);
+        
+        const customerNumber = `CUST-${Date.now()}`;
+
+        customer = new this.customerModel({
+          name: customerName,
+          customerNumber,
+          customerType: 'individual', // Defaulting to individual
+          taxInfo: {
+            taxId: customerRif,
+            taxType: taxType,
+            taxName: customerName,
+          },
+          createdBy: user.id,
+          tenantId: user.tenantId,
+          metrics: { totalOrders: 0, totalSpent: 0, totalSpentUSD: 0, averageOrderValue: 0, orderFrequency: 0, lifetimeValue: 0, returnRate: 0, cancellationRate: 0, paymentDelayDays: 0 },
+        });
+        await customer.save();
+        this.logger.log(`New customer created with ID: ${customer._id}`);
+      } else {
+        this.logger.log(`Found existing customer by RIF: ${customer._id}`);
       }
+    } else {
+      throw new BadRequestException('Se debe proporcionar un ID de cliente existente o los datos para crear uno nuevo (nombre, RIF y tipo de RIF).');
+    }
+
+    // Phase 2: Process Order Items and Calculate Totals
+    this.logger.log(`Processing order items for customer: ${customer._id}`);
+    try {
+      const [products, tenant] = await Promise.all([
+        this.productModel.find({ _id: { $in: items.map(i => i.productId) } }),
+        this.tenantModel.findById(user.tenantId),
+      ]);
+
       if (!tenant) {
         throw new BadRequestException('Información de tenant no encontrada.');
       }
@@ -50,7 +89,7 @@ export class OrdersService {
       let ivaTotal = 0;
       let igtfTotal = 0;
 
-      for (const itemDto of createOrderDto.items) {
+      for (const itemDto of items) {
         const product = products.find(p => p._id.toString() === itemDto.productId);
         if (!product) {
           throw new NotFoundException(`Producto con ID "${itemDto.productId}" no encontrado.`);
@@ -88,9 +127,9 @@ export class OrdersService {
 
       const orderNumber = await this.generateOrderNumber(user.tenantId);
 
-      const orderData = {
+      const orderData: any = {
         orderNumber,
-        customerId: createOrderDto.customerId,
+        customerId: customer._id, // Use the ID of the found or created customer
         customerName: customer.name,
         items: detailedItems,
         subtotal,
@@ -108,6 +147,20 @@ export class OrdersService {
         tenantId: user.tenantId,
       };
 
+      if (createOrderDto.shippingAddress) {
+        orderData.shipping = {
+          method: 'delivery', // Default to 'delivery' if an address is provided
+          address: {
+            street: createOrderDto.shippingAddress.street,
+            city: createOrderDto.shippingAddress.city,
+            state: createOrderDto.shippingAddress.state,
+            zipCode: createOrderDto.shippingAddress.zipCode || '',
+            country: 'Venezuela',
+          },
+          cost: shippingCost, // Use the shippingCost from the DTO
+        };
+      }
+
       const order = new this.orderModel(orderData);
       const savedOrder = await order.save();
 
@@ -120,7 +173,6 @@ export class OrdersService {
           `Failed to create journal entry for order ${savedOrder.orderNumber}. The sale was processed correctly, but accounting needs review.`,
           accountingError.stack,
         );
-        // IMPORTANT: Do not re-throw the error. The sale must not fail if accounting fails.
       }
       // --- End of Automatic Journal Entry Creation ---
 
@@ -131,7 +183,7 @@ export class OrdersService {
         },
         $set: { 'metrics.lastOrderDate': new Date() }
       };
-      if (!customer.metrics.firstOrderDate) {
+      if (!customer.metrics?.firstOrderDate) { // Defensive check
         customerUpdate.$set['metrics.firstOrderDate'] = new Date();
       }
       await this.customerModel.findByIdAndUpdate(customer._id, customerUpdate);

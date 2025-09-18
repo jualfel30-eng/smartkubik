@@ -18,6 +18,29 @@ import {
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+// Nueva clase para validar la dirección de envío
+export class ShippingAddressDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  street: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  city: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  state: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  zipCode?: string;
+}
+
 export class CreateOrderItemDto {
   @ApiProperty({ description: 'ID del producto' })
   @IsMongoId()
@@ -30,9 +53,10 @@ export class CreateOrderItemDto {
 }
 
 export class CreateOrderDto {
-  @ApiProperty({ description: 'ID del cliente' })
+  @ApiPropertyOptional({ description: 'ID del cliente existente' })
+  @IsOptional()
   @IsMongoId()
-  customerId: string;
+  customerId?: string;
 
   @ApiPropertyOptional({ description: 'Nombre del cliente' })
   @IsOptional()
@@ -40,12 +64,28 @@ export class CreateOrderDto {
   @IsNotEmpty()
   customerName?: string;
 
+  @ApiPropertyOptional({ description: 'RIF o C.I. del cliente para creación' })
+  @IsOptional()
+  @IsString()
+  customerRif?: string;
+
+  @ApiPropertyOptional({ description: 'Tipo de documento fiscal (V, E, J, G)' })
+  @IsOptional()
+  @IsEnum(['V', 'E', 'J', 'G'])
+  taxType?: string;
+
   @ApiProperty({ description: 'Items de la orden', type: [CreateOrderItemDto] })
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
+
+  @ApiPropertyOptional({ description: 'Dirección de envío para la orden' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ShippingAddressDto)
+  shippingAddress?: ShippingAddressDto;
 
   @ApiPropertyOptional({ description: 'Subtotal de la orden (sin impuestos)' })
   @IsOptional()

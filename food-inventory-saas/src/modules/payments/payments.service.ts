@@ -17,31 +17,71 @@ export class PaymentsService {
   ) {}
 
   async createPayment(orderId: string, createPaymentDto: CreatePaymentDto, user: any): Promise<OrderDocument> {
-    this.logger.log(`Attempting to add payment to order ${orderId}`);
-
+    this.logger.log(`Attempting to add payments to order ${orderId}`);
     const order = await this.orderModel.findById(orderId);
     if (!order) {
       throw new NotFoundException(`Order with ID "${orderId}" not found.`);
     }
 
+    // Although the frontend should prevent this, double-check.
     if (order.paymentStatus === 'paid') {
-        throw new BadRequestException('Order is already fully paid.');
+      this.logger.warn(`Attempted to add payment to already paid order ${orderId}`);
+      // We allow adding payments to a paid order (e.g., tips), but the status logic will handle it.
     }
 
-    const newPayment: OrderPayment = {
-      amount: createPaymentDto.amount,
-      method: createPaymentDto.method,
-      date: new Date(createPaymentDto.date),
-      reference: createPaymentDto.reference,
-      currency: 'VES', // Assuming VES for now, this should be part of the DTO later
-      status: 'confirmed', // Assuming payment is confirmed upon creation
-      confirmedAt: new Date(),
-      confirmedBy: user.id,
-    };
+    const { methods: availablePaymentMethods } = await this.getPaymentMethods(user);
+    let newIgtfFromPayments = 0;
 
-    order.payments.push(newPayment);
+    for (const paymentLine of createPaymentDto.payments) {
+      const paymentMethodDetails = availablePaymentMethods.find(m => m.id === paymentLine.method);
+      let igtfForThisPayment = 0;
 
-    // Recalculate payment status
+      // Calculate IGTF for this specific payment if applicable
+      if (paymentMethodDetails?.igtfApplicable) {
+        igtfForThisPayment = paymentLine.amount * 0.03; // Assuming 3% IGTF
+        newIgtfFromPayments += igtfForThisPayment;
+        this.logger.log(`IGTF of ${igtfForThisPayment} calculated for payment of ${paymentLine.amount} via ${paymentLine.method}`);
+      }
+
+      const newPayment: OrderPayment = {
+        amount: paymentLine.amount,
+        method: paymentLine.method,
+        date: new Date(paymentLine.date),
+        reference: paymentLine.reference,
+        currency: 'VES', // TODO: This should be dynamic based on the payment method
+        status: 'confirmed',
+        confirmedAt: new Date(),
+        confirmedBy: user.id,
+      };
+
+      order.payments.push(newPayment);
+
+      // --- Trigger Accounting Entry for Payment ---
+      try {
+        this.logger.log(`Creating journal entry for payment of ${newPayment.amount} on order ${order.orderNumber}`);
+        await this.accountingService.createJournalEntryForPayment(
+          order, 
+          newPayment, 
+          user.tenantId, 
+          igtfForThisPayment
+        );
+      } catch (accountingError) {
+        this.logger.error(
+          `Failed to create journal entry for a payment on order ${order.orderNumber}. The payment was processed, but accounting needs review.`,
+          accountingError.stack,
+        );
+        // Do not re-throw error, as the payment itself was successful.
+      }
+    }
+
+    // Update order totals with the newly generated IGTF
+    if (newIgtfFromPayments > 0) {
+      order.igtfTotal = (order.igtfTotal || 0) + newIgtfFromPayments;
+      order.totalAmount = (order.totalAmount || 0) + newIgtfFromPayments;
+      this.logger.log(`Order ${orderId} totals updated with new IGTF of ${newIgtfFromPayments}. New total: ${order.totalAmount}`);
+    }
+
+    // Recalculate payment status after all new payments and totals are updated
     const totalPaid = order.payments.reduce((sum, p) => sum + p.amount, 0);
     if (totalPaid >= order.totalAmount) {
       order.paymentStatus = 'paid';
@@ -50,22 +90,9 @@ export class PaymentsService {
     } else {
       order.paymentStatus = 'pending';
     }
-    
-    const updatedOrder = await order.save();
-    this.logger.log(`Payment added to order ${orderId}. New payment status: ${order.paymentStatus}`);
 
-    // --- Trigger Accounting Entry for Payment ---
-    try {
-      this.logger.log(`Attempting to create journal entry for payment of order ${order.orderNumber}`);
-      await this.accountingService.createJournalEntryForPayment(updatedOrder, newPayment, user.tenantId);
-    } catch (accountingError) {
-      this.logger.error(
-        `Failed to create journal entry for payment on order ${order.orderNumber}. The payment was processed correctly, but accounting needs review.`,
-        accountingError.stack,
-      );
-      // Do not re-throw error
-    }
-    // --- End of Accounting ---
+    const updatedOrder = await order.save();
+    this.logger.log(`Successfully added payments to order ${orderId}. New payment status: ${order.paymentStatus}`);
 
     return updatedOrder;
   }
@@ -87,8 +114,8 @@ export class PaymentsService {
         { id: 'transferencia_ves', name: 'Transferencia (VES)', igtfApplicable: false },
         { id: 'tarjeta_ves', name: 'Tarjeta (VES)', igtfApplicable: false },
         { id: 'efectivo_usd', name: 'Efectivo (USD)', igtfApplicable: true },
-        { id: 'zelle_usd', name: 'Zelle', igtfApplicable: false },
-        { id: 'transferencia_usd', name: 'Transferencia (USD)', igtfApplicable: false },
+        { id: 'zelle_usd', name: 'Zelle', igtfApplicable: true },
+        { id: 'transferencia_usd', name: 'Transferencia (USD)', igtfApplicable: true },
         { id: 'pago_mixto', name: 'Pago Mixto', igtfApplicable: false },
     ];
     return { methods: defaultMethods };

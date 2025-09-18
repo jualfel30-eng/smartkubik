@@ -147,6 +147,22 @@ export class AccountingService {
     return account;
   }
 
+  private async findOrCreateAccount(accountDetails: { code: string; name: string; type: 'Activo' | 'Pasivo' | 'Patrimonio' | 'Ingreso' | 'Gasto'; }, tenantId: string): Promise<ChartOfAccountsDocument> {
+    const existingAccount = await this.chartOfAccountsModel.findOne({ code: accountDetails.code, tenantId }).exec();
+    if (existingAccount) {
+      return existingAccount;
+    }
+
+    this.logger.log(`Account with code ${accountDetails.code} not found, creating it: "${accountDetails.name}"`);
+    const newAccount = new this.chartOfAccountsModel({
+      ...accountDetails,
+      isSystemAccount: true,
+      isEditable: false,
+      tenantId,
+    });
+    return newAccount.save();
+  }
+
   async createJournalEntryForSale(order: OrderDocument, tenantId: string): Promise<JournalEntryDocument> {
     this.logger.log(`Creating automatic journal entry for sale ${order.orderNumber}`);
 
@@ -208,10 +224,10 @@ export class AccountingService {
     return newEntry.save();
   }
 
-  async createJournalEntryForPayment(order: OrderDocument, payment: OrderPayment, tenantId: string): Promise<JournalEntryDocument> {
-    this.logger.log(`Creating automatic journal entry for payment on order ${order.orderNumber}`);
+  async createJournalEntryForPayment(order: OrderDocument, payment: OrderPayment, tenantId: string, igtfAmount = 0): Promise<JournalEntryDocument> {
+    this.logger.log(`Creating automatic journal entry for payment on order ${order.orderNumber}, IGTF: ${igtfAmount}`);
 
-    // 1. Find accounts
+    // 1. Find base accounts
     const cashOrBankAcc = await this.findAccountByCode("1101", tenantId);
     const accountsReceivableAcc = await this.findAccountByCode("1102", tenantId);
 
@@ -231,7 +247,32 @@ export class AccountingService {
       },
     ];
 
-    // 3. Create DTO and save
+    // 3. Add IGTF lines if applicable
+    if (igtfAmount > 0) {
+      const igtfExpenseAccount = await this.findOrCreateAccount({ 
+        code: "599", // Using a high number for custom expenses
+        name: "Gasto IGTF", 
+        type: "Gasto"
+      }, tenantId);
+      
+      const taxPayableAccount = await this.findAccountByCode("2102", tenantId); // Pasivo -> Impuestos por Pagar
+
+      lines.push({
+        accountId: igtfExpenseAccount._id.toString(),
+        debit: igtfAmount,
+        credit: 0,
+        description: `Gasto IGTF por cobro de orden ${order.orderNumber}`
+      });
+
+      lines.push({
+        accountId: taxPayableAccount._id.toString(),
+        debit: 0,
+        credit: igtfAmount,
+        description: `Provisión IGTF por cobro de orden ${order.orderNumber}`
+      });
+    }
+
+    // 4. Create DTO and save
     const entryDto: CreateJournalEntryDto = {
       date: (payment.confirmedAt || new Date()).toISOString(),
       description: `Asiento automático por cobro de orden ${order.orderNumber}`,
