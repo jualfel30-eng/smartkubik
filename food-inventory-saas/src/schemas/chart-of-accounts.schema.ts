@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Schema as MongooseSchema } from 'mongoose';
+import { Document, Schema as MongooseSchema, Types } from 'mongoose';
 
 export const ACCOUNT_TYPES = ['Activo', 'Pasivo', 'Patrimonio', 'Ingreso', 'Gasto'];
 
@@ -19,8 +19,8 @@ export class ChartOfAccounts {
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'ChartOfAccounts' })
   parent?: MongooseSchema.Types.ObjectId;
 
-  @Prop({ required: true })
-  tenantId: string;
+  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true })
+  tenantId: Types.ObjectId;
 }
 
 export const ChartOfAccountsSchema = SchemaFactory.createForClass(ChartOfAccounts);

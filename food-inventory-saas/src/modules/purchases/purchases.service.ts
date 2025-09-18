@@ -7,6 +7,10 @@ import { CreatePurchaseOrderDto } from '../../dto/purchase-order.dto';
 import { CreateCustomerDto } from '../../dto/customer.dto'; // CHANGED
 import { CustomersService } from '../customers/customers.service'; // CHANGED
 import { InventoryService } from '../inventory/inventory.service';
+import { AccountingService } from '../accounting/accounting.service';
+
+
+
 
 @Injectable()
 export class PurchasesService {
@@ -17,6 +21,7 @@ export class PurchasesService {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     private readonly customersService: CustomersService, // CHANGED
     private readonly inventoryService: InventoryService,
+    private readonly accountingService: AccountingService,
   ) {}
 
   async create(dto: CreatePurchaseOrderDto, user: any, session?: ClientSession): Promise<PurchaseOrderDocument> {
@@ -127,7 +132,19 @@ export class PurchasesService {
         notes: 'Orden de compra recibida y stock actualizado.',
     });
 
-    return purchaseOrder.save({ session });
+    const savedPurchaseOrder = await purchaseOrder.save({ session });
+
+    try {
+      this.logger.log(`Attempting to create journal entry for purchase order ${savedPurchaseOrder.poNumber}`);
+      await this.accountingService.createJournalEntryForPurchase(savedPurchaseOrder, user.tenantId);
+    } catch (accountingError) {
+      this.logger.error(
+        `Failed to create journal entry for purchase order ${savedPurchaseOrder.poNumber}. The purchase was processed correctly, but accounting needs review.`,
+        accountingError.stack,
+      );
+    }
+
+    return savedPurchaseOrder;
   }
 
   private async generatePoNumber(tenantId: string): Promise<string> {

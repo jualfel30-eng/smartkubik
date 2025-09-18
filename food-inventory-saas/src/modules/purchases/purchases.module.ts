@@ -9,6 +9,10 @@ import { CustomersModule } from '../customers/customers.module';
 import { Product, ProductSchema } from '../../schemas/product.schema';
 
 import { InventoryModule } from '../inventory/inventory.module';
+import { AccountingModule } from '../accounting/accounting.module';
+
+
+
 
 @Module({
   imports: [
@@ -20,6 +24,7 @@ import { InventoryModule } from '../inventory/inventory.module';
     CustomersModule,
     forwardRef(() => ProductsModule),
     InventoryModule,
+    AccountingModule,
   ],
   controllers: [PurchasesController],
   providers: [PurchasesService],

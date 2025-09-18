@@ -1,6 +1,6 @@
 
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Schema as MongooseSchema } from 'mongoose';
+import { Document, Schema as MongooseSchema, Types } from 'mongoose';
 import { ChartOfAccounts } from './chart-of-accounts.schema';
 
 export type JournalEntryDocument = JournalEntry & Document;
@@ -33,8 +33,8 @@ export class JournalEntry {
   @Prop([JournalLineSchema])
   lines: JournalLine[];
 
-  @Prop({ required: true })
-  tenantId: string;
+  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true })
+  tenantId: Types.ObjectId;
 
   @Prop({ required: true, default: false })
   isAutomatic: boolean;
