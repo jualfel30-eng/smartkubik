@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -17,12 +17,42 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { generateDocumentPDF } from '@/lib/pdfGenerator.js';
+import { toast } from 'sonner';
+import { Printer, Download } from 'lucide-react';
 
 const formatCurrency = (amount) => 
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
 
-export function OrderDetailsDialog({ isOpen, onClose, order }) {
+export function OrderDetailsDialog({ isOpen, onClose, order, tenantSettings }) {
+  const [isGenerating, setIsGenerating] = useState(false);
+
   if (!order) return null;
+
+  const handlePdfAction = async (action) => {
+    const quoteStatuses = ['draft', 'pending'];
+    const docType = quoteStatuses.includes(order.status) ? 'quote' : 'invoice';
+    const docTypeName = docType === 'quote' ? 'Presupuesto' : 'Factura';
+
+    if (!order || !tenantSettings) {
+      toast.error('Faltan datos para generar el PDF.');
+      return;
+    }
+    setIsGenerating(true);
+    try {
+      await generateDocumentPDF({
+        documentType: docType,
+        orderData: order,
+        tenantSettings: tenantSettings,
+        action: action,
+      });
+    } catch (error) {
+      console.error(`Error generating ${docType}:`, error);
+      toast.error(`Error al generar la ${docTypeName}.`, { description: error.message });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -30,12 +60,12 @@ export function OrderDetailsDialog({ isOpen, onClose, order }) {
         <DialogHeader>
           <DialogTitle>Detalles de la Orden #{order.orderNumber}</DialogTitle>
           <DialogDescription>
-            <span>Cliente: <strong>{order.customerName}</strong></span>
-            <div className="flex items-center gap-4 mt-2">
+            Cliente: <strong>{order.customerName}</strong>
+          </DialogDescription>
+          <div className="flex items-center gap-4 pt-2">
               <Badge variant="outline">{order.status}</Badge>
               <Badge>{order.paymentStatus}</Badge>
-            </div>
-          </DialogDescription>
+          </div>
         </DialogHeader>
         
         <div className="grid gap-6 py-4 max-h-[60vh] overflow-y-auto pr-4">
@@ -92,8 +122,20 @@ export function OrderDetailsDialog({ isOpen, onClose, order }) {
 
         </div>
 
-        <DialogFooter>
-          <Button onClick={onClose}>Cerrar</Button>
+        <DialogFooter className="gap-2 sm:justify-between">
+            <div>
+                <Button variant="secondary" onClick={onClose}>Cerrar</Button>
+            </div>
+            <div className="flex gap-2">
+                <Button variant="outline" onClick={() => handlePdfAction('print')} disabled={isGenerating || !tenantSettings}>
+                    <Printer className="mr-2 h-4 w-4" />
+                    {isGenerating ? 'Generando...' : 'Imprimir'}
+                </Button>
+                <Button onClick={() => handlePdfAction('download')} disabled={isGenerating || !tenantSettings}>
+                    <Download className="mr-2 h-4 w-4" />
+                    {isGenerating ? 'Generando...' : 'Descargar'}
+                </Button>
+            </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  UnsupportedMediaTypeException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
@@ -21,6 +22,41 @@ export class TenantService {
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
+
+  async uploadLogo(
+    tenantId: string,
+    file: Express.Multer.File,
+  ): Promise<Tenant> {
+    if (!file) {
+      throw new BadRequestException("No se ha proporcionado ningún archivo.");
+    }
+
+    // Validar tipo de archivo (opcional, pero recomendado)
+    const allowedMimeTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new UnsupportedMediaTypeException(
+        "Tipo de archivo no soportado. Solo se permiten imágenes (JPEG, PNG, GIF, WEBP).",
+      );
+    }
+
+    // Convertir el buffer del archivo a Base64
+    const base64Image = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+
+    const updatedTenant = await this.tenantModel
+      .findByIdAndUpdate(
+        tenantId,
+        { $set: { logo: base64Image } },
+        { new: true, runValidators: true },
+      )
+      .select("name contactInfo taxInfo logo website timezone settings")
+      .exec();
+
+    if (!updatedTenant) {
+      throw new NotFoundException("Tenant no encontrado al subir el logo.");
+    }
+
+    return updatedTenant;
+  }
 
   async getSettings(tenantId: string): Promise<Tenant> {
     const tenant = await this.tenantModel
@@ -60,7 +96,7 @@ export class TenantService {
     }
 
     if (updateDto.settings) {
-      const { currency, inventory } = updateDto.settings;
+      const { currency, inventory, documentTemplates } = updateDto.settings;
       if (currency) {
         Object.keys(currency).forEach((key) => {
           updatePayload[`settings.currency.${key}`] = currency[key];
@@ -70,6 +106,19 @@ export class TenantService {
         Object.keys(inventory).forEach((key) => {
           updatePayload[`settings.inventory.${key}`] = inventory[key];
         });
+      }
+      if (documentTemplates) {
+        const { invoice, quote } = documentTemplates;
+        if (invoice) {
+          Object.keys(invoice).forEach((key) => {
+            updatePayload[`settings.documentTemplates.invoice.${key}`] = invoice[key];
+          });
+        }
+        if (quote) {
+          Object.keys(quote).forEach((key) => {
+            updatePayload[`settings.documentTemplates.quote.${key}`] = quote[key];
+          });
+        }
       }
     }
 

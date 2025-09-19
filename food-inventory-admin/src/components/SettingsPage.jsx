@@ -1,171 +1,361 @@
-import { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "./ui/card";
-import { Label } from "./ui/label";
-import { Input } from "./ui/input";
-import { Button } from "./ui/button";
-import { getTenantSettings, updateTenantSettings } from "../lib/api";
-import { toast } from "sonner";
+import React, { useState, useEffect, useRef } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { toast } from 'sonner';
+import { getTenantSettings, updateTenantSettings, uploadTenantLogo } from '@/lib/api';
+
+const initialSettings = {
+  name: '',
+  website: '',
+  logo: '',
+  contactInfo: {
+    email: '',
+    phone: '',
+    address: {
+      street: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      country: '',
+    },
+  },
+  taxInfo: {
+    rif: '',
+    businessName: '',
+  },
+  settings: {
+    currency: {
+        primary: 'VES',
+    },
+    inventory: {
+        fefoEnabled: true,
+    },
+    documentTemplates: {
+      invoice: {
+        primaryColor: '#000000',
+        accentColor: '#FFFFFF',
+        footerText: '',
+      },
+      quote: {
+        primaryColor: '#000000',
+        accentColor: '#FFFFFF',
+        footerText: '',
+      }
+    }
+  }
+};
 
 const SettingsPage = () => {
-  const [settings, setSettings] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [settings, setSettings] = useState(initialSettings);
+  const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState('');
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        setIsLoading(true);
+        setLoading(true);
         const response = await getTenantSettings();
         if (response.success) {
-          setSettings(response.data);
+          // Deep merge fetched settings with initial settings to avoid undefined errors
+          setSettings(prev => {
+            const data = response.data || {};
+            const newSettings = {
+              ...initialSettings,
+              ...data,
+              contactInfo: { ...initialSettings.contactInfo, ...(data.contactInfo || {}) },
+              taxInfo: { ...initialSettings.taxInfo, ...(data.taxInfo || {}) },
+              settings: {
+                ...initialSettings.settings,
+                ...(data.settings || {}),
+                currency: {
+                  ...initialSettings.settings.currency,
+                  ...(data.settings?.currency || {}),
+                },
+                inventory: {
+                  ...initialSettings.settings.inventory,
+                  ...(data.settings?.inventory || {}),
+                },
+                documentTemplates: {
+                  ...initialSettings.settings.documentTemplates,
+                  ...(data.settings?.documentTemplates || {}),
+                  invoice: {
+                    ...initialSettings.settings.documentTemplates.invoice,
+                    ...(data.settings?.documentTemplates?.invoice || {}),
+                  },
+                  quote: {
+                    ...initialSettings.settings.documentTemplates.quote,
+                    ...(data.settings?.documentTemplates?.quote || {}),
+                  },
+                },
+              },
+            };
+            return newSettings;
+          });
+          if (response.data.logo) {
+            setLogoPreviewUrl(response.data.logo);
+          }
         } else {
-          throw new Error(response.message || 'Failed to fetch settings');
+          toast.error('Error al cargar la configuración', { description: response.message });
         }
-      } catch (err) {
-        setError(err.message);
-        toast.error(err.message);
+      } catch (error) {
+        toast.error('Error de red', { description: 'No se pudo conectar con el servidor.' });
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
     fetchSettings();
   }, []);
 
-  const handleChange = (e) => {
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
     const keys = name.split('.');
     
-    setSettings(prevSettings => {
-      if (keys.length === 1) {
-        return { ...prevSettings, [name]: value };
-      }
-      
-      const newSettings = { ...prevSettings };
-      let current = newSettings;
-      for (let i = 0; i < keys.length - 1; i++) {
-        current = current[keys[i]] = { ...current[keys[i]] };
-      }
-      current[keys[keys.length - 1]] = value;
-      return newSettings;
-    });
+    if (keys.length > 1) {
+        setSettings(prev => {
+            const newState = JSON.parse(JSON.stringify(prev)); // Deep copy
+            let current = newState;
+            for (let i = 0; i < keys.length - 1; i++) {
+                current = current[keys[i]];
+            }
+            current[keys[keys.length - 1]] = value;
+            return newState;
+        });
+    } else {
+        setSettings(prev => ({ ...prev, [name]: value }));
+    }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const promise = () => new Promise(async (resolve, reject) => {
-      try {
-        const response = await updateTenantSettings(settings);
-        if (response.success) {
-          setSettings(response.data);
-          resolve(response.data);
-        } else {
-          throw new Error(response.message || 'Failed to update settings');
+  const handleSwitchChange = (name, checked) => {
+    const keys = name.split('.');
+    setSettings(prev => {
+        const newState = JSON.parse(JSON.stringify(prev)); // Deep copy
+        let current = newState;
+        for (let i = 0; i < keys.length - 1; i++) {
+            current = current[keys[i]];
         }
-      } catch (err) {
-        reject(err);
-      }
-    });
-
-    toast.promise(promise, {
-      loading: 'Guardando cambios...',
-      success: '¡Configuración guardada exitosamente!',
-      error: (err) => `Error: ${err.message}`,
+        current[keys[keys.length - 1]] = checked;
+        return newState;
     });
   };
 
-  if (isLoading) {
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setLogoPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+
+  const handleUploadLogo = async () => {
+    if (!selectedFile) {
+      toast.warning('No se ha seleccionado ningún archivo');
+      return;
+    }
+    setIsUploadingLogo(true);
+    try {
+      const response = await uploadTenantLogo(selectedFile);
+      if (response.success) {
+        toast.success('Logo actualizado correctamente');
+        setSettings(prev => ({ ...prev, logo: response.data.logo }));
+        setLogoPreviewUrl(response.data.logo);
+        setSelectedFile(null);
+      } else {
+        toast.error('Error al subir el logo', { description: response.message });
+      }
+    } catch (error) {
+      toast.error('Error de red', { description: `No se pudo subir el logo: ${error.message}` });
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    setIsSaving(true);
+    try {
+      const response = await updateTenantSettings(settings);
+      if (response.success) {
+        toast.success('Configuración guardada correctamente');
+      } else {
+        toast.error('Error al guardar la configuración', { description: response.message });
+      }
+    } catch (error) {
+      toast.error('Error de red', { description: `No se pudo guardar: ${error.message}` });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (loading) {
     return <div>Cargando configuración...</div>;
   }
 
-  if (error) {
-    return <div className="text-red-500">Error: {error}</div>;
-  }
-
   return (
-    <form onSubmit={handleSubmit} className="p-4 md:p-8 space-y-6">
-      <h1 className="text-2xl font-bold">Configuración del Negocio</h1>
+    <div className="container mx-auto p-4 space-y-6">
+      <h1 className="text-3xl font-bold">Configuración del Negocio</h1>
       
-      <Card>
-        <CardHeader>
-          <CardTitle>Información General</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <Label htmlFor="name">Nombre del Negocio</Label>
-            <Input id="name" name="name" value={settings?.name || ''} onChange={handleChange} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="website">Sitio Web</Label>
-            <Input id="website" name="website" value={settings?.website || ''} onChange={handleChange} />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* General Info & Logo Column */}
+        <div className="lg:col-span-1 space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Logo del Negocio</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 flex flex-col items-center">
+                    <div className="w-48 h-48 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted overflow-hidden">
+                    {logoPreviewUrl ? (
+                        <img src={logoPreviewUrl} alt="Vista previa del logo" className="w-full h-full object-contain" />
+                    ) : (
+                        <span className="text-muted-foreground text-sm">Vista Previa</span>
+                    )}
+                    </div>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+                    <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => fileInputRef.current.click()}>
+                        Seleccionar
+                    </Button>
+                    <Button onClick={handleUploadLogo} disabled={!selectedFile || isUploadingLogo}>
+                        {isUploadingLogo ? 'Subiendo...' : 'Subir Logo'}
+                    </Button>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Información Fiscal</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <Label htmlFor="taxInfo.businessName">Razón Social</Label>
-            <Input id="taxInfo.businessName" name="taxInfo.businessName" value={settings?.taxInfo?.businessName || ''} onChange={handleChange} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="taxInfo.rif">RIF</Label>
-            <Input id="taxInfo.rif" name="taxInfo.rif" value={settings?.taxInfo?.rif || ''} onChange={handleChange} />
-          </div>
-        </CardContent>
-      </Card>
+        {/* Settings Column */}
+        <div className="lg:col-span-2 space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Información General y de Contacto</CardTitle>
+                    <CardDescription>Datos principales de tu empresa.</CardDescription>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>Nombre del Negocio</Label><Input name="name" value={settings.name} onChange={handleInputChange} /></div>
+                    <div className="space-y-2"><Label>Sitio Web</Label><Input name="website" value={settings.website} onChange={handleInputChange} /></div>
+                    <div className="space-y-2"><Label>Email de Contacto</Label><Input name="contactInfo.email" value={settings.contactInfo.email} onChange={handleInputChange} /></div>
+                    <div className="space-y-2"><Label>Teléfono</Label><Input name="contactInfo.phone" value={settings.contactInfo.phone} onChange={handleInputChange} /></div>
+                    <div className="space-y-2 md:col-span-2"><Label>Dirección</Label><Input name="contactInfo.address.street" value={settings.contactInfo.address.street} onChange={handleInputChange} /></div>
+                    <div className="space-y-2"><Label>Ciudad</Label><Input name="contactInfo.address.city" value={settings.contactInfo.address.city} onChange={handleInputChange} /></div>
+                    <div className="space-y-2"><Label>Estado/Provincia</Label><Input name="contactInfo.address.state" value={settings.contactInfo.address.state} onChange={handleInputChange} /></div>
+                    <div className="space-y-2"><Label>Código Postal</Label><Input name="contactInfo.address.zipCode" value={settings.contactInfo.address.zipCode} onChange={handleInputChange} /></div>
+                    <div className="space-y-2"><Label>País</Label><Input name="contactInfo.address.country" value={settings.contactInfo.address.country} onChange={handleInputChange} /></div>
+                </CardContent>
+            </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Información de Contacto</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <Label htmlFor="contactInfo.email">Email de Contacto</Label>
-            <Input id="contactInfo.email" name="contactInfo.email" type="email" value={settings?.contactInfo?.email || ''} onChange={handleChange} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="contactInfo.phone">Teléfono de Contacto</Label>
-            <Input id="contactInfo.phone" name="contactInfo.phone" value={settings?.contactInfo?.phone || ''} onChange={handleChange} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="contactInfo.address.street">Dirección</Label>
-            <Input id="contactInfo.address.street" name="contactInfo.address.street" value={settings?.contactInfo?.address?.street || ''} onChange={handleChange} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="contactInfo.address.city">Ciudad</Label>
-            <Input id="contactInfo.address.city" name="contactInfo.address.city" value={settings?.contactInfo?.address?.city || ''} onChange={handleChange} />
-          </div>
-        </CardContent>
-      </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Información Fiscal</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>RIF</Label><Input name="taxInfo.rif" value={settings.taxInfo.rif} onChange={handleInputChange} /></div>
+                    <div className="space-y-2"><Label>Razón Social</Label><Input name="taxInfo.businessName" value={settings.taxInfo.businessName} onChange={handleInputChange} /></div>
+                </CardContent>
+            </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Configuración Operativa y Financiera</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <Label htmlFor="settings.currency.primary">Moneda Principal</Label>
-            <Input id="settings.currency.primary" name="settings.currency.primary" value={settings?.settings?.currency?.primary || ''} onChange={handleChange} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="timezone">Zona Horaria</Label>
-            <Input id="timezone" name="timezone" value={settings?.timezone || ''} onChange={handleChange} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="settings.inventory.lowStockAlertThreshold">Umbral de Alerta de Inventario</Label>
-            <Input id="settings.inventory.lowStockAlertThreshold" name="settings.inventory.lowStockAlertThreshold" type="number" value={settings?.settings?.inventory?.lowStockAlertThreshold || 0} onChange={handleChange} />
-          </div>
-        </CardContent>
-      </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Configuraciones Varias</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2"><Label>Moneda Principal</Label><Input name="settings.currency.primary" value={settings.settings.currency.primary} onChange={handleInputChange} /></div>
+                    <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <Label>Habilitar Inventario FEFO (First-Expires, First-Out)</Label>
+                        <Switch name="settings.inventory.fefoEnabled" checked={settings.settings.inventory.fefoEnabled} onCheckedChange={(c) => handleSwitchChange('settings.inventory.fefoEnabled', c)} />
+                    </div>
+                </CardContent>
+            </Card>
 
-      <div className="flex justify-end">
-        <Button type="submit">Guardar Cambios</Button>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Personalización de Documentos</CardTitle>
+                    <CardDescription>Adapta la apariencia de tus facturas y presupuestos.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <Label className="font-semibold">Facturas</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                        <div className="space-y-2">
+                            <Label>Color Primario</Label>
+                            <Input 
+                                type="color" 
+                                name="settings.documentTemplates.invoice.primaryColor" 
+                                value={settings.settings.documentTemplates?.invoice?.primaryColor || '#000000'} 
+                                onChange={handleInputChange} 
+                                className="p-1 h-10 w-full"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Color de Acento</Label>
+                            <Input 
+                                type="color" 
+                                name="settings.documentTemplates.invoice.accentColor" 
+                                value={settings.settings.documentTemplates?.invoice?.accentColor || '#FFFFFF'} 
+                                onChange={handleInputChange}
+                                className="p-1 h-10 w-full"
+                            />
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Texto de Pie de Página (Factura)</Label>
+                        <Input 
+                            name="settings.documentTemplates.invoice.footerText" 
+                            value={settings.settings.documentTemplates?.invoice?.footerText || ''} 
+                            onChange={handleInputChange} 
+                            placeholder="Ej: Gracias por su compra."
+                        />
+                    </div>
+
+                    <div className="border-t border-border my-4"></div>
+
+                    <Label className="font-semibold">Presupuestos</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                        <div className="space-y-2">
+                            <Label>Color Primario</Label>
+                            <Input 
+                                type="color" 
+                                name="settings.documentTemplates.quote.primaryColor" 
+                                value={settings.settings.documentTemplates?.quote?.primaryColor || '#000000'} 
+                                onChange={handleInputChange} 
+                                className="p-1 h-10 w-full"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Color de Acento</Label>
+                            <Input 
+                                type="color" 
+                                name="settings.documentTemplates.quote.accentColor" 
+                                value={settings.settings.documentTemplates?.quote?.accentColor || '#FFFFFF'} 
+                                onChange={handleInputChange}
+                                className="p-1 h-10 w-full"
+                            />
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Texto de Pie de Página (Presupuesto)</Label>
+                        <Input 
+                            name="settings.documentTemplates.quote.footerText" 
+                            value={settings.settings.documentTemplates?.quote?.footerText || ''} 
+                            onChange={handleInputChange} 
+                            placeholder="Ej: Presupuesto válido por 15 días."
+                        />
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
       </div>
-    </form>
+
+      <div className="mt-6 flex justify-end">
+        <Button size="lg" onClick={handleSaveSettings} disabled={isSaving}>
+          {isSaving ? 'Guardando...' : 'Guardar Todos los Cambios'}
+        </Button>
+      </div>
+    </div>
   );
 };
 

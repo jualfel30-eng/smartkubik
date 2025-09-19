@@ -72,6 +72,20 @@ export class TenantSettings {
 
   @Prop({ type: [PaymentMethodSettingSchema], default: undefined })
   paymentMethods: PaymentMethodSetting[];
+
+  @Prop({ type: Object })
+  documentTemplates: {
+    invoice: {
+      primaryColor: string;
+      accentColor: string;
+      footerText: string;
+    };
+    quote: {
+      primaryColor: string;
+      accentColor: string;
+      footerText: string;
+    };
+  };
 }
 
 @Schema({ timestamps: true })

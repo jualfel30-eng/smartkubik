@@ -2,13 +2,16 @@ const getAuthToken = () => {
   return localStorage.getItem('accessToken');
 };
 
+// Updated fetchApi to handle FormData for file uploads
 export const fetchApi = async (url, options = {}) => {
   const token = getAuthToken();
 
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
+  const headers = { ...options.headers };
+
+  // Let the browser set the Content-Type for FormData
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -80,6 +83,17 @@ export const updateTenantSettings = (settingsData) => {
   return fetchApi('/tenant/settings', {
     method: 'PUT',
     body: JSON.stringify(settingsData),
+  });
+};
+
+// New function to upload the tenant logo
+export const uploadTenantLogo = (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return fetchApi('/tenant/logo', {
+    method: 'POST',
+    body: formData,
   });
 };
 

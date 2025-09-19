@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { fetchApi } from '@/lib/api';
+import { fetchApi, getTenantSettings } from '@/lib/api';
 import { OrdersDataTableV2 } from './OrdersDataTableV2';
 import { Badge } from "@/components/ui/badge";
 import { NewOrderFormV2 } from './NewOrderFormV2';
@@ -9,7 +9,7 @@ import { PaymentDialogV2 } from './PaymentDialogV2';
 import { OrderStatusSelector } from './OrderStatusSelector';
 import { OrderDetailsDialog } from './OrderDetailsDialog';
 import { Button } from "@/components/ui/button";
-import { Eye, CreditCard, RefreshCw, Search } from "lucide-react";
+import { CreditCard, RefreshCw, Search, Printer } from "lucide-react";
 import { useDebounce } from '@/hooks/use-debounce.js';
 
 export function OrdersManagementV2() {
@@ -18,12 +18,13 @@ export function OrdersManagementV2() {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
+  const [tenantSettings, setTenantSettings] = useState(null);
 
-  // Estado para el diálogo de pago
+  // State for Payment Dialog
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [selectedOrderForPayment, setSelectedOrderForPayment] = useState(null);
 
-  // Estado para el diálogo de detalles
+  // State for Details Dialog
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedOrderForDetails, setSelectedOrderForDetails] = useState(null);
 
@@ -51,6 +52,15 @@ export function OrdersManagementV2() {
     fetchOrders(1, debouncedSearchTerm);
   }, [debouncedSearchTerm, fetchOrders]);
 
+  // Effect to fetch tenant settings
+  useEffect(() => {
+    getTenantSettings().then(response => {
+      if (response.success) {
+        setTenantSettings(response.data);
+      }
+    }).catch(err => console.error("Failed to fetch tenant settings:", err));
+  }, []);
+
   const handleRefresh = useCallback(() => {
     fetchOrders(data.pagination?.page || 1, debouncedSearchTerm);
   }, [data.pagination, fetchOrders, debouncedSearchTerm]);
@@ -59,7 +69,7 @@ export function OrdersManagementV2() {
     fetchOrders(newPage, debouncedSearchTerm);
   };
 
-  // Handlers para el diálogo de pago
+  // Handlers for Payment Dialog
   const handleOpenPaymentDialog = useCallback((order) => {
     setSelectedOrderForPayment(order);
     setIsPaymentDialogOpen(true);
@@ -72,10 +82,10 @@ export function OrdersManagementV2() {
 
   const handlePaymentSuccess = useCallback(() => {
     handleClosePaymentDialog();
-    handleRefresh(); // Use handleRefresh to refetch with current search term
+    handleRefresh();
   }, [handleClosePaymentDialog, handleRefresh]);
 
-  // Handlers para el diálogo de detalles
+  // Handlers for Details Dialog
   const handleOpenDetailsDialog = useCallback((order) => {
     setSelectedOrderForDetails(order);
     setIsDetailsDialogOpen(true);
@@ -128,11 +138,11 @@ export function OrdersManagementV2() {
     },
     {
       id: "view",
-      header: () => <div className="text-center">Ver</div>,
+      header: () => <div className="text-center">Ver/Imprimir</div>,
       cell: ({ row }) => (
         <div className="text-center">
           <Button variant="ghost" size="icon" onClick={() => handleOpenDetailsDialog(row.original)}>
-            <Eye className="h-4 w-4" />
+            <Printer className="h-4 w-4" />
           </Button>
         </div>
       ),
@@ -223,6 +233,7 @@ export function OrdersManagementV2() {
         isOpen={isDetailsDialogOpen}
         onClose={handleCloseDetailsDialog}
         order={selectedOrderForDetails}
+        tenantSettings={tenantSettings}
       />
     </div>
   );

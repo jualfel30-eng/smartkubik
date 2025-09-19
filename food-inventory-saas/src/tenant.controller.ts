@@ -10,12 +10,17 @@ import {
   HttpException,
   HttpStatus,
   Param,
+  UseInterceptors,
+  UploadedFile,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiConsumes,
+  ApiBody,
 } from "@nestjs/swagger";
 import { TenantService } from "./tenant.service";
 import {
@@ -34,6 +39,42 @@ import { RequirePermissions } from "./decorators/permissions.decorator";
 @ApiBearerAuth()
 export class TenantController {
   constructor(private readonly tenantService: TenantService) {}
+
+  @Post("logo")
+  @UseInterceptors(FileInterceptor("file"))
+  @ApiConsumes("multipart/form-data")
+  @ApiBody({
+    description: "Logo a subir",
+    schema: {
+      type: "object",
+      properties: {
+        file: {
+          type: "string",
+          format: "binary",
+        },
+      },
+    },
+  })
+  @ApiOperation({ summary: "Subir o actualizar el logo del tenant" })
+  @ApiResponse({ status: 200, description: "Logo actualizado exitosamente" })
+  async uploadLogo(@Request() req, @UploadedFile() file: Express.Multer.File) {
+    try {
+      const updatedTenant = await this.tenantService.uploadLogo(
+        req.user.tenantId,
+        file,
+      );
+      return {
+        success: true,
+        message: "Logo actualizado exitosamente",
+        data: { logo: updatedTenant.logo },
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al subir el logo",
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
 
   @Get("settings")
   @ApiOperation({ summary: "Obtener la configuración del tenant" })

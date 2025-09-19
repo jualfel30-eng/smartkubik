@@ -84,6 +84,54 @@ class InventorySettingsDto {
     lowStockAlertThreshold?: number;
 }
 
+class InvoiceSettingsDto {
+  @ApiProperty({ example: "#000000" })
+  @IsString()
+  @IsOptional()
+  primaryColor?: string;
+
+  @ApiProperty({ example: "#FFFFFF" })
+  @IsString()
+  @IsOptional()
+  accentColor?: string;
+
+  @ApiProperty({ example: "Gracias por su compra" })
+  @IsString()
+  @IsOptional()
+  footerText?: string;
+}
+
+class QuoteSettingsDto {
+  @ApiProperty({ example: "#000000" })
+  @IsString()
+  @IsOptional()
+  primaryColor?: string;
+
+  @ApiProperty({ example: "#FFFFFF" })
+  @IsString()
+  @IsOptional()
+  accentColor?: string;
+
+  @ApiProperty({ example: "Presupuesto válido por 15 días." })
+  @IsString()
+  @IsOptional()
+  footerText?: string;
+}
+
+class DocumentTemplatesSettingsDto {
+  @ApiProperty({ type: InvoiceSettingsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => InvoiceSettingsDto)
+  invoice?: InvoiceSettingsDto;
+
+  @ApiProperty({ type: QuoteSettingsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => QuoteSettingsDto)
+  quote?: QuoteSettingsDto;
+}
+
 class OperationalSettingsDto {
     @ApiProperty({ type: CurrencySettingsDto })
     @IsOptional()
@@ -96,6 +144,12 @@ class OperationalSettingsDto {
     @ValidateNested()
     @Type(() => InventorySettingsDto)
     inventory?: InventorySettingsDto;
+
+    @ApiProperty({ type: DocumentTemplatesSettingsDto })
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => DocumentTemplatesSettingsDto)
+    documentTemplates?: DocumentTemplatesSettingsDto;
 }
 
 export class UpdateTenantSettingsDto {
