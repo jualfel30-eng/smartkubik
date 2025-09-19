@@ -38,6 +38,9 @@ export class CustomerAddress {
 
 @Schema()
 export class CustomerContact {
+  @Prop()
+  name?: string; // Nombre de la persona de contacto
+
   @Prop({ required: true })
   type: string; // phone, email, whatsapp
 

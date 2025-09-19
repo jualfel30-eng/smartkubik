@@ -148,6 +148,14 @@ export const deletePayable = (id) => {
   });
 };
 
+// Suppliers API
+export const createSupplier = (supplierData) => {
+  return fetchApi('/suppliers', {
+    method: 'POST',
+    body: JSON.stringify(supplierData),
+  });
+};
+
 // Recurring Payables API
 export const getRecurringPayables = () => {
   return fetchApi('/recurring-payables');
