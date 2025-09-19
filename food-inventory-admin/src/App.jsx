@@ -46,6 +46,7 @@ import DashboardView from './components/DashboardView.jsx';
 import AccountingManagement from './components/AccountingManagement.jsx';
 import SettingsPage from './components/SettingsPage.jsx';
 import PayablesManagement from '@/components/PayablesManagement.jsx';
+import AccountsReceivableReport from '@/components/AccountsReceivableReport.jsx';
 
 
 
@@ -130,6 +131,7 @@ function AdminLayout() {
           <Route path="/payables" element={<PayablesManagement />} />
           <Route path="/calendar" element={<CalendarView />} />
           <Route path="/accounting" element={<AccountingView />} />
+          <Route path="/accounting/reports/accounts-receivable" element={<AccountsReceivableReport />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>

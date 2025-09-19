@@ -20,6 +20,7 @@ import { TenantController } from "./tenant.controller";
 import { TenantService } from "./tenant.service";
 import { PayablesModule } from './modules/payables/payables.module';
 import { RecurringPayablesModule } from './modules/recurring-payables/recurring-payables.module';
+import { ReportsModule } from "./modules/reports/reports.module";
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { RecurringPayablesModule } from './modules/recurring-payables/recurring-
     TenantModule,
     PayablesModule,
     RecurringPayablesModule,
+    ReportsModule,
   ],
   controllers: [AppController, TenantController],
   providers: [AppService, TenantService],

@@ -15,6 +15,7 @@ import {
   UpdateOrderDto,
   OrderQueryDto,
   OrderCalculationDto,
+  BulkRegisterPaymentsDto,
 } from "../../dto/order.dto";
 import { InventoryService } from "../inventory/inventory.service";
 import { AccountingService } from "../accounting/accounting.service"; // Import AccountingService
@@ -41,12 +42,14 @@ export class OrdersService {
     // This is a temporary solution to fix the dependency issue.
     // In the future, this should be configurable per tenant.
     const baseMethods = [
-      { id: 'cash_usd', name: 'Efectivo (USD)', igtfApplicable: false },
-      { id: 'cash_ves', name: 'Efectivo (VES)', igtfApplicable: false },
-      { id: 'zelle', name: 'Zelle', igtfApplicable: false },
-      { id: 'bank_transfer_usd', name: 'Transferencia (USD)', igtfApplicable: false },
-      { id: 'bank_transfer_ves', name: 'Transferencia (VES)', igtfApplicable: true },
-      { id: 'paypal', name: 'PayPal', igtfApplicable: false },
+      { id: 'efectivo_usd', name: 'Efectivo (USD)', igtfApplicable: true },
+      { id: 'transferencia_usd', name: 'Transferencia (USD)', igtfApplicable: true },
+      { id: 'zelle_usd', name: 'Zelle (USD)', igtfApplicable: true },
+      { id: 'efectivo_ves', name: 'Efectivo (VES)', igtfApplicable: false },
+      { id: 'transferencia_ves', name: 'Transferencia (VES)', igtfApplicable: false },
+      { id: 'pago_movil_ves', name: 'Pago Móvil (VES)', igtfApplicable: false },
+      { id: 'tarjeta_ves', name: 'Tarjeta (VES)', igtfApplicable: false },
+      { id: 'pago_mixto', name: 'Pago Mixto', igtfApplicable: false }, // La lógica de IGTF para mixto es más compleja y se maneja en el frontend
     ];
 
     return { methods: baseMethods };
@@ -56,7 +59,7 @@ export class OrdersService {
     createOrderDto: CreateOrderDto,
     user: any,
   ): Promise<OrderDocument> {
-    const { customerId, customerName, customerRif, taxType, items } =
+    const { customerId, customerName, customerRif, taxType, items, payments } =
       createOrderDto;
     this.logger.log(
       `Initiating order creation with customerId: ${customerId} or customerRif: ${customerRif}`,
@@ -122,28 +125,11 @@ export class OrdersService {
     // Phase 2: Process Order Items and Calculate Totals
     this.logger.log(`Processing order items for customer: ${customer._id}`);
     try {
-      const [products, tenant] = await Promise.all([
-        this.productModel.find({ _id: { $in: items.map((i) => i.productId) } }),
-        this.tenantModel.findById(user.tenantId),
-      ]);
-
-      if (!tenant) {
-        throw new BadRequestException("Información de tenant no encontrada.");
-      }
-
-      const paymentMethodsResponse =
-        await this.getPaymentMethods(user);
-      const selectedPaymentMethod = paymentMethodsResponse.methods.find(
-        (m) => m.id === createOrderDto.paymentMethod,
-      );
-      const appliesIgtf = selectedPaymentMethod
-        ? selectedPaymentMethod.igtfApplicable
-        : false;
+      const products = await this.productModel.find({ _id: { $in: items.map((i) => i.productId) } });
 
       const detailedItems: OrderItem[] = [];
       let subtotal = 0;
       let ivaTotal = 0;
-      let igtfTotal = 0;
 
       for (const itemDto of items) {
         const product = products.find(
@@ -159,10 +145,7 @@ export class OrdersService {
         const costPrice = variant?.costPrice ?? 0;
         const totalPrice = unitPrice * itemDto.quantity;
         const ivaAmount = product.ivaApplicable ? totalPrice * 0.16 : 0;
-        const igtfAmount =
-          appliesIgtf && !product.igtfExempt ? totalPrice * 0.03 : 0;
-        const finalPrice = totalPrice + ivaAmount + igtfAmount;
-
+        
         detailedItems.push({
           productId: product._id,
           productSku: product.sku,
@@ -172,15 +155,20 @@ export class OrdersService {
           costPrice,
           totalPrice,
           ivaAmount,
-          igtfAmount,
-          finalPrice,
+          igtfAmount: 0, // Will be calculated later
+          finalPrice: 0, // Will be calculated later
           status: "pending",
         } as OrderItem);
 
         subtotal += totalPrice;
         ivaTotal += ivaAmount;
-        igtfTotal += igtfAmount;
       }
+
+      const foreignCurrencyPaymentAmount = (payments || [])
+        .filter(p => p.method.includes('_usd'))
+        .reduce((sum, p) => sum + p.amount, 0);
+
+      const igtfTotal = foreignCurrencyPaymentAmount * 0.03;
 
       const shippingCost = createOrderDto.shippingCost || 0;
       const discountAmount = createOrderDto.discountAmount || 0;
@@ -189,21 +177,38 @@ export class OrdersService {
 
       const orderNumber = await this.generateOrderNumber(user.tenantId);
 
+      const newPayments = (payments || []).map(p => ({
+        ...p,
+        currency: p.method.includes('_usd') ? 'USD' : 'VES',
+        status: 'confirmed',
+        confirmedAt: new Date(),
+        confirmedBy: user.id,
+      }));
+
+      const paidAmount = newPayments.reduce((sum, p) => sum + p.amount, 0);
+      let paymentStatus = 'pending';
+      if (paidAmount >= totalAmount) {
+        paymentStatus = 'paid';
+      } else if (paidAmount > 0) {
+        paymentStatus = 'partial';
+      }
+
       const orderData: any = {
         orderNumber,
-        customerId: customer._id, // Use the ID of the found or created customer
+        customerId: customer._id,
         customerName: customer.name,
-        items: detailedItems,
+        items: detailedItems, // igtfAmount and finalPrice will be updated later if needed
         subtotal,
         ivaTotal,
         igtfTotal,
         shippingCost,
         discountAmount,
         totalAmount,
+        payments: newPayments,
+        paymentStatus,
         notes: createOrderDto.notes,
         channel: createOrderDto.channel,
         status: "pending",
-        paymentStatus: "pending",
         inventoryReservation: { isReserved: false },
         createdBy: user.id,
         tenantId: user.tenantId,
@@ -211,7 +216,7 @@ export class OrdersService {
 
       if (createOrderDto.shippingAddress) {
         orderData.shipping = {
-          method: "delivery", // Default to 'delivery' if an address is provided
+          method: "delivery",
           address: {
             street: createOrderDto.shippingAddress.street,
             city: createOrderDto.shippingAddress.city,
@@ -219,7 +224,7 @@ export class OrdersService {
             zipCode: createOrderDto.shippingAddress.zipCode || "",
             country: "Venezuela",
           },
-          cost: shippingCost, // Use the shippingCost from the DTO
+          cost: shippingCost,
         };
       }
 
@@ -267,7 +272,6 @@ export class OrdersService {
         $set: { "metrics.lastOrderDate": new Date() },
       };
       if (!customer.metrics?.firstOrderDate) {
-        // Defensive check
         customerUpdate.$set["metrics.firstOrderDate"] = new Date();
       }
       await this.customerModel.findByIdAndUpdate(customer._id, customerUpdate);
@@ -317,19 +321,12 @@ export class OrdersService {
   async calculateTotals(calculationDto: OrderCalculationDto, user: any) {
     const {
       items,
-      paymentMethod,
+      payments,
       shippingCost = 0,
       discountAmount = 0,
     } = calculationDto;
 
-    const [products, tenant] = await Promise.all([
-      this.productModel.find({ _id: { $in: items.map((i) => i.productId) } }),
-      this.tenantModel.findById(user.tenantId), // Cargar el tenant completo
-    ]);
-
-    if (!tenant) {
-      throw new BadRequestException("Información de tenant no encontrada.");
-    }
+    const products = await this.productModel.find({ _id: { $in: items.map((i) => i.productId) } });
 
     if (products.length !== items.length) {
       throw new BadRequestException(
@@ -337,18 +334,8 @@ export class OrdersService {
       );
     }
 
-    const paymentMethodsResponse =
-      await this.getPaymentMethods(user);
-    const selectedPaymentMethod = paymentMethodsResponse.methods.find(
-      (m) => m.id === paymentMethod,
-    );
-    const appliesIgtf = selectedPaymentMethod
-      ? selectedPaymentMethod.igtfApplicable
-      : false;
-
     let subtotal = 0;
     let ivaTotal = 0;
-    let igtfTotal = 0;
 
     for (const itemDto of items) {
       const product = products.find(
@@ -365,13 +352,16 @@ export class OrdersService {
       const totalPrice = unitPrice * itemDto.quantity;
 
       const ivaAmount = product.ivaApplicable ? totalPrice * 0.16 : 0;
-      const igtfAmount =
-        appliesIgtf && !product.igtfExempt ? totalPrice * 0.03 : 0;
 
       subtotal += totalPrice;
       ivaTotal += ivaAmount;
-      igtfTotal += igtfAmount;
     }
+
+    const foreignCurrencyPaymentAmount = (payments || [])
+      .filter(p => p.method.includes('_usd'))
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    const igtfTotal = foreignCurrencyPaymentAmount * 0.03;
 
     const totalAmount =
       subtotal +
@@ -522,5 +512,43 @@ export class OrdersService {
     const randomPart = now.getTime().toString().slice(-4);
 
     return `ORD-${year}${month}${day}-${hours}${minutes}${seconds}-${randomPart}`;
+  }
+
+  async registerPayments(
+    orderId: string,
+    bulkRegisterPaymentsDto: BulkRegisterPaymentsDto,
+    user: any,
+  ): Promise<OrderDocument> {
+    this.logger.log(`Registering payments for order ${orderId}`);
+    const order = await this.orderModel.findOne({ _id: orderId, tenantId: user.tenantId });
+
+    if (!order) {
+      throw new NotFoundException('Orden no encontrada');
+    }
+
+    const newPayments = bulkRegisterPaymentsDto.payments.map(p => {
+      const currency = p.method.includes('_usd') ? 'USD' : 'VES';
+      return {
+        ...p,
+        currency,
+        status: 'confirmed',
+        confirmedAt: new Date(),
+        confirmedBy: user.id,
+      };
+    });
+
+    order.payments.push(...newPayments);
+
+    const paidAmount = order.payments
+      .filter(p => p.status === 'confirmed')
+      .reduce((sum, p) => sum + p.amount, 0);
+
+    if (paidAmount >= order.totalAmount) {
+      order.paymentStatus = 'paid';
+    } else if (paidAmount > 0) {
+      order.paymentStatus = 'partial';
+    }
+
+    return order.save();
   }
 }

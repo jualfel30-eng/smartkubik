@@ -12,6 +12,7 @@ import { fetchApi } from '@/lib/api.js';
 import { useCrmContext } from '@/context/CrmContext.jsx';
 import { venezuelaData } from '@/lib/venezuela-data.js';
 import { SearchableSelect } from './custom/SearchableSelect';
+import { MixedPaymentDialog } from './MixedPaymentDialog';
 
 const initialOrderState = {
   customerId: '',
@@ -33,6 +34,8 @@ export function NewOrderFormV2({ onOrderCreated }) {
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [newOrder, setNewOrder] = useState(initialOrderState);
+  const [isMixedPaymentModalOpen, setIsMixedPaymentModalOpen] = useState(false);
+  const [mixedPaymentData, setMixedPaymentData] = useState(null);
 
   const [municipios, setMunicipios] = useState([]);
 
@@ -64,7 +67,10 @@ export function NewOrderFormV2({ onOrderCreated }) {
 
   useEffect(() => {
     if (paymentMethods.length > 0 && !newOrder.paymentMethod) {
-      setNewOrder(prev => ({ ...prev, paymentMethod: paymentMethods[0].id }));
+      const defaultMethod = paymentMethods.find(pm => pm.id !== 'pago_mixto');
+      if (defaultMethod) {
+        setNewOrder(prev => ({ ...prev, paymentMethod: defaultMethod.id }));
+      }
     }
   }, [paymentMethods, newOrder.paymentMethod]);
 
@@ -160,6 +166,29 @@ export function NewOrderFormV2({ onOrderCreated }) {
     setNewOrder(prev => ({ ...prev, items: prev.items.filter(item => item.productId !== productId) }));
   };
 
+  const handlePaymentMethodChange = (value) => {
+    if (value === 'pago_mixto') {
+      const subtotal = newOrder.items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+      const iva = newOrder.items.reduce((sum, item) => 
+        item.ivaApplicable ? sum + (item.unitPrice * item.quantity * 0.16) : sum, 0);
+      const totalForModal = subtotal + iva;
+      if (totalForModal <= 0) {
+        alert("Añada productos a la orden antes de definir un pago mixto.");
+        return;
+      }
+      setIsMixedPaymentModalOpen(true);
+    } else {
+      setNewOrder(prev => ({ ...prev, paymentMethod: value }));
+      setMixedPaymentData(null);
+    }
+  };
+
+  const handleSaveMixedPayment = (data) => {
+    setMixedPaymentData(data);
+    setNewOrder(prev => ({ ...prev, paymentMethod: 'pago_mixto' }));
+    setIsMixedPaymentModalOpen(false);
+  };
+
   const handleCreateOrder = async () => {
     if (newOrder.items.length === 0) {
       alert('Agrega al menos un producto a la orden.');
@@ -173,13 +202,31 @@ export function NewOrderFormV2({ onOrderCreated }) {
         alert('Debes seleccionar un método de pago.');
         return;
     }
+
+    let paymentsPayload = [];
+    if (mixedPaymentData) {
+      paymentsPayload = mixedPaymentData.payments.map(p => ({
+        amount: Number(p.amount),
+        method: p.method,
+        date: new Date().toISOString(),
+        reference: p.reference,
+      }));
+    } else {
+      paymentsPayload = [{
+        amount: totals.total,
+        method: newOrder.paymentMethod,
+        date: new Date().toISOString(),
+        reference: '',
+      }];
+    }
+
     const payload = {
       customerId: newOrder.customerId || undefined,
       customerName: newOrder.customerName,
       customerRif: newOrder.customerRif,
       taxType: newOrder.taxType,
       items: newOrder.items.map(item => ({ productId: item.productId, quantity: item.quantity })),
-      paymentMethod: newOrder.paymentMethod,
+      payments: paymentsPayload,
       notes: newOrder.notes,
       shippingAddress: newOrder.shippingAddress.street ? newOrder.shippingAddress : undefined,
     };
@@ -187,6 +234,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
       await fetchApi('/orders', { method: 'POST', body: JSON.stringify(payload) });
       alert('¡Orden creada con éxito!');
       setNewOrder(initialOrderState);
+      setMixedPaymentData(null);
       if (onOrderCreated) {
         onOrderCreated();
       }
@@ -220,21 +268,34 @@ export function NewOrderFormV2({ onOrderCreated }) {
     const subtotal = newOrder.items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
     const iva = newOrder.items.reduce((sum, item) => 
         item.ivaApplicable ? sum + (item.unitPrice * item.quantity * 0.16) : sum, 0);
-    const selectedPayMethod = paymentMethods.find(m => m.id === newOrder.paymentMethod);
-    const appliesIgtf = selectedPayMethod?.igtfApplicable || false;
-    const igtf = appliesIgtf 
-      ? newOrder.items.reduce((sum, item) => 
-          !item.igtfExempt ? sum + (item.unitPrice * item.quantity * 0.03) : sum, 0)
-      : 0;
+    
+    let igtf = 0;
+    if (mixedPaymentData) {
+      igtf = mixedPaymentData.igtf;
+    } else {
+      const selectedPayMethod = paymentMethods.find(m => m.id === newOrder.paymentMethod);
+      const appliesIgtf = selectedPayMethod?.igtfApplicable || false;
+      if (appliesIgtf) {
+        const igtfBase = newOrder.items.reduce((sum, item) => 
+            !item.igtfExempt ? sum + (item.unitPrice * item.quantity) : sum, 0);
+        igtf = igtfBase * 0.03;
+      }
+    }
+
     const total = subtotal + iva + igtf;
     return { subtotal, iva, igtf, total };
-  }, [newOrder.items, newOrder.paymentMethod, paymentMethods]);
+  }, [newOrder.items, newOrder.paymentMethod, paymentMethods, mixedPaymentData]);
 
   const isCreateDisabled = newOrder.items.length === 0 || !newOrder.customerName || !newOrder.customerRif || !newOrder.paymentMethod;
 
   return (
     <Card className="mb-8">
-      
+      <MixedPaymentDialog 
+        isOpen={isMixedPaymentModalOpen}
+        onClose={() => setIsMixedPaymentModalOpen(false)}
+        totalAmount={totals.subtotal + totals.iva}
+        onSave={handleSaveMixedPayment}
+      />
       <CardContent className="space-y-6">
         <div className="p-4 border rounded-lg space-y-4">
           <Label className="text-base font-semibold">Datos del Cliente</Label>
@@ -387,7 +448,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => setNewOrder(initialOrderState)}>Limpiar Formulario</Button>
           <div className="w-48">
-            <Select value={newOrder.paymentMethod} onValueChange={(value) => handleFieldChange('paymentMethod', value)} disabled={contextLoading}>
+            <Select value={newOrder.paymentMethod} onValueChange={handlePaymentMethodChange} disabled={contextLoading}>
                 <SelectTrigger><SelectValue placeholder="Forma de Pago" /></SelectTrigger>
                 <SelectContent>{paymentMethods.map(method => (<SelectItem key={method.id} value={method.id}>{method.name}</SelectItem>))}</SelectContent>
             </Select>

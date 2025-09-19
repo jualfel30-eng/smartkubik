@@ -24,6 +24,7 @@ import {
   UpdateOrderDto,
   OrderQueryDto,
   OrderCalculationDto,
+  BulkRegisterPaymentsDto,
 } from "../../dto/order.dto";
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
@@ -181,6 +182,34 @@ export class OrdersController {
     } catch (error) {
       throw new HttpException(
         error.message || "Error al actualizar la orden",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Post(':id/payments')
+  @RequirePermissions('orders', ['update'])
+  @ApiOperation({ summary: 'Registrar uno o más pagos para una orden' })
+  @ApiResponse({ status: 200, description: 'Pagos registrados exitosamente' })
+  async registerPayments(
+    @Param('id') id: string,
+    @Body() bulkRegisterPaymentsDto: BulkRegisterPaymentsDto,
+    @Request() req,
+  ) {
+    try {
+      const order = await this.ordersService.registerPayments(
+        id,
+        bulkRegisterPaymentsDto,
+        req.user,
+      );
+      return {
+        success: true,
+        message: 'Pagos registrados exitosamente',
+        data: order,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Error al registrar los pagos',
         HttpStatus.BAD_REQUEST,
       );
     }

@@ -185,3 +185,10 @@ export const createPayment = (paymentData) => {
     body: JSON.stringify(paymentData),
   });
 };
+
+export const getAccountsReceivableReport = (asOfDate) => {
+  const url = asOfDate
+    ? `/reports/accounts-receivable?asOfDate=${asOfDate}`
+    : '/reports/accounts-receivable';
+  return fetchApi(url);
+};

@@ -50,6 +50,28 @@ export class CreateOrderItemDto {
   quantity: number;
 }
 
+export class RegisterPaymentDto {
+  @ApiProperty({ description: "Monto del pago" })
+  @IsNumber()
+  @Min(0.01)
+  amount: number;
+
+  @ApiProperty({ description: "Método de pago" })
+  @IsString()
+  @IsNotEmpty()
+  method: string;
+
+  @ApiProperty({ description: "Fecha del pago" })
+  @IsDate()
+  @Type(() => Date)
+  date: Date;
+
+  @ApiPropertyOptional({ description: "Referencia del pago" })
+  @IsOptional()
+  @IsString()
+  reference?: string;
+}
+
 export class CreateOrderDto {
   @ApiPropertyOptional({ description: "ID del cliente existente" })
   @IsOptional()
@@ -146,10 +168,12 @@ export class CreateOrderDto {
   @IsBoolean()
   autoReserve?: boolean = true;
 
-  @ApiProperty({ description: "Método de pago" })
-  @IsString()
-  @IsNotEmpty()
-  paymentMethod: string;
+  @ApiPropertyOptional({ description: "Pagos de la orden", type: [RegisterPaymentDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RegisterPaymentDto)
+  payments?: RegisterPaymentDto[];
 }
 
 export class UpdateOrderDto {
@@ -334,11 +358,12 @@ export class OrderCalculationDto {
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
 
-  @ApiPropertyOptional({ description: "Método de pago principal" })
+  @ApiPropertyOptional({ description: "Pagos para calcular IGTF", type: [RegisterPaymentDto] })
   @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  paymentMethod?: string;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RegisterPaymentDto)
+  payments?: RegisterPaymentDto[];
 
   @ApiPropertyOptional({ description: "Monto de descuento", default: 0 })
   @IsOptional()
@@ -351,4 +376,13 @@ export class OrderCalculationDto {
   @IsNumber()
   @Min(0)
   shippingCost?: number = 0;
+}
+
+export class BulkRegisterPaymentsDto {
+  @ApiProperty({ type: [RegisterPaymentDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => RegisterPaymentDto)
+  payments: RegisterPaymentDto[];
 }
