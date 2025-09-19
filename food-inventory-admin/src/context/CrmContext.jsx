@@ -2,7 +2,7 @@ import { createContext, useState, useCallback, useEffect, useContext } from 'rea
 import { fetchApi } from '@/lib/api';
 
 // 1. Crear el Contexto
-const CrmContext = createContext();
+export const CrmContext = createContext();
 
 // 2. Crear el Proveedor del Contexto
 export const CrmProvider = ({ children }) => {

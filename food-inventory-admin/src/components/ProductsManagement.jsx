@@ -36,10 +36,19 @@ const initialNewProductState = {
   shelfLifeDays: 0,
   storageTemperature: 'ambiente',
   ivaApplicable: true,
-  taxCategory: 'general', // Default value
+  taxCategory: 'general',
+  inventoryConfig: { // Objeto añadido
+    minimumStock: 10,
+    maximumStock: 100,
+    reorderPoint: 20,
+    reorderQuantity: 50,
+    trackLots: true,
+    trackExpiration: true,
+    fefoEnabled: true,
+  },
   variant: {
-    name: 'Estándar', // Default variant name
-    sku: '', // Will be derived from product sku
+    name: 'Estándar',
+    sku: '',
     barcode: '',
     unit: 'unidad',
     unitSize: 1,
@@ -178,7 +187,6 @@ function ProductsManagement() {
         barcode: `${newProduct.sku}-VAR1`,
       }],
       pricingRules: { cashDiscount: 0, cardSurcharge: 0, minimumMargin: 0.2, maximumDiscount: 0.5 },
-      inventoryConfig: { trackLots: true, trackExpiration: true, minimumStock: 10, maximumStock: 100, reorderPoint: 20, reorderQuantity: 50, fefoEnabled: true },
       igtfExempt: false,
     };
     if (!payload.isPerishable) {
@@ -204,18 +212,20 @@ function ProductsManagement() {
   const handleUpdateProduct = async () => {
     if (!editingProduct) return;
 
-    const payload = { ...editingProduct };
-    // Clean up payload from fields that shouldn't be sent on update
-    delete payload._id;
-    delete payload.createdAt;
-    delete payload.updatedAt;
-    delete payload.createdBy;
-    delete payload.updatedBy;
-    delete payload.__v;
+    // Construir el payload limpiamente solo con los campos permitidos/editables
+    const payload = {
+      name: editingProduct.name,
+      category: editingProduct.category,
+      subcategory: editingProduct.subcategory,
+      brand: editingProduct.brand,
+      description: editingProduct.description,
+      ingredients: editingProduct.ingredients,
+      inventoryConfig: editingProduct.inventoryConfig,
+    };
 
     try {
       const response = await fetchApi(`/products/${editingProduct._id}`, {
-        method: 'PATCH', // Correct method is likely PATCH
+        method: 'PATCH',
         body: JSON.stringify(payload),
       });
 
@@ -572,6 +582,32 @@ function ProductsManagement() {
                 </div>
                 {/* --- END: Rest of the Form --- */}
 
+                {/* --- START: Inventory Config Section --- */}
+                {newProduct.inventoryConfig && (
+                  <div className="col-span-2 border-t pt-4 mt-4">
+                    <h4 className="text-lg font-medium mb-4">Configuración de Inventario</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="minimumStock">Stock Mínimo</Label>
+                        <Input id="minimumStock" type="number" value={newProduct.inventoryConfig.minimumStock} onChange={(e) => setNewProduct({...newProduct, inventoryConfig: {...newProduct.inventoryConfig, minimumStock: parseInt(e.target.value) || 0}})} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="maximumStock">Stock Máximo</Label>
+                        <Input id="maximumStock" type="number" value={newProduct.inventoryConfig.maximumStock} onChange={(e) => setNewProduct({...newProduct, inventoryConfig: {...newProduct.inventoryConfig, maximumStock: parseInt(e.target.value) || 0}})} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="reorderPoint">Punto de Reorden</Label>
+                        <Input id="reorderPoint" type="number" value={newProduct.inventoryConfig.reorderPoint} onChange={(e) => setNewProduct({...newProduct, inventoryConfig: {...newProduct.inventoryConfig, reorderPoint: parseInt(e.target.value) || 0}})} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="reorderQuantity">Cantidad de Reorden</Label>
+                        <Input id="reorderQuantity" type="number" value={newProduct.inventoryConfig.reorderQuantity} onChange={(e) => setNewProduct({...newProduct, inventoryConfig: {...newProduct.inventoryConfig, reorderQuantity: parseInt(e.target.value) || 0}})} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+
                 {/* --- START: Variant Section --- */}
                 <div className="col-span-2 border-t pt-4 mt-4">
                   <h4 className="text-lg font-medium mb-4">Variante Inicial (Requerida)</h4>
@@ -681,6 +717,9 @@ function ProductsManagement() {
                           if (!productToEdit.variants || productToEdit.variants.length === 0) {
                             productToEdit.variants = [{ name: 'Estándar', basePrice: 0, costPrice: 0 }];
                           }
+                          if (!productToEdit.inventoryConfig) { // Defensive check
+                            productToEdit.inventoryConfig = { minimumStock: 10, maximumStock: 100, reorderPoint: 20, reorderQuantity: 50, trackLots: true, trackExpiration: true, fefoEnabled: true };
+                          }
                           setEditingProduct(productToEdit);
                           setIsEditDialogOpen(true);
                         }}><Edit className="h-4 w-4" /></Button>
@@ -723,6 +762,28 @@ function ProductsManagement() {
               <div className="col-span-2 space-y-2">
                 <Label htmlFor="edit-ingredients">Ingredientes</Label>
                 <Textarea id="edit-ingredients" value={editingProduct.ingredients} onChange={(e) => setEditingProduct({...editingProduct, ingredients: e.target.value})} />
+              </div>
+
+              <div className="col-span-2 border-t pt-4 mt-4">
+                  <h4 className="text-lg font-medium mb-4">Configuración de Inventario</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-minimumStock">Stock Mínimo</Label>
+                      <Input id="edit-minimumStock" type="number" value={editingProduct.inventoryConfig.minimumStock} onChange={(e) => setEditingProduct({...editingProduct, inventoryConfig: {...editingProduct.inventoryConfig, minimumStock: parseInt(e.target.value) || 0}})} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-maximumStock">Stock Máximo</Label>
+                      <Input id="edit-maximumStock" type="number" value={editingProduct.inventoryConfig.maximumStock} onChange={(e) => setEditingProduct({...editingProduct, inventoryConfig: {...editingProduct.inventoryConfig, maximumStock: parseInt(e.target.value) || 0}})} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-reorderPoint">Punto de Reorden</Label>
+                      <Input id="edit-reorderPoint" type="number" value={editingProduct.inventoryConfig.reorderPoint} onChange={(e) => setEditingProduct({...editingProduct, inventoryConfig: {...editingProduct.inventoryConfig, reorderPoint: parseInt(e.target.value) || 0}})} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-reorderQuantity">Cantidad de Reorden</Label>
+                      <Input id="edit-reorderQuantity" type="number" value={editingProduct.inventoryConfig.reorderQuantity} onChange={(e) => setEditingProduct({...editingProduct, inventoryConfig: {...editingProduct.inventoryConfig, reorderQuantity: parseInt(e.target.value) || 0}})} />
+                    </div>
+                  </div>
               </div>
               
               <div className="col-span-2 border-t pt-4 mt-4">

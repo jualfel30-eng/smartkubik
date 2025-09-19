@@ -12,14 +12,34 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
   const [payments, setPayments] = useState([]);
 
   useEffect(() => {
+    // Cuando se abre el modal, si no hay pagos, añadir la primera línea automáticamente
     if (isOpen) {
+      if (payments.length === 0) {
+        const defaultMethod = paymentMethods.find(pm => pm.id !== 'pago_mixto')?.id || '';
+        setPayments([{ 
+          id: Date.now(), 
+          amount: totalAmount.toFixed(2), // Pre-llenar con el total
+          method: defaultMethod, 
+          reference: '' 
+        }]);
+      }
+    } else {
+      // Limpiar al cerrar
       setPayments([]);
     }
-  }, [isOpen]);
+  }, [isOpen, totalAmount, paymentMethods]);
+
+  const totalPaid = useMemo(() => 
+    payments.reduce((sum, p) => sum + Number(p.amount || 0), 0), 
+  [payments]);
+
+  const remaining = totalAmount - totalPaid;
 
   const handleAddPayment = () => {
     const defaultMethod = paymentMethods.find(pm => pm.id !== 'pago_mixto')?.id || '';
-    setPayments(prev => [...prev, { id: Date.now(), amount: '', method: defaultMethod, reference: '' }]);
+    // Pre-llenar el nuevo campo con lo que queda por pagar
+    const amountToPreFill = remaining > 0 ? remaining.toFixed(2) : '';
+    setPayments(prev => [...prev, { id: Date.now(), amount: amountToPreFill, method: defaultMethod, reference: '' }]);
   };
 
   const handleUpdatePayment = (id, field, value) => {
@@ -30,12 +50,6 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
     setPayments(prev => prev.filter(p => p.id !== id));
   };
 
-  const totalPaid = useMemo(() => 
-    payments.reduce((sum, p) => sum + Number(p.amount || 0), 0), 
-  [payments]);
-
-  const remaining = totalAmount - totalPaid;
-
   const igtf = useMemo(() => {
     const foreignCurrencyAmount = payments
       .filter(p => p.method.includes('_usd'))
@@ -43,13 +57,19 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
     return foreignCurrencyAmount * 0.03;
   }, [payments]);
 
+  const isSaveDisabled = useMemo(() => {
+    if (payments.length === 0) return true;
+    // Permitir una pequeña imprecisión para evitar problemas con decimales
+    if (Math.abs(totalPaid - totalAmount) > 0.01) return true;
+    // Validar que cada línea tenga método y monto
+    if (payments.some(p => !p.method || !p.amount || Number(p.amount) <= 0)) return true;
+    return false;
+  }, [payments, totalPaid, totalAmount]);
+
   const handleSave = () => {
-    if (payments.some(p => !p.method || Number(p.amount) <= 0)) {
-      alert('Todos los pagos deben tener un método y un monto mayor a cero.');
-      return;
-    }
-    if (Math.abs(totalPaid - totalAmount) > 0.01) { // Allow for small float inaccuracies
-      alert('El monto pagado no coincide con el total de la orden.');
+    // La validación principal ahora está en isSaveDisabled, pero mantenemos una alerta por si acaso.
+    if (isSaveDisabled) {
+      alert('El monto pagado no coincide con el total de la orden o faltan datos en las líneas de pago.');
       return;
     }
     onSave({ payments, igtf });
@@ -62,7 +82,7 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
         <DialogHeader>
           <DialogTitle>Registro de Pago Mixto</DialogTitle>
           <DialogDescription>
-            Añada las formas de pago para cubrir el total de la orden: ${totalAmount.toFixed(2)}
+            Añada o ajuste las formas de pago para cubrir el total de la orden: ${totalAmount.toFixed(2)}
           </DialogDescription>
         </DialogHeader>
         
@@ -83,13 +103,21 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
 
         <div className="p-4 bg-muted/50 rounded-lg space-y-2 text-sm">
           <div className="flex justify-between font-semibold"><span>Total Pagado:</span><span>${totalPaid.toFixed(2)}</span></div>
-          <div className={`flex justify-between font-semibold ${remaining < 0 ? 'text-orange-500' : ''}`}><span>Restante:</span><span>${remaining.toFixed(2)}</span></div>
+          <div className={`flex justify-between font-semibold ${remaining < -0.01 ? 'text-orange-500' : (remaining > 0.01 ? 'text-blue-500' : 'text-green-600')}`}>
+             <span>Restante:</span>
+             <span>${remaining.toFixed(2)}</span>
+          </div>
           <div className="flex justify-between text-orange-600"><span>IGTF (3% sobre monto en divisa):</span><span>${igtf.toFixed(2)}</span></div>
+           {isSaveDisabled && payments.length > 0 && (
+            <p className="text-xs text-red-600 text-center pt-2">
+              El total pagado debe ser exactamente ${totalAmount.toFixed(2)}. Ajuste los montos para poder guardar.
+            </p>
+          )}
         </div>
 
         <DialogFooter>
           <DialogClose asChild><Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button></DialogClose>
-          <Button type="button" onClick={handleSave} disabled={payments.length === 0}>Guardar Pagos</Button>
+          <Button type="button" onClick={handleSave} disabled={isSaveDisabled}>Guardar Pagos</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

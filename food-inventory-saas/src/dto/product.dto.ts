@@ -265,24 +265,18 @@ export class UpdateProductDto {
   name?: string;
 
   @ApiPropertyOptional({
-    description: "Categorías del producto",
-    type: [String],
+    description: "Categoría del producto",
   })
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  @ArrayMinSize(1)
-  category?: string[];
+  @IsString()
+  category?: string;
 
   @ApiPropertyOptional({
-    description: "Subcategorías del producto",
-    type: [String],
+    description: "Subcategoría del producto",
   })
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  @ArrayMinSize(1)
-  subcategory?: string[];
+  @IsString()
+  subcategory?: string;
 
   @ApiPropertyOptional({ description: "Marca del producto" })
   @IsOptional()

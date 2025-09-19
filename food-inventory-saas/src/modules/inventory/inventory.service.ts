@@ -441,10 +441,40 @@ export class InventoryService {
   }
 
   async getLowStockAlerts(tenantId: string) {
-    return this.inventoryModel
-      .find({ tenantId, "alerts.lowStock": true })
-      .populate("productId", "name category")
-      .exec();
+    return this.inventoryModel.aggregate([
+      {
+        $match: {
+          tenantId: new Types.ObjectId(tenantId),
+        },
+      },
+      {
+        $lookup: {
+          from: "products",
+          localField: "productId",
+          foreignField: "_id",
+          as: "productInfo",
+        },
+      },
+      {
+        $unwind: "$productInfo",
+      },
+      {
+        $match: {
+          $expr: {
+            $lte: ["$availableQuantity", "$productInfo.inventoryConfig.minimumStock"],
+          },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          productName: 1,
+          productSku: 1,
+          availableQuantity: 1,
+          productId: "$productInfo", // Populate productId with the full product info
+        },
+      },
+    ]);
   }
 
   async getExpirationAlerts(tenantId: string, days: number = 7) {
