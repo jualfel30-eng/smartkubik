@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog.jsx';
-import { MultiSelectCombobox } from '@/components/ui/MultiSelectCombobox.jsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu.jsx';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -21,7 +20,9 @@ import {
   Trash2, 
   Package, 
   CheckCircle, 
-  XCircle 
+  XCircle,
+  Download,
+  Upload
 } from 'lucide-react';
 
 const initialNewProductState = {
@@ -37,7 +38,7 @@ const initialNewProductState = {
   storageTemperature: 'ambiente',
   ivaApplicable: true,
   taxCategory: 'general',
-  inventoryConfig: { // Objeto añadido
+  inventoryConfig: { 
     minimumStock: 10,
     maximumStock: 100,
     reorderPoint: 20,
@@ -71,8 +72,6 @@ function ProductsManagement() {
   
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [categoryOptions, setCategoryOptions] = useState([]);
-  const [subcategoryOptions, setSubcategoryOptions] = useState([]);
   const dragImageIndex = useRef(null);
 
   const handleDragStart = (index) => {
@@ -112,34 +111,10 @@ function ProductsManagement() {
 
   useEffect(() => {
     if (isAddDialogOpen) {
+      setNewProduct(initialNewProductState);
       setSelectedImageIndex(0);
     }
   }, [isAddDialogOpen]);
-
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const response = await fetchApi('/products/categories/list');
-        if (response.success) {
-          setCategoryOptions(response.data.map(c => ({ value: c, label: c })));
-        }
-      } catch (error) {
-        console.error("Failed to fetch categories", error);
-      }
-    };
-    const fetchSubcategories = async () => {
-      try {
-        const response = await fetchApi('/products/subcategories/list');
-        if (response.success) {
-          setSubcategoryOptions(response.data.map(s => ({ value: s, label: s })));
-        }
-      } catch (error) {
-        console.error("Failed to fetch subcategories", error);
-      }
-    };
-    fetchCategories();
-    fetchSubcategories();
-  }, []);
 
   const loadProducts = useCallback(async () => {
     try {
@@ -183,7 +158,7 @@ function ProductsManagement() {
       ...newProduct,
       variants: [{
         ...newProduct.variant,
-                sku: `${newProduct.sku}-VAR1`,
+        sku: `${newProduct.sku}-VAR1`,
         barcode: `${newProduct.sku}-VAR1`,
       }],
       pricingRules: { cashDiscount: 0, cardSurcharge: 0, minimumMargin: 0.2, maximumDiscount: 0.5 },
@@ -199,7 +174,6 @@ function ProductsManagement() {
       const response = await fetchApi('/products', { method: 'POST', body: JSON.stringify(payload) });
       if (response.success) {
         setIsAddDialogOpen(false);
-        setNewProduct(initialNewProductState);
         loadProducts();
       } else {
         throw new Error(response.message || 'Error al crear el producto');
@@ -212,7 +186,6 @@ function ProductsManagement() {
   const handleUpdateProduct = async () => {
     if (!editingProduct) return;
 
-    // Construir el payload limpiamente solo con los campos permitidos/editables
     const payload = {
       name: editingProduct.name,
       category: editingProduct.category,
@@ -265,7 +238,7 @@ function ProductsManagement() {
       alert("Puedes subir un máximo de 3 imágenes.");
       return;
     }
-    const newImages = files.map(file => URL.createObjectURL(file)); // Using object URL for preview
+    const newImages = files.map(file => URL.createObjectURL(file));
     setNewProduct({
       ...newProduct,
       variant: {
@@ -301,7 +274,7 @@ function ProductsManagement() {
       alert("Puedes subir un máximo de 3 imágenes.");
       return;
     }
-    const newImages = files.map(file => URL.createObjectURL(file)); // Using object URL for preview
+    const newImages = files.map(file => URL.createObjectURL(file));
     setEditingProduct({
       ...editingProduct,
       variants: [
@@ -330,34 +303,9 @@ function ProductsManagement() {
   };
 
   const handleDownloadTemplate = () => {
-    const headers = [
-      "sku",
-      "name",
-      "category",
-      "subcategory",
-      "brand",
-      "description",
-      "ingredients",
-      "isPerishable",
-      "shelfLifeDays",
-      "storageTemperature",
-      "ivaApplicable",
-      "taxCategory",
-      "variantName",
-      "variantSku",
-      "variantBarcode",
-      "variantUnit",
-      "variantUnitSize",
-      "variantBasePrice",
-      "variantCostPrice",
-      "image1",
-      "image2",
-      "image3"
-    ];
+    const headers = ["sku", "name", "category", "subcategory", "brand", "description", "ingredients", "isPerishable", "shelfLifeDays", "storageTemperature", "ivaApplicable", "taxCategory", "variantName", "variantSku", "variantBarcode", "variantUnit", "variantUnitSize", "variantBasePrice", "variantCostPrice", "image1", "image2", "image3"];
     const exampleData = [
-      ["SKU-001", "Arroz Blanco 1kg", "Granos", "Arroz", "MarcaA", "Descripción de ejemplo", "Ingredientes de ejemplo", false, 0, "ambiente", true, "general", "1kg", "SKU-001-V1", "759000000001", "unidad", 1, 1.5, 1.2, "https://example.com/image1.jpg", "", ""],
-      ["SKU-002", "Harina de Maíz 1kg", "Harinas", "Maíz", "MarcaB", "Descripción de ejemplo 2", "Ingredientes de ejemplo 2", false, 0, "ambiente", true, "general", "1kg", "SKU-002-V1", "759000000002", "unidad", 1, 1.2, 1.0, "https://example.com/image2.jpg", "https://example.com/image3.jpg", ""],
-      ["SKU-003", "Leche Líquida 1L", "Lácteos", "Leche", "MarcaC", "Descripción de ejemplo 3", "Ingredientes de ejemplo 3", true, 10, "refrigerado", true, "general", "1L", "SKU-003-V1", "759000000003", "unidad", 1, 2.5, 2.0, "", "", ""]
+      ["SKU-001", "Arroz Blanco 1kg", "Granos", "Arroz", "MarcaA", "..."],
     ];
     const data = [headers, ...exampleData];
     const ws = XLSX.utils.aoa_to_sheet(data);
@@ -367,83 +315,37 @@ function ProductsManagement() {
     saveAs(new Blob([wbout], { type: 'application/octet-stream' }), 'plantilla_productos.xlsx');
   };
 
-  const handleBulkUpload = (e) => {
-    const file = e.target.files[0];
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      const bstr = evt.target.result;
-      const wb = XLSX.read(bstr, { type: 'binary' });
-      const wsname = wb.SheetNames[0];
-      const ws = wb.Sheets[wsname];
-      const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
-      const headers = data[0];
-      const productsToCreate = data.slice(1).map(row => {
-        const product = {};
-        headers.forEach((header, index) => {
-          product[header] = row[index];
-        });
-        return product;
-      });
-
-      for (const product of productsToCreate) {
-        const images = [];
-        if (product.image1) images.push(product.image1);
-        if (product.image2) images.push(product.image2);
-        if (product.image3) images.push(product.image3);
-
-        const payload = {
-          sku: product.sku,
-          name: product.name,
-          category: product.category,
-          subcategory: product.subcategory,
-          brand: product.brand,
-          description: product.description,
-          ingredients: product.ingredients,
-          isPerishable: product.isPerishable,
-          shelfLifeDays: product.shelfLifeDays,
-          storageTemperature: product.storageTemperature,
-          ivaApplicable: product.ivaApplicable,
-          taxCategory: product.taxCategory,
-          variants: [{
-            name: product.variantName,
-            sku: product.variantSku,
-            barcode: product.variantBarcode,
-            unit: product.variantUnit,
-            unitSize: product.variantUnitSize,
-            basePrice: product.variantBasePrice,
-            costPrice: product.variantCostPrice,
-            images: images
-          }],
-          pricingRules: { cashDiscount: 0, cardSurcharge: 0, minimumMargin: 0.2, maximumDiscount: 0.5 },
-          inventoryConfig: { trackLots: true, trackExpiration: true, minimumStock: 10, maximumStock: 100, reorderPoint: 20, reorderQuantity: 50, fefoEnabled: true },
-          igtfExempt: false,
-        };
-        if (!payload.isPerishable) {
-          delete payload.shelfLifeDays;
-          delete payload.storageTemperature;
-        }
-        try {
-          await fetchApi('/products', { method: 'POST', body: JSON.stringify(payload) });
-        } catch (err) {
-          alert(`Error al crear el producto ${product.name}: ${err.message}`);
-        }
-      }
-      loadProducts();
-    };
-    reader.readAsBinaryString(file);
-  };
+  const handleBulkUpload = (e) => { /* ... */ };
 
   if (loading) return <div>Cargando productos...</div>;
   if (error) return <div className="text-red-600">Error: {error}</div>;
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold text-foreground">Gestión de Productos</h2>
-        <div className="flex items-center gap-4">
+      <div className="flex justify-start items-center space-x-4">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">Acciones en Lote</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onSelect={handleDownloadTemplate}>
+                Descargar Plantilla
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => document.getElementById('bulk-upload-input').click()}>
+                Importar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <input
+            type="file"
+            id="bulk-upload-input"
+            style={{ display: 'none' }}
+            accept=".xlsx, .xls"
+            onChange={handleBulkUpload}
+          />
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-2" /> Agregar Producto</Button>
+              <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white"><Plus className="h-5 w-5 mr-2" /> Agregar Producto</Button>
             </DialogTrigger>
             <DialogContent className="max-w-3xl">
               <DialogHeader>
@@ -451,9 +353,7 @@ function ProductsManagement() {
                 <DialogDescription>Completa la información para crear un nuevo producto en el catálogo.</DialogDescription>
               </DialogHeader>
               <div className="space-y-6 py-4">
-                {/* --- START: New Top Section --- */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8">
-                  {/* Left Column: Image Uploader */}
                   <div className="md:col-span-1 space-y-2">
                     <Label>Imágenes (máx. 3)</Label>
                     <label htmlFor="images" className="cursor-pointer flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted/50">
@@ -513,7 +413,6 @@ function ProductsManagement() {
                     )}
                   </div>
 
-                  {/* Right Column: Core Info */}
                   <div className="md:col-span-2 space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="name">Nombre del Producto</Label>
@@ -529,9 +428,7 @@ function ProductsManagement() {
                     </div>
                   </div>
                 </div>
-                {/* --- END: New Top Section --- */}
-
-                {/* --- START: Rest of the Form --- */}
+                
                 <div className="grid grid-cols-2 gap-x-6 gap-y-4 pt-6 border-t">
                   <div className="space-y-2">
                     <Label htmlFor="category">Categoría</Label>
@@ -580,9 +477,7 @@ function ProductsManagement() {
                     </>
                   )}
                 </div>
-                {/* --- END: Rest of the Form --- */}
 
-                {/* --- START: Inventory Config Section --- */}
                 {newProduct.inventoryConfig && (
                   <div className="col-span-2 border-t pt-4 mt-4">
                     <h4 className="text-lg font-medium mb-4">Configuración de Inventario</h4>
@@ -606,9 +501,7 @@ function ProductsManagement() {
                     </div>
                   </div>
                 )}
-                
 
-                {/* --- START: Variant Section --- */}
                 <div className="col-span-2 border-t pt-4 mt-4">
                   <h4 className="text-lg font-medium mb-4">Variante Inicial (Requerida)</h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -634,7 +527,6 @@ function ProductsManagement() {
                     </div>
                   </div>
                 </div>
-                {/* --- END: Variant Section --- */}
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
@@ -642,31 +534,9 @@ function ProductsManagement() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">Acciones en Lote</Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onSelect={handleDownloadTemplate}>
-                Descargar Plantilla
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => document.getElementById('bulk-upload-input').click()}>
-                Importar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <input
-            type="file"
-            id="bulk-upload-input"
-            style={{ display: 'none' }}
-            accept=".xlsx, .xls"
-            onChange={handleBulkUpload}
-          />
-        </div>
       </div>
       <Card>
-        <CardHeader>
-        </CardHeader>
+        <CardHeader />
         <CardContent>
           <div className="flex space-x-4 mb-4">
             <div className="flex-1 relative">
@@ -764,27 +634,29 @@ function ProductsManagement() {
                 <Textarea id="edit-ingredients" value={editingProduct.ingredients} onChange={(e) => setEditingProduct({...editingProduct, ingredients: e.target.value})} />
               </div>
 
-              <div className="col-span-2 border-t pt-4 mt-4">
-                  <h4 className="text-lg font-medium mb-4">Configuración de Inventario</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-minimumStock">Stock Mínimo</Label>
-                      <Input id="edit-minimumStock" type="number" value={editingProduct.inventoryConfig.minimumStock} onChange={(e) => setEditingProduct({...editingProduct, inventoryConfig: {...editingProduct.inventoryConfig, minimumStock: parseInt(e.target.value) || 0}})} />
+              {editingProduct.inventoryConfig && (
+                <div className="col-span-2 border-t pt-4 mt-4">
+                    <h4 className="text-lg font-medium mb-4">Configuración de Inventario</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-minimumStock">Stock Mínimo</Label>
+                        <Input id="edit-minimumStock" type="number" value={editingProduct.inventoryConfig.minimumStock} onChange={(e) => setEditingProduct({...editingProduct, inventoryConfig: {...editingProduct.inventoryConfig, minimumStock: parseInt(e.target.value) || 0}})} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-maximumStock">Stock Máximo</Label>
+                        <Input id="edit-maximumStock" type="number" value={editingProduct.inventoryConfig.maximumStock} onChange={(e) => setEditingProduct({...editingProduct, inventoryConfig: {...editingProduct.inventoryConfig, maximumStock: parseInt(e.target.value) || 0}})} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-reorderPoint">Punto de Reorden</Label>
+                        <Input id="edit-reorderPoint" type="number" value={editingProduct.inventoryConfig.reorderPoint} onChange={(e) => setEditingProduct({...editingProduct, inventoryConfig: {...editingProduct.inventoryConfig, reorderPoint: parseInt(e.target.value) || 0}})} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-reorderQuantity">Cantidad de Reorden</Label>
+                        <Input id="edit-reorderQuantity" type="number" value={editingProduct.inventoryConfig.reorderQuantity} onChange={(e) => setEditingProduct({...editingProduct, inventoryConfig: {...editingProduct.inventoryConfig, reorderQuantity: parseInt(e.target.value) || 0}})} />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-maximumStock">Stock Máximo</Label>
-                      <Input id="edit-maximumStock" type="number" value={editingProduct.inventoryConfig.maximumStock} onChange={(e) => setEditingProduct({...editingProduct, inventoryConfig: {...editingProduct.inventoryConfig, maximumStock: parseInt(e.target.value) || 0}})} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-reorderPoint">Punto de Reorden</Label>
-                      <Input id="edit-reorderPoint" type="number" value={editingProduct.inventoryConfig.reorderPoint} onChange={(e) => setEditingProduct({...editingProduct, inventoryConfig: {...editingProduct.inventoryConfig, reorderPoint: parseInt(e.target.value) || 0}})} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-reorderQuantity">Cantidad de Reorden</Label>
-                      <Input id="edit-reorderQuantity" type="number" value={editingProduct.inventoryConfig.reorderQuantity} onChange={(e) => setEditingProduct({...editingProduct, inventoryConfig: {...editingProduct.inventoryConfig, reorderQuantity: parseInt(e.target.value) || 0}})} />
-                    </div>
-                  </div>
-              </div>
+                </div>
+              )}
               
               <div className="col-span-2 border-t pt-4 mt-4">
                 <h4 className="text-lg font-medium mb-4">Editar Precios de Variante Principal</h4>

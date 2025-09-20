@@ -1,16 +1,10 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button.jsx';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
-import InventoryManagement from '@/components/InventoryManagement.jsx';
 import CRMManagement from '@/components/CRMManagement.jsx';
 import { OrdersManagementV2 as OrdersManagement } from '@/components/orders/v2/OrdersManagementV2.jsx';
-import ProductsManagement from '@/components/ProductsManagement.jsx';
 import { CalendarView } from '@/components/CalendarView.jsx';
-import ComprasManagement from '@/components/ComprasManagement.jsx';
-import PurchaseHistory from '@/components/PurchaseHistory.jsx';
 import Login from './pages/Login';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './hooks/use-auth.jsx';
@@ -20,21 +14,8 @@ import {
   ShoppingCart, 
   BarChart3, 
   Settings, 
-  Bell,
-  Search,
-  Plus,
-  Filter,
-  Download,
-  Upload,
-  Eye,
-  Edit,
-  Trash2,
-  CheckCircle,
-  Clock,
-  AlertTriangle,
   LogOut,
   CalendarDays,
-  Truck,
   BookCopy,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
@@ -43,14 +24,15 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { CrmProvider } from './context/CrmContext.jsx';
 import { FormStateProvider } from './context/FormStateContext.jsx';
 import DashboardView from './components/DashboardView.jsx';
-import AccountingManagement from './components/AccountingManagement.jsx';
 import SettingsPage from './components/SettingsPage.jsx';
-import PayablesManagement from '@/components/PayablesManagement.jsx';
-import AccountsReceivableReport from '@/components/AccountsReceivableReport.jsx';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx';
 
+// New Dashboard Components
+import InventoryDashboard from './components/InventoryDashboard.jsx';
+import AccountingDashboard from './components/AccountingDashboard.jsx';
+import AccountsReceivableReport from './components/AccountsReceivableReport.jsx';
 
-
-// Componente de Layout Principal
+// Main Layout Component
 function AdminLayout() {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -105,16 +87,13 @@ function AdminLayout() {
       {/* Navigation Tabs */}
       <div className="bg-card border-b border-border py-2">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="px-6">
-          <TabsList className="grid w-full grid-cols-9 max-w-7xl">
+          <TabsList className="max-w-5xl">
             <TabsTrigger value="dashboard" className="flex items-center space-x-2"> <BarChart3 className="h-4 w-4" /> <span>Dashboard</span> </TabsTrigger>
-            <TabsTrigger value="products" className="flex items-center space-x-2"> <Package className="h-4 w-4" /> <span>Producto</span> </TabsTrigger>
-            <TabsTrigger value="inventory" className="flex items-center space-x-2"> <Package className="h-4 w-4" /> <span>Inventario</span> </TabsTrigger>
             <TabsTrigger value="orders" className="flex items-center space-x-2"> <ShoppingCart className="h-4 w-4" /> <span>Órdenes</span> </TabsTrigger>
-            <TabsTrigger value="purchases" className="flex items-center space-x-2"> <Truck className="h-4 w-4" /> <span>Compras</span> </TabsTrigger>
-            <TabsTrigger value="payables" className="flex items-center space-x-2"> <BookCopy className="h-4 w-4" /> <span>Pagos</span> </TabsTrigger>
+            <TabsTrigger value="inventory-management" className="flex items-center space-x-2"> <Package className="h-4 w-4" /> <span>Gestión de Inventario</span> </TabsTrigger>
+            <TabsTrigger value="accounting-management" className="flex items-center space-x-2"> <BookCopy className="h-4 w-4" /> <span>Gestión Contable</span> </TabsTrigger>
             <TabsTrigger value="crm" className="flex items-center space-x-2"> <Users className="h-4 w-4" /> <span>CRM</span> </TabsTrigger>
             <TabsTrigger value="calendar" className="flex items-center space-x-2"> <CalendarDays className="h-4 w-4" /> <span>Calendario</span> </TabsTrigger>
-            <TabsTrigger value="accounting" className="flex items-center space-x-2"> <BookCopy className="h-4 w-4" /> <span>Contabilidad</span> </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -123,15 +102,12 @@ function AdminLayout() {
       <main className="p-6">
         <Routes>
           <Route path="/dashboard" element={<DashboardView />} />
-          <Route path="/inventory" element={<InventoryView />} />
-          <Route path="/crm" element={<CRMView />} />
-          <Route path="/orders" element={<OrdersView />} />
-          <Route path="/products" element={<ProductsView />} />
-          <Route path="/purchases" element={<ComprasView />} />
-          <Route path="/payables" element={<PayablesManagement />} />
-          <Route path="/calendar" element={<CalendarView />} />
-          <Route path="/accounting" element={<AccountingView />} />
+          <Route path="/inventory-management" element={<InventoryDashboard />} />
+          <Route path="/crm" element={<CRMManagement />} />
+          <Route path="/orders" element={<OrdersManagement />} />
+          <Route path="/accounting-management" element={<AccountingDashboard />} />
           <Route path="/accounting/reports/accounts-receivable" element={<AccountsReceivableReport />} />
+          <Route path="/calendar" element={<CalendarView />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>
@@ -139,16 +115,6 @@ function AdminLayout() {
     </div>
   );
 }
-
-// Views for each module
-function InventoryView() { return <InventoryManagement />; }
-function CRMView() { return <CRMManagement />; }
-function OrdersView() { return <OrdersManagement />; }
-function ProductsView() { return <ProductsManagement />; }
-function CalendarModuleView() { return <CalendarView />; }
-function AccountingView() { return <AccountingManagement />; }
-
-function ComprasView() { return <ComprasManagement />; }
 
 function App() {
   return (

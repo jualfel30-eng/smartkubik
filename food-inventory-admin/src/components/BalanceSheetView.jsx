@@ -91,7 +91,7 @@ const BalanceSheetView = () => {
             <Calendar mode="single" selected={date} onSelect={setDate} initialFocus locale={es} />
           </PopoverContent>
         </Popover>
-        <Button onClick={handleGenerateReport} disabled={loading}>
+        <Button size="lg" onClick={handleGenerateReport} disabled={loading} className="bg-[#FB923C] hover:bg-[#F97316] text-white">
           {loading ? 'Generando...' : 'Generar Reporte'}
         </Button>
       </div>

@@ -120,11 +120,11 @@ const JournalEntriesView = () => {
 
   return (
     <>
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-start mb-4">
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
-              <PlusCircle className="mr-2 h-4 w-4" />
+            <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white">
+              <PlusCircle className="mr-2 h-5 w-5" />
               Crear Asiento Manual
             </Button>
           </DialogTrigger>

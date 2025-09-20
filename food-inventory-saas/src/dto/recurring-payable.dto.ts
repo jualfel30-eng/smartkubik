@@ -36,6 +36,10 @@ export class CreateRecurringPayableDto {
     payeeName: string;
 
     @ApiProperty()
+    @IsEnum(['supplier', 'employee', 'custom'])
+    payeeType: string;
+
+    @ApiProperty()
     @IsOptional()
     @IsString()
     description?: string;
@@ -45,6 +49,31 @@ export class CreateRecurringPayableDto {
     @ValidateNested({ each: true })
     @Type(() => RecurringPayableLineDto)
     lines: RecurringPayableLineDto[];
+
+    @ApiProperty()
+    @IsOptional()
+    @IsString()
+    supplierId?: string;
+
+    @ApiProperty()
+    @IsOptional()
+    @IsString()
+    newSupplierName?: string;
+
+    @ApiProperty()
+    @IsOptional()
+    @IsString()
+    newSupplierRif?: string;
+
+    @ApiProperty()
+    @IsOptional()
+    @IsString()
+    newSupplierContactName?: string;
+
+    @ApiProperty()
+    @IsOptional()
+    @IsString()
+    newSupplierContactPhone?: string;
 }
 
 export class UpdateRecurringPayableDto {

@@ -6,7 +6,7 @@ import {
   CardHeader,
   CardTitle,
   CardDescription
-} from '@/components/ui/card';
+} from '@/components/ui/card.jsx';
 import {
   Tabs,
   TabsContent,
@@ -97,7 +97,7 @@ const AccountingManagement = () => {
                   </CardHeader>
                   <CardContent>
                     <Link to="/accounting/reports/accounts-receivable">
-                      <Button>Ver Informe</Button>
+                      <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white">Ver Informe</Button>
                     </Link>
                   </CardContent>
                 </Card>

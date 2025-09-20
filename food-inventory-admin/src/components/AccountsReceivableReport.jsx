@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { getAccountsReceivableReport } from '../lib/api'; // We will create this function
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import {
@@ -11,6 +11,8 @@ import {
   TableRow,
 } from './ui/table';
 import { toast } from 'sonner';
+import { Button } from './ui/button';
+import { ArrowLeft } from 'lucide-react';
 
 const AccountsReceivableReport = () => {
   const [reportData, setReportData] = useState(null);
@@ -44,7 +46,7 @@ const AccountsReceivableReport = () => {
     return <div>Cargando informe...</div>;
   }
 
-  if (!reportData) {
+  if (!reportData || !reportData.data) {
     return <div>No se pudieron cargar los datos del informe.</div>;
   }
 
@@ -52,6 +54,14 @@ const AccountsReceivableReport = () => {
 
   return (
     <div className="space-y-4">
+        <div className="mb-4">
+            <Link to="/accounting-management">
+                <Button variant="outline">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Volver a Gestión Contable
+                </Button>
+            </Link>
+        </div>
       <Card>
         <CardHeader>
           <CardTitle>Informe de Antigüedad de Cuentas por Cobrar</CardTitle>
@@ -125,17 +135,23 @@ const AccountsReceivableReport = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.map((row) => (
-                <TableRow key={row.customerId}>
-                  <TableCell>{row.customerName}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(row.totalDue)}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(row.current)}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(row['1-30'])}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(row['31-60'])}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(row['61-90'])}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(row['>90'])}</TableCell>
+              {data.length > 0 ? (
+                data.map((row) => (
+                  <TableRow key={row.customerId}>
+                    <TableCell>{row.customerName}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(row.totalDue)}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(row.current)}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(row['1-30'])}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(row['31-60'])}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(row['61-90'])}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(row['>90'])}</TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan="7" className="text-center">No hay datos para mostrar.</TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </CardContent>

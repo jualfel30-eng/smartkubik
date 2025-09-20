@@ -65,7 +65,7 @@ const ProfitLossView = () => {
           <Input id="to-date" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
         </div>
         <div className="flex items-end">
-          <Button onClick={handleGenerateReport} disabled={loading} className="w-full md:w-auto">
+          <Button size="lg" onClick={handleGenerateReport} disabled={loading} className="w-full md:w-auto bg-[#FB923C] hover:bg-[#F97316] text-white">
             {loading ? 'Generando...' : 'Generar Reporte'}
           </Button>
         </div>

@@ -28,7 +28,7 @@ const JournalEntryForm = ({ onSuccess }) => {
     const loadAccounts = async () => {
       try {
         const fetchedAccounts = await fetchChartOfAccounts();
-        const formattedAccounts = fetchedAccounts.map(acc => ({ value: acc._id, label: `${acc.code} - ${acc.name}` }));
+        const formattedAccounts = fetchedAccounts.data.map(acc => ({ value: acc._id, label: `${acc.code} - ${acc.name}` }));
         setAccounts(formattedAccounts);
       } catch (err) {
         setError('Error al cargar las cuentas. Por favor, intente de nuevo.');

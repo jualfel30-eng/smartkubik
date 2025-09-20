@@ -12,6 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChartOfAccountForm } from './ChartOfAccountForm';
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { PlusCircle } from 'lucide-react';
 
 const ChartOfAccountsView = () => {
   const [accounts, setAccounts] = useState([]);
@@ -52,10 +54,31 @@ const ChartOfAccountsView = () => {
 
   return (
     <>
+        <div className="flex justify-start mb-4">
+            <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+                <DialogTrigger asChild>
+                    <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white">
+                        <PlusCircle className="mr-2 h-5 w-5" />
+                        Crear Nueva Cuenta
+                    </Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Crear Nueva Cuenta</DialogTitle>
+                        <DialogDescription>
+                            Complete los detalles de la nueva cuenta contable.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <ChartOfAccountForm
+                        onSubmit={handleCreateAccount}
+                        onCancel={() => setIsFormOpen(false)}
+                    />
+                </DialogContent>
+            </Dialog>
+        </div>
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <CardTitle>Plan de Cuentas</CardTitle>
-          <Button onClick={() => setIsFormOpen(true)}>Crear Nueva Cuenta</Button>
         </CardHeader>
         <CardContent>
           <Table>
@@ -88,11 +111,6 @@ const ChartOfAccountsView = () => {
           </Table>
         </CardContent>
       </Card>
-      <ChartOfAccountForm
-        open={isFormOpen}
-        onOpenChange={setIsFormOpen}
-        onSubmit={handleCreateAccount}
-      />
     </>
   );
 };

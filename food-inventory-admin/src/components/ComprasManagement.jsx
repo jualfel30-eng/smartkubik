@@ -414,12 +414,99 @@ export default function ComprasManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold text-foreground">Gestión de Compras</h2>
-        <div className="flex space-x-4">
+      <div className="flex justify-start items-center space-x-4">
+            <Dialog open={isNewPurchaseDialogOpen} onOpenChange={(isOpen) => { setIsNewPurchaseDialogOpen(isOpen); if (!isOpen) setPo(initialPoState); }}>
+                <DialogTrigger asChild>
+                    <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white"><PlusCircle className="mr-2 h-5 w-5" /> Añadir Inventario</Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-5xl">
+                    <DialogHeader><DialogTitle>Nueva Orden de Compra</DialogTitle><DialogDescription>Crea una nueva orden de compra para reabastecer tu inventario.</DialogDescription></DialogHeader>
+                    
+                    <div className="space-y-6 p-1">
+                        <div className="p-4 border rounded-lg space-y-4">
+                            <h3 className="text-lg font-semibold">Proveedor</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>RIF del Proveedor</Label>
+                                    <SearchableSelect
+                                        isCreatable
+                                        options={supplierRifOptions}
+                                        onSelection={handleRifSelection}
+                                        value={po.supplierRif ? { value: po.supplierId || po.supplierRif, label: `${po.taxType}-${po.supplierRif}` } : null}
+                                        placeholder="Escriba o seleccione un RIF..."
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Nombre o Razón Social</Label>
+                                    <SearchableSelect
+                                        isCreatable
+                                        options={supplierNameOptions}
+                                        onSelection={handleSupplierSelection}
+                                        value={po.supplierId ? { value: po.supplierId, label: po.supplierName } : po.supplierName ? { value: po.supplierName, label: po.supplierName } : null}
+                                        placeholder="Escriba o seleccione un proveedor..."
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Nombre del Contacto</Label>
+                                    <Input value={po.contactName} onChange={e => handleFieldChange('contactName', e.target.value)} />
+                                </div>
+                                <div className="space-y-2"><Label>Teléfono del Contacto</Label><Input value={po.contactPhone} onChange={e => handleFieldChange('contactPhone', e.target.value)} /></div>
+                            </div>
+                        </div>
+
+                        <div className="p-4 border rounded-lg space-y-4">
+                            <h3 className="text-lg font-semibold">Ítems de la Compra</h3>
+                            <div className="space-y-2">
+                                <Label>Buscar Producto para Agregar</Label>
+                                <SearchableSelect
+                                    options={productOptions}
+                                    onSelection={handleProductSelection}
+                                    value={null} // Always clear after selection
+                                    placeholder={loading ? "Cargando productos..." : "Buscar y añadir producto..."}
+                                    isDisabled={loading}
+                                />
+                            </div>
+                            <Table>
+                                <TableHeader><TableRow><TableHead>Producto</TableHead><TableHead>Cantidad</TableHead><TableHead>Costo Unit.</TableHead><TableHead>Nro. Lote</TableHead><TableHead>Vencimiento</TableHead><TableHead>Total</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                                <TableBody>
+                                    {po.items.map((item, index) => (
+                                    <TableRow key={index}>
+                                        <TableCell>{item.productName}</TableCell>
+                                        <TableCell><Input type="number" value={item.quantity} onChange={e => updateItemField(index, 'quantity', e.target.value)} className="w-24" /></TableCell>
+                                        <TableCell><Input type="number" value={item.costPrice} onChange={e => updateItemField(index, 'costPrice', e.target.value)} className="w-32" /></TableCell>
+                                        <TableCell>{item.isPerishable && <Input placeholder="Nro. Lote" className="w-32" value={item.lotNumber} onChange={e => updateItemField(index, 'lotNumber', e.target.value)} />}</TableCell>
+                                        <TableCell>{item.isPerishable && <Input type="date" className="w-40" value={item.expirationDate} onChange={e => updateItemField(index, 'expirationDate', e.target.value)} />}</TableCell>
+                                        <TableCell>${(Number(item.quantity) * Number(item.costPrice)).toFixed(2)}</TableCell>
+                                        <TableCell><Button variant="ghost" size="icon" onClick={() => handleRemoveItemFromPo(index)}><Trash2 className="h-4 w-4" /></Button></TableCell>
+                                    </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Fecha de Compra</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                    <Button variant="outline" className="w-full justify-start text-left font-normal"><CalendarIcon className="mr-2 h-4 w-4" />{po.purchaseDate ? format(po.purchaseDate, "PPP") : <span>Selecciona una fecha</span>}</Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={po.purchaseDate} onSelect={(date) => setPo(prev => ({...prev, purchaseDate: date}))} initialFocus /></PopoverContent>
+                                </Popover>
+                            </div>
+                            <div className="space-y-2"><Label>Notas</Label><Textarea value={po.notes} onChange={e => setPo(prev => ({...prev, notes: e.target.value}))} /></div>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsNewPurchaseDialogOpen(false)}>Cancelar</Button>
+                        <Button onClick={handlePoSubmit} disabled={poLoading}>{poLoading ? 'Creando...' : 'Crear Orden de Compra'}</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
             <Dialog open={isNewProductDialogOpen} onOpenChange={setIsNewProductDialogOpen}>
                 <DialogTrigger asChild>
-                <Button size="lg"><PlusCircle className="mr-2 h-5 w-5" /> Compra de Producto Nuevo</Button>
+                <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white"><PlusCircle className="mr-2 h-5 w-5" /> Compra de Producto Nuevo</Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-3xl h-[90vh] flex flex-col p-0">
                 <DialogHeader className="px-6 pt-6">
@@ -635,97 +722,6 @@ export default function ComprasManagement() {
                 </DialogFooter>
                 </DialogContent>
             </Dialog>
-
-            <Dialog open={isNewPurchaseDialogOpen} onOpenChange={(isOpen) => { setIsNewPurchaseDialogOpen(isOpen); if (!isOpen) setPo(initialPoState); }}>
-                <DialogTrigger asChild>
-                    <Button size="lg" variant="outline"><PlusCircle className="mr-2 h-5 w-5" /> Añadir Inventario</Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-5xl">
-                    <DialogHeader><DialogTitle>Nueva Orden de Compra</DialogTitle><DialogDescription>Crea una nueva orden de compra para reabastecer tu inventario.</DialogDescription></DialogHeader>
-                    
-                    <div className="space-y-6 p-1">
-                        <div className="p-4 border rounded-lg space-y-4">
-                            <h3 className="text-lg font-semibold">Proveedor</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label>RIF del Proveedor</Label>
-                                    <SearchableSelect
-                                        isCreatable
-                                        options={supplierRifOptions}
-                                        onSelection={handleRifSelection}
-                                        value={po.supplierRif ? { value: po.supplierId || po.supplierRif, label: `${po.taxType}-${po.supplierRif}` } : null}
-                                        placeholder="Escriba o seleccione un RIF..."
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Nombre o Razón Social</Label>
-                                    <SearchableSelect
-                                        isCreatable
-                                        options={supplierNameOptions}
-                                        onSelection={handleSupplierSelection}
-                                        value={po.supplierId ? { value: po.supplierId, label: po.supplierName } : po.supplierName ? { value: po.supplierName, label: po.supplierName } : null}
-                                        placeholder="Escriba o seleccione un proveedor..."
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Nombre del Contacto</Label>
-                                    <Input value={po.contactName} onChange={e => handleFieldChange('contactName', e.target.value)} />
-                                </div>
-                                <div className="space-y-2"><Label>Teléfono del Contacto</Label><Input value={po.contactPhone} onChange={e => handleFieldChange('contactPhone', e.target.value)} /></div>
-                            </div>
-                        </div>
-
-                        <div className="p-4 border rounded-lg space-y-4">
-                            <h3 className="text-lg font-semibold">Ítems de la Compra</h3>
-                            <div className="space-y-2">
-                                <Label>Buscar Producto para Agregar</Label>
-                                <SearchableSelect
-                                    options={productOptions}
-                                    onSelection={handleProductSelection}
-                                    value={null} // Always clear after selection
-                                    placeholder={loading ? "Cargando productos..." : "Buscar y añadir producto..."}
-                                    isDisabled={loading}
-                                />
-                            </div>
-                            <Table>
-                                <TableHeader><TableRow><TableHead>Producto</TableHead><TableHead>Cantidad</TableHead><TableHead>Costo Unit.</TableHead><TableHead>Nro. Lote</TableHead><TableHead>Vencimiento</TableHead><TableHead>Total</TableHead><TableHead></TableHead></TableRow></TableHeader>
-                                <TableBody>
-                                    {po.items.map((item, index) => (
-                                    <TableRow key={index}>
-                                        <TableCell>{item.productName}</TableCell>
-                                        <TableCell><Input type="number" value={item.quantity} onChange={e => updateItemField(index, 'quantity', e.target.value)} className="w-24" /></TableCell>
-                                        <TableCell><Input type="number" value={item.costPrice} onChange={e => updateItemField(index, 'costPrice', e.target.value)} className="w-32" /></TableCell>
-                                        <TableCell>{item.isPerishable && <Input placeholder="Nro. Lote" className="w-32" value={item.lotNumber} onChange={e => updateItemField(index, 'lotNumber', e.target.value)} />}</TableCell>
-                                        <TableCell>{item.isPerishable && <Input type="date" className="w-40" value={item.expirationDate} onChange={e => updateItemField(index, 'expirationDate', e.target.value)} />}</TableCell>
-                                        <TableCell>${(Number(item.quantity) * Number(item.costPrice)).toFixed(2)}</TableCell>
-                                        <TableCell><Button variant="ghost" size="icon" onClick={() => handleRemoveItemFromPo(index)}><Trash2 className="h-4 w-4" /></Button></TableCell>
-                                    </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label>Fecha de Compra</Label>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                    <Button variant="outline" className="w-full justify-start text-left font-normal"><CalendarIcon className="mr-2 h-4 w-4" />{po.purchaseDate ? format(po.purchaseDate, "PPP") : <span>Selecciona una fecha</span>}</Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={po.purchaseDate} onSelect={(date) => setPo(prev => ({...prev, purchaseDate: date}))} initialFocus /></PopoverContent>
-                                </Popover>
-                            </div>
-                            <div className="space-y-2"><Label>Notas</Label><Textarea value={po.notes} onChange={e => setPo(prev => ({...prev, notes: e.target.value}))} /></div>
-                        </div>
-                    </div>
-
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsNewPurchaseDialogOpen(false)}>Cancelar</Button>
-                        <Button onClick={handlePoSubmit} disabled={poLoading}>{poLoading ? 'Creando...' : 'Crear Orden de Compra'}</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
