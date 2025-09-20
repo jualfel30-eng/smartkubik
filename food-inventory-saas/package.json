@@ -19,6 +19,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "db:seed": "ts-node -r dotenv/config scripts/seed-database.ts",
+    "db:migrate:weight-selling": "ts-node -r dotenv/config scripts/migrate-products-for-weight-selling.ts",
     "db:reset": "ts-node scripts/reset-database.ts"
   },
   "dependencies": {

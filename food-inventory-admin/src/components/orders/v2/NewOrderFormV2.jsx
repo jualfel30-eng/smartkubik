@@ -149,16 +149,28 @@ export function NewOrderFormV2({ onOrderCreated }) {
         unitPrice: variant.basePrice || 0,
         ivaApplicable: product.ivaApplicable,
         igtfExempt: product.igtfExempt,
+        isSoldByWeight: product.isSoldByWeight,
+        unitOfMeasure: product.unitOfMeasure,
       };
       setNewOrder(prev => ({ ...prev, items: [...prev.items, newItem] }));
     }
   };
 
-  const handleItemQuantityChange = (productId, newQuantity) => {
-    const quantity = Math.max(0, parseInt(newQuantity) || 0);
+  const handleItemQuantityChange = (productId, newQuantityStr, isSoldByWeight) => {
+    let sanitizedValue;
+    if (isSoldByWeight) {
+      sanitizedValue = newQuantityStr.replace(/[^0-9.,]/g, '').replace(/,/g, '.');
+      const parts = sanitizedValue.split('.');
+      if (parts.length > 2) {
+        return;
+      }
+    } else {
+      sanitizedValue = newQuantityStr.replace(/[^0-9]/g, '');
+    }
+
     const updatedItems = newOrder.items.map(item =>
-      item.productId === productId ? { ...item, quantity } : item
-    ).filter(item => item.quantity > 0);
+      item.productId === productId ? { ...item, quantity: sanitizedValue } : item
+    );
     setNewOrder(prev => ({ ...prev, items: updatedItems }));
   };
 
@@ -225,7 +237,12 @@ export function NewOrderFormV2({ onOrderCreated }) {
       customerName: newOrder.customerName,
       customerRif: newOrder.customerRif,
       taxType: newOrder.taxType,
-      items: newOrder.items.map(item => ({ productId: item.productId, quantity: item.quantity })),
+      items: newOrder.items.map(item => ({ 
+        productId: item.productId, 
+        quantity: item.isSoldByWeight
+          ? parseFloat(item.quantity) || 0
+          : parseInt(item.quantity, 10) || 0
+      })),
       payments: paymentsPayload,
       notes: newOrder.notes,
       shippingAddress: newOrder.shippingAddress.street ? newOrder.shippingAddress : undefined,
@@ -265,9 +282,9 @@ export function NewOrderFormV2({ onOrderCreated }) {
   [products]);
 
   const totals = useMemo(() => {
-    const subtotal = newOrder.items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+    const subtotal = newOrder.items.reduce((sum, item) => sum + (item.unitPrice * (parseFloat(item.quantity) || 0)), 0);
     const iva = newOrder.items.reduce((sum, item) => 
-        item.ivaApplicable ? sum + (item.unitPrice * item.quantity * 0.16) : sum, 0);
+        item.ivaApplicable ? sum + (item.unitPrice * (parseFloat(item.quantity) || 0) * 0.16) : sum, 0);
     
     let igtf = 0;
     if (mixedPaymentData) {
@@ -277,7 +294,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
       const appliesIgtf = selectedPayMethod?.igtfApplicable || false;
       if (appliesIgtf) {
         const igtfBase = newOrder.items.reduce((sum, item) => 
-            !item.igtfExempt ? sum + (item.unitPrice * item.quantity) : sum, 0);
+            !item.igtfExempt ? sum + (item.unitPrice * (parseFloat(item.quantity) || 0)) : sum, 0);
         igtf = igtfBase * 0.03;
       }
     }
@@ -404,16 +421,19 @@ export function NewOrderFormV2({ onOrderCreated }) {
                       <div className="text-sm text-muted-foreground">{item.sku}</div>
                     </TableCell>
                     <TableCell>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={(e) => handleItemQuantityChange(item.productId, e.target.value)}
-                        className="w-20 h-8 text-center"
-                      />
+                      <div className="flex items-center">
+                        <Input
+                          type="text"
+                          inputMode={item.isSoldByWeight ? "decimal" : "numeric"}
+                          value={item.quantity}
+                          onChange={(e) => handleItemQuantityChange(item.productId, e.target.value, item.isSoldByWeight)}
+                          className="w-20 h-8 text-center"
+                        />
+                        <span className="ml-2 text-xs text-muted-foreground">{item.unitOfMeasure}</span>
+                      </div>
                     </TableCell>
                     <TableCell>${(item.unitPrice || 0).toFixed(2)}</TableCell>
-                    <TableCell>${((item.unitPrice || 0) * item.quantity).toFixed(2)}</TableCell>
+                    <TableCell>${((item.unitPrice || 0) * (parseFloat(item.quantity) || 0)).toFixed(2)}</TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon" onClick={() => removeProductFromOrder(item.productId)}>
                         <Trash2 className="h-4 w-4 text-red-500" />

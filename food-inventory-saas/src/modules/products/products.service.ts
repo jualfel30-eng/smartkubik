@@ -208,6 +208,7 @@ export class ProductsService {
     const [products, total] = await Promise.all([
       this.productModel
         .find(filter)
+        .select('+isSoldByWeight +unitOfMeasure') // Explicitly include the fields
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)

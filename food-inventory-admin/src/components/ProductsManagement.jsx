@@ -38,6 +38,8 @@ const initialNewProductState = {
   storageTemperature: 'ambiente',
   ivaApplicable: true,
   taxCategory: 'general',
+  isSoldByWeight: false,
+  unitOfMeasure: 'unidad',
   inventoryConfig: { 
     minimumStock: 10,
     maximumStock: 100,
@@ -194,6 +196,8 @@ function ProductsManagement() {
       description: editingProduct.description,
       ingredients: editingProduct.ingredients,
       inventoryConfig: editingProduct.inventoryConfig,
+      isSoldByWeight: editingProduct.isSoldByWeight,
+      unitOfMeasure: editingProduct.unitOfMeasure,
     };
 
     try {
@@ -347,12 +351,12 @@ function ProductsManagement() {
             <DialogTrigger asChild>
               <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white"><Plus className="h-5 w-5 mr-2" /> Agregar Producto</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
+            <DialogContent className="max-w-3xl h-[90vh] flex flex-col p-0">
+              <DialogHeader className="px-6 pt-6">
                 <DialogTitle>Agregar Nuevo Producto</DialogTitle>
                 <DialogDescription>Completa la información para crear un nuevo producto en el catálogo.</DialogDescription>
               </DialogHeader>
-              <div className="space-y-6 py-4">
+              <div className="space-y-6 py-4 px-6 overflow-y-auto flex-grow">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8">
                   <div className="md:col-span-1 space-y-2">
                     <Label>Imágenes (máx. 3)</Label>
@@ -452,6 +456,24 @@ function ProductsManagement() {
                     <Label htmlFor="isPerishable">Es Perecedero</Label>
                   </div>
                   <div className="flex items-center space-x-2 pt-2">
+                    <Checkbox id="isSoldByWeight" checked={newProduct.isSoldByWeight} onCheckedChange={(checked) => setNewProduct({...newProduct, isSoldByWeight: checked})} />
+                    <Label htmlFor="isSoldByWeight">Vendido por Peso</Label>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="unitOfMeasure">Unidad de Medida</Label>
+                    <Select value={newProduct.unitOfMeasure} onValueChange={(value) => setNewProduct({...newProduct, unitOfMeasure: value})}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unidad">Unidad</SelectItem>
+                        <SelectItem value="kg">Kilogramo (kg)</SelectItem>
+                        <SelectItem value="g">Gramo (g)</SelectItem>
+                        <SelectItem value="lb">Libra (lb)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center space-x-2 pt-2">
                     <Checkbox id="ivaApplicable" checked={!newProduct.ivaApplicable} onCheckedChange={(checked) => setNewProduct({...newProduct, ivaApplicable: !checked})} />
                     <Label htmlFor="ivaApplicable">Exento de IVA</Label>
                   </div>
@@ -528,7 +550,7 @@ function ProductsManagement() {
                   </div>
                 </div>
               </div>
-              <DialogFooter>
+              <DialogFooter className="px-6 pb-6 pt-4 border-t">
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
                 <Button onClick={handleAddProduct}>Crear Producto</Button>
               </DialogFooter>
@@ -590,6 +612,12 @@ function ProductsManagement() {
                           if (!productToEdit.inventoryConfig) { // Defensive check
                             productToEdit.inventoryConfig = { minimumStock: 10, maximumStock: 100, reorderPoint: 20, reorderQuantity: 50, trackLots: true, trackExpiration: true, fefoEnabled: true };
                           }
+                          if (productToEdit.isSoldByWeight === undefined) {
+                            productToEdit.isSoldByWeight = false;
+                          }
+                          if (productToEdit.unitOfMeasure === undefined) {
+                            productToEdit.unitOfMeasure = 'unidad';
+                          }
                           setEditingProduct(productToEdit);
                           setIsEditDialogOpen(true);
                         }}><Edit className="h-4 w-4" /></Button>
@@ -632,6 +660,26 @@ function ProductsManagement() {
               <div className="col-span-2 space-y-2">
                 <Label htmlFor="edit-ingredients">Ingredientes</Label>
                 <Textarea id="edit-ingredients" value={editingProduct.ingredients} onChange={(e) => setEditingProduct({...editingProduct, ingredients: e.target.value})} />
+              </div>
+
+              <div className="flex items-center space-x-2 pt-2">
+                <Checkbox id="edit-isSoldByWeight" checked={editingProduct.isSoldByWeight} onCheckedChange={(checked) => setEditingProduct({...editingProduct, isSoldByWeight: checked})} />
+                <Label htmlFor="edit-isSoldByWeight">Vendido por Peso</Label>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-unitOfMeasure">Unidad de Medida</Label>
+                <Select value={editingProduct.unitOfMeasure} onValueChange={(value) => setEditingProduct({...editingProduct, unitOfMeasure: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unidad">Unidad</SelectItem>
+                    <SelectItem value="kg">Kilogramo (kg)</SelectItem>
+                    <SelectItem value="g">Gramo (g)</SelectItem>
+                    <SelectItem value="lb">Libra (lb)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {editingProduct.inventoryConfig && (

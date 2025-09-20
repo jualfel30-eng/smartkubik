@@ -143,7 +143,23 @@ export class OrdersService {
         const variant = product.variants?.[0];
         const unitPrice = variant?.basePrice ?? 0;
         const costPrice = variant?.costPrice ?? 0;
-        const totalPrice = unitPrice * itemDto.quantity;
+
+        // NEW LOGIC
+        let totalPrice;
+        if (product.isSoldByWeight) {
+          // For products sold by weight, quantity is the weight.
+          // unitPrice is the price per unitOfMeasure (e.g., per kg)
+          totalPrice = unitPrice * itemDto.quantity;
+        } else {
+          // For products sold by unit, quantity must be an integer.
+          if (!Number.isInteger(itemDto.quantity)) {
+            throw new BadRequestException(
+              `La cantidad para el producto "${product.name}" debe ser un número entero.`
+            );
+          }
+          totalPrice = unitPrice * itemDto.quantity;
+        }
+
         const ivaAmount = product.ivaApplicable ? totalPrice * 0.16 : 0;
         
         detailedItems.push({
@@ -349,7 +365,22 @@ export class OrdersService {
 
       const variant = product.variants?.[0];
       const unitPrice = variant?.basePrice ?? 0;
-      const totalPrice = unitPrice * itemDto.quantity;
+      
+      // NEW LOGIC
+      let totalPrice;
+      if (product.isSoldByWeight) {
+        // For products sold by weight, quantity is the weight.
+        // unitPrice is the price per unitOfMeasure (e.g., per kg)
+        totalPrice = unitPrice * itemDto.quantity;
+      } else {
+        // For products sold by unit, quantity must be an integer.
+        if (!Number.isInteger(itemDto.quantity)) {
+          throw new BadRequestException(
+            `La cantidad para el producto "${product.name}" debe ser un número entero.`
+          );
+        }
+        totalPrice = unitPrice * itemDto.quantity;
+      }
 
       const ivaAmount = product.ivaApplicable ? totalPrice * 0.16 : 0;
 

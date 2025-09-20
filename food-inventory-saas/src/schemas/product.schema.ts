@@ -88,6 +88,12 @@ export class Product {
   @Prop({ required: true })
   brand: string;
 
+  @Prop({ default: 'unidad' })
+  unitOfMeasure: string; // kg, lb, g, unidad
+
+  @Prop({ default: false })
+  isSoldByWeight: boolean;
+
   @Prop()
   description?: string;
 

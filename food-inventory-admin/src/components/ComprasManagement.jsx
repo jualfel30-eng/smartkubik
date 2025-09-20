@@ -32,6 +32,8 @@ const initialNewProductState = {
   storageTemperature: 'ambiente',
   ivaApplicable: true,
   taxCategory: 'general',
+  isSoldByWeight: false,
+  unitOfMeasure: 'unidad',
   variant: {
     name: 'Estándar',
     unit: 'unidad',
@@ -46,6 +48,8 @@ const initialNewProductState = {
     expirationDate: ''
   },
   supplier: {
+    supplierId: null,
+    isNew: true,
     newSupplierName: '',
     newSupplierRif: '',
     newSupplierContactName: '',
@@ -137,6 +141,38 @@ export default function ComprasManagement() {
     }
   }, [isNewProductDialogOpen]);
 
+  const handleSupplierSelectionForNewProduct = (selectedOption) => {
+    if (!selectedOption) {
+      setNewProduct(prev => ({ ...prev, supplier: initialNewProductState.supplier }));
+      return;
+    }
+    if (selectedOption.__isNew__) {
+      setNewProduct(prev => ({
+        ...prev,
+        supplier: {
+          ...initialNewProductState.supplier,
+          isNew: true,
+          newSupplierName: selectedOption.label,
+        }
+      }));
+    } else {
+      const { supplier } = selectedOption;
+      setNewProduct(prev => ({
+        ...prev,
+        supplier: {
+          ...initialNewProductState.supplier,
+          isNew: false,
+          supplierId: supplier._id,
+          newSupplierName: supplier.companyName || supplier.name,
+          newSupplierRif: (supplier.taxInfo?.taxId || '').split('-').slice(1).join('-'),
+          rifPrefix: (supplier.taxInfo?.taxId || 'J-').split('-')[0],
+          newSupplierContactName: supplier.contacts?.[0]?.name || '',
+          newSupplierContactPhone: supplier.contacts?.find(c => c.type === 'phone')?.value || '',
+        }
+      }));
+    }
+  };
+
   const handleAddProduct = async () => {
     const payload = {
       product: {
@@ -152,6 +188,8 @@ export default function ComprasManagement() {
         storageTemperature: newProduct.storageTemperature,
         ivaApplicable: newProduct.ivaApplicable,
         taxCategory: newProduct.taxCategory,
+        isSoldByWeight: newProduct.isSoldByWeight,
+        unitOfMeasure: newProduct.unitOfMeasure,
         pricingRules: { cashDiscount: 0, cardSurcharge: 0, minimumMargin: 0.2, maximumDiscount: 0.5 },
         inventoryConfig: { trackLots: true, trackExpiration: newProduct.isPerishable, minimumStock: 10, maximumStock: 100, reorderPoint: 20, reorderQuantity: 50, fefoEnabled: newProduct.isPerishable },
         variants: [{
@@ -162,6 +200,7 @@ export default function ComprasManagement() {
         }],
       },
       supplier: {
+        supplierId: newProduct.supplier.supplierId,
         newSupplierName: newProduct.supplier.newSupplierName,
         newSupplierRif: `${newProduct.supplier.rifPrefix}-${newProduct.supplier.newSupplierRif}`,
         newSupplierContactName: newProduct.supplier.newSupplierContactName,
@@ -281,6 +320,13 @@ export default function ComprasManagement() {
         label: s.taxInfo.taxId,
         customer: s,
       })),[suppliers]);
+
+  const supplierOptions = useMemo(() =>
+    suppliers.map(s => ({
+      value: s._id,
+      label: s.companyName || s.name,
+      supplier: s,
+    })),[suppliers]);
 
   const productOptions = useMemo(() => 
     products.map(p => ({ 
@@ -616,6 +662,24 @@ export default function ComprasManagement() {
                         <Checkbox id="ivaApplicable" checked={!newProduct.ivaApplicable} onCheckedChange={(checked) => setNewProduct({...newProduct, ivaApplicable: !checked})} />
                         <Label htmlFor="ivaApplicable">Exento de IVA</Label>
                     </div>
+                    <div className="flex items-center space-x-2 pt-2">
+                        <Checkbox id="isSoldByWeight" checked={newProduct.isSoldByWeight} onCheckedChange={(checked) => setNewProduct({...newProduct, isSoldByWeight: checked})} />
+                        <Label htmlFor="isSoldByWeight">Vendido por Peso</Label>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="unitOfMeasure">Unidad de Medida</Label>
+                        <Select value={newProduct.unitOfMeasure} onValueChange={(value) => setNewProduct({...newProduct, unitOfMeasure: value})}>
+                        <SelectTrigger>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="unidad">Unidad</SelectItem>
+                            <SelectItem value="kg">Kilogramo (kg)</SelectItem>
+                            <SelectItem value="g">Gramo (g)</SelectItem>
+                            <SelectItem value="lb">Libra (lb)</SelectItem>
+                        </SelectContent>
+                        </Select>
+                    </div>
                     {newProduct.isPerishable && (
                         <>
                         <div className="space-y-2">
@@ -688,31 +752,60 @@ export default function ComprasManagement() {
                     </div>
 
                     <div className="col-span-2 border-t pt-4 mt-4">
-                    <h4 className="text-lg font-medium mb-4">Proveedor</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <h4 className="text-lg font-medium mb-4">Proveedor</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                        <Label>Nombre de la Empresa</Label>
-                        <Input value={newProduct.supplier.newSupplierName} onChange={(e) => setNewProduct({...newProduct, supplier: {...newProduct.supplier, newSupplierName: e.target.value}})} placeholder="Ej: Proveedores ABC" />
+                          <Label>Nombre de la Empresa</Label>
+                          <SearchableSelect
+                            isCreatable
+                            options={supplierOptions}
+                            onSelection={handleSupplierSelectionForNewProduct}
+                            value={
+                              newProduct.supplier.supplierId
+                                ? { value: newProduct.supplier.supplierId, label: newProduct.supplier.newSupplierName }
+                                : newProduct.supplier.newSupplierName
+                                  ? { value: newProduct.supplier.newSupplierName, label: newProduct.supplier.newSupplierName }
+                                  : null
+                            }
+                            placeholder="Escriba o seleccione un proveedor..."
+                          />
                         </div>
                         <div className="space-y-2">
-                        <Label>RIF</Label>
-                        <div className="flex space-x-2">
-                            <Select value={newProduct.supplier.rifPrefix} onValueChange={(val) => setNewProduct({...newProduct, supplier: {...newProduct.supplier, rifPrefix: val}})}>
-                            <SelectTrigger className="w-[80px]"><SelectValue /></SelectTrigger>
-                            <SelectContent>{['J', 'V', 'E', 'G', 'P', 'N'].map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                          <Label>RIF</Label>
+                          <div className="flex space-x-2">
+                            <Select 
+                              value={newProduct.supplier.rifPrefix} 
+                              onValueChange={(val) => setNewProduct({...newProduct, supplier: {...newProduct.supplier, rifPrefix: val}})}
+                              disabled={!newProduct.supplier.isNew}
+                            >
+                              <SelectTrigger className="w-[80px]"><SelectValue /></SelectTrigger>
+                              <SelectContent>{['J', 'V', 'E', 'G', 'P', 'N'].map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                             </Select>
-                            <Input value={newProduct.supplier.newSupplierRif} onChange={(e) => setNewProduct({...newProduct, supplier: {...newProduct.supplier, newSupplierRif: e.target.value}})} placeholder="12345678-9" />
-                        </div>
+                            <Input 
+                              value={newProduct.supplier.newSupplierRif} 
+                              onChange={(e) => setNewProduct({...newProduct, supplier: {...newProduct.supplier, newSupplierRif: e.target.value}})} 
+                              placeholder="12345678-9" 
+                              disabled={!newProduct.supplier.isNew}
+                            />
+                          </div>
                         </div>
                         <div className="space-y-2">
-                        <Label>Nombre del Vendedor</Label>
-                        <Input value={newProduct.supplier.newSupplierContactName} onChange={(e) => setNewProduct({...newProduct, supplier: {...newProduct.supplier, newSupplierContactName: e.target.value}})} />
+                          <Label>Nombre del Vendedor</Label>
+                          <Input 
+                            value={newProduct.supplier.newSupplierContactName} 
+                            onChange={(e) => setNewProduct({...newProduct, supplier: {...newProduct.supplier, newSupplierContactName: e.target.value}})} 
+                            disabled={!newProduct.supplier.isNew}
+                          />
                         </div>
                         <div className="space-y-2">
-                        <Label>Teléfono del Vendedor</Label>
-                        <Input value={newProduct.supplier.newSupplierContactPhone} onChange={(e) => setNewProduct({...newProduct, supplier: {...newProduct.supplier, newSupplierContactPhone: e.target.value}})} />
+                          <Label>Teléfono del Vendedor</Label>
+                          <Input 
+                            value={newProduct.supplier.newSupplierContactPhone} 
+                            onChange={(e) => setNewProduct({...newProduct, supplier: {...newProduct.supplier, newSupplierContactPhone: e.target.value}})} 
+                            disabled={!newProduct.supplier.isNew}
+                          />
                         </div>
-                    </div>
+                      </div>
                     </div>
 
                 </div>

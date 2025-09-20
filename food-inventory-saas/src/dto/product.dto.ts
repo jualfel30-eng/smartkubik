@@ -344,6 +344,16 @@ export class UpdateProductDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @ApiPropertyOptional({ description: "Vendido por peso" })
+  @IsOptional()
+  @IsBoolean()
+  isSoldByWeight?: boolean;
+
+  @ApiPropertyOptional({ description: "Unidad de medida" })
+  @IsOptional()
+  @IsString()
+  unitOfMeasure?: string;
 }
 
 export class ProductQueryDto {
