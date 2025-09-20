@@ -12,6 +12,7 @@ import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
 
 
 import { AccountingModule } from "../accounting/accounting.module"; // Import AccountingModule
+import { RolesModule } from '../roles/roles.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { AccountingModule } from "../accounting/accounting.module"; // Import Ac
     InventoryModule,
     CustomersModule,
     AccountingModule, // Add AccountingModule to imports
+    RolesModule,
     MongooseModule.forFeature([
       { name: Order.name, schema: OrderSchema },
       { name: Customer.name, schema: CustomerSchema },

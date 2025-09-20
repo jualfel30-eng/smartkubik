@@ -28,7 +28,7 @@ import {
 import { JwtAuthGuard } from "../guards/jwt-auth.guard";
 import { TenantGuard } from "../guards/tenant.guard";
 import { PermissionsGuard } from "../guards/permissions.guard";
-import { RequirePermissions } from "../decorators/permissions.decorator";
+import { Permissions } from "../decorators/permissions.decorator";
 import { Public } from "../decorators/public.decorator";
 
 @ApiTags("auth")
@@ -81,7 +81,7 @@ export class AuthController {
 
   @Post("create-user")
   @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
-  @RequirePermissions("settings", ["create"])
+  @Permissions("users_create")
   @ApiBearerAuth()
   @ApiOperation({ summary: "Crear nuevo usuario (solo administradores)" })
   @ApiResponse({ status: 201, description: "Usuario creado exitosamente" })

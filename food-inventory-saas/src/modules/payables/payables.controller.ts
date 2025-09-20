@@ -4,7 +4,7 @@ import { PayablesService, CreatePayableDto, UpdatePayableDto } from './payables.
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { TenantGuard } from '../../guards/tenant.guard';
 import { PermissionsGuard } from '../../guards/permissions.guard';
-import { RequirePermissions } from '../../decorators/permissions.decorator';
+import { Permissions } from '../../decorators/permissions.decorator';
 
 @ApiTags('payables')
 @Controller('payables')
@@ -15,7 +15,7 @@ export class PayablesController {
 
   @Post()
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('payables', ['create'])
+  @Permissions("payables_create")
   @ApiOperation({ summary: 'Crear una nueva cuenta por pagar (payable)' })
   @ApiResponse({ status: 201, description: 'La cuenta por pagar ha sido creada exitosamente.' })
   @ApiResponse({ status: 400, description: 'Datos de entrada inválidos.' })
@@ -41,7 +41,7 @@ export class PayablesController {
 
   @Get()
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('payables', ['read'])
+  @Permissions("payables_read")
   @ApiOperation({ summary: 'Obtener todas las cuentas por pagar del tenant' })
   async findAll(@Request() req) {
     try {
@@ -60,7 +60,7 @@ export class PayablesController {
 
   @Get(':id')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('payables', ['read'])
+  @Permissions("payables_read")
   @ApiOperation({ summary: 'Obtener una cuenta por pagar por su ID' })
   async findOne(@Request() req, @Param('id') id: string) {
     try {
@@ -79,7 +79,7 @@ export class PayablesController {
 
   @Patch(':id')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('payables', ['update'])
+  @Permissions("payables_update")
   @ApiOperation({ summary: 'Actualizar una cuenta por pagar' })
   async update(
     @Request() req,
@@ -107,7 +107,7 @@ export class PayablesController {
 
   @Delete(':id')
   @UseGuards(PermissionsGuard)
-  @RequirePermissions('payables', ['delete'])
+  @Permissions("payables_delete")
   @ApiOperation({ summary: 'Anular una cuenta por pagar' })
   async remove(@Request() req, @Param('id') id: string) {
     try {

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 
 const AuthContext = createContext(null);
 
@@ -56,12 +56,20 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
   };
 
+  const permissions = useMemo(() => user?.role?.permissions || [], [user]);
+
+  const hasPermission = (permission) => {
+    return permissions.includes(permission);
+  };
+
   const value = {
     user,
     token,
     isAuthenticated,
     login,
     logout,
+    permissions,
+    hasPermission,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

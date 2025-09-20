@@ -29,7 +29,7 @@ import {
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
-import { RequirePermissions } from "../../decorators/permissions.decorator";
+import { Permissions } from "../../decorators/permissions.decorator";
 
 @ApiTags("inventory")
 @Controller("inventory")
@@ -39,7 +39,7 @@ export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 
   @Post()
-  @RequirePermissions("inventory", ["create"])
+  @Permissions("inventory_create")
   @ApiOperation({ summary: "Crear registro de inventario inicial" })
   @ApiResponse({ status: 201, description: "Inventario creado exitosamente" })
   async create(@Body() createInventoryDto: CreateInventoryDto, @Request() req) {
@@ -62,7 +62,7 @@ export class InventoryController {
   }
 
   @Get()
-  @RequirePermissions("inventory", ["read"])
+  @Permissions("inventory_read")
   @ApiOperation({ summary: "Obtener lista de inventario con filtros" })
   @ApiResponse({ status: 200, description: "Inventario obtenido exitosamente" })
   async findAll(@Query() query: InventoryQueryDto, @Request() req) {
@@ -91,7 +91,7 @@ export class InventoryController {
   }
 
   @Get(":id")
-  @RequirePermissions("inventory", ["read"])
+  @Permissions("inventory_read")
   @ApiOperation({ summary: "Obtener inventario por ID" })
   @ApiResponse({ status: 200, description: "Inventario obtenido exitosamente" })
   async findOne(@Param("id") id: string, @Request() req) {
@@ -123,7 +123,7 @@ export class InventoryController {
   }
 
   @Get("product/:productSku")
-  @RequirePermissions("inventory", ["read"])
+  @Permissions("inventory_read")
   @ApiOperation({ summary: "Obtener inventario por SKU de producto" })
   @ApiResponse({ status: 200, description: "Inventario obtenido exitosamente" })
   async findByProductSku(
@@ -158,7 +158,7 @@ export class InventoryController {
   }
 
   @Post("movements")
-  @RequirePermissions("inventory", ["create"])
+  @Permissions("inventory_create")
   @ApiOperation({ summary: "Registrar movimiento de inventario" })
   @ApiResponse({
     status: 201,
@@ -187,7 +187,7 @@ export class InventoryController {
   }
 
   @Get("movements/history")
-  @RequirePermissions("inventory", ["read"])
+  @Permissions("inventory_read")
   @ApiOperation({ summary: "Obtener historial de movimientos" })
   @ApiResponse({ status: 200, description: "Historial obtenido exitosamente" })
   async getMovements(
@@ -219,7 +219,7 @@ export class InventoryController {
   }
 
   @Post("reserve")
-  @RequirePermissions("inventory", ["update"])
+  @Permissions("inventory_update")
   @ApiOperation({ summary: "Reservar inventario para una orden" })
   @ApiResponse({
     status: 200,
@@ -248,7 +248,7 @@ export class InventoryController {
   }
 
   @Post("release")
-  @RequirePermissions("inventory", ["update"])
+  @Permissions("inventory_update")
   @ApiOperation({ summary: "Liberar reserva de inventario" })
   @ApiResponse({ status: 200, description: "Reserva liberada exitosamente" })
   async releaseInventory(
@@ -274,7 +274,7 @@ export class InventoryController {
   }
 
   @Post("adjust")
-  @RequirePermissions("inventory", ["update"])
+  @Permissions("inventory_update")
   @ApiOperation({ summary: "Ajustar inventario manualmente" })
   @ApiResponse({ status: 200, description: "Inventario ajustado exitosamente" })
   async adjustInventory(@Body() adjustDto: AdjustInventoryDto, @Request() req) {
@@ -297,7 +297,7 @@ export class InventoryController {
   }
 
   @Get("alerts/low-stock")
-  @RequirePermissions("inventory", ["read"])
+  @Permissions("inventory_read")
   @ApiOperation({ summary: "Obtener alertas de stock bajo" })
   @ApiResponse({ status: 200, description: "Alertas obtenidas exitosamente" })
   async getLowStockAlerts(@Request() req) {
@@ -319,7 +319,7 @@ export class InventoryController {
   }
 
   @Get("alerts/near-expiration")
-  @RequirePermissions("inventory", ["read"])
+  @Permissions("inventory_read")
   @ApiOperation({ summary: "Obtener alertas de productos próximos a vencer" })
   @ApiResponse({ status: 200, description: "Alertas obtenidas exitosamente" })
   async getExpirationAlerts(@Request() req, @Query("days") days: number = 7) {
@@ -342,7 +342,7 @@ export class InventoryController {
   }
 
   @Get("reports/summary")
-  @RequirePermissions("inventory", ["read"])
+  @Permissions("inventory_read")
   @ApiOperation({ summary: "Obtener resumen de inventario" })
   @ApiResponse({ status: 200, description: "Resumen obtenido exitosamente" })
   async getInventorySummary(@Request() req) {

@@ -1,18 +1,12 @@
 import { Module } from "@nestjs/common";
-import { MongooseModule } from "@nestjs/mongoose";
-import { Tenant, TenantSchema } from "./schemas/tenant.schema";
-import { User, UserSchema } from "./schemas/user.schema";
 import { TenantController } from "./tenant.controller";
 import { TenantService } from "./tenant.service";
+import { SharedModule } from "./common/shared.module";
 
 @Module({
-  imports: [
-    MongooseModule.forFeature([
-      { name: Tenant.name, schema: TenantSchema },
-      { name: User.name, schema: UserSchema },
-    ]),
-  ],
+  imports: [SharedModule],
   controllers: [TenantController],
   providers: [TenantService],
+  exports: []
 })
 export class TenantModule {}

@@ -28,7 +28,7 @@ import {
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
-import { RequirePermissions } from "../../decorators/permissions.decorator";
+import { Permissions } from "../../decorators/permissions.decorator";
 
 @ApiTags("customers")
 @Controller("customers")
@@ -40,7 +40,7 @@ export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
   @Post()
-  @RequirePermissions("customers", ["create"])
+  @Permissions("customers_create")
   @ApiOperation({ summary: "Crear nuevo cliente" })
   @ApiResponse({ status: 201, description: "Cliente creado exitosamente" })
   async create(@Body() createCustomerDto: CreateCustomerDto, @Request() req) {
@@ -66,7 +66,7 @@ export class CustomersController {
   }
 
   @Get()
-  @RequirePermissions("customers", ["read"])
+  @Permissions("customers_read")
   @ApiOperation({ summary: "Obtener lista de clientes" })
   @ApiResponse({ status: 200, description: "Clientes obtenidos exitosamente" })
   async findAll(@Query() query: CustomerQueryDto, @Request() req) {
@@ -95,7 +95,7 @@ export class CustomersController {
   }
 
   @Get(":id")
-  @RequirePermissions("customers", ["read"])
+  @Permissions("customers_read")
   @ApiOperation({ summary: "Obtener cliente por ID" })
   @ApiResponse({ status: 200, description: "Cliente obtenido exitosamente" })
   async findOne(@Param("id") id: string, @Request() req) {
@@ -124,7 +124,7 @@ export class CustomersController {
   }
 
   @Patch(":id")
-  @RequirePermissions("customers", ["update"])
+  @Permissions("customers_update")
   @ApiOperation({ summary: "Actualizar un cliente" })
   @ApiResponse({ status: 200, description: "Cliente actualizado exitosamente" })
   async update(
@@ -158,7 +158,7 @@ export class CustomersController {
   }
 
   @Delete(":id")
-  @RequirePermissions("customers", ["delete"])
+  @Permissions("customers_delete")
   @ApiOperation({ summary: "Eliminar un cliente (borrado lógico)" })
   @ApiResponse({ status: 200, description: "Cliente eliminado exitosamente" })
   async remove(@Param("id") id: string, @Request() req) {

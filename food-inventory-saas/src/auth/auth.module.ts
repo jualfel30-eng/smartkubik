@@ -8,9 +8,11 @@ import { AuthService } from "./auth.service";
 import { JwtStrategy } from "./jwt.strategy";
 import { User, UserSchema } from "../schemas/user.schema";
 import { Tenant, TenantSchema } from "../schemas/tenant.schema";
+import { RolesModule } from '../modules/roles/roles.module';
 
 @Module({
   imports: [
+    RolesModule,
     PassportModule.register({ defaultStrategy: "jwt" }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

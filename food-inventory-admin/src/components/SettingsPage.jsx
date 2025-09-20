@@ -6,6 +6,10 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { getTenantSettings, updateTenantSettings, uploadTenantLogo } from '@/lib/api';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import RolesManagement from './RolesManagement';
+import UserManagement from './UserManagement'; // Importar UserManagement
+import { useAuth } from '@/hooks/use-auth.jsx'; // Importar useAuth
 
 const initialSettings = {
   name: '',
@@ -56,6 +60,7 @@ const SettingsPage = () => {
   const [logoPreviewUrl, setLogoPreviewUrl] = useState('');
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const fileInputRef = useRef(null);
+  const { hasPermission } = useAuth(); // Obtener hasPermission
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -199,162 +204,177 @@ const SettingsPage = () => {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
-      <h1 className="text-3xl font-bold">Configuración del Negocio</h1>
+      <h1 className="text-3xl font-bold">Configuración</h1>
       
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* General Info & Logo Column */}
-        <div className="lg:col-span-1 space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Logo del Negocio</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 flex flex-col items-center">
-                    <div className="w-48 h-48 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted overflow-hidden">
-                    {logoPreviewUrl ? (
-                        <img src={logoPreviewUrl} alt="Vista previa del logo" className="w-full h-full object-contain" />
-                    ) : (
-                        <span className="text-muted-foreground text-sm">Vista Previa</span>
-                    )}
-                    </div>
-                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-                    <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => fileInputRef.current.click()}>
-                        Seleccionar
-                    </Button>
-                    <Button onClick={handleUploadLogo} disabled={!selectedFile || isUploadingLogo}>
-                        {isUploadingLogo ? 'Subiendo...' : 'Subir Logo'}
-                    </Button>
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
+      <Tabs defaultValue="general" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="general">General</TabsTrigger>
+          {hasPermission('users_read') && <TabsTrigger value="users">Usuarios</TabsTrigger>}
+          {hasPermission('roles_read') && <TabsTrigger value="roles">Roles y Permisos</TabsTrigger>}
+        </TabsList>
+        <TabsContent value="general">
+          <div className="grid gap-6 lg:grid-cols-3 mt-4">
+            {/* General Info & Logo Column */}
+            <div className="lg:col-span-1 space-y-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Logo del Negocio</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4 flex flex-col items-center">
+                        <div className="w-48 h-48 border-2 border-dashed rounded-lg flex items-center justify-center bg-muted overflow-hidden">
+                        {logoPreviewUrl ? (
+                            <img src={logoPreviewUrl} alt="Vista previa del logo" className="w-full h-full object-contain" />
+                        ) : (
+                            <span className="text-muted-foreground text-sm">Vista Previa</span>
+                        )}
+                        </div>
+                        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+                        <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => fileInputRef.current.click()}>
+                            Seleccionar
+                        </Button>
+                        <Button onClick={handleUploadLogo} disabled={!selectedFile || isUploadingLogo}>
+                            {isUploadingLogo ? 'Subiendo...' : 'Subir Logo'}
+                        </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
 
-        {/* Settings Column */}
-        <div className="lg:col-span-2 space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Información General y de Contacto</CardTitle>
-                    <CardDescription>Datos principales de tu empresa.</CardDescription>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label>Nombre del Negocio</Label><Input name="name" value={settings.name} onChange={handleInputChange} /></div>
-                    <div className="space-y-2"><Label>Sitio Web</Label><Input name="website" value={settings.website} onChange={handleInputChange} /></div>
-                    <div className="space-y-2"><Label>Email de Contacto</Label><Input name="contactInfo.email" value={settings.contactInfo.email} onChange={handleInputChange} /></div>
-                    <div className="space-y-2"><Label>Teléfono</Label><Input name="contactInfo.phone" value={settings.contactInfo.phone} onChange={handleInputChange} /></div>
-                    <div className="space-y-2 md:col-span-2"><Label>Dirección</Label><Input name="contactInfo.address.street" value={settings.contactInfo.address.street} onChange={handleInputChange} /></div>
-                    <div className="space-y-2"><Label>Ciudad</Label><Input name="contactInfo.address.city" value={settings.contactInfo.address.city} onChange={handleInputChange} /></div>
-                    <div className="space-y-2"><Label>Estado/Provincia</Label><Input name="contactInfo.address.state" value={settings.contactInfo.address.state} onChange={handleInputChange} /></div>
-                    <div className="space-y-2"><Label>Código Postal</Label><Input name="contactInfo.address.zipCode" value={settings.contactInfo.address.zipCode} onChange={handleInputChange} /></div>
-                    <div className="space-y-2"><Label>País</Label><Input name="contactInfo.address.country" value={settings.contactInfo.address.country} onChange={handleInputChange} /></div>
-                </CardContent>
-            </Card>
+            {/* Settings Column */}
+            <div className="lg:col-span-2 space-y-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Información General y de Contacto</CardTitle>
+                        <CardDescription>Datos principales de tu empresa.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2"><Label>Nombre del Negocio</Label><Input name="name" value={settings.name} onChange={handleInputChange} /></div>
+                        <div className="space-y-2"><Label>Sitio Web</Label><Input name="website" value={settings.website} onChange={handleInputChange} /></div>
+                        <div className="space-y-2"><Label>Email de Contacto</Label><Input name="contactInfo.email" value={settings.contactInfo.email} onChange={handleInputChange} /></div>
+                        <div className="space-y-2"><Label>Teléfono</Label><Input name="contactInfo.phone" value={settings.contactInfo.phone} onChange={handleInputChange} /></div>
+                        <div className="space-y-2 md:col-span-2"><Label>Dirección</Label><Input name="contactInfo.address.street" value={settings.contactInfo.address.street} onChange={handleInputChange} /></div>
+                        <div className="space-y-2"><Label>Ciudad</Label><Input name="contactInfo.address.city" value={settings.contactInfo.address.city} onChange={handleInputChange} /></div>
+                        <div className="space-y-2"><Label>Estado/Provincia</Label><Input name="contactInfo.address.state" value={settings.contactInfo.address.state} onChange={handleInputChange} /></div>
+                        <div className="space-y-2"><Label>Código Postal</Label><Input name="contactInfo.address.zipCode" value={settings.contactInfo.address.zipCode} onChange={handleInputChange} /></div>
+                        <div className="space-y-2"><Label>País</Label><Input name="contactInfo.address.country" value={settings.contactInfo.address.country} onChange={handleInputChange} /></div>
+                    </CardContent>
+                </Card>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Información Fiscal</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label>RIF</Label><Input name="taxInfo.rif" value={settings.taxInfo.rif} onChange={handleInputChange} /></div>
-                    <div className="space-y-2"><Label>Razón Social</Label><Input name="taxInfo.businessName" value={settings.taxInfo.businessName} onChange={handleInputChange} /></div>
-                </CardContent>
-            </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Información Fiscal</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2"><Label>RIF</Label><Input name="taxInfo.rif" value={settings.taxInfo.rif} onChange={handleInputChange} /></div>
+                        <div className="space-y-2"><Label>Razón Social</Label><Input name="taxInfo.businessName" value={settings.taxInfo.businessName} onChange={handleInputChange} /></div>
+                    </CardContent>
+                </Card>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Configuraciones Varias</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2"><Label>Moneda Principal</Label><Input name="settings.currency.primary" value={settings.settings.currency.primary} onChange={handleInputChange} /></div>
-                    <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                        <Label>Habilitar Inventario FEFO (First-Expires, First-Out)</Label>
-                        <Switch name="settings.inventory.fefoEnabled" checked={settings.settings.inventory.fefoEnabled} onCheckedChange={(c) => handleSwitchChange('settings.inventory.fefoEnabled', c)} />
-                    </div>
-                </CardContent>
-            </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Configuraciones Varias</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2"><Label>Moneda Principal</Label><Input name="settings.currency.primary" value={settings.settings.currency.primary} onChange={handleInputChange} /></div>
+                        <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                            <Label>Habilitar Inventario FEFO (First-Expires, First-Out)</Label>
+                            <Switch name="settings.inventory.fefoEnabled" checked={settings.settings.inventory.fefoEnabled} onCheckedChange={(c) => handleSwitchChange('settings.inventory.fefoEnabled', c)} />
+                        </div>
+                    </CardContent>
+                </Card>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Personalización de Documentos</CardTitle>
-                    <CardDescription>Adapta la apariencia de tus facturas y presupuestos.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <Label className="font-semibold">Facturas</Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Personalización de Documentos</CardTitle>
+                        <CardDescription>Adapta la apariencia de tus facturas y presupuestos.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <Label className="font-semibold">Facturas</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                            <div className="space-y-2">
+                                <Label>Color Primario</Label>
+                                <Input 
+                                    type="color" 
+                                    name="settings.documentTemplates.invoice.primaryColor" 
+                                    value={settings.settings.documentTemplates?.invoice?.primaryColor || '#000000'} 
+                                    onChange={handleInputChange} 
+                                    className="p-1 h-10 w-full"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Color de Acento</Label>
+                                <Input 
+                                    type="color" 
+                                    name="settings.documentTemplates.invoice.accentColor" 
+                                    value={settings.settings.documentTemplates?.invoice?.accentColor || '#FFFFFF'} 
+                                    onChange={handleInputChange}
+                                    className="p-1 h-10 w-full"
+                                />
+                            </div>
+                        </div>
                         <div className="space-y-2">
-                            <Label>Color Primario</Label>
+                            <Label>Texto de Pie de Página (Factura)</Label>
                             <Input 
-                                type="color" 
-                                name="settings.documentTemplates.invoice.primaryColor" 
-                                value={settings.settings.documentTemplates?.invoice?.primaryColor || '#000000'} 
+                                name="settings.documentTemplates.invoice.footerText" 
+                                value={settings.settings.documentTemplates?.invoice?.footerText || ''} 
                                 onChange={handleInputChange} 
-                                className="p-1 h-10 w-full"
+                                placeholder="Ej: Gracias por su compra."
                             />
                         </div>
-                        <div className="space-y-2">
-                            <Label>Color de Acento</Label>
-                            <Input 
-                                type="color" 
-                                name="settings.documentTemplates.invoice.accentColor" 
-                                value={settings.settings.documentTemplates?.invoice?.accentColor || '#FFFFFF'} 
-                                onChange={handleInputChange}
-                                className="p-1 h-10 w-full"
-                            />
+
+                        <div className="border-t border-border my-4"></div>
+
+                        <Label className="font-semibold">Presupuestos</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                            <div className="space-y-2">
+                                <Label>Color Primario</Label>
+                                <Input 
+                                    type="color" 
+                                    name="settings.documentTemplates.quote.primaryColor" 
+                                    value={settings.settings.documentTemplates?.quote?.primaryColor || '#000000'} 
+                                    onChange={handleInputChange} 
+                                    className="p-1 h-10 w-full"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Color de Acento</Label>
+                                <Input 
+                                    type="color" 
+                                    name="settings.documentTemplates.quote.accentColor" 
+                                    value={settings.settings.documentTemplates?.quote?.accentColor || '#FFFFFF'} 
+                                    onChange={handleInputChange}
+                                    className="p-1 h-10 w-full"
+                                />
+                            </div>
                         </div>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Texto de Pie de Página (Factura)</Label>
-                        <Input 
-                            name="settings.documentTemplates.invoice.footerText" 
-                            value={settings.settings.documentTemplates?.invoice?.footerText || ''} 
-                            onChange={handleInputChange} 
-                            placeholder="Ej: Gracias por su compra."
-                        />
-                    </div>
-
-                    <div className="border-t border-border my-4"></div>
-
-                    <Label className="font-semibold">Presupuestos</Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                         <div className="space-y-2">
-                            <Label>Color Primario</Label>
+                            <Label>Texto de Pie de Página (Presupuesto)</Label>
                             <Input 
-                                type="color" 
-                                name="settings.documentTemplates.quote.primaryColor" 
-                                value={settings.settings.documentTemplates?.quote?.primaryColor || '#000000'} 
+                                name="settings.documentTemplates.quote.footerText" 
+                                value={settings.settings.documentTemplates?.quote?.footerText || ''} 
                                 onChange={handleInputChange} 
-                                className="p-1 h-10 w-full"
+                                placeholder="Ej: Presupuesto válido por 15 días."
                             />
                         </div>
-                        <div className="space-y-2">
-                            <Label>Color de Acento</Label>
-                            <Input 
-                                type="color" 
-                                name="settings.documentTemplates.quote.accentColor" 
-                                value={settings.settings.documentTemplates?.quote?.accentColor || '#FFFFFF'} 
-                                onChange={handleInputChange}
-                                className="p-1 h-10 w-full"
-                            />
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Texto de Pie de Página (Presupuesto)</Label>
-                        <Input 
-                            name="settings.documentTemplates.quote.footerText" 
-                            value={settings.settings.documentTemplates?.quote?.footerText || ''} 
-                            onChange={handleInputChange} 
-                            placeholder="Ej: Presupuesto válido por 15 días."
-                        />
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
-      </div>
+                    </CardContent>
+                </Card>
+            </div>
+          </div>
 
-      <div className="mt-6 flex justify-end">
-        <Button size="lg" onClick={handleSaveSettings} disabled={isSaving}>
-          {isSaving ? 'Guardando...' : 'Guardar Todos los Cambios'}
-        </Button>
-      </div>
+          <div className="mt-6 flex justify-end">
+            <Button size="lg" onClick={handleSaveSettings} disabled={isSaving}>
+              {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+            </Button>
+          </div>
+        </TabsContent>
+        <TabsContent value="users">
+            <UserManagement />
+        </TabsContent>
+        <TabsContent value="roles">
+            <RolesManagement />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

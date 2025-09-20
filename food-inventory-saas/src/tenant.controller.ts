@@ -31,7 +31,7 @@ import {
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 import { TenantGuard } from "./guards/tenant.guard";
 import { PermissionsGuard } from "./guards/permissions.guard";
-import { RequirePermissions } from "./decorators/permissions.decorator";
+import { Permissions } from "./decorators/permissions.decorator";
 
 @ApiTags("tenant")
 @Controller("tenant")
@@ -128,7 +128,7 @@ export class TenantController {
 
   @Get("users")
   @UseGuards(PermissionsGuard)
-  @RequirePermissions("users", ["read"])
+  @Permissions("users_read")
   @ApiOperation({ summary: "Obtener la lista de usuarios del tenant" })
   @ApiResponse({ status: 200, description: "Usuarios obtenidos exitosamente" })
   async getUsers(@Request() req) {
@@ -149,7 +149,7 @@ export class TenantController {
 
   @Post("users")
   @UseGuards(PermissionsGuard)
-  @RequirePermissions("users", ["create"])
+  @Permissions("users_create")
   @ApiOperation({ summary: "Invitar a un nuevo usuario al tenant" })
   @ApiResponse({ status: 201, description: "Usuario invitado exitosamente" })
   async inviteUser(@Request() req, @Body() inviteUserDto: InviteUserDto) {
@@ -173,7 +173,7 @@ export class TenantController {
 
   @Put("users/:userId")
   @UseGuards(PermissionsGuard)
-  @RequirePermissions("users", ["update"])
+  @Permissions("users_update")
   @ApiOperation({ summary: "Actualizar un usuario del tenant" })
   @ApiResponse({ status: 200, description: "Usuario actualizado exitosamente" })
   async updateUser(
@@ -202,7 +202,7 @@ export class TenantController {
 
   @Delete("users/:userId")
   @UseGuards(PermissionsGuard)
-  @RequirePermissions("users", ["delete"])
+  @Permissions("users_delete")
   @ApiOperation({ summary: "Eliminar un usuario del tenant" })
   @ApiResponse({ status: 200, description: "Usuario eliminado exitosamente" })
   async deleteUser(@Request() req, @Param("userId") userId: string) {

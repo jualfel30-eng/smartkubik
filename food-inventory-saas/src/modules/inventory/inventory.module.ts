@@ -11,10 +11,12 @@ import {
   InventoryMovementSchema,
 } from "../../schemas/inventory.schema";
 import { Product, ProductSchema } from "../../schemas/product.schema"; // Import Product schema
+import { RolesModule } from '../roles/roles.module';
 
 @Module({
   imports: [
     AuthModule,
+    RolesModule,
     forwardRef(() => EventsModule),
     forwardRef(() => ProductsModule), // Use forwardRef if there is a circular dependency
     MongooseModule.forFeature([

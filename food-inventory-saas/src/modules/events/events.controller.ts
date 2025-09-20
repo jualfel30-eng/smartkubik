@@ -24,7 +24,7 @@ import {
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
-import { RequirePermissions } from "../../decorators/permissions.decorator";
+import { Permissions } from "../../decorators/permissions.decorator";
 
 @ApiTags("Calendar Events")
 @Controller("events")
@@ -34,7 +34,7 @@ export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
 
   @Post()
-  @RequirePermissions("calendar", ["create"])
+  @Permissions("events_create")
   @ApiOperation({ summary: "Crear un nuevo evento en el calendario" })
   @ApiResponse({
     status: 201,
@@ -50,7 +50,7 @@ export class EventsController {
   }
 
   @Get()
-  @RequirePermissions("calendar", ["read"])
+  @Permissions("events_read")
   @ApiOperation({ summary: "Obtener todos los eventos para el tenant" })
   @ApiQuery({
     name: "start",
@@ -77,7 +77,7 @@ export class EventsController {
   }
 
   @Patch(":id")
-  @RequirePermissions("calendar", ["update"])
+  @Permissions("events_update")
   @ApiOperation({ summary: "Actualizar un evento existente" })
   @ApiResponse({ status: 200, description: "El evento ha sido actualizado." })
   async update(
@@ -98,7 +98,7 @@ export class EventsController {
   }
 
   @Delete(":id")
-  @RequirePermissions("calendar", ["delete"])
+  @Permissions("events_delete")
   @ApiOperation({ summary: "Eliminar un evento" })
   @ApiResponse({ status: 200, description: "El evento ha sido eliminado." })
   async remove(@Param("id") id: string, @Request() req) {

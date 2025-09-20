@@ -36,7 +36,7 @@ import AccountsReceivableReport from './components/AccountsReceivableReport.jsx'
 function AdminLayout() {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('dashboard');
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -73,9 +73,11 @@ function AdminLayout() {
           <div className="flex items-center space-x-4">
              <span className="text-sm text-muted-foreground">Hola, {user?.firstName || 'Usuario'}</span>
             <ThemeToggle />
-            <Button variant="outline" size="icon" onClick={() => navigate('/settings')}>
-              <Settings className="h-4 w-4" />
-            </Button>
+            {hasPermission('tenant_settings_read') && (
+                <Button variant="outline" size="icon" onClick={() => navigate('/settings')}>
+                    <Settings className="h-4 w-4" />
+                </Button>
+            )}
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Cerrar Sesión
@@ -88,12 +90,12 @@ function AdminLayout() {
       <div className="bg-card border-b border-border py-2">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="px-6">
           <TabsList className="max-w-5xl">
-            <TabsTrigger value="dashboard" className="flex items-center space-x-2"> <BarChart3 className="h-4 w-4" /> <span>Dashboard</span> </TabsTrigger>
-            <TabsTrigger value="orders" className="flex items-center space-x-2"> <ShoppingCart className="h-4 w-4" /> <span>Órdenes</span> </TabsTrigger>
-            <TabsTrigger value="inventory-management" className="flex items-center space-x-2"> <Package className="h-4 w-4" /> <span>Gestión de Inventario</span> </TabsTrigger>
-            <TabsTrigger value="accounting-management" className="flex items-center space-x-2"> <BookCopy className="h-4 w-4" /> <span>Gestión Contable</span> </TabsTrigger>
-            <TabsTrigger value="crm" className="flex items-center space-x-2"> <Users className="h-4 w-4" /> <span>CRM</span> </TabsTrigger>
-            <TabsTrigger value="calendar" className="flex items-center space-x-2"> <CalendarDays className="h-4 w-4" /> <span>Calendario</span> </TabsTrigger>
+            {hasPermission('dashboard_read') && <TabsTrigger value="dashboard" className="flex items-center space-x-2"> <BarChart3 className="h-4 w-4" /> <span>Dashboard</span> </TabsTrigger>}
+            {hasPermission('orders_read') && <TabsTrigger value="orders" className="flex items-center space-x-2"> <ShoppingCart className="h-4 w-4" /> <span>Órdenes</span> </TabsTrigger>}
+            {hasPermission('inventory_read') && <TabsTrigger value="inventory-management" className="flex items-center space-x-2"> <Package className="h-4 w-4" /> <span>Gestión de Inventario</span> </TabsTrigger>}
+            {hasPermission('accounting_read') && <TabsTrigger value="accounting-management" className="flex items-center space-x-2"> <BookCopy className="h-4 w-4" /> <span>Gestión Contable</span> </TabsTrigger>}
+            {hasPermission('customers_read') && <TabsTrigger value="crm" className="flex items-center space-x-2"> <Users className="h-4 w-4" /> <span>CRM</span> </TabsTrigger>}
+            {hasPermission('events_read') && <TabsTrigger value="calendar" className="flex items-center space-x-2"> <CalendarDays className="h-4 w-4" /> <span>Calendario</span> </TabsTrigger>}
           </TabsList>
         </Tabs>
       </div>

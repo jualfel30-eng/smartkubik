@@ -3,21 +3,6 @@ import { Document, Types } from "mongoose";
 
 export type UserDocument = User & Document;
 
-@Schema()
-export class UserPermission {
-  @Prop({ required: true })
-  module: string; // products, inventory, orders, customers, reports, settings
-
-  @Prop({ required: true })
-  actions: string[]; // create, read, update, delete, export, import
-
-  @Prop({ default: Date.now })
-  grantedAt: Date;
-
-  @Prop({ type: Types.ObjectId, ref: "User" })
-  grantedBy: Types.ObjectId;
-}
-
 @Schema({ timestamps: true })
 export class User {
   @Prop({ required: true })
@@ -38,11 +23,8 @@ export class User {
   @Prop()
   avatar?: string;
 
-  @Prop({ required: true })
-  role: string; // admin, manager, employee, viewer
-
-  @Prop([UserPermission])
-  permissions: UserPermission[];
+  @Prop({ type: Types.ObjectId, ref: 'Role' })
+  role: Types.ObjectId;
 
   @Prop({ required: true, default: true })
   isActive: boolean;

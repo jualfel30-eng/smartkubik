@@ -2,7 +2,9 @@ import { connect, disconnect, model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { Tenant, TenantSchema } from '../src/schemas/tenant.schema';
 import { User, UserSchema } from '../src/schemas/user.schema';
+import { Role, RoleSchema } from '../src/schemas/role.schema';
 import { ChartOfAccounts, ChartOfAccountsSchema } from '../src/schemas/chart-of-accounts.schema';
+import { ALL_PERMISSIONS } from '../src/modules/permissions/constants';
 
 async function seedDatabase() {
   const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/food-inventory-saas';
@@ -18,6 +20,7 @@ async function seedDatabase() {
   // 1. Create Mongoose Models from Schemas
   const TenantModel = model(Tenant.name, TenantSchema);
   const UserModel = model(User.name, UserSchema);
+  const RoleModel = model(Role.name, RoleSchema);
   const ChartOfAccountsModel = model(ChartOfAccounts.name, ChartOfAccountsSchema);
 
   // 2. Use the Models to create documents
@@ -94,7 +97,17 @@ async function seedDatabase() {
 
   console.log(`Tenant created: ${tenant.name}`);
 
-  // 3. Create Chart of Accounts for the Tenant
+  // 3. Create Admin Role
+  const adminRole = await RoleModel.create({
+    name: 'admin',
+    description: 'Administrador con todos los permisos',
+    permissions: ALL_PERMISSIONS,
+    isSystemRole: true,
+    tenantId: tenant._id,
+  });
+  console.log(`Admin role created: ${adminRole.name}`);
+
+  // 4. Create Chart of Accounts for the Tenant
   console.log('Creating default chart of accounts...');
   const accountsToCreate = [
     { code: '1101', name: 'Efectivo y Equivalentes', type: 'Activo', isSystemAccount: true },
@@ -122,14 +135,14 @@ async function seedDatabase() {
   }
   console.log(`${accountsToCreate.length} accounts created successfully.`);
 
-  // 4. Create Admin User
+  // 5. Create Admin User
   const hashedPassword = await bcrypt.hash('Admin1234!', 12);
   const adminUser = await UserModel.create({
     email: 'admin@earlyadopter.com',
     password: hashedPassword,
     firstName: 'Admin',
     lastName: 'User',
-    role: 'admin',
+    role: adminRole._id, // Use the ID of the created role
     isActive: true,
     isEmailVerified: true,
     tenantId: tenant._id,

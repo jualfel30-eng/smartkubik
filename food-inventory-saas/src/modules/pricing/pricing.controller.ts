@@ -18,7 +18,7 @@ import { OrderCalculationDto } from "../../dto/order.dto";
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
-import { RequirePermissions } from "../../decorators/permissions.decorator";
+import { Permissions } from "../../decorators/permissions.decorator";
 
 @ApiTags("pricing")
 @Controller("pricing")
@@ -28,7 +28,7 @@ export class PricingController {
   constructor(private readonly pricingService: PricingService) {}
 
   @Post("calculate")
-  @RequirePermissions("orders", ["read"])
+  @Permissions("pricing_calculate")
   @ApiOperation({
     summary: "Calcular precios de orden con impuestos venezolanos",
   })

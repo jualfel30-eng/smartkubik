@@ -7,10 +7,12 @@ import { Product, ProductSchema } from "../../schemas/product.schema";
 import { CustomersModule } from "../customers/customers.module"; // Reemplazo
 import { InventoryModule } from "../inventory/inventory.module";
 import { PurchasesModule } from "../purchases/purchases.module";
+import { RolesModule } from '../roles/roles.module';
 
 @Module({
   imports: [
     AuthModule,
+    RolesModule,
     MongooseModule.forFeature([{ name: Product.name, schema: ProductSchema }]),
     forwardRef(() => CustomersModule), // Reemplazo
     forwardRef(() => InventoryModule),

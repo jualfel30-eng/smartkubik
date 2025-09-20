@@ -21,6 +21,9 @@ import { TenantService } from "./tenant.service";
 import { PayablesModule } from './modules/payables/payables.module';
 import { RecurringPayablesModule } from './modules/recurring-payables/recurring-payables.module';
 import { ReportsModule } from "./modules/reports/reports.module";
+import { RolesModule } from './modules/roles/roles.module';
+import { PermissionsModule } from './modules/permissions/permissions.module';
+import { SharedModule } from './common/shared.module';
 
 @Module({
   imports: [
@@ -52,6 +55,9 @@ import { ReportsModule } from "./modules/reports/reports.module";
     PayablesModule,
     RecurringPayablesModule,
     ReportsModule,
+    RolesModule,
+    PermissionsModule,
+    SharedModule,
   ],
   controllers: [AppController, TenantController],
   providers: [AppService, TenantService],

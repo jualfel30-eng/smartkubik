@@ -29,7 +29,7 @@ import {
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
-import { RequirePermissions } from "../../decorators/permissions.decorator";
+import { Permissions } from "../../decorators/permissions.decorator";
 
 @ApiTags("orders")
 @Controller("orders")
@@ -41,7 +41,7 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
-  @RequirePermissions("orders", ["create"])
+  @Permissions("orders_create")
   @ApiOperation({ summary: "Crear nueva orden" })
   @ApiResponse({ status: 201, description: "Orden creada exitosamente" })
   async create(@Body() createOrderDto: CreateOrderDto, @Request() req) {
@@ -82,7 +82,7 @@ export class OrdersController {
   }
 
   @Post("calculate")
-  @RequirePermissions("orders", ["create"]) // Usa el mismo permiso que 'create'
+  @Permissions("orders_create") // Usa el mismo permiso que 'create'
   @ApiOperation({ summary: "Calcular totales de una orden sin guardarla" })
   @ApiResponse({ status: 200, description: "Cálculo exitoso" })
   async calculateTotals(
@@ -108,7 +108,7 @@ export class OrdersController {
   }
 
   @Get()
-  @RequirePermissions("orders", ["read"])
+  @Permissions("orders_read")
   @ApiOperation({ summary: "Obtener lista de órdenes" })
   @ApiResponse({ status: 200, description: "Órdenes obtenidas exitosamente" })
   async findAll(@Query() query: OrderQueryDto, @Request() req) {
@@ -134,7 +134,7 @@ export class OrdersController {
   }
 
   @Get(":id")
-  @RequirePermissions("orders", ["read"])
+  @Permissions("orders_read")
   @ApiOperation({ summary: "Obtener orden por ID" })
   @ApiResponse({ status: 200, description: "Orden obtenida exitosamente" })
   async findOne(@Param("id") id: string, @Request() req) {
@@ -160,7 +160,7 @@ export class OrdersController {
   }
 
   @Patch(":id")
-  @RequirePermissions("orders", ["update"])
+  @Permissions("orders_update")
   @ApiOperation({ summary: "Actualizar una orden" })
   @ApiResponse({ status: 200, description: "Orden actualizada exitosamente" })
   async update(
@@ -188,7 +188,7 @@ export class OrdersController {
   }
 
   @Post(':id/payments')
-  @RequirePermissions('orders', ['update'])
+  @Permissions("orders_update")
   @ApiOperation({ summary: 'Registrar uno o más pagos para una orden' })
   @ApiResponse({ status: 200, description: 'Pagos registrados exitosamente' })
   async registerPayments(

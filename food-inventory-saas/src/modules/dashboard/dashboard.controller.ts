@@ -16,7 +16,7 @@ import { DashboardService } from "./dashboard.service";
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
-import { RequirePermissions } from "../../decorators/permissions.decorator";
+import { Permissions } from "../../decorators/permissions.decorator";
 
 @ApiTags("dashboard")
 @Controller("dashboard")
@@ -26,7 +26,7 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get("summary")
-  @RequirePermissions("reports", ["read"]) // Assuming dashboard is part of reports
+  @Permissions("dashboard_read") // Assuming dashboard is part of reports
   @ApiOperation({ summary: "Obtener un resumen de datos para el dashboard" })
   @ApiResponse({ status: 200, description: "Resumen obtenido exitosamente" })
   async getSummary(@Request() req) {

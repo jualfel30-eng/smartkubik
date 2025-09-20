@@ -10,6 +10,7 @@ import { Model } from "mongoose";
 import * as bcrypt from "bcrypt";
 import { Tenant, TenantDocument } from "./schemas/tenant.schema";
 import { User, UserDocument } from "./schemas/user.schema";
+import { Customer, CustomerDocument } from "./schemas/customer.schema"; // Importar Customer
 import {
   UpdateTenantSettingsDto,
   InviteUserDto,
@@ -21,6 +22,7 @@ export class TenantService {
   constructor(
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>, // Inyectar CustomerModel
   ) {}
 
   async uploadLogo(
@@ -141,7 +143,7 @@ export class TenantService {
   }
 
   async getUsers(tenantId: string): Promise<User[]> {
-    return this.userModel.find({ tenantId }).select("-password").exec();
+    return this.userModel.find({ tenantId }).populate('role').select("-password").exec();
   }
 
   async inviteUser(
@@ -174,6 +176,25 @@ export class TenantService {
     });
 
     const savedUser = await newUser.save();
+
+    // Crear el registro de Customer correspondiente
+    const customerNumber = `EMP-${Date.now()}`;
+    const newCustomer = new this.customerModel({
+      customerNumber,
+      name: savedUser.firstName,
+      lastName: savedUser.lastName,
+      customerType: 'employee', // ¡Clave!
+      contacts: [{
+        type: 'email',
+        value: savedUser.email,
+        isPrimary: true,
+      }],
+      tenantId: savedUser.tenantId,
+      createdBy: savedUser._id, // Auto-referencia o el admin que lo crea
+      status: 'active',
+    });
+    await newCustomer.save();
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...result } = savedUser.toObject();
     return result;
@@ -212,6 +233,12 @@ export class TenantService {
     if (result.deletedCount === 0) {
       throw new NotFoundException("Usuario no encontrado en este tenant");
     }
+
+    // Adicionalmente, desactivar el registro de Customer correspondiente
+    await this.customerModel.findOneAndUpdate(
+      { createdBy: userId, tenantId }, // Asumiendo que `createdBy` linkea al usuario
+      { $set: { status: 'inactive' } }
+    ).exec();
 
     return { success: true, message: "Usuario eliminado exitosamente" };
   }

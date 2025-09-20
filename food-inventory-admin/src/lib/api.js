@@ -192,3 +192,34 @@ export const getAccountsReceivableReport = (asOfDate) => {
     : '/reports/accounts-receivable';
   return fetchApi(url);
 };
+
+
+// Permissions API
+export const getPermissions = () => {
+  return fetchApi('/permissions');
+};
+
+// Roles API
+export const getRoles = () => {
+  return fetchApi('/roles');
+};
+
+export const createRole = (roleData) => {
+  return fetchApi('/roles', {
+    method: 'POST',
+    body: JSON.stringify(roleData),
+  });
+};
+
+export const updateRole = (id, roleData) => {
+  return fetchApi(`/roles/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(roleData),
+  });
+};
+
+export const deleteRole = (id) => {
+  return fetchApi(`/roles/${id}`, {
+    method: 'DELETE',
+  });
+};
