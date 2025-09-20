@@ -12,7 +12,7 @@ import {
   createPayment
 } from '../lib/api';
 import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { toast } from 'sonner';
@@ -374,7 +374,92 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
   return (
     <>
       <Card>
-        <CardContent className="pt-6">
+        <CardHeader className="flex">
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild><Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white"><PlusCircle className="mr-2 h-5 w-5" />Registrar Cuenta por Pagar</Button></DialogTrigger>
+            <DialogContent className="sm:max-w-[800px]">
+                <DialogHeader><DialogTitle>Registrar Nueva Cuenta por Pagar</DialogTitle></DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="p-4 border rounded-lg space-y-4">
+                    <Label className="text-base font-semibold">Datos del Proveedor</Label>
+                    <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label>Nombre del Proveedor</Label>
+                        <SearchableSelect
+                        isCreatable
+                        options={supplierOptions}
+                        onSelection={handleSupplierSelection}
+                        value={newPayable.supplierName ? { value: newPayable.supplierId || newPayable.supplierName, label: newPayable.supplierName } : null}
+                        placeholder="Buscar o crear proveedor..."
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>RIF</Label>
+                        <Input name="supplierRif" value={newPayable.supplierRif} onChange={handleInputChange} placeholder="J-12345678-9" disabled={!newPayable.isNewSupplier && newPayable.supplierId} />
+                    </div>
+                    </div>
+                    {newPayable.isNewSupplier && (
+                    <div className="grid grid-cols-3 gap-4 pt-2">
+                        <div className="space-y-2">
+                        <Label>Nombre del Contacto</Label>
+                        <Input name="supplierContactName" value={newPayable.supplierContactName} onChange={handleInputChange} placeholder="Persona de contacto" />
+                        </div>
+                        <div className="space-y-2">
+                        <Label>Email del Contacto</Label>
+                        <Input name="supplierContactEmail" type="email" value={newPayable.supplierContactEmail} onChange={handleInputChange} placeholder="ejemplo@dominio.com" />
+                        </div>
+                        <div className="space-y-2">
+                        <Label>Teléfono del Contacto</Label>
+                        <Input name="supplierContactPhone" value={newPayable.supplierContactPhone} onChange={handleInputChange} placeholder="0414-1234567" />
+                        </div>
+                    </div>
+                    )}
+                </div>
+
+                <div className="p-4 border rounded-lg space-y-4">
+                    <Label className="text-base font-semibold">Detalles del Gasto</Label>
+                    <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                        <Label>Tipo de Gasto</Label>
+                        <Select name="type" onValueChange={(value) => setNewPayable({ ...newPayable, type: value })} value={newPayable.type}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                            <SelectItem value="purchase_order">Factura de Compra</SelectItem>
+                            <SelectItem value="service_payment">Pago de Servicio</SelectItem>
+                            <SelectItem value="utility_bill">Servicio Público</SelectItem>
+                            <SelectItem value="payroll">Nómina</SelectItem>
+                            <SelectItem value="other">Otro</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Fecha de Emisión</Label>
+                        <Input type="date" name="date" value={newPayable.date} onChange={handleInputChange} />
+                    </div>
+                        <div className="space-y-2">
+                        <Label>Fecha de Vencimiento (Opcional)</Label>
+                        <Input type="date" name="dueDate" value={newPayable.dueDate} onChange={handleInputChange} />
+                    </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Líneas del Gasto</Label>
+                        {newPayable.lines.map((line, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                                <Input name="description" placeholder="Descripción" value={line.description} onChange={(e) => handleLineChange(index, e)} className="flex-grow"/>
+                                <Input name="amount" type="number" placeholder="Monto" value={line.amount} onChange={(e) => handleLineChange(index, e)} className="w-28"/>
+                                <Select onValueChange={(value) => handleAccountChange(index, value)}><SelectTrigger className="w-48"><SelectValue placeholder="Cuenta de Gasto" /></SelectTrigger><SelectContent>{accounts.map(acc => <SelectItem key={acc._id} value={acc._id}>{acc.name}</SelectItem>)}</SelectContent></Select>
+                                <Button type="button" variant="destructive" size="sm" onClick={() => removeLine(index)}>X</Button>
+                            </div>
+                        ))}
+                        <Button type="button" variant="outline" size="sm" onClick={addLine}>Añadir Línea</Button>
+                    </div>
+                </div>
+                <div className="flex justify-end space-x-2"><Button type="button" variant="ghost" onClick={() => setIsCreateDialogOpen(false)}>Cancelar</Button><Button type="submit">Guardar</Button></div>
+                </form>
+            </DialogContent>
+            </Dialog>
+        </CardHeader>
+        <CardContent>
           <Table>
             <TableHeader><TableRow><TableHead>Proveedor</TableHead><TableHead>Fecha</TableHead><TableHead>Monto Total</TableHead><TableHead>Monto Pagado</TableHead><TableHead>Estado</TableHead><TableHead className="text-center">Ver</TableHead><TableHead className="text-center">Pagar</TableHead></TableRow></TableHeader>
             <TableBody>
@@ -401,91 +486,6 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
           </Table>
         </CardContent>
       </Card>
-      <div className="flex justify-start items-center space-x-4 mt-4">
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild><Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white"><PlusCircle className="mr-2 h-5 w-5" />Registrar Cuenta por Pagar</Button></DialogTrigger>
-          <DialogContent className="sm:max-w-[800px]">
-            <DialogHeader><DialogTitle>Registrar Nueva Cuenta por Pagar</DialogTitle></DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="p-4 border rounded-lg space-y-4">
-                <Label className="text-base font-semibold">Datos del Proveedor</Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Nombre del Proveedor</Label>
-                    <SearchableSelect
-                      isCreatable
-                      options={supplierOptions}
-                      onSelection={handleSupplierSelection}
-                      value={newPayable.supplierName ? { value: newPayable.supplierId || newPayable.supplierName, label: newPayable.supplierName } : null}
-                      placeholder="Buscar o crear proveedor..."
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>RIF</Label>
-                    <Input name="supplierRif" value={newPayable.supplierRif} onChange={handleInputChange} placeholder="J-12345678-9" disabled={!newPayable.isNewSupplier && newPayable.supplierId} />
-                  </div>
-                </div>
-                {newPayable.isNewSupplier && (
-                  <div className="grid grid-cols-3 gap-4 pt-2">
-                      <div className="space-y-2">
-                      <Label>Nombre del Contacto</Label>
-                      <Input name="supplierContactName" value={newPayable.supplierContactName} onChange={handleInputChange} placeholder="Persona de contacto" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Email del Contacto</Label>
-                      <Input name="supplierContactEmail" type="email" value={newPayable.supplierContactEmail} onChange={handleInputChange} placeholder="ejemplo@dominio.com" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Teléfono del Contacto</Label>
-                      <Input name="supplierContactPhone" value={newPayable.supplierContactPhone} onChange={handleInputChange} placeholder="0414-1234567" />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="p-4 border rounded-lg space-y-4">
-                <Label className="text-base font-semibold">Detalles del Gasto</Label>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label>Tipo de Gasto</Label>
-                    <Select name="type" onValueChange={(value) => setNewPayable({ ...newPayable, type: value })} value={newPayable.type}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="purchase_order">Factura de Compra</SelectItem>
-                          <SelectItem value="service_payment">Pago de Servicio</SelectItem>
-                          <SelectItem value="utility_bill">Servicio Público</SelectItem>
-                          <SelectItem value="payroll">Nómina</SelectItem>
-                          <SelectItem value="other">Otro</SelectItem>
-                        </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Fecha de Emisión</Label>
-                    <Input type="date" name="date" value={newPayable.date} onChange={handleInputChange} />
-                  </div>
-                    <div className="space-y-2">
-                    <Label>Fecha de Vencimiento (Opcional)</Label>
-                    <Input type="date" name="dueDate" value={newPayable.dueDate} onChange={handleInputChange} />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                    <Label>Líneas del Gasto</Label>
-                    {newPayable.lines.map((line, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                            <Input name="description" placeholder="Descripción" value={line.description} onChange={(e) => handleLineChange(index, e)} className="flex-grow"/>
-                            <Input name="amount" type="number" placeholder="Monto" value={line.amount} onChange={(e) => handleLineChange(index, e)} className="w-28"/>
-                            <Select onValueChange={(value) => handleAccountChange(index, value)}><SelectTrigger className="w-48"><SelectValue placeholder="Cuenta de Gasto" /></SelectTrigger><SelectContent>{accounts.map(acc => <SelectItem key={acc._id} value={acc._id}>{acc.name}</SelectItem>)}</SelectContent></Select>
-                            <Button type="button" variant="destructive" size="sm" onClick={() => removeLine(index)}>X</Button>
-                        </div>
-                    ))}
-                    <Button type="button" variant="outline" size="sm" onClick={addLine}>Añadir Línea</Button>
-                </div>
-              </div>
-              <div className="flex justify-end space-x-2"><Button type="button" variant="ghost" onClick={() => setIsCreateDialogOpen(false)}>Cancelar</Button><Button type="submit">Guardar</Button></div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
       <PaymentDialog isOpen={isPaymentDialogOpen} onClose={() => setIsPaymentDialogOpen(false)} payable={selectedPayable} onPaymentSuccess={handlePaymentSuccess} />
     </>
   );
@@ -518,10 +518,9 @@ const RecurringPayables = ({ accounts, suppliers }) => {
   return (
     <>
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Plantillas de Pagos Recurrentes</CardTitle>
+        <CardHeader className="flex">
           <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white" onClick={() => setIsCreateTemplateOpen(true)}>
-            <PlusCircle className="mr-2 h-5 w-5" />Crear Plantilla
+            <PlusCircle className="mr-2 h-5 w-5" />Nuevo Pago Recurrente
           </Button>
         </CardHeader>
         <CardContent>
@@ -645,23 +644,31 @@ const PayablesManagement = () => {
   if (loading) return <p>Cargando datos del módulo de pagos...</p>;
 
   return (
-    <div className="p-4 md:p-6">
-      <Tabs defaultValue="monthly" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="monthly">Cuentas por Pagar</TabsTrigger>
-          <TabsTrigger value="recurring">Pagos Recurrentes</TabsTrigger>
-        </TabsList>
-        <TabsContent value="monthly">
-          <MonthlyPayables payables={payables} fetchPayables={fetchPayables} suppliers={suppliers} accounts={accounts} fetchSuppliers={fetchSuppliers} />
-        </TabsContent>
-        <TabsContent value="recurring">
-          <RecurringPayables suppliers={suppliers} accounts={accounts} />
-        </TabsContent>
-      </Tabs>
-      <div className="mt-6">
-        <PaymentHistory />
-      </div>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Módulo de Pagos</CardTitle>
+        <CardDescription>
+          Gestiona tus cuentas por pagar, pagos recurrentes y consulta el historial de pagos.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue="monthly" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="monthly">Cuentas por Pagar</TabsTrigger>
+            <TabsTrigger value="recurring">Pagos Recurrentes</TabsTrigger>
+          </TabsList>
+          <TabsContent value="monthly">
+            <MonthlyPayables payables={payables} fetchPayables={fetchPayables} suppliers={suppliers} accounts={accounts} fetchSuppliers={fetchSuppliers} />
+          </TabsContent>
+          <TabsContent value="recurring">
+            <RecurringPayables suppliers={suppliers} accounts={accounts} />
+          </TabsContent>
+        </Tabs>
+        <div className="mt-6">
+          <PaymentHistory />
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
