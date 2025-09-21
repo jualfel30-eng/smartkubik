@@ -71,7 +71,7 @@ const UserManagement = () => {
     try {
       const response = await inviteUser(newUserData);
       if (response.success) {
-        toast.success('Usuario invitado exitosamente');
+        toast.success('Usuario creado exitosamente. Se ha enviado un correo con sus credenciales.');
         setInviteModalOpen(false);
         fetchUsersAndRoles();
         setNewUserData({ firstName: '', lastName: '', email: '', role: '' });

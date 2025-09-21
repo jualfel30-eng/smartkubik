@@ -34,4 +34,5 @@ export const ALL_PERMISSIONS = [
     'products_delete',
     'accounting_read',
     'tenant_settings_read',
+    'reports_read',
   ];

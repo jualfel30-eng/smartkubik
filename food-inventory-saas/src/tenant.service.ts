@@ -11,6 +11,7 @@ import * as bcrypt from "bcrypt";
 import { Tenant, TenantDocument } from "./schemas/tenant.schema";
 import { User, UserDocument } from "./schemas/user.schema";
 import { Customer, CustomerDocument } from "./schemas/customer.schema"; // Importar Customer
+import { MailService } from "./modules/mail/mail.service";
 import {
   UpdateTenantSettingsDto,
   InviteUserDto,
@@ -23,6 +24,7 @@ export class TenantService {
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>, // Inyectar CustomerModel
+    private readonly mailService: MailService,
   ) {}
 
   async uploadLogo(
@@ -172,7 +174,6 @@ export class TenantService {
       tenantId,
       password: hashedPassword,
       isEmailVerified: false, // El usuario deberá verificar su email
-      // TODO: Enviar email de invitación con la contraseña temporal
     });
 
     const savedUser = await newUser.save();
@@ -194,6 +195,18 @@ export class TenantService {
       status: 'active',
     });
     await newCustomer.save();
+
+    // Enviar el correo de bienvenida
+    try {
+      await this.mailService.sendUserWelcomeEmail(
+        savedUser.email,
+        temporaryPassword,
+      );
+    } catch (error) {
+      // Si el email falla, no queremos que la creación del usuario falle.
+      // Simplemente lo logueamos. En un ambiente de producción, usaríamos un logger más robusto.
+      console.error(`Failed to send welcome email to ${savedUser.email}`, error);
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...result } = savedUser.toObject();

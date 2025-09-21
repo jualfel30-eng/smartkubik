@@ -212,6 +212,11 @@ export class ChangePasswordDto {
   @MinLength(8)
   @MaxLength(50)
   newPassword: string;
+
+  @ApiProperty({ description: "Confirmación de la nueva contraseña" })
+  @IsString()
+  @IsNotEmpty()
+  confirmPassword: string;
 }
 
 export class ForgotPasswordDto {

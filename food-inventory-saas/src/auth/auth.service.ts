@@ -129,7 +129,7 @@ export class AuthService {
       );
     }
 
-    const role: RoleDocument = await this.rolesService.findOneByName(registerDto.role, tenant._id.toString());
+    const role: RoleDocument | null = await this.rolesService.findOneByName(registerDto.role, tenant._id.toString());
     if (!role) {
         throw new BadRequestException(`Rol '${registerDto.role}' no encontrado.`);
     }
@@ -170,6 +170,59 @@ export class AuthService {
     };
   }
 
+  async validateOAuthLogin(email: string, provider: string, profile: any): Promise<UserDocument> {
+    this.logger.log(`OAuth login validation for email: ${email} via ${provider}`);
+
+    const user = await this.userModel.findOne({ email }).populate('role').exec();
+
+    if (user) {
+      this.logger.log(`User found for email ${email}. Returning existing user.`);
+      // Ensure the user has a valid role populated before returning
+      if (!user.role) {
+        this.logger.error(`OAuth login failed: User ${email} has no role assigned.`);
+        throw new UnauthorizedException('El usuario no tiene un rol asignado. Contacte al administrador.');
+      }
+      return user;
+    }
+
+    this.logger.warn(`OAuth login failed: No user found for email ${email}.`);
+    throw new UnauthorizedException('Usuario no registrado. Por favor, regístrese o contacte a un administrador.');
+  }
+
+  async googleLogin(user: UserDocument) {
+    if (!user) {
+      throw new BadRequestException('Unauthenticated');
+    }
+
+    const tenant = await this.tenantModel.findById(user.tenantId).exec();
+    if (!tenant) {
+      this.logger.error(`CRITICAL: User ${user.email} has an invalid tenantId: ${user.tenantId}`);
+      throw new UnauthorizedException("Error de configuración de la cuenta: Tenant asociado no encontrado.");
+    }
+
+    const tokens = await this.generateTokens(user, tenant);
+
+    this.logger.log(`Successful Google login for user: ${user.email}`);
+
+    return {
+      user: {
+        id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        tenantId: user.tenantId,
+      },
+      tenant: {
+        id: tenant._id,
+        code: tenant.code,
+        name: tenant.name,
+        businessType: tenant.businessType,
+      },
+      ...tokens,
+    };
+  }
+
   async createUser(createUserDto: CreateUserDto, currentUser: any) {
     this.logger.log(
       `Creating user: ${createUserDto.email} by ${currentUser.email}`,
@@ -184,7 +237,7 @@ export class AuthService {
       throw new BadRequestException("El email ya está registrado");
     }
 
-    const role: RoleDocument = await this.rolesService.findOneByName(createUserDto.role, currentUser.tenantId);
+    const role: RoleDocument | null = await this.rolesService.findOneByName(createUserDto.role, currentUser.tenantId);
     if (!role) {
         throw new BadRequestException(`Rol '${createUserDto.role}' no encontrado.`);
     }
@@ -254,6 +307,10 @@ export class AuthService {
 
     if (!isCurrentPasswordValid) {
       throw new BadRequestException("Contraseña actual incorrecta");
+    }
+
+    if (changePasswordDto.newPassword !== changePasswordDto.confirmPassword) {
+      throw new BadRequestException("La nueva contraseña y la confirmación no coinciden");
     }
 
     const hashedNewPassword = await bcrypt.hash(

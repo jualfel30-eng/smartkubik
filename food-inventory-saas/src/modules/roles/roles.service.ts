@@ -3,10 +3,14 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Role, RoleDocument } from '../../schemas/role.schema';
 import { CreateRoleDto, UpdateRoleDto } from '../../dto/role.dto';
+import { PermissionsService } from '../permissions/permissions.service';
 
 @Injectable()
 export class RolesService {
-  constructor(@InjectModel(Role.name) private roleModel: Model<RoleDocument>) {}
+  constructor(
+    @InjectModel(Role.name) private roleModel: Model<RoleDocument>,
+    private permissionsService: PermissionsService,
+  ) {}
 
   async create(createRoleDto: CreateRoleDto, tenantId: string): Promise<RoleDocument> {
     try {
@@ -32,10 +36,12 @@ export class RolesService {
     return role;
   }
 
-  async findOneByName(name: string, tenantId: string): Promise<RoleDocument> {
+  async findOneByName(name: string, tenantId: string): Promise<RoleDocument | null> {
     const role = await this.roleModel.findOne({ name, tenantId }).exec();
     if (!role) {
-      throw new NotFoundException(`Role with name "${name}" not found`);
+      // This is a valid case for the seeder, so we don't throw.
+      // The caller should handle the null case.
+      return null;
     }
     return role;
   }
@@ -54,5 +60,25 @@ export class RolesService {
       throw new NotFoundException(`Role with ID "${id}" not found`);
     }
     return result;
+  }
+
+  async findOrCreateAdminRoleForTenant(tenantId: Types.ObjectId): Promise<RoleDocument> {
+    const adminRoleName = 'admin';
+    let adminRole = await this.roleModel.findOne({ name: adminRoleName, tenantId }).exec();
+
+    if (adminRole) {
+      return adminRole;
+    }
+
+    const allPermissions = this.permissionsService.findAll();
+    
+    adminRole = new this.roleModel({
+      name: adminRoleName,
+      tenantId: tenantId,
+      permissions: allPermissions,
+      isDefault: true,
+    });
+
+    return adminRole.save();
   }
 }

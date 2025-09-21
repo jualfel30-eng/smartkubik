@@ -223,3 +223,34 @@ export const deleteRole = (id) => {
     method: 'DELETE',
   });
 };
+
+// Shifts API
+export const getCurrentShift = () => {
+  return fetchApi('/shifts/current');
+};
+
+export const clockIn = () => {
+  return fetchApi('/shifts/clock-in', { method: 'POST' });
+};
+
+export const clockOut = () => {
+  return fetchApi('/shifts/clock-out', { method: 'POST' });
+};
+
+// Analytics API
+export const getPerformanceReport = (date) => {
+  const isoDate = date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+  return fetchApi(`/analytics/performance?date=${isoDate}`);
+};
+
+// Auth API
+export const changePassword = (passwordData) => {
+  return fetchApi('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify(passwordData),
+  });
+};
+
+export const getProfile = () => {
+  return fetchApi('/auth/profile');
+};

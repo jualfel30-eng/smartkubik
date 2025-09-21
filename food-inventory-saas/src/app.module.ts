@@ -4,6 +4,7 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { AuthModule } from "./auth/auth.module";
+import { OnboardingModule } from "./modules/onboarding/onboarding.module";
 import { ProductsModule } from "./modules/products/products.module";
 import { InventoryModule } from "./modules/inventory/inventory.module";
 import { OrdersModule } from "./modules/orders/orders.module";
@@ -24,6 +25,9 @@ import { ReportsModule } from "./modules/reports/reports.module";
 import { RolesModule } from './modules/roles/roles.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { SharedModule } from './common/shared.module';
+import { ShiftsModule } from './modules/shifts/shifts.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { MailModule } from './modules/mail/mail.module';
 
 @Module({
   imports: [
@@ -40,6 +44,7 @@ import { SharedModule } from './common/shared.module';
       inject: [ConfigService],
     }),
     AuthModule,
+    OnboardingModule,
     ProductsModule,
     InventoryModule,
     OrdersModule,
@@ -58,6 +63,9 @@ import { SharedModule } from './common/shared.module';
     RolesModule,
     PermissionsModule,
     SharedModule,
+    ShiftsModule,
+    AnalyticsModule,
+    MailModule,
   ],
   controllers: [AppController, TenantController],
   providers: [AppService, TenantService],

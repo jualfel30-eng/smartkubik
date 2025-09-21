@@ -8,7 +8,9 @@ import {
   Request,
   Get,
   HttpException,
+  Res,
 } from "@nestjs/common";
+import { AuthGuard } from "@nestjs/passport";
 import {
   ApiTags,
   ApiOperation,
@@ -77,6 +79,27 @@ export class AuthController {
         HttpStatus.BAD_REQUEST,
       );
     }
+  }
+
+  @Get('google')
+  @Public()
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Iniciar sesión con Google' })
+  async googleAuth(@Request() req) {
+    // Initiates the Google OAuth2 login flow
+  }
+
+  @Get('google/callback')
+  @Public()
+  @UseGuards(AuthGuard('google'))
+  @ApiOperation({ summary: 'Callback de Google para OAuth' })
+  async googleAuthRedirect(@Request() req, @Res() res) {
+    const result = await this.authService.googleLogin(req.user);
+    // Redirect to frontend with tokens
+    // In a real app, you might want to use a more secure way to pass tokens,
+    // like setting a httpOnly cookie.
+    const frontendUrl = process.env.FRONTEND_URL || 'http://127.0.0.1:5174';
+    res.redirect(`${frontendUrl}/auth/callback?accessToken=${result.accessToken}&refreshToken=${result.refreshToken}`);
   }
 
   @Post("create-user")

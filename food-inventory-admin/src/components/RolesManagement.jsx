@@ -87,6 +87,14 @@ const RolesManagement = () => {
     });
   };
 
+  const handleSelectAll = () => {
+    setSelectedPermissions(new Set(permissions));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedPermissions(new Set());
+  };
+
   const handleAddNewRole = () => {
     setCurrentRole(null);
     setSelectedPermissions(new Set());
@@ -238,6 +246,10 @@ const RolesManagement = () => {
             </div>
             <div className="grid grid-cols-1 gap-2">
                 <Label>Permisos</Label>
+                <div className="flex items-center gap-2 mb-2">
+                    <Button type="button" variant="secondary" size="sm" onClick={handleSelectAll}>Marcar Todos</Button>
+                    <Button type="button" variant="secondary" size="sm" onClick={handleDeselectAll}>Limpiar</Button>
+                </div>
                 <div className="max-h-[400px] overflow-y-auto p-4 border rounded-md">
                     {Object.entries(groupedPermissions).map(([group, permissions]) => (
                         <div key={group} className="mb-4">

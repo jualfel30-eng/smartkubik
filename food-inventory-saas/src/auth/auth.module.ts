@@ -9,6 +9,7 @@ import { JwtStrategy } from "./jwt.strategy";
 import { User, UserSchema } from "../schemas/user.schema";
 import { Tenant, TenantSchema } from "../schemas/tenant.schema";
 import { RolesModule } from '../modules/roles/roles.module';
+import { GoogleStrategy } from './google.strategy';
 
 @Module({
   imports: [
@@ -30,7 +31,7 @@ import { RolesModule } from '../modules/roles/roles.module';
     ]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, GoogleStrategy],
   exports: [
     AuthService,
     JwtStrategy,

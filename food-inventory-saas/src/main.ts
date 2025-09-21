@@ -5,6 +5,7 @@ import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import helmet from "helmet";
 import * as compression from "compression";
 import { ValidationError } from "class-validator";
+import { ConfigService } from '@nestjs/config';
 
 // Helper function to format validation errors
 function formatValidationErrors(errors: ValidationError[]): string[] {
@@ -28,8 +29,14 @@ async function bootstrap() {
   // Middlewares
   app.use(helmet());
   app.use(compression());
+
+  // Dynamic CORS from .env
+  const configService = app.get(ConfigService);
+  const corsOrigin = configService.get<string>('CORS_ORIGIN');
+  const allowedOrigins = corsOrigin ? corsOrigin.split(',') : [];
+
   app.enableCors({
-    origin: ["http://localhost:5173", "http://localhost:5174"], // O tu frontend URL
+    origin: allowedOrigins,
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     credentials: true,
   });

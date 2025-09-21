@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { getProfile } from '../lib/api'; // Import getProfile
 
 const AuthContext = createContext(null);
 
@@ -33,8 +34,11 @@ export const AuthProvider = ({ children }) => {
         throw new Error(data.message || 'Error en el login');
       }
 
-      const { accessToken, user: userData } = data.data;
+      const { accessToken, refreshToken, user: userData } = data.data;
       localStorage.setItem('accessToken', accessToken);
+      if (refreshToken) {
+        localStorage.setItem('refreshToken', refreshToken);
+      }
       localStorage.setItem('user', JSON.stringify(userData));
       setToken(accessToken);
       setUser(userData);
@@ -48,8 +52,33 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const loginWithTokens = async (accessToken, refreshToken) => {
+    try {
+      localStorage.setItem('accessToken', accessToken);
+      if (refreshToken) {
+        localStorage.setItem('refreshToken', refreshToken);
+      }
+      setToken(accessToken);
+      
+      // Fetch user profile
+      const profileResponse = await getProfile();
+      if (profileResponse.success) {
+        const userData = profileResponse.data;
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+        setIsAuthenticated(true);
+      } else {
+        throw new Error(profileResponse.message || 'Could not fetch profile');
+      }
+    } catch (error) {
+      console.error('Login with tokens failed:', error);
+      logout(); // Ensure clean state on failure
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
     setToken(null);
     setUser(null);
@@ -68,6 +97,7 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated,
     login,
     logout,
+    loginWithTokens, // Expose the new function
     permissions,
     hasPermission,
   };

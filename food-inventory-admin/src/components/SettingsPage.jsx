@@ -9,6 +9,7 @@ import { getTenantSettings, updateTenantSettings, uploadTenantLogo } from '@/lib
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import RolesManagement from './RolesManagement';
 import UserManagement from './UserManagement'; // Importar UserManagement
+import ChangePasswordForm from './ChangePasswordForm'; // Importar ChangePasswordForm
 import { useAuth } from '@/hooks/use-auth.jsx'; // Importar useAuth
 
 const initialSettings = {
@@ -207,8 +208,9 @@ const SettingsPage = () => {
       <h1 className="text-3xl font-bold">Configuración</h1>
       
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="security">Seguridad</TabsTrigger>
           {hasPermission('users_read') && <TabsTrigger value="users">Usuarios</TabsTrigger>}
           {hasPermission('roles_read') && <TabsTrigger value="roles">Roles y Permisos</TabsTrigger>}
         </TabsList>
@@ -366,6 +368,13 @@ const SettingsPage = () => {
             <Button size="lg" onClick={handleSaveSettings} disabled={isSaving}>
               {isSaving ? 'Guardando...' : 'Guardar Cambios'}
             </Button>
+          </div>
+        </TabsContent>
+        <TabsContent value="security">
+          <div className="grid gap-6 mt-4">
+            <div className="lg:col-span-2">
+              <ChangePasswordForm />
+            </div>
           </div>
         </TabsContent>
         <TabsContent value="users">
