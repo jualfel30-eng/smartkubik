@@ -42,31 +42,19 @@ export const AuthProvider = ({ children }) => {
     }
 
     if (data && data.data) {
-      // 1. Set tokens from login response
-      const { accessToken, refreshToken } = data.data;
+      const { accessToken, refreshToken, user } = data.data;
       localStorage.setItem('accessToken', accessToken);
       if (refreshToken) {
         localStorage.setItem('refreshToken', refreshToken);
       }
       setToken(accessToken);
-
-      // 2. Fetch the full user profile to get roles/permissions
-      const { data: profileResponse, error: profileError } = await getProfile();
-      if (profileError || !profileResponse.data) {
-        console.error('Failed to fetch profile after login:', profileError || 'Profile data is empty');
-        logout(); // Clean up if profile fetch fails
-        return { success: false, message: profileError || 'Profile data is empty' };
-      }
-
-      // 3. Set the full user object and finalize authentication
-      const profileData = profileResponse.data;
-      localStorage.setItem('user', JSON.stringify(profileData));
-      setUser(profileData);
+      localStorage.setItem('user', JSON.stringify(user));
+      setUser(user);
       setIsAuthenticated(true);
+      return { success: true, user: user }; // Return user object
     }
 
-
-    return { success: true };
+    return { success: false, message: 'Login failed' };
   };
 
   const loginWithTokens = async (accessToken, refreshToken) => {

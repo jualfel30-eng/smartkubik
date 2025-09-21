@@ -3,6 +3,7 @@ import {
   Logger,
   UnauthorizedException,
   BadRequestException,
+  NotFoundException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { InjectModel } from "@nestjs/mongoose";
@@ -33,31 +34,64 @@ export class AuthService {
     private rolesService: RolesService,
   ) {}
 
-  async login(loginDto: LoginDto) {
-    const email = loginDto.email.trim();
-    this.logger.log(`Login attempt for email: ${email}`);
-
-    const user = await this.userModel.findOne({ email }).populate('role').exec();
-
-    if (!user) {
-      this.logger.warn(`Login failed: User not found for email ${email}`);
-      throw new UnauthorizedException("Credenciales inválidas");
+  async login(loginDto: LoginDto, isImpersonation: boolean = false, impersonatorId?: string) {
+    if (isImpersonation) {
+      const user = await this.userModel.findById(loginDto).populate('role').exec();
+      if (!user) {
+        throw new NotFoundException('Usuario a impersonar no encontrado');
+      }
+      const tenant = await this.tenantModel.findById(user.tenantId).exec();
+      const tokens = await this.generateTokens(user, tenant, true, impersonatorId);
+      return {
+        user,
+        tenant,
+        ...tokens,
+      };
     }
 
+    const { email, password, tenantCode, ip } = loginDto as LoginDto;
+    this.logger.log(`Login attempt for email: ${email} - Tenant: ${tenantCode || 'SUPER_ADMIN'}`);
+
+    let user: UserDocument | null;
+
+    // Handle Super Admin Login
+    if (!tenantCode) {
+      user = await this.userModel.findOne({ email: email.trim(), tenantId: null }).populate('role').exec();
+      if (!user) {
+        this.logger.warn(`Super admin login failed: User not found for email ${email}`);
+        throw new UnauthorizedException("Credenciales inválidas");
+      }
+      const userRole = user.role as unknown as Role;
+      if (userRole.name !== 'super_admin') {
+        throw new UnauthorizedException("Se requiere un código de tenant para este usuario.");
+      }
+
+    } else {
+      // Handle Tenant User Login
+      const tenant = await this.tenantModel.findOne({ code: tenantCode });
+      if (!tenant) {
+        this.logger.warn(`Login failed: Tenant not found for code ${tenantCode}`);
+        throw new UnauthorizedException("Credenciales inválidas");
+      }
+
+      user = await this.userModel.findOne({ email: email.trim(), tenantId: tenant._id }).populate('role').exec();
+      if (!user) {
+        this.logger.warn(`Login failed: User not found for email ${email} in tenant ${tenantCode}`);
+        throw new UnauthorizedException("Credenciales inválidas");
+      }
+
+      if (tenant.status !== "active") {
+        throw new UnauthorizedException("La organización (tenant) está inactiva");
+      }
+    }
+
+    // Common logic for both user types
     if (user.lockUntil && user.lockUntil > new Date()) {
-      const remainingTime = Math.ceil(
-        (user.lockUntil.getTime() - Date.now()) / 60000,
-      );
-      throw new UnauthorizedException(
-        `Cuenta bloqueada. Intente en ${remainingTime} minutos.`,
-      );
+      const remainingTime = Math.ceil((user.lockUntil.getTime() - Date.now()) / 60000);
+      throw new UnauthorizedException(`Cuenta bloqueada. Intente en ${remainingTime} minutos.`);
     }
 
-    const isPasswordValid = await bcrypt.compare(
-      loginDto.password,
-      user.password,
-    );
-
+    const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       await this.handleFailedLogin(user);
       throw new UnauthorizedException("Credenciales inválidas");
@@ -67,45 +101,47 @@ export class AuthService {
       throw new UnauthorizedException("Usuario inactivo");
     }
 
-    const tenant = await this.tenantModel.findById(user.tenantId).exec();
-    if (!tenant) {
-        this.logger.error(`CRITICAL: User ${user.email} has an invalid tenantId: ${user.tenantId}`);
-        throw new UnauthorizedException("Error de configuración de la cuenta: Tenant asociado no encontrado.");
-    }
-    if (tenant.status !== "active") {
-      throw new UnauthorizedException("La organización (tenant) está inactiva");
-    }
-
     await this.userModel.updateOne(
       { _id: user._id },
       {
         $unset: { loginAttempts: 1, lockUntil: 1 },
         lastLoginAt: new Date(),
-        lastLoginIP: loginDto.ip || "unknown",
+        lastLoginIP: ip || "unknown",
       },
     );
 
+    const tenant = tenantCode ? await this.tenantModel.findById(user.tenantId).exec() : null;
     const tokens = await this.generateTokens(user, tenant);
 
     this.logger.log(`Successful login for user: ${user.email}`);
 
-    return {
-      user: {
-        id: user._id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        tenantId: user.tenantId,
-      },
-      tenant: {
-        id: tenant._id,
-        code: tenant.code,
-        name: tenant.name,
-        businessType: tenant.businessType,
-      },
-      ...tokens,
+    const userPayload = {
+      id: user._id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      tenantId: user.tenantId,
     };
+
+    if (tenant) {
+      return {
+        user: userPayload,
+        tenant: {
+          id: tenant._id,
+          code: tenant.code,
+          name: tenant.name,
+          businessType: tenant.businessType,
+        },
+        ...tokens,
+      };
+    } else {
+      // Super admin payload
+      return {
+        user: userPayload,
+        ...tokens,
+      };
+    }
   }
 
   async register(registerDto: RegisterDto) {
@@ -414,7 +450,7 @@ export class AuthService {
     this.logger.log(`Logout for user ID: ${userId}`);
   }
 
-  private async generateTokens(user: UserDocument, tenant: TenantDocument) {
+  private async generateTokens(user: UserDocument, tenant: TenantDocument | null, isImpersonation: boolean = false, impersonatorId?: string) {
     const role = user.role as unknown as RoleDocument;
 
     const payload = {
@@ -424,8 +460,10 @@ export class AuthService {
         name: role.name,
         permissions: role.permissions,
       },
-      tenantId: tenant._id,
-      tenantCode: tenant.code,
+      tenantId: tenant ? tenant._id : null,
+      tenantCode: tenant ? tenant.code : null,
+      impersonated: isImpersonation,
+      impersonatorId: isImpersonation ? impersonatorId : null,
     };
 
     const [accessToken, refreshToken] = await Promise.all([

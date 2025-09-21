@@ -32,6 +32,12 @@ export class TenantGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
+    // Bypass TenantGuard for Super Admins
+    if (user && user.role?.name === 'super_admin') {
+      this.logger.debug(`TenantGuard bypassed for Super Admin: ${user.email}`);
+      return true;
+    }
+
     if (!user || !user.tenantId) {
       this.logger.warn(
         "User without tenant trying to access protected resource",

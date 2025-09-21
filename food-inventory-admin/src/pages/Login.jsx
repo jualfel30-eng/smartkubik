@@ -7,9 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 function Login() {
-  const [email, setEmail] = useState('admin@earlyadopter.com');
-  const [password, setPassword] = useState('Admin1234!');
-  const [tenantCode, setTenantCode] = useState('EARLYADOPTER');
+  const [email, setEmail] = useState('jualfel3.0@gmail.com');
+  const [password, setPassword] = useState('Papayita.85');
+  const [tenantCode, setTenantCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -20,9 +20,13 @@ function Login() {
     setError('');
     setLoading(true);
     try {
-      const { success, message } = await login(email, password, tenantCode);
+      const { success, message, user } = await login(email, password, tenantCode);
       if (success) {
-        navigate('/');
+        if (user.role.name === 'super_admin') {
+          navigate('/super-admin');
+        } else {
+          navigate('/');
+        }
       } else {
         setError(message || 'Credenciales incorrectas o error en el servidor.');
       }
@@ -65,12 +69,11 @@ function Login() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="tenantCode">Código de Tenant</Label>
+              <Label htmlFor="tenantCode">Código de Tenant (Opcional)</Label>
               <Input
                 id="tenantCode"
                 type="text"
-                placeholder="CÓDIGO"
-                required
+                placeholder="Dejar en blanco para Super Admin"
                 value={tenantCode}
                 onChange={(e) => setTenantCode(e.target.value)}
               />

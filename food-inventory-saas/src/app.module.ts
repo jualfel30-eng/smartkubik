@@ -28,6 +28,7 @@ import { SharedModule } from './common/shared.module';
 import { ShiftsModule } from './modules/shifts/shifts.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { MailModule } from './modules/mail/mail.module';
+import { SuperAdminModule } from './super-admin/super-admin.module';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { MailModule } from './modules/mail/mail.module';
     ShiftsModule,
     AnalyticsModule,
     MailModule,
+    SuperAdminModule,
   ],
   controllers: [AppController, TenantController],
   providers: [AppService, TenantService],

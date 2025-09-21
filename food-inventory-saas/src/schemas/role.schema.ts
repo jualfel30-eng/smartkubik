@@ -14,7 +14,7 @@ export class Role {
   @Prop({ type: [String], default: [] })
   permissions: string[];
 
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'Tenant' })
   tenantId: Types.ObjectId;
 }
 

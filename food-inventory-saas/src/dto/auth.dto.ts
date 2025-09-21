@@ -25,10 +25,10 @@ export class LoginDto {
   @MinLength(6)
   password: string;
 
-  @ApiProperty({ description: "Código del tenant" })
+  @ApiPropertyOptional({ description: "Código del tenant" })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  tenantCode: string;
+  tenantCode?: string;
 
   @ApiPropertyOptional({ description: "IP del usuario" })
   @IsOptional()

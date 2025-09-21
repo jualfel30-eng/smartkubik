@@ -53,8 +53,8 @@ export class User {
   @Prop()
   lockUntil?: Date;
 
-  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })
-  tenantId: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: "Tenant", required: false })
+  tenantId?: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: "User" })
   createdBy?: Types.ObjectId;

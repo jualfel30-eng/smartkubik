@@ -22,7 +22,8 @@ import {
   BookCopy,
   PlayCircle,
   StopCircle,
-  AreaChart
+  AreaChart,
+  ShieldCheck, // Icon for Super Admin
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import './App.css';
@@ -39,6 +40,9 @@ import InventoryDashboard from './components/InventoryDashboard.jsx';
 import AccountingDashboard from './components/AccountingDashboard.jsx';
 import AccountsReceivableReport from './components/AccountsReceivableReport.jsx';
 import ReportsPage from './pages/ReportsPage.jsx'; // Import ReportsPage
+import SuperAdminDashboard from './components/SuperAdminDashboard.jsx'; // Import Super Admin Dashboard
+import TenantUserList from './components/TenantUserList.jsx'; // Import TenantUserList
+import AuditLogView from './components/AuditLogView.jsx';
 
 // Shift Timer Component
 const ShiftTimer = () => {
@@ -145,6 +149,7 @@ function AdminLayout() {
       <div className="bg-card border-b border-border py-2">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="px-6">
           <TabsList className="max-w-full overflow-x-auto">
+            {hasPermission('MANAGE_TENANTS') && <TabsTrigger value="super-admin" className="flex items-center space-x-2"> <ShieldCheck className="h-4 w-4" /> <span>Super Admin</span> </TabsTrigger>}
             {hasPermission('dashboard_read') && <TabsTrigger value="dashboard" className="flex items-center space-x-2"> <BarChart3 className="h-4 w-4" /> <span>Dashboard</span> </TabsTrigger>}
             {hasPermission('orders_read') && <TabsTrigger value="orders" className="flex items-center space-x-2"> <ShoppingCart className="h-4 w-4" /> <span>Órdenes</span> </TabsTrigger>}
             {hasPermission('inventory_read') && <TabsTrigger value="inventory-management" className="flex items-center space-x-2"> <Package className="h-4 w-4" /> <span>Inventario</span> </TabsTrigger>}
@@ -159,6 +164,9 @@ function AdminLayout() {
       {/* Main Content */}
       <main className="p-6">
         <Routes>
+          <Route path="/super-admin" element={<SuperAdminDashboard />} />
+          <Route path="/super-admin/tenants/:tenantId/users" element={<TenantUserList />} />
+          <Route path="/super-admin/audit-logs" element={<AuditLogView />} />
           <Route path="/dashboard" element={<DashboardView />} />
           <Route path="/inventory-management" element={<InventoryDashboard />} />
           <Route path="/crm" element={<CRMManagement />} />
