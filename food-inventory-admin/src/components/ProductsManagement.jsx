@@ -119,19 +119,16 @@ function ProductsManagement() {
   }, [isAddDialogOpen]);
 
   const loadProducts = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await fetchApi('/products');
-      if (response.success) {
-        setProducts(response.data);
-      } else {
-        throw new Error(response.message || 'Failed to fetch products');
-      }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    setLoading(true);
+    const { data, error } = await fetchApi('/products');
+    setLoading(false);
+
+    if (error) {
+      setError(error);
+      return;
     }
+    
+    setProducts(data.data || []);
   }, []);
 
   useEffect(() => {
@@ -172,16 +169,16 @@ function ProductsManagement() {
     }
     delete payload.variant;
 
-    try {
-      const response = await fetchApi('/products', { method: 'POST', body: JSON.stringify(payload) });
-      if (response.success) {
-        setIsAddDialogOpen(false);
-        loadProducts();
-      } else {
-        throw new Error(response.message || 'Error al crear el producto');
-      }
-    } catch (err) {
-      alert(`Error: ${err.message}`);
+    const { data, error } = await fetchApi('/products', { method: 'POST', body: JSON.stringify(payload) });
+
+    if (error) {
+      alert(`Error: ${error}`);
+      return;
+    }
+
+    if (data) {
+      setIsAddDialogOpen(false);
+      loadProducts();
     }
   };
 
@@ -200,37 +197,34 @@ function ProductsManagement() {
       unitOfMeasure: editingProduct.unitOfMeasure,
     };
 
-    try {
-      const response = await fetchApi(`/products/${editingProduct._id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(payload),
-      });
+    const { data, error } = await fetchApi(`/products/${editingProduct._id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
 
-      if (response.success) {
-        setIsEditDialogOpen(false);
-        setEditingProduct(null);
-        loadProducts();
-      } else {
-        const errorMessage = response.data?.message || response.message || 'Error desconocido del servidor.';
-        console.error('Error response from server:', response);
-        throw new Error(errorMessage);
-      }
-    } catch (err) {
-      alert(`Error al actualizar el producto: ${err.message}`);
+    if (error) {
+      alert(`Error al actualizar el producto: ${error}`);
+      return;
+    }
+
+    if (data) {
+      setIsEditDialogOpen(false);
+      setEditingProduct(null);
+      loadProducts();
     }
   };
 
   const handleDeleteProduct = async (productId) => {
     if (window.confirm('¿Estás seguro de que quieres eliminar este producto?')) {
-      try {
-        const response = await fetchApi(`/products/${productId}`, { method: 'DELETE' });
-        if (response.success) {
-          loadProducts();
-        } else {
-          throw new Error(response.message || 'Error al eliminar el producto');
-        }
-      } catch (err) {
-        alert(`Error: ${err.message}`);
+      const { data, error } = await fetchApi(`/products/${productId}`, { method: 'DELETE' });
+
+      if (error) {
+        alert(`Error: ${error}`);
+        return;
+      }
+
+      if (data) {
+        loadProducts();
       }
     }
   };

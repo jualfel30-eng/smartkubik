@@ -20,7 +20,6 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { PlusCircle, Repeat, Eye, CreditCard } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { PaymentDialog } from './PaymentDialog';
 import { SearchableSelect } from './orders/v2/custom/SearchableSelect';
@@ -59,7 +58,7 @@ const CreateRecurringPayableDialog = ({ isOpen, onOpenChange, accounts, supplier
   const [newTemplate, setNewTemplate] = useState(initialTemplateState);
 
   const supplierOptions = useMemo(() => 
-    suppliers.map(s => ({ 
+    (suppliers || []).map(s => ({ 
       value: s._id, 
       label: `${s.name} - ${s.taxInfo?.rif || 'N/A'}`,
       supplier: s 
@@ -118,32 +117,25 @@ const CreateRecurringPayableDialog = ({ isOpen, onOpenChange, accounts, supplier
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    try {
-      const payload = {
-        ...newTemplate,
-        payeeType: 'supplier',
-        lines: newTemplate.lines.map(l => ({ ...l, amount: Number(l.amount) })).filter(l => l.amount > 0),
-      };
+    const { data, error } = await createRecurringPayable({
+      ...newTemplate,
+      payeeType: 'supplier',
+      lines: newTemplate.lines.map(l => ({ ...l, amount: Number(l.amount) })).filter(l => l.amount > 0),
+      newSupplierName: newTemplate.isNewSupplier ? newTemplate.payeeName : undefined,
+      newSupplierRif: newTemplate.isNewSupplier ? newTemplate.supplierRif : undefined,
+      newSupplierContactName: newTemplate.isNewSupplier ? newTemplate.supplierContactName : undefined,
+      newSupplierContactPhone: newTemplate.isNewSupplier ? newTemplate.supplierContactPhone : undefined,
+    });
 
-      if (payload.isNewSupplier) {
-        payload.newSupplierName = payload.payeeName;
-        payload.newSupplierRif = payload.supplierRif;
-        payload.newSupplierContactName = payload.supplierContactName;
-        payload.newSupplierContactPhone = payload.supplierContactPhone;
-      }
-
-      if (!payload.templateName || !payload.payeeName || payload.lines.length === 0) {
-        toast.error("Nombre de plantilla, beneficiario y al menos una línea son requeridos.");
-        return;
-      }
-      await createRecurringPayable(payload);
-      toast.success("Plantilla de pago recurrente creada con éxito.");
-      setNewTemplate(initialTemplateState);
-      onSuccess();
-      onOpenChange(false);
-    } catch (error) {
-      toast.error("Error al crear la plantilla.", { description: error.message });
+    if (error) {
+      toast.error("Error al crear la plantilla.", { description: error });
+      return;
     }
+    
+    toast.success("Plantilla de pago recurrente creada con éxito.");
+    setNewTemplate(initialTemplateState);
+    onSuccess();
+    onOpenChange(false);
   };
 
   return (
@@ -230,7 +222,7 @@ const CreateRecurringPayableDialog = ({ isOpen, onOpenChange, accounts, supplier
                 <Input name="amount" type="number" placeholder="Monto" value={line.amount} onChange={(e) => handleLineChange(index, e)} className="w-28" />
                 <Select onValueChange={(value) => handleAccountChange(index, value)}>
                   <SelectTrigger className="w-48"><SelectValue placeholder="Cuenta de Gasto" /></SelectTrigger>
-                  <SelectContent>{accounts.map(acc => <SelectItem key={acc._id} value={acc._id}>{acc.name}</SelectItem>)}</SelectContent>
+                  <SelectContent>{(accounts || []).map(acc => <SelectItem key={acc._id} value={acc._id}>{acc.name}</SelectItem>)}</SelectContent>
                 </Select>
                 <Button type="button" variant="destructive" size="sm" onClick={() => removeLine(index)}>X</Button>
               </div>
@@ -254,7 +246,7 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
   const [selectedPayable, setSelectedPayable] = useState(null);
 
   const supplierOptions = useMemo(() => 
-    suppliers.map(s => ({ 
+    (suppliers || []).map(s => ({ 
       value: s._id, 
       label: `${s.name} - ${s.taxInfo?.rif || 'N/A'}`,
       supplier: s 
@@ -318,58 +310,64 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
     e.preventDefault();
     let currentSupplierId = newPayable.supplierId;
 
-    try {
-      if (newPayable.isNewSupplier) {
-        if (!newPayable.supplierName || !newPayable.supplierRif || !newPayable.supplierContactName) {
-          toast.error("Para un nuevo proveedor, debe rellenar Nombre, RIF y Nombre de Contacto.");
-          return;
-        }
-        const newSupplierPayload = {
-          name: newPayable.supplierName,
-          rif: newPayable.supplierRif,
-          contactName: newPayable.supplierContactName,
-          contactEmail: newPayable.supplierContactEmail,
-          contactPhone: newPayable.supplierContactPhone,
-        };
-        const createdSupplier = await createSupplier(newSupplierPayload);
-        currentSupplierId = createdSupplier._id;
-        fetchSuppliers();
-        toast.success(`Proveedor "${createdSupplier.name}" creado con éxito.`);
+    if (newPayable.isNewSupplier) {
+      if (!newPayable.supplierName || !newPayable.supplierRif || !newPayable.supplierContactName) {
+        toast.error("Para un nuevo proveedor, debe rellenar Nombre, RIF y Nombre de Contacto.");
+        return;
       }
+      const { data: createdSupplier, error } = await createSupplier({
+        name: newPayable.supplierName,
+        rif: newPayable.supplierRif,
+        contactName: newPayable.supplierContactName,
+        contactEmail: newPayable.supplierContactEmail,
+        contactPhone: newPayable.supplierContactPhone,
+      });
 
-      if (!currentSupplierId) {
-        toast.error("Debe seleccionar o crear un proveedor.");
+      if (error) {
+        toast.error('Error creando nuevo proveedor', { description: error });
         return;
       }
 
-      const payablePayload = {
-        type: newPayable.type,
-        payeeType: 'supplier',
-        payeeId: currentSupplierId,
-        payeeName: newPayable.supplierName,
-        issueDate: newPayable.date,
-        dueDate: newPayable.dueDate || undefined,
-        lines: newPayable.lines.map(l => ({ ...l, amount: Number(l.amount) })).filter(l => l.amount > 0),
-        notes: newPayable.notes,
-      };
-
-      if (payablePayload.lines.length === 0) {
-        toast.error("Debe añadir al menos una línea con un monto mayor a cero.");
-        return;
-      }
-
-      await createPayable(payablePayload);
-      toast.success('Cuenta por pagar creada con éxito.');
-      fetchPayables();
-      setIsCreateDialogOpen(false);
-      setNewPayable(initialPayableState);
-
-    } catch (error) {
-      toast.error('Error en el proceso de guardado.', { description: error.message });
+      currentSupplierId = createdSupplier.data._id;
+      fetchSuppliers();
+      toast.success(`Proveedor "${createdSupplier.data.name}" creado con éxito.`);
     }
+
+    if (!currentSupplierId) {
+      toast.error("Debe seleccionar o crear un proveedor.");
+      return;
+    }
+
+    const payablePayload = {
+      type: newPayable.type,
+      payeeType: 'supplier',
+      payeeId: currentSupplierId,
+      payeeName: newPayable.supplierName,
+      issueDate: newPayable.date,
+      dueDate: newPayable.dueDate || undefined,
+      lines: newPayable.lines.map(l => ({ ...l, amount: Number(l.amount) })).filter(l => l.amount > 0),
+      notes: newPayable.notes,
+    };
+
+    if (payablePayload.lines.length === 0) {
+      toast.error("Debe añadir al menos una línea con un monto mayor a cero.");
+      return;
+    }
+
+    const { error } = await createPayable(payablePayload);
+
+    if (error) {
+      toast.error('Error en el proceso de guardado.', { description: error });
+      return;
+    }
+
+    toast.success('Cuenta por pagar creada con éxito.');
+    fetchPayables();
+    setIsCreateDialogOpen(false);
+    setNewPayable(initialPayableState);
   };
 
-  const getTotalAmount = (lines) => lines.reduce((acc, line) => acc + Number(line.amount || 0), 0);
+  const getTotalAmount = (lines) => (lines || []).reduce((acc, line) => acc + Number(line.amount || 0), 0);
 
   return (
     <>
@@ -447,7 +445,7 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
                             <div key={index} className="flex items-center gap-2">
                                 <Input name="description" placeholder="Descripción" value={line.description} onChange={(e) => handleLineChange(index, e)} className="flex-grow"/>
                                 <Input name="amount" type="number" placeholder="Monto" value={line.amount} onChange={(e) => handleLineChange(index, e)} className="w-28"/>
-                                <Select onValueChange={(value) => handleAccountChange(index, value)}><SelectTrigger className="w-48"><SelectValue placeholder="Cuenta de Gasto" /></SelectTrigger><SelectContent>{accounts.map(acc => <SelectItem key={acc._id} value={acc._id}>{acc.name}</SelectItem>)}</SelectContent></Select>
+                                <Select onValueChange={(value) => handleAccountChange(index, value)}><SelectTrigger className="w-48"><SelectValue placeholder="Cuenta de Gasto" /></SelectTrigger><SelectContent>{(accounts || []).map(acc => <SelectItem key={acc._id} value={acc._id}>{acc.name}</SelectItem>)}</SelectContent></Select>
                                 <Button type="button" variant="destructive" size="sm" onClick={() => removeLine(index)}>X</Button>
                             </div>
                         ))}
@@ -463,7 +461,7 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
           <Table>
             <TableHeader><TableRow><TableHead>Proveedor</TableHead><TableHead>Fecha</TableHead><TableHead>Monto Total</TableHead><TableHead>Monto Pagado</TableHead><TableHead>Estado</TableHead><TableHead className="text-center">Ver</TableHead><TableHead className="text-center">Pagar</TableHead></TableRow></TableHeader>
             <TableBody>
-              {payables.map((payable) => (
+              {(payables || []).map((payable) => (
                 <TableRow key={payable._id}>
                   <TableCell>{payable.payeeName || 'N/A'}</TableCell>
                   <TableCell>{new Date(payable.issueDate).toLocaleDateString()}</TableCell>
@@ -496,23 +494,23 @@ const RecurringPayables = ({ accounts, suppliers }) => {
   const [isCreateTemplateOpen, setIsCreateTemplateOpen] = useState(false);
 
   const fetchTemplates = useCallback(async () => {
-    try {
-      const response = await getRecurringPayables();
-      setTemplates(response || []);
-    } catch (error) {
-      toast.error('Error al cargar las plantillas.');
+    const { data, error } = await getRecurringPayables();
+    if (error) {
+      toast.error('Error al cargar las plantillas.', { description: error });
+      return;
     }
+    setTemplates(data.data || []);
   }, []);
 
   useEffect(() => { fetchTemplates(); }, [fetchTemplates]);
 
   const handleGeneratePayable = async (templateId) => {
-    try {
-      await generatePayableFromTemplate(templateId);
-      toast.success('Pago generado con éxito.', { description: 'Aparecerá en la pestaña "Cuentas por Pagar".' });
-    } catch (error) {
-      toast.error('Error al generar el pago.', { description: error.message });
+    const { error } = await generatePayableFromTemplate(templateId);
+    if (error) {
+      toast.error('Error al generar el pago.', { description: error });
+      return;
     }
+    toast.success('Pago generado con éxito.', { description: 'Aparecerá en la pestaña "Cuentas por Pagar".' });
   };
 
   return (
@@ -526,7 +524,7 @@ const RecurringPayables = ({ accounts, suppliers }) => {
         <CardContent>
           <Table>
             <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Beneficiario</TableHead><TableHead>Monto</TableHead><TableHead>Frecuencia</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
-            <TableBody>{templates.map((template) => (<TableRow key={template._id}><TableCell>{template.templateName}</TableCell><TableCell>{template.payeeName || 'N/A'}</TableCell><TableCell>${Number(template.lines.reduce((acc, l) => acc + l.amount, 0) || 0).toFixed(2)}</TableCell><TableCell>{template.frequency}</TableCell><TableCell className="text-right"><Button size="sm" onClick={() => handleGeneratePayable(template._id)}><Repeat className="mr-2 h-4 w-4" />Generar Pago</Button></TableCell></TableRow>))}</TableBody>
+            <TableBody>{(templates || []).map((template) => (<TableRow key={template._id}><TableCell>{template.templateName}</TableCell><TableCell>{template.payeeName || 'N/A'}</TableCell><TableCell>${Number((template.lines || []).reduce((acc, l) => acc + l.amount, 0) || 0).toFixed(2)}</TableCell><TableCell>{template.frequency}</TableCell><TableCell className="text-right"><Button size="sm" onClick={() => handleGeneratePayable(template._id)}><Repeat className="mr-2 h-4 w-4" />Generar Pago</Button></TableCell></TableRow>))}</TableBody>
           </Table>
         </CardContent>
       </Card>
@@ -547,20 +545,19 @@ const PaymentHistory = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const fetchPayments = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await getPayments();
-      setPayments(response || []);
-    } catch (error) {
-      toast.error('Error al cargar el historial de pagos.');
-    } finally {
-      setLoading(false);
+    setLoading(true);
+    const { data, error } = await getPayments();
+    if (error) {
+      toast.error('Error al cargar el historial de pagos.', { description: error });
+    } else {
+      setPayments(data.data || []);
     }
+    setLoading(false);
   }, []);
 
   useEffect(() => { fetchPayments(); }, [fetchPayments]);
 
-  const filteredPayments = payments.filter(payment => {
+  const filteredPayments = (payments || []).filter(payment => {
     const searchTermLower = searchTerm.toLowerCase();
     const description = payment.payableId?.description?.toLowerCase() || '';
     const payeeName = payment.payableId?.payeeName?.toLowerCase() || '';
@@ -606,35 +603,34 @@ const PayablesManagement = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchPayables = useCallback(async () => {
-    try {
-      const response = await getPayables();
-      setPayables(response.data || []);
-    } catch (error) {
-      // toast.error('Error al cargar las cuentas por pagar.');
+    const { data, error } = await getPayables();
+    if (error) {
+      toast.error('Error al cargar las cuentas por pagar.', { description: error });
+    } else {
+      setPayables(data.data || []);
     }
   }, []);
 
   const fetchSuppliers = useCallback(async () => {
-    try {
-      const response = await fetchApi('/suppliers');
-      setSuppliers(response || []);
-    } catch (error) {
-      // toast.error('Error al cargar los proveedores.');
+    const { data, error } = await fetchApi('/suppliers');
+    if (error) {
+      toast.error('Error al cargar los proveedores.', { description: error });
+    } else {
+      setSuppliers(data.data || []);
     }
   }, []);
 
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
-    try {
-      const accountsResponse = await fetchChartOfAccounts();
+    const { data: accountsResponse, error: accountsError } = await fetchChartOfAccounts();
+    if (accountsError) {
+      toast.error('Error al cargar el plan de cuentas.', { description: accountsError });
+    } else {
       setAccounts(accountsResponse.data.filter(acc => acc.type === 'Gasto') || []);
-      await fetchSuppliers();
-      await fetchPayables();
-    } catch (error) {
-      // toast.error('Error al cargar datos iniciales.');
-    } finally {
-      setLoading(false);
     }
+    await fetchSuppliers();
+    await fetchPayables();
+    setLoading(false);
   }, [fetchSuppliers, fetchPayables]);
 
   useEffect(() => {

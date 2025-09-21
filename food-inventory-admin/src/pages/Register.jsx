@@ -228,25 +228,33 @@ function Register() {
     setError('');
 
     const payload = {
-      ...formData,
+      businessName: formData.businessName,
+      businessType: formData.businessType,
+      numberOfUsers: parseInt(formData.numberOfUsers, 10),
       categories: formData.category === 'Otro' ? formData.otherCategory : formData.category,
       subcategories: formData.subcategory === 'Otro' ? formData.otherSubcategory : formData.subcategory,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      password: formData.password,
     };
 
-    try {
-      const response = await fetchApi('/onboarding/register', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-      
-      const { accessToken, refreshToken } = response;
-      loginWithTokens(accessToken, refreshToken);
-      navigate('/');
+    const { data, error } = await fetchApi('/onboarding/register', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
 
-    } catch (err) {
-      setError(err.message || 'Ocurrió un error inesperado.');
-    } finally {
-      setLoading(false);
+    setLoading(false);
+
+    if (error) {
+      setError(error);
+      return;
+    }
+
+    if (data) {
+      const { accessToken, refreshToken } = data;
+      await loginWithTokens(accessToken, refreshToken);
+      navigate('/');
     }
   };
 

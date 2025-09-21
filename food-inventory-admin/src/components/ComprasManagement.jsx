@@ -92,24 +92,39 @@ export default function ComprasManagement() {
   const [poLoading, setPoLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [lowStockRes, expiringRes, suppliersRes, productsRes] = await Promise.all([
-        fetchApi('/inventory/alerts/low-stock'),
-        fetchApi('/inventory/alerts/near-expiration?days=30'),
-        fetchApi('/customers?customerType=supplier'),
-        fetchApi('/products')
-      ]);
-      if (lowStockRes.success) setLowStockProducts(lowStockRes.data);
-      if (expiringRes.success) setExpiringProducts(expiringRes.data);
-      if (suppliersRes.success) setSuppliers(suppliersRes.data.customers || suppliersRes.data || []);
-      if (productsRes.success) setProducts(productsRes.data || []);
+    setLoading(true);
+    const [lowStockRes, expiringRes, suppliersRes, productsRes] = await Promise.all([
+      fetchApi('/inventory/alerts/low-stock'),
+      fetchApi('/inventory/alerts/near-expiration?days=30'),
+      fetchApi('/customers?customerType=supplier'),
+      fetchApi('/products')
+    ]);
 
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    if (lowStockRes.error) {
+      setError(lowStockRes.error);
+    } else {
+      setLowStockProducts(lowStockRes.data.data || []);
     }
+
+    if (expiringRes.error) {
+      setError(expiringRes.error);
+    } else {
+      setExpiringProducts(expiringRes.data.data || []);
+    }
+
+    if (suppliersRes.error) {
+      setError(suppliersRes.error);
+    } else {
+      setSuppliers(suppliersRes.data.data || []);
+    }
+
+    if (productsRes.error) {
+      setError(productsRes.error);
+    } else {
+      setProducts(productsRes.data.data || []);
+    }
+
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -218,18 +233,18 @@ export default function ComprasManagement() {
       payload.inventory.lotNumber = undefined;
     }
 
-    try {
-      const response = await fetchApi('/products/with-initial-purchase', { method: 'POST', body: JSON.stringify(payload) });
-      if (response.success) {
-        toast.success('Producto y compra inicial creados con éxito');
-        setIsNewProductDialogOpen(false);
-        setNewProduct(initialNewProductState);
-        fetchData();
-      } else {
-        throw new Error(response.message || 'Error al crear el producto con compra inicial');
-      }
-    } catch (err) {
-      toast.error(`Error: ${err.message}`);
+    const { data, error } = await fetchApi('/products/with-initial-purchase', { method: 'POST', body: JSON.stringify(payload) });
+
+    if (error) {
+      toast.error(`Error: ${error}`);
+      return;
+    }
+
+    if (data) {
+      toast.success('Producto y compra inicial creados con éxito');
+      setIsNewProductDialogOpen(false);
+      setNewProduct(initialNewProductState);
+      fetchData();
     }
   };
 
@@ -423,20 +438,19 @@ export default function ComprasManagement() {
       dto.newSupplierContactEmail = po.contactEmail;
     }
 
-    try {
-      const res = await fetchApi('/purchases', { method: 'POST', body: JSON.stringify(dto) });
-      if (res.success) {
-        toast.success('Orden de Compra creada exitosamente');
-        setIsNewPurchaseDialogOpen(false);
-        setPo(initialPoState);
-        fetchData();
-      } else {
-        toast.error('Error al crear la Orden de Compra', { description: res.message || 'Ocurrió un error inesperado.' });
-      }
-    } catch (error) {
-      toast.error('Error al crear la Orden de Compra', { description: error.message });
-    } finally {
-      setPoLoading(false);
+    const { data, error } = await fetchApi('/purchases', { method: 'POST', body: JSON.stringify(dto) });
+    setPoLoading(false);
+
+    if (error) {
+      toast.error('Error al crear la Orden de Compra', { description: error });
+      return;
+    }
+
+    if (data) {
+      toast.success('Orden de Compra creada exitosamente');
+      setIsNewPurchaseDialogOpen(false);
+      setPo(initialPoState);
+      fetchData();
     }
   };
   

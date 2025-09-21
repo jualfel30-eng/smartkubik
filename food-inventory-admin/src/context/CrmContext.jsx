@@ -13,31 +13,28 @@ export const CrmProvider = ({ children }) => {
 
   const loadCustomers = useCallback(async () => {
     console.log('[CrmContext] Ejecutando loadCustomers...');
-    try {
-      const response = await fetchApi('/customers?limit=100');
-      console.log('[CrmContext] Datos de clientes recibidos del backend:', response.data);
-      if (response.data) {
-        setCrmData(response.data);
-      } else {
-        throw new Error(response.message || 'Failed to fetch customers');
-      }
-    } catch (err) {
-      // Not setting global error for this, as other things might load
-      console.error("Error loading customers:", err.message);
+    const { data, error } = await fetchApi('/customers?limit=100');
+
+    if (error) {
+      console.error("Error loading customers:", error);
+      return;
     }
+    
+    console.log('[CrmContext] Datos de clientes recibidos del backend:', data);
+    setCrmData(data.data || []);
   }, []);
 
   const loadPaymentMethods = useCallback(async () => {
     console.log('[CrmContext] Ejecutando loadPaymentMethods...');
-    try {
-      const response = await fetchApi('/orders/__lookup/payment-methods');
-      if (response.data && response.data.methods) {
-        setPaymentMethods(response.data.methods);
-      } else {
-        throw new Error(response.message || 'Failed to fetch payment methods');
-      }
-    } catch (err) {
-      console.error("Error loading payment methods:", err.message);
+    const { data, error } = await fetchApi('/orders/__lookup/payment-methods');
+
+    if (error) {
+      console.error("Error loading payment methods:", error);
+      return;
+    }
+
+    if (data && data.methods) {
+      setPaymentMethods(data.methods);
     }
   }, []);
 
@@ -51,41 +48,44 @@ export const CrmProvider = ({ children }) => {
   }, [loadCustomers, loadPaymentMethods]);
 
   const addCustomer = async (customerData) => {
-    try {
-      const response = await fetchApi('/customers', {
-        method: 'POST',
-        body: JSON.stringify(customerData),
-      });
-      await loadCustomers(); // Recargar
-      return response;
-    } catch (err) {
-      console.error("Error adding customer:", err);
-      throw err;
+    const { data, error } = await fetchApi('/customers', {
+      method: 'POST',
+      body: JSON.stringify(customerData),
+    });
+
+    if (error) {
+      console.error("Error adding customer:", error);
+      throw error;
     }
+
+    await loadCustomers(); // Recargar
+    return data;
   };
 
   const updateCustomer = async (customerId, customerData) => {
-    try {
-      const response = await fetchApi(`/customers/${customerId}`, {
-        method: 'PATCH',
-        body: JSON.stringify(customerData),
-      });
-      await loadCustomers(); // Recargar
-      return response;
-    } catch (err) {
-      console.error("Error updating customer:", err);
-      throw err;
+    const { data, error } = await fetchApi(`/customers/${customerId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(customerData),
+    });
+
+    if (error) {
+      console.error("Error updating customer:", error);
+      throw error;
     }
+
+    await loadCustomers(); // Recargar
+    return data;
   };
 
   const deleteCustomer = async (customerId) => {
-    try {
-      await fetchApi(`/customers/${customerId}`, { method: 'DELETE' });
-      setCrmData(prev => prev.filter(c => c._id !== customerId)); // Actualización optimista
-    } catch (err) {
-      console.error("Error deleting customer:", err);
-      throw err;
+    const { error } = await fetchApi(`/customers/${customerId}`, { method: 'DELETE' });
+
+    if (error) {
+      console.error("Error deleting customer:", error);
+      throw error;
     }
+
+    setCrmData(prev => prev.filter(c => c._id !== customerId)); // Actualización optimista
   };
 
   const value = {

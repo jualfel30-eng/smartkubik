@@ -15,28 +15,22 @@ export function CalendarView() {
   const calendarRef = useRef(null);
 
   const fetchEvents = useCallback(async () => {
-    // FIX: Añadir guard clause para asegurar que el ref del calendario existe
     if (!calendarRef.current) {
       return;
     }
-    try {
-      const calendarApi = calendarRef.current.getApi();
-      const start = calendarApi.view.activeStart.toISOString();
-      const end = calendarApi.view.activeEnd.toISOString();
+    const calendarApi = calendarRef.current.getApi();
+    const start = calendarApi.view.activeStart.toISOString();
+    const end = calendarApi.view.activeEnd.toISOString();
 
-      const response = await fetchApi(`/events?start=${start}&end=${end}`);
-      if (response.success) {
-        setEvents(response.data);
-      } else {
-        console.error("API response error:", response); // New log
-        throw new Error(response.message || 'Error al cargar eventos');
-      }
-    } catch (error) {
-      console.error("Full error object:", error); // New log
-      console.error(error);
-      toast.error("Error al cargar eventos", { description: error.message });
+    const { data, error } = await fetchApi(`/events?start=${start}&end=${end}`);
+
+    if (error) {
+      console.error("Error fetching events:", error);
+      toast.error("Error al cargar eventos", { description: error });
+      return;
     }
-  }, []); // El array de dependencias está vacío porque `toast` es una función estable importada
+    setEvents(data);
+  }, []);
 
   useEffect(() => {
     // El fetch inicial se dispara desde la prop `datesSet` del calendario cuando se monta
@@ -65,75 +59,73 @@ export function CalendarView() {
 
   const handleEventDrop = async (dropInfo) => {
     const { event } = dropInfo;
-    try {
-        const response = await fetchApi(`/events/${event.id}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ 
-                start: event.start.toISOString(),
-                end: event.end ? event.end.toISOString() : null,
-            })
-        });
+    const { data, error } = await fetchApi(`/events/${event.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        start: event.start.toISOString(),
+        end: event.end ? event.end.toISOString() : null,
+      }),
+    });
 
-        if (response.success) {
-            toast.success("Evento Actualizado", {
-                description: `"${response.data.title}" ha sido movido.`
-            });
-            fetchEvents();
-        } else {
-            throw new Error(response.message);
-        }
-    } catch (error) {
-        console.error("Error al actualizar evento:", error);
-        toast.error("Error al mover el evento", {
-            description: error.message,
-        });
-        dropInfo.revert();
+    if (error) {
+      console.error("Error updating event:", error);
+      toast.error("Error al mover el evento", {
+        description: error,
+      });
+      dropInfo.revert();
+      return;
+    }
+
+    if (data) {
+      toast.success("Evento Actualizado", {
+        description: `"${data.title}" ha sido movido.`
+      });
+      fetchEvents();
     }
   };
 
   const handleSaveEvent = async (eventData) => {
-    try {
-      const isUpdate = selectedEvent?.id;
-      const url = isUpdate ? `/events/${selectedEvent.id}` : '/events';
-      const method = isUpdate ? 'PATCH' : 'POST';
+    const isUpdate = selectedEvent?.id;
+    const url = isUpdate ? `/events/${selectedEvent.id}` : '/events';
+    const method = isUpdate ? 'PATCH' : 'POST';
 
-      const response = await fetchApi(url, {
-        method,
-        body: JSON.stringify(eventData),
-      });
+    const { data, error } = await fetchApi(url, {
+      method,
+      body: JSON.stringify(eventData),
+    });
 
-      if (response.success) {
-        toast.success(`Evento ${isUpdate ? 'Actualizado' : 'Creado'}` , {
-          description: `"${response.data.title}" guardado exitosamente.`,
-        });
-        setIsDialogOpen(false);
-        fetchEvents();
-      } else {
-        throw new Error(response.message);
-      }
-    } catch (error) {
-      console.error("Error al guardar el evento:", error);
+    if (error) {
+      console.error("Error saving event:", error);
       toast.error("Error al guardar el evento", {
-        description: error.message,
+        description: error,
       });
+      return;
+    }
+    
+    if (data) {
+      toast.success(`Evento ${isUpdate ? 'Actualizado' : 'Creado'}`, {
+        description: `"${data.title}" guardado exitosamente.`,
+      });
+      setIsDialogOpen(false);
+      fetchEvents();
     }
   };
 
   const handleDeleteEvent = async (eventId) => {
-    try {
-      const response = await fetchApi(`/events/${eventId}`, { method: 'DELETE' });
-      if (response.success) {
-        toast.success("Evento Eliminado");
-        setIsDialogOpen(false);
-        fetchEvents();
-      } else {
-        throw new Error(response.message);
-      }
-    } catch (error) {
-      console.error("Error al eliminar el evento:", error);
+    const { data, error } = await fetchApi(`/events/${eventId}`, { method: 'DELETE' });
+
+    if (error) {
+      console.error("Error deleting event:", error);
       toast.error("Error al eliminar el evento", {
-        description: error.message,
+        description: error,
       });
+      return;
+    }
+
+    if (data) {
+      toast.success("Evento Eliminado");
+      setIsDialogOpen(false);
+      fetchEvents();
     }
   };
 

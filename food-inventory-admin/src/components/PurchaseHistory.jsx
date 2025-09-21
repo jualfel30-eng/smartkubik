@@ -18,18 +18,16 @@ export default function PurchaseHistory() {
 
   const loadPurchases = async () => {
     setLoading(true);
-    try {
-      const res = await fetchApi('/purchases');
-      if (res.success) {
-        setPurchases(res.data);
-      } else {
-        setError(res.message || 'No se pudo cargar el historial de compras.');
-      }
-    } catch (err) {
-      setError(err.message);
-      toast.error('Error de Conexión', { description: 'No se pudo conectar con el servidor para cargar el historial.' });
-    }
+    const { data, error } = await fetchApi('/purchases');
     setLoading(false);
+
+    if (error) {
+      setError(error);
+      toast.error('Error de Conexión', { description: 'No se pudo conectar con el servidor para cargar el historial.' });
+      return;
+    }
+    
+    setPurchases(data);
   };
 
   useEffect(() => {
@@ -42,18 +40,17 @@ export default function PurchaseHistory() {
     const originalPurchases = [...purchases];
     setPurchases(prev => prev.map(p => p._id === poId ? { ...p, status: 'receiving' } : p));
 
-    try {
-      const res = await fetchApi(`/purchases/${poId}/receive`, { method: 'PATCH' });
-      if (res.success) {
-        toast.success('Orden Recibida', { description: 'El inventario ha sido actualizado correctamente.' });
-        setPurchases(prev => prev.map(p => p._id === poId ? res.data : p));
-      } else {
-        toast.error('Error al Recibir la Orden', { description: res.message });
-        setPurchases(originalPurchases);
-      }
-    } catch (err) {
-      toast.error('Error de Conexión', { description: err.message });
+    const { data, error } = await fetchApi(`/purchases/${poId}/receive`, { method: 'PATCH' });
+
+    if (error) {
+      toast.error('Error al Recibir la Orden', { description: error });
       setPurchases(originalPurchases);
+      return;
+    }
+
+    if (data) {
+      toast.success('Orden Recibida', { description: 'El inventario ha sido actualizado correctamente.' });
+      setPurchases(prev => prev.map(p => p._id === poId ? data : p));
     }
   };
 

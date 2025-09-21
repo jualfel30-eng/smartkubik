@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { getProfile } from '../lib/api'; // Import getProfile
+import { getProfile, fetchApi } from '../lib/api'; // Import fetchApi
 
 const AuthContext = createContext(null);
 
@@ -7,73 +7,87 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('accessToken'));
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('accessToken'));
+  const [loading, setLoading] = useState(true); // Add loading state
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('accessToken');
-    const storedUser = localStorage.getItem('user');
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
-      setIsAuthenticated(true);
-    }
+    const initializeAuth = async () => {
+      const storedToken = localStorage.getItem('accessToken');
+      if (storedToken) {
+        setToken(storedToken);
+        const { data: profileResponse, error } = await getProfile();
+        if (profileResponse && profileResponse.data) {
+          setUser(profileResponse.data);
+          setIsAuthenticated(true);
+        } else {
+          // Token is invalid or expired
+          console.error('Failed to fetch profile with stored token:', error);
+          logout();
+        }
+      }
+      setLoading(false);
+    };
+    initializeAuth();
   }, []);
 
   const login = async (email, password, tenantCode) => {
-    try {
-      const response = await fetch('http://[::1]:3000/api/v1/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password, tenantCode }),
-      });
+    const { data, error } = await fetchApi('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, tenantCode }),
+    });
 
-      const data = await response.json();
+    if (error) {
+      console.error('Login failed:', error);
+      logout(); // Ensure clean state on failure
+      return { success: false, message: error };
+    }
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Error en el login');
-      }
-
-      const { accessToken, refreshToken, user: userData } = data.data;
+    if (data && data.data) {
+      // 1. Set tokens from login response
+      const { accessToken, refreshToken } = data.data;
       localStorage.setItem('accessToken', accessToken);
       if (refreshToken) {
         localStorage.setItem('refreshToken', refreshToken);
       }
-      localStorage.setItem('user', JSON.stringify(userData));
       setToken(accessToken);
-      setUser(userData);
-      setIsAuthenticated(true);
 
-      return { success: true };
-    } catch (error) {
-      console.error('Login failed:', error);
-      logout(); // Ensure clean state on failure
-      return { success: false, message: error.message };
+      // 2. Fetch the full user profile to get roles/permissions
+      const { data: profileResponse, error: profileError } = await getProfile();
+      if (profileError || !profileResponse.data) {
+        console.error('Failed to fetch profile after login:', profileError || 'Profile data is empty');
+        logout(); // Clean up if profile fetch fails
+        return { success: false, message: profileError || 'Profile data is empty' };
+      }
+
+      // 3. Set the full user object and finalize authentication
+      const profileData = profileResponse.data;
+      localStorage.setItem('user', JSON.stringify(profileData));
+      setUser(profileData);
+      setIsAuthenticated(true);
     }
+
+
+    return { success: true };
   };
 
   const loginWithTokens = async (accessToken, refreshToken) => {
-    try {
-      localStorage.setItem('accessToken', accessToken);
-      if (refreshToken) {
-        localStorage.setItem('refreshToken', refreshToken);
-      }
-      setToken(accessToken);
-      
-      // Fetch user profile
-      const profileResponse = await getProfile();
-      if (profileResponse.success) {
-        const userData = profileResponse.data;
-        localStorage.setItem('user', JSON.stringify(userData));
-        setUser(userData);
-        setIsAuthenticated(true);
-      } else {
-        throw new Error(profileResponse.message || 'Could not fetch profile');
-      }
-    } catch (error) {
-      console.error('Login with tokens failed:', error);
-      logout(); // Ensure clean state on failure
+    localStorage.setItem('accessToken', accessToken);
+    if (refreshToken) {
+      localStorage.setItem('refreshToken', refreshToken);
     }
+    setToken(accessToken);
+
+    const { data: profileResponse, error } = await getProfile();
+
+    if (error || !profileResponse.data) {
+      console.error('Login with tokens failed:', error || 'Profile data is empty');
+      logout(); // Ensure clean state on failure
+      return;
+    }
+
+    const userData = profileResponse.data;
+    localStorage.setItem('user', JSON.stringify(userData));
+    setUser(userData);
+    setIsAuthenticated(true);
   };
 
   const logout = () => {
@@ -95,9 +109,10 @@ export const AuthProvider = ({ children }) => {
     user,
     token,
     isAuthenticated,
+    loading, // Expose loading state
     login,
     logout,
-    loginWithTokens, // Expose the new function
+    loginWithTokens,
     permissions,
     hasPermission,
   };

@@ -82,20 +82,22 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
       }));
     }
 
-    try {
-      setIsSubmitting(true);
-      // Corrected endpoint based on backend controller
-      await fetchApi(`/orders/${order._id}/payments`, { 
-        method: 'POST', 
-        body: JSON.stringify({ payments: paymentsPayload }) 
-      });
+    setIsSubmitting(true);
+    const { data, error } = await fetchApi(`/orders/${order._id}/payments`, { 
+      method: 'POST', 
+      body: JSON.stringify({ payments: paymentsPayload }) 
+    });
+    setIsSubmitting(false);
+
+    if (error) {
+      console.error("Error submitting payment:", error);
+      alert(`Error al registrar el pago: ${error}`);
+      return;
+    }
+
+    if (data) {
       alert('Pago registrado con éxito');
       onPaymentSuccess();
-    } catch (error) {
-      console.error("Error submitting payment:", error);
-      alert(`Error al registrar el pago: ${error.message}`);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 

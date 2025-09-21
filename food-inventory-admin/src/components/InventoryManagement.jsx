@@ -65,30 +65,25 @@ function InventoryManagement() {
   };
 
   const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [invResponse, prodResponse] = await Promise.all([
-        fetchApi('/inventory'),
-        fetchApi('/products')
-      ]);
+    setLoading(true);
+    const [invResponse, prodResponse] = await Promise.all([
+      fetchApi('/inventory'),
+      fetchApi('/products')
+    ]);
 
-      if (invResponse.success) {
-        setInventoryData(invResponse.data);
-      } else {
-        throw new Error(invResponse.message || 'Failed to fetch inventory');
-      }
-
-      if (prodResponse.success) {
-        setProducts(prodResponse.data);
-      } else {
-        throw new Error(prodResponse.message || 'Failed to fetch products');
-      }
-
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    if (invResponse.error) {
+      setError(invResponse.error);
+    } else {
+      setInventoryData(invResponse.data.data || []);
     }
+
+    if (prodResponse.error) {
+      setError(prodResponse.error);
+    } else {
+      setProducts(prodResponse.data.data || []);
+    }
+
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -149,20 +144,20 @@ function InventoryManagement() {
       delete payload.lots;
     }
 
-    try {
-      const response = await fetchApi('/inventory', { 
-        method: 'POST', 
-        body: JSON.stringify(payload) 
-      });
-      if (response.success) {
-        setIsAddDialogOpen(false);
-        setNewInventoryItem({ productId: '', totalQuantity: 0, averageCostPrice: 0 });
-        loadData(); // Recargar datos
-      } else {
-        throw new Error(response.message || 'Error al crear el inventario');
-      }
-    } catch (err) {
-      alert(`Error: ${err.message}`);
+    const { data, error } = await fetchApi('/inventory', { 
+      method: 'POST', 
+      body: JSON.stringify(payload) 
+    });
+
+    if (error) {
+      alert(`Error: ${error}`);
+      return;
+    }
+
+    if (data) {
+      setIsAddDialogOpen(false);
+      setNewInventoryItem({ productId: '', totalQuantity: 0, averageCostPrice: 0, lots: [] });
+      loadData(); // Recargar datos
     }
   };
 
@@ -184,20 +179,19 @@ function InventoryManagement() {
       reason: editFormData.reason,
     };
 
-    try {
-      const response = await fetchApi('/inventory/adjust', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
+    const { data, error } = await fetchApi('/inventory/adjust', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
 
-      if (response.success) {
-        setIsEditDialogOpen(false);
-        loadData(); // Recargar datos
-      } else {
-        throw new Error(response.message || 'Error al ajustar el inventario');
-      }
-    } catch (err) {
-      alert(`Error: ${err.message}`);
+    if (error) {
+      alert(`Error: ${error}`);
+      return;
+    }
+
+    if (data) {
+      setIsEditDialogOpen(false);
+      loadData(); // Recargar datos
     }
   };
 

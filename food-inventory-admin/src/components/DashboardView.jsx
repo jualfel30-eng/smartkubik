@@ -53,19 +53,16 @@ function DashboardView() {
 
   useEffect(() => {
     const fetchSummary = async () => {
-      try {
-        setLoading(true);
-        const response = await fetchApi('/dashboard/summary');
-        if (response.success) {
-          setSummaryData(response.data);
-        } else {
-          throw new Error(response.message || 'Failed to fetch dashboard summary');
-        }
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
+      setLoading(true);
+      const { data, error } = await fetchApi('/dashboard/summary');
+      setLoading(false);
+
+      if (error) {
+        setError(error);
+        return;
       }
+      
+      setSummaryData(data);
     };
 
     fetchSummary();

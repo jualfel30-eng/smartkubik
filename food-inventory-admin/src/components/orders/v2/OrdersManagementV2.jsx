@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { fetchApi, getTenantSettings } from '@/lib/api';
+import { fetchApi } from '@/lib/api';
 import { OrdersDataTableV2 } from './OrdersDataTableV2';
 import { Badge } from "@/components/ui/badge";
 import { NewOrderFormV2 } from './NewOrderFormV2';
@@ -29,22 +29,22 @@ export function OrdersManagementV2() {
   const [selectedOrderForDetails, setSelectedOrderForDetails] = useState(null);
 
   const fetchOrders = useCallback(async (page = 1, search = '') => {
-    try {
-      setLoading(true);
-      const url = `/orders?page=${page}&limit=10&search=${search}&_=${new Date().getTime()}`;
-      const response = await fetchApi(url);
-      
-      setData({
-        orders: response.data || [],
-        pagination: response.pagination
-      });
-      setError(null);
-    } catch (err) {
-      setError(err.message);
-      console.error("Failed to fetch orders:", err);
-    } finally {
-      setLoading(false);
+    setLoading(true);
+    const url = `/orders?page=${page}&limit=10&search=${search}&_=${new Date().getTime()}`;
+    const { data, error } = await fetchApi(url);
+    setLoading(false);
+
+    if (error) {
+      setError(error);
+      console.error("Failed to fetch orders:", error);
+      return;
     }
+    
+    setData({
+      orders: data.data || [],
+      pagination: data.pagination
+    });
+    setError(null);
   }, []);
 
   // Effect for initial load and search term changes
@@ -54,11 +54,15 @@ export function OrdersManagementV2() {
 
   // Effect to fetch tenant settings
   useEffect(() => {
-    getTenantSettings().then(response => {
-      if (response.success) {
-        setTenantSettings(response.data);
+    const fetchTenantSettings = async () => {
+      const { data, error } = await fetchApi('/tenant/settings');
+      if (error) {
+        console.error("Failed to fetch tenant settings:", error);
+        return;
       }
-    }).catch(err => console.error("Failed to fetch tenant settings:", err));
+      setTenantSettings(data);
+    };
+    fetchTenantSettings();
   }, []);
 
   const handleRefresh = useCallback(() => {

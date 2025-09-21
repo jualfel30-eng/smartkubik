@@ -27,13 +27,24 @@ export function OrderStatusSelector({ order, onStatusChange }) {
     if (newStatus === order.status) return;
 
     setIsLoading(true);
-    try {
-      await fetchApi(`/orders/${order._id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
 
+    const { data, error } = await fetchApi(`/orders/${order._id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    });
+
+    setIsLoading(false);
+
+    if (error) {
+      console.error("Failed to update order status:", error);
+      toast.error("Error al actualizar la orden", {
+        description: error || "No se pudo cambiar el estado.",
+      });
+      return;
+    }
+
+    if (data) {
       toast.success(`Orden #${order.orderNumber} actualizada`, {
         description: `Nuevo estado: ${newStatus}`,
       });
@@ -41,13 +52,6 @@ export function OrderStatusSelector({ order, onStatusChange }) {
       if (onStatusChange) {
         onStatusChange();
       }
-    } catch (error) {
-      console.error("Failed to update order status:", error);
-      toast.error("Error al actualizar la orden", {
-        description: error.message || "No se pudo cambiar el estado.",
-      });
-    } finally {
-      setIsLoading(false);
     }
   };
 
