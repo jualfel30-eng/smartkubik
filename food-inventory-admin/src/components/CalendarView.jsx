@@ -4,7 +4,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { fetchApi } from '@/lib/api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { EventDialog } from './EventDialog.jsx';
 
@@ -15,25 +15,22 @@ export function CalendarView() {
   const calendarRef = useRef(null);
 
   const fetchEvents = useCallback(async () => {
-    if (!calendarRef.current) {
-      return;
-    }
-    const calendarApi = calendarRef.current.getApi();
-    const start = calendarApi.view.activeStart.toISOString();
-    const end = calendarApi.view.activeEnd.toISOString();
-
-    const { data, error } = await fetchApi(`/events?start=${start}&end=${end}`);
-
-    if (error) {
+    if (!calendarRef.current) return;
+    try {
+      const calendarApi = calendarRef.current.getApi();
+      const start = calendarApi.view.activeStart.toISOString();
+      const end = calendarApi.view.activeEnd.toISOString();
+      const response = await fetchApi(`/events?start=${start}&end=${end}`);
+      setEvents(response.data || []);
+    } catch (error) {
       console.error("Error fetching events:", error);
-      toast.error("Error al cargar eventos", { description: error });
-      return;
+      toast.error("Error al cargar eventos", { description: error.message });
+      setEvents([]);
     }
-    setEvents(data);
   }, []);
 
   useEffect(() => {
-    // El fetch inicial se dispara desde la prop `datesSet` del calendario cuando se monta
+    // El fetch inicial se dispara desde la prop `datesSet` del calendario
   }, []);
 
   const handleDateSelect = (selectInfo) => {
@@ -59,73 +56,53 @@ export function CalendarView() {
 
   const handleEventDrop = async (dropInfo) => {
     const { event } = dropInfo;
-    const { data, error } = await fetchApi(`/events/${event.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({
-        start: event.start.toISOString(),
-        end: event.end ? event.end.toISOString() : null,
-      }),
-    });
-
-    if (error) {
-      console.error("Error updating event:", error);
-      toast.error("Error al mover el evento", {
-        description: error,
+    try {
+      await fetchApi(`/events/${event.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ 
+          start: event.start.toISOString(),
+          end: event.end ? event.end.toISOString() : null,
+        })
       });
-      dropInfo.revert();
-      return;
-    }
-
-    if (data) {
-      toast.success("Evento Actualizado", {
-        description: `"${data.title}" ha sido movido.`
-      });
+      toast.success("Evento Actualizado");
       fetchEvents();
+    } catch (error) {
+      console.error("Error al actualizar evento:", error);
+      toast.error("Error al mover el evento", { description: error.message });
+      dropInfo.revert();
     }
   };
 
   const handleSaveEvent = async (eventData) => {
-    const isUpdate = selectedEvent?.id;
-    const url = isUpdate ? `/events/${selectedEvent.id}` : '/events';
-    const method = isUpdate ? 'PATCH' : 'POST';
+    try {
+      const isUpdate = selectedEvent?.id;
+      const url = isUpdate ? `/events/${selectedEvent.id}` : '/events';
+      const method = isUpdate ? 'PATCH' : 'POST';
 
-    const { data, error } = await fetchApi(url, {
-      method,
-      body: JSON.stringify(eventData),
-    });
-
-    if (error) {
-      console.error("Error saving event:", error);
-      toast.error("Error al guardar el evento", {
-        description: error,
+      await fetchApi(url, {
+        method,
+        body: JSON.stringify(eventData),
       });
-      return;
-    }
-    
-    if (data) {
-      toast.success(`Evento ${isUpdate ? 'Actualizado' : 'Creado'}`, {
-        description: `"${data.title}" guardado exitosamente.`,
-      });
+      
+      toast.success(`Evento ${isUpdate ? 'Actualizado' : 'Creado'}`);
       setIsDialogOpen(false);
       fetchEvents();
+
+    } catch (error) {
+      console.error("Error al guardar el evento:", error);
+      toast.error("Error al guardar el evento", { description: error.message });
     }
   };
 
   const handleDeleteEvent = async (eventId) => {
-    const { data, error } = await fetchApi(`/events/${eventId}`, { method: 'DELETE' });
-
-    if (error) {
-      console.error("Error deleting event:", error);
-      toast.error("Error al eliminar el evento", {
-        description: error,
-      });
-      return;
-    }
-
-    if (data) {
+    try {
+      await fetchApi(`/events/${eventId}`, { method: 'DELETE' });
       toast.success("Evento Eliminado");
       setIsDialogOpen(false);
       fetchEvents();
+    } catch (error) {
+      console.error("Error al eliminar el evento:", error);
+      toast.error("Error al eliminar el evento", { description: error.message });
     }
   };
 
@@ -137,36 +114,36 @@ export function CalendarView() {
         </div>
         <Card>
           <CardContent className="p-0">
-              <div className="aspect-video p-4">
-                  <FullCalendar
-                      ref={calendarRef}
-                      plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                      headerToolbar={{
-                      left: 'prev,next today',
-                      center: 'title',
-                      right: 'dayGridMonth,timeGridWeek,timeGridDay'
-                      }}
-                      initialView='dayGridMonth'
-                      locale='es'
-                      buttonText={{
-                          today:    'Hoy',
-                          month:    'Mes',
-                          week:     'Semana',
-                          day:      'Día',
-                      }}
-                      editable={true}
-                      selectable={true}
-                      selectMirror={true}
-                      dayMaxEvents={true}
-                      weekends={true}
-                      events={events}
-                      select={handleDateSelect}
-                      eventClick={handleEventClick}
-                      eventDrop={handleEventDrop}
-                      datesSet={fetchEvents} // Carga eventos al iniciar y al cambiar de vista
-                      height="100%" // UI FIX: Hacer que el calendario llene el contenedor
-                  />
-              </div>
+            <div className="aspect-video p-4">
+              <FullCalendar
+                ref={calendarRef}
+                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                headerToolbar={{
+                  left: 'prev,next today',
+                  center: 'title',
+                  right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                }}
+                initialView='dayGridMonth'
+                locale='es'
+                buttonText={{
+                  today: 'Hoy',
+                  month: 'Mes',
+                  week: 'Semana',
+                  day: 'Día',
+                }}
+                editable={true}
+                selectable={true}
+                selectMirror={true}
+                dayMaxEvents={true}
+                weekends={true}
+                events={events}
+                select={handleDateSelect}
+                eventClick={handleEventClick}
+                eventDrop={handleEventDrop}
+                datesSet={fetchEvents}
+                height="100%"
+              />
+            </div>
           </CardContent>
         </Card>
         <EventDialog 

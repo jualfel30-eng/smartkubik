@@ -19,33 +19,6 @@ Nada del alcance original de esta tarea. La funcionalidad está completa.
 **Dónde estamos parados:**
 La gestión de usuarios está completamente implementada y verificada.
 
-**Errores y cómo se corrigieron:**
-*   **Error 1: `TS2790: The operand of a 'delete' operator must be optional` en `tenant.service.ts`.**
-    *   **Causa:** Intentar usar el operador `delete` en una propiedad (`password`) que TypeScript no consideraba opcional en el tipo `User`.
-    *   **Corrección:** Se cambió la lógica de eliminación de la propiedad `password` por una desestructuración más segura y compatible con TypeScript (`const { password, ...result } = savedUser.toObject(); return result;`).
-*   **Error 2: `TS2352: Conversion of type '{...}' to type 'User' may be a mistake... Property 'password' is missing` en `tenant.service.ts`.**
-    *   **Causa:** El tipo de retorno de la función `inviteUser` era `Promise<User>`, pero el objeto que se devolvía no incluía la propiedad `password` (que es requerida en el tipo `User`).
-    *   **Corrección:** Se ajustó el tipo de retorno de `inviteUser` a `Promise<Partial<User>>`, reflejando con precisión que la función devuelve un objeto `User` sin todas sus propiedades requeridas (específicamente, `password`).
-*   **Error 3: Desajuste entre `fullName` (frontend) y `firstName`/`lastName` (backend).**
-    *   **Causa:** El DTO de invitación de usuario en el backend esperaba `firstName` y `lastName`, mientras que el formulario en el frontend intentaba enviar un único campo `fullName`.
-    *   **Corrección:** Se modificó el `InviteUserDto` en el backend para que aceptara `firstName` y `lastName` por separado, y se actualizó el componente `UserManagement.jsx` en el frontend para tener campos de entrada separados para `firstName` y `lastName`.
-*   **Error 4: `createdBy: Path 
-createdBy
- is required` (error 500 al crear un payable).**
-    *   **Causa:** El código del backend intentaba obtener el ID del usuario creador de `req.user.userId`, pero la propiedad correcta proporcionada por el sistema de autenticación era `req.user.id`. Como `req.user.userId` era `undefined`, el campo `createdBy` no se estaba asignando.
-    *   **Corrección:** Se reemplazaron todas las instancias de `req.user.userId` por `req.user.id` en `payables.controller.ts` y, proactivamente, en `tenant.controller.ts` para evitar futuros errores.
-
-**Errores recurrentes e hipótesis que se descartaron:**
-*   **Hipótesis descartada:** Que el problema del selector de cuentas vacío fuera un bug en el filtro de `acc.type === 'Expense'`. 
-    *   **Realidad:** El problema inicial fue que el backend no envolvía la respuesta de `findAllAccounts` en un objeto `{ success: true, data: ... }`, lo que impedía que el frontend procesara los datos correctamente. Una vez corregido esto, el filtro de `acc.type === 'Gasto' || acc.type === 'Gastos'` funcionó.
-
-**Qué archivos fueron modificados y por qué:**
-*   `food-inventory-saas/src/tenant.dto.ts`: Se modificó `InviteUserDto` para usar `firstName` y `lastName` en lugar de `fullName`.
-*   `food-inventory-saas/src/tenant.service.ts`: Se ajustó el tipo de retorno de `inviteUser` y la lógica de extracción de `password`.
-*   `food-inventory-saas/src/tenant.controller.ts`: Se corrigió el uso de `req.user.userId` a `req.user.id`.
-*   `food-inventory-admin/src/lib/api.js`: Se añadieron las funciones API para `inviteUser`, `updateUser`, `deleteUser`, `getPayables`, `createPayable`, `updatePayable`, `deletePayable`.
-*   `food-inventory-admin/src/components/UserManagement.jsx`: Se implementó la UI completa de CRUD para usuarios, incluyendo formularios modales y manejo de `firstName`/`lastName`.
-
 ---
 
 ## 2. Evolución de "Compras" a "Cuentas por Pagar" (Cosa Pendiente 2 - Completada)
@@ -64,36 +37,6 @@ Nada del alcance original de la evolución del módulo `Payable` en sí. La func
 
 **Dónde estamos parados:**
 El módulo de Cuentas por Pagar está completamente implementado (backend y frontend) y es accesible en la aplicación junto con el módulo de Compras original.
-
-**Errores y cómo se corrigieron:**
-*   **Error 1: Reemplazo inicial de la funcionalidad de "Compras".**
-    *   **Causa:** Interpretación errónea de "evolucionar" como "reemplazar", lo que llevó a la eliminación de la pestaña y ruta de "Compras" en `App.jsx`.
-    *   **Corrección:** Se restauró la pestaña y ruta de "Compras" a su estado original, y se añadió "Cuentas por Pagar" como una pestaña y ruta *nueva y separada*, asegurando que ambas funcionalidades coexistan.
-*   **Error 2: Selector de "Cuenta Contable" vacío en el formulario de creación de Payable.**
-    *   **Causa A:** El filtro en el frontend (`acc.type === 'Expense'`) buscaba el término en inglés, mientras que los tipos de cuenta en la base de datos estaban en español (`'Gasto'` o `'Gastos'`).
-    *   **Corrección A:** Se ajustó el filtro en `PayablesManagement.jsx` a `acc.type === 'Gasto' || acc.type === 'Gastos'`.
-    *   **Causa B:** El endpoint `GET /accounting/accounts` en el backend devolvía un array de cuentas directamente, mientras que el frontend esperaba una respuesta envuelta en un objeto `{ success: true, data: [...] }`.
-    *   **Corrección B:** Se modificó el método `findAllAccounts` en `accounting.controller.ts` para que envolviera la respuesta en el formato esperado (`return { success: true, data: accounts };`).
-*   **Error 3: Error de validación `amount` (`amount must be a number`) al crear un Payable.**
-    *   **Causa:** El valor del campo `amount` se estaba enviando como una cadena de texto desde el frontend al backend, a pesar de que el input era de tipo `number`. El backend esperaba un número.
-    *   **Corrección:** Se modificó la función `handleLineChange` en `PayablesManagement.jsx` para convertir explícitamente el valor del `amount` a un número (`parseFloat(value)`) antes de actualizar el estado y enviar los datos.
-*   **Error 4: Columna "Descripción" faltante en la tabla de Payables.**
-    *   **Causa:** Un descuido al construir la tabla, no se incluyó la columna para la descripción general del payable.
-    *   **Corrección:** Se añadió una columna "Descripción" tanto en el encabezado como en el cuerpo de la tabla en `PayablesManagement.jsx`.
-
-**Errores recurrentes e hipótesis que se descartaron:**
-*   **Hipótesis descartada:** Que el problema del selector de cuentas vacío fuera un bug en el filtro de `acc.type === 'Expense'`. 
-    *   **Realidad:** El problema inicial fue que el backend no envolvía la respuesta de `findAllAccounts` en un objeto `{ success: true, data: ... }`, lo que impedía que el frontend procesara los datos correctamente. Una vez corregido esto, el filtro de `acc.type === 'Gasto' || acc.type === 'Gastos'` funcionó.
-
-**Qué archivos fueron modificados y por qué:**
-*   `food-inventory-saas/src/schemas/payable.schema.ts`: Creado para definir el nuevo esquema de `Payable`.
-*   `food-inventory-saas/src/modules/payables/`: Directorio y archivos (`payables.module.ts`, `payables.service.ts`, `payables.controller.ts`) creados para el nuevo módulo.
-*   `food-inventory-saas/src/modules/payables/payables.module.ts`: Configurado para importar `MongooseModule` y registrar `Payable`, `Tenant` y `User` schemas.
-*   `food-inventory-saas/src/modules/payables/payables.service.ts`: Implementación de la lógica de negocio para CRUD de `Payables`, incluyendo DTOs temporales.
-*   `food-inventory-saas/src/modules/payables/payables.controller.ts`: Implementación de los endpoints API para CRUD de `Payables`.
-*   `food-inventory-admin/src/lib/api.js`: Se añadieron las funciones API para `getPayables`, `createPayable`, `updatePayable`, `deletePayable`.
-*   `food-inventory-admin/src/components/PayablesManagement.jsx`: Creado e implementado con la UI completa de CRUD para `Payables`, incluyendo formularios modales, manejo de datos y corrección de tipos.
-*   `food-inventory-admin/src/App.jsx`: Modificado para restaurar la navegación de "Compras" y añadir una nueva navegación para "Cuentas por Pagar", ajustando la grilla de pestañas.
 
 ---
 
@@ -114,19 +57,39 @@ El módulo de Cuentas por Pagar está completamente implementado (backend y fron
 **Dónde estamos parados:**
 La Fase 1 de las mejoras en asientos contables automáticos está completa.
 
-**Errores y cómo se corrigieron:**
-*   No se encontraron errores directos durante la implementación de esta fase. Sin embargo, el error `createdBy` (mencionado en la sección 1) fue descubierto durante las pruebas del módulo Payables, cuya implementación fue un requisito previo para esta tarea.
+---
 
-**Qué archivos fueron modificados y por qué:**
-*   `food-inventory-saas/src/modules/accounting/accounting.service.ts`: Se añadió `createJournalEntryForCOGS` y se modificó `createJournalEntryForSale` para el manejo detallado de envíos y descuentos.
-*   `food-inventory-saas/src/modules/orders/orders.service.ts`: Se añadió la llamada a `createJournalEntryForCOGS` después de la creación de la orden.
+## 4. Informes Contables (Cosa Pendiente 3 - Fase 2 Completada)
+
+**Objetivos Pautados:**
+*   Implementar informes de Cuentas por Cobrar, Cuentas por Pagar y Estado de Flujo de Efectivo.
+
+**Logros:**
+*   **Informe de Cuentas por Cobrar:**
+    *   **Backend:** Se creó el endpoint `GET /accounting/reports/accounts-receivable` que calcula el saldo de las órdenes pendientes y parcialmente pagadas.
+    *   **Frontend:** Se creó el componente `AccountsReceivableReport.jsx` que consume el endpoint y muestra los datos en una tabla.
+*   **Informe de Cuentas por Pagar:**
+    *   **Backend:** Se creó el endpoint `GET /accounting/reports/accounts-payable` que calcula el saldo de las cuentas por pagar abiertas y parcialmente pagadas.
+    *   **Frontend:** Se creó el componente `AccountsPayableReport.jsx` que consume el endpoint y muestra los datos en una tabla.
+*   **Informe de Flujo de Efectivo:**
+    *   **Backend:** Se creó el endpoint `GET /accounting/reports/cash-flow-statement` que calcula el flujo de efectivo neto en un período determinado, considerando los pagos de clientes y los pagos a proveedores.
+    *   **Frontend:** Se creó el componente `CashFlowStatement.jsx` que permite al usuario seleccionar un rango de fechas y muestra el resultado.
+
+**Qué falta:**
+Nada del alcance original de esta fase. La funcionalidad está completa.
+
+**Dónde estamos parados:**
+La Fase 2 de informes contables está implementada.
+
+**Errores y cómo se corrigieron:**
+*   Se identificó una limitación en el cálculo del flujo de efectivo para los pagos a proveedores, ya que el esquema `Payable` no almacena un historial de pagos con fechas. Por ahora, se utiliza la fecha de actualización del `Payable` como una aproximación, pero esto debe mejorarse en el futuro.
 
 ---
 
 ## Próximos Pasos
 
-Hemos completado la **Gestión de Usuarios** y la **Evolución del Módulo de Compras a Cuentas por Pagar**, así como la **Fase 1 de las Mejoras en Asientos Contables Automáticos**.
+Hemos completado la **Fase 2 de la "Cosa Pendiente 3": Otros Informes Contables**.
 
-El siguiente paso lógico, siguiendo el orden de las "Cosas Pendientes", es la **Fase 2 de la "Cosa Pendiente 3": Otros Informes Contables**. Dentro de esta fase, el informe más factible de implementar a continuación es el **Informe de Cuentas por Cobrar (Accounts Receivable)**, ya que la información necesaria ya está disponible en el sistema.
+El siguiente paso lógico es la **Fase 3 de la "Cosa Pendiente 3": Funcionalidades Avanzadas**. Dentro de esta fase, podemos comenzar con la **Conciliación Bancaria**.
 
-¿Te gustaría que procedamos con la implementación del **Informe de Cuentas por Cobrar**?
+¿Te gustaría que procedamos con la implementación de la **Conciliación Bancaria**?

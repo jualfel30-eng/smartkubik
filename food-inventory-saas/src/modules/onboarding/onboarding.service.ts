@@ -9,6 +9,7 @@ import { CreateTenantWithAdminDto } from './dto/onboarding.dto';
 import { JwtService } from '@nestjs/jwt';
 import { SeedingService } from '../seeding/seeding.service';
 import { RoleDocument } from '../../schemas/role.schema';
+import { subscriptionPlans } from '../../config/subscriptions.config';
 
 @Injectable()
 export class OnboardingService {
@@ -56,13 +57,23 @@ export class OnboardingService {
 
     try {
       // 1. Create Tenant
+      const trialPlan = subscriptionPlans.trial;
       const newTenant = new this.tenantModel({
         name: dto.businessName,
         code: tenantCode,
         businessType: dto.businessType,
+        contactInfo: {
+          email: dto.email,
+          phone: dto.phone,
+        },
         status: 'active',
-        limits: {
-          maxUsers: dto.numberOfUsers,
+        subscriptionPlan: 'trial',
+        limits: trialPlan.limits,
+        usage: {
+          currentUsers: 1,
+          currentProducts: 0,
+          currentOrders: 0,
+          currentStorage: 0,
         },
       });
       this.logger.log(`Categorías recibidas: ${dto.categories}`);

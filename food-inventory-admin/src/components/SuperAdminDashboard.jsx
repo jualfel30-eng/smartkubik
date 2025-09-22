@@ -17,25 +17,26 @@ const TenantStatusSelector = ({ tenant, onStatusChange }) => {
 
   const handleStatusChange = async (newStatus) => {
     if (newStatus === currentStatus) return;
-
     setIsLoading(true);
-    const { data, error } = await fetchApi(`/super-admin/tenants/${tenant._id}/status`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status: newStatus }),
-    });
-    setIsLoading(false);
+    try {
+      const response = await fetchApi(`/super-admin/tenants/${tenant._id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: newStatus }),
+      });
 
-    if (error) {
-      toast.error(`Error al actualizar el tenant ${tenant.name}` , { description: error });
-      return;
-    }
-
-    if (data) {
-      toast.success(`Estado de ${tenant.name} actualizado a "${newStatus}"`);
-      setCurrentStatus(newStatus);
-      if (onStatusChange) {
-        onStatusChange(data); // Actualizar el estado en el componente padre
+      if (response && response.data) {
+        toast.success(`Estado de ${tenant.name} actualizado a "${newStatus}"`);
+        setCurrentStatus(response.data.status);
+        if (onStatusChange) {
+          onStatusChange(response.data);
+        }
+      } else {
+        throw new Error('No se recibió una respuesta válida del servidor.');
       }
+    } catch (error) {
+      toast.error(`Error al actualizar el tenant ${tenant.name}`, { description: error.message });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -62,15 +63,16 @@ export default function SuperAdminDashboard() {
 
   const loadTenants = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await fetchApi('/super-admin/tenants');
-    setLoading(false);
-
-    if (error) {
-      setError(error);
-      toast.error('Error al cargar los tenants', { description: error });
-      return;
+    try {
+      const response = await fetchApi('/super-admin/tenants');
+      setTenants(response || []); // API returns a raw array
+    } catch (err) {
+      setError(err.message);
+      setTenants([]);
+      toast.error('Error al cargar los tenants', { description: err.message });
+    } finally {
+      setLoading(false);
     }
-    setTenants(data || []);
   }, []);
 
   useEffect(() => {

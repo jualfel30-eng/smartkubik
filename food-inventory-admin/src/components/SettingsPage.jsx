@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import RolesManagement from './RolesManagement';
 import UserManagement from './UserManagement'; // Importar UserManagement
 import ChangePasswordForm from './ChangePasswordForm'; // Importar ChangePasswordForm
+import UsageAndBilling from './UsageAndBilling'; // Importar UsageAndBilling
 import { useAuth } from '@/hooks/use-auth.jsx'; // Importar useAuth
 
 const initialSettings = {
@@ -67,48 +68,48 @@ const SettingsPage = () => {
     const fetchSettings = async () => {
       try {
         setLoading(true);
-        const response = await getTenantSettings();
-        if (response.success) {
+        const { data, error } = await getTenantSettings();
+        if (error) {
+          toast.error('Error al cargar la configuración', { description: error });
+        } else {
+          const settingsData = data.data || {};
           // Deep merge fetched settings with initial settings to avoid undefined errors
           setSettings(prev => {
-            const data = response.data || {};
             const newSettings = {
               ...initialSettings,
-              ...data,
-              contactInfo: { ...initialSettings.contactInfo, ...(data.contactInfo || {}) },
-              taxInfo: { ...initialSettings.taxInfo, ...(data.taxInfo || {}) },
+              ...settingsData,
+              contactInfo: { ...initialSettings.contactInfo, ...(settingsData.contactInfo || {}) },
+              taxInfo: { ...initialSettings.taxInfo, ...(settingsData.taxInfo || {}) },
               settings: {
                 ...initialSettings.settings,
-                ...(data.settings || {}),
+                ...(settingsData.settings || {}),
                 currency: {
                   ...initialSettings.settings.currency,
-                  ...(data.settings?.currency || {}),
+                  ...(settingsData.settings?.currency || {}),
                 },
                 inventory: {
                   ...initialSettings.settings.inventory,
-                  ...(data.settings?.inventory || {}),
+                  ...(settingsData.settings?.inventory || {}),
                 },
                 documentTemplates: {
                   ...initialSettings.settings.documentTemplates,
-                  ...(data.settings?.documentTemplates || {}),
+                  ...(settingsData.settings?.documentTemplates || {}),
                   invoice: {
                     ...initialSettings.settings.documentTemplates.invoice,
-                    ...(data.settings?.documentTemplates?.invoice || {}),
+                    ...(settingsData.settings?.documentTemplates?.invoice || {}),
                   },
                   quote: {
                     ...initialSettings.settings.documentTemplates.quote,
-                    ...(data.settings?.documentTemplates?.quote || {}),
+                    ...(settingsData.settings?.documentTemplates?.quote || {}),
                   },
                 },
               },
             };
             return newSettings;
           });
-          if (response.data.logo) {
-            setLogoPreviewUrl(response.data.logo);
+          if (settingsData.logo) {
+            setLogoPreviewUrl(settingsData.logo);
           }
-        } else {
-          toast.error('Error al cargar la configuración', { description: response.message });
         }
       } catch (error) {
         toast.error('Error de red', { description: 'No se pudo conectar con el servidor.' });
@@ -167,14 +168,14 @@ const SettingsPage = () => {
     }
     setIsUploadingLogo(true);
     try {
-      const response = await uploadTenantLogo(selectedFile);
-      if (response.success) {
-        toast.success('Logo actualizado correctamente');
-        setSettings(prev => ({ ...prev, logo: response.data.logo }));
-        setLogoPreviewUrl(response.data.logo);
-        setSelectedFile(null);
+      const { data, error } = await uploadTenantLogo(selectedFile);
+      if (error) {
+        toast.error('Error al subir el logo', { description: error });
       } else {
-        toast.error('Error al subir el logo', { description: response.message });
+        toast.success('Logo actualizado correctamente');
+        setSettings(prev => ({ ...prev, logo: data.logo }));
+        setLogoPreviewUrl(data.logo);
+        setSelectedFile(null);
       }
     } catch (error) {
       toast.error('Error de red', { description: `No se pudo subir el logo: ${error.message}` });
@@ -186,11 +187,11 @@ const SettingsPage = () => {
   const handleSaveSettings = async () => {
     setIsSaving(true);
     try {
-      const response = await updateTenantSettings(settings);
-      if (response.success) {
-        toast.success('Configuración guardada correctamente');
+      const { error } = await updateTenantSettings(settings);
+      if (error) {
+        toast.error('Error al guardar la configuración', { description: error });
       } else {
-        toast.error('Error al guardar la configuración', { description: response.message });
+        toast.success('Configuración guardada correctamente');
       }
     } catch (error) {
       toast.error('Error de red', { description: `No se pudo guardar: ${error.message}` });
@@ -208,11 +209,12 @@ const SettingsPage = () => {
       <h1 className="text-3xl font-bold">Configuración</h1>
       
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="security">Seguridad</TabsTrigger>
           {hasPermission('users_read') && <TabsTrigger value="users">Usuarios</TabsTrigger>}
           {hasPermission('roles_read') && <TabsTrigger value="roles">Roles y Permisos</TabsTrigger>}
+          {hasPermission('billing_read') && <TabsTrigger value="billing">Uso y Facturación</TabsTrigger>}
         </TabsList>
         <TabsContent value="general">
           <div className="grid gap-6 lg:grid-cols-3 mt-4">
@@ -382,6 +384,9 @@ const SettingsPage = () => {
         </TabsContent>
         <TabsContent value="roles">
             <RolesManagement />
+        </TabsContent>
+        <TabsContent value="billing">
+            <UsageAndBilling />
         </TabsContent>
       </Tabs>
     </div>

@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog.jsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu.jsx';
-import ExcelJS from 'exceljs';
+import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Checkbox } from '@/components/ui/checkbox.jsx';
@@ -119,16 +119,17 @@ function ProductsManagement() {
   }, [isAddDialogOpen]);
 
   const loadProducts = useCallback(async () => {
-    setLoading(true);
-    const { data, error } = await fetchApi('/products');
-    setLoading(false);
-
-    if (error) {
-      setError(error);
-      return;
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await fetchApi('/products');
+      setProducts(data.data || []);
+    } catch (err) {
+      setError(err.message);
+      setProducts([]);
+    } finally {
+      setLoading(false);
     }
-    
-    setProducts(data.data || []);
   }, []);
 
   useEffect(() => {
@@ -169,16 +170,12 @@ function ProductsManagement() {
     }
     delete payload.variant;
 
-    const { data, error } = await fetchApi('/products', { method: 'POST', body: JSON.stringify(payload) });
-
-    if (error) {
-      alert(`Error: ${error}`);
-      return;
-    }
-
-    if (data) {
+    try {
+      await fetchApi('/products', { method: 'POST', body: JSON.stringify(payload) });
       setIsAddDialogOpen(false);
       loadProducts();
+    } catch (err) {
+      alert(`Error: ${err.message}`);
     }
   };
 
@@ -197,34 +194,26 @@ function ProductsManagement() {
       unitOfMeasure: editingProduct.unitOfMeasure,
     };
 
-    const { data, error } = await fetchApi(`/products/${editingProduct._id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(payload),
-    });
-
-    if (error) {
-      alert(`Error al actualizar el producto: ${error}`);
-      return;
-    }
-
-    if (data) {
+    try {
+      await fetchApi(`/products/${editingProduct._id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
       setIsEditDialogOpen(false);
       setEditingProduct(null);
       loadProducts();
+    } catch (err) {
+      alert(`Error al actualizar el producto: ${err.message}`);
     }
   };
 
   const handleDeleteProduct = async (productId) => {
     if (window.confirm('¿Estás seguro de que quieres eliminar este producto?')) {
-      const { data, error } = await fetchApi(`/products/${productId}`, { method: 'DELETE' });
-
-      if (error) {
-        alert(`Error: ${error}`);
-        return;
-      }
-
-      if (data) {
+      try {
+        await fetchApi(`/products/${productId}`, { method: 'DELETE' });
         loadProducts();
+      } catch (err) {
+        alert(`Error: ${err.message}`);
       }
     }
   };
@@ -300,21 +289,17 @@ function ProductsManagement() {
     });
   };
 
-  const handleDownloadTemplate = async () => {
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Plantilla de Productos');
-
+  const handleDownloadTemplate = () => {
     const headers = ["sku", "name", "category", "subcategory", "brand", "description", "ingredients", "isPerishable", "shelfLifeDays", "storageTemperature", "ivaApplicable", "taxCategory", "variantName", "variantSku", "variantBarcode", "variantUnit", "variantUnitSize", "variantBasePrice", "variantCostPrice", "image1", "image2", "image3"];
-    worksheet.columns = headers.map(header => ({ header, key: header, width: 20 }));
-
     const exampleData = [
-      { sku: "SKU-001", name: "Arroz Blanco 1kg", category: "Granos", subcategory: "Arroz", brand: "MarcaA", description: "..." },
+      ["SKU-001", "Arroz Blanco 1kg", "Granos", "Arroz", "MarcaA", "..."],
     ];
-    worksheet.addRows(exampleData);
-
-    const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    saveAs(blob, 'plantilla_productos.xlsx');
+    const data = [headers, ...exampleData];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Plantilla de Productos");
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    saveAs(new Blob([wbout], { type: 'application/octet-stream' }), 'plantilla_productos.xlsx');
   };
 
   const handleBulkUpload = (e) => { /* ... */ };

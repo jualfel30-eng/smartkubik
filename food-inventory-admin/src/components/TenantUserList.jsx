@@ -17,15 +17,16 @@ export default function TenantUserList() {
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await fetchApi(`/super-admin/tenants/${tenantId}/users`);
-    setLoading(false);
-
-    if (error) {
-      setError(error);
-      toast.error('Error al cargar los usuarios', { description: error });
-      return;
+    try {
+      const response = await fetchApi(`/super-admin/tenants/${tenantId}/users`);
+      setUsers(response || []);
+    } catch (err) {
+      setError(err.message);
+      setUsers([]);
+      toast.error('Error al cargar los usuarios', { description: err.message });
+    } finally {
+      setLoading(false);
     }
-    setUsers(data || []);
   }, [tenantId]);
 
   useEffect(() => {
@@ -33,19 +34,20 @@ export default function TenantUserList() {
   }, [loadUsers]);
 
   const handleImpersonate = async (userId) => {
-    const { data, error } = await fetchApi(`/super-admin/tenants/${tenantId}/users/${userId}/impersonate`, {
-      method: 'POST',
-    });
+    try {
+      const tokenData = await fetchApi(`/super-admin/tenants/${tenantId}/users/${userId}/impersonate`, {
+        method: 'POST',
+      });
 
-    if (error) {
-      toast.error('Error al impersonar al usuario', { description: error });
-      return;
-    }
-
-    if (data) {
-      toast.success('Impersonando al usuario...');
-      await loginWithTokens(data.accessToken, data.refreshToken);
-      navigate('/');
+      if (tokenData && tokenData.accessToken) {
+        toast.success('Impersonando al usuario...');
+        await loginWithTokens(tokenData.accessToken, tokenData.refreshToken);
+        navigate('/');
+      } else {
+        throw new Error("No se recibió una respuesta válida para la impersonación.");
+      }
+    } catch (error) {
+      toast.error('Error al impersonar al usuario', { description: error.message });
     }
   };
 
@@ -65,8 +67,8 @@ export default function TenantUserList() {
             <CardTitle>Usuarios del Tenant</CardTitle>
             <CardDescription>Lista de usuarios para el tenant seleccionado.</CardDescription>
           </div>
-          <Button variant="outline" onClick={() => navigate('/super-admin')}>
-            Volver al Dashboard
+          <Button variant="outline" onClick={() => navigate('/super-admin/tenants')}>
+            Volver a Gestión de Tenants
           </Button>
         </div>
       </CardHeader>

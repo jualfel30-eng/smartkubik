@@ -25,8 +25,8 @@ export class ChartOfAccounts {
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: "ChartOfAccounts" })
   parent?: MongooseSchema.Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })
-  tenantId: Types.ObjectId;
+  @Prop({ type: String, required: true, index: true })
+  tenantId: string;
 }
 
 export const ChartOfAccountsSchema =

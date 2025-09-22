@@ -52,16 +52,17 @@ export function NewOrderFormV2({ onOrderCreated }) {
 
   useEffect(() => {
     const loadProducts = async () => {
-      setLoadingProducts(true);
-      const { data, error } = await fetchApi('/products');
-      setLoadingProducts(false);
-
-      if (error) {
-        console.error("Failed to fetch products:", error);
-        return;
+      try {
+        setLoadingProducts(true);
+        const data = await fetchApi('/products');
+        console.log('Respuesta de API /products:', data);
+        setProducts(data.data || []);
+      } catch (err) {
+        console.error("Failed to fetch products:", err);
+        setProducts([]);
+      } finally {
+        setLoadingProducts(false);
       }
-      
-      setProducts(data.data || []);
     };
     loadProducts();
   }, []);
@@ -248,22 +249,17 @@ export function NewOrderFormV2({ onOrderCreated }) {
       notes: newOrder.notes,
       shippingAddress: newOrder.shippingAddress.street ? newOrder.shippingAddress : undefined,
     };
-
-    const { data, error } = await fetchApi('/orders', { method: 'POST', body: JSON.stringify(payload) });
-
-    if (error) {
-      console.error('Error creating order:', error);
-      alert(`Error al crear la orden: ${error}`);
-      return;
-    }
-
-    if (data) {
+    try {
+      await fetchApi('/orders', { method: 'POST', body: JSON.stringify(payload) });
       alert('¡Orden creada con éxito!');
       setNewOrder(initialOrderState);
       setMixedPaymentData(null);
       if (onOrderCreated) {
         onOrderCreated();
       }
+    } catch (error) {
+      console.error('Error creating order:', error);
+      alert(`Error al crear la orden: ${error.message}`);
     }
   };
 

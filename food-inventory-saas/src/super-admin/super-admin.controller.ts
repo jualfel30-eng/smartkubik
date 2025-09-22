@@ -48,4 +48,9 @@ export class SuperAdminController {
   getGlobalMetrics() {
     return this.superAdminService.getGlobalMetrics();
   }
+
+  @Get('events')
+  findAllEvents() {
+    return this.superAdminService.findAllEvents();
+  }
 }

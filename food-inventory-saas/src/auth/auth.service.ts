@@ -154,6 +154,10 @@ export class AuthService {
       throw new BadRequestException("Tenant no encontrado");
     }
 
+    if (tenant.usage.currentUsers >= tenant.limits.maxUsers) {
+      throw new BadRequestException("El tenant ha alcanzado el límite de usuarios.");
+    }
+
     const existingUser = await this.userModel.findOne({
       email: registerDto.email,
       tenantId: tenant._id,
@@ -182,6 +186,8 @@ export class AuthService {
 
     const user = new this.userModel(userData);
     const savedUser = await user.save();
+
+    await this.tenantModel.findByIdAndUpdate(tenant._id, { $inc: { 'usage.currentUsers': 1 } });
 
     const userWithRole = await savedUser.populate('role');
     const tokens = await this.generateTokens(userWithRole, tenant);
@@ -264,6 +270,15 @@ export class AuthService {
       `Creating user: ${createUserDto.email} by ${currentUser.email}`,
     );
 
+    const tenant = await this.tenantModel.findById(currentUser.tenantId);
+    if (!tenant) {
+      throw new BadRequestException("Tenant no encontrado");
+    }
+
+    if (tenant.usage.currentUsers >= tenant.limits.maxUsers) {
+      throw new BadRequestException("Límite de usuarios alcanzado para su plan de suscripción.");
+    }
+
     const existingUser = await this.userModel.findOne({
       email: createUserDto.email,
       tenantId: currentUser.tenantId,
@@ -291,6 +306,9 @@ export class AuthService {
 
     const user = new this.userModel(userData);
     const savedUser = await user.save();
+
+    // Incrementar el contador de usuarios
+    await this.tenantModel.findByIdAndUpdate(currentUser.tenantId, { $inc: { 'usage.currentUsers': 1 } });
 
     this.logger.log(`User created successfully: ${savedUser.email}`);
 

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Combobox } from '@/components/ui/combobox.jsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu.jsx';
-import ExcelJS from 'exceljs';
+import * as XLSX from 'xlsx';
 import { fetchApi } from '../lib/api';
 import { 
   Plus, 
@@ -65,25 +65,25 @@ function InventoryManagement() {
   };
 
   const loadData = useCallback(async () => {
-    setLoading(true);
-    const [invResponse, prodResponse] = await Promise.all([
-      fetchApi('/inventory'),
-      fetchApi('/products')
-    ]);
+    try {
+      setLoading(true);
+      setError(null);
+      const [inventoryItems, productsList] = await Promise.all([
+        fetchApi('/inventory'),
+        fetchApi('/products')
+      ]);
 
-    if (invResponse.error) {
-      setError(invResponse.error);
-    } else {
-      setInventoryData(invResponse.data.data || []);
+      console.log('Respuesta de API /inventory:', inventoryItems);
+      setInventoryData(inventoryItems.data || []);
+      setProducts(productsList.data || []);
+
+    } catch (err) {
+      setError(err.message);
+      setInventoryData([]);
+      setProducts([]);
+    } finally {
+      setLoading(false);
     }
-
-    if (prodResponse.error) {
-      setError(prodResponse.error);
-    } else {
-      setProducts(prodResponse.data.data || []);
-    }
-
-    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -144,20 +144,16 @@ function InventoryManagement() {
       delete payload.lots;
     }
 
-    const { data, error } = await fetchApi('/inventory', { 
-      method: 'POST', 
-      body: JSON.stringify(payload) 
-    });
-
-    if (error) {
-      alert(`Error: ${error}`);
-      return;
-    }
-
-    if (data) {
+    try {
+      await fetchApi('/inventory', { 
+        method: 'POST', 
+        body: JSON.stringify(payload) 
+      });
       setIsAddDialogOpen(false);
       setNewInventoryItem({ productId: '', totalQuantity: 0, averageCostPrice: 0, lots: [] });
       loadData(); // Recargar datos
+    } catch (err) {
+      alert(`Error: ${err.message}`);
     }
   };
 
@@ -179,25 +175,21 @@ function InventoryManagement() {
       reason: editFormData.reason,
     };
 
-    const { data, error } = await fetchApi('/inventory/adjust', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-
-    if (error) {
-      alert(`Error: ${error}`);
-      return;
-    }
-
-    if (data) {
+    try {
+      await fetchApi('/inventory/adjust', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
       setIsEditDialogOpen(false);
       loadData(); // Recargar datos
+    } catch (err) {
+      alert(`Error: ${err.message}`);
     }
   };
 
   const handleDeleteItem = (id) => console.log("Delete item logic needs to be connected to the API", id);
 
-  const handleExport = async (fileType) => {
+  const handleExport = (fileType) => {
     const dataToExport = filteredData.map(item => ({
       'SKU': item.productSku,
       'Producto': item.productName,
@@ -208,25 +200,13 @@ function InventoryManagement() {
       'Costo Promedio': item.averageCostPrice,
       'Fecha de Vencimiento (Primer Lote)': item.lots?.[0]?.expirationDate ? new Date(item.lots[0].expirationDate).toLocaleDateString() : 'N/A',
     }));
-
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Inventario');
-
-    worksheet.columns = Object.keys(dataToExport[0] || {}).map(key => ({ header: key, key, width: 20 }));
-    worksheet.addRows(dataToExport);
-
-    if (fileType === 'xlsx') {
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      saveAs(blob, 'inventario.xlsx');
-    } else if (fileType === 'csv') {
-      const buffer = await workbook.csv.writeBuffer();
-      const blob = new Blob([buffer], { type: 'text/csv;charset=utf-8;' });
-      saveAs(blob, 'inventario.csv');
-    }
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Inventario");
+    XLSX.writeFile(wb, `inventario.${fileType}`);
   };
 
-  const handleImport = () => console.log("Import logic needs to be connected to the API");
+  const handleImport = () => {};
 
   if (loading) return <div>Cargando inventario...</div>;
   if (error) return <div className="text-red-600">Error: {error}</div>;

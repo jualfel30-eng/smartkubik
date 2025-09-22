@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "db:seed": "ts-node -r dotenv/config scripts/seed-database.ts",
     "db:migrate:weight-selling": "ts-node -r dotenv/config scripts/migrate-products-for-weight-selling.ts",
+    "db:migrate:tenant-ids": "ts-node -r dotenv/config scripts/migrate-tenant-ids-to-string.ts",
     "db:reset": "ts-node scripts/reset-database.ts"
   },
   "dependencies": {

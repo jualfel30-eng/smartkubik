@@ -79,4 +79,28 @@ export class AccountingController {
     const asOfDate = asOfDateString ? new Date(asOfDateString) : new Date();
     return this.accountingService.getBalanceSheet(tenantId, asOfDate);
   }
+
+  @Get("reports/accounts-receivable")
+  getAccountsReceivableReport(@Req() req) {
+    const tenantId = req.user.tenantId;
+    return this.accountingService.getAccountsReceivable(tenantId);
+  }
+
+  @Get("reports/accounts-payable")
+  getAccountsPayableReport(@Req() req) {
+    const tenantId = req.user.tenantId;
+    return this.accountingService.getAccountsPayable(tenantId);
+  }
+
+  @Get("reports/cash-flow-statement")
+  getCashFlowStatement(
+    @Req() req,
+    @Query("from") from: string,
+    @Query("to") to: string,
+  ) {
+    const tenantId = req.user.tenantId;
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+    return this.accountingService.getCashFlowStatement(tenantId, fromDate, toDate);
+  }
 }

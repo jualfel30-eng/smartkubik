@@ -161,6 +161,10 @@ const Step2Form = ({ formData, setFormData, onNext, onBack }) => {
         <Input id="email" type="email" value={formData.email} onChange={handleChange} required />
       </div>
       <div className="space-y-2">
+        <Label htmlFor="phone">Teléfono</Label>
+        <Input id="phone" type="tel" value={formData.phone} onChange={handleChange} required />
+      </div>
+      <div className="space-y-2">
         <Label htmlFor="password">Contraseña</Label>
         <Input id="password" type="password" value={formData.password} onChange={handleChange} required />
       </div>
@@ -188,6 +192,7 @@ const Step3Summary = ({ formData, onBack, onSubmit, loading, error }) => {
         <p><strong>Subcategoría:</strong> {subcategory}</p>
         <p><strong>Administrador:</strong> {formData.firstName} {formData.lastName}</p>
         <p><strong>Email:</strong> {formData.email}</p>
+        <p><strong>Teléfono:</strong> {formData.phone}</p>
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex justify-between">
@@ -214,6 +219,7 @@ function Register() {
     lastName: '',
     email: '',
     password: '',
+    phone: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -228,33 +234,26 @@ function Register() {
     setError('');
 
     const payload = {
-      businessName: formData.businessName,
-      businessType: formData.businessType,
+      ...formData,
       numberOfUsers: parseInt(formData.numberOfUsers, 10),
       categories: formData.category === 'Otro' ? formData.otherCategory : formData.category,
       subcategories: formData.subcategory === 'Otro' ? formData.otherSubcategory : formData.subcategory,
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      email: formData.email,
-      password: formData.password,
     };
 
-    const { data, error } = await fetchApi('/onboarding/register', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
+    try {
+      const response = await fetchApi('/onboarding/register', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      
+      const { accessToken, refreshToken } = response;
+      loginWithTokens(accessToken, refreshToken);
+      navigate('/dashboard');
 
-    setLoading(false);
-
-    if (error) {
-      setError(error);
-      return;
-    }
-
-    if (data) {
-      const { accessToken, refreshToken } = data;
-      await loginWithTokens(accessToken, refreshToken);
-      navigate('/');
+    } catch (err) {
+      setError(err.message || 'Ocurrió un error inesperado.');
+    } finally {
+      setLoading(false);
     }
   };
 

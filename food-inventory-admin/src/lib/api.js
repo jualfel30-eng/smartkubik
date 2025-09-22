@@ -2,7 +2,7 @@ const getAuthToken = () => {
   return localStorage.getItem('accessToken');
 };
 
-// Updated fetchApi to handle FormData for file uploads and standardized responses
+// Updated fetchApi to handle FormData for file uploads
 export const fetchApi = async (url, options = {}) => {
   const token = getAuthToken();
 
@@ -17,39 +17,32 @@ export const fetchApi = async (url, options = {}) => {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  try {
-    const response = await fetch(`http://[::1]:3000/api/v1${url}`, {
-      ...options,
-      headers,
-    });
+  const response = await fetch(`http://[::1]:3000/api/v1${url}`, {
+    ...options,
+    headers,
+  });
 
-    // Try to parse JSON, but handle cases where response might be empty
-    let data;
-    const text = await response.text();
+  if (!response.ok) {
+    let errorData;
     try {
-      data = JSON.parse(text);
+      errorData = await response.json();
     } catch (e) {
-      // If parsing fails, it might be a non-JSON response (e.g., 204 No Content)
-      if (response.ok) {
-        return { data: text, error: null }; // Or handle as you see fit
-      }
-      // If not ok and not JSON, use status text as error
-      return { data: null, error: response.statusText };
+      const errorText = await response.text();
+      console.error("Failed to parse JSON response:", errorText);
+      errorData = { message: response.statusText };
     }
 
-    if (!response.ok) {
-      let errorMessage = data.message || 'Error en la petición a la API';
-      if (Array.isArray(errorMessage)) {
-        errorMessage = errorMessage.join(', ');
-      }
-      return { data: null, error: errorMessage };
+    let errorMessage = errorData.message || 'Error en la petición a la API';
+    if (Array.isArray(errorMessage)) {
+      errorMessage = errorMessage.join(', ');
     }
-
-    return { data, error: null };
-  } catch (error) {
-    console.error('API call failed:', error);
-    return { data: null, error: error.message || 'Ocurrió un error inesperado.' };
+    if (!errorMessage) {
+      errorMessage = `Error ${response.status}: ${response.statusText}`;
+    }
+    throw new Error(errorMessage);
   }
+
+  return response.json();
 };
 
 export const fetchJournalEntries = (page = 1, limit = 20) => {

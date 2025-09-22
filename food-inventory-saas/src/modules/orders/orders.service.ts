@@ -59,6 +59,15 @@ export class OrdersService {
     createOrderDto: CreateOrderDto,
     user: any,
   ): Promise<OrderDocument> {
+    const tenant = await this.tenantModel.findById(user.tenantId);
+    if (!tenant) {
+      throw new BadRequestException("Tenant no encontrado");
+    }
+
+    if (tenant.usage.currentOrders >= tenant.limits.maxOrders) {
+      throw new BadRequestException("Límite de órdenes alcanzado para su plan de suscripción.");
+    }
+
     const { customerId, customerName, customerRif, taxType, items, payments } =
       createOrderDto;
     this.logger.log(
@@ -72,7 +81,7 @@ export class OrdersService {
       customer = await this.customerModel.findById(customerId).exec();
       if (!customer) {
         throw new NotFoundException(
-          `Cliente con ID "${customerId}" no encontrado.`,
+          `Cliente con ID \"${customerId}\" no encontrado.`,
         );
       }
       this.logger.log(`Found existing customer by ID: ${customer._id}`);
@@ -137,7 +146,7 @@ export class OrdersService {
         );
         if (!product) {
           throw new NotFoundException(
-            `Producto con ID "${itemDto.productId}" no encontrado.`,
+            `Producto con ID \"${itemDto.productId}\" no encontrado.`,
           );
         }
         const variant = product.variants?.[0];
@@ -154,7 +163,7 @@ export class OrdersService {
           // For products sold by unit, quantity must be an integer.
           if (!Number.isInteger(itemDto.quantity)) {
             throw new BadRequestException(
-              `La cantidad para el producto "${product.name}" debe ser un número entero.`
+              `La cantidad para el producto \"${product.name}\" debe ser un número entero.`
             );
           }
           totalPrice = unitPrice * itemDto.quantity;
@@ -246,6 +255,8 @@ export class OrdersService {
 
       const order = new this.orderModel(orderData);
       const savedOrder = await order.save();
+
+      await this.tenantModel.findByIdAndUpdate(user.tenantId, { $inc: { 'usage.currentOrders': 1 } });
 
       // --- Automatic Journal Entry Creation ---
       try {
@@ -421,9 +432,9 @@ export class OrdersService {
       sortBy = "createdAt",
       sortOrder = "desc",
     } = query;
-    const filter: any = { tenantId: new Types.ObjectId(tenantId) };
+    const filter: any = { tenantId };
     if (status) filter.status = status;
-    if (customerId) filter.customerId = new Types.ObjectId(customerId);
+    if (customerId) filter.customerId = customerId;
     if (search) {
       filter.$or = [
         { orderNumber: { $regex: search, $options: "i" } },
@@ -505,6 +516,8 @@ export class OrdersService {
               `Customer ${order.customerId} not found for order ${id}. Cannot update metrics on cancellation.`,
             );
           }
+
+          await this.tenantModel.findByIdAndUpdate(order.tenantId, { $inc: { 'usage.currentOrders': -1 } });
         }
       }
       const updateData = { ...updateOrderDto, updatedBy: user.id };

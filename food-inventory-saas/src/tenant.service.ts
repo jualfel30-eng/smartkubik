@@ -35,6 +35,16 @@ export class TenantService {
       throw new BadRequestException("No se ha proporcionado ningún archivo.");
     }
 
+    const tenant = await this.tenantModel.findById(tenantId);
+    if (!tenant) {
+      throw new NotFoundException("Tenant no encontrado");
+    }
+
+    const fileSizeInMB = file.size / (1024 * 1024);
+    if (tenant.usage.currentStorage + fileSizeInMB > tenant.limits.maxStorage) {
+      throw new BadRequestException("Límite de almacenamiento alcanzado para su plan de suscripción.");
+    }
+
     // Validar tipo de archivo (opcional, pero recomendado)
     const allowedMimeTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
     if (!allowedMimeTypes.includes(file.mimetype)) {
@@ -43,13 +53,19 @@ export class TenantService {
       );
     }
 
+    // TODO: Restar el tamaño del logo anterior si existe.
+    const oldLogoSizeInMB = 0; // Placeholder
+
     // Convertir el buffer del archivo a Base64
     const base64Image = `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
 
     const updatedTenant = await this.tenantModel
       .findByIdAndUpdate(
         tenantId,
-        { $set: { logo: base64Image } },
+        {
+          $set: { logo: base64Image },
+          $inc: { "usage.currentStorage": fileSizeInMB - oldLogoSizeInMB },
+        },
         { new: true, runValidators: true },
       )
       .select("name contactInfo taxInfo logo website timezone settings")
@@ -65,7 +81,7 @@ export class TenantService {
   async getSettings(tenantId: string): Promise<Tenant> {
     const tenant = await this.tenantModel
       .findById(tenantId)
-      .select("name contactInfo taxInfo logo website timezone settings")
+      .select("name contactInfo taxInfo logo website timezone settings limits usage subscriptionPlan")
       .exec();
 
     if (!tenant) {
@@ -152,6 +168,15 @@ export class TenantService {
     tenantId: string,
     inviteUserDto: InviteUserDto,
   ): Promise<Partial<User>> {
+    const tenant = await this.tenantModel.findById(tenantId);
+    if (!tenant) {
+      throw new NotFoundException("Tenant no encontrado");
+    }
+
+    if (tenant.usage.currentUsers >= tenant.limits.maxUsers) {
+      throw new ConflictException("Límite de usuarios alcanzado para su plan de suscripción.");
+    }
+
     const existingUser = await this.userModel
       .findOne({
         email: inviteUserDto.email,
@@ -177,6 +202,8 @@ export class TenantService {
     });
 
     const savedUser = await newUser.save();
+
+    await this.tenantModel.findByIdAndUpdate(tenantId, { $inc: { 'usage.currentUsers': 1 } });
 
     // Crear el registro de Customer correspondiente
     const customerNumber = `EMP-${Date.now()}`;
@@ -246,6 +273,9 @@ export class TenantService {
     if (result.deletedCount === 0) {
       throw new NotFoundException("Usuario no encontrado en este tenant");
     }
+
+    // Decrement the user count
+    await this.tenantModel.findByIdAndUpdate(tenantId, { $inc: { 'usage.currentUsers': -1 } });
 
     // Adicionalmente, desactivar el registro de Customer correspondiente
     await this.customerModel.findOneAndUpdate(

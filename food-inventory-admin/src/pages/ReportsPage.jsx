@@ -1,5 +1,8 @@
 import React from 'react';
 import PerformanceReport from '../components/PerformanceReport'; // Suponiendo que el componente del reporte estará en /components
+import AccountsReceivableReport from '../components/AccountsReceivableReport';
+import AccountsPayableReport from '../components/AccountsPayableReport';
+import CashFlowStatement from '../components/CashFlowStatement';
 
 const ReportsPage = () => {
   return (
@@ -8,6 +11,15 @@ const ReportsPage = () => {
       <div>
         {/* Aquí se pueden agregar más reportes en el futuro, quizás con un sistema de pestañas */}
         <PerformanceReport />
+        <div className="mt-6">
+          <AccountsReceivableReport />
+        </div>
+        <div className="mt-6">
+          <AccountsPayableReport />
+        </div>
+        <div className="mt-6">
+          <CashFlowStatement />
+        </div>
       </div>
     </div>
   );

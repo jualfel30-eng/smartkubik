@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { fetchApi } from '@/lib/api';
+import { fetchApi, getTenantSettings } from '@/lib/api';
 import { OrdersDataTableV2 } from './OrdersDataTableV2';
 import { Badge } from "@/components/ui/badge";
 import { NewOrderFormV2 } from './NewOrderFormV2';
@@ -11,8 +11,10 @@ import { OrderDetailsDialog } from './OrderDetailsDialog';
 import { Button } from "@/components/ui/button";
 import { CreditCard, RefreshCw, Search, Printer } from "lucide-react";
 import { useDebounce } from '@/hooks/use-debounce.js';
+import { useCrmContext } from '@/context/CrmContext.jsx';
 
 export function OrdersManagementV2() {
+  const { loadCustomers } = useCrmContext();
   const [data, setData] = useState({ orders: [], pagination: null });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -28,41 +30,35 @@ export function OrdersManagementV2() {
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedOrderForDetails, setSelectedOrderForDetails] = useState(null);
 
-  const fetchOrders = useCallback(async (page = 1, search = '') => {
-    setLoading(true);
-    const url = `/orders?page=${page}&limit=10&search=${search}&_=${new Date().getTime()}`;
-    const { data, error } = await fetchApi(url);
-    setLoading(false);
-
-    if (error) {
-      setError(error);
-      console.error("Failed to fetch orders:", error);
-      return;
+  const fetchOrders = async (page = 1, search = '') => {
+    try {
+      setLoading(true);
+      const url = `/orders?page=${page}&limit=10&search=${search}&_=${new Date().getTime()}`;
+      const data = await fetchApi(url);
+      
+      setData({
+        orders: data.data || [],
+        pagination: data.pagination
+      });
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+      console.error("Failed to fetch orders:", err);
+    } finally {
+      setLoading(false);
     }
-    
-    setData({
-      orders: data.data || [],
-      pagination: data.pagination
-    });
-    setError(null);
-  }, []);
+  };
 
   // Effect for initial load and search term changes
   useEffect(() => {
     fetchOrders(1, debouncedSearchTerm);
-  }, [debouncedSearchTerm, fetchOrders]);
+  }, [debouncedSearchTerm]);
 
   // Effect to fetch tenant settings
   useEffect(() => {
-    const fetchTenantSettings = async () => {
-      const { data, error } = await fetchApi('/tenant/settings');
-      if (error) {
-        console.error("Failed to fetch tenant settings:", error);
-        return;
-      }
-      setTenantSettings(data);
-    };
-    fetchTenantSettings();
+    getTenantSettings().then(settings => {
+      setTenantSettings(settings);
+    }).catch(err => console.error("Failed to fetch tenant settings:", err));
   }, []);
 
   const handleRefresh = useCallback(() => {
@@ -172,6 +168,7 @@ export function OrdersManagementV2() {
 
   const handleOrderCreated = () => {
     fetchOrders(1, searchTerm);
+    loadCustomers();
   };
 
   return (

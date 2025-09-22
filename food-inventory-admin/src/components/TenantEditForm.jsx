@@ -40,24 +40,23 @@ export default function TenantEditForm({ tenant, onSave, onCancel }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-
-    const { data, error } = await fetchApi(`/super-admin/tenants/${tenant._id}`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify(formData),
-      },
-    );
-
-    setIsLoading(false);
-
-    if (error) {
-      toast.error(`Error al actualizar el tenant ${tenant.name}`, { description: error });
-      return;
-    }
-
-    if (data) {
-      toast.success(`Tenant ${tenant.name} actualizado correctamente`);
-      onSave(data);
+    try {
+      const updatedTenant = await fetchApi(`/super-admin/tenants/${tenant._id}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(formData),
+        },
+      );
+      if (updatedTenant) {
+        toast.success(`Tenant ${tenant.name} actualizado correctamente`);
+        onSave(updatedTenant);
+      } else {
+        throw new Error("No se recibió una respuesta válida del servidor.");
+      }
+    } catch (error) {
+      toast.error(`Error al actualizar el tenant ${tenant.name}`, { description: error.message });
+    } finally {
+      setIsLoading(false);
     }
   };
 

@@ -354,6 +354,16 @@ export class UpdateProductDto {
   @IsOptional()
   @IsString()
   unitOfMeasure?: string;
+
+  @ApiPropertyOptional({
+    description: "Variantes del producto",
+    type: [CreateProductVariantDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateProductVariantDto)
+  variants?: CreateProductVariantDto[];
 }
 
 export class ProductQueryDto {

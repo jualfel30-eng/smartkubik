@@ -92,39 +92,29 @@ export default function ComprasManagement() {
   const [poLoading, setPoLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
-    const [lowStockRes, expiringRes, suppliersRes, productsRes] = await Promise.all([
-      fetchApi('/inventory/alerts/low-stock'),
-      fetchApi('/inventory/alerts/near-expiration?days=30'),
-      fetchApi('/customers?customerType=supplier'),
-      fetchApi('/products')
-    ]);
+    try {
+      setLoading(true);
+      setError(null);
+      const [lowStockData, expiringData, suppliersData, productsData] = await Promise.all([
+        fetchApi('/inventory/alerts/low-stock'),
+        fetchApi('/inventory/alerts/near-expiration?days=30'),
+        fetchApi('/customers?customerType=supplier'),
+        fetchApi('/products')
+      ]);
+      setLowStockProducts(lowStockData.data || []);
+      setExpiringProducts(expiringData.data || []);
+      setSuppliers(suppliersData.data || []);
+      setProducts(productsData.data || []);
 
-    if (lowStockRes.error) {
-      setError(lowStockRes.error);
-    } else {
-      setLowStockProducts(lowStockRes.data.data || []);
+    } catch (err) {
+      setError(err.message);
+      setLowStockProducts([]);
+      setExpiringProducts([]);
+      setSuppliers([]);
+      setProducts([]);
+    } finally {
+      setLoading(false);
     }
-
-    if (expiringRes.error) {
-      setError(expiringRes.error);
-    } else {
-      setExpiringProducts(expiringRes.data.data || []);
-    }
-
-    if (suppliersRes.error) {
-      setError(suppliersRes.error);
-    } else {
-      setSuppliers(suppliersRes.data.data || []);
-    }
-
-    if (productsRes.error) {
-      setError(productsRes.error);
-    } else {
-      setProducts(productsRes.data.data || []);
-    }
-
-    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -233,18 +223,14 @@ export default function ComprasManagement() {
       payload.inventory.lotNumber = undefined;
     }
 
-    const { data, error } = await fetchApi('/products/with-initial-purchase', { method: 'POST', body: JSON.stringify(payload) });
-
-    if (error) {
-      toast.error(`Error: ${error}`);
-      return;
-    }
-
-    if (data) {
+    try {
+      await fetchApi('/products/with-initial-purchase', { method: 'POST', body: JSON.stringify(payload) });
       toast.success('Producto y compra inicial creados con éxito');
       setIsNewProductDialogOpen(false);
       setNewProduct(initialNewProductState);
       fetchData();
+    } catch (err) {
+      toast.error(`Error al crear producto: ${err.message}`);
     }
   };
 
@@ -438,19 +424,16 @@ export default function ComprasManagement() {
       dto.newSupplierContactEmail = po.contactEmail;
     }
 
-    const { data, error } = await fetchApi('/purchases', { method: 'POST', body: JSON.stringify(dto) });
-    setPoLoading(false);
-
-    if (error) {
-      toast.error('Error al crear la Orden de Compra', { description: error });
-      return;
-    }
-
-    if (data) {
+    try {
+      await fetchApi('/purchases', { method: 'POST', body: JSON.stringify(dto) });
       toast.success('Orden de Compra creada exitosamente');
       setIsNewPurchaseDialogOpen(false);
       setPo(initialPoState);
       fetchData();
+    } catch (error) {
+      toast.error('Error al crear la Orden de Compra', { description: error.message });
+    } finally {
+      setPoLoading(false);
     }
   };
   

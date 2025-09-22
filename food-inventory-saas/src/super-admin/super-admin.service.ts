@@ -3,21 +3,28 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Tenant, TenantDocument } from '../schemas/tenant.schema';
 import { User, UserDocument } from '../schemas/user.schema';
+import { Event, EventDocument } from '../schemas/event.schema';
 import { UpdateTenantDto } from '../dto/update-tenant.dto';
 import { AuthService } from '../auth/auth.service';
 import { AuditLogService } from '../modules/audit-log/audit-log.service';
+import { getPlanLimits } from '../config/subscriptions.config';
 
 @Injectable()
 export class SuperAdminService {
   constructor(
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Event.name) private eventModel: Model<EventDocument>,
     @Inject(AuthService) private authService: AuthService,
     private auditLogService: AuditLogService,
   ) {}
 
   async findAll(): Promise<Tenant[]> {
     return this.tenantModel.find().exec();
+  }
+
+  async findAllEvents(): Promise<Event[]> {
+    return this.eventModel.find().populate('tenantId', 'name').exec();
   }
 
   async findOne(id: string): Promise<Tenant> {
@@ -34,7 +41,14 @@ export class SuperAdminService {
       throw new NotFoundException(`Tenant con ID "${id}" no encontrado`);
     }
 
-    const updatedTenant = await this.tenantModel.findByIdAndUpdate(id, updateTenantDto, { new: true }).exec();
+    const updatePayload: any = { ...updateTenantDto };
+
+    if (updateTenantDto.subscriptionPlan) {
+      const newLimits = getPlanLimits(updateTenantDto.subscriptionPlan);
+      updatePayload.limits = newLimits;
+    }
+
+    const updatedTenant = await this.tenantModel.findByIdAndUpdate(id, updatePayload, { new: true }).exec();
     if (!updatedTenant) {
       throw new NotFoundException(`Tenant con ID "${id}" no encontrado`);
     }

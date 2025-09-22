@@ -133,8 +133,8 @@ export class Supplier {
   @Prop({ type: Types.ObjectId, ref: "User" })
   assignedTo?: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })
-  tenantId: Types.ObjectId;
+  @Prop({ type: String, ref: "Tenant", required: true })
+  tenantId: string;
 }
 
 export const SupplierSchema = SchemaFactory.createForClass(Supplier);

@@ -25,7 +25,7 @@ function Login() {
         if (user.role.name === 'super_admin') {
           navigate('/super-admin');
         } else {
-          navigate('/');
+          navigate('/dashboard');
         }
       } else {
         setError(message || 'Credenciales incorrectas o error en el servidor.');

@@ -7,6 +7,7 @@ import {
 import { InjectModel, InjectConnection } from "@nestjs/mongoose";
 import { Model, Types, Connection } from "mongoose";
 import { Product, ProductDocument } from "../../schemas/product.schema";
+import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -24,6 +25,7 @@ export class ProductsService {
 
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
+    @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     private readonly customersService: CustomersService, // CHANGED
     private readonly inventoryService: InventoryService,
     private readonly purchasesService: PurchasesService,
@@ -34,6 +36,20 @@ export class ProductsService {
     dto: CreateProductWithPurchaseDto,
     user: any,
   ) {
+    const tenant = await this.tenantModel.findById(user.tenantId);
+    if (!tenant) {
+      throw new BadRequestException("Tenant no encontrado");
+    }
+
+    if (tenant.usage.currentProducts >= tenant.limits.maxProducts) {
+      throw new BadRequestException("Límite de productos alcanzado para su plan de suscripción.");
+    }
+
+    const newImagesSize = this.calculateImagesSize(dto.product.variants);
+    if (tenant.usage.currentStorage + newImagesSize > tenant.limits.maxStorage) {
+      throw new BadRequestException("Límite de almacenamiento alcanzado para su plan de suscripción.");
+    }
+
     const existingProduct = await this.productModel.findOne({
       sku: dto.product.sku,
       tenantId: user.tenantId,
@@ -110,6 +126,13 @@ export class ProductsService {
       };
       const createdProduct = new this.productModel(productData);
       const savedProduct = await createdProduct.save();
+      
+      await this.tenantModel.findByIdAndUpdate(user.tenantId, { 
+        $inc: { 
+          'usage.currentProducts': 1,
+          'usage.currentStorage': newImagesSize,
+        }
+      });
 
       // 3. Inventory
       const inventoryDto: any = {
@@ -169,6 +192,21 @@ export class ProductsService {
     user: any,
   ): Promise<ProductDocument> {
     this.logger.log(`Creating product with SKU: ${createProductDto.sku}`);
+
+    const tenant = await this.tenantModel.findById(user.tenantId);
+    if (!tenant) {
+      throw new BadRequestException("Tenant no encontrado");
+    }
+
+    if (tenant.usage.currentProducts >= tenant.limits.maxProducts) {
+      throw new BadRequestException("Límite de productos alcanzado para su plan de suscripción.");
+    }
+
+    const newImagesSize = this.calculateImagesSize(createProductDto.variants);
+    if (tenant.usage.currentStorage + newImagesSize > tenant.limits.maxStorage) {
+      throw new BadRequestException("Límite de almacenamiento alcanzado para su plan de suscripción.");
+    }
+
     const existingProduct = await this.productModel.findOne({
       sku: createProductDto.sku,
       tenantId: user.tenantId,
@@ -178,11 +216,21 @@ export class ProductsService {
     }
     const productData = {
       ...createProductDto,
+      isActive: true, // Explicitly set new products as active
       createdBy: user.id,
       tenantId: user.tenantId,
     };
     const createdProduct = new this.productModel(productData);
-    return createdProduct.save();
+    const savedProduct = await createdProduct.save();
+
+    await this.tenantModel.findByIdAndUpdate(user.tenantId, { 
+      $inc: { 
+        'usage.currentProducts': 1,
+        'usage.currentStorage': newImagesSize,
+      }
+    });
+
+    return savedProduct;
   }
 
   async findAll(query: ProductQueryDto, tenantId: string) {
@@ -194,7 +242,7 @@ export class ProductsService {
       brand,
       isActive = true,
     } = query;
-    const filter: any = { tenantId: new Types.ObjectId(tenantId), isActive };
+    const filter: any = { tenantId: tenantId, isActive };
     if (search) {
       filter.$text = { $search: search };
     }
@@ -233,25 +281,90 @@ export class ProductsService {
     updateProductDto: UpdateProductDto,
     user: any,
   ): Promise<ProductDocument | null> {
+    const tenant = await this.tenantModel.findById(user.tenantId);
+    if (!tenant) {
+      throw new BadRequestException("Tenant no encontrado");
+    }
+
+    const productBeforeUpdate = await this.productModel.findById(id).lean();
+    if (!productBeforeUpdate) {
+      throw new NotFoundException("Producto no encontrado");
+    }
+
+    const oldImagesSize = this.calculateImagesSize(productBeforeUpdate.variants);
+    let newImagesSize = oldImagesSize;
+    if ('variants' in updateProductDto) {
+      newImagesSize = this.calculateImagesSize(updateProductDto.variants);
+    }
+    const storageDifference = newImagesSize - oldImagesSize;
+
+    if (tenant.usage.currentStorage + storageDifference > tenant.limits.maxStorage) {
+      throw new BadRequestException("Límite de almacenamiento alcanzado para su plan de suscripción.");
+    }
+
     const updateData = { ...updateProductDto, updatedBy: user.id };
-    return this.productModel
+    const updatedProduct = await this.productModel
       .findByIdAndUpdate(id, updateData, { new: true })
       .exec();
+
+    if (storageDifference !== 0) {
+        await this.tenantModel.findByIdAndUpdate(user.tenantId, { 
+            $inc: { 'usage.currentStorage': storageDifference }
+        });
+    }
+
+    return updatedProduct;
   }
 
   async remove(id: string, tenantId: string): Promise<any> {
-    return this.productModel.deleteOne({ _id: id, tenantId }).exec();
+    const productToRemove = await this.productModel.findOne({ _id: id, tenantId }).lean();
+    if (!productToRemove) {
+        throw new NotFoundException("Producto no encontrado");
+    }
+
+    const imagesSize = this.calculateImagesSize(productToRemove.variants);
+
+    const result = await this.productModel.deleteOne({ _id: id, tenantId }).exec();
+
+    if (result.deletedCount > 0) {
+      await this.tenantModel.findByIdAndUpdate(tenantId, { 
+          $inc: { 
+              'usage.currentProducts': -1,
+              'usage.currentStorage': -imagesSize
+            }
+        });
+    }
+    return result;
   }
 
   async getCategories(tenantId: string): Promise<string[]> {
     return this.productModel
-      .distinct("category", { tenantId: new Types.ObjectId(tenantId) })
+      .distinct("category", { tenantId: tenantId })
       .exec();
   }
 
   async getSubcategories(tenantId: string): Promise<string[]> {
     return this.productModel
-      .distinct("subcategory", { tenantId: new Types.ObjectId(tenantId) })
+      .distinct("subcategory", { tenantId: tenantId })
       .exec();
+  }
+
+  private calculateImagesSize(variants: any[] | undefined): number {
+    if (!variants || variants.length === 0) {
+      return 0;
+    }
+
+    let totalSize = 0;
+    for (const variant of variants) {
+      if (variant.images && variant.images.length > 0) {
+        for (const image of variant.images) {
+          const padding = image.endsWith('==') ? 2 : image.endsWith('=') ? 1 : 0;
+          const sizeInBytes = (image.length * 3) / 4 - padding;
+          totalSize += sizeInBytes;
+        }
+      }
+    }
+
+    return totalSize / (1024 * 1024); // Convert to MB
   }
 }

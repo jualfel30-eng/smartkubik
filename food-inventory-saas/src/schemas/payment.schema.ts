@@ -5,8 +5,8 @@ export type PaymentDocument = Payment & Document;
 
 @Schema({ timestamps: true })
 export class Payment {
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Tenant', required: true })
-  tenantId: MongooseSchema.Types.ObjectId;
+  @Prop({ type: String, required: true, index: true })
+  tenantId: string;
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Payable', required: true })
   payableId: MongooseSchema.Types.ObjectId;

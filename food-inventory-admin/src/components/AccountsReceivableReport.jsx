@@ -1,163 +1,73 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { getAccountsReceivableReport } from '../lib/api'; // We will create this function
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from './ui/table';
-import { toast } from 'sonner';
-import { Button } from './ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { fetchApi } from '../lib/api';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const AccountsReceivableReport = () => {
-  const [reportData, setReportData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+    const [reportData, setReportData] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchReport = async () => {
-      try {
-        setIsLoading(true);
-        const response = await getAccountsReceivableReport();
-        setReportData(response);
-      } catch (error) {
-        console.error("Error fetching A/R report:", error);
-        toast.error('Error al cargar el informe de cuentas por cobrar.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    useEffect(() => {
+        const fetchReport = async () => {
+            try {
+                const response = await fetchApi('/accounting/reports/accounts-receivable');
+                setReportData(response.data || []);
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-    fetchReport();
-  }, []);
+        fetchReport();
+    }, []);
 
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(value);
-  };
+    if (loading) {
+        return <div>Loading...</div>;
+    }
 
-  if (isLoading) {
-    return <div>Cargando informe...</div>;
-  }
+    if (error) {
+        return <div>Error: {error}</div>;
+    }
 
-  if (!reportData || !reportData.data) {
-    return <div>No se pudieron cargar los datos del informe.</div>;
-  }
-
-  const { data, totals, asOfDate } = reportData;
-
-  return (
-    <div className="space-y-4">
-        <div className="mb-4">
-            <Link to="/accounting-management">
-                <Button variant="outline">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Volver a Gestión Contable
-                </Button>
-            </Link>
-        </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Informe de Antigüedad de Cuentas por Cobrar</CardTitle>
-          <p className="text-sm text-muted-foreground">Mostrando saldos a fecha de {asOfDate}</p>
-        </CardHeader>
-      </Card>
-
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+    return (
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total a Cobrar</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totals.totalDue)}</div>
-          </CardContent>
+            <CardHeader>
+                <CardTitle>Accounts Receivable Report</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Order Number</TableHead>
+                            <TableHead>Customer</TableHead>
+                            <TableHead>Order Date</TableHead>
+                            <TableHead>Due Date</TableHead>
+                            <TableHead>Total Amount</TableHead>
+                            <TableHead>Paid Amount</TableHead>
+                            <TableHead>Balance</TableHead>
+                            <TableHead>Status</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {reportData.map((row) => (
+                            <TableRow key={row.orderNumber}>
+                                <TableCell>{row.orderNumber}</TableCell>
+                                <TableCell>{row.customerName}</TableCell>
+                                <TableCell>{new Date(row.orderDate).toLocaleDateString()}</TableCell>
+                                <TableCell>{new Date(row.dueDate).toLocaleDateString()}</TableCell>
+                                <TableCell>{row.totalAmount}</TableCell>
+                                <TableCell>{row.paidAmount}</TableCell>
+                                <TableCell>{row.balance}</TableCell>
+                                <TableCell>{row.status}</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Corriente</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totals.current)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">1-30 Días</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totals['1-30'])}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">31-60 Días</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totals['31-60'])}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">61-90 Días</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totals['61-90'])}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">+90 Días</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totals['>90'])}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Cliente</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Corriente</TableHead>
-                <TableHead className="text-right">1-30</TableHead>
-                <TableHead className="text-right">31-60</TableHead>
-                <TableHead className="text-right">61-90</TableHead>
-                <TableHead className="text-right">+90</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.length > 0 ? (
-                data.map((row) => (
-                  <TableRow key={row.customerId}>
-                    <TableCell>{row.customerName}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(row.totalDue)}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(row.current)}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(row['1-30'])}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(row['31-60'])}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(row['61-90'])}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(row['>90'])}</TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan="7" className="text-center">No hay datos para mostrar.</TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-    </div>
-  );
+    );
 };
 
 export default AccountsReceivableReport;

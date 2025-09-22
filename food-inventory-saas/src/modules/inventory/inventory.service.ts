@@ -410,7 +410,7 @@ export class InventoryService {
       dateTo,
       orderId,
     } = query;
-    const filter: any = { tenantId: new Types.ObjectId(tenantId) };
+    const filter: any = { tenantId: tenantId };
     if (inventoryId) filter.inventoryId = new Types.ObjectId(inventoryId);
     if (productSku) filter.productSku = productSku;
     if (movementType) filter.movementType = movementType;
@@ -444,7 +444,7 @@ export class InventoryService {
     return this.inventoryModel.aggregate([
       {
         $match: {
-          tenantId: new Types.ObjectId(tenantId),
+          tenantId: tenantId,
         },
       },
       {
@@ -503,7 +503,7 @@ export class InventoryService {
           "alerts.nearExpiration": true,
         }),
         this.inventoryModel.aggregate([
-          { $match: { tenantId: new Types.ObjectId(tenantId) } },
+          { $match: { tenantId: tenantId } },
           {
             $group: {
               _id: null,
@@ -544,7 +544,7 @@ export class InventoryService {
       sortBy = "lastUpdated",
       sortOrder = "desc",
     } = query;
-    const filter: any = { tenantId: new Types.ObjectId(tenantId) };
+    const filter: any = { tenantId: tenantId };
     if (warehouse) filter["location.warehouse"] = warehouse;
     if (lowStock) filter["alerts.lowStock"] = true;
     if (nearExpiration) filter["alerts.nearExpiration"] = true;

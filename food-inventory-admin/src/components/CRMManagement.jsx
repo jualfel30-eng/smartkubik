@@ -205,8 +205,6 @@ function CRMManagement() {
       return;
     }
 
-    console.log('Enviando PAYLOAD de actualización (solo campos cambiados):', JSON.stringify(changedFields, null, 2));
-
     try {
       await updateCustomer(selectedContactId, changedFields);
       setIsEditDialogOpen(false);

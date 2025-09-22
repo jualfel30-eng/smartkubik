@@ -35,4 +35,6 @@ export const ALL_PERMISSIONS = [
     'accounting_read',
     'tenant_settings_read',
     'reports_read',
+    'billing_read',
+    'MANAGE_TENANTS',
   ];

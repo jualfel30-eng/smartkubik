@@ -18,16 +18,16 @@ export default function PurchaseHistory() {
 
   const loadPurchases = async () => {
     setLoading(true);
-    const { data, error } = await fetchApi('/purchases');
-    setLoading(false);
-
-    if (error) {
-      setError(error);
+    setError(null);
+    try {
+      const data = await fetchApi('/purchases');
+      setPurchases(data.data || []);
+    } catch (err) {
+      setError(err.message);
+      setPurchases([]);
       toast.error('Error de Conexión', { description: 'No se pudo conectar con el servidor para cargar el historial.' });
-      return;
     }
-    
-    setPurchases(data);
+    setLoading(false);
   };
 
   useEffect(() => {
@@ -37,20 +37,12 @@ export default function PurchaseHistory() {
   const handleStatusChange = async (poId, newStatus) => {
     if (newStatus !== 'received') return; // For now, only handle receiving
 
-    const originalPurchases = [...purchases];
-    setPurchases(prev => prev.map(p => p._id === poId ? { ...p, status: 'receiving' } : p));
-
-    const { data, error } = await fetchApi(`/purchases/${poId}/receive`, { method: 'PATCH' });
-
-    if (error) {
-      toast.error('Error al Recibir la Orden', { description: error });
-      setPurchases(originalPurchases);
-      return;
-    }
-
-    if (data) {
+    try {
+      await fetchApi(`/purchases/${poId}/receive`, { method: 'PATCH' });
       toast.success('Orden Recibida', { description: 'El inventario ha sido actualizado correctamente.' });
-      setPurchases(prev => prev.map(p => p._id === poId ? data : p));
+      loadPurchases(); // Recargar la lista
+    } catch (err) {
+      toast.error('Error al Recibir la Orden', { description: err.message });
     }
   };
 

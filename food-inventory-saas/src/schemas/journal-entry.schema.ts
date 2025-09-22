@@ -35,8 +35,8 @@ export class JournalEntry {
   @Prop([JournalLineSchema])
   lines: JournalLine[];
 
-  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })
-  tenantId: Types.ObjectId;
+  @Prop({ type: String, required: true, index: true })
+  tenantId: string;
 
   @Prop({ required: true, default: false })
   isAutomatic: boolean;

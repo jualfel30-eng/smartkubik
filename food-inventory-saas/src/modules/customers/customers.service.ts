@@ -74,7 +74,7 @@ export class CustomersService {
       sortOrder = "desc",
     } = query;
 
-    const filter: any = { tenantId: new Types.ObjectId(tenantId) };
+    const filter: any = { tenantId };
 
     if (customerType) filter.customerType = customerType;
     if (status) filter.status = status;

@@ -40,16 +40,16 @@ export function NewOrderForm({ onOrderCreated }) {
 
   useEffect(() => {
     const loadProducts = async () => {
-      setLoadingProducts(true);
-      const { data, error } = await fetchApi('/products');
-      setLoadingProducts(false);
-
-      if (error) {
-        console.error(error);
-        return;
+      try {
+        setLoadingProducts(true);
+        const data = await fetchApi('/products');
+        setProducts(data || []);
+      } catch (err) {
+        console.error(err);
+        setProducts([]);
+      } finally {
+        setLoadingProducts(false);
       }
-      
-      setProducts(data);
     };
     loadProducts();
   }, []);
@@ -136,18 +136,14 @@ export function NewOrderForm({ onOrderCreated }) {
 
     const payload = { ...newOrder, customerId: newOrder.customerId || undefined };
 
-    const { data, error } = await fetchApi('/orders', { method: 'POST', body: JSON.stringify(payload) });
-
-    if (error) {
-      console.error('Error creating order:', error);
-      alert(`Error al crear la orden: ${error}`);
-      return;
-    }
-
-    if (data) {
+    try {
+      await fetchApi('/orders', { method: 'POST', body: JSON.stringify(payload) });
       alert('¡Orden creada con éxito!');
       onOrderCreated();
       setNewOrder({ ...initialOrderState });
+    } catch (error) {
+      console.error('Error creating order:', error);
+      alert(`Error al crear la orden: ${error.message}`);
     }
   };
 

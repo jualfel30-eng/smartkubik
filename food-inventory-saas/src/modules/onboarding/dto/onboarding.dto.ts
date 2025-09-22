@@ -1,4 +1,4 @@
-import { IsString, IsEmail, MinLength, IsNotEmpty, IsNumber, IsOptional } from 'class-validator';
+import { IsString, IsEmail, MinLength, IsNotEmpty, IsNumber, IsOptional, IsPhoneNumber } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateTenantWithAdminDto {
@@ -40,6 +40,11 @@ export class CreateTenantWithAdminDto {
   @ApiProperty({ description: 'Email del administrador', example: 'juan.perez@buensabor.com' })
   @IsEmail()
   email: string;
+
+  @ApiProperty({ description: 'Teléfono de contacto', example: '+14155552671', required: false })
+  @IsPhoneNumber()
+  @IsOptional()
+  phone?: string;
 
   @ApiProperty({ description: 'Contraseña para el administrador (mínimo 8 caracteres)', example: 'SecurePassword123!' })
   @IsString()

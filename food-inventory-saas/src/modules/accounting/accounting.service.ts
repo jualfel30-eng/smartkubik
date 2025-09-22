@@ -19,9 +19,9 @@ import {
   CreateChartOfAccountDto,
   CreateJournalEntryDto,
 } from "../../dto/accounting.dto";
-import { OrderDocument, OrderPayment } from "../../schemas/order.schema";
+import { Order, OrderDocument, OrderPayment } from "../../schemas/order.schema";
 import { PurchaseOrderDocument } from "../../schemas/purchase-order.schema";
-import { PayableDocument } from "../../schemas/payable.schema";
+import { Payable, PayableDocument } from "../../schemas/payable.schema";
 
 @Injectable()
 export class AccountingService {
@@ -32,6 +32,8 @@ export class AccountingService {
     private chartOfAccountsModel: Model<ChartOfAccountsDocument>,
     @InjectModel(JournalEntry.name)
     private journalEntryModel: Model<JournalEntryDocument>,
+    @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
+    @InjectModel(Payable.name) private payableModel: Model<PayableDocument>,
   ) {}
 
   private async generateNextCode(
@@ -55,7 +57,7 @@ export class AccountingService {
     const lastAccount = await this.chartOfAccountsModel
       .findOne(
         {
-          tenantId: new Types.ObjectId(tenantId),
+          tenantId: tenantId,
           code: { $regex: `^${typePrefix}` },
         },
         { code: 1 },
@@ -79,7 +81,7 @@ export class AccountingService {
 
     const newAccount = new this.chartOfAccountsModel({
       ...createAccountDto,
-      tenantId: new Types.ObjectId(tenantId),
+      tenantId: tenantId,
       code,
     });
     return newAccount.save();
@@ -87,7 +89,7 @@ export class AccountingService {
 
   async findAllAccounts(tenantId: string): Promise<ChartOfAccounts[]> {
     return this.chartOfAccountsModel
-      .find({ tenantId: new Types.ObjectId(tenantId) })
+      .find({ tenantId: tenantId })
       .sort({ code: 1 })
       .exec();
   }
@@ -97,7 +99,7 @@ export class AccountingService {
     page: number,
     limit: number,
   ): Promise<any> {
-    const tenantObjectId = new Types.ObjectId(tenantId);
+    const tenantObjectId = tenantId;
     const skip = (page - 1) * limit;
     const [entries, total] = await Promise.all([
       this.journalEntryModel
@@ -121,7 +123,7 @@ export class AccountingService {
 
   async fixJournalEntryDates(tenantId: string): Promise<void> {
     const stringEntries = await this.journalEntryModel.find({
-      tenantId: new Types.ObjectId(tenantId),
+      tenantId: tenantId,
       date: { $type: "string" } as any,
     });
 
@@ -180,7 +182,7 @@ export class AccountingService {
         credit: line.credit,
         description: line.description || description,
       })),
-      tenantId: new Types.ObjectId(tenantId),
+      tenantId: tenantId,
       isAutomatic: false,
     });
 
@@ -192,7 +194,7 @@ export class AccountingService {
     tenantId: string,
   ): Promise<ChartOfAccountsDocument> {
     const account = await this.chartOfAccountsModel
-      .findOne({ code, tenantId: new Types.ObjectId(tenantId) })
+      .findOne({ code, tenantId: tenantId })
       .exec();
     if (!account) {
       this.logger.error(
@@ -213,7 +215,7 @@ export class AccountingService {
     },
     tenantId: string,
   ): Promise<ChartOfAccountsDocument> {
-    const tenantObjectId = new Types.ObjectId(tenantId);
+    const tenantObjectId = tenantId;
     const existingAccount = await this.chartOfAccountsModel
       .findOne({ code: accountDetails.code, tenantId: tenantObjectId })
       .exec();
@@ -319,7 +321,7 @@ export class AccountingService {
         credit: line.credit,
         description: line.description,
       })),
-      tenantId: new Types.ObjectId(tenantId),
+      tenantId: tenantId,
       isAutomatic: true,
     });
 
@@ -394,7 +396,7 @@ export class AccountingService {
         credit: line.credit,
         description: line.description,
       })),
-      tenantId: new Types.ObjectId(tenantId),
+      tenantId: tenantId,
       isAutomatic: true,
     });
 
@@ -465,7 +467,7 @@ export class AccountingService {
         credit: line.credit,
         description: line.description,
       })),
-      tenantId: new Types.ObjectId(tenantId),
+      tenantId: tenantId,
       isAutomatic: true,
     });
 
@@ -536,7 +538,7 @@ export class AccountingService {
         credit: line.credit,
         description: line.description,
       })),
-      tenantId: new Types.ObjectId(tenantId),
+      tenantId: tenantId,
       isAutomatic: true,
     });
 
@@ -621,7 +623,7 @@ export class AccountingService {
         credit: line.credit,
         description: line.description,
       })),
-      tenantId: new Types.ObjectId(tenantId),
+      tenantId: tenantId,
       isAutomatic: true,
     });
 
@@ -630,7 +632,7 @@ export class AccountingService {
 
   async getProfitAndLoss(tenantId: string, from: Date, to: Date): Promise<any> {
     await this.fixJournalEntryDates(tenantId);
-    const tenantObjectId = new Types.ObjectId(tenantId);
+    const tenantObjectId = tenantId;
 
     const allAccounts = await this.chartOfAccountsModel
       .find({ tenantId: tenantObjectId })
@@ -684,7 +686,7 @@ export class AccountingService {
 
   async getBalanceSheet(tenantId: string, asOfDate: Date): Promise<any> {
     await this.fixJournalEntryDates(tenantId);
-    const tenantObjectId = new Types.ObjectId(tenantId);
+    const tenantObjectId = tenantId;
 
     const allAccounts = await this.chartOfAccountsModel
       .find({ tenantId: tenantObjectId })
@@ -779,6 +781,117 @@ export class AccountingService {
         totalLiabilitiesAndEquity: totalLiabilities + totalEquity,
         difference: totalAssets - (totalLiabilities + totalEquity),
       },
+    };
+  }
+
+  async getAccountsReceivable(tenantId: string): Promise<any> {
+    const tenantObjectId = tenantId;
+
+    const unpaidOrders = await this.orderModel.find({
+        tenantId: tenantObjectId,
+        paymentStatus: { $in: ['pending', 'partial'] },
+    }).populate('customerId', 'name').exec();
+
+    const report = unpaidOrders.map(order => {
+        const totalPaid = order.payments.reduce((acc, p) => acc + p.amount, 0);
+        const balance = order.totalAmount - totalPaid;
+        return {
+            orderNumber: order.orderNumber,
+            customerName: order.customerName,
+            orderDate: (order as any).createdAt,
+            dueDate: (order as any).createdAt, // This should be improved
+            totalAmount: order.totalAmount,
+            paidAmount: totalPaid,
+            balance: balance,
+            status: order.paymentStatus,
+        };
+    });
+
+    return report;
+  }
+
+  async getAccountsPayable(tenantId: string): Promise<any> {
+    const tenantObjectId = tenantId;
+
+    const unpaidPayables = await this.payableModel.find({
+        tenantId: tenantObjectId,
+        status: { $in: ['open', 'partially_paid'] },
+    }).exec();
+
+    const report = unpaidPayables.map(payable => {
+        const balance = payable.totalAmount - payable.paidAmount;
+        return {
+            payableNumber: payable.payableNumber,
+            payeeName: payable.payeeName,
+            issueDate: payable.issueDate,
+            dueDate: payable.dueDate,
+            totalAmount: payable.totalAmount,
+            paidAmount: payable.paidAmount,
+            balance: balance,
+            status: payable.status,
+        };
+    });
+
+    return report;
+  }
+
+  async getCashFlowStatement(tenantId: string, from: Date, to: Date): Promise<any> {
+    const tenantObjectId = tenantId;
+
+    // Cash Inflows from Customer Payments
+    const orders = await this.orderModel.find({
+        tenantId: tenantObjectId,
+        "payments.date": { $gte: from, $lte: to },
+    }, { "payments.$": 1, orderNumber: 1 }).exec();
+
+    let totalCashInflow = 0;
+    const cashInflows: { date: Date; description: string; amount: number }[] = [];
+    for (const order of orders) {
+        for (const payment of order.payments) {
+            if (payment.date >= from && payment.date <= to) {
+                totalCashInflow += payment.amount;
+                cashInflows.push({
+                    date: payment.date,
+                    description: `Payment for order ${order.orderNumber}`,
+                    amount: payment.amount,
+                });
+            }
+        }
+    }
+
+    // Cash Outflows from Payable Payments
+    const payments = await this.payableModel.find({
+        tenantId: tenantObjectId,
+        status: { $in: ['paid', 'partially_paid'] },
+        updatedAt: { $gte: from, $lte: to }, // Assuming updatedAt is when payment is made
+    }).exec();
+
+    let totalCashOutflow = 0;
+    const cashOutflows: { date: any; description: string; amount: number }[] = [];
+    for (const payable of payments) {
+        // This is a simplification. We need a proper payment date on the payable.
+        // For now, we assume the paidAmount was paid within the period.
+        totalCashOutflow += payable.paidAmount;
+        cashOutflows.push({
+            date: (payable as any).updatedAt, // This is not accurate
+            description: `Payment for payable ${payable.payableNumber}`,
+            amount: -payable.paidAmount,
+        });
+    }
+
+    const netCashFlow = totalCashInflow - totalCashOutflow;
+
+    return {
+        period: { from, to },
+        cashInflows: {
+            total: totalCashInflow,
+            details: cashInflows,
+        },
+        cashOutflows: {
+            total: totalCashOutflow,
+            details: cashOutflows,
+        },
+        netCashFlow,
     };
   }
 }

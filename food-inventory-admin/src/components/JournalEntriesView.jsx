@@ -39,13 +39,13 @@ const JournalEntriesView = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetchJournalEntries(page, pagination.limit);
-      setJournalEntries(response.data);
+      const apiResponse = await fetchJournalEntries(page, pagination.limit);
+      setJournalEntries(apiResponse.data || []);
       setPagination({
-        page: response.page,
-        limit: response.limit,
-        total: response.total,
-        totalPages: response.totalPages,
+        page: apiResponse.page,
+        limit: apiResponse.limit,
+        total: apiResponse.total,
+        totalPages: apiResponse.totalPages,
       });
     } catch (err) {
       setError(err.message);

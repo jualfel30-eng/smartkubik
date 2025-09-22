@@ -2,6 +2,7 @@ import { connect, disconnect, model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 import { User, UserSchema } from '../src/schemas/user.schema';
 import { Role, RoleSchema } from '../src/schemas/role.schema';
+import { ALL_PERMISSIONS } from '../src/modules/permissions/constants';
 
 // Este script es seguro de ejecutar múltiples veces.
 // Usará findOneAndUpdate con upsert:true para crear los documentos solo si no existen.
@@ -19,7 +20,6 @@ async function seedSuperAdmin() {
 
   // 2. Crear o actualizar el rol de Super Admin
   const superAdminRoleName = 'super_admin';
-  const superAdminPermissions = ['MANAGE_TENANTS']; // Permiso inicial
 
   const roleResult = await RoleModel.findOneAndUpdate(
     { name: superAdminRoleName, tenantId: null }, // Clave única para el rol global
@@ -27,7 +27,7 @@ async function seedSuperAdmin() {
       $set: {
         name: superAdminRoleName,
         description: 'Super Administrador con acceso global para gestionar tenants',
-        permissions: superAdminPermissions,
+        permissions: ALL_PERMISSIONS,
         tenantId: null, // Explícitamente nulo para rol global
       },
     },

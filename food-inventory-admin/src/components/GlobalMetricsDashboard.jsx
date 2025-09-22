@@ -24,15 +24,16 @@ export default function GlobalMetricsDashboard() {
 
   const loadMetrics = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await fetchApi('/super-admin/metrics');
-    setLoading(false);
-
-    if (error) {
-      setError(error);
-      toast.error('Error al cargar las métricas globales', { description: error });
-      return;
+    try {
+      const response = await fetchApi('/super-admin/metrics');
+      setMetrics(response || null); // API returns the object directly
+    } catch (err) {
+      setError(err.message);
+      setMetrics(null);
+      toast.error('Error al cargar las métricas globales', { description: err.message });
+    } finally {
+      setLoading(false);
     }
-    setMetrics(data);
   }, []);
 
   useEffect(() => {

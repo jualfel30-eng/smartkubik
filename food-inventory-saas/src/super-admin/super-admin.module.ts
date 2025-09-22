@@ -4,6 +4,7 @@ import { SuperAdminController } from './super-admin.controller';
 import { SuperAdminService } from './super-admin.service';
 import { Tenant, TenantSchema } from '../schemas/tenant.schema';
 import { User, UserSchema } from '../schemas/user.schema';
+import { Event, EventSchema } from '../schemas/event.schema';
 import { AuthModule } from '../auth/auth.module';
 import { AuditLogModule } from '../modules/audit-log/audit-log.module';
 
@@ -12,6 +13,7 @@ import { AuditLogModule } from '../modules/audit-log/audit-log.module';
     MongooseModule.forFeature([
       { name: Tenant.name, schema: TenantSchema },
       { name: User.name, schema: UserSchema },
+      { name: Event.name, schema: EventSchema },
     ]),
     AuthModule,
     AuditLogModule,

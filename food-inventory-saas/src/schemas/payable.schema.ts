@@ -45,8 +45,8 @@ export class Payable {
   @Prop({ required: true, unique: true, index: true })
   payableNumber: string; // Generic invoice/payable number
 
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true, index: true })
-  tenantId: Types.ObjectId;
+  @Prop({ type: String, required: true, index: true })
+  tenantId: string;
 
   @Prop({ required: true, enum: ['purchase_order', 'payroll', 'service_payment', 'utility_bill', 'other'] })
   type: string;
