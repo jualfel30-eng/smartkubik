@@ -5,11 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCrmContext } from '@/context/CrmContext';
+import { useAccountingContext } from '@/context/AccountingContext';
 import { fetchApi } from '@/lib/api';
 import { X, Plus } from 'lucide-react';
 
 export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
   const { paymentMethods, loading: contextLoading } = useCrmContext();
+  const { triggerRefresh } = useAccountingContext();
 
   const [paymentMode, setPaymentMode] = useState('single');
   const [singlePayment, setSinglePayment] = useState({ amount: 0, method: '', reference: '' });
@@ -91,6 +93,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
       });
       alert('Pago registrado con éxito');
       onPaymentSuccess();
+      triggerRefresh();
     } catch (error) {
       console.error("Error submitting payment:", error);
       alert(`Error al registrar el pago: ${error.message}`);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchApi } from '../lib/api';
+import { getPayables } from '../lib/api';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -11,7 +11,7 @@ const AccountsPayableReport = () => {
     useEffect(() => {
         const fetchReport = async () => {
             try {
-                const response = await fetchApi('/accounting/reports/accounts-payable');
+                const response = await getPayables();
                 setReportData(response.data || []);
             } catch (err) {
                 setError(err.message);
@@ -24,7 +24,7 @@ const AccountsPayableReport = () => {
     }, []);
 
     if (loading) {
-        return <div>Loading...</div>;
+        return <div>Cargando...</div>;
     }
 
     if (error) {
@@ -34,20 +34,20 @@ const AccountsPayableReport = () => {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Accounts Payable Report</CardTitle>
+                <CardTitle>Reporte de Cuentas por Pagar</CardTitle>
             </CardHeader>
             <CardContent>
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Payable Number</TableHead>
-                            <TableHead>Payee</TableHead>
-                            <TableHead>Issue Date</TableHead>
-                            <TableHead>Due Date</TableHead>
-                            <TableHead>Total Amount</TableHead>
-                            <TableHead>Paid Amount</TableHead>
-                            <TableHead>Balance</TableHead>
-                            <TableHead>Status</TableHead>
+                            <TableHead># de Cuenta por Pagar</TableHead>
+                            <TableHead>Beneficiario</TableHead>
+                            <TableHead>Fecha de Emisión</TableHead>
+                            <TableHead>Fecha de Vencimiento</TableHead>
+                            <TableHead>Monto Total</TableHead>
+                            <TableHead>Monto Pagado</TableHead>
+                            <TableHead>Saldo</TableHead>
+                            <TableHead>Estado</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>

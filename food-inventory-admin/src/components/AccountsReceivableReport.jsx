@@ -28,7 +28,7 @@ const AccountsReceivableReport = () => {
     }, []);
 
     if (loading) {
-        return <div>Loading...</div>;
+        return <div>Cargando...</div>;
     }
 
     if (error) {

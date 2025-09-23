@@ -19,8 +19,9 @@ import {
   CreateChartOfAccountDto,
   CreateJournalEntryDto,
 } from "../../dto/accounting.dto";
-import { Order, OrderDocument, OrderPayment } from "../../schemas/order.schema";
+import { Order, OrderDocument } from "../../schemas/order.schema"; // <-- FIXED
 import { PurchaseOrderDocument } from "../../schemas/purchase-order.schema";
+import { Payment, PaymentDocument } from "../../schemas/payment.schema";
 import { Payable, PayableDocument } from "../../schemas/payable.schema";
 
 @Injectable()
@@ -547,7 +548,7 @@ export class AccountingService {
 
   async createJournalEntryForPayment(
     order: OrderDocument,
-    payment: OrderPayment,
+    payment: PaymentDocument, // <-- FIXED
     tenantId: string,
     igtfAmount = 0,
   ): Promise<JournalEntryDocument> {
@@ -790,10 +791,10 @@ export class AccountingService {
     const unpaidOrders = await this.orderModel.find({
         tenantId: tenantObjectId,
         paymentStatus: { $in: ['pending', 'partial'] },
-    }).populate('customerId', 'name').exec();
+    }).populate('customerId', 'name').populate('payments').exec(); // <-- FIXED
 
     const report = unpaidOrders.map(order => {
-        const totalPaid = order.payments.reduce((acc, p) => acc + p.amount, 0);
+        const totalPaid = (order.payments as unknown as PaymentDocument[]).reduce((acc, p) => acc + p.amount, 0); // <-- FIXED
         const balance = order.totalAmount - totalPaid;
         return {
             orderNumber: order.orderNumber,
@@ -836,49 +837,72 @@ export class AccountingService {
   }
 
   async getCashFlowStatement(tenantId: string, from: Date, to: Date): Promise<any> {
+    // CRUCIAL FIX: Ensure dates are in the correct format before querying
+    await this.fixJournalEntryDates(tenantId);
+
     const tenantObjectId = tenantId;
 
-    // Cash Inflows from Customer Payments
-    const orders = await this.orderModel.find({
+    // FINAL, PRECISE FIX: Find the cash account by its hardcoded code used for payments.
+    const cashAccount = await this.chartOfAccountsModel.findOne({
         tenantId: tenantObjectId,
-        "payments.date": { $gte: from, $lte: to },
-    }, { "payments.$": 1, orderNumber: 1 }).exec();
+        code: '1101' 
+    }).exec();
+
+    // Add a log to be 100% certain what account is being used.
+    this.logger.log(`[CASH FLOW] Using cash account found for code 1101: ${cashAccount ? cashAccount.name : 'NONE FOUND'}`);
+
+    if (!cashAccount) {
+        this.logger.warn(`No cash account found for code '1101' for tenant ${tenantId}. Cash flow will be zero.`);
+        return {
+            period: { from, to },
+            cashInflows: { total: 0, details: [] },
+            cashOutflows: { total: 0, details: [] },
+            netCashFlow: 0,
+        };
+    }
+
+    const cashAccountIds = [cashAccount._id]; // Now an array with one ID
+
+    // Step 2: Fetch all journal entries in the period that involve the cash account
+    const journalEntries = await this.journalEntryModel.find({
+        tenantId: tenantObjectId,
+        date: { $gte: from, $lte: to },
+        'lines.account': { $in: cashAccountIds }
+    }).populate('lines.account').exec();
 
     let totalCashInflow = 0;
     const cashInflows: { date: Date; description: string; amount: number }[] = [];
-    for (const order of orders) {
-        for (const payment of order.payments) {
-            if (payment.date >= from && payment.date <= to) {
-                totalCashInflow += payment.amount;
-                cashInflows.push({
-                    date: payment.date,
-                    description: `Payment for order ${order.orderNumber}`,
-                    amount: payment.amount,
-                });
+    let totalCashOutflow = 0;
+    const cashOutflows: { date: Date; description: string; amount: number }[] = [];
+
+    // Step 3: Process each journal entry
+    for (const entry of journalEntries) {
+        for (const line of entry.lines) {
+            // Check if the line's account is our cash account
+            if (cashAccount._id.equals((line.account as any)._id)) {
+                // Debit to a cash account is an INFLOW
+                if (line.debit > 0) {
+                    totalCashInflow += line.debit;
+                    cashInflows.push({
+                        date: entry.date,
+                        description: entry.description,
+                        amount: line.debit,
+                    });
+                }
+                // Credit to a cash account is an OUTFLOW
+                if (line.credit > 0) {
+                    totalCashOutflow += line.credit;
+                    cashOutflows.push({
+                        date: entry.date,
+                        description: entry.description,
+                        amount: line.credit,
+                    });
+                }
             }
         }
     }
 
-    // Cash Outflows from Payable Payments
-    const payments = await this.payableModel.find({
-        tenantId: tenantObjectId,
-        status: { $in: ['paid', 'partially_paid'] },
-        updatedAt: { $gte: from, $lte: to }, // Assuming updatedAt is when payment is made
-    }).exec();
-
-    let totalCashOutflow = 0;
-    const cashOutflows: { date: any; description: string; amount: number }[] = [];
-    for (const payable of payments) {
-        // This is a simplification. We need a proper payment date on the payable.
-        // For now, we assume the paidAmount was paid within the period.
-        totalCashOutflow += payable.paidAmount;
-        cashOutflows.push({
-            date: (payable as any).updatedAt, // This is not accurate
-            description: `Payment for payable ${payable.payableNumber}`,
-            amount: -payable.paidAmount,
-        });
-    }
-
+    // Step 4: Calculate totals and return
     const netCashFlow = totalCashInflow - totalCashOutflow;
 
     return {
@@ -893,5 +917,54 @@ export class AccountingService {
         },
         netCashFlow,
     };
+  }
+
+  async createJournalEntryForPayablePayment(
+    payment: PaymentDocument,
+    payable: PayableDocument,
+    tenantId: string,
+  ): Promise<JournalEntryDocument> {
+    this.logger.log(
+      `Creating automatic journal entry for payment on payable ${payable.payableNumber}`,
+    );
+
+    const accountsPayableAcc = await this.findAccountByCode("2101", tenantId);
+    const cashOrBankAcc = await this.findAccountByCode("1101", tenantId);
+
+    const lines: { accountId: string; debit: number; credit: number; description: string; }[] = [
+      {
+        accountId: accountsPayableAcc._id.toString(),
+        debit: payment.amount,
+        credit: 0,
+        description: `Pago de Cta por Pagar ${payable.payableNumber}`,
+      },
+      {
+        accountId: cashOrBankAcc._id.toString(),
+        debit: 0,
+        credit: payment.amount,
+        description: `Salida de dinero por pago de ${payable.payableNumber}`,
+      },
+    ];
+
+    const entryDto: CreateJournalEntryDto = {
+      date: new Date(payment.date).toISOString(),
+      description: `Asiento automático por pago de Cta por Pagar ${payable.payableNumber}`,
+      lines,
+    };
+
+    const newEntry = new this.journalEntryModel({
+      ...entryDto,
+      date: new Date(entryDto.date),
+      lines: entryDto.lines.map((line) => ({
+        account: line.accountId,
+        debit: line.debit,
+        credit: line.credit,
+        description: line.description,
+      })),
+      tenantId: tenantId,
+      isAutomatic: true,
+    });
+
+    return newEntry.save();
   }
 }

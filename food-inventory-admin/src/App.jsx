@@ -30,6 +30,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CrmProvider } from './context/CrmContext.jsx';
 import { FormStateProvider } from './context/FormStateContext.jsx';
+import { AccountingProvider } from './context/AccountingContext.jsx';
 import DashboardView from './components/DashboardView.jsx';
 import SettingsPage from './components/SettingsPage.jsx';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx';
@@ -192,7 +193,9 @@ function AppContent() {
             <FormStateProvider>
               <CrmProvider>
                 <ShiftProvider>
-                  <TenantLayout />
+                  <AccountingProvider>
+                    <TenantLayout />
+                  </AccountingProvider>
                 </ShiftProvider>
               </CrmProvider>
             </FormStateProvider>

@@ -78,39 +78,6 @@ export class OrderItem {
 }
 
 @Schema()
-export class OrderPayment {
-  @Prop({ required: true })
-  method: string; // efectivo_ves, pago_movil_ves, transferencia_ves, tarjeta_ves, efectivo_usd, transferencia_usd, zelle_usd, pago_mixto
-
-  @Prop({ required: true })
-  currency: string; // VES, USD
-
-  @Prop({ required: true })
-  amount: number;
-
-  @Prop()
-  exchangeRate?: number; // tasa de cambio si es USD
-
-  @Prop()
-  reference?: string; // referencia de transferencia o tarjeta
-
-  @Prop({ required: true })
-  date: Date;
-
-  @Prop()
-  bank?: string;
-
-  @Prop({ required: true, default: "pending" })
-  status: string; // pending, confirmed, failed, refunded
-
-  @Prop()
-  confirmedAt?: Date;
-
-  @Prop({ type: Types.ObjectId, ref: "User" })
-  confirmedBy?: Types.ObjectId;
-}
-
-@Schema()
 export class OrderShipping {
   @Prop({ required: true })
   method: string; // pickup, delivery, courier
@@ -187,8 +154,8 @@ export class Order {
   totalAmount: number; // total final con impuestos
 
   // Información de pago
-  @Prop([OrderPayment])
-  payments: OrderPayment[];
+  @Prop({ type: [{ type: Types.ObjectId, ref: 'Payment' }] })
+  payments: Types.ObjectId[];
 
   @Prop({ required: true, default: "pending" })
   paymentStatus: string; // pending, partial, paid, overpaid, refunded

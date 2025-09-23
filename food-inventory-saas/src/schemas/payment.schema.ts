@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Schema as MongooseSchema } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 export type PaymentDocument = Payment & Document;
 
@@ -8,8 +8,19 @@ export class Payment {
   @Prop({ type: String, required: true, index: true })
   tenantId: string;
 
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Payable', required: true })
-  payableId: MongooseSchema.Types.ObjectId;
+  @Prop({
+    type: String,
+    required: true,
+    enum: ['sale', 'payable'],
+    index: true,
+  })
+  paymentType: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'Order', required: false })
+  orderId?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'Payable', required: false })
+  payableId?: Types.ObjectId;
 
   @Prop({ required: true })
   date: Date;
@@ -18,13 +29,29 @@ export class Payment {
   amount: number;
 
   @Prop({ required: true })
-  paymentMethod: string; // e.g., 'cash', 'bank_transfer', 'credit_card'
+  method: string;
+
+  @Prop({ required: true })
+  currency: string;
 
   @Prop()
-  referenceNumber?: string;
+  reference?: string;
 
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'User', required: true })
-  createdBy: MongooseSchema.Types.ObjectId;
+  @Prop({ required: true, default: 'confirmed' })
+  status: string; // pending, confirmed, failed, refunded
+
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  createdBy: Types.ObjectId;
+
+  @Prop()
+  confirmedAt?: Date;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  confirmedBy?: Types.ObjectId;
 }
 
 export const PaymentSchema = SchemaFactory.createForClass(Payment);
+
+PaymentSchema.index({ tenantId: 1, paymentType: 1, date: -1 });
+PaymentSchema.index({ tenantId: 1, orderId: 1 });
+PaymentSchema.index({ tenantId: 1, payableId: 1 });

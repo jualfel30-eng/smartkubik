@@ -550,7 +550,7 @@ const PaymentHistory = () => {
     try {
       setLoading(true);
       const response = await getPayments();
-      setPayments(response || []);
+      setPayments(response.data || []);
     } catch (error) {
       toast.error('Error al cargar el historial de pagos.');
     } finally {
@@ -561,17 +561,20 @@ const PaymentHistory = () => {
   useEffect(() => { fetchPayments(); }, [fetchPayments]);
 
   const filteredPayments = payments.filter(payment => {
+    if (!searchTerm) return true;
     const searchTermLower = searchTerm.toLowerCase();
-    const description = payment.payableId?.description?.toLowerCase() || '';
-    const payeeName = payment.payableId?.payeeName?.toLowerCase() || '';
-    const paymentMethod = payment.paymentMethod?.toLowerCase() || '';
-    const referenceNumber = payment.referenceNumber?.toLowerCase() || '';
+    
+    const concept = payment.paymentType === 'sale'
+      ? `pago de orden #${payment.orderId?.orderNumber}`
+      : payment.payableId?.description || '';
+
+    const method = payment.method?.toLowerCase() || '';
+    const reference = payment.reference?.toLowerCase() || '';
 
     return (
-      description.includes(searchTermLower) ||
-      payeeName.includes(searchTermLower) ||
-      paymentMethod.includes(searchTermLower) ||
-      referenceNumber.includes(searchTermLower)
+      concept.toLowerCase().includes(searchTermLower) ||
+      method.includes(searchTermLower) ||
+      reference.includes(searchTermLower)
     );
   });
 
@@ -592,7 +595,28 @@ const PaymentHistory = () => {
       <CardContent>
         <Table>
           <TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Concepto</TableHead><TableHead>Monto Pagado</TableHead><TableHead>Método</TableHead><TableHead>Referencia</TableHead></TableRow></TableHeader>
-          <TableBody>{loading ? (<TableRow><TableCell colSpan="5" className="text-center">Cargando...</TableCell></TableRow>) : (filteredPayments.map((payment) => (<TableRow key={payment._id}><TableCell>{new Date(payment.date).toLocaleDateString()}</TableCell><TableCell>{payment.payableId?.description || 'N/A'}</TableCell><TableCell>${Number(payment.amount).toFixed(2)}</TableCell><TableCell>{payment.paymentMethod}</TableCell><TableCell>{payment.referenceNumber || '-'}</TableCell></TableRow>)))}</TableBody>
+          <TableBody>
+            {loading ? (
+              <TableRow><TableCell colSpan="5" className="text-center">Cargando...</TableCell></TableRow>
+            ) : (
+              filteredPayments.map((payment) => {
+                const isSale = payment.paymentType === 'sale';
+                const concept = isSale 
+                  ? `Pago de Orden #${payment.orderId?.orderNumber || 'N/A'}` 
+                  : payment.payableId?.description || 'N/A';
+                
+                return (
+                  <TableRow key={payment._id}>
+                    <TableCell>{new Date(payment.date).toLocaleDateString()}</TableCell>
+                    <TableCell>{concept}</TableCell>
+                    <TableCell>${Number(payment.amount).toFixed(2)}</TableCell>
+                    <TableCell>{payment.method}</TableCell>
+                    <TableCell>{payment.reference || '-'}</TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
         </Table>
       </CardContent>
     </Card>

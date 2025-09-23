@@ -9,23 +9,23 @@ import { Order, OrderSchema } from "../../schemas/order.schema";
 import { Customer, CustomerSchema } from "../../schemas/customer.schema";
 import { Product, ProductSchema } from "../../schemas/product.schema";
 import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
-
-
-import { AccountingModule } from "../accounting/accounting.module"; // Import AccountingModule
+import { AccountingModule } from "../accounting/accounting.module";
 import { RolesModule } from '../roles/roles.module';
+import { PaymentsModule } from "../payments/payments.module"; // <-- Import PaymentsModule
 
 @Module({
   imports: [
     AuthModule,
     InventoryModule,
     CustomersModule,
-    AccountingModule, // Add AccountingModule to imports
+    AccountingModule,
     RolesModule,
+    PaymentsModule, // <-- Add PaymentsModule to imports
     MongooseModule.forFeature([
       { name: Order.name, schema: OrderSchema },
       { name: Customer.name, schema: CustomerSchema },
       { name: Product.name, schema: ProductSchema },
-      { name: Tenant.name, schema: TenantSchema }, // Añadir TenantSchema
+      { name: Tenant.name, schema: TenantSchema },
     ]),
   ],
   controllers: [OrdersController],

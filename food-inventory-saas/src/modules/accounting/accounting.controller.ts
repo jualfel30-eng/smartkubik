@@ -69,6 +69,7 @@ export class AccountingController {
     const tenantId = req.user.tenantId;
     const fromDate = new Date(from);
     const toDate = new Date(to);
+    toDate.setUTCHours(23, 59, 59, 999); // Set to the end of the day UTC
     return this.accountingService.getProfitAndLoss(tenantId, fromDate, toDate);
   }
 
@@ -101,6 +102,7 @@ export class AccountingController {
     const tenantId = req.user.tenantId;
     const fromDate = new Date(from);
     const toDate = new Date(to);
+    toDate.setUTCHours(23, 59, 59, 999); // Set to the end of the day UTC
     return this.accountingService.getCashFlowStatement(tenantId, fromDate, toDate);
   }
 }
