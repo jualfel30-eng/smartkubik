@@ -3,7 +3,8 @@ import { Payable, PayableSchema } from '../src/schemas/payable.schema';
 import { ChartOfAccounts, ChartOfAccountsSchema } from '../src/schemas/chart-of-accounts.schema';
 import { JournalEntry, JournalEntrySchema } from '../src/schemas/journal-entry.schema';
 import { Payment, PaymentSchema } from '../src/schemas/payment.schema';
-import { Supplier, SupplierSchema } from '../src/schemas/supplier.schema'; // Import Supplier schema
+import { Supplier, SupplierSchema } from '../src/schemas/supplier.schema';
+import { Order, OrderSchema } from '../src/schemas/order.schema';
 
 // Helper function to migrate a single collection
 async function migrateCollection(model: Model<any>, name: string) {
@@ -40,13 +41,15 @@ async function migrateTenantIds() {
     const ChartOfAccountsModel = model(ChartOfAccounts.name, ChartOfAccountsSchema);
     const JournalEntryModel = model(JournalEntry.name, JournalEntrySchema);
     const PaymentModel = model(Payment.name, PaymentSchema);
-    const SupplierModel = model(Supplier.name, SupplierSchema); // Create Supplier model
+    const SupplierModel = model(Supplier.name, SupplierSchema);
+    const OrderModel = model(Order.name, OrderSchema);
 
     await migrateCollection(PayableModel, 'payables');
     await migrateCollection(ChartOfAccountsModel, 'chartofaccounts');
     await migrateCollection(JournalEntryModel, 'journalentries');
     await migrateCollection(PaymentModel, 'payments');
-    await migrateCollection(SupplierModel, 'suppliers'); // Add Supplier model to migration
+    await migrateCollection(SupplierModel, 'suppliers');
+    await migrateCollection(OrderModel, 'orders');
 
   } catch (error) {
     console.error('An error occurred during migration:', error);

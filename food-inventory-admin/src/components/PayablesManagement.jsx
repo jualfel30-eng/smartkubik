@@ -617,7 +617,7 @@ const PayablesManagement = () => {
   const fetchSuppliers = useCallback(async () => {
     try {
       const response = await fetchApi('/suppliers');
-      setSuppliers(response.data || []);
+      setSuppliers(response || []);
     } catch (error) {
       toast.error('Error al cargar los proveedores.');
     }

@@ -6,7 +6,7 @@ import {
   UnsupportedMediaTypeException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
+import { Model, Types } from "mongoose";
 import * as bcrypt from "bcrypt";
 import { Tenant, TenantDocument } from "./schemas/tenant.schema";
 import { User, UserDocument } from "./schemas/user.schema";
@@ -161,7 +161,7 @@ export class TenantService {
   }
 
   async getUsers(tenantId: string): Promise<User[]> {
-    return this.userModel.find({ tenantId }).populate('role').select("-password").exec();
+    return this.userModel.find({ tenantId: new Types.ObjectId(tenantId) }).populate('role').select("-password").exec();
   }
 
   async inviteUser(
@@ -196,7 +196,7 @@ export class TenantService {
 
     const newUser = new this.userModel({
       ...inviteUserDto,
-      tenantId,
+      tenantId: new Types.ObjectId(tenantId),
       password: hashedPassword,
       isEmailVerified: false, // El usuario deberá verificar su email
     });

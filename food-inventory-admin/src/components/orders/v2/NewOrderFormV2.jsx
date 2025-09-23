@@ -217,21 +217,17 @@ export function NewOrderFormV2({ onOrderCreated }) {
         return;
     }
 
+    // By default, no payment information is sent.
+    // This ensures the order is created with 'pending' status, functioning as a quote.
     let paymentsPayload = [];
     if (mixedPaymentData) {
+      // Only include payments if it's a mixed payment, which is pre-filled.
       paymentsPayload = mixedPaymentData.payments.map(p => ({
         amount: Number(p.amount),
         method: p.method,
         date: new Date().toISOString(),
         reference: p.reference,
       }));
-    } else {
-      paymentsPayload = [{
-        amount: totals.total,
-        method: newOrder.paymentMethod,
-        date: new Date().toISOString(),
-        reference: '',
-      }];
     }
 
     const payload = {
@@ -245,7 +241,8 @@ export function NewOrderFormV2({ onOrderCreated }) {
           ? parseFloat(item.quantity) || 0
           : parseInt(item.quantity, 10) || 0
       })),
-      payments: paymentsPayload,
+      // Conditionally add the payments key. If paymentsPayload is empty, the key will not be sent.
+      ...(paymentsPayload.length > 0 && { payments: paymentsPayload }),
       notes: newOrder.notes,
       shippingAddress: newOrder.shippingAddress.street ? newOrder.shippingAddress : undefined,
     };

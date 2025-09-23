@@ -64,9 +64,11 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
       setIsAuthenticated(true);
+      return userData; // Return user data on success
     } catch (error) {
       console.error('Login with tokens failed:', error);
       logout(); // Ensure clean state on failure
+      return null; // Return null on failure
     }
   };
 

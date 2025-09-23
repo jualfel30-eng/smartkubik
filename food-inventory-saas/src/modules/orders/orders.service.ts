@@ -59,6 +59,7 @@ export class OrdersService {
     createOrderDto: CreateOrderDto,
     user: any,
   ): Promise<OrderDocument> {
+    this.logger.debug(`[Order Create] Received DTO: ${JSON.stringify(createOrderDto, null, 2)}`);
     const tenant = await this.tenantModel.findById(user.tenantId);
     if (!tenant) {
       throw new BadRequestException("Tenant no encontrado");

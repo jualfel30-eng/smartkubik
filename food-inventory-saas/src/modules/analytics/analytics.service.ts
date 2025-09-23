@@ -6,6 +6,7 @@ import { PerformanceKpi, PerformanceKpiDocument } from '../../schemas/performanc
 import { Order, OrderDocument } from '../../schemas/order.schema';
 import { Shift, ShiftDocument } from '../../schemas/shift.schema';
 import { Tenant, TenantDocument } from '../../schemas/tenant.schema';
+import { User, UserDocument } from '../../schemas/user.schema';
 
 @Injectable()
 export class AnalyticsService {
@@ -16,6 +17,7 @@ export class AnalyticsService {
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
     @InjectModel(Shift.name) private shiftModel: Model<ShiftDocument>,
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM, { name: 'dailyPerformanceKPIs', timeZone: 'America/Caracas' })
@@ -41,7 +43,6 @@ export class AnalyticsService {
     const startOfYesterday = new Date(yesterday.setHours(0, 0, 0, 0));
     const endOfYesterday = new Date(yesterday.setHours(23, 59, 59, 999));
 
-    // 1. Get all completed shifts for yesterday
     const shifts = await this.shiftModel.find({
       tenantId,
       clockOut: { $gte: startOfYesterday, $lte: endOfYesterday },
@@ -52,7 +53,6 @@ export class AnalyticsService {
       return;
     }
 
-    // 2. Aggregate hours worked per user
     const userHours = shifts.reduce((acc, shift) => {
       const userId = shift.userId.toString();
       acc[userId] = (acc[userId] || 0) + shift.durationInHours;
@@ -61,15 +61,13 @@ export class AnalyticsService {
 
     const userIds = Object.keys(userHours);
 
-    // 3. Get all completed orders for yesterday for the users who worked
     const orders = await this.orderModel.find({
       tenantId,
-      status: 'delivered', // Or 'completed', depending on the business logic
+      status: 'delivered',
       confirmedAt: { $gte: startOfYesterday, $lte: endOfYesterday },
-      assignedTo: { $in: userIds }, // Attributing sale to the assigned user
+      assignedTo: { $in: userIds },
     }).exec();
 
-    // 4. Aggregate sales data per user
     const userSales = orders.reduce((acc, order) => {
       if (order.assignedTo) {
         const userId = order.assignedTo.toString();
@@ -82,7 +80,6 @@ export class AnalyticsService {
       return acc;
     }, {});
 
-    // 5. Calculate and save KPIs for each user
     for (const userId of userIds) {
       const hours = userHours[userId] || 0;
       const salesData = userSales[userId] || { totalSales: 0, numberOfOrders: 0 };
@@ -97,7 +94,6 @@ export class AnalyticsService {
         salesPerHour: hours > 0 ? salesData.totalSales / hours : 0,
       };
 
-      // Use findOneAndUpdate with upsert to avoid duplicates if job is re-run
       await this.kpiModel.findOneAndUpdate(
         { userId, tenantId, date: startOfYesterday },
         kpiData,
@@ -109,23 +105,62 @@ export class AnalyticsService {
   }
 
   async getPerformanceKpis(tenantId: string, date: Date) {
-    const startOfDay = new Date(date.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+    this.logger.log(`Getting REAL-TIME performance KPIs for tenant ${tenantId} for date ${date.toISOString()}`);
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
 
-    const kpis = await this.kpiModel.find({
+    const shifts = await this.shiftModel.find({
       tenantId,
-      date: { $gte: startOfDay, $lte: endOfDay },
-    })
-    .populate('userId', 'firstName lastName') // Populate user's name
-    .exec();
+      clockOut: { $gte: startOfDay, $lte: endOfDay },
+    }).exec();
 
-    // Format the data for the frontend
-    return kpis.map(kpi => ({
-      userName: `${(kpi.userId as any).firstName} ${(kpi.userId as any).lastName}`,
-      totalSales: kpi.totalSales,
-      numberOfOrders: kpi.numberOfOrders,
-      totalHoursWorked: kpi.totalHoursWorked,
-      salesPerHour: kpi.salesPerHour,
-    }));
+    if (shifts.length === 0) {
+      this.logger.log(`No shifts found for tenant ${tenantId} for the date. Returning empty.`);
+      return [];
+    }
+
+    const userHours = shifts.reduce((acc, shift) => {
+      const userId = shift.userId.toString();
+      acc[userId] = (acc[userId] || 0) + shift.durationInHours;
+      return acc;
+    }, {});
+
+    const userIds = Object.keys(userHours);
+
+    const orders = await this.orderModel.find({
+      tenantId,
+      status: 'delivered',
+      confirmedAt: { $gte: startOfDay, $lte: endOfDay },
+      assignedTo: { $in: userIds },
+    }).exec();
+
+    const userSales = orders.reduce((acc, order) => {
+      if (order.assignedTo) {
+        const userId = order.assignedTo.toString();
+        if (!acc[userId]) {
+          acc[userId] = { totalSales: 0, numberOfOrders: 0 };
+        }
+        acc[userId].totalSales += order.totalAmount;
+        acc[userId].numberOfOrders += 1;
+      }
+      return acc;
+    }, {});
+
+    const users = await this.userModel.find({ _id: { $in: userIds } }).select('firstName lastName').exec();
+    const userMap = new Map(users.map(u => [u._id.toString(), `${u.firstName} ${u.lastName}`]));
+
+    return userIds.map(userId => {
+      const hours = userHours[userId] || 0;
+      const salesData = userSales[userId] || { totalSales: 0, numberOfOrders: 0 };
+      return {
+        userName: userMap.get(userId) || 'Usuario Desconocido',
+        totalSales: salesData.totalSales,
+        numberOfOrders: salesData.numberOfOrders,
+        totalHoursWorked: hours,
+        salesPerHour: hours > 0 ? salesData.totalSales / hours : 0,
+      };
+    });
   }
 }

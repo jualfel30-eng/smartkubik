@@ -36,10 +36,7 @@ const ProfitLossView = () => {
     setReport(null);
     try {
       const response = await fetchProfitLossReport(fromDate, toDate);
-      if (response.error) {
-        throw new Error(response.error);
-      }
-      setReport(response.data);
+      setReport(response);
     } catch (err) {
       setError(err.message);
     } finally {

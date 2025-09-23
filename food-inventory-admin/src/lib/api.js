@@ -13,7 +13,7 @@ export const fetchApi = async (url, options = {}) => {
     headers['Content-Type'] = 'application/json';
   }
 
-  if (token) {
+  if (token && !options.isPublic) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
+import { Model } from "mongoose";
 import { Order, OrderDocument } from "../../schemas/order.schema";
 import { Customer, CustomerDocument } from "../../schemas/customer.schema";
 import { Inventory, InventoryDocument } from "../../schemas/inventory.schema";
@@ -18,7 +18,7 @@ export class DashboardService {
 
   async getSummary(user: any) {
     this.logger.log(`Fetching dashboard summary for tenant: ${user.tenantId}`);
-    const tenantId = new Types.ObjectId(user.tenantId);
+    const tenantId = user.tenantId;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -47,7 +47,7 @@ export class DashboardService {
         {
           $match: {
             tenantId,
-            status: "delivered",
+            paymentStatus: { $in: ['paid', 'overpaid', 'partial'] },
             createdAt: { $gte: today, $lt: tomorrow },
           },
         },

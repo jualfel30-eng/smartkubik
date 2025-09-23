@@ -13,6 +13,7 @@ import { Product, ProductSchema } from "../../schemas/product.schema";
 
 import { InventoryModule } from "../inventory/inventory.module";
 import { AccountingModule } from "../accounting/accounting.module";
+import { PayablesModule } from "../payables/payables.module"; // Import PayablesModule
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { AccountingModule } from "../accounting/accounting.module";
     forwardRef(() => ProductsModule),
     InventoryModule,
     AccountingModule,
+    PayablesModule, // Add PayablesModule here
   ],
   controllers: [PurchasesController],
   providers: [PurchasesService],

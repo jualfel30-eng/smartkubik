@@ -73,6 +73,10 @@ export class CreatePayableDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsMongoId()
+  relatedPurchaseOrderId?: string;
 }
 
 export class UpdatePayableDto {

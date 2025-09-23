@@ -236,33 +236,48 @@ export class AuthService {
       throw new BadRequestException('Unauthenticated');
     }
 
-    const tenant = await this.tenantModel.findById(user.tenantId).exec();
-    if (!tenant) {
-      this.logger.error(`CRITICAL: User ${user.email} has an invalid tenantId: ${user.tenantId}`);
-      throw new UnauthorizedException("Error de configuración de la cuenta: Tenant asociado no encontrado.");
+    let tenant: TenantDocument | null = null;
+    // Handle tenant users
+    if (user.tenantId) {
+      tenant = await this.tenantModel.findById(user.tenantId).exec();
+      if (!tenant) {
+        this.logger.error(`CRITICAL: User ${user.email} has an invalid tenantId: ${user.tenantId}`);
+        throw new UnauthorizedException("Error de configuración de la cuenta: Tenant asociado no encontrado.");
+      }
     }
-
+    
+    // If tenant is null here, it's a super_admin. generateTokens can handle a null tenant.
     const tokens = await this.generateTokens(user, tenant);
 
     this.logger.log(`Successful Google login for user: ${user.email}`);
 
-    return {
-      user: {
-        id: user._id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        tenantId: user.tenantId,
-      },
-      tenant: {
-        id: tenant._id,
-        code: tenant.code,
-        name: tenant.name,
-        businessType: tenant.businessType,
-      },
-      ...tokens,
+    const userPayload = {
+      id: user._id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      tenantId: user.tenantId,
     };
+
+    if (tenant) {
+      return {
+        user: userPayload,
+        tenant: {
+          id: tenant._id,
+          code: tenant.code,
+          name: tenant.name,
+          businessType: tenant.businessType,
+        },
+        ...tokens,
+      };
+    } else {
+      // Super admin payload
+      return {
+        user: userPayload,
+        ...tokens,
+      };
+    }
   }
 
   async createUser(createUserDto: CreateUserDto, currentUser: any) {

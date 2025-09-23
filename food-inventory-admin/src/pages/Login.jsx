@@ -7,8 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 function Login() {
-  const [email, setEmail] = useState('jualfel3.0@gmail.com');
-  const [password, setPassword] = useState('Papayita.85');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [tenantCode, setTenantCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);

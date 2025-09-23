@@ -117,9 +117,11 @@ export class OnboardingService {
       }
 
       // 4. Generate Tokens
+      this.logger.log('[DEBUG] User and tenant created. Generating tokens...');
       const tokens = await this._generateTokens(userWithRole, savedTenant);
+      this.logger.log('[DEBUG] Tokens generated. Preparing final response object.');
 
-      return {
+      const finalResponse = {
         user: {
           id: userWithRole._id,
           email: userWithRole.email,
@@ -134,6 +136,10 @@ export class OnboardingService {
         },
         ...tokens,
       };
+
+      this.logger.log(`[DEBUG] Returning response object keys: ${JSON.stringify(Object.keys(finalResponse))}`);
+
+      return finalResponse;
 
     } catch (error) {
       this.logger.error('Error durante el proceso de onboarding, revirtiendo transacción.', error.stack);

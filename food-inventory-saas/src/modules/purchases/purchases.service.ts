@@ -12,10 +12,11 @@ import {
 } from "../../schemas/purchase-order.schema";
 import { Product, ProductDocument } from "../../schemas/product.schema";
 import { CreatePurchaseOrderDto } from "../../dto/purchase-order.dto";
-import { CreateCustomerDto } from "../../dto/customer.dto"; // CHANGED
-import { CustomersService } from "../customers/customers.service"; // CHANGED
+import { CreateCustomerDto } from "../../dto/customer.dto";
+import { CustomersService } from "../customers/customers.service";
 import { InventoryService } from "../inventory/inventory.service";
 import { AccountingService } from "../accounting/accounting.service";
+import { PayablesService, CreatePayableDto } from "../payables/payables.service"; // Import PayablesService and DTO
 
 @Injectable()
 export class PurchasesService {
@@ -25,9 +26,10 @@ export class PurchasesService {
     @InjectModel(PurchaseOrder.name)
     private poModel: Model<PurchaseOrderDocument>,
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
-    private readonly customersService: CustomersService, // CHANGED
+    private readonly customersService: CustomersService,
     private readonly inventoryService: InventoryService,
     private readonly accountingService: AccountingService,
+    private readonly payablesService: PayablesService, // Inject PayablesService
   ) {}
 
   async create(
@@ -38,7 +40,6 @@ export class PurchasesService {
     let supplierId = dto.supplierId;
     let supplierName = "";
 
-    // This logic is now unified to use the Customer entity as the source for suppliers
     if (!supplierId) {
       if (
         !dto.newSupplierName ||
@@ -50,8 +51,8 @@ export class PurchasesService {
         );
       }
       const newCustomerDto: CreateCustomerDto = {
-        name: dto.newSupplierContactName, // Salesperson
-        companyName: dto.newSupplierName, // Company
+        name: dto.newSupplierContactName,
+        companyName: dto.newSupplierName,
         customerType: "supplier",
         taxInfo: {
           taxId: dto.newSupplierRif,
@@ -68,7 +69,7 @@ export class PurchasesService {
             value: dto.newSupplierContactEmail ?? "",
             isPrimary: false,
           },
-        ].filter((c) => c.value), // Filter out empty contacts
+        ].filter((c) => c.value),
       };
       const newSupplier = await this.customersService.create(
         newCustomerDto,
@@ -184,19 +185,46 @@ export class PurchasesService {
 
     const savedPurchaseOrder = await purchaseOrder.save({ session });
 
+    // --- Create Payable from Purchase Order ---
     try {
       this.logger.log(
-        `Attempting to create journal entry for purchase order ${savedPurchaseOrder.poNumber}`,
+        `Attempting to create payable for purchase order ${savedPurchaseOrder.poNumber}`,
       );
-      await this.accountingService.createJournalEntryForPurchase(
-        savedPurchaseOrder,
+      
+      // The payable lines will reference the inventory account
+      const inventoryAccount = await (this.accountingService as any).findOrCreateAccount(
+        { code: "1103", name: "Inventario", type: "Activo" },
         user.tenantId,
       );
-    } catch (accountingError) {
-      this.logger.error(
-        `Failed to create journal entry for purchase order ${savedPurchaseOrder.poNumber}. The purchase was processed correctly, but accounting needs review.`,
-        accountingError.stack,
+
+      const createPayableDto: CreatePayableDto = {
+        type: 'purchase_order',
+        payeeType: 'supplier',
+        payeeId: savedPurchaseOrder.supplierId.toString(),
+        payeeName: savedPurchaseOrder.supplierName,
+        issueDate: savedPurchaseOrder.purchaseDate,
+        description: `Factura por orden de compra #${savedPurchaseOrder.poNumber}`,
+        lines: [
+          {
+            description: `Compra de mercancía según orden ${savedPurchaseOrder.poNumber}`,
+            amount: savedPurchaseOrder.totalAmount,
+            accountId: inventoryAccount._id.toString(),
+          },
+        ],
+        relatedPurchaseOrderId: savedPurchaseOrder._id.toString(), // Link payable to PO
+      };
+
+      await this.payablesService.create(createPayableDto, user.tenantId, user.id);
+      this.logger.log(
+        `Successfully created payable for PO ${savedPurchaseOrder.poNumber}`
       );
+
+    } catch (payableError) {
+      this.logger.error(
+        `Failed to create payable for purchase order ${savedPurchaseOrder.poNumber}. The purchase was processed correctly, but accounting needs review.`,
+        payableError.stack,
+      );
+      // Do not re-throw, as the main operation (receiving stock) was successful
     }
 
     return savedPurchaseOrder;

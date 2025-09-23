@@ -14,11 +14,8 @@ const CashFlowStatement = () => {
     const fetchReport = async () => {
         setLoading(true);
         try {
-            const { data, error } = await fetchApi(`/accounting/reports/cash-flow-statement?from=${dates.from}&to=${dates.to}`);
-            if (error) {
-                throw new Error(error);
-            }
-            setReportData(data);
+            const response = await fetchApi(`/accounting/reports/cash-flow-statement?from=${dates.from}&to=${dates.to}`);
+            setReportData(response);
         } catch (err) {
             setError(err.message);
         } finally {

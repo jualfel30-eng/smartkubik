@@ -27,6 +27,7 @@ const UserManagement = () => {
       const [usersResponse, rolesResponse] = await Promise.all([getTenantUsers(), getRoles()]);
       
       if (usersResponse.success) {
+        console.log('Datos de usuarios recibidos del backend:', usersResponse.data);
         setUsers(usersResponse.data);
       } else {
         throw new Error(usersResponse.message || 'Failed to fetch users');

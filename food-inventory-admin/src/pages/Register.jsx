@@ -244,6 +244,7 @@ function Register() {
       const response = await fetchApi('/onboarding/register', {
         method: 'POST',
         body: JSON.stringify(payload),
+        isPublic: true
       });
       
       const { accessToken, refreshToken } = response;

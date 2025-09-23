@@ -8,17 +8,27 @@ const AuthCallback = () => {
   const { loginWithTokens } = useAuth();
 
   useEffect(() => {
-    const accessToken = searchParams.get('accessToken');
-    const refreshToken = searchParams.get('refreshToken');
+    const handleAuth = async () => {
+      const accessToken = searchParams.get('accessToken');
+      const refreshToken = searchParams.get('refreshToken');
 
-    if (accessToken && refreshToken) {
-      loginWithTokens(accessToken, refreshToken);
-      navigate('/');
-    } else {
-      // Handle error: No tokens found in URL
-      console.error("Google Auth Error: No tokens provided in callback.");
-      navigate('/login', { state: { error: 'Error de autenticación con Google.' } });
-    }
+      if (accessToken && refreshToken) {
+        const response = await loginWithTokens(accessToken, refreshToken);
+        const user = response?.data; // The actual user object is in the 'data' property
+        
+        if (user && user.role?.name === 'super_admin') {
+          navigate('/super-admin');
+        } else {
+          navigate('/dashboard');
+        }
+      } else {
+        // Handle error: No tokens found in URL
+        console.error("Google Auth Error: No tokens provided in callback.");
+        navigate('/login', { state: { error: 'Error de autenticación con Google.' } });
+      }
+    };
+
+    handleAuth();
   }, [searchParams, navigate, loginWithTokens]);
 
   return (
