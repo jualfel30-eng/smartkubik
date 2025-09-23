@@ -29,6 +29,7 @@ import { ShiftsModule } from './modules/shifts/shifts.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { MailModule } from './modules/mail/mail.module';
 import { SuperAdminModule } from './super-admin/super-admin.module';
+import { SubscriptionPlansModule } from './modules/subscription-plans/subscription-plans.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { SuperAdminModule } from './super-admin/super-admin.module';
     AnalyticsModule,
     MailModule,
     SuperAdminModule,
+    SubscriptionPlansModule,
   ],
   controllers: [AppController, TenantController],
   providers: [AppService, TenantService],

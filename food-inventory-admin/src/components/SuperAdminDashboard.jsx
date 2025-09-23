@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import TenantEditForm from './TenantEditForm';
 import { FileText } from 'lucide-react';
 import GlobalMetricsDashboard from './GlobalMetricsDashboard';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import PlanManagement from './super-admin/PlanManagement';
 
 const TenantStatusSelector = ({ tenant, onStatusChange }) => {
   const [currentStatus, setCurrentStatus] = useState(tenant.status);
@@ -95,64 +97,73 @@ export default function SuperAdminDashboard() {
   }
 
   return (
-    <>
-      <GlobalMetricsDashboard />
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Panel de Super Administrador</CardTitle>
-              <CardDescription>Gestión centralizada de todos los tenants del sistema.</CardDescription>
+    <Tabs defaultValue="dashboard" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="dashboard">Gestión de Tenants</TabsTrigger>
+        <TabsTrigger value="plans">Gestión de Planes</TabsTrigger>
+      </TabsList>
+      <TabsContent value="dashboard" className="space-y-4">
+        <GlobalMetricsDashboard />
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Panel de Super Administrador</CardTitle>
+                <CardDescription>Gestión centralizada de todos los tenants del sistema.</CardDescription>
+              </div>
+              <Button variant="outline" onClick={() => navigate('/super-admin/audit-logs')}>
+                <FileText className="h-4 w-4 mr-2" />
+                Ver Logs de Auditoría
+              </Button>
             </div>
-            <Button variant="outline" onClick={() => navigate('/super-admin/audit-logs')}>
-              <FileText className="h-4 w-4 mr-2" />
-              Ver Logs de Auditoría
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre del Tenant</TableHead>
-                <TableHead>Código</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Expira</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {tenants.map((tenant) => (
-                <TableRow key={tenant._id}>
-                  <TableCell className="font-medium">{tenant.name}</TableCell>
-                  <TableCell>{tenant.code}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{tenant.subscriptionPlan}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    {tenant.subscriptionExpiresAt ? new Date(tenant.subscriptionExpiresAt).toLocaleDateString() : 'N/A'}
-                  </TableCell>
-                  <TableCell>
-                    <TenantStatusSelector tenant={tenant} onStatusChange={handleTenantUpdate} />
-                  </TableCell>
-                  <TableCell className="space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => setEditingTenant(tenant)}>Editar</Button>
-                    <Button variant="outline" size="sm" onClick={() => navigate(`/super-admin/tenants/${tenant._id}/users`)}>Ver Usuarios</Button>
-                  </TableCell>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nombre del Tenant</TableHead>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Plan</TableHead>
+                  <TableHead>Expira</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Acciones</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-      {editingTenant && (
-        <TenantEditForm
-          tenant={editingTenant}
-          onSave={handleTenantUpdate}
-          onCancel={() => setEditingTenant(null)}
-        />
-      )}
-    </>
+              </TableHeader>
+              <TableBody>
+                {tenants.map((tenant) => (
+                  <TableRow key={tenant._id}>
+                    <TableCell className="font-medium">{tenant.name}</TableCell>
+                    <TableCell>{tenant.code}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{tenant.subscriptionPlan}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {tenant.subscriptionExpiresAt ? new Date(tenant.subscriptionExpiresAt).toLocaleDateString() : 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      <TenantStatusSelector tenant={tenant} onStatusChange={handleTenantUpdate} />
+                    </TableCell>
+                    <TableCell className="space-x-2">
+                      <Button variant="outline" size="sm" onClick={() => setEditingTenant(tenant)}>Editar</Button>
+                      <Button variant="outline" size="sm" onClick={() => navigate(`/super-admin/tenants/${tenant._id}/users`)}>Ver Usuarios</Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+        {editingTenant && (
+          <TenantEditForm
+            tenant={editingTenant}
+            onSave={handleTenantUpdate}
+            onCancel={() => setEditingTenant(null)}
+          />
+        )}
+      </TabsContent>
+      <TabsContent value="plans">
+        <PlanManagement />
+      </TabsContent>
+    </Tabs>
   );
 }

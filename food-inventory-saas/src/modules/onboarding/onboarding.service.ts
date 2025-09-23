@@ -5,11 +5,12 @@ import * as bcrypt from 'bcrypt';
 import { Tenant, TenantDocument } from '../../schemas/tenant.schema';
 import { User, UserDocument } from '../../schemas/user.schema';
 import { RolesService } from '../roles/roles.service';
+import { SubscriptionPlansService } from '../subscription-plans/subscription-plans.service';
 import { CreateTenantWithAdminDto } from './dto/onboarding.dto';
 import { JwtService } from '@nestjs/jwt';
 import { SeedingService } from '../seeding/seeding.service';
 import { RoleDocument } from '../../schemas/role.schema';
-import { subscriptionPlans } from '../../config/subscriptions.config';
+
 
 @Injectable()
 export class OnboardingService {
@@ -19,6 +20,7 @@ export class OnboardingService {
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private rolesService: RolesService,
+    private subscriptionPlansService: SubscriptionPlansService,
     private seedingService: SeedingService, // Injected SeedingService
     private jwtService: JwtService,
     @InjectConnection() private readonly connection: Connection,
@@ -57,7 +59,7 @@ export class OnboardingService {
 
     try {
       // 1. Create Tenant
-      const trialPlan = subscriptionPlans.trial;
+      const trialPlan = await this.subscriptionPlansService.findOneByName('Trial');
       const newTenant = new this.tenantModel({
         name: dto.businessName,
         code: tenantCode,
@@ -67,7 +69,7 @@ export class OnboardingService {
           phone: dto.phone,
         },
         status: 'active',
-        subscriptionPlan: 'trial',
+        subscriptionPlan: trialPlan.name,
         limits: trialPlan.limits,
         usage: {
           currentUsers: 1,

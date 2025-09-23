@@ -9,6 +9,7 @@ import { User, UserSchema } from '../../schemas/user.schema';
 import { RolesModule } from '../roles/roles.module';
 
 import { SeedingModule } from '../seeding/seeding.module';
+import { SubscriptionPlansModule } from '../subscription-plans/subscription-plans.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { SeedingModule } from '../seeding/seeding.module';
     ]),
     RolesModule,
     SeedingModule,
+    SubscriptionPlansModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

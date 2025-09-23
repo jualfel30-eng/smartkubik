@@ -20,10 +20,9 @@ import TenantUserList from '@/components/TenantUserList';
 import AuditLogView from '@/components/AuditLogView';
 
 const navItems = [
-  { to: '/super-admin/dashboard', icon: BarChart3, label: 'Dashboard' },
+  { to: '/super-admin/tenants', icon: Settings, label: 'Gestión de Tenants' },
   { to: '/super-admin/crm', icon: Users, label: 'CRM' },
   { to: '/super-admin/calendar', icon: CalendarDays, label: 'Calendario' },
-  { to: '/super-admin/tenants', icon: Settings, label: 'Gestión de Tenants' },
 ];
 
 const NavLink = ({ to, icon: Icon, label }) => {
@@ -87,7 +86,7 @@ function SuperAdminLayout() {
             <Route path="tenants" element={<SuperAdminDashboard />} />
             <Route path="tenants/:tenantId/users" element={<TenantUserList />} />
             <Route path="audit-logs" element={<AuditLogView />} />
-            <Route path="*" element={<Navigate to="dashboard" />} />
+            <Route path="*" element={<Navigate to="tenants" />} />
           </Routes>
         </main>
       </div>

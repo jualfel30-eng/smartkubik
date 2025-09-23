@@ -254,3 +254,28 @@ export const changePassword = (passwordData) => {
 export const getProfile = () => {
   return fetchApi('/auth/profile');
 };
+
+// Super Admin - Subscription Plans
+export const getSubscriptionPlans = () => {
+  return fetchApi('/subscription-plans');
+};
+
+export const createSubscriptionPlan = (planData) => {
+  return fetchApi('/subscription-plans', {
+    method: 'POST',
+    body: JSON.stringify(planData),
+  });
+};
+
+export const updateSubscriptionPlan = (id, planData) => {
+  return fetchApi(`/subscription-plans/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(planData),
+  });
+};
+
+export const deleteSubscriptionPlan = (id) => {
+  return fetchApi(`/subscription-plans/${id}`, {
+    method: 'DELETE',
+  });
+};
