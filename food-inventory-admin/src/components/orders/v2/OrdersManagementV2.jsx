@@ -13,6 +13,14 @@ import { CreditCard, RefreshCw, Search, Printer } from "lucide-react";
 import { useDebounce } from '@/hooks/use-debounce.js';
 import { useCrmContext } from '@/context/CrmContext.jsx';
 
+const paymentStatusMap = {
+  pending: { label: 'Pendiente', variant: 'outline' },
+  partial: { label: 'Parcial', variant: 'warning' },
+  paid: { label: 'Pagado', variant: 'success' },
+  overpaid: { label: 'Sobrepagado', variant: 'info' },
+  refunded: { label: 'Reembolsado', variant: 'destructive' },
+};
+
 export function OrdersManagementV2() {
   const { loadCustomers } = useCrmContext();
   const [data, setData] = useState({ orders: [], pagination: null });
@@ -122,11 +130,8 @@ export function OrdersManagementV2() {
       header: "Estado de Pago",
        cell: ({ row }) => {
          const status = row.original.paymentStatus;
-         let variant = "secondary";
-         if (status === 'paid') variant = "success";
-         if (status === 'pending') variant = "outline";
-         if (status === 'partial') variant = "warning";
-         return <Badge variant={variant}>{status}</Badge>;
+         const { label, variant } = paymentStatusMap[status] || { label: status, variant: 'secondary' };
+         return <Badge variant={variant}>{label}</Badge>;
        }
     },
     {

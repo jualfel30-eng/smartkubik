@@ -6,19 +6,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { fetchApi } from '@/lib/api';
 import { toast } from "sonner";
 
-const ORDER_STATUSES = [
-  'draft',
-  'pending',
-  'confirmed',
-  'processing',
-  'shipped',
-  'delivered',
-  'cancelled',
-  'refunded',
-];
+const orderStatusMap = {
+  draft: { label: 'Borrador', color: 'bg-gray-400' },
+  pending: { label: 'Pendiente', color: 'bg-yellow-500' },
+  confirmed: { label: 'Confirmado', color: 'bg-blue-500' },
+  processing: { label: 'Procesando', color: 'bg-purple-500' },
+  shipped: { label: 'Enviado', color: 'bg-indigo-500' },
+  delivered: { label: 'Entregado', color: 'bg-green-500' },
+  cancelled: { label: 'Cancelado', color: 'bg-red-500' },
+  refunded: { label: 'Reembolsado', color: 'bg-pink-500' },
+};
+
+const ORDER_STATUSES = Object.keys(orderStatusMap);
 
 export function OrderStatusSelector({ order, onStatusChange }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -35,7 +38,7 @@ export function OrderStatusSelector({ order, onStatusChange }) {
       });
 
       toast.success(`Orden #${order.orderNumber} actualizada`, {
-        description: `Nuevo estado: ${newStatus}`,
+        description: `Nuevo estado: ${orderStatusMap[newStatus]?.label || newStatus}`,
       });
 
       if (onStatusChange) {
@@ -51,6 +54,8 @@ export function OrderStatusSelector({ order, onStatusChange }) {
     }
   };
 
+  const currentStatus = orderStatusMap[order.status] || { label: order.status, color: 'bg-gray-400' };
+
   return (
     <Select
       value={order.status}
@@ -58,14 +63,25 @@ export function OrderStatusSelector({ order, onStatusChange }) {
       disabled={isLoading}
     >
       <SelectTrigger className="w-[180px]">
-        <SelectValue placeholder="Cambiar estado" />
+        <SelectValue asChild>
+          <div className="flex items-center">
+            <span className={`h-2 w-2 rounded-full mr-2 ${currentStatus.color}`} />
+            <span>{currentStatus.label}</span>
+          </div>
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
-        {ORDER_STATUSES.map((status) => (
-          <SelectItem key={status} value={status}>
-            <span className="capitalize">{status}</span>
-          </SelectItem>
-        ))}
+        {ORDER_STATUSES.map((status) => {
+          const statusInfo = orderStatusMap[status];
+          return (
+            <SelectItem key={status} value={status}>
+              <div className="flex items-center">
+                <span className={`h-2 w-2 rounded-full mr-2 ${statusInfo.color}`} />
+                <span>{statusInfo.label}</span>
+              </div>
+            </SelectItem>
+          );
+        })}
       </SelectContent>
     </Select>
   );

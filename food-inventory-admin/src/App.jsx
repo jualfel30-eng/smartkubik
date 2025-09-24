@@ -23,6 +23,7 @@ import {
   PlayCircle,
   StopCircle,
   AreaChart,
+  LayoutDashboard,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import './App.css';
@@ -142,13 +143,13 @@ function TenantLayout() {
       <div className="bg-card border-b border-border py-2">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="px-6">
           <TabsList className="max-w-full overflow-x-auto">
-            {hasPermission('dashboard_read') && <TabsTrigger value="dashboard">Dashboard</TabsTrigger>}
-            {hasPermission('orders_read') && <TabsTrigger value="orders">Órdenes</TabsTrigger>}
-            {hasPermission('inventory_read') && <TabsTrigger value="inventory-management">Inventario</TabsTrigger>}
-            {hasPermission('accounting_read') && <TabsTrigger value="accounting-management">Contabilidad</TabsTrigger>}
-            {hasPermission('customers_read') && <TabsTrigger value="crm">CRM</TabsTrigger>}
-            {hasPermission('events_read') && <TabsTrigger value="calendar">Calendario</TabsTrigger>}
-            {hasPermission('reports_read') && <TabsTrigger value="reports">Reportes</TabsTrigger>}
+            {hasPermission('dashboard_read') && <TabsTrigger value="dashboard"><LayoutDashboard className="mr-2 h-4 w-4" />Dashboard</TabsTrigger>}
+            {hasPermission('orders_read') && <TabsTrigger value="orders"><ShoppingCart className="mr-2 h-4 w-4" />Órdenes</TabsTrigger>}
+            {hasPermission('inventory_read') && <TabsTrigger value="inventory-management"><Package className="mr-2 h-4 w-4" />Inventario</TabsTrigger>}
+            {hasPermission('accounting_read') && <TabsTrigger value="accounting-management"><BookCopy className="mr-2 h-4 w-4" />Contabilidad</TabsTrigger>}
+            {hasPermission('customers_read') && <TabsTrigger value="crm"><Users className="mr-2 h-4 w-4" />CRM</TabsTrigger>}
+            {hasPermission('events_read') && <TabsTrigger value="calendar"><CalendarDays className="mr-2 h-4 w-4" />Calendario</TabsTrigger>}
+            {hasPermission('reports_read') && <TabsTrigger value="reports"><AreaChart className="mr-2 h-4 w-4" />Reportes</TabsTrigger>}
           </TabsList>
         </Tabs>
       </div>
