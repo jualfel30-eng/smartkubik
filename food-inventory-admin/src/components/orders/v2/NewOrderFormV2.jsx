@@ -318,8 +318,8 @@ export function NewOrderFormV2({ onOrderCreated }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>RIF / C.I.</Label>
-              <div className="flex items-center gap-2">
-                <div className="w-[80px] flex-shrink-0">
+              <div className="flex items-center gap-1">
+                <div className="w-[70px] flex-shrink-0">
                   <Select value={newOrder.taxType} onValueChange={(value) => handleFieldChange('taxType', value)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -336,7 +336,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
                     options={rifOptions}
                     onSelection={handleRifSelection}
                     value={newOrder.customerRif ? { value: newOrder.customerRif, label: newOrder.customerRif } : null}
-                    placeholder="Escriba o seleccione un RIF..."
+                    placeholder="Buscar o crear RIF..."
                   />
                 </div>
               </div>
@@ -371,11 +371,11 @@ export function NewOrderFormV2({ onOrderCreated }) {
                 placeholder="Ej: Av. Bolívar, Edificio ABC, Piso 1, Apto 1A"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Estado</Label>
                 <Select value={newOrder.shippingAddress.state} onValueChange={(v) => handleAddressChange('state', v)}>
-                  <SelectTrigger className="w-[240px]"><SelectValue /></SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {venezuelaData.map(e => <SelectItem key={e.estado} value={e.estado}>{e.estado}</SelectItem>)}
                   </SelectContent>
@@ -384,7 +384,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
               <div className="space-y-2">
                 <Label>Municipio / Ciudad</Label>
                 <Select value={newOrder.shippingAddress.city} onValueChange={(v) => handleAddressChange('city', v)}>
-                  <SelectTrigger className="w-[240px]"><SelectValue /></SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {municipios.map((m, index) => <SelectItem key={`${m}-${index}`} value={m}>{m}</SelectItem>)}
                   </SelectContent>
@@ -455,24 +455,27 @@ export function NewOrderFormV2({ onOrderCreated }) {
                 <Label htmlFor="notes">Notas Adicionales</Label>
                 <Textarea id="notes" value={newOrder.notes} onChange={(e) => handleFieldChange('notes', e.target.value)} placeholder="Instrucciones especiales, detalles de entrega, etc." />
             </div>
-            <div className="bg-muted/50 p-4 rounded-lg space-y-2 text-sm">
-              <div className="flex justify-between"><span>Subtotal:</span><span>${totals.subtotal.toFixed(2)}</span></div>
-              <div className="flex justify-between"><span>IVA (16%):</span><span>${totals.iva.toFixed(2)}</span></div>
-              {totals.igtf > 0 && <div className="flex justify-between text-orange-600"><span>IGTF (3%):</span><span>${totals.igtf.toFixed(2)}</span></div>}
-              <div className="flex justify-between font-bold text-base border-t pt-2 mt-2"><span>Total:</span><span>${totals.total.toFixed(2)}</span></div>
+            <div className="space-y-4">
+              <div className="bg-muted/50 p-4 rounded-lg space-y-2 text-sm">
+                <div className="flex justify-between"><span>Subtotal:</span><span>${totals.subtotal.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span>IVA (16%):</span><span>${totals.iva.toFixed(2)}</span></div>
+                {totals.igtf > 0 && <div className="flex justify-between text-orange-600"><span>IGTF (3%):</span><span>${totals.igtf.toFixed(2)}</span></div>}
+                <div className="flex justify-between font-bold text-base border-t pt-2 mt-2"><span>Total:</span><span>${totals.total.toFixed(2)}</span></div>
+              </div>
+              <div className="space-y-2">
+                <Label>Forma de Pago</Label>
+                <Select value={newOrder.paymentMethod} onValueChange={handlePaymentMethodChange} disabled={contextLoading}>
+                    <SelectTrigger><SelectValue placeholder="Forma de Pago" /></SelectTrigger>
+                    <SelectContent>{paymentMethods.map(method => (<SelectItem key={method.id} value={method.id}>{method.name}</SelectItem>))}</SelectContent>
+                </Select>
+              </div>
             </div>
         </div>
       </CardContent>
-      <CardFooter className="flex justify-end items-center pt-6">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setNewOrder(initialOrderState)}>Limpiar Formulario</Button>
-          <div className="w-48">
-            <Select value={newOrder.paymentMethod} onValueChange={handlePaymentMethodChange} disabled={contextLoading}>
-                <SelectTrigger><SelectValue placeholder="Forma de Pago" /></SelectTrigger>
-                <SelectContent>{paymentMethods.map(method => (<SelectItem key={method.id} value={method.id}>{method.name}</SelectItem>))}</SelectContent>
-            </Select>
-          </div>
-                              <Button onClick={handleCreateOrder} disabled={isCreateDisabled} size="lg" className="bg-[#FB923C] text-white hover:bg-[#F97316]">Crear Orden</Button>
+      <CardFooter className="flex flex-col sm:flex-row justify-end items-center pt-6 gap-4">
+        <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={() => setNewOrder(initialOrderState)} className="w-full sm:w-auto">Limpiar Formulario</Button>
+          <Button onClick={handleCreateOrder} disabled={isCreateDisabled} size="lg" className="bg-[#FB923C] text-white hover:bg-[#F97316] w-full sm:w-auto">Crear Orden</Button>
         </div>
       </CardFooter>
     </Card>

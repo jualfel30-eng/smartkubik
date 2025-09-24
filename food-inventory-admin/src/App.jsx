@@ -24,6 +24,8 @@ import {
   StopCircle,
   AreaChart,
   LayoutDashboard,
+  Menu,
+  X,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import './App.css';
@@ -46,6 +48,7 @@ import SmartKubikLanding from './pages/SmartKubikLanding';
 function TenantLayout() {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout, hasPermission } = useAuth();
   const { isClockedIn, clockIn, clockOut, isLoading: isShiftLoading } = useShift();
   const navigate = useNavigate();
@@ -55,6 +58,7 @@ function TenantLayout() {
     const defaultTab = 'dashboard';
     const tab = currentPath.split('/')[0] || defaultTab;
     setActiveTab(tab);
+    setMobileMenuOpen(false); // Close mobile menu on navigation
   }, [location.pathname]);
 
   const handleLogout = () => {
@@ -98,10 +102,82 @@ function TenantLayout() {
     return <Badge variant="outline" className="bg-blue-100 text-blue-800">{duration}</Badge>;
   };
 
+  const navLinks = [
+    { name: 'Dashboard', href: 'dashboard', icon: LayoutDashboard, permission: 'dashboard_read' },
+    { name: 'Órdenes', href: 'orders', icon: ShoppingCart, permission: 'orders_read' },
+    { name: 'Inventario', href: 'inventory-management', icon: Package, permission: 'inventory_read' },
+    { name: 'Contabilidad', href: 'accounting-management', icon: BookCopy, permission: 'accounting_read' },
+    { name: 'CRM', href: 'crm', icon: Users, permission: 'customers_read' },
+    { name: 'Calendario', href: 'calendar', icon: CalendarDays, permission: 'events_read' },
+    { name: 'Reportes', href: 'reports', icon: AreaChart, permission: 'reports_read' },
+  ];
+
   return (
     <div className="min-h-screen bg-background">
       <Toaster richColors />
-      <header className="bg-card border-b border-border px-6 py-4">
+      
+      {/* Mobile Header & Menu */}
+      <div className="md:hidden">
+        <header className="bg-card border-b border-border px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Package className="h-7 w-7 text-blue-600" />
+            <h1 className="text-xl font-bold text-foreground">Smart Kubik</h1>
+          </div>
+          <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(!isMobileMenuOpen)}>
+            <Menu className="h-6 w-6" />
+          </Button>
+        </header>
+
+        {/* Mobile Menu (Drawer) */}
+        <div className={`fixed inset-0 z-40 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out`}>
+          <div className="absolute inset-0 bg-black/60" onClick={() => setMobileMenuOpen(false)}></div>
+          <div className="relative z-10 h-full w-72 bg-card p-6 flex flex-col">
+            <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-2">
+                    <Package className="h-8 w-8 text-blue-600" />
+                    <h1 className="text-2xl font-bold text-foreground">Smart Kubik</h1>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(false)}>
+                    <X className="h-6 w-6" />
+                </Button>
+            </div>
+            
+            <nav className="flex-1 flex flex-col space-y-2">
+              {navLinks.map(link => hasPermission(link.permission) && (
+                <Button
+                  key={link.name}
+                  variant={activeTab === link.href ? 'secondary' : 'ghost'}
+                  className="justify-start"
+                  onClick={() => handleTabChange(link.href)}
+                >
+                  <link.icon className="mr-3 h-5 w-5" />
+                  {link.name}
+                </Button>
+              ))}
+            </nav>
+
+            <div className="mt-auto">
+                <div className="flex items-center justify-between mb-4">
+                    <span className="text-sm text-muted-foreground">Hola, {user?.firstName || 'Usuario'}</span>
+                    <ThemeToggle />
+                </div>
+                {hasPermission('tenant_settings_read') && (
+                    <Button variant="outline" className="w-full justify-start mb-2" onClick={() => navigate('/settings')}>
+                        <Settings className="mr-3 h-5 w-5" />
+                        Configuración
+                    </Button>
+                )}
+                <Button variant="outline" className="w-full justify-start" onClick={handleLogout}>
+                  <LogOut className="mr-3 h-5 w-5" />
+                  Cerrar Sesión
+                </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop Header */}
+      <header className="hidden md:block bg-card border-border px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
@@ -140,21 +216,21 @@ function TenantLayout() {
         </div>
       </header>
 
-      <div className="bg-card border-b border-border py-2">
+      {/* Desktop Tabs */}
+      <div className="hidden md:block bg-card py-2">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="px-6">
           <TabsList className="max-w-full overflow-x-auto">
-            {hasPermission('dashboard_read') && <TabsTrigger value="dashboard"><LayoutDashboard className="mr-2 h-4 w-4" />Dashboard</TabsTrigger>}
-            {hasPermission('orders_read') && <TabsTrigger value="orders"><ShoppingCart className="mr-2 h-4 w-4" />Órdenes</TabsTrigger>}
-            {hasPermission('inventory_read') && <TabsTrigger value="inventory-management"><Package className="mr-2 h-4 w-4" />Inventario</TabsTrigger>}
-            {hasPermission('accounting_read') && <TabsTrigger value="accounting-management"><BookCopy className="mr-2 h-4 w-4" />Contabilidad</TabsTrigger>}
-            {hasPermission('customers_read') && <TabsTrigger value="crm"><Users className="mr-2 h-4 w-4" />CRM</TabsTrigger>}
-            {hasPermission('events_read') && <TabsTrigger value="calendar"><CalendarDays className="mr-2 h-4 w-4" />Calendario</TabsTrigger>}
-            {hasPermission('reports_read') && <TabsTrigger value="reports"><AreaChart className="mr-2 h-4 w-4" />Reportes</TabsTrigger>}
+            {navLinks.map(link => hasPermission(link.permission) && (
+              <TabsTrigger key={link.href} value={link.href}>
+                <link.icon className="mr-2 h-4 w-4" />
+                {link.name}
+              </TabsTrigger>
+            ))}
           </TabsList>
         </Tabs>
       </div>
 
-      <main className="p-6">
+      <main className="p-4 md:p-6">
         <Routes>
           <Route path="dashboard" element={<DashboardView />} />
           <Route path="inventory-management" element={<InventoryDashboard />} />

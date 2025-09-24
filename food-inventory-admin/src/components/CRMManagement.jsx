@@ -220,15 +220,15 @@ function CRMManagement() {
   return (
     <div className="space-y-6">
       {/* ... (Stats cards remain the same) ... */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <h2 className="text-3xl font-bold text-foreground">Gestión de Contactos</h2>
-        <div className="flex space-x-2">
-          <Button onClick={loadCustomers} disabled={loading} variant="outline">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button onClick={loadCustomers} disabled={loading} variant="outline" className="w-full sm:w-auto">
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Actualizando...' : 'Actualizar'}
           </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild><Button><Plus className="h-4 w-4 mr-2" /> Agregar Contacto</Button></DialogTrigger>
+            <DialogTrigger asChild><Button className="w-full sm:w-auto"><Plus className="h-4 w-4 mr-2" /> Agregar Contacto</Button></DialogTrigger>
             <DialogContent className="max-w-2xl">
             <DialogHeader><DialogTitle>Agregar Nuevo Contacto</DialogTitle><DialogDescription>Completa los detalles para registrar un nuevo contacto en el sistema.</DialogDescription></DialogHeader>
             <div className="grid grid-cols-2 gap-4 py-4">
@@ -250,8 +250,8 @@ function CRMManagement() {
       </div>
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between gap-4">
-            <Tabs value={filterType} onValueChange={setFilterType}>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            <Tabs value={filterType} onValueChange={setFilterType} className="w-full overflow-x-auto sm:w-auto">
               <TabsList>
                 <TabsTrigger value="all">Todos</TabsTrigger>
                 <TabsTrigger value="business">Clientes</TabsTrigger>
@@ -259,9 +259,9 @@ function CRMManagement() {
                 <TabsTrigger value="employee">Empleados</TabsTrigger>
               </TabsList>
             </Tabs>
-            <div className="flex-1 max-w-sm relative">
+            <div className="relative w-full sm:flex-1 sm:max-w-sm">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar..." className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              <Input placeholder="Buscar..." className="pl-8 w-full" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
           </div>
         </CardHeader>

@@ -37,7 +37,7 @@ export function OrdersDataTableV2({ columns, data, pagination, onPageChange }) {
 
   return (
     <div className="space-y-4">
-      <div className="border rounded-lg">
+      <div className="border rounded-lg overflow-x-auto">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map(headerGroup => (
@@ -80,7 +80,7 @@ export function OrdersDataTableV2({ columns, data, pagination, onPageChange }) {
         </Table>
       </div>
       {pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-end space-x-2">
+        <div className="flex items-center justify-end space-x-2 flex-wrap">
           <div className="flex-1 text-sm text-muted-foreground">
             Página {pagination.page} de {pagination.totalPages}
           </div>

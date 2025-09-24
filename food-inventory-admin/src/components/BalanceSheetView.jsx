@@ -73,7 +73,7 @@ const BalanceSheetView = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center space-x-2 p-4 border rounded-lg">
+      <div className="flex flex-col gap-4 rounded-lg border p-4 md:flex-row md:items-center">
         <Popover>
           <PopoverTrigger asChild>
             <Button

@@ -40,14 +40,20 @@ const CashFlowStatement = () => {
                 <CardTitle>Estado de Flujo de Caja</CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="flex space-x-4 mb-4 items-center">
-                    <label htmlFor="from">Desde:</label>
-                    <input id="from" type="date" name="from" value={dates.from} onChange={handleDateChange} className="p-2 border rounded"/>
-                    <label htmlFor="to">Hasta:</label>
-                    <input id="to" type="date" name="to" value={dates.to} onChange={handleDateChange} className="p-2 border rounded"/>
-                    <button onClick={fetchReport} className="p-2 bg-blue-500 text-white rounded" disabled={loading}>
-                        {loading ? 'Generando...' : 'Generar Reporte'}
-                    </button>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 mb-4 gap-4 sm:gap-0">
+                    <div className="flex items-center w-full sm:w-auto">
+                        <label htmlFor="from" className="mr-2">Desde:</label>
+                        <input id="from" type="date" name="from" value={dates.from} onChange={handleDateChange} className="p-2 border rounded flex-grow"/>
+                    </div>
+                    <div className="flex items-center w-full sm:w-auto">
+                        <label htmlFor="to" className="mr-2">Hasta:</label>
+                        <input id="to" type="date" name="to" value={dates.to} onChange={handleDateChange} className="p-2 border rounded flex-grow"/>
+                    </div>
+                    <div className="w-full sm:w-auto">
+                        <button onClick={fetchReport} className="p-2 bg-blue-500 text-white rounded w-full" disabled={loading}>
+                            {loading ? 'Generando...' : 'Generar Reporte'}
+                        </button>
+                    </div>
                 </div>
                 {loading && <div>Cargando...</div>}
                 {error && <div className="text-red-500">Error: {error}</div>}

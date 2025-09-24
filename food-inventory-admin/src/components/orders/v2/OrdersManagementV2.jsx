@@ -190,25 +190,25 @@ export function OrdersManagementV2() {
       <NewOrderFormV2 onOrderCreated={handleOrderCreated} />
       
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <CardTitle>Historial de Órdenes</CardTitle>
             <CardDescription>
               Consulta, busca y administra todas las órdenes registradas.
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+            <div className="relative w-full sm:w-auto">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
                 placeholder="Buscar por cliente, RIF o N°..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 sm:w-[300px]"
+                className="pl-8 w-full sm:w-[300px]"
               />
             </div>
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading} className="w-full sm:w-auto">
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Actualizar
             </Button>

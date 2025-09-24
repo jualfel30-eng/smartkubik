@@ -30,7 +30,7 @@ const AccountingManagement = () => {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="journal">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid h-auto w-full grid-cols-3 md:h-10 md:grid-cols-5">
             <TabsTrigger value="journal">Libro Diario</TabsTrigger>
             <TabsTrigger value="chart-of-accounts">Plan de Cuentas</TabsTrigger>
             <TabsTrigger value="profit-loss">Estado de Resultados</TabsTrigger>

@@ -457,10 +457,10 @@ export default function ComprasManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-start items-center space-x-4">
+      <div className="flex flex-col md:flex-row justify-start items-center gap-4">
             <Dialog open={isNewPurchaseDialogOpen} onOpenChange={(isOpen) => { setIsNewPurchaseDialogOpen(isOpen); if (!isOpen) setPo(initialPoState); }}>
                 <DialogTrigger asChild>
-                    <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white"><PlusCircle className="mr-2 h-5 w-5" /> Añadir Inventario</Button>
+                    <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white w-full md:w-auto"><PlusCircle className="mr-2 h-5 w-5" /> Añadir Inventario</Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-5xl">
                     <DialogHeader><DialogTitle>Nueva Orden de Compra</DialogTitle><DialogDescription>Crea una nueva orden de compra para reabastecer tu inventario.</DialogDescription></DialogHeader>
@@ -549,7 +549,7 @@ export default function ComprasManagement() {
             </Dialog>
             <Dialog open={isNewProductDialogOpen} onOpenChange={setIsNewProductDialogOpen}>
                 <DialogTrigger asChild>
-                <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white"><PlusCircle className="mr-2 h-5 w-5" /> Compra de Producto Nuevo</Button>
+                <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white w-full md:w-auto"><PlusCircle className="mr-2 h-5 w-5" /> Compra de Producto Nuevo</Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-3xl h-[90vh] flex flex-col p-0">
                 <DialogHeader className="px-6 pt-6">

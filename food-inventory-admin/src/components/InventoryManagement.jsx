@@ -213,89 +213,93 @@ function InventoryManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-start items-center space-x-4">
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white"><Plus className="h-5 w-5 mr-2" />Agregar Inventario</Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Agregar Inventario Inicial</DialogTitle>
-                <DialogDescription>Selecciona un producto y define su stock y costo inicial.</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="product">Producto</Label>
-                  <Combobox
-                    options={products.map(p => ({ value: p._id, label: `${p.name} (${p.sku})` }))}
-                    value={newInventoryItem.productId}
-                    onChange={(value) => setNewInventoryItem({...newInventoryItem, productId: value})}
-                    placeholder="Seleccionar producto"
-                    searchPlaceholder="Buscar producto..."
-                    emptyPlaceholder="No se encontraron productos."
-                  />
+      <div class="flex flex-col gap-4">
+        <div class="flex flex-col sm:flex-row justify-start items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleImport} className="w-full sm:w-auto"><Upload className="h-4 w-4 mr-2" />Importar</Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full sm:w-auto"><Download className="h-4 w-4 mr-2" />Exportar</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => handleExport('xlsx')}>Exportar a .xlsx</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport('csv')}>Exportar a .csv</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button onClick={loadData} disabled={loading} variant="outline" size="sm" className="w-full sm:w-auto">
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              {loading ? 'Actualizando...' : 'Actualizar'}
+            </Button>
+        </div>
+        <div>
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white w-full sm:w-auto"><Plus className="h-5 w-5 mr-2" />Agregar Inventario</Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Agregar Inventario Inicial</DialogTitle>
+                  <DialogDescription>Selecciona un producto y define su stock y costo inicial.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="product">Producto</Label>
+                    <Combobox
+                      options={products.map(p => ({ value: p._id, label: `${p.name} (${p.sku})` }))}
+                      value={newInventoryItem.productId}
+                      onChange={(value) => setNewInventoryItem({...newInventoryItem, productId: value})}
+                      placeholder="Seleccionar producto"
+                      searchPlaceholder="Buscar producto..."
+                      emptyPlaceholder="No se encontraron productos."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="totalQuantity">Cantidad Inicial</Label>
+                    <Input
+                      id="totalQuantity"
+                      type="number"
+                      value={newInventoryItem.totalQuantity}
+                      onChange={(e) => setNewInventoryItem({...newInventoryItem, totalQuantity: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="averageCostPrice">Costo Promedio por Unidad ($)</Label>
+                    <Input
+                      id="averageCostPrice"
+                      type="number"
+                      value={newInventoryItem.averageCostPrice}
+                      onChange={(e) => setNewInventoryItem({...newInventoryItem, averageCostPrice: e.target.value})}
+                    />
+                  </div>
+                  {(() => {
+                    const selectedProduct = products.find(p => p._id === newInventoryItem.productId);
+                    if (selectedProduct && selectedProduct.isPerishable) {
+                      return (
+                        <div className="space-y-4 border-t pt-4 mt-4">
+                          <h4 className="font-medium">Lotes del Producto Perecedero</h4>
+                          {newInventoryItem.lots.map((lot, index) => (
+                            <div key={index} className="grid grid-cols-4 gap-2 items-center">
+                              <Input placeholder="Nro. Lote" value={lot.lotNumber} onChange={(e) => handleLotChange(index, 'lotNumber', e.target.value)} />
+                              <Input type="number" placeholder="Cantidad" value={lot.quantity} onChange={(e) => handleLotChange(index, 'quantity', e.target.value)} />
+                              <Input type="date" placeholder="Vencimiento" value={lot.expirationDate} onChange={(e) => handleLotChange(index, 'expirationDate', e.target.value)} />
+                              <Button variant="ghost" size="sm" onClick={() => removeLot(index)}><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                          ))}
+                          <Button variant="outline" size="sm" onClick={addLot}>
+                            <Plus className="h-4 w-4 mr-2" /> Agregar Lote
+                          </Button>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="totalQuantity">Cantidad Inicial</Label>
-                  <Input
-                    id="totalQuantity"
-                    type="number"
-                    value={newInventoryItem.totalQuantity}
-                    onChange={(e) => setNewInventoryItem({...newInventoryItem, totalQuantity: e.target.value})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="averageCostPrice">Costo Promedio por Unidad ($)</Label>
-                  <Input
-                    id="averageCostPrice"
-                    type="number"
-                    value={newInventoryItem.averageCostPrice}
-                    onChange={(e) => setNewInventoryItem({...newInventoryItem, averageCostPrice: e.target.value})}
-                  />
-                </div>
-                {(() => {
-                  const selectedProduct = products.find(p => p._id === newInventoryItem.productId);
-                  if (selectedProduct && selectedProduct.isPerishable) {
-                    return (
-                      <div className="space-y-4 border-t pt-4 mt-4">
-                        <h4 className="font-medium">Lotes del Producto Perecedero</h4>
-                        {newInventoryItem.lots.map((lot, index) => (
-                          <div key={index} className="grid grid-cols-4 gap-2 items-center">
-                            <Input placeholder="Nro. Lote" value={lot.lotNumber} onChange={(e) => handleLotChange(index, 'lotNumber', e.target.value)} />
-                            <Input type="number" placeholder="Cantidad" value={lot.quantity} onChange={(e) => handleLotChange(index, 'quantity', e.target.value)} />
-                            <Input type="date" placeholder="Vencimiento" value={lot.expirationDate} onChange={(e) => handleLotChange(index, 'expirationDate', e.target.value)} />
-                            <Button variant="ghost" size="sm" onClick={() => removeLot(index)}><Trash2 className="h-4 w-4" /></Button>
-                          </div>
-                        ))}
-                        <Button variant="outline" size="sm" onClick={addLot}>
-                          <Plus className="h-4 w-4 mr-2" /> Agregar Lote
-                        </Button>
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
-                <Button onClick={handleAddItem}>Agregar a Inventario</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          <Button variant="outline" size="sm" onClick={handleImport}><Upload className="h-4 w-4 mr-2" />Importar</Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm"><Download className="h-4 w-4 mr-2" />Exportar</Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => handleExport('xlsx')}>Exportar a .xlsx</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('csv')}>Exportar a .csv</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button onClick={loadData} disabled={loading} variant="outline" size="sm">
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-            {loading ? 'Actualizando...' : 'Actualizar'}
-          </Button>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
+                  <Button onClick={handleAddItem}>Agregar a Inventario</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+        </div>
       </div>
       <Card>
         <CardHeader />

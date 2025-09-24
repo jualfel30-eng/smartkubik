@@ -8,12 +8,18 @@ import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { EventDialog } from './EventDialog.jsx';
 import { TodoList } from './TodoList.jsx';
+import { Button } from '@/components/ui/button.jsx';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useMediaQuery } from '@/hooks/use-media-query.js';
 
 export function CalendarView() {
   const [events, setEvents] = useState([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const calendarRef = useRef(null);
+  const [calendarTitle, setCalendarTitle] = useState('');
+  const [activeView, setActiveView] = useState('dayGridMonth');
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
 
   const fetchEvents = useCallback(async () => {
     if (!calendarRef.current) return;
@@ -23,12 +29,16 @@ export function CalendarView() {
       const end = calendarApi.view.activeEnd.toISOString();
       const response = await fetchApi(`/events?start=${start}&end=${end}`);
       setEvents(response.data || []);
+      if (!isDesktop) {
+        setCalendarTitle(calendarApi.view.title);
+        setActiveView(calendarApi.view.type);
+      }
     } catch (error) {
       console.error("Error fetching events:", error);
       toast.error("Error al cargar eventos", { description: error.message });
       setEvents([]);
     }
-  }, []);
+  }, [isDesktop]);
 
   useEffect(() => {
     // El fetch inicial se dispara desde la prop `datesSet` del calendario
@@ -107,25 +117,59 @@ export function CalendarView() {
     }
   };
 
+  const handlePrevClick = () => {
+    const calendarApi = calendarRef.current.getApi();
+    calendarApi.prev();
+  };
+
+  const handleNextClick = () => {
+    const calendarApi = calendarRef.current.getApi();
+    calendarApi.next();
+  };
+
+  const handleTodayClick = () => {
+    const calendarApi = calendarRef.current.getApi();
+    calendarApi.today();
+  };
+
+  const handleViewChange = (view) => {
+    const calendarApi = calendarRef.current.getApi();
+    calendarApi.changeView(view);
+  };
+
   return (
     <div className="p-3 md:p-6 mx-auto max-w-7xl">
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col gap-4">
           <h2 className="text-3xl font-bold text-foreground">Calendario de Eventos</h2>
+          {/* Header para móvil y pantallas pequeñas */}
+          <div className="lg:hidden flex flex-col items-center gap-4">
+            <h3 className="text-xl font-semibold">{calendarTitle}</h3>
+            <div className="flex flex-wrap justify-center items-center gap-2">
+              <Button variant="outline" onClick={handleTodayClick}>Hoy</Button>
+              <Button variant="outline" size="icon" onClick={handlePrevClick}><ChevronLeft className="h-4 w-4" /></Button>
+              <Button variant="outline" size="icon" onClick={handleNextClick}><ChevronRight className="h-4 w-4" /></Button>
+              
+              <Button variant={activeView === 'dayGridMonth' ? 'default' : 'outline'} onClick={() => handleViewChange('dayGridMonth')}>Mes</Button>
+              <Button variant={activeView === 'timeGridWeek' ? 'default' : 'outline'} onClick={() => handleViewChange('timeGridWeek')}>Semana</Button>
+              <Button variant={activeView === 'timeGridDay' ? 'default' : 'outline'} onClick={() => handleViewChange('timeGridDay')}>Día</Button>
+            </div>
+          </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <Card>
               <CardContent className="p-0">
-                <div className="aspect-video p-4">
+                <div className="p-4 h-[70vh] lg:aspect-video lg:h-auto">
                   <FullCalendar
+                    key={isDesktop} // Forzar re-renderizado al cambiar entre vistas
                     ref={calendarRef}
                     plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                    headerToolbar={{
+                    headerToolbar={isDesktop ? {
                       left: 'prev,next today',
                       center: 'title',
                       right: 'dayGridMonth,timeGridWeek,timeGridDay'
-                    }}
+                    } : false}
                     initialView='dayGridMonth'
                     locale='es'
                     buttonText={{
@@ -139,6 +183,7 @@ export function CalendarView() {
                     selectMirror={true}
                     dayMaxEvents={true}
                     weekends={true}
+                    fixedWeekCount={false}
                     events={events}
                     select={handleDateSelect}
                     eventClick={handleEventClick}
