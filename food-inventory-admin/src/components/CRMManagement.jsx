@@ -58,14 +58,6 @@ function CRMManagement() {
   const [newContact, setNewContact] = useState(initialNewContactState);
 
   // --- LÓGICA DE CLASIFICACIÓN Y VISUALIZACIÓN ---
-  const calculateCustomerTier = (totalSpent) => {
-    if (totalSpent >= 10000) return 'diamante';
-    if (totalSpent >= 5000) return 'oro';
-    if (totalSpent >= 2000) return 'plata';
-    if (totalSpent > 0) return 'bronce';
-    return null;
-  };
-
   const getCustomerTierBadge = (tier) => {
     if (!tier) return null;
     const badges = {
@@ -92,10 +84,7 @@ function CRMManagement() {
 
   // --- FILTRADO DE DATOS ---
   useEffect(() => {
-    let filtered = crmData.map(contact => ({
-      ...contact,
-      customerTier: calculateCustomerTier(contact.metrics?.totalSpent)
-    }));
+    let filtered = [...crmData];
 
     if (searchTerm) {
       filtered = filtered.filter(c => 
@@ -109,7 +98,7 @@ function CRMManagement() {
       filtered = filtered.filter(c => c.customerType === filterType);
     }
     if (filterTier !== 'all') {
-      filtered = filtered.filter(c => c.customerTier === filterTier);
+      filtered = filtered.filter(c => c.tier === filterTier);
     }
 
     setFilteredData(filtered);
@@ -283,7 +272,6 @@ function CRMManagement() {
               <TableBody>
                 {filteredData.map((customer) => {
                   const primaryContact = customer.contacts?.find(c => c.isPrimary) || customer.contacts?.[0];
-                  const tier = calculateCustomerTier(customer.metrics?.totalSpent);
                   return (
                     <TableRow key={customer._id}>
                       <TableCell>
@@ -294,7 +282,7 @@ function CRMManagement() {
                       <TableCell>
                         {primaryContact?.value && <div className="text-sm flex items-center gap-2"><Mail className="h-3 w-3" /> {primaryContact.value}</div>}
                       </TableCell>
-                      <TableCell>{getCustomerTierBadge(tier)}</TableCell>
+                      <TableCell>{getCustomerTierBadge(customer.tier)}</TableCell>
                       <TableCell><div className="font-medium">${customer.metrics?.totalSpent?.toFixed(2) || '0.00'}</div></TableCell>
                       
                       <TableCell>

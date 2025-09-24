@@ -4,6 +4,7 @@ import { CustomersController } from "./customers.controller";
 import { CustomersService } from "./customers.service";
 import { AuthModule } from "../../auth/auth.module";
 import { Customer, CustomerSchema } from "../../schemas/customer.schema";
+import { Order, OrderSchema } from "../../schemas/order.schema";
 import { RolesModule } from '../roles/roles.module';
 
 @Module({
@@ -12,6 +13,7 @@ import { RolesModule } from '../roles/roles.module';
     RolesModule,
     MongooseModule.forFeature([
       { name: Customer.name, schema: CustomerSchema },
+      { name: Order.name, schema: OrderSchema },
     ]),
   ],
   controllers: [CustomersController],

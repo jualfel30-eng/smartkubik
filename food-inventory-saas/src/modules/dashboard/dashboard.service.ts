@@ -4,6 +4,7 @@ import { Model } from "mongoose";
 import { Order, OrderDocument } from "../../schemas/order.schema";
 import { Customer, CustomerDocument } from "../../schemas/customer.schema";
 import { Inventory, InventoryDocument } from "../../schemas/inventory.schema";
+import { InventoryService } from "../inventory/inventory.service";
 
 @Injectable()
 export class DashboardService {
@@ -14,6 +15,7 @@ export class DashboardService {
     @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>,
     @InjectModel(Inventory.name)
     private inventoryModel: Model<InventoryDocument>,
+    private readonly inventoryService: InventoryService,
   ) {}
 
   async getSummary(user: any) {
@@ -31,7 +33,8 @@ export class DashboardService {
       ordersToday,
       activeCustomers,
       salesTodayResult,
-      inventoryAlerts,
+      lowStockAlerts,
+      nearExpirationAlerts,
       recentOrders,
     ] = await Promise.all([
       this.inventoryModel.countDocuments({
@@ -53,13 +56,8 @@ export class DashboardService {
         },
         { $group: { _id: null, total: { $sum: "$totalAmount" } } },
       ]),
-      this.inventoryModel
-        .find({
-          tenantId,
-          $or: [{ "alerts.lowStock": true }, { "alerts.nearExpiration": true }],
-        })
-        .limit(5)
-        .select("productName alerts"),
+      this.inventoryService.getLowStockAlerts(tenantId),
+      this.inventoryService.getExpirationAlerts(tenantId, 30),
       this.orderModel
         .find({ tenantId })
         .sort({ createdAt: -1 })
@@ -69,6 +67,29 @@ export class DashboardService {
 
     const salesToday =
       salesTodayResult.length > 0 ? salesTodayResult[0].total : 0;
+
+    const inventoryAlertsMap = new Map();
+
+    lowStockAlerts.forEach(alert => {
+      inventoryAlertsMap.set(alert.productSku, {
+        productName: alert.productName,
+        alerts: { lowStock: true },
+      });
+    });
+
+    nearExpirationAlerts.forEach(alert => {
+      const existing = inventoryAlertsMap.get(alert.productSku);
+      if (existing) {
+        existing.alerts.nearExpiration = true;
+      } else {
+        inventoryAlertsMap.set(alert.productSku, {
+          productName: alert.productName,
+          alerts: { nearExpiration: true },
+        });
+      }
+    });
+
+    const inventoryAlerts = Array.from(inventoryAlertsMap.values()).slice(0, 5);
 
     return {
       productsInStock,

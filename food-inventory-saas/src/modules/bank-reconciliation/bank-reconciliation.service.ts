@@ -13,17 +13,17 @@ export class BankReconciliationService {
     @InjectModel(JournalEntry.name) private journalEntryModel: Model<JournalEntryDocument>,
   ) {}
 
-  async createBankStatement(tenantId: string, bankAccountId: string, statementDate: Date, startingBalance: number, endingBalance: number, transactions: any[]): Promise<BankStatementDocument> {
+  async createBankStatement(tenantId: string, bankAccountId: string, statementDate: Date, startingBalance: number, endingBalance: number, transactions: any[]): Promise<BankStatementDocument | null> {
     // Logic to create a new bank statement
     return null;
   }
 
-  async getBankStatement(statementId: string): Promise<BankStatementDocument> {
+  async getBankStatement(statementId: string): Promise<BankStatementDocument | null> {
     // Logic to get a bank statement
     return null;
   }
 
-  async startReconciliation(statementId: string): Promise<BankReconciliationDocument> {
+  async startReconciliation(statementId: string): Promise<BankReconciliationDocument | null> {
     // Logic to start a new bank reconciliation
     return null;
   }
@@ -32,7 +32,7 @@ export class BankReconciliationService {
     // Logic to match a bank statement transaction with a journal entry line
   }
 
-  async getReconciliation(reconciliationId: string): Promise<BankReconciliationDocument> {
+  async getReconciliation(reconciliationId: string): Promise<BankReconciliationDocument | null> {
     // Logic to get a bank reconciliation
     return null;
   }

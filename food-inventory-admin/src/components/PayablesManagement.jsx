@@ -610,7 +610,7 @@ const PaymentHistory = () => {
                     <TableCell>{new Date(payment.date).toLocaleDateString()}</TableCell>
                     <TableCell>{concept}</TableCell>
                     <TableCell>${Number(payment.amount).toFixed(2)}</TableCell>
-                    <TableCell>{payment.method}</TableCell>
+                    <TableCell>{payment.method || payment.paymentMethod || '-'}</TableCell>
                     <TableCell>{payment.reference || '-'}</TableCell>
                   </TableRow>
                 );

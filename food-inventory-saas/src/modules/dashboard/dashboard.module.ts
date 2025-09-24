@@ -7,6 +7,7 @@ import { Order, OrderSchema } from "../../schemas/order.schema";
 import { Customer, CustomerSchema } from "../../schemas/customer.schema";
 import { Inventory, InventorySchema } from "../../schemas/inventory.schema";
 import { RolesModule } from '../roles/roles.module';
+import { InventoryModule } from "../inventory/inventory.module";
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { RolesModule } from '../roles/roles.module';
       { name: Customer.name, schema: CustomerSchema },
       { name: Inventory.name, schema: InventorySchema },
     ]),
+    InventoryModule,
   ],
   controllers: [DashboardController],
   providers: [DashboardService],

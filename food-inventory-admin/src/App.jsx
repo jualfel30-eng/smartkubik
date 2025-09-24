@@ -105,7 +105,7 @@ function TenantLayout() {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Package className="h-8 w-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-foreground">Food Inventory SaaS</h1>
+              <h1 className="text-2xl font-bold text-foreground">Smart Kubik</h1>
             </div>
             <Badge variant="secondary" className="bg-green-100 text-green-800">
               🇻🇪 Venezuela
