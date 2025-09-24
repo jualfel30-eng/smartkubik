@@ -30,6 +30,8 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { MailModule } from './modules/mail/mail.module';
 import { SuperAdminModule } from './super-admin/super-admin.module';
 import { SubscriptionPlansModule } from './modules/subscription-plans/subscription-plans.module';
+import { RatingsModule } from './modules/ratings/ratings.module';
+import { TodosModule } from './modules/todos/todos.module';
 
 @Module({
   imports: [
@@ -70,6 +72,8 @@ import { SubscriptionPlansModule } from './modules/subscription-plans/subscripti
     MailModule,
     SuperAdminModule,
     SubscriptionPlansModule,
+    RatingsModule,
+    TodosModule,
   ],
   controllers: [AppController, TenantController],
   providers: [AppService, TenantService],

@@ -33,11 +33,13 @@ export const PaymentDialog = ({ isOpen, onClose, payable, onPaymentSuccess }) =>
     }
 
     const payload = {
+      paymentType: 'payable',
+      currency: 'USD',
       payableId: payable._id,
       amount: Number(amount),
       date,
-      paymentMethod,
-      referenceNumber,
+      method: paymentMethod,
+      reference: referenceNumber,
     };
 
     try {

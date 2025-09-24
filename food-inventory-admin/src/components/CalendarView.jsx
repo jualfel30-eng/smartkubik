@@ -7,6 +7,7 @@ import { fetchApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { EventDialog } from './EventDialog.jsx';
+import { TodoList } from './TodoList.jsx';
 
 export function CalendarView() {
   const [events, setEvents] = useState([]);
@@ -112,40 +113,47 @@ export function CalendarView() {
         <div className="flex justify-between items-center">
           <h2 className="text-3xl font-bold text-foreground">Calendario de Eventos</h2>
         </div>
-        <Card>
-          <CardContent className="p-0">
-            <div className="aspect-video p-4">
-              <FullCalendar
-                ref={calendarRef}
-                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                headerToolbar={{
-                  left: 'prev,next today',
-                  center: 'title',
-                  right: 'dayGridMonth,timeGridWeek,timeGridDay'
-                }}
-                initialView='dayGridMonth'
-                locale='es'
-                buttonText={{
-                  today: 'Hoy',
-                  month: 'Mes',
-                  week: 'Semana',
-                  day: 'Día',
-                }}
-                editable={true}
-                selectable={true}
-                selectMirror={true}
-                dayMaxEvents={true}
-                weekends={true}
-                events={events}
-                select={handleDateSelect}
-                eventClick={handleEventClick}
-                eventDrop={handleEventDrop}
-                datesSet={fetchEvents}
-                height="100%"
-              />
-            </div>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <Card>
+              <CardContent className="p-0">
+                <div className="aspect-video p-4">
+                  <FullCalendar
+                    ref={calendarRef}
+                    plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                    headerToolbar={{
+                      left: 'prev,next today',
+                      center: 'title',
+                      right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                    }}
+                    initialView='dayGridMonth'
+                    locale='es'
+                    buttonText={{
+                      today: 'Hoy',
+                      month: 'Mes',
+                      week: 'Semana',
+                      day: 'Día',
+                    }}
+                    editable={true}
+                    selectable={true}
+                    selectMirror={true}
+                    dayMaxEvents={true}
+                    weekends={true}
+                    events={events}
+                    select={handleDateSelect}
+                    eventClick={handleEventClick}
+                    eventDrop={handleEventDrop}
+                    datesSet={fetchEvents}
+                    height="100%"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          <div>
+            <TodoList />
+          </div>
+        </div>
         <EventDialog 
           open={isDialogOpen} 
           onClose={() => setIsDialogOpen(false)} 

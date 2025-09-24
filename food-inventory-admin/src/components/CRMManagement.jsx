@@ -268,7 +268,7 @@ function CRMManagement() {
         <CardContent>
           <div className="rounded-md border">
             <Table>
-              <TableHeader><TableRow><TableHead>Contacto</TableHead><TableHead>Tipo</TableHead><TableHead>Contacto Principal</TableHead><TableHead>Tier Cliente</TableHead><TableHead>Gastos Totales</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Contacto</TableHead><TableHead>Tipo</TableHead><TableHead>Contacto Principal</TableHead><TableHead>Gastos Totales</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader>
               <TableBody>
                 {filteredData.map((customer) => {
                   const primaryContact = customer.contacts?.find(c => c.isPrimary) || customer.contacts?.[0];
@@ -282,7 +282,6 @@ function CRMManagement() {
                       <TableCell>
                         {primaryContact?.value && <div className="text-sm flex items-center gap-2"><Mail className="h-3 w-3" /> {primaryContact.value}</div>}
                       </TableCell>
-                      <TableCell>{getCustomerTierBadge(customer.tier)}</TableCell>
                       <TableCell><div className="font-medium">${customer.metrics?.totalSpent?.toFixed(2) || '0.00'}</div></TableCell>
                       
                       <TableCell>

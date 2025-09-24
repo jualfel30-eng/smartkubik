@@ -50,7 +50,7 @@ export class PurchaseOrder {
   @Prop({ required: true, unique: true })
   poNumber: string; // Purchase Order Number
 
-  @Prop({ type: Types.ObjectId, ref: "Supplier", required: true })
+  @Prop({ type: Types.ObjectId, ref: "Customer", required: true })
   supplierId: Types.ObjectId;
 
   @Prop({ required: true })

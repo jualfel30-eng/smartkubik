@@ -3,6 +3,8 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { Customer, CustomerDocument } from "../../schemas/customer.schema";
 import { Order, OrderDocument } from "../../schemas/order.schema";
+import { PurchaseOrder, PurchaseOrderDocument } from "../../schemas/purchase-order.schema";
+import { PurchaseOrderRating, PurchaseOrderRatingDocument } from "../../schemas/purchase-order-rating.schema";
 import {
   CreateCustomerDto,
   UpdateCustomerDto,
@@ -17,6 +19,12 @@ interface CustomerScore {
   loyaltyScore?: number;
 }
 
+interface SupplierScore {
+  supplierId: string;
+  tier?: string;
+  score: number;
+}
+
 @Injectable()
 export class CustomersService {
   private readonly logger = new Logger(CustomersService.name);
@@ -24,6 +32,8 @@ export class CustomersService {
   constructor(
     @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>,
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
+    @InjectModel(PurchaseOrder.name) private purchaseOrderModel: Model<PurchaseOrderDocument>,
+    @InjectModel(PurchaseOrderRating.name) private purchaseOrderRatingModel: Model<PurchaseOrderRatingDocument>,
   ) {}
 
   async create(
@@ -130,11 +140,126 @@ export class CustomersService {
 
   private async calculateAndAssignTiers(customers: any[], tenantId: string): Promise<any[]> {
     if (customers.length === 0) {
+      return customers;
+    }
+
+    const suppliers = customers.filter(c => c.customerType === 'supplier');
+    const regularCustomers = customers.filter(c => c.customerType !== 'supplier');
+
+    const [processedSuppliers, processedCustomers] = await Promise.all([
+      suppliers.length > 0 ? this.calculateSupplierTiers(suppliers, tenantId) : Promise.resolve([]),
+      regularCustomers.length > 0 ? this.calculateCustomerTiers(regularCustomers, tenantId) : Promise.resolve([]),
+    ]);
+
+    const allProcessed = [...processedSuppliers, ...processedCustomers];
+    
+    const processedMap = new Map(allProcessed.map(p => [p._id.toString(), p]));
+
+    return customers.map(c => processedMap.get(c._id.toString()) || c);
+  }
+
+  private async calculateSupplierTiers(suppliers: any[], tenantId: string): Promise<any[]> {
+    this.logger.log('Calculating supplier tiers...');
+    const supplierIds = suppliers.map(s => {
+      console.log(`--- DIAGNOSTIC --- Type: ${typeof s._id}, Value: ${JSON.stringify(s._id)}`);
+      return s._id;
+    });
+    const tenantObjectId = new Types.ObjectId(tenantId);
+
+    const [allPurchaseOrders, allRatings] = await Promise.all([
+      this.purchaseOrderModel.find({ tenantId: tenantObjectId, supplierId: { $in: supplierIds } }).lean(),
+      this.purchaseOrderRatingModel.find({ tenantId: tenantObjectId, supplierId: { $in: supplierIds } }).lean(),
+    ]);
+
+    this.logger.log(`Found ${allPurchaseOrders.length} purchase orders and ${allRatings.length} ratings.`);
+
+    const ratingsBySupplier = new Map<string, any[]>();
+    allRatings.forEach(rating => {
+      const supplierId = rating.supplierId.toString();
+      if (!ratingsBySupplier.has(supplierId)) {
+        ratingsBySupplier.set(supplierId, []);
+      }
+      ratingsBySupplier.get(supplierId)!.push(rating);
+    });
+
+    const poBySupplier = new Map<string, any[]>();
+    allPurchaseOrders.forEach(po => {
+      const supplierId = po.supplierId.toString();
+      if (!poBySupplier.has(supplierId)) {
+        poBySupplier.set(supplierId, []);
+      }
+      poBySupplier.get(supplierId)!.push(po);
+    });
+
+    const supplierScores: SupplierScore[] = [];
+    const today = new Date();
+
+    for (const supplier of suppliers) {
+      const supplierId = supplier._id.toString();
+      const ratings = ratingsBySupplier.get(supplierId) || [];
+      const purchaseOrders = poBySupplier.get(supplierId) || [];
+
+      const avgRating = ratings.length > 0 ? ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length : 0;
+      this.logger.log(`Supplier ${supplier.name} - Avg Rating: ${avgRating}`);
+
+      if (avgRating > 0 && avgRating <= 2) {
+        this.logger.log(`Supplier ${supplier.name} is bronze due to low rating.`);
+        supplierScores.push({ supplierId, tier: 'bronce', score: 0 });
+        continue;
+      }
+      
+      if (purchaseOrders.length === 0) {
+        this.logger.log(`Supplier ${supplier.name} is bronze due to no purchase orders.`);
+        supplierScores.push({ supplierId, tier: 'bronce', score: 0 });
+        continue;
+      }
+
+      const timeAsSupplier = Math.floor((today.getTime() - new Date(supplier.createdAt).getTime()) / (1000 * 3600 * 24 * 30));
+      const repurchaseQuantity = purchaseOrders.length;
+      const repurchaseFrequency = repurchaseQuantity / (timeAsSupplier > 0 ? timeAsSupplier : 1);
+
+      const score = (timeAsSupplier * 0.1) + (repurchaseQuantity * 0.3) + (repurchaseFrequency * 0.3) + (avgRating * 0.3);
+      this.logger.log(`Supplier ${supplier.name} - Score: ${score}`);
+      
+      supplierScores.push({ supplierId, score });
+    }
+
+    const eligibleSuppliers = supplierScores.filter(s => s.tier !== 'bronce');
+    eligibleSuppliers.sort((a, b) => b.score - a.score);
+
+    const tierMap = new Map<string, string>();
+    const totalScoredSuppliers = eligibleSuppliers.length;
+    const diamanteCutoff = Math.ceil(totalScoredSuppliers * 0.10);
+    const oroCutoff = Math.ceil(totalScoredSuppliers * 0.30);
+
+    eligibleSuppliers.forEach((s, index) => {
+      const rank = index + 1;
+      if (rank <= diamanteCutoff) {
+        tierMap.set(s.supplierId, 'diamante');
+      } else if (rank <= oroCutoff) {
+        tierMap.set(s.supplierId, 'oro');
+      } else {
+        tierMap.set(s.supplierId, 'plata');
+      }
+    });
+    
+    const bronzeSuppliers = supplierScores.filter(s => s.tier === 'bronce');
+    bronzeSuppliers.forEach(s => tierMap.set(s.supplierId, 'bronce'));
+
+    return suppliers.map(supplier => ({
+      ...supplier,
+      tier: tierMap.get(supplier._id.toString()) || 'bronce',
+    }));
+  }
+
+  private async calculateCustomerTiers(customers: any[], tenantId: string): Promise<any[]> {
+    if (customers.length === 0) {
       return [];
     }
   
+    const tenantObjectId = new Types.ObjectId(tenantId);
     const allOrders = await this.orderModel.find({ 
-      tenantId, 
+      tenantId: tenantObjectId, 
       status: { $in: ['delivered', 'paid', 'confirmed', 'processing'] } 
     }).lean();
   

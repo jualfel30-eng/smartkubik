@@ -22,7 +22,8 @@
     "db:migrate:weight-selling": "ts-node -r dotenv/config scripts/migrate-products-for-weight-selling.ts",
     "db:migrate:tenant-ids": "ts-node -r dotenv/config scripts/migrate-tenant-ids-to-string.ts",
     "seed:plans": "ts-node scripts/seed-subscription-plans.ts",
-    "db:reset": "ts-node scripts/reset-database.ts"
+    "db:reset": "ts-node scripts/reset-database.ts",
+    "debug:data": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/debug-data.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

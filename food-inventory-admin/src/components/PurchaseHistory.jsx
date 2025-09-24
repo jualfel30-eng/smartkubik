@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx';
 import { toast } from 'sonner';
 import { Eye, Truck, RefreshCw } from 'lucide-react';
+import RatingModal from './RatingModal.jsx';
 
 export default function PurchaseHistory() {
   const [purchases, setPurchases] = useState([]);
@@ -15,6 +16,8 @@ export default function PurchaseHistory() {
   const [error, setError] = useState(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [selectedPurchaseOrder, setSelectedPurchaseOrder] = useState(null);
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+  const [poForRating, setPoForRating] = useState(null);
 
   const loadPurchases = async () => {
     setLoading(true);
@@ -34,15 +37,24 @@ export default function PurchaseHistory() {
     loadPurchases();
   }, []);
 
-  const handleStatusChange = async (poId, newStatus) => {
-    if (newStatus !== 'received') return; // For now, only handle receiving
+  const handleStatusChange = (purchaseOrder, newStatus) => {
+    if (newStatus !== 'received') return;
+    setPoForRating(purchaseOrder);
+    setIsRatingModalOpen(true);
+  };
 
+  const handleRatingSubmit = async (ratingData) => {
     try {
-      await fetchApi(`/purchases/${poId}/receive`, { method: 'PATCH' });
+      await fetchApi('/ratings', { method: 'POST', body: JSON.stringify(ratingData) });
+      toast.success('Calificación Enviada', { description: 'La calificación ha sido guardada.' });
+
+      await fetchApi(`/purchases/${ratingData.purchaseOrderId}/receive`, { method: 'PATCH' });
       toast.success('Orden Recibida', { description: 'El inventario ha sido actualizado correctamente.' });
-      loadPurchases(); // Recargar la lista
+
+      setIsRatingModalOpen(false);
+      loadPurchases();
     } catch (err) {
-      toast.error('Error al Recibir la Orden', { description: err.message });
+      toast.error('Error en el Proceso', { description: err.message });
     }
   };
 
@@ -98,7 +110,7 @@ export default function PurchaseHistory() {
                     <TableCell>
                       <div className="flex items-center space-x-2">
                         <Select 
-                          onValueChange={(newStatus) => handleStatusChange(po._id, newStatus)} 
+                          onValueChange={(newStatus) => handleStatusChange(po, newStatus)} 
                           value={po.status}
                           disabled={po.status !== 'pending'}
                         >
@@ -167,6 +179,15 @@ export default function PurchaseHistory() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {poForRating && (
+        <RatingModal 
+          isOpen={isRatingModalOpen} 
+          onClose={() => setIsRatingModalOpen(false)} 
+          onSubmit={handleRatingSubmit} 
+          purchaseOrder={poForRating} 
+        />
+      )}
     </>
   );
 }
