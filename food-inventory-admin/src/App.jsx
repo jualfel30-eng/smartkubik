@@ -26,6 +26,7 @@ import {
   LayoutDashboard,
   Menu,
   X,
+  Truck,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import './App.css';
@@ -43,6 +44,7 @@ import AccountsReceivableReport from './components/AccountsReceivableReport.jsx'
 import ReportsPage from './pages/ReportsPage.jsx';
 import SuperAdminLayout from './layouts/SuperAdminLayout';
 import SmartKubikLanding from './pages/SmartKubikLanding';
+import ComprasManagement from '@/components/ComprasManagement.jsx';
 
 // Tenant Layout Component
 function TenantLayout() {
@@ -108,6 +110,7 @@ function TenantLayout() {
     { name: 'Inventario', href: 'inventory-management', icon: Package, permission: 'inventory_read' },
     { name: 'Contabilidad', href: 'accounting-management', icon: BookCopy, permission: 'accounting_read' },
     { name: 'CRM', href: 'crm', icon: Users, permission: 'customers_read' },
+    { name: 'Compras', href: 'purchases', icon: Truck, permission: 'purchases_read' },
     { name: 'Calendario', href: 'calendar', icon: CalendarDays, permission: 'events_read' },
     { name: 'Reportes', href: 'reports', icon: AreaChart, permission: 'reports_read' },
   ];
@@ -236,6 +239,7 @@ function TenantLayout() {
           <Route path="inventory-management" element={<InventoryDashboard />} />
           <Route path="crm" element={<CRMManagement />} />
           <Route path="orders" element={<OrdersManagement />} />
+          <Route path="purchases" element={<ComprasManagement />} />
           <Route path="accounting-management" element={<AccountingDashboard />} />
           <Route path="accounting/reports/accounts-receivable" element={<AccountsReceivableReport />} />
           <Route path="calendar" element={<CalendarView />} />

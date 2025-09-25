@@ -74,7 +74,7 @@ export class OrdersService {
     } else if (customerRif && customerName) {
       customer = await this.customerModel.findOne({ "taxInfo.taxId": customerRif, tenantId: user.tenantId }).exec();
       if (!customer) {
-        customer = await new this.customerModel({ name: customerName, customerNumber: `CUST-${Date.now()}`, taxInfo: { taxId: customerRif, taxType, taxName: customerName }, createdBy: user.id, tenantId: user.tenantId }).save();
+        customer = await new this.customerModel({ name: customerName, customerType: 'individual', customerNumber: `CUST-${Date.now()}`, taxInfo: { taxId: customerRif, taxType, taxName: customerName }, createdBy: user.id, tenantId: user.tenantId }).save();
       }
     }
 

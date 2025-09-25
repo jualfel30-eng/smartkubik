@@ -462,20 +462,32 @@ export function NewOrderFormV2({ onOrderCreated }) {
                 {totals.igtf > 0 && <div className="flex justify-between text-orange-600"><span>IGTF (3%):</span><span>${totals.igtf.toFixed(2)}</span></div>}
                 <div className="flex justify-between font-bold text-base border-t pt-2 mt-2"><span>Total:</span><span>${totals.total.toFixed(2)}</span></div>
               </div>
-              <div className="space-y-2">
+              {/* Payment selector moved to footer for desktop */}
+            </div>
+        </div>
+      </CardContent>
+      <CardFooter className="flex flex-col sm:flex-row justify-end items-center pt-6 gap-4">
+        {/* Mobile layout */}
+        <div className="sm:hidden w-full space-y-2">
+            <div className="space-y-2">
                 <Label>Forma de Pago</Label>
                 <Select value={newOrder.paymentMethod} onValueChange={handlePaymentMethodChange} disabled={contextLoading}>
                     <SelectTrigger><SelectValue placeholder="Forma de Pago" /></SelectTrigger>
                     <SelectContent>{paymentMethods.map(method => (<SelectItem key={method.id} value={method.id}>{method.name}</SelectItem>))}</SelectContent>
                 </Select>
-              </div>
             </div>
+            <Button onClick={handleCreateOrder} disabled={isCreateDisabled} size="lg" className="bg-[#FB923C] text-white hover:bg-[#F97316] w-full">Crear Orden</Button>
+            <Button variant="outline" onClick={() => setNewOrder(initialOrderState)} className="w-full">Limpiar Formulario</Button>
         </div>
-      </CardContent>
-      <CardFooter className="flex flex-col sm:flex-row justify-end items-center pt-6 gap-4">
-        <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
-          <Button variant="outline" onClick={() => setNewOrder(initialOrderState)} className="w-full sm:w-auto">Limpiar Formulario</Button>
-          <Button onClick={handleCreateOrder} disabled={isCreateDisabled} size="lg" className="bg-[#FB923C] text-white hover:bg-[#F97316] w-full sm:w-auto">Crear Orden</Button>
+
+        {/* Desktop layout */}
+        <div className="hidden sm:flex justify-end items-center gap-2 w-full">
+          <Button variant="outline" onClick={() => setNewOrder(initialOrderState)} className="w-auto">Limpiar Formulario</Button>
+          <Select value={newOrder.paymentMethod} onValueChange={handlePaymentMethodChange} disabled={contextLoading}>
+              <SelectTrigger className="w-48"><SelectValue placeholder="Forma de Pago" /></SelectTrigger>
+              <SelectContent>{paymentMethods.map(method => (<SelectItem key={method.id} value={method.id}>{method.name}</SelectItem>))}</SelectContent>
+          </Select>
+          <Button onClick={handleCreateOrder} disabled={isCreateDisabled} size="lg" className="bg-[#FB923C] text-white hover:bg-[#F97316] w-48">Crear Orden</Button>
         </div>
       </CardFooter>
     </Card>

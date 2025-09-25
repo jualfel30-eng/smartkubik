@@ -31,6 +31,8 @@ class RichProductDataDto {
   storageTemperature?: string;
   @IsBoolean() ivaApplicable: boolean;
   @IsString() @IsNotEmpty() taxCategory: string;
+  @IsBoolean() isSoldByWeight: boolean;
+  @IsString() unitOfMeasure: string;
   @IsObject() pricingRules: any;
   @IsObject() inventoryConfig: any;
   @IsArray()

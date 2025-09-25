@@ -248,7 +248,7 @@ function Register() {
       });
       
       const { accessToken, refreshToken } = response;
-      loginWithTokens(accessToken, refreshToken);
+      await loginWithTokens(accessToken, refreshToken);
       navigate('/dashboard');
 
     } catch (err) {

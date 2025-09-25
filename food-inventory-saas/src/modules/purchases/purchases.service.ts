@@ -231,10 +231,14 @@ export class PurchasesService {
   }
 
   private async generatePoNumber(tenantId: string): Promise<string> {
-    const count = await this.poModel.countDocuments({ tenantId });
-    const today = new Date();
-    const year = today.getFullYear().toString().slice(-2);
-    const month = (today.getMonth() + 1).toString().padStart(2, "0");
-    return `OC-${year}${month}-${(count + 1).toString().padStart(6, "0")}`;
+    const now = new Date();
+    const year = now.getFullYear().toString().slice(-2);
+    const month = (now.getMonth() + 1).toString().padStart(2, "0");
+    const day = now.getDate().toString().padStart(2, "0");
+    const hours = now.getHours().toString().padStart(2, "0");
+    const minutes = now.getMinutes().toString().padStart(2, "0");
+    const seconds = now.getSeconds().toString().padStart(2, "0");
+    const randomPart = Math.random().toString().slice(2, 8); // 6 random digits
+    return `OC-${year}${month}${day}-${hours}${minutes}${seconds}-${randomPart}`;
   }
 }

@@ -184,6 +184,7 @@ export function CalendarView() {
                     dayMaxEvents={true}
                     weekends={true}
                     fixedWeekCount={false}
+                    longPressDelay={1}
                     events={events}
                     select={handleDateSelect}
                     eventClick={handleEventClick}
