@@ -36,9 +36,6 @@ npm install
 # echo "🔵 5. Creando la build de producción..."
 # npm run build
 
-echo "🔵 6. Levantando el proyecto con forever..."
-forever start -c "npm run dev" ./
-
 # echo "✅ ¡Proceso completado! El proyecto está actualizado y corriendo."
 # forever list
 
