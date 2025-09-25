@@ -19,6 +19,8 @@ if [ -n "$PID" ]; then
   echo "Proceso encontrado con PID: $PID. Terminando..."
   kill -9 $PID
   echo "Proceso terminado."
+  echo "Esperando 5 segundos para que el puerto se libere..."
+  sleep 5
 else
   echo "Ningún proceso encontrado en el puerto $PORT. Continuando..."
 fi
