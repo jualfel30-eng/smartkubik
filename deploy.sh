@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # --- Script robusto para actualizar y reiniciar el proyecto en modo DESARROLLO ---
-
+nvm use 20
 # --- Configuración ---
 # Frontend
 FE_PORT=5174
