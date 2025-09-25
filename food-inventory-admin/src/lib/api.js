@@ -17,7 +17,7 @@ export const fetchApi = async (url, options = {}) => {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`http://[::1]:3000/api/v1${url}`, {
+  const response = await fetch(`${window.location.hostname == 'localhost' ? 'http://[::1]:3000' : 'https://api.smartkubik.com'}/api/v1${url}`, {
     ...options,
     headers,
   });
