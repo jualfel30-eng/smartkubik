@@ -1,13 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
-import CRMManagement from '@/components/CRMManagement.jsx';
-import { OrdersManagementV2 as OrdersManagement } from '@/components/orders/v2/OrdersManagementV2.jsx';
-import { CalendarView } from '@/components/CalendarView.jsx';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import AuthCallback from './pages/AuthCallback';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth, AuthProvider } from './hooks/use-auth.jsx';
 import { useShift, ShiftProvider } from './context/ShiftContext.jsx';
@@ -15,7 +9,6 @@ import {
   Package, 
   Users, 
   ShoppingCart, 
-  BarChart3, 
   Settings, 
   LogOut,
   CalendarDays,
@@ -35,16 +28,31 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { CrmProvider } from './context/CrmContext.jsx';
 import { FormStateProvider } from './context/FormStateContext.jsx';
 import { AccountingProvider } from './context/AccountingContext.jsx';
-import DashboardView from './components/DashboardView.jsx';
-import SettingsPage from './components/SettingsPage.jsx';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx';
-import InventoryDashboard from './components/InventoryDashboard.jsx';
-import AccountingDashboard from './components/AccountingDashboard.jsx';
-import AccountsReceivableReport from './components/AccountsReceivableReport.jsx';
-import ReportsPage from './pages/ReportsPage.jsx';
-import SuperAdminLayout from './layouts/SuperAdminLayout';
-import SmartKubikLanding from './pages/SmartKubikLanding';
-import ComprasManagement from '@/components/ComprasManagement.jsx';
+
+// Lazy load the components
+const CRMManagement = lazy(() => import('@/components/CRMManagement.jsx'));
+const OrdersManagement = lazy(() => import('@/components/orders/v2/OrdersManagementV2.jsx').then(module => ({ default: module.OrdersManagementV2 })));
+const CalendarView = lazy(() => import('@/components/CalendarView.jsx').then(module => ({ default: module.CalendarView })));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const AuthCallback = lazy(() => import('./pages/AuthCallback'));
+const DashboardView = lazy(() => import('./components/DashboardView.jsx'));
+const SettingsPage = lazy(() => import('./components/SettingsPage.jsx'));
+const InventoryDashboard = lazy(() => import('./components/InventoryDashboard.jsx'));
+const AccountingDashboard = lazy(() => import('./components/AccountingDashboard.jsx'));
+const AccountsReceivableReport = lazy(() => import('./components/AccountsReceivableReport.jsx'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage.jsx'));
+const SuperAdminLayout = lazy(() => import('./layouts/SuperAdminLayout'));
+const SmartKubikLanding = lazy(() => import('./pages/SmartKubikLanding'));
+const ComprasManagement = lazy(() => import('@/components/ComprasManagement.jsx'));
+
+// Loading fallback component
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center h-screen">
+    <div className="text-lg">Cargando...</div>
+  </div>
+);
 
 // Tenant Layout Component
 function TenantLayout() {
@@ -234,19 +242,21 @@ function TenantLayout() {
       </div>
 
       <main className="p-4 md:p-6">
-        <Routes>
-          <Route path="dashboard" element={<DashboardView />} />
-          <Route path="inventory-management" element={<InventoryDashboard />} />
-          <Route path="crm" element={<CRMManagement />} />
-          <Route path="orders" element={<OrdersManagement />} />
-          <Route path="purchases" element={<ComprasManagement />} />
-          <Route path="accounting-management" element={<AccountingDashboard />} />
-          <Route path="accounting/reports/accounts-receivable" element={<AccountsReceivableReport />} />
-          <Route path="calendar" element={<CalendarView />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="reports" element={<ReportsPage />} />
-          <Route path="*" element={<Navigate to="dashboard" />} />
-        </Routes>
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
+            <Route path="dashboard" element={<DashboardView />} />
+            <Route path="inventory-management" element={<InventoryDashboard />} />
+            <Route path="crm" element={<CRMManagement />} />
+            <Route path="orders" element={<OrdersManagement />} />
+            <Route path="purchases" element={<ComprasManagement />} />
+            <Route path="accounting-management" element={<AccountingDashboard />} />
+            <Route path="accounting/reports/accounts-receivable" element={<AccountsReceivableReport />} />
+            <Route path="calendar" element={<CalendarView />} />
+            <Route path="settings" element={<SettingsPage />} />
+            <Route path="reports" element={<ReportsPage />} />
+            <Route path="*" element={<Navigate to="dashboard" />} />
+          </Routes>
+        </Suspense>
       </main>
     </div>
   );
@@ -254,36 +264,38 @@ function TenantLayout() {
 
 function AppContent() {
   return (
-    <Routes>
-      <Route path="/" element={<SmartKubikLanding />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/auth/callback" element={<AuthCallback />} />
-      <Route 
-        path="/super-admin/*" 
-        element={
-          <ProtectedRoute>
-            <SuperAdminLayout />
-          </ProtectedRoute>
-        }
-      />
-      <Route 
-        path="/*" 
-        element={
-          <ProtectedRoute>
-            <FormStateProvider>
-              <CrmProvider>
-                <ShiftProvider>
-                  <AccountingProvider>
-                    <TenantLayout />
-                  </AccountingProvider>
-                </ShiftProvider>
-              </CrmProvider>
-            </FormStateProvider>
-          </ProtectedRoute>
-        }
-      />
-    </Routes>
+    <Suspense fallback={<LoadingFallback />}>
+      <Routes>
+        <Route path="/" element={<SmartKubikLanding />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route 
+          path="/super-admin/*" 
+          element={
+            <ProtectedRoute>
+              <SuperAdminLayout />
+            </ProtectedRoute>
+          }
+        />
+        <Route 
+          path="/*" 
+          element={
+            <ProtectedRoute>
+              <FormStateProvider>
+                <CrmProvider>
+                  <ShiftProvider>
+                    <AccountingProvider>
+                      <TenantLayout />
+                    </AccountingProvider>
+                  </ShiftProvider>
+                </CrmProvider>
+              </FormStateProvider>
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </Suspense>
   );
 }
 
