@@ -54,7 +54,7 @@ cd .. # Volver a la raíz del proyecto
 cd "$BE_PROJECT_DIR"
 
 echo "🔵 7. Instalando/actualizando dependencias del backend..."
-npm install --legacy-peer-deps
+npm install
 
 echo "🔵 8. Compilando el backend..."
 npm run build
