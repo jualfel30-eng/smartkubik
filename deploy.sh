@@ -26,12 +26,12 @@ fi
 # echo "🔵 2. Navegando al directorio del proyecto..."
 # cd $PROJECT_DIR
 
-# echo "🔵 3. Actualizando el código desde el repositorio..."
-# git pull # Cambia 'main' por tu rama si es diferente
+echo "🔵 3. Actualizando el código desde el repositorio..."
+git pull # Cambia 'main' por tu rama si es diferente
 
-# echo "🔵 4. Instalando/actualizando dependencias..."
-# cd food-inventory-admin
-# npm install
+echo "🔵 4. Instalando/actualizando dependencias..."
+cd food-inventory-admin
+npm install
 
 # echo "🔵 5. Creando la build de producción..."
 # npm run build
@@ -40,4 +40,4 @@ fi
 # forever list
 
 # También detenemos la referencia de forever por si acaso
-# forever restart 3
+forever restart 3
