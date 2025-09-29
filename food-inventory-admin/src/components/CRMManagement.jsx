@@ -44,7 +44,6 @@ const initialNewContactState = {
 };
 
 function CRMManagement() {
-  console.log("Rendering CRMManagement component with tabs");
   const { crmData, loading, error, addCustomer, updateCustomer, deleteCustomer, loadCustomers } = useCRM();
   const [filteredData, setFilteredData] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -103,6 +102,13 @@ function CRMManagement() {
 
     setFilteredData(filtered);
   }, [crmData, searchTerm, filterType, filterTier]);
+
+  useEffect(() => {
+    console.log('CRM Data received:', crmData);
+    crmData.forEach(customer => {
+      console.log(`${customer.name}: totalSpent = ${customer.metrics?.totalSpent}`);
+    });
+  }, [crmData]);
 
   // --- MANEJO DE OPERACIONES CRUD ---
   const handleOpenEditDialog = (contact) => {
@@ -283,7 +289,6 @@ function CRMManagement() {
                         {primaryContact?.value && <div className="text-sm flex items-center gap-2"><Mail className="h-3 w-3" /> {primaryContact.value}</div>}
                       </TableCell>
                       <TableCell><div className="font-medium">${customer.metrics?.totalSpent?.toFixed(2) || '0.00'}</div></TableCell>
-                      
                       <TableCell>
                         <div className="flex space-x-2">
                           <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(customer)}><Edit className="h-4 w-4" /></Button>

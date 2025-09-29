@@ -32,6 +32,7 @@ import { SuperAdminModule } from './super-admin/super-admin.module';
 import { SubscriptionPlansModule } from './modules/subscription-plans/subscription-plans.module';
 import { RatingsModule } from './modules/ratings/ratings.module';
 import { TodosModule } from './modules/todos/todos.module';
+import { SeederModule } from './database/seeds/seeder.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { TodosModule } from './modules/todos/todos.module';
     SubscriptionPlansModule,
     RatingsModule,
     TodosModule,
+    SeederModule,
   ],
   controllers: [AppController, TenantController],
   providers: [AppService, TenantService],

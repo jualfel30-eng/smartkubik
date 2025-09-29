@@ -6,6 +6,7 @@ import helmet from "helmet";
 import * as compression from "compression";
 import { ValidationError } from "class-validator";
 import { ConfigService } from '@nestjs/config';
+import { SeederService } from './database/seeds/seeder.service';
 
 // Helper function to format validation errors
 function formatValidationErrors(errors: ValidationError[]): string[] {
@@ -67,6 +68,14 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup("api/docs", app, document);
+
+  // Run database seeds (only in development)
+  try {
+    const seederService = app.get(SeederService);
+    await seederService.seed();
+  } catch (error) {
+    console.error('Failed to get SeederService:', error.message);
+  }
 
   // Start Server
   const port = process.env.PORT || 3000;

@@ -73,14 +73,20 @@ export class AuthService {
         this.logger.warn(`Login failed: Tenant not found for code ${tenantCode}`);
         throw new UnauthorizedException("Credenciales inválidas");
       }
+      this.logger.log(`✅ Tenant found: ${tenant.name} (${tenant._id})`);
 
-      user = await this.userModel.findOne({ email: email.trim(), tenantId: tenant._id }).populate('role').exec();
+      user = await this.userModel.findOne({ email: email.trim(), tenantId: tenant._id }).populate({
+        path: 'role',
+        populate: { path: 'permissions', select: 'name' }
+      }).exec();
       if (!user) {
         this.logger.warn(`Login failed: User not found for email ${email} in tenant ${tenantCode}`);
         throw new UnauthorizedException("Credenciales inválidas");
       }
+      this.logger.log(`✅ User found: ${user.firstName} ${user.lastName} (${user._id})`);
 
       if (tenant.status !== "active") {
+        this.logger.warn(`Tenant ${tenantCode} is not active: ${tenant.status}`);
         throw new UnauthorizedException("La organización (tenant) está inactiva");
       }
     }
@@ -88,19 +94,27 @@ export class AuthService {
     // Common logic for both user types
     if (user.lockUntil && user.lockUntil > new Date()) {
       const remainingTime = Math.ceil((user.lockUntil.getTime() - Date.now()) / 60000);
+      this.logger.warn(`User ${email} is locked until ${user.lockUntil}`);
       throw new UnauthorizedException(`Cuenta bloqueada. Intente en ${remainingTime} minutos.`);
     }
 
+    this.logger.log(`🔐 Verifying password for user ${email}...`);
     const isPasswordValid = await bcrypt.compare(password, user.password);
+    this.logger.log(`🔐 Password valid: ${isPasswordValid}`);
+
     if (!isPasswordValid) {
+      this.logger.warn(`❌ Invalid password for user ${email}`);
       await this.handleFailedLogin(user);
       throw new UnauthorizedException("Credenciales inválidas");
     }
 
     if (!user.isActive) {
+      this.logger.warn(`❌ User ${email} is not active`);
       throw new UnauthorizedException("Usuario inactivo");
     }
+    this.logger.log(`✅ User is active`);
 
+    this.logger.log(`📝 Updating user login info...`);
     await this.userModel.updateOne(
       { _id: user._id },
       {
@@ -110,10 +124,12 @@ export class AuthService {
       },
     );
 
+    this.logger.log(`🏢 Fetching tenant info...`);
     const tenant = tenantCode ? await this.tenantModel.findById(user.tenantId).exec() : null;
+    this.logger.log(`🔑 Generating tokens...`);
     const tokens = await this.generateTokens(user, tenant);
 
-    this.logger.log(`Successful login for user: ${user.email}`);
+    this.logger.log(`✅ Successful login for user: ${user.email}`);
 
     const userPayload = {
       id: user._id,
@@ -484,14 +500,34 @@ export class AuthService {
   }
 
   private async generateTokens(user: UserDocument, tenant: TenantDocument | null, isImpersonation: boolean = false, impersonatorId?: string) {
+    this.logger.log(`🔧 Generating tokens - user.role type: ${typeof user.role}`);
+    this.logger.log(`🔧 user.role content: ${JSON.stringify(user.role)}`);
     const role = user.role as unknown as RoleDocument;
+
+    if (!role || !role.name) {
+      this.logger.error(`❌ Role is null/undefined or missing name for user ${user.email}`);
+      this.logger.error(`❌ Role object: ${JSON.stringify(role)}`);
+      throw new Error('User role is not properly populated');
+    }
+
+    this.logger.log(`🔧 Role found: ${role.name}`);
+
+    // Load permission names from database
+    let permissionNames: string[] = [];
+    if (Array.isArray(role.permissions) && role.permissions.length > 0) {
+      const permissionDocs = await this.userModel.db.collection('permissions').find({
+        _id: { $in: role.permissions.map(p => typeof p === 'string' ? new (require('mongoose').Types.ObjectId)(p) : p) }
+      }).toArray();
+      permissionNames = permissionDocs.map(p => p.name);
+      this.logger.log(`🔧 Loaded ${permissionNames.length} permission names from DB`);
+    }
 
     const payload = {
       sub: user._id,
       email: user.email,
       role: {
         name: role.name,
-        permissions: role.permissions,
+        permissions: permissionNames,
       },
       tenantId: tenant ? tenant._id : null,
       tenantCode: tenant ? tenant.code : null,
@@ -499,6 +535,7 @@ export class AuthService {
       impersonatorId: isImpersonation ? impersonatorId : null,
     };
 
+    this.logger.log(`🔧 Signing JWT tokens...`);
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         expiresIn: process.env.JWT_EXPIRES_IN || "15m",
@@ -509,6 +546,7 @@ export class AuthService {
       }),
     ]);
 
+    this.logger.log(`✅ Tokens generated successfully`);
     return {
       accessToken,
       refreshToken,

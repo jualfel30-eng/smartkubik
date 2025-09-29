@@ -13,11 +13,19 @@ export const fetchApi = async (url, options = {}) => {
     headers['Content-Type'] = 'application/json';
   }
 
+  // Aggressive cache prevention
+  headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+  headers['Pragma'] = 'no-cache';
+  headers['Expires'] = '0';
+
   if (token && !options.isPublic) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${window.location.hostname == 'localhost' ? 'http://[::1]:3000' : 'https://api.smartkubik.com'}/api/v1${url}`, {
+  const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const baseUrl = isDevelopment ? 'http://localhost:3000' : 'https://api.smartkubik.com';
+
+  const response = await fetch(`${baseUrl}/api/v1${url}`, {
     ...options,
     headers,
   });
@@ -30,6 +38,11 @@ export const fetchApi = async (url, options = {}) => {
       const errorText = await response.text();
       console.error("Failed to parse JSON response:", errorText);
       errorData = { message: response.statusText };
+    }
+
+    // Ensure errorData is not null
+    if (!errorData) {
+      errorData = { message: response.statusText || 'Error en la petición a la API' };
     }
 
     let errorMessage = errorData.message || 'Error en la petición a la API';

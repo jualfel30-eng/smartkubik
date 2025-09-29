@@ -81,7 +81,19 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
   };
 
-  const permissions = useMemo(() => user?.role?.permissions || [], [user]);
+  const permissions = useMemo(() => {
+    // Si tenemos token, extraer permisos del JWT
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        return payload.role?.permissions || [];
+      } catch (e) {
+        console.error('Error parsing JWT:', e);
+      }
+    }
+    // Fallback a permisos del user (aunque sean ObjectIds)
+    return user?.role?.permissions || [];
+  }, [token, user]);
 
   const hasPermission = (permission) => {
     return permissions.includes(permission);
