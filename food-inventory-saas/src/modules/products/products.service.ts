@@ -14,6 +14,7 @@ import {
   ProductQueryDto,
 } from "../../dto/product.dto";
 import { CreateProductWithPurchaseDto } from "../../dto/composite.dto";
+import { BulkCreateProductsDto, BulkProductDto } from './dto/bulk-create-products.dto';
 import { CustomersService } from "../customers/customers.service"; // CHANGED
 import { InventoryService } from "../inventory/inventory.service";
 import { PurchasesService } from "../purchases/purchases.service";
@@ -231,6 +232,69 @@ export class ProductsService {
     });
 
     return savedProduct;
+  }
+
+  async bulkCreate(bulkCreateProductsDto: BulkCreateProductsDto, user: any) {
+    const session = await this.connection.startSession();
+    session.startTransaction();
+    try {
+      const createdProducts: any[] = [];
+      for (const productDto of bulkCreateProductsDto.products) {
+        const createProductDto: CreateProductDto = {
+          sku: productDto.sku,
+          name: productDto.name,
+          category: productDto.category,
+          subcategory: productDto.subcategory || '',
+          brand: productDto.brand || '',
+          unitOfMeasure: productDto.unitOfMeasure || 'unidad',
+          isSoldByWeight: productDto.isSoldByWeight || false,
+          description: productDto.description,
+          ingredients: productDto.ingredients,
+          isPerishable: productDto.isPerishable,
+          shelfLifeDays: productDto.shelfLifeDays,
+          storageTemperature: productDto.storageTemperature,
+          ivaApplicable: productDto.ivaApplicable,
+          taxCategory: productDto.taxCategory || 'general',
+          pricingRules: {
+            cashDiscount: 0,
+            cardSurcharge: 0,
+            minimumMargin: 0,
+            maximumDiscount: 0,
+          },
+          inventoryConfig: {
+            minimumStock: productDto.minimumStock ?? 10,
+            maximumStock: productDto.maximumStock ?? 100,
+            reorderPoint: productDto.reorderPoint ?? 20,
+            reorderQuantity: productDto.reorderQuantity ?? 50,
+            trackLots: true,
+            trackExpiration: true,
+            fefoEnabled: true,
+          },
+          variants: [{
+            name: productDto.variantName,
+            sku: productDto.variantSku || `${productDto.sku}-VAR1`,
+            barcode: productDto.variantBarcode || '',
+            unit: productDto.variantUnit,
+            unitSize: productDto.variantUnitSize,
+            basePrice: productDto.variantBasePrice,
+            costPrice: productDto.variantCostPrice,
+            images: [productDto.image1, productDto.image2, productDto.image3].filter(Boolean) as string[],
+          }],
+        };
+
+        const createdProduct = await this.create(createProductDto, user);
+        createdProducts.push(createdProduct);
+      }
+
+      await session.commitTransaction();
+      return { success: true, message: `${createdProducts.length} productos creados exitosamente.` };
+    } catch (error) {
+      await session.abortTransaction();
+      this.logger.error(`Error durante la creación masiva de productos: ${error.message}`, error.stack);
+      throw new Error('Error al crear productos masivamente.');
+    } finally {
+      session.endSession();
+    }
   }
 
   async findAll(query: ProductQueryDto, tenantId: string) {

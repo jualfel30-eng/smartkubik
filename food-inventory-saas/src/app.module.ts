@@ -33,6 +33,8 @@ import { SubscriptionPlansModule } from './modules/subscription-plans/subscripti
 import { RatingsModule } from './modules/ratings/ratings.module';
 import { TodosModule } from './modules/todos/todos.module';
 import { SeederModule } from './database/seeds/seeder.module';
+import { DeliveryModule } from './modules/delivery/delivery.module';
+import { ExchangeRateModule } from './modules/exchange-rate/exchange-rate.module';
 
 @Module({
   imports: [
@@ -76,6 +78,8 @@ import { SeederModule } from './database/seeds/seeder.module';
     RatingsModule,
     TodosModule,
     SeederModule,
+    DeliveryModule,
+    ExchangeRateModule,
   ],
   controllers: [AppController, TenantController],
   providers: [AppService, TenantService],

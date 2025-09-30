@@ -139,6 +139,16 @@ export class CreateProductDto {
   @IsNotEmpty()
   brand: string;
 
+  @ApiPropertyOptional({ description: "Unidad de medida", default: "unidad" })
+  @IsOptional()
+  @IsString()
+  unitOfMeasure?: string;
+
+  @ApiPropertyOptional({ description: "Se vende por peso", default: false })
+  @IsOptional()
+  @IsBoolean()
+  isSoldByWeight?: boolean;
+
   @ApiPropertyOptional({ description: "Descripción del producto" })
   @IsOptional()
   @IsString()

@@ -71,10 +71,15 @@ function ProductsManagement() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newProduct, setNewProduct] = useState(initialNewProductState);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  
+
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const dragImageIndex = useRef(null);
+
+  // Estados para importación masiva
+  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
+  const [previewData, setPreviewData] = useState([]);
+  const [previewHeaders, setPreviewHeaders] = useState([]);
 
   const handleDragStart = (index) => {
     dragImageIndex.current = index;
@@ -172,6 +177,7 @@ function ProductsManagement() {
 
     try {
       await fetchApi('/products', { method: 'POST', body: JSON.stringify(payload) });
+      document.dispatchEvent(new CustomEvent('product-form-success'));
       setIsAddDialogOpen(false);
       loadProducts();
     } catch (err) {
@@ -290,9 +296,12 @@ function ProductsManagement() {
   };
 
   const handleDownloadTemplate = () => {
-    const headers = ["sku", "name", "category", "subcategory", "brand", "description", "ingredients", "isPerishable", "shelfLifeDays", "storageTemperature", "ivaApplicable", "taxCategory", "variantName", "variantSku", "variantBarcode", "variantUnit", "variantUnitSize", "variantBasePrice", "variantCostPrice", "image1", "image2", "image3"];
+    const headers = ["sku", "name", "category", "subcategory", "brand", "unitOfMeasure", "isSoldByWeight", "description", "ingredients", "isPerishable", "shelfLifeDays", "storageTemperature", "ivaApplicable", "taxCategory", "minimumStock", "maximumStock", "reorderPoint", "reorderQuantity", "variantName", "variantSku", "variantBarcode", "variantUnit", "variantUnitSize", "variantBasePrice", "variantCostPrice", "image1", "image2", "image3"];
     const exampleData = [
-      ["SKU-001", "Arroz Blanco 1kg", "Granos", "Arroz", "MarcaA", "..."],
+      ["SKU-001", "Arroz Blanco 1kg", "Granos", "Arroz", "MarcaA", "unidad", false, "Arroz de grano largo", "Arroz", false, 365, "ambiente", true, "general", 10, 100, 20, 50, "Bolsa 1kg", "SKU-001-1KG", "7591234567890", "kg", 1, 1.50, 0.80, "https://example.com/arroz.jpg", "", ""],
+      ["SKU-002", "Leche Entera 1L", "Lácteos", "Leche", "MarcaB", "unidad", false, "Leche pasteurizada", "Leche de vaca", true, 15, "refrigerado", true, "general", 20, 200, 30, 100, "Caja 1L", "SKU-002-1L", "7591234567891", "litro", 1, 2.20, 1.50, "https://example.com/leche.jpg", "", ""],
+      ["SKU-003", "Pan de Molde", "Panadería", "Pan", "MarcaC", "unidad", false, "Pan blanco tajado", "Harina, agua, levadura, sal", true, 7, "ambiente", true, "general", 15, 150, 25, 75, "Paquete 500g", "SKU-003-500G", "7591234567892", "g", 500, 3.00, 1.80, "https://example.com/pan.jpg", "", ""],
+      ["SKU-004", "Pollo Congelado", "Carnes", "Aves", "MarcaD", "kg", true, "Pollo entero congelado", "Pollo", true, 180, "congelado", false, "general", 5, 50, 10, 25, "Pollo Entero", "SKU-004-UN", "7591234567893", "kg", 1, 5.50, 3.50, "https://example.com/pollo.jpg", "", ""]
     ];
     const data = [headers, ...exampleData];
     const ws = XLSX.utils.aoa_to_sheet(data);
@@ -302,7 +311,106 @@ function ProductsManagement() {
     saveAs(new Blob([wbout], { type: 'application/octet-stream' }), 'plantilla_productos.xlsx');
   };
 
-  const handleBulkUpload = (e) => { /* ... */ };
+  const handleBulkUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = event.target.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet);
+
+        if (json.length === 0) {
+          throw new Error("El archivo está vacío o no tiene datos.");
+        }
+
+        // Validar que las cabeceras existan
+        const headers = Object.keys(json[0]);
+        const requiredHeaders = ["sku", "name", "category", "variantName", "variantUnit", "variantUnitSize", "variantBasePrice", "variantCostPrice"];
+        const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+
+        if (missingHeaders.length > 0) {
+          throw new Error(`El archivo no contiene las siguientes columnas obligatorias: ${missingHeaders.join(', ')}`);
+        }
+
+        setPreviewHeaders(headers);
+        setPreviewData(json);
+        setIsPreviewDialogOpen(true);
+
+      } catch (err) {
+        alert(`Error al procesar el archivo: ${err.message}`);
+      }
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = null; // Reset file input
+  };
+
+  const handleConfirmImport = async () => {
+    const payload = {
+      products: previewData,
+    };
+
+    try {
+      await fetchApi('/products/bulk', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      setIsPreviewDialogOpen(false);
+      alert(`${payload.products.length} productos importados exitosamente.`);
+      loadProducts(); // Recargar la lista de productos
+
+    } catch (error) {
+      alert(`Error al importar los productos: ${error.message}`);
+    }
+  };
+
+  const handleExportExcel = () => {
+    const dataToExport = filteredProducts.map(p => ({
+      SKU: p.sku,
+      Nombre: p.name,
+      Categoría: p.category,
+      Subcategoría: p.subcategory,
+      Marca: p.brand,
+      Descripción: p.description,
+      'Vendible por Peso': p.isSoldByWeight ? 'Sí' : 'No',
+      'Unidad de Medida': p.unitOfMeasure,
+      'Variante Nombre': p.variants[0]?.name,
+      'Variante Precio Costo': p.variants[0]?.costPrice,
+      'Variante Precio Venta': p.variants[0]?.basePrice,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Productos");
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    saveAs(new Blob([wbout], { type: 'application/octet-stream' }), 'productos.xlsx');
+  };
+
+  const handleExportCsv = () => {
+    const dataToExport = filteredProducts.map(p => ({
+      SKU: p.sku,
+      Nombre: p.name,
+      Categoría: p.category,
+      Subcategoría: p.subcategory,
+      Marca: p.brand,
+      Descripción: p.description,
+      'Vendible por Peso': p.isSoldByWeight ? 'Sí' : 'No',
+      'Unidad de Medida': p.unitOfMeasure,
+      'Variante Nombre': p.variants[0]?.name,
+      'Variante Precio Costo': p.variants[0]?.costPrice,
+      'Variante Precio Venta': p.variants[0]?.basePrice,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
+    const csv = XLSX.utils.sheet_to_csv(ws);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    saveAs(blob, 'productos.csv');
+  };
 
   if (loading) return <div>Cargando productos...</div>;
   if (error) return <div className="text-red-600">Error: {error}</div>;
@@ -323,6 +431,19 @@ function ProductsManagement() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">Exportar</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onSelect={handleExportExcel}>
+                Exportar como Excel (.xlsx)
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={handleExportCsv}>
+                Exportar como CSV (.csv)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <input
             type="file"
             id="bulk-upload-input"
@@ -332,7 +453,7 @@ function ProductsManagement() {
           />
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white"><Plus className="h-5 w-5 mr-2" /> Agregar Producto</Button>
+              <Button id="add-product-button" size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white"><Plus className="h-5 w-5 mr-2" /> Agregar Producto</Button>
             </DialogTrigger>
             <DialogContent className="max-w-3xl h-[90vh] flex flex-col p-0">
               <DialogHeader className="px-6 pt-6">
@@ -524,11 +645,51 @@ function ProductsManagement() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="variantCostPrice">Precio Costo ($)</Label>
-                      <Input id="variantCostPrice" type="number" value={newProduct.variant.costPrice} onChange={(e) => setNewProduct({...newProduct, variant: {...newProduct.variant, costPrice: parseFloat(e.target.value) || 0}})} />
+                      <Input
+                        id="variantCostPrice"
+                        type="number"
+                        value={newProduct.variant.costPrice}
+                        onFocus={() => {
+                          if (newProduct.variant.costPrice === 0) {
+                            setNewProduct({...newProduct, variant: {...newProduct.variant, costPrice: ''}});
+                          }
+                        }}
+                        onChange={(e) => {
+                          setNewProduct({...newProduct, variant: {...newProduct.variant, costPrice: e.target.value }});
+                        }}
+                        onBlur={() => {
+                          const price = parseFloat(newProduct.variant.costPrice);
+                          if (isNaN(price) || newProduct.variant.costPrice === '') {
+                            setNewProduct({...newProduct, variant: {...newProduct.variant, costPrice: 0}});
+                          } else {
+                            setNewProduct({...newProduct, variant: {...newProduct.variant, costPrice: price}});
+                          }
+                        }}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="variantBasePrice">Precio de Venta ($)</Label>
-                      <Input id="variantBasePrice" type="number" value={newProduct.variant.basePrice} onChange={(e) => setNewProduct({...newProduct, variant: {...newProduct.variant, basePrice: parseFloat(e.target.value) || 0}})} />
+                      <Input
+                        id="variantBasePrice"
+                        type="number"
+                        value={newProduct.variant.basePrice}
+                        onFocus={() => {
+                          if (newProduct.variant.basePrice === 0) {
+                            setNewProduct({...newProduct, variant: {...newProduct.variant, basePrice: ''}});
+                          }
+                        }}
+                        onChange={(e) => {
+                          setNewProduct({...newProduct, variant: {...newProduct.variant, basePrice: e.target.value }});
+                        }}
+                        onBlur={() => {
+                          const price = parseFloat(newProduct.variant.basePrice);
+                          if (isNaN(price) || newProduct.variant.basePrice === '') {
+                            setNewProduct({...newProduct, variant: {...newProduct.variant, basePrice: 0}});
+                          } else {
+                            setNewProduct({...newProduct, variant: {...newProduct.variant, basePrice: price}});
+                          }
+                        }}
+                      />
                     </div>
                   </div>
                 </div>
@@ -740,6 +901,38 @@ function ProductsManagement() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Diálogo de Previsualización de Importación */}
+      <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
+        <DialogContent className="max-w-6xl">
+          <DialogHeader>
+            <DialogTitle>Previsualización de Importación de Productos</DialogTitle>
+            <DialogDescription>
+              Se encontraron {previewData.length} productos para crear. Revisa los datos antes de confirmar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {previewHeaders.map(header => <TableHead key={header}>{header}</TableHead>)}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {previewData.map((row, rowIndex) => (
+                  <TableRow key={rowIndex}>
+                    {previewHeaders.map(header => <TableCell key={`${rowIndex}-${header}`}>{String(row[header] || '')}</TableCell>)}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPreviewDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleConfirmImport}>Confirmar Importación</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

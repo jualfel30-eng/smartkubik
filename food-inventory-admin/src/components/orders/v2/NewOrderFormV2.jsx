@@ -13,6 +13,8 @@ import { useCrmContext } from '@/context/CrmContext.jsx';
 import { venezuelaData } from '@/lib/venezuela-data.js';
 import { SearchableSelect } from './custom/SearchableSelect';
 import { MixedPaymentDialog } from './MixedPaymentDialog';
+import { LocationPicker } from '@/components/ui/LocationPicker.jsx';
+import { useExchangeRate } from '@/hooks/useExchangeRate';
 
 const initialOrderState = {
   customerId: '',
@@ -21,7 +23,10 @@ const initialOrderState = {
   taxType: 'V',
   items: [],
   paymentMethod: '',
+  deliveryMethod: 'pickup',
   notes: '',
+  customerLocation: null,
+  useExistingLocation: true,
   shippingAddress: {
     state: 'Carabobo',
     city: 'Valencia',
@@ -31,13 +36,91 @@ const initialOrderState = {
 
 export function NewOrderFormV2({ onOrderCreated }) {
   const { crmData: customers, paymentMethods, loading: contextLoading } = useCrmContext();
+  const { rate: bcvRate, loading: loadingRate, error: rateError } = useExchangeRate();
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [newOrder, setNewOrder] = useState(initialOrderState);
   const [isMixedPaymentModalOpen, setIsMixedPaymentModalOpen] = useState(false);
   const [mixedPaymentData, setMixedPaymentData] = useState(null);
-
   const [municipios, setMunicipios] = useState([]);
+
+  // Estados separados para los inputs de búsqueda
+  const [customerNameInput, setCustomerNameInput] = useState('');
+  const [customerRifInput, setCustomerRifInput] = useState('');
+  const [productSearchInput, setProductSearchInput] = useState('');
+  const [shippingCost, setShippingCost] = useState(0);
+  const [calculatingShipping, setCalculatingShipping] = useState(false);
+
+  // Debug: verificar tasa de cambio
+  useEffect(() => {
+    console.log('🔄 Exchange Rate Debug:', {
+      bcvRate,
+      loadingRate,
+      rateError,
+      paymentMethod: newOrder.paymentMethod,
+      isVES: newOrder.paymentMethod?.toLowerCase().includes('_ves')
+    });
+  }, [bcvRate, loadingRate, rateError, newOrder.paymentMethod]);
+
+  // Calculate shipping cost when delivery method, location, or order amount changes
+  useEffect(() => {
+    const calculateShipping = async () => {
+      if (newOrder.deliveryMethod === 'pickup') {
+        setShippingCost(0);
+        return;
+      }
+
+      if (newOrder.deliveryMethod === 'delivery' && !newOrder.customerLocation?.coordinates) {
+        setShippingCost(0);
+        return;
+      }
+
+      if (newOrder.deliveryMethod === 'envio_nacional' && !newOrder.shippingAddress?.state) {
+        setShippingCost(0);
+        return;
+      }
+
+      setCalculatingShipping(true);
+      try {
+        const subtotal = newOrder.items.reduce((sum, item) => sum + (item.unitPrice * (parseFloat(item.quantity) || 0)), 0);
+        const iva = newOrder.items.reduce((sum, item) =>
+          item.ivaApplicable ? sum + (item.unitPrice * (parseFloat(item.quantity) || 0) * 0.16) : sum, 0);
+        const orderAmount = subtotal + iva;
+
+        const payload = {
+          method: newOrder.deliveryMethod,
+          orderAmount,
+          ...(newOrder.deliveryMethod === 'delivery' && {
+            customerLocation: newOrder.customerLocation.coordinates
+          }),
+          ...(newOrder.deliveryMethod === 'envio_nacional' && {
+            destinationState: newOrder.shippingAddress.state,
+            destinationCity: newOrder.shippingAddress.city,
+          }),
+        };
+
+        const result = await fetchApi('/delivery/calculate', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+
+        setShippingCost(result.cost || 0);
+      } catch (error) {
+        console.error('Error calculating shipping:', error);
+        setShippingCost(0);
+      } finally {
+        setCalculatingShipping(false);
+      }
+    };
+
+    calculateShipping();
+  }, [
+    newOrder.deliveryMethod,
+    newOrder.customerLocation,
+    newOrder.shippingAddress.state,
+    newOrder.shippingAddress.city,
+    newOrder.items,
+  ]);
 
   useEffect(() => {
     const selectedStateData = venezuelaData.find(v => v.estado === newOrder.shippingAddress.state);
@@ -55,7 +138,6 @@ export function NewOrderFormV2({ onOrderCreated }) {
       try {
         setLoadingProducts(true);
         const data = await fetchApi('/products');
-        console.log('Respuesta de API /products:', data);
         setProducts(data.data || []);
       } catch (err) {
         console.error("Failed to fetch products:", err);
@@ -76,43 +158,122 @@ export function NewOrderFormV2({ onOrderCreated }) {
     }
   }, [paymentMethods, newOrder.paymentMethod]);
 
-  const handleCustomerSelection = (selectedOption) => {
-    if (!selectedOption) {
-      setNewOrder(prev => ({ ...prev, customerId: '', customerName: '', customerRif: '', taxType: 'V' }));
-      return;
-    }
-    if (selectedOption.__isNew__) {
-      setNewOrder(prev => ({ ...prev, customerId: '', customerName: selectedOption.label }));
-    } else {
-      const { customer } = selectedOption;
+  // --- NUEVOS MANEJADORES DE ESTADO --- 
+
+  const handleCustomerNameInputChange = (inputValue) => {
+    setCustomerNameInput(inputValue);
+    // Only update customerName if user is actually typing (not when clearing after selection)
+    if (inputValue) {
       setNewOrder(prev => ({
         ...prev,
-        customerId: customer._id,
-        customerName: customer.name,
-        customerRif: customer.taxInfo?.taxId || '',
-        taxType: customer.taxInfo?.taxType || 'V',
+        customerName: inputValue,
+        customerId: '' // Resetear ID cuando cambia el texto
       }));
     }
   };
 
-  const handleRifSelection = (selectedOption) => {
-    if (!selectedOption) {
-      setNewOrder(prev => ({ ...prev, customerId: '', customerName: '', customerRif: '', taxType: 'V' }));
-      return;
-    }
-    if (selectedOption.__isNew__) {
-      setNewOrder(prev => ({ ...prev, customerId: '', customerRif: selectedOption.label }));
-    } else {
-      const { customer } = selectedOption;
+  const handleCustomerRifInputChange = (inputValue) => {
+    setCustomerRifInput(inputValue);
+    // Only update customerRif if user is actually typing (not when clearing after selection)
+    if (inputValue) {
       setNewOrder(prev => ({
         ...prev,
-        customerId: customer._id,
-        customerName: customer.name,
-        customerRif: customer.taxInfo?.taxId || '',
-        taxType: customer.taxInfo?.taxType || 'V',
+        customerRif: inputValue,
+        customerId: '' // Resetear ID cuando cambia el texto
       }));
     }
   };
+
+  const handleCustomerNameSelection = (selectedOption) => {
+    if (selectedOption) {
+      if (selectedOption.__isNew__) {
+        setNewOrder(prev => ({ ...prev, customerName: selectedOption.label, customerId: '', customerLocation: null, useExistingLocation: false }));
+      } else {
+        const { customer } = selectedOption;
+        // Extract tax type and RIF number from taxId (format could be "V-12345678" or just "12345678")
+        const fullRif = customer.taxInfo?.taxId || '';
+        let taxType = customer.taxInfo?.taxType || 'V';
+        let rifNumber = fullRif;
+
+        // If taxId contains a dash, split it
+        if (fullRif.includes('-')) {
+          const parts = fullRif.split('-');
+          taxType = parts[0];
+          rifNumber = parts.slice(1).join('-');
+        }
+
+        setNewOrder(prev => ({
+          ...prev,
+          customerId: customer._id,
+          customerName: customer.name,
+          customerRif: rifNumber,
+          taxType: taxType,
+          customerLocation: customer.primaryLocation || null,
+          useExistingLocation: !!customer.primaryLocation
+        }));
+      }
+    } else {
+      setNewOrder(prev => ({ ...prev, customerName: '', customerId: '', customerLocation: null, useExistingLocation: false }));
+    }
+  };
+
+  const handleCustomerRifSelection = (selectedOption) => {
+    if (selectedOption) {
+      if (selectedOption.__isNew__) {
+        // When creating new, selectedOption.label is just the number without prefix
+        setNewOrder(prev => ({ ...prev, customerRif: selectedOption.label, customerId: '', customerLocation: null, useExistingLocation: false }));
+      } else {
+        const { customer } = selectedOption;
+        // Extract tax type and RIF number from taxId (format could be "V-12345678" or just "12345678")
+        const fullRif = customer.taxInfo?.taxId || '';
+        let taxType = customer.taxInfo?.taxType || 'V';
+        let rifNumber = fullRif;
+
+        // If taxId contains a dash, split it
+        if (fullRif.includes('-')) {
+          const parts = fullRif.split('-');
+          taxType = parts[0];
+          rifNumber = parts.slice(1).join('-');
+        }
+
+        setNewOrder(prev => ({
+          ...prev,
+          customerId: customer._id,
+          customerName: customer.name,
+          customerRif: rifNumber,
+          taxType: taxType,
+          customerLocation: customer.primaryLocation || null,
+          useExistingLocation: !!customer.primaryLocation
+        }));
+      }
+    } else {
+      setNewOrder(prev => ({ ...prev, customerRif: '', customerId: '', customerLocation: null, useExistingLocation: false }));
+    }
+  };
+
+  const getCustomerNameValue = () => {
+    if (newOrder.customerId && newOrder.customerName) {
+      return { value: newOrder.customerId, label: newOrder.customerName };
+    }
+    if (newOrder.customerName) { // If there's a name but no ID (i.e., user is typing a new name)
+      return { value: newOrder.customerName, label: newOrder.customerName };
+    }
+    return null;
+  };
+
+  const getCustomerRifValue = () => {
+    if (newOrder.customerRif) { // Show value even if not associated with ID yet
+      // Construct the full RIF display with tax type prefix
+      const fullRifDisplay = `${newOrder.taxType}-${newOrder.customerRif}`;
+      return {
+        value: newOrder.customerId || newOrder.customerRif,
+        label: fullRifDisplay
+      };
+    }
+    return null;
+  };
+
+  // --- FIN DE NUEVOS MANEJADORES ---
 
   const handleFieldChange = (field, value) => {
     setNewOrder(prev => ({ ...prev, [field]: value }));
@@ -156,6 +317,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
       };
       setNewOrder(prev => ({ ...prev, items: [...prev.items, newItem] }));
     }
+    setProductSearchInput(''); // Limpiar input de busqueda de producto
   };
 
   const handleItemQuantityChange = (productId, newQuantityStr, isSoldByWeight) => {
@@ -217,11 +379,8 @@ export function NewOrderFormV2({ onOrderCreated }) {
         return;
     }
 
-    // By default, no payment information is sent.
-    // This ensures the order is created with 'pending' status, functioning as a quote.
     let paymentsPayload = [];
     if (mixedPaymentData) {
-      // Only include payments if it's a mixed payment, which is pre-filled.
       paymentsPayload = mixedPaymentData.payments.map(p => ({
         amount: Number(p.amount),
         method: p.method,
@@ -235,22 +394,25 @@ export function NewOrderFormV2({ onOrderCreated }) {
       customerName: newOrder.customerName,
       customerRif: newOrder.customerRif,
       taxType: newOrder.taxType,
-      items: newOrder.items.map(item => ({ 
-        productId: item.productId, 
+      items: newOrder.items.map(item => ({
+        productId: item.productId,
         quantity: item.isSoldByWeight
           ? parseFloat(item.quantity) || 0
           : parseInt(item.quantity, 10) || 0
       })),
-      // Conditionally add the payments key. If paymentsPayload is empty, the key will not be sent.
       ...(paymentsPayload.length > 0 && { payments: paymentsPayload }),
       notes: newOrder.notes,
-      shippingAddress: newOrder.shippingAddress.street ? newOrder.shippingAddress : undefined,
+      deliveryMethod: newOrder.deliveryMethod,
+      shippingAddress: (newOrder.deliveryMethod === 'delivery' || newOrder.deliveryMethod === 'envio_nacional') && newOrder.shippingAddress.street ? newOrder.shippingAddress : undefined,
     };
     try {
       await fetchApi('/orders', { method: 'POST', body: JSON.stringify(payload) });
       alert('¡Orden creada con éxito!');
       setNewOrder(initialOrderState);
       setMixedPaymentData(null);
+      setCustomerNameInput('');
+      setCustomerRifInput('');
+      setProductSearchInput('');
       if (onOrderCreated) {
         onOrderCreated();
       }
@@ -298,9 +460,9 @@ export function NewOrderFormV2({ onOrderCreated }) {
       }
     }
 
-    const total = subtotal + iva + igtf;
-    return { subtotal, iva, igtf, total };
-  }, [newOrder.items, newOrder.paymentMethod, paymentMethods, mixedPaymentData]);
+    const total = subtotal + iva + igtf + shippingCost;
+    return { subtotal, iva, igtf, shipping: shippingCost, total };
+  }, [newOrder.items, newOrder.paymentMethod, paymentMethods, mixedPaymentData, shippingCost]);
 
   const isCreateDisabled = newOrder.items.length === 0 || !newOrder.customerName || !newOrder.customerRif || !newOrder.paymentMethod;
 
@@ -332,10 +494,11 @@ export function NewOrderFormV2({ onOrderCreated }) {
                 </div>
                 <div className="flex-grow">
                   <SearchableSelect
-                    isCreatable
                     options={rifOptions}
-                    onSelection={handleRifSelection}
-                    value={newOrder.customerRif ? { value: newOrder.customerRif, label: newOrder.customerRif } : null}
+                    onSelection={handleCustomerRifSelection}
+                    onInputChange={handleCustomerRifInputChange}
+                    inputValue={customerRifInput}
+                    value={getCustomerRifValue()}
                     placeholder="Buscar o crear RIF..."
                   />
                 </div>
@@ -344,16 +507,11 @@ export function NewOrderFormV2({ onOrderCreated }) {
             <div className="space-y-2">
               <Label htmlFor="customerName">Nombre o Razón Social</Label>
               <SearchableSelect
-                isCreatable
                 options={customerOptions}
-                onSelection={handleCustomerSelection}
-                value={
-                  newOrder.customerId
-                    ? { value: newOrder.customerId, label: newOrder.customerName }
-                    : newOrder.customerName
-                      ? { value: newOrder.customerName, label: newOrder.customerName }
-                      : null
-                }
+                onSelection={handleCustomerNameSelection}
+                onInputChange={handleCustomerNameInputChange}
+                inputValue={customerNameInput}
+                value={getCustomerNameValue()}
                 placeholder="Escriba o seleccione un cliente..."
               />
             </div>
@@ -361,38 +519,109 @@ export function NewOrderFormV2({ onOrderCreated }) {
         </div>
 
         <div className="p-4 border rounded-lg space-y-4">
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Label className="text-base font-semibold">Método de Entrega</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label>Dirección</Label>
-              <Textarea 
-                value={newOrder.shippingAddress.street} 
-                onChange={(e) => handleAddressChange('street', e.target.value)} 
-                placeholder="Ej: Av. Bolívar, Edificio ABC, Piso 1, Apto 1A"
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Estado</Label>
-                <Select value={newOrder.shippingAddress.state} onValueChange={(v) => handleAddressChange('state', v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {venezuelaData.map(e => <SelectItem key={e.estado} value={e.estado}>{e.estado}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Municipio / Ciudad</Label>
-                <Select value={newOrder.shippingAddress.city} onValueChange={(v) => handleAddressChange('city', v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {municipios.map((m, index) => <SelectItem key={`${m}-${index}`} value={m}>{m}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select value={newOrder.deliveryMethod} onValueChange={(value) => handleFieldChange('deliveryMethod', value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccione método..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pickup">Pickup (Retiro en tienda)</SelectItem>
+                  <SelectItem value="delivery">Delivery (Entrega local)</SelectItem>
+                  <SelectItem value="envio_nacional">Envío Nacional</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
+
+        {newOrder.deliveryMethod === 'delivery' && (
+          <div className="p-4 border rounded-lg space-y-4">
+            <Label className="text-base font-semibold">Ubicación de Entrega</Label>
+
+            {newOrder.customerLocation && newOrder.customerId && newOrder.useExistingLocation && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium text-blue-900">Ubicación guardada del cliente</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setNewOrder(prev => ({ ...prev, useExistingLocation: false }))}
+                  >
+                    Cambiar ubicación
+                  </Button>
+                </div>
+                {newOrder.customerLocation.formattedAddress && (
+                  <p className="text-sm text-blue-700">{newOrder.customerLocation.formattedAddress}</p>
+                )}
+              </div>
+            )}
+
+            {(!newOrder.useExistingLocation || !newOrder.customerLocation || !newOrder.customerId) && (
+              <div>
+                <LocationPicker
+                  label="Selecciona la ubicación en el mapa"
+                  value={newOrder.customerLocation}
+                  onChange={(location) => setNewOrder(prev => ({ ...prev, customerLocation: location }))}
+                />
+                {!newOrder.customerId && newOrder.customerLocation && (
+                  <p className="text-sm text-green-600 mt-2">
+                    ✓ Esta ubicación se guardará automáticamente en el perfil del cliente
+                  </p>
+                )}
+                {newOrder.customerId && newOrder.customerLocation && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => setNewOrder(prev => ({ ...prev, useExistingLocation: true }))}
+                  >
+                    Usar ubicación guardada
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {newOrder.deliveryMethod === 'envio_nacional' && (
+          <div className="p-4 border rounded-lg space-y-4">
+            <Label className="text-base font-semibold">Dirección de Entrega Nacional</Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Dirección</Label>
+                <Textarea
+                  value={newOrder.shippingAddress.street}
+                  onChange={(e) => handleAddressChange('street', e.target.value)}
+                  placeholder="Ej: Av. Bolívar, Edificio ABC, Piso 1, Apto 1A"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Estado</Label>
+                  <Select value={newOrder.shippingAddress.state} onValueChange={(v) => handleAddressChange('state', v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {venezuelaData.map(e => <SelectItem key={e.estado} value={e.estado}>{e.estado}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Municipio / Ciudad</Label>
+                  <Select value={newOrder.shippingAddress.city} onValueChange={(v) => handleAddressChange('city', v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {municipios.map((m, index) => <SelectItem key={`${m}-${index}`} value={m}>{m}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="p-4 border rounded-lg space-y-4">
             <Label className="text-base font-semibold">Productos</Label>
@@ -405,6 +634,8 @@ export function NewOrderFormV2({ onOrderCreated }) {
                       product: p,
                     }))}
                     onSelection={handleProductSelection}
+                    inputValue={productSearchInput}
+                    onInputChange={(value) => setProductSearchInput(value)}
                     value={null}
                     placeholder={loadingProducts ? "Cargando productos..." : "Buscar y añadir producto..."}
                     isDisabled={loadingProducts}
@@ -460,7 +691,32 @@ export function NewOrderFormV2({ onOrderCreated }) {
                 <div className="flex justify-between"><span>Subtotal:</span><span>${totals.subtotal.toFixed(2)}</span></div>
                 <div className="flex justify-between"><span>IVA (16%):</span><span>${totals.iva.toFixed(2)}</span></div>
                 {totals.igtf > 0 && <div className="flex justify-between text-orange-600"><span>IGTF (3%):</span><span>${totals.igtf.toFixed(2)}</span></div>}
+                {totals.shipping > 0 && (
+                  <div className="flex justify-between text-blue-600">
+                    <span>Envío:</span>
+                    <span>
+                      {calculatingShipping ? 'Calculando...' : `$${totals.shipping.toFixed(2)}`}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between font-bold text-base border-t pt-2 mt-2"><span>Total:</span><span>${totals.total.toFixed(2)}</span></div>
+                {bcvRate && newOrder.paymentMethod && newOrder.paymentMethod.toLowerCase().includes('_ves') && (
+                  <div className="flex flex-col gap-1 border-t pt-2 mt-2">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Tasa BCV:</span>
+                      <span>1 USD = {bcvRate.toFixed(2)} Bs</span>
+                    </div>
+                    <div className="flex justify-between font-bold text-lg text-green-600">
+                      <span>Total en Bolívares:</span>
+                      <span>{(totals.total * bcvRate).toFixed(2)} Bs</span>
+                    </div>
+                  </div>
+                )}
+                {loadingRate && !bcvRate && newOrder.paymentMethod && newOrder.paymentMethod.toLowerCase().includes('_ves') && (
+                  <div className="text-xs text-muted-foreground text-center mt-2">
+                    Cargando tasa de cambio...
+                  </div>
+                )}
               </div>
               {/* Payment selector moved to footer for desktop */}
             </div>
@@ -487,7 +743,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
               <SelectTrigger className="w-48"><SelectValue placeholder="Forma de Pago" /></SelectTrigger>
               <SelectContent>{paymentMethods.map(method => (<SelectItem key={method.id} value={method.id}>{method.name}</SelectItem>))}</SelectContent>
           </Select>
-          <Button onClick={handleCreateOrder} disabled={isCreateDisabled} size="lg" className="bg-[#FB923C] text-white hover:bg-[#F97316] w-48">Crear Orden</Button>
+          <Button id="create-order-button" onClick={handleCreateOrder} disabled={isCreateDisabled} size="lg" className="bg-[#FB923C] text-white hover:bg-[#F97316] w-48">Crear Orden</Button>
         </div>
       </CardFooter>
     </Card>
