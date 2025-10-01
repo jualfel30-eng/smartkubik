@@ -5,76 +5,78 @@ export type PurchaseOrderDocument = PurchaseOrder & Document;
 
 @Schema()
 export class PurchaseOrderStatusHistory {
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   status: string;
 
-  @Prop({ required: true, default: Date.now })
+  @Prop({ type: Date, required: true, default: Date.now })
   changedAt: Date;
 
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   changedBy: Types.ObjectId;
 
-  @Prop()
+  @Prop({ type: String })
   notes?: string;
 }
+const PurchaseOrderStatusHistorySchema = SchemaFactory.createForClass(PurchaseOrderStatusHistory);
 
 @Schema()
 export class PurchaseOrderItem {
   @Prop({ type: Types.ObjectId, ref: "Product", required: true })
   productId: Types.ObjectId;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   productName: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   productSku: string;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   quantity: number;
 
-  @Prop({ required: true })
-  costPrice: number; // Costo al momento de la compra
+  @Prop({ type: Number, required: true })
+  costPrice: number;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   totalCost: number;
 
-  @Prop()
+  @Prop({ type: String })
   lotNumber?: string;
 
-  @Prop()
+  @Prop({ type: Date })
   expirationDate?: Date;
 }
+const PurchaseOrderItemSchema = SchemaFactory.createForClass(PurchaseOrderItem);
 
 @Schema({ timestamps: true })
 export class PurchaseOrder {
-  @Prop({ required: true, unique: true })
-  poNumber: string; // Purchase Order Number
+  @Prop({ type: String, required: true, unique: true })
+  poNumber: string;
 
   @Prop({ type: Types.ObjectId, ref: "Customer", required: true })
   supplierId: Types.ObjectId;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   supplierName: string;
 
-  @Prop({ required: true })
+  @Prop({ type: Date, required: true })
   purchaseDate: Date;
 
-  @Prop()
+  @Prop({ type: Date })
   expectedDeliveryDate?: Date;
 
-  @Prop([PurchaseOrderItem])
+  @Prop({ type: [PurchaseOrderItemSchema] })
   items: PurchaseOrderItem[];
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   totalAmount: number;
 
-  @Prop({ required: true, default: "pending" })
-  status: string; // pending, ordered, partially-received, received, cancelled
+  @Prop({ type: String, required: true, default: "pending" })
+  status: string;
 
-  @Prop([PurchaseOrderStatusHistory])
+  @Prop({ type: [PurchaseOrderStatusHistorySchema] })
   history: PurchaseOrderStatusHistory[];
 
-  @Prop()
+  @Prop({ type: String })
   notes?: string;
 
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
@@ -85,3 +87,18 @@ export class PurchaseOrder {
 }
 
 export const PurchaseOrderSchema = SchemaFactory.createForClass(PurchaseOrder);
+
+// Índices para optimizar consultas de purchase orders
+PurchaseOrderSchema.index({ poNumber: 1, tenantId: 1 }, { unique: true });
+PurchaseOrderSchema.index({ supplierId: 1, createdAt: -1, tenantId: 1 });
+PurchaseOrderSchema.index({ status: 1, createdAt: -1, tenantId: 1 });
+PurchaseOrderSchema.index({ purchaseDate: -1, tenantId: 1 });
+PurchaseOrderSchema.index({ expectedDeliveryDate: 1, tenantId: 1 });
+PurchaseOrderSchema.index({ createdAt: -1, tenantId: 1 });
+PurchaseOrderSchema.index({ createdBy: 1, tenantId: 1 });
+
+// Índice de texto para búsqueda
+PurchaseOrderSchema.index({
+  poNumber: 'text',
+  supplierName: 'text',
+});

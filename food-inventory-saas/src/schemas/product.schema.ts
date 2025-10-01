@@ -5,34 +5,34 @@ export type ProductDocument = Product & Document;
 
 @Schema()
 export class ProductVariant {
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   name: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   sku: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   barcode: string;
 
-  @Prop({ required: true })
-  unit: string; // kg, g, l, ml, unidad, caja, etc.
+  @Prop({ type: String, required: true })
+  unit: string;
 
-  @Prop({ required: true })
-  unitSize: number; // tamaño de la unidad (ej: 500 para 500g)
+  @Prop({ type: Number, required: true })
+  unitSize: number;
 
-  @Prop({ required: true })
-  basePrice: number; // precio base en VES
+  @Prop({ type: Number, required: true })
+  basePrice: number;
 
-  @Prop({ required: true })
-  costPrice: number; // precio de costo en VES
+  @Prop({ type: Number, required: true })
+  costPrice: number;
 
-  @Prop({ default: true })
+  @Prop({ type: Boolean, default: true })
   isActive: boolean;
 
-  @Prop()
+  @Prop({ type: String })
   description?: string;
 
-  @Prop([String])
+  @Prop({ type: [String] })
   images?: string[];
 
   @Prop({ type: Object })
@@ -43,87 +43,125 @@ export class ProductVariant {
     weight: number;
   };
 }
+const ProductVariantSchema = SchemaFactory.createForClass(ProductVariant);
 
 @Schema()
 export class ProductSupplier {
   @Prop({ type: Types.ObjectId, ref: "Supplier", required: true })
   supplierId: Types.ObjectId;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   supplierName: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   supplierSku: string;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   costPrice: number;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   leadTimeDays: number;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   minimumOrderQuantity: number;
 
-  @Prop({ default: true })
+  @Prop({ type: Boolean, default: true })
   isPreferred: boolean;
 
-  @Prop({ default: Date.now })
+  @Prop({ type: Date, default: Date.now })
   lastUpdated: Date;
 }
+const ProductSupplierSchema = SchemaFactory.createForClass(ProductSupplier);
+
+@Schema()
+export class SellingUnit {
+  @Prop({ type: String, required: true })
+  name: string; // "Kilogramos", "Gramos", "Libras", "Cajas", "Unidades"
+
+  @Prop({ type: String, required: true })
+  abbreviation: string; // "kg", "g", "lb", "caja", "und"
+
+  @Prop({ type: Number, required: true })
+  conversionFactor: number; // Factor de conversión a la unidad base (ej: 1 kg = 1000 g)
+
+  @Prop({ type: Number, required: true })
+  pricePerUnit: number; // Precio por esta unidad
+
+  @Prop({ type: Number, required: true })
+  costPerUnit: number; // Costo por esta unidad
+
+  @Prop({ type: Boolean, default: true })
+  isActive: boolean;
+
+  @Prop({ type: Boolean, default: false })
+  isDefault: boolean; // Unidad por defecto al vender
+
+  @Prop({ type: Number })
+  minimumQuantity?: number; // Cantidad mínima de venta (ej: mínimo 100g)
+
+  @Prop({ type: Number })
+  incrementStep?: number; // Incremento permitido (ej: de 100 en 100 gramos)
+}
+const SellingUnitSchema = SchemaFactory.createForClass(SellingUnit);
 
 @Schema({ timestamps: true })
 export class Product {
-  @Prop({ required: true, unique: true })
+  @Prop({ type: String, required: true, unique: true })
   sku: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   name: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   category: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   subcategory: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   brand: string;
 
-  @Prop({ default: 'unidad' })
-  unitOfMeasure: string; // kg, lb, g, unidad
+  @Prop({ type: String, default: 'unidad' })
+  unitOfMeasure: string; // Unidad base para inventario
 
-  @Prop({ default: false })
+  @Prop({ type: Boolean, default: false })
   isSoldByWeight: boolean;
 
-  @Prop()
+  @Prop({ type: Boolean, default: false })
+  hasMultipleSellingUnits: boolean; // Si tiene múltiples unidades de venta
+
+  @Prop({ type: [SellingUnitSchema], default: [] })
+  sellingUnits: SellingUnit[]; // Unidades de venta disponibles
+
+  @Prop({ type: String })
   description?: string;
 
-  @Prop()
+  @Prop({ type: String })
   ingredients?: string;
 
-  @Prop([String])
+  @Prop({ type: [String] })
   tags: string[];
 
-  @Prop([ProductVariant])
+  @Prop({ type: [ProductVariantSchema] })
   variants: ProductVariant[];
 
-  @Prop([ProductSupplier])
+  @Prop({ type: [ProductSupplierSchema] })
   suppliers: ProductSupplier[];
 
-  // Configuración específica para alimentos perecederos
-  @Prop({ required: true })
+  @Prop({ type: Boolean, required: true })
   isPerishable: boolean;
 
-  @Prop()
-  shelfLifeDays?: number; // vida útil en días
+  @Prop({ type: Number })
+  shelfLifeDays?: number;
 
-  @Prop()
-  storageTemperature?: string; // ambiente, refrigerado, congelado
+  @Prop({ type: String })
+  storageTemperature?: string;
 
-  @Prop()
-  storageHumidity?: string; // baja, media, alta
+  @Prop({ type: String })
+  storageHumidity?: string;
 
-  @Prop([String])
-  allergens?: string[]; // gluten, lactosa, nueces, etc.
+  @Prop({ type: [String] })
+  allergens?: string[];
 
   @Prop({ type: Object })
   nutritionalInfo?: {
@@ -135,39 +173,36 @@ export class Product {
     sodium: number;
   };
 
-  // Configuración de precios
   @Prop({ type: Object })
   pricingRules: {
-    cashDiscount: number; // descuento por pago en efectivo
-    cardSurcharge: number; // recargo por pago con tarjeta
-    usdPrice?: number; // precio en USD si aplica
-    minimumMargin: number; // margen mínimo de ganancia
-    maximumDiscount: number; // descuento máximo permitido
+    cashDiscount: number;
+    cardSurcharge: number;
+    usdPrice?: number;
+    minimumMargin: number;
+    maximumDiscount: number;
   };
 
-  // Configuración de inventario
   @Prop({ type: Object })
   inventoryConfig: {
-    trackLots: boolean; // seguimiento por lotes
-    trackExpiration: boolean; // seguimiento de fechas de vencimiento
-    minimumStock: number; // stock mínimo
-    maximumStock: number; // stock máximo
-    reorderPoint: number; // punto de reorden
-    reorderQuantity: number; // cantidad de reorden
-    fefoEnabled: boolean; // First Expired First Out habilitado
+    trackLots: boolean;
+    trackExpiration: boolean;
+    minimumStock: number;
+    maximumStock: number;
+    reorderPoint: number;
+    reorderQuantity: number;
+    fefoEnabled: boolean;
   };
 
-  // Configuración fiscal venezolana
-  @Prop({ required: true, default: true })
-  ivaApplicable: boolean; // si aplica IVA 16%
+  @Prop({ type: Boolean, required: true, default: true })
+  ivaApplicable: boolean;
 
-  @Prop({ required: true, default: false })
-  igtfExempt: boolean; // si está exento de IGTF 3%
+  @Prop({ type: Boolean, required: true, default: false })
+  igtfExempt: boolean;
 
-  @Prop({ required: true })
-  taxCategory: string; // categoria fiscal del producto
+  @Prop({ type: String, required: true })
+  taxCategory: string;
 
-  @Prop({ default: true })
+  @Prop({ type: Boolean, default: true })
   isActive: boolean;
 
   @Prop({ type: Types.ObjectId, ref: "User" })

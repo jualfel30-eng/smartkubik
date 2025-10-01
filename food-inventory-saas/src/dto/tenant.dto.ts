@@ -11,31 +11,37 @@ import {
   Min,
 } from "class-validator";
 import { Type } from "class-transformer";
+import { SanitizeString } from "../decorators/sanitize.decorator";
 
 class AddressDto {
   @ApiProperty({ example: "Calle Principal 123" })
   @IsString()
   @IsOptional()
+  @SanitizeString()
   street: string;
 
   @ApiProperty({ example: "Caracas" })
   @IsString()
   @IsOptional()
+  @SanitizeString()
   city: string;
 
   @ApiProperty({ example: "Distrito Capital" })
   @IsString()
   @IsOptional()
+  @SanitizeString()
   state: string;
 
   @ApiProperty({ example: "1010" })
   @IsString()
   @IsOptional()
+  @SanitizeString()
   zipCode?: string;
 
   @ApiProperty({ example: "Venezuela" })
   @IsString()
   @IsOptional()
+  @SanitizeString()
   country: string;
 }
 
@@ -61,11 +67,13 @@ class TaxInfoDto {
   @ApiProperty({ example: "J-12345678-9" })
   @IsString()
   @IsOptional()
+  @SanitizeString()
   rif: string;
 
   @ApiProperty({ example: "Juan Tacos C.A." })
   @IsString()
   @IsOptional()
+  @SanitizeString()
   businessName: string;
 }
 
@@ -88,16 +96,19 @@ class InvoiceSettingsDto {
   @ApiProperty({ example: "#000000" })
   @IsString()
   @IsOptional()
+  @SanitizeString()
   primaryColor?: string;
 
   @ApiProperty({ example: "#FFFFFF" })
   @IsString()
   @IsOptional()
+  @SanitizeString()
   accentColor?: string;
 
   @ApiProperty({ example: "Gracias por su compra" })
   @IsString()
   @IsOptional()
+  @SanitizeString()
   footerText?: string;
 }
 
@@ -105,16 +116,19 @@ class QuoteSettingsDto {
   @ApiProperty({ example: "#000000" })
   @IsString()
   @IsOptional()
+  @SanitizeString()
   primaryColor?: string;
 
   @ApiProperty({ example: "#FFFFFF" })
   @IsString()
   @IsOptional()
+  @SanitizeString()
   accentColor?: string;
 
   @ApiProperty({ example: "Presupuesto válido por 15 días." })
   @IsString()
   @IsOptional()
+  @SanitizeString()
   footerText?: string;
 }
 
@@ -156,6 +170,7 @@ export class UpdateTenantSettingsDto {
   @ApiProperty({ example: "Juan Tacos" })
   @IsString()
   @IsOptional()
+  @SanitizeString()
   name?: string;
 
   @ApiProperty({ type: ContactInfoDto })
@@ -177,16 +192,19 @@ export class UpdateTenantSettingsDto {
   @ApiProperty({ example: "https://example.com/logo.png" })
   @IsString()
   @IsOptional()
+  @SanitizeString()
   logo?: string;
 
   @ApiProperty({ example: "https://juantacos.com" })
   @IsString()
   @IsOptional()
+  @SanitizeString()
   website?: string;
 
   @ApiProperty({ example: "America/Caracas" })
   @IsString()
   @IsOptional()
+  @SanitizeString()
   timezone?: string;
 
   @ApiProperty({ type: OperationalSettingsDto })
@@ -203,10 +221,12 @@ export class InviteUserDto {
 
   @ApiProperty({ example: "John" })
   @IsString()
+  @SanitizeString()
   firstName: string;
 
   @ApiProperty({ example: "Doe" })
   @IsString()
+  @SanitizeString()
   lastName: string;
 
   @ApiProperty({ example: "manager" })

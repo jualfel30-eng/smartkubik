@@ -13,13 +13,13 @@ export type ChartOfAccountsDocument = ChartOfAccounts & Document;
 
 @Schema({ timestamps: true })
 export class ChartOfAccounts {
-  @Prop({ required: true, trim: true })
+  @Prop({ type: String, required: true, trim: true })
   name: string;
 
-  @Prop({ required: true, trim: true })
-  code: string; // e.g., 1101 for Cash
+  @Prop({ type: String, required: true, trim: true })
+  code: string;
 
-  @Prop({ required: true, enum: ACCOUNT_TYPES })
+  @Prop({ type: String, required: true, enum: ACCOUNT_TYPES })
   type: string;
 
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: "ChartOfAccounts" })

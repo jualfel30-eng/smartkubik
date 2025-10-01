@@ -11,13 +11,13 @@ export class PurchaseOrderRating {
   @Prop({ type: Types.ObjectId, ref: "Customer", required: true })
   supplierId: Types.ObjectId;
 
-  @Prop({ required: true, min: 1, max: 5 })
+  @Prop({ type: Number, required: true, min: 1, max: 5 })
   rating: number;
 
-  @Prop()
+  @Prop({ type: String })
   reason?: string;
 
-  @Prop()
+  @Prop({ type: String })
   comments?: string;
 
   @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })

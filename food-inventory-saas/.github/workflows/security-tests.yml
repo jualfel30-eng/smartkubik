@@ -1,0 +1,134 @@
+name: Security Tests CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  security-tests:
+    name: Run Security Test Suite
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    services:
+      mongodb:
+        image: mongo:7.0
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: testpassword
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Unit Tests (XSS Sanitization)
+        run: npm run test:security:unit
+        env:
+          NODE_ENV: test
+
+      - name: Run Integration Tests (Rate Limiting)
+        run: npm run test:security:integration
+        timeout-minutes: 10
+        env:
+          NODE_ENV: test
+          MONGODB_URI: mongodb://root:testpassword@localhost:27017/test?authSource=admin
+          JWT_SECRET: test-jwt-secret-for-ci
+          JWT_REFRESH_SECRET: test-refresh-secret-for-ci
+          CORS_ORIGIN: http://localhost:3000
+
+      - name: Run E2E Tests (Ownership Validation & CSP)
+        run: npm run test:security:e2e
+        timeout-minutes: 15
+        env:
+          NODE_ENV: test
+          MONGODB_URI: mongodb://root:testpassword@localhost:27017/test-e2e?authSource=admin
+          JWT_SECRET: test-jwt-secret-for-ci
+          JWT_REFRESH_SECRET: test-refresh-secret-for-ci
+          CORS_ORIGIN: http://localhost:3000
+
+      - name: Upload test coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/lcov.info
+          flags: security-tests
+          name: security-coverage-${{ matrix.node-version }}
+
+  dependency-audit:
+    name: npm audit (Dependency Vulnerabilities)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Run npm audit
+        run: npm audit --audit-level=moderate
+        continue-on-error: true
+
+      - name: Run npm audit (production only)
+        run: npm audit --production --audit-level=high
+
+  sast-scan:
+    name: SAST Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep SAST
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/nodejs
+            p/typescript
+            p/owasp-top-ten
+
+  block-merge-on-failure:
+    name: Block Merge if Security Tests Fail
+    runs-on: ubuntu-latest
+    needs: [security-tests, dependency-audit, sast-scan]
+    if: failure()
+
+    steps:
+      - name: Comment on PR with failure
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🔴 **Security tests failed!** Please fix the security issues before merging.'
+            })
+
+      - name: Fail the workflow
+        run: exit 1

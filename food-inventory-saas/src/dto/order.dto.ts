@@ -12,20 +12,24 @@ import {
   IsMongoId,
   IsDate,
   ArrayMinSize,
+  IsObject,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { SanitizeString, SanitizeText } from "../decorators/sanitize.decorator";
 
 // Nueva clase para validar la dirección de envío
 export class ShippingAddressDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
+  @SanitizeString()
   street: string;
 
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
+  @SanitizeString()
   city: string;
 
   @ApiProperty()
@@ -48,6 +52,16 @@ export class CreateOrderItemDto {
   @IsNumber()
   @Min(0.01)
   quantity: number;
+
+  @ApiPropertyOptional({ description: "Unidad de venta seleccionada (si aplica)" })
+  @IsOptional()
+  @IsString()
+  selectedUnit?: string; // Abbreviation de la unidad (ej: "kg", "g", "lb")
+
+  @ApiPropertyOptional({ description: "Factor de conversión usado (calculado automáticamente)" })
+  @IsOptional()
+  @IsNumber()
+  conversionFactor?: number;
 }
 
 export class RegisterPaymentDto {
@@ -82,11 +96,13 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @SanitizeString()
   customerName?: string;
 
   @ApiPropertyOptional({ description: "RIF o C.I. del cliente para creación" })
   @IsOptional()
   @IsString()
+  @SanitizeString()
   customerRif?: string;
 
   @ApiPropertyOptional({ description: "Tipo de documento fiscal (V, E, J, G)" })
@@ -101,11 +117,29 @@ export class CreateOrderDto {
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
 
+  @ApiPropertyOptional({ description: "Método de entrega (pickup, delivery, envio_nacional)" })
+  @IsOptional()
+  @IsEnum(['pickup', 'delivery', 'envio_nacional'])
+  deliveryMethod?: string;
+
   @ApiPropertyOptional({ description: "Dirección de envío para la orden" })
   @IsOptional()
   @ValidateNested()
   @Type(() => ShippingAddressDto)
   shippingAddress?: ShippingAddressDto;
+
+  @ApiPropertyOptional({ description: "Ubicación del cliente para delivery (se guardará en el perfil)" })
+  @IsOptional()
+  @IsObject()
+  customerLocation?: {
+    address: string;
+    coordinates: {
+      lat: number;
+      lng: number;
+    };
+    placeId?: string;
+    formattedAddress?: string;
+  };
 
   @ApiPropertyOptional({ description: "Subtotal de la orden (sin impuestos)" })
   @IsOptional()
@@ -158,6 +192,7 @@ export class CreateOrderDto {
   @ApiPropertyOptional({ description: "Notas de la orden" })
   @IsOptional()
   @IsString()
+  @SanitizeText()
   notes?: string;
 
   @ApiPropertyOptional({
@@ -219,6 +254,7 @@ export class UpdateOrderDto {
   @ApiPropertyOptional({ description: "Notas de la orden" })
   @IsOptional()
   @IsString()
+  @SanitizeText()
   notes?: string;
 
   @ApiPropertyOptional({ description: "Notas internas" })

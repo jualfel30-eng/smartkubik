@@ -17,6 +17,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import { AuthService } from "./auth.service";
 import {
   LoginDto,
@@ -40,10 +41,12 @@ export class AuthController {
 
   @Public()
   @Post("login")
+  @Throttle({ short: { limit: 5, ttl: 60000 } }) // 5 intentos por minuto
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Iniciar sesión" })
   @ApiResponse({ status: 200, description: "Login exitoso" })
   @ApiResponse({ status: 401, description: "Credenciales inválidas" })
+  @ApiResponse({ status: 429, description: "Demasiados intentos. Intente más tarde" })
   async login(@Body() loginDto: LoginDto) {
     try {
       const result = await this.authService.login(loginDto);
@@ -62,9 +65,11 @@ export class AuthController {
 
   @Public()
   @Post("register")
+  @Throttle({ short: { limit: 3, ttl: 60000 } }) // 3 registros por minuto
   @ApiOperation({ summary: "Registrar nuevo usuario" })
   @ApiResponse({ status: 201, description: "Usuario registrado exitosamente" })
   @ApiResponse({ status: 400, description: "Datos inválidos" })
+  @ApiResponse({ status: 429, description: "Demasiados intentos. Intente más tarde" })
   async register(@Body() registerDto: RegisterDto) {
     try {
       const result = await this.authService.register(registerDto);
@@ -172,9 +177,11 @@ export class AuthController {
 
   @Public()
   @Post("forgot-password")
+  @Throttle({ short: { limit: 3, ttl: 300000 } }) // 3 intentos por 5 minutos
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Solicitar reseteo de contraseña" })
   @ApiResponse({ status: 200, description: "Email de reseteo enviado" })
+  @ApiResponse({ status: 429, description: "Demasiados intentos. Intente más tarde" })
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     try {
       await this.authService.forgotPassword(forgotPasswordDto);
@@ -195,12 +202,14 @@ export class AuthController {
 
   @Public()
   @Post("reset-password")
+  @Throttle({ short: { limit: 5, ttl: 600000 } }) // 5 intentos por 10 minutos
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Resetear contraseña con token" })
   @ApiResponse({
     status: 200,
     description: "Contraseña reseteada exitosamente",
   })
+  @ApiResponse({ status: 429, description: "Demasiados intentos. Intente más tarde" })
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     try {
       await this.authService.resetPassword(resetPasswordDto);

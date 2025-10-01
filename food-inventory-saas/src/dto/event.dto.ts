@@ -7,12 +7,14 @@ import {
   MaxLength,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { SanitizeString, SanitizeText } from "../decorators/sanitize.decorator";
 
 export class CreateEventDto {
   @ApiProperty({ description: "Título del evento", maxLength: 100 })
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
+  @SanitizeString()
   title: string;
 
   @ApiPropertyOptional({
@@ -22,6 +24,7 @@ export class CreateEventDto {
   @IsOptional()
   @IsString()
   @MaxLength(500)
+  @SanitizeText()
   description?: string;
 
   @ApiProperty({
@@ -51,6 +54,7 @@ export class CreateEventDto {
   @IsOptional()
   @IsString()
   @MaxLength(20)
+  @SanitizeString()
   color?: string;
 }
 
@@ -63,6 +67,7 @@ export class UpdateEventDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
+  @SanitizeString()
   title?: string;
 
   @ApiPropertyOptional({
@@ -72,6 +77,7 @@ export class UpdateEventDto {
   @IsOptional()
   @IsString()
   @MaxLength(500)
+  @SanitizeText()
   description?: string;
 
   @ApiPropertyOptional({
@@ -95,5 +101,6 @@ export class UpdateEventDto {
   @IsOptional()
   @IsString()
   @MaxLength(20)
+  @SanitizeString()
   color?: string;
 }

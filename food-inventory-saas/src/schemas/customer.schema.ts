@@ -5,253 +5,280 @@ export type CustomerDocument = Customer & Document;
 
 @Schema()
 export class CustomerAddress {
-  @Prop({ required: true })
-  type: string; // billing, shipping, both
+  @Prop({ type: String, required: true })
+  type: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   street: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   city: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   state: string;
 
-  @Prop()
+  @Prop({ type: String })
   zipCode?: string;
 
-  @Prop({ required: true, default: "Venezuela" })
+  @Prop({ type: String, required: true, default: "Venezuela" })
   country: string;
 
   @Prop({ type: Object })
-  coordinates?: {
-    lat: number;
-    lng: number;
-  };
+  coordinates?: { lat: number; lng: number; };
 
-  @Prop({ default: false })
+  @Prop({ type: Boolean, default: false })
   isDefault: boolean;
 
-  @Prop()
+  @Prop({ type: String })
   notes?: string;
 }
+const CustomerAddressSchema = SchemaFactory.createForClass(CustomerAddress);
 
 @Schema()
 export class CustomerContact {
-  @Prop()
-  name?: string; // Nombre de la persona de contacto
+  @Prop({ type: String })
+  name?: string;
 
-  @Prop({ required: true })
-  type: string; // phone, email, whatsapp
+  @Prop({ type: String, required: true })
+  type: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   value: string;
 
-  @Prop({ default: false })
+  @Prop({ type: Boolean, default: false })
   isPrimary: boolean;
 
-  @Prop({ default: true })
+  @Prop({ type: Boolean, default: true })
   isActive: boolean;
 
-  @Prop()
+  @Prop({ type: String })
   notes?: string;
 }
+const CustomerContactSchema = SchemaFactory.createForClass(CustomerContact);
 
 @Schema()
 export class CustomerPaymentMethod {
-  @Prop({ required: true })
-  type: string; // cash, card, transfer, usd_cash, usd_transfer, pagomovil
+  @Prop({ type: String, required: true })
+  type: string;
 
-  @Prop()
+  @Prop({ type: String })
   bank?: string;
 
-  @Prop()
-  accountNumber?: string; // últimos 4 dígitos
+  @Prop({ type: String })
+  accountNumber?: string;
 
-  @Prop()
-  cardType?: string; // visa, mastercard, etc.
+  @Prop({ type: String })
+  cardType?: string;
 
-  @Prop({ default: false })
+  @Prop({ type: Boolean, default: false })
   isPreferred: boolean;
 
-  @Prop({ default: true })
+  @Prop({ type: Boolean, default: true })
   isActive: boolean;
 }
+const CustomerPaymentMethodSchema = SchemaFactory.createForClass(CustomerPaymentMethod);
 
 @Schema()
 export class CustomerSegment {
-  @Prop({ required: true })
-  name: string; // VIP, Regular, Wholesale, New, Inactive
+  @Prop({ type: String, required: true })
+  name: string;
 
-  @Prop()
+  @Prop({ type: String })
   description?: string;
 
-  @Prop({ required: true })
+  @Prop({ type: Date, required: true })
   assignedAt: Date;
 
   @Prop({ type: Types.ObjectId, ref: "User" })
   assignedBy: Types.ObjectId;
 
-  @Prop()
-  criteria?: string; // criterio usado para la segmentación
+  @Prop({ type: String })
+  criteria?: string;
 }
+const CustomerSegmentSchema = SchemaFactory.createForClass(CustomerSegment);
 
 @Schema()
 export class CustomerInteraction {
-  @Prop({ required: true })
-  type: string; // call, email, whatsapp, visit, complaint, compliment
+  @Prop({ type: String, required: true })
+  type: string;
 
-  @Prop({ required: true })
-  channel: string; // phone, email, whatsapp, in_person, web
+  @Prop({ type: String, required: true })
+  channel: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   subject: string;
 
-  @Prop()
+  @Prop({ type: String })
   description?: string;
 
-  @Prop({ required: true, default: "completed" })
-  status: string; // pending, in_progress, completed, cancelled
+  @Prop({ type: String, required: true, default: "completed" })
+  status: string;
 
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   handledBy: Types.ObjectId;
 
-  @Prop()
+  @Prop({ type: Date })
   followUpDate?: Date;
 
-  @Prop({ required: true, default: Date.now })
+  @Prop({ type: Date, required: true, default: Date.now })
   createdAt: Date;
 }
+const CustomerInteractionSchema = SchemaFactory.createForClass(CustomerInteraction);
 
 @Schema({ timestamps: true })
 export class Customer {
-  @Prop({ required: true })
-  customerNumber: string; // número único del cliente
+  @Prop({ type: String, required: true })
+  customerNumber: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   name: string;
 
-  @Prop()
+  @Prop({ type: String })
   lastName?: string;
 
-  @Prop()
+  @Prop({ type: String })
   companyName?: string;
 
-  @Prop({ required: true })
-  customerType: string; // individual, business, supplier, employee, admin, manager
+  @Prop({ type: String, required: true })
+  customerType: string;
 
-  // Información fiscal venezolana
   @Prop({ type: Object })
   taxInfo: {
-    taxId?: string; // RIF o CI
-    taxType?: string; // V, E, J, G
-    taxName?: string; // nombre fiscal
-    isRetentionAgent?: boolean; // agente de retención
-    retentionPercentage?: number; // porcentaje de retención
+    taxId?: string;
+    taxType?: string;
+    taxName?: string;
+    isRetentionAgent?: boolean;
+    retentionPercentage?: number;
   };
 
-  @Prop([CustomerAddress])
+  @Prop({ type: [CustomerAddressSchema] })
   addresses: CustomerAddress[];
 
-  @Prop([CustomerContact])
+  @Prop({ type: [CustomerContactSchema] })
   contacts: CustomerContact[];
 
-  @Prop([CustomerPaymentMethod])
+  @Prop({ type: [CustomerPaymentMethodSchema] })
   paymentMethods: CustomerPaymentMethod[];
 
-  @Prop([CustomerSegment])
+  @Prop({ type: [CustomerSegmentSchema] })
   segments: CustomerSegment[];
 
-  @Prop([CustomerInteraction])
+  @Prop({ type: [CustomerInteractionSchema] })
   interactions: CustomerInteraction[];
 
-  // Preferencias del cliente
+  @Prop({ type: Object })
+  primaryLocation?: {
+    address: string;
+    coordinates: {
+      lat: number;
+      lng: number;
+    };
+    placeId?: string;
+    formattedAddress?: string;
+  };
+
   @Prop({ type: Object })
   preferences: {
-    preferredCurrency: string; // VES, USD
+    preferredCurrency: string;
     preferredPaymentMethod: string;
     preferredDeliveryMethod: string;
-    communicationChannel: string; // email, whatsapp, phone
+    communicationChannel: string;
     marketingOptIn: boolean;
     invoiceRequired: boolean;
     specialInstructions?: string;
   };
 
-  // Métricas del cliente
   @Prop({ type: Object })
   metrics: {
     totalOrders: number;
-    totalSpent: number; // total gastado en VES
-    totalSpentUSD: number; // total gastado en USD
+    totalSpent: number;
+    totalSpentUSD: number;
     averageOrderValue: number;
     lastOrderDate?: Date;
     firstOrderDate?: Date;
     daysSinceLastOrder?: number;
-    orderFrequency: number; // órdenes por mes
-    lifetimeValue: number; // valor de vida del cliente
-    returnRate: number; // tasa de retorno
-    cancellationRate: number; // tasa de cancelación
-    paymentDelayDays: number; // días promedio de retraso en pagos
+    orderFrequency: number;
+    lifetimeValue: number;
+    returnRate: number;
+    cancellationRate: number;
+    paymentDelayDays: number;
   };
 
-  @Prop()
-  tier: string; // e.g., bronze, silver, gold
+  @Prop({ type: String })
+  tier: string;
 
-  // Información de crédito
   @Prop({ type: Object })
   creditInfo: {
-    creditLimit: number; // límite de crédito en VES
-    availableCredit: number; // crédito disponible
-    paymentTerms: number; // términos de pago en días
-    creditRating: string; // A, B, C, D
+    creditLimit: number;
+    availableCredit: number;
+    paymentTerms: number;
+    creditRating: string;
     lastCreditReview?: Date;
-    isBlocked: boolean; // bloqueado por crédito
+    isBlocked: boolean;
   };
 
-  // Estado del cliente
-  @Prop({ required: true, default: "active" })
-  status: string; // active, inactive, suspended, blocked
+  @Prop({ type: String, required: true, default: "active" })
+  status: string;
 
-  @Prop()
+  @Prop({ type: String })
   inactiveReason?: string;
 
-  @Prop()
+  @Prop({ type: Date })
   suspendedUntil?: Date;
 
-  @Prop()
+  @Prop({ type: String })
   notes?: string;
 
-  @Prop()
-  internalNotes?: string; // notas internas no visibles al cliente
+  @Prop({ type: String })
+  internalNotes?: string;
 
-  // Información de registro
-  @Prop({ required: true, default: "manual" })
-  source: string; // manual, web, whatsapp, referral, import
+  @Prop({ type: String, required: true, default: "manual" })
+  source: string;
 
   @Prop({ type: Types.ObjectId, ref: "Customer" })
-  referredBy?: Types.ObjectId; // cliente que lo refirió
+  referredBy?: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: "User" })
-  assignedTo?: Types.ObjectId; // vendedor asignado
+  assignedTo?: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })
   tenantId: Types.ObjectId;
 
-  // Fechas importantes
-  @Prop()
+  @Prop({ type: Date })
   lastContactDate?: Date;
 
-  @Prop()
+  @Prop({ type: Date })
   nextFollowUpDate?: Date;
 
-  @Prop()
+  @Prop({ type: Date })
   birthdayDate?: Date;
 
-  @Prop()
+  @Prop({ type: Date })
   anniversaryDate?: Date;
 }
 
 export const CustomerSchema = SchemaFactory.createForClass(Customer);
+
+// Índices para optimizar consultas de clientes
+CustomerSchema.index({ customerNumber: 1, tenantId: 1 }, { unique: true });
+CustomerSchema.index({ email: 1, tenantId: 1 });
+CustomerSchema.index({ 'taxInfo.taxId': 1, tenantId: 1 });
+CustomerSchema.index({ customerType: 1, tenantId: 1 });
+CustomerSchema.index({ status: 1, tenantId: 1 });
+CustomerSchema.index({ tier: 1, tenantId: 1 });
+CustomerSchema.index({ createdAt: -1, tenantId: 1 });
+CustomerSchema.index({ 'metrics.lastOrderDate': -1, tenantId: 1 });
+CustomerSchema.index({ 'metrics.totalSpent': -1, tenantId: 1 });
+CustomerSchema.index({ assignedTo: 1, tenantId: 1 });
+CustomerSchema.index({ nextFollowUpDate: 1, tenantId: 1 });
+
+// Índice de texto para búsqueda
+CustomerSchema.index({
+  name: 'text',
+  lastName: 'text',
+  companyName: 'text',
+  customerNumber: 'text',
+});

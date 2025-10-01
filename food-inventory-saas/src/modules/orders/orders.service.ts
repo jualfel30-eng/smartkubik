@@ -21,7 +21,9 @@ import {
 import { InventoryService } from "../inventory/inventory.service";
 import { AccountingService } from "../accounting/accounting.service";
 import { PaymentsService } from "../payments/payments.service";
+import { DeliveryService } from "../delivery/delivery.service";
 import { CreatePaymentDto } from "../../dto/payment.dto";
+import { UnitConversionUtil } from "../../utils/unit-conversion.util";
 
 @Injectable()
 export class OrdersService {
@@ -35,6 +37,7 @@ export class OrdersService {
     private readonly inventoryService: InventoryService,
     private readonly accountingService: AccountingService,
     private readonly paymentsService: PaymentsService,
+    private readonly deliveryService: DeliveryService,
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
@@ -82,6 +85,20 @@ export class OrdersService {
         throw new BadRequestException("Se debe proporcionar un ID de cliente o los datos para crear uno nuevo.");
     }
 
+    // Update customer location if provided in the order and customer doesn't have one or it's different
+    if (createOrderDto.customerLocation && customer) {
+      const shouldUpdateLocation = !customer.primaryLocation ||
+        customer.primaryLocation.coordinates?.lat !== createOrderDto.customerLocation.coordinates?.lat ||
+        customer.primaryLocation.coordinates?.lng !== createOrderDto.customerLocation.coordinates?.lng;
+
+      if (shouldUpdateLocation) {
+        await this.customerModel.findByIdAndUpdate(customer._id, {
+          primaryLocation: createOrderDto.customerLocation
+        });
+        this.logger.log(`Updated customer ${customer._id} location from order`);
+      }
+    }
+
     const products = await this.productModel.find({ _id: { $in: items.map((i) => i.productId) } });
     const detailedItems: OrderItem[] = [];
     let subtotal = 0;
@@ -90,19 +107,117 @@ export class OrdersService {
     for (const itemDto of items) {
       const product = products.find((p) => p._id.toString() === itemDto.productId);
       if (!product) throw new NotFoundException(`Producto con ID "${itemDto.productId}" no encontrado.`);
-      const variant = product.variants?.[0];
-      const unitPrice = variant?.basePrice ?? 0;
-      const costPrice = variant?.costPrice ?? 0;
-      const totalPrice = unitPrice * itemDto.quantity;
+
+      let unitPrice: number;
+      let costPrice: number;
+      let conversionFactor = 1;
+      let quantityInBaseUnit = itemDto.quantity;
+      let selectedUnit: string | undefined;
+
+      // ======== MULTI-UNIT LOGIC ========
+      // Si el producto tiene múltiples unidades de venta Y se seleccionó una unidad
+      if (product.hasMultipleSellingUnits && itemDto.selectedUnit && product.sellingUnits?.length > 0) {
+        this.logger.log(`Processing multi-unit product: ${product.name}, unit: ${itemDto.selectedUnit}`);
+
+        // Validar y obtener la unidad de venta
+        const sellingUnit = UnitConversionUtil.validateQuantityAndUnit(
+          itemDto.quantity,
+          itemDto.selectedUnit,
+          product.sellingUnits,
+        );
+
+        // Usar precio y costo de la unidad seleccionada (NO del variant)
+        unitPrice = sellingUnit.pricePerUnit;
+        costPrice = sellingUnit.costPerUnit;
+        conversionFactor = sellingUnit.conversionFactor;
+        selectedUnit = sellingUnit.abbreviation;
+
+        // Convertir cantidad a unidad base para descuento de inventario
+        quantityInBaseUnit = UnitConversionUtil.convertToBaseUnit(
+          itemDto.quantity,
+          sellingUnit,
+        );
+
+        this.logger.log(
+          `Multi-unit conversion: ${itemDto.quantity} ${selectedUnit} = ${quantityInBaseUnit} ${product.unitOfMeasure} (base unit)`
+        );
+      } else {
+        // Lógica tradicional: usar precio de la variante
+        const variant = product.variants?.[0];
+        unitPrice = variant?.basePrice ?? 0;
+        costPrice = variant?.costPrice ?? 0;
+        selectedUnit = undefined;
+      }
+
+      // Calcular precio total con precisión decimal
+      const totalPrice = UnitConversionUtil.calculateTotalPrice(
+        itemDto.quantity,
+        unitPrice,
+      );
+
       const ivaAmount = product.ivaApplicable ? totalPrice * 0.16 : 0;
-      detailedItems.push({ productId: product._id, productSku: product.sku, productName: product.name, quantity: itemDto.quantity, unitPrice, costPrice, totalPrice, ivaAmount, igtfAmount: 0, finalPrice: 0, status: "pending" } as OrderItem);
+
+      // Crear OrderItem con toda la información de unidades
+      detailedItems.push({
+        productId: product._id,
+        productSku: product.sku,
+        productName: product.name,
+        quantity: itemDto.quantity,
+        selectedUnit,
+        conversionFactor: selectedUnit ? conversionFactor : undefined,
+        quantityInBaseUnit: selectedUnit ? quantityInBaseUnit : undefined,
+        unitPrice,
+        costPrice,
+        totalPrice,
+        ivaAmount,
+        igtfAmount: 0,
+        finalPrice: 0,
+        status: "pending",
+      } as OrderItem);
+
       subtotal += totalPrice;
       ivaTotal += ivaAmount;
     }
 
+    // Calculate delivery cost
+    let shippingCost = createOrderDto.shippingCost || 0;
+    let shippingInfo: any = undefined;
+
+    if (createOrderDto.deliveryMethod && createOrderDto.deliveryMethod !== 'pickup') {
+      try {
+        const deliveryCostResult = await this.deliveryService.calculateDeliveryCost({
+          tenantId: user.tenantId,
+          method: createOrderDto.deliveryMethod as 'pickup' | 'delivery' | 'envio_nacional',
+          customerLocation: customer.primaryLocation?.coordinates,
+          destinationState: createOrderDto.shippingAddress?.state,
+          destinationCity: createOrderDto.shippingAddress?.city,
+          orderAmount: subtotal + ivaTotal,
+        });
+
+        shippingCost = deliveryCostResult.cost || 0;
+
+        if (createOrderDto.deliveryMethod === 'delivery' || createOrderDto.deliveryMethod === 'envio_nacional') {
+          shippingInfo = {
+            method: createOrderDto.deliveryMethod,
+            cost: shippingCost,
+            distance: deliveryCostResult.distance,
+            estimatedDuration: deliveryCostResult.duration,
+            address: createOrderDto.shippingAddress,
+          };
+        }
+      } catch (error) {
+        this.logger.warn(`Error calculating delivery cost: ${error.message}`);
+      }
+    } else if (createOrderDto.deliveryMethod === 'pickup') {
+      shippingInfo = {
+        method: 'pickup',
+        cost: 0,
+      };
+    }
+
     const foreignCurrencyPaymentAmount = (payments || []).filter(p => p.method.includes('_usd')).reduce((sum, p) => sum + p.amount, 0);
     const igtfTotal = foreignCurrencyPaymentAmount * 0.03;
-    const totalAmount = subtotal + ivaTotal + igtfTotal + (createOrderDto.shippingCost || 0) - (createOrderDto.discountAmount || 0);
+    const totalAmount = subtotal + ivaTotal + igtfTotal + shippingCost - (createOrderDto.discountAmount || 0);
 
     const orderData: Partial<Order> = {
       orderNumber: await this.generateOrderNumber(user.tenantId),
@@ -110,7 +225,8 @@ export class OrdersService {
       customerName: customer.name,
       items: detailedItems,
       subtotal, ivaTotal, igtfTotal, totalAmount,
-      shippingCost: createOrderDto.shippingCost || 0,
+      shippingCost,
+      shipping: shippingInfo,
       discountAmount: createOrderDto.discountAmount || 0,
       payments: [],
       paymentStatus: 'pending',
@@ -141,25 +257,30 @@ export class OrdersService {
       }
     }
 
-    try {
-      await this.accountingService.createJournalEntryForSale(savedOrder, user.tenantId);
-      await this.accountingService.createJournalEntryForCOGS(savedOrder, user.tenantId);
-    } catch (accountingError) {
-      this.logger.error(`Error en la contabilidad automática para la orden ${savedOrder.orderNumber}`, accountingError.stack);
-    }
+    // Ejecutar contabilidad de forma asíncrona (no bloquear la respuesta)
+    setImmediate(async () => {
+      try {
+        await this.accountingService.createJournalEntryForSale(savedOrder, user.tenantId);
+        await this.accountingService.createJournalEntryForCOGS(savedOrder, user.tenantId);
+      } catch (accountingError) {
+        this.logger.error(`Error en la contabilidad automática para la orden ${savedOrder.orderNumber}`, accountingError.stack);
+      }
+    });
 
     if (createOrderDto.autoReserve) {
-      const reservationItems = savedOrder.items.map(item => ({ productSku: item.productSku, quantity: item.quantity }));
+      // IMPORTANTE: Usar quantityInBaseUnit para productos multi-unidad
+      const reservationItems = savedOrder.items.map(item => ({
+        productSku: item.productSku,
+        // Si tiene unidad seleccionada, usar quantityInBaseUnit, sino usar quantity normal
+        quantity: item.quantityInBaseUnit ?? item.quantity
+      }));
       await this.inventoryService.reserveInventory({ orderId: savedOrder._id.toString(), items: reservationItems }, user, undefined);
       savedOrder.inventoryReservation = { isReserved: true, reservedAt: new Date() };
       await savedOrder.save();
     }
 
-    const finalOrder = await this.findOne(savedOrder._id, user.tenantId);
-    if (!finalOrder) {
-        throw new NotFoundException('Error al crear la orden, no se pudo encontrar el documento final.');
-    }
-    return finalOrder;
+    // Devolver la orden guardada directamente sin populate pesado
+    return savedOrder.toObject();
   }
 
   async calculateTotals(calculationDto: OrderCalculationDto, user: any) {
@@ -170,22 +291,33 @@ export class OrdersService {
     }
     let subtotal = 0;
     let ivaTotal = 0;
+
     for (const itemDto of items) {
       const product = products.find((p) => p._id.toString() === itemDto.productId);
       if (!product) {
         throw new NotFoundException(`Producto con ID "${itemDto.productId}" no encontrado durante el cálculo.`);
       }
-      const variant = product.variants?.[0];
-      const unitPrice = variant?.basePrice ?? 0;
-      let totalPrice;
-      if (product.isSoldByWeight) {
-        totalPrice = unitPrice * itemDto.quantity;
+
+      let unitPrice: number;
+
+      // ======== MULTI-UNIT LOGIC para cálculos ========
+      if (product.hasMultipleSellingUnits && itemDto.selectedUnit && product.sellingUnits?.length > 0) {
+        const sellingUnit = UnitConversionUtil.validateQuantityAndUnit(
+          itemDto.quantity,
+          itemDto.selectedUnit,
+          product.sellingUnits,
+        );
+        unitPrice = sellingUnit.pricePerUnit;
       } else {
-        if (!Number.isInteger(itemDto.quantity)) {
-          throw new BadRequestException(`La cantidad para el producto "${product.name}" debe ser un número entero.`);
-        }
-        totalPrice = unitPrice * itemDto.quantity;
+        const variant = product.variants?.[0];
+        unitPrice = variant?.basePrice ?? 0;
       }
+
+      const totalPrice = UnitConversionUtil.calculateTotalPrice(
+        itemDto.quantity,
+        unitPrice,
+      );
+
       const ivaAmount = product.ivaApplicable ? totalPrice * 0.16 : 0;
       subtotal += totalPrice;
       ivaTotal += ivaAmount;
@@ -264,5 +396,52 @@ export class OrdersService {
     const seconds = now.getSeconds().toString().padStart(2, "0");
     const randomPart = now.getTime().toString().slice(-4);
     return `ORD-${year}${month}${day}-${hours}${minutes}${seconds}-${randomPart}`;
+  }
+
+  // Nuevo método para actualizar métricas incrementalmente
+  private async updateCustomerMetricsIncremental(
+    customerId: Types.ObjectId, 
+    orderTotal: number
+  ) {
+    try {
+      // Actualizar contadores incrementalmente
+      const updateResult = await this.customerModel.findByIdAndUpdate(
+        customerId,
+        {
+          $inc: {
+            'metrics.totalSpent': orderTotal,
+            'metrics.totalOrders': 1
+          },
+          $set: {
+            'metrics.lastOrderDate': new Date()
+          }
+        },
+        { new: true }
+      );
+
+      if (updateResult) {
+        // Recalcular tier basado en el nuevo totalSpent
+        const newTier = this.calculateTierFromSpent(updateResult.metrics.totalSpent);
+        
+        if (updateResult.tier !== newTier) {
+          await this.customerModel.findByIdAndUpdate(customerId, { tier: newTier });
+          this.logger.log(`Customer ${customerId} tier updated: ${updateResult.tier} -> ${newTier}`);
+        }
+
+        this.logger.log(`Customer metrics updated: ${customerId}, totalSpent: ${updateResult.metrics.totalSpent}`);
+      }
+
+    } catch (error) {
+      this.logger.error(`Failed to update customer metrics for ${customerId}:`, error);
+      // No lanzar error para evitar que falle la creación de la orden
+    }
+  }
+
+  private calculateTierFromSpent(totalSpent: number): string {
+    if (totalSpent >= 10000) return 'diamante';
+    if (totalSpent >= 5000) return 'oro';
+    if (totalSpent >= 2000) return 'plata';
+    if (totalSpent > 0) return 'bronce';
+    return 'nuevo';
   }
 }

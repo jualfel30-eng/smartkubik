@@ -5,56 +5,58 @@ export type SupplierDocument = Supplier & Document;
 
 @Schema()
 export class SupplierContact {
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   name: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   position: string;
 
-  @Prop()
+  @Prop({ type: String })
   email?: string;
 
-  @Prop()
+  @Prop({ type: String })
   phone?: string;
 
-  @Prop({ default: false })
+  @Prop({ type: Boolean, default: false })
   isPrimary: boolean;
 
-  @Prop()
+  @Prop({ type: String })
   notes?: string;
 }
+const SupplierContactSchema = SchemaFactory.createForClass(SupplierContact);
 
 @Schema()
 export class SupplierPaymentTerm {
-  @Prop({ required: true })
-  method: string; // cash, transfer, check, credit
+  @Prop({ type: String, required: true })
+  method: string;
 
-  @Prop({ required: true })
-  termDays: number; // días de crédito
+  @Prop({ type: Number, required: true })
+  termDays: number;
 
-  @Prop()
-  discountPercentage?: number; // descuento por pronto pago
+  @Prop({ type: Number })
+  discountPercentage?: number;
 
-  @Prop()
-  discountDays?: number; // días para descuento
+  @Prop({ type: Number })
+  discountDays?: number;
 
-  @Prop({ default: false })
+  @Prop({ type: Boolean, default: false })
   isPreferred: boolean;
 }
+const SupplierPaymentTermSchema = SchemaFactory.createForClass(SupplierPaymentTerm);
 
 @Schema({ timestamps: true })
 export class Supplier {
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   supplierNumber: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   name: string;
 
-  @Prop()
+  @Prop({ type: String })
   tradeName?: string;
 
-  @Prop({ required: true })
-  supplierType: string; // manufacturer, distributor, wholesaler, importer
+  @Prop({ type: String, required: true })
+  supplierType: string;
 
   @Prop({ type: Object })
   taxInfo: {
@@ -73,14 +75,14 @@ export class Supplier {
     country: string;
   };
 
-  @Prop([SupplierContact])
+  @Prop({ type: [SupplierContactSchema] })
   contacts: SupplierContact[];
 
-  @Prop([SupplierPaymentTerm])
+  @Prop({ type: [SupplierPaymentTermSchema] })
   paymentTerms: SupplierPaymentTerm[];
 
-  @Prop([String])
-  categories: string[]; // categorías de productos que suministra
+  @Prop({ type: [String] })
+  categories: string[];
 
   @Prop({ type: Object })
   deliveryInfo: {
@@ -93,8 +95,8 @@ export class Supplier {
 
   @Prop({ type: Object })
   qualityInfo: {
-    certifications: string[]; // HACCP, ISO, etc.
-    qualityRating: number; // 1-5
+    certifications: string[];
+    qualityRating: number;
     lastAuditDate?: Date;
     nextAuditDate?: Date;
     auditNotes?: string;
@@ -112,19 +114,19 @@ export class Supplier {
     paymentDelayDays: number;
   };
 
-  @Prop({ required: true, default: "active" })
-  status: string; // active, inactive, suspended, blocked
+  @Prop({ type: String, required: true, default: "active" })
+  status: string;
 
-  @Prop()
+  @Prop({ type: String })
   inactiveReason?: string;
 
-  @Prop()
+  @Prop({ type: Date })
   suspendedUntil?: Date;
 
-  @Prop()
+  @Prop({ type: String })
   notes?: string;
 
-  @Prop()
+  @Prop({ type: String })
   internalNotes?: string;
 
   @Prop({ type: Types.ObjectId, ref: "User", required: true })

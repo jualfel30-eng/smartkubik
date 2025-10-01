@@ -10,6 +10,7 @@ import { CreateTenantWithAdminDto } from './dto/onboarding.dto';
 import { JwtService } from '@nestjs/jwt';
 import { SeedingService } from '../seeding/seeding.service';
 import { RoleDocument } from '../../schemas/role.schema';
+import { LoggerSanitizer } from '../../utils/logger-sanitizer.util';
 
 
 @Injectable()
@@ -139,7 +140,8 @@ export class OnboardingService {
         ...tokens,
       };
 
-      this.logger.log(`[DEBUG] Returning response object keys: ${JSON.stringify(Object.keys(finalResponse))}`);
+      // Sanitizar response antes de loggear (oculta tokens)
+      this.logger.log(`[DEBUG] Returning response: ${JSON.stringify(LoggerSanitizer.sanitize(finalResponse))}`);
 
       return finalResponse;
 

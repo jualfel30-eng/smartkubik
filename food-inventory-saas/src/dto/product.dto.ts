@@ -15,21 +15,25 @@ import {
 } from "class-validator";
 import { Type, Transform } from "class-transformer";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { SanitizeString, SanitizeText, SanitizeStringArray } from "../decorators/sanitize.decorator";
 
 export class CreateProductVariantDto {
   @ApiProperty({ description: "Nombre de la variante" })
   @IsString()
   @IsNotEmpty()
+  @SanitizeString()
   name: string;
 
   @ApiProperty({ description: "SKU único de la variante" })
   @IsString()
   @IsNotEmpty()
+  @SanitizeString()
   sku: string;
 
   @ApiProperty({ description: "Código de barras" })
   @IsString()
   @IsNotEmpty()
+  @SanitizeString()
   barcode: string;
 
   @ApiProperty({ description: "Unidad de medida", example: "kg" })
@@ -55,6 +59,7 @@ export class CreateProductVariantDto {
   @ApiPropertyOptional({ description: "Descripción de la variante" })
   @IsOptional()
   @IsString()
+  @SanitizeText()
   description?: string;
 
   @ApiPropertyOptional({ description: "URLs de imágenes" })
@@ -72,6 +77,59 @@ export class CreateProductVariantDto {
     height: number;
     weight: number;
   };
+}
+
+export class CreateSellingUnitDto {
+  @ApiProperty({ description: "Nombre de la unidad de venta", example: "Kilogramos" })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiProperty({ description: "Abreviación", example: "kg" })
+  @IsString()
+  @IsNotEmpty()
+  abbreviation: string;
+
+  @ApiProperty({
+    description: "Factor de conversión a unidad base",
+    example: 1000,
+    minimum: 0.001
+  })
+  @IsNumber()
+  @Min(0.001)
+  conversionFactor: number;
+
+  @ApiProperty({ description: "Precio por esta unidad" })
+  @IsNumber()
+  @Min(0)
+  pricePerUnit: number;
+
+  @ApiProperty({ description: "Costo por esta unidad" })
+  @IsNumber()
+  @Min(0)
+  costPerUnit: number;
+
+  @ApiPropertyOptional({ description: "Unidad activa", default: true })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @ApiPropertyOptional({ description: "Unidad por defecto al vender", default: false })
+  @IsOptional()
+  @IsBoolean()
+  isDefault?: boolean;
+
+  @ApiPropertyOptional({ description: "Cantidad mínima de venta" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  minimumQuantity?: number;
+
+  @ApiPropertyOptional({ description: "Paso de incremento" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  incrementStep?: number;
 }
 
 export class CreateProductSupplierDto {
@@ -117,26 +175,31 @@ export class CreateProductDto {
   @ApiProperty({ description: "SKU único del producto" })
   @IsString()
   @IsNotEmpty()
+  @SanitizeString()
   sku: string;
 
   @ApiProperty({ description: "Nombre del producto" })
   @IsString()
   @IsNotEmpty()
+  @SanitizeString()
   name: string;
 
   @ApiProperty({ description: "Categorías del producto", type: String })
   @IsString()
   @IsNotEmpty()
+  @SanitizeString()
   category: string;
 
   @ApiProperty({ description: "Subcategorías del producto", type: String })
   @IsString()
   @IsNotEmpty()
+  @SanitizeString()
   subcategory: string;
 
   @ApiProperty({ description: "Marca del producto" })
   @IsString()
   @IsNotEmpty()
+  @SanitizeString()
   brand: string;
 
   @ApiPropertyOptional({ description: "Unidad de medida", default: "unidad" })
@@ -149,20 +212,38 @@ export class CreateProductDto {
   @IsBoolean()
   isSoldByWeight?: boolean;
 
+  @ApiPropertyOptional({ description: "Tiene múltiples unidades de venta", default: false })
+  @IsOptional()
+  @IsBoolean()
+  hasMultipleSellingUnits?: boolean;
+
+  @ApiPropertyOptional({
+    description: "Unidades de venta disponibles",
+    type: [CreateSellingUnitDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateSellingUnitDto)
+  sellingUnits?: CreateSellingUnitDto[];
+
   @ApiPropertyOptional({ description: "Descripción del producto" })
   @IsOptional()
   @IsString()
+  @SanitizeText()
   description?: string;
 
   @ApiPropertyOptional({ description: "Ingredientes del producto" })
   @IsOptional()
   @IsString()
+  @SanitizeText()
   ingredients?: string;
 
   @ApiPropertyOptional({ description: "Etiquetas del producto" })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
+  @SanitizeStringArray()
   tags?: string[];
 
   @ApiProperty({
@@ -297,17 +378,20 @@ export class UpdateProductDto {
   @ApiPropertyOptional({ description: "Descripción del producto" })
   @IsOptional()
   @IsString()
+  @SanitizeText()
   description?: string;
 
   @ApiPropertyOptional({ description: "Ingredientes del producto" })
   @IsOptional()
   @IsString()
+  @SanitizeText()
   ingredients?: string;
 
   @ApiPropertyOptional({ description: "Etiquetas del producto" })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
+  @SanitizeStringArray()
   tags?: string[];
 
   @ApiPropertyOptional({ description: "Es producto perecedero" })
@@ -364,6 +448,21 @@ export class UpdateProductDto {
   @IsOptional()
   @IsString()
   unitOfMeasure?: string;
+
+  @ApiPropertyOptional({ description: "Tiene múltiples unidades de venta" })
+  @IsOptional()
+  @IsBoolean()
+  hasMultipleSellingUnits?: boolean;
+
+  @ApiPropertyOptional({
+    description: "Unidades de venta disponibles",
+    type: [CreateSellingUnitDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateSellingUnitDto)
+  sellingUnits?: CreateSellingUnitDto[];
 
   @ApiPropertyOptional({
     description: "Variantes del producto",

@@ -12,13 +12,13 @@ class JournalLine {
   })
   account: MongooseSchema.Types.ObjectId;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   description: string;
 
-  @Prop({ default: 0 })
+  @Prop({ type: Number, default: 0 })
   debit: number;
 
-  @Prop({ default: 0 })
+  @Prop({ type: Number, default: 0 })
   credit: number;
 }
 
@@ -26,20 +26,26 @@ const JournalLineSchema = SchemaFactory.createForClass(JournalLine);
 
 @Schema({ timestamps: true })
 export class JournalEntry {
-  @Prop({ required: true })
+  @Prop({ type: Date, required: true })
   date: Date;
 
-  @Prop({ required: true, trim: true })
+  @Prop({ type: String, required: true, trim: true })
   description: string;
 
-  @Prop([JournalLineSchema])
+  @Prop({ type: [JournalLineSchema] })
   lines: JournalLine[];
 
   @Prop({ type: String, required: true, index: true })
   tenantId: string;
 
-  @Prop({ required: true, default: false })
+  @Prop({ type: Boolean, required: true, default: false })
   isAutomatic: boolean;
 }
 
 export const JournalEntrySchema = SchemaFactory.createForClass(JournalEntry);
+
+// Índices para optimizar consultas contables
+JournalEntrySchema.index({ date: -1, tenantId: 1 });
+JournalEntrySchema.index({ tenantId: 1, createdAt: -1 });
+JournalEntrySchema.index({ isAutomatic: 1, tenantId: 1 });
+JournalEntrySchema.index({ 'lines.account': 1, tenantId: 1 });

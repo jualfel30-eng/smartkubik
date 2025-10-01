@@ -12,6 +12,7 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { SanitizeString } from "../decorators/sanitize.decorator";
 
 export class LoginDto {
   @ApiProperty({ description: "Email del usuario" })
@@ -40,30 +41,33 @@ export class RegisterDto {
   @ApiProperty({ description: "Email del usuario" })
   @IsEmail()
   @IsNotEmpty()
-  email: string;
+  email: string; // Email no necesita sanitización
 
   @ApiProperty({ description: "Contraseña del usuario" })
   @IsString()
   @IsNotEmpty()
   @MinLength(8)
   @MaxLength(50)
-  password: string;
+  password: string; // Password no necesita sanitización (se hashea)
 
   @ApiProperty({ description: "Nombre del usuario" })
   @IsString()
   @IsNotEmpty()
   @MaxLength(50)
+  @SanitizeString()
   firstName: string;
 
   @ApiProperty({ description: "Apellido del usuario" })
   @IsString()
   @IsNotEmpty()
   @MaxLength(50)
+  @SanitizeString()
   lastName: string;
 
   @ApiPropertyOptional({ description: "Teléfono del usuario" })
   @IsOptional()
   @IsString()
+  @SanitizeString()
   phone?: string;
 
   @ApiProperty({
@@ -76,6 +80,7 @@ export class RegisterDto {
   @ApiProperty({ description: "Código del tenant" })
   @IsString()
   @IsNotEmpty()
+  @SanitizeString()
   tenantCode: string;
 }
 
@@ -94,16 +99,19 @@ export class CreateUserDto {
   @ApiProperty({ description: "Nombre del usuario" })
   @IsString()
   @IsNotEmpty()
+  @SanitizeString()
   firstName: string;
 
   @ApiProperty({ description: "Apellido del usuario" })
   @IsString()
   @IsNotEmpty()
+  @SanitizeString()
   lastName: string;
 
   @ApiPropertyOptional({ description: "Teléfono del usuario" })
   @IsOptional()
   @IsString()
+  @SanitizeString()
   phone?: string;
 
   @ApiProperty({
@@ -164,17 +172,20 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @SanitizeString()
   firstName?: string;
 
   @ApiPropertyOptional({ description: "Apellido del usuario" })
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @SanitizeString()
   lastName?: string;
 
   @ApiPropertyOptional({ description: "Teléfono del usuario" })
   @IsOptional()
   @IsString()
+  @SanitizeString()
   phone?: string;
 
   @ApiPropertyOptional({ description: "Rol del usuario" })
@@ -197,6 +208,7 @@ export class UpdateUserDto {
   @ApiPropertyOptional({ description: "Avatar del usuario" })
   @IsOptional()
   @IsString()
+  @SanitizeString()
   avatar?: string;
 }
 

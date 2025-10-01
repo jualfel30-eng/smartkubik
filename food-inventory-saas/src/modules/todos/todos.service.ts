@@ -1,5 +1,5 @@
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { CreateTodoDto, UpdateTodoDto } from '../../dto/todo.dto';
@@ -27,6 +27,12 @@ export class TodosService {
   }
 
   async remove(id: string, tenantId: string): Promise<any> {
+    // Validar que el todo existe y pertenece al tenant antes de eliminar
+    const todo = await this.todoModel.findOne({ _id: id, tenantId: new Types.ObjectId(tenantId) });
+    if (!todo) {
+      throw new NotFoundException(`Todo con ID "${id}" no encontrado o no tiene permisos para eliminarlo`);
+    }
+
     return this.todoModel.findOneAndDelete({ _id: id, tenantId: new Types.ObjectId(tenantId) }).exec();
   }
 }

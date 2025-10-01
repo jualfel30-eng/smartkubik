@@ -1,10 +1,11 @@
-import { Controller, Post, Body, Request, UseGuards, HttpException, HttpStatus, Get, Param, Patch, Delete } from '@nestjs/common';
+import { Controller, Post, Body, Request, UseGuards, HttpException, HttpStatus, Get, Param, Patch, Delete, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { PayablesService, CreatePayableDto, UpdatePayableDto } from './payables.service';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { TenantGuard } from '../../guards/tenant.guard';
 import { PermissionsGuard } from '../../guards/permissions.guard';
 import { Permissions } from '../../decorators/permissions.decorator';
+import { PaginationDto } from '../../dto/pagination.dto';
 
 @ApiTags('payables')
 @Controller('payables')
@@ -42,13 +43,20 @@ export class PayablesController {
   @Get()
   @UseGuards(PermissionsGuard)
   @Permissions("payables_read")
-  @ApiOperation({ summary: 'Obtener todas las cuentas por pagar del tenant' })
-  async findAll(@Request() req) {
+  @ApiOperation({ summary: 'Obtener todas las cuentas por pagar del tenant (paginadas)' })
+  @ApiResponse({ status: 200, description: 'Cuentas por pagar obtenidas exitosamente' })
+  async findAll(@Request() req, @Query() paginationDto: PaginationDto) {
     try {
-      const payables = await this.payablesService.findAll(req.user.tenantId);
+      const result = await this.payablesService.findAll(req.user.tenantId, paginationDto);
       return {
         success: true,
-        data: payables,
+        data: result.payables,
+        pagination: {
+          page: result.page,
+          limit: result.limit,
+          total: result.total,
+          totalPages: result.totalPages,
+        },
       };
     } catch (error) {
       throw new HttpException(

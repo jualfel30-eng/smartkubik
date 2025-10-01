@@ -14,6 +14,7 @@ import {
   IsOptional,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { PaginationDto, PaginationHelper } from '../../dto/pagination.dto';
 
 // --- DTOs (definidos aquí temporalmente) ---
 
@@ -174,8 +175,36 @@ export class PayablesService {
     return savedPayable;
   }
 
-  async findAll(tenantId: string): Promise<Payable[]> {
-    return this.payableModel.find({ tenantId }).sort({ issueDate: -1 }).exec();
+  async findAll(
+    tenantId: string,
+    paginationDto: PaginationDto = {},
+  ): Promise<{
+    payables: Payable[];
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  }> {
+    const { page = 1, limit = 20 } = paginationDto;
+
+    // Calcular skip para paginación
+    const skip = PaginationHelper.getSkip(page, limit);
+
+    // Ejecutar query con paginación
+    const [payables, total] = await Promise.all([
+      this.payableModel
+        .find({ tenantId })
+        .sort({ issueDate: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.payableModel.countDocuments({ tenantId }).exec(),
+    ]);
+
+    return {
+      payables,
+      ...PaginationHelper.createPaginationMeta(page, limit, total),
+    };
   }
 
   async findOne(id: string, tenantId: string): Promise<Payable> {
@@ -207,6 +236,12 @@ export class PayablesService {
   }
 
   async remove(id: string, tenantId: string): Promise<{ success: boolean; message: string }> {
+    // Validar que el payable existe y pertenece al tenant antes de anular
+    const payable = await this.payableModel.findOne({ _id: id, tenantId });
+    if (!payable) {
+      throw new NotFoundException(`Payable con ID "${id}" no encontrado o no tiene permisos para anularlo`);
+    }
+
     const result = await this.payableModel.updateOne(
       { _id: id, tenantId },
       { $set: { status: 'void' } },

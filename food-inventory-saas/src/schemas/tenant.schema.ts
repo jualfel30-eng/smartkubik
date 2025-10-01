@@ -5,16 +5,16 @@ export type TenantDocument = Tenant & Document;
 
 @Schema()
 export class PaymentMethodSetting {
-  @Prop({ required: true })
-  id: string; // e.g., 'efectivo_usd'
+  @Prop({ type: String, required: true })
+  id: string;
 
-  @Prop({ required: true })
-  name: string; // e.g., 'Efectivo (USD)'
+  @Prop({ type: String, required: true })
+  name: string;
 
-  @Prop({ required: true, default: true })
+  @Prop({ type: Boolean, required: true, default: true })
   enabled: boolean;
 
-  @Prop({ required: true, default: false })
+  @Prop({ type: Boolean, required: true, default: false })
   igtfApplicable: boolean;
 }
 
@@ -25,16 +25,16 @@ const PaymentMethodSettingSchema =
 export class TenantSettings {
   @Prop({ type: Object })
   currency: {
-    primary: string; // VES
-    secondary?: string; // USD
+    primary: string;
+    secondary?: string;
     exchangeRateSource: string;
     autoUpdateRate: boolean;
   };
 
   @Prop({ type: Object })
   taxes: {
-    ivaRate: number; // 0.16
-    igtfRate: number; // 0.03
+    ivaRate: number;
+    igtfRate: number;
     retentionRates: {
       iva: number;
       islr: number;
@@ -88,19 +88,22 @@ export class TenantSettings {
   };
 }
 
+const TenantSettingsSchema =
+  SchemaFactory.createForClass(TenantSettings);
+
 @Schema({ timestamps: true })
 export class Tenant {
-  @Prop({ required: true, unique: true })
-  code: string; // código único del tenant
+  @Prop({ type: String, required: true, unique: true })
+  code: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   name: string;
 
-  @Prop()
+  @Prop({ type: String })
   description?: string;
 
-  @Prop({ required: true })
-  businessType: string; // retail, wholesale, distributor, restaurant
+  @Prop({ type: String, required: true })
+  businessType: string;
 
   @Prop({ type: Object })
   contactInfo: {
@@ -120,22 +123,22 @@ export class Tenant {
     rif: string;
     businessName: string;
     isRetentionAgent: boolean;
-    taxRegime: string; // ordinario, simplificado
+    taxRegime: string;
   };
 
-  @Prop({ type: TenantSettings })
+  @Prop({ type: TenantSettingsSchema })
   settings: TenantSettings;
 
-  @Prop({ required: true, default: "trial" })
-  subscriptionPlan: string; // trial, basic, premium, enterprise
+  @Prop({ type: String, required: true, default: "trial" })
+  subscriptionPlan: string;
 
-  @Prop()
+  @Prop({ type: Date })
   subscriptionExpiresAt?: Date;
 
-  @Prop({ required: true, default: "active" })
-  status: string; // active, suspended, cancelled
+  @Prop({ type: String, required: true, default: "active" })
+  status: string;
 
-  @Prop()
+  @Prop({ type: String })
   suspendedReason?: string;
 
   @Prop({ type: Object })
@@ -143,7 +146,7 @@ export class Tenant {
     maxUsers: number;
     maxProducts: number;
     maxOrders: number;
-    maxStorage: number; // en MB
+    maxStorage: number;
   };
 
   @Prop({ type: Object })
@@ -154,16 +157,16 @@ export class Tenant {
     currentStorage: number;
   };
 
-  @Prop()
+  @Prop({ type: String })
   logo?: string;
 
-  @Prop()
+  @Prop({ type: String })
   website?: string;
 
-  @Prop({ default: "America/Caracas" })
+  @Prop({ type: String, default: "America/Caracas" })
   timezone: string;
 
-  @Prop({ default: "es" })
+  @Prop({ type: String, default: "es" })
   language: string;
 }
 

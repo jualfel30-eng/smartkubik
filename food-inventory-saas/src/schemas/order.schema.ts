@@ -6,81 +6,91 @@ export type OrderItemDocument = OrderItem & Document;
 
 @Schema()
 export class OrderItemLot {
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   lotNumber: string;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   quantity: number;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   unitPrice: number;
 
-  @Prop()
+  @Prop({ type: Date })
   expirationDate?: Date;
 
-  @Prop({ required: true })
+  @Prop({ type: Date, required: true })
   reservedAt: Date;
 
-  @Prop()
+  @Prop({ type: Date })
   releasedAt?: Date;
 }
+const OrderItemLotSchema = SchemaFactory.createForClass(OrderItemLot);
 
 @Schema()
 export class OrderItem {
   @Prop({ type: Types.ObjectId, ref: "Product", required: true })
   productId: Types.ObjectId;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   productSku: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   productName: string;
 
   @Prop({ type: Types.ObjectId, ref: "ProductVariant" })
   variantId?: Types.ObjectId;
 
-  @Prop()
+  @Prop({ type: String })
   variantSku?: string;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   quantity: number;
 
-  @Prop({ required: true })
-  unitPrice: number; // precio unitario sin impuestos
+  @Prop({ type: String })
+  selectedUnit?: string; // Unidad de venta seleccionada (ej: "kg", "g", "lb")
 
-  @Prop({ required: true })
-  totalPrice: number; // precio total sin impuestos
+  @Prop({ type: Number })
+  conversionFactor?: number; // Factor usado para convertir a unidad base
 
-  @Prop({ required: true })
-  costPrice: number; // precio de costo para cálculo de margen
+  @Prop({ type: Number })
+  quantityInBaseUnit?: number; // Cantidad convertida a unidad base (para inventario)
 
-  @Prop([OrderItemLot])
-  lots: OrderItemLot[]; // lotes asignados para FEFO
+  @Prop({ type: Number, required: true })
+  unitPrice: number; // Precio por la unidad seleccionada
 
-  // Impuestos venezolanos
-  @Prop({ required: true })
-  ivaAmount: number; // monto de IVA 16%
+  @Prop({ type: Number, required: true })
+  totalPrice: number;
 
-  @Prop({ required: true })
-  igtfAmount: number; // monto de IGTF 3% si aplica
+  @Prop({ type: Number, required: true })
+  costPrice: number;
 
-  @Prop({ required: true })
-  finalPrice: number; // precio final con impuestos
+  @Prop({ type: [OrderItemLotSchema] })
+  lots: OrderItemLot[];
 
-  @Prop({ required: true, default: "pending" })
-  status: string; // pending, reserved, allocated, picked, shipped, delivered, cancelled
+  @Prop({ type: Number, required: true })
+  ivaAmount: number;
 
-  @Prop()
+  @Prop({ type: Number, required: true })
+  igtfAmount: number;
+
+  @Prop({ type: Number, required: true })
+  finalPrice: number;
+
+  @Prop({ type: String, required: true, default: "pending" })
+  status: string;
+
+  @Prop({ type: String })
   notes?: string;
 
-  @Prop({ default: Date.now })
+  @Prop({ type: Date, default: Date.now })
   addedAt: Date;
 }
+const OrderItemSchema = SchemaFactory.createForClass(OrderItem);
 
 @Schema()
 export class OrderShipping {
-  @Prop({ required: true })
-  method: string; // pickup, delivery, courier
+  @Prop({ type: String, required: true, enum: ['pickup', 'delivery', 'envio_nacional'] })
+  method: string;
 
   @Prop({ type: Object })
   address?: {
@@ -95,131 +105,130 @@ export class OrderShipping {
     };
   };
 
-  @Prop()
+  @Prop({ type: Date })
   scheduledDate?: Date;
 
-  @Prop()
+  @Prop({ type: Date })
   deliveredDate?: Date;
 
-  @Prop()
+  @Prop({ type: String })
   trackingNumber?: string;
 
-  @Prop()
+  @Prop({ type: String })
   courierCompany?: string;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true, default: 0 })
   cost: number;
 
-  @Prop()
+  @Prop({ type: Number })
+  distance?: number;
+
+  @Prop({ type: Number })
+  estimatedDuration?: number;
+
+  @Prop({ type: String })
   notes?: string;
 }
+const OrderShippingSchema = SchemaFactory.createForClass(OrderShipping);
 
 @Schema({ timestamps: true })
 export class Order {
-  @Prop({ required: true, unique: true })
+  @Prop({ type: String, required: true, unique: true })
   orderNumber: string;
 
   @Prop({ type: Types.ObjectId, ref: "Customer", required: true })
   customerId: Types.ObjectId;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   customerName: string;
 
-  @Prop()
+  @Prop({ type: String })
   customerEmail?: string;
 
-  @Prop()
+  @Prop({ type: String })
   customerPhone?: string;
 
-  @Prop([OrderItem])
+  @Prop({ type: [OrderItemSchema] })
   items: OrderItem[];
 
-  // Totales de la orden
-  @Prop({ required: true })
-  subtotal: number; // subtotal sin impuestos
+  @Prop({ type: Number, required: true })
+  subtotal: number;
 
-  @Prop({ required: true })
-  ivaTotal: number; // total de IVA 16%
+  @Prop({ type: Number, required: true })
+  ivaTotal: number;
 
-  @Prop({ required: true })
-  igtfTotal: number; // total de IGTF 3%
+  @Prop({ type: Number, required: true })
+  igtfTotal: number;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   shippingCost: number;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   discountAmount: number;
 
-  @Prop({ required: true })
-  totalAmount: number; // total final con impuestos
+  @Prop({ type: Number, required: true })
+  totalAmount: number;
 
-  // Información de pago
   @Prop({ type: [{ type: Types.ObjectId, ref: 'Payment' }] })
   payments: Types.ObjectId[];
 
-  @Prop({ required: true, default: "pending" })
-  paymentStatus: string; // pending, partial, paid, overpaid, refunded
+  @Prop({ type: String, required: true, default: "pending" })
+  paymentStatus: string;
 
-  // Información de envío
-  @Prop({ type: OrderShipping })
+  @Prop({ type: OrderShippingSchema })
   shipping?: OrderShipping;
 
-  // Estados de la orden
-  @Prop({ required: true, default: "draft" })
-  status: string; // draft, pending, confirmed, processing, shipped, delivered, cancelled, refunded
+  @Prop({ type: String, required: true, default: "draft" })
+  status: string;
 
-  @Prop({ required: true, default: "online" })
-  channel: string; // online, phone, whatsapp, in_store
+  @Prop({ type: String, required: true, default: "online" })
+  channel: string;
 
-  @Prop({ required: true, default: "retail" })
-  type: string; // retail, wholesale, b2b
+  @Prop({ type: String, required: true, default: "retail" })
+  type: string;
 
-  // Fechas importantes
-  @Prop()
+  @Prop({ type: Date })
   confirmedAt?: Date;
 
-  @Prop()
+  @Prop({ type: Date })
   shippedAt?: Date;
 
-  @Prop()
+  @Prop({ type: Date })
   deliveredAt?: Date;
 
-  @Prop()
+  @Prop({ type: Date })
   cancelledAt?: Date;
 
-  // Reservas de inventario
   @Prop({ type: Object })
   inventoryReservation: {
     reservedAt?: Date;
-    expiresAt?: Date; // las reservas expiran después de X tiempo
+    expiresAt?: Date;
     isReserved: boolean;
     reservationId?: string;
   };
 
-  // Información fiscal venezolana
   @Prop({ type: Object })
   taxInfo: {
     customerTaxId?: string;
-    customerTaxType?: string; // V, E, J, G
+    customerTaxType?: string;
     invoiceRequired: boolean;
     invoiceNumber?: string;
     invoiceDate?: Date;
   };
 
-  // Métricas y análisis
   @Prop({ type: Object })
   metrics: {
-    totalMargin: number; // margen total de la orden
-    marginPercentage: number; // porcentaje de margen
-    processingTime?: number; // tiempo de procesamiento en minutos
-    fulfillmentTime?: number; // tiempo de cumplimiento en minutos
+    totalMargin: number;
+    marginPercentage: number;
+    processingTime?: number;
+    fulfillmentTime?: number;
   };
 
-  @Prop()
+  @Prop({ type: String })
   notes?: string;
 
-  @Prop()
-  internalNotes?: string; // notas internas no visibles al cliente
+  @Prop({ type: String })
+  internalNotes?: string;
 
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;

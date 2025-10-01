@@ -30,6 +30,7 @@ import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
 import { Permissions } from "../../decorators/permissions.decorator";
+import { BulkAdjustInventoryDto } from './dto/bulk-adjust-inventory.dto';
 
 @ApiTags("inventory")
 @Controller("inventory")
@@ -291,6 +292,29 @@ export class InventoryController {
     } catch (error) {
       throw new HttpException(
         error.message || "Error al ajustar el inventario",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Post("bulk-adjust")
+  @Permissions("inventory_update")
+  @ApiOperation({ summary: "Ajustar inventario masivamente desde archivo" })
+  @ApiResponse({ status: 200, description: "Inventario ajustado exitosamente" })
+  async bulkAdjustInventory(@Body() bulkAdjustDto: BulkAdjustInventoryDto, @Request() req) {
+    try {
+      const result = await this.inventoryService.bulkAdjustInventory(
+        bulkAdjustDto,
+        req.user,
+      );
+      return {
+        success: true,
+        message: "Inventario ajustado masivamente exitosamente",
+        data: result,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al ajustar el inventario masivamente",
         HttpStatus.BAD_REQUEST,
       );
     }

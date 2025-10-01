@@ -55,6 +55,12 @@ export class RolesService {
   }
 
   async remove(id: string, tenantId: string): Promise<any> {
+    // Validar que el rol existe y pertenece al tenant antes de eliminar
+    const role = await this.roleModel.findOne({ _id: id, tenantId });
+    if (!role) {
+      throw new NotFoundException(`Role with ID "${id}" not found or you don't have permission to delete it`);
+    }
+
     const result = await this.roleModel.deleteOne({ _id: id, tenantId });
     if (result.deletedCount === 0) {
       throw new NotFoundException(`Role with ID "${id}" not found`);

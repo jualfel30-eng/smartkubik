@@ -10,15 +10,18 @@ import {
   ValidateIf,
 } from "class-validator";
 import { Type } from "class-transformer";
+import { SanitizeString, SanitizeText } from "../decorators/sanitize.decorator";
 
 class PurchaseOrderItemDto {
   @IsMongoId()
   productId: string;
 
   @IsString()
+  @SanitizeString()
   productName: string;
 
   @IsString()
+  @SanitizeString()
   productSku: string;
 
   @IsNumber()
@@ -31,6 +34,7 @@ class PurchaseOrderItemDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeString()
   lotNumber?: string;
 
   @IsOptional()
@@ -46,23 +50,27 @@ export class CreatePurchaseOrderDto {
   // These fields are for creating a new supplier on the fly
   @ValidateIf((o) => !o.supplierId)
   @IsString()
+  @SanitizeString()
   newSupplierName?: string;
 
   @ValidateIf((o) => !o.supplierId)
   @IsString()
+  @SanitizeString()
   newSupplierRif?: string;
 
   @ValidateIf((o) => !o.supplierId)
   @IsString()
+  @SanitizeString()
   newSupplierContactName?: string;
 
   @IsOptional()
   @IsString()
+  @SanitizeString()
   newSupplierContactPhone?: string;
 
   @IsOptional()
   @IsString()
-  newSupplierContactEmail?: string;
+  newSupplierContactEmail?: string; // Email no necesita sanitización
 
   @IsDateString()
   purchaseDate: string;
@@ -74,5 +82,6 @@ export class CreatePurchaseOrderDto {
 
   @IsString()
   @IsOptional()
+  @SanitizeText()
   notes?: string;
 }

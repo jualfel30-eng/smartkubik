@@ -7,38 +7,38 @@ export type InventoryMovementDocument = InventoryMovement & Document;
 
 @Schema({ timestamps: true })
 export class InventoryLot {
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   lotNumber: string;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   quantity: number;
 
-  @Prop({ required: true })
-  availableQuantity: number; // cantidad disponible (no reservada)
+  @Prop({ type: Number, required: true })
+  availableQuantity: number;
 
-  @Prop({ required: true })
-  reservedQuantity: number; // cantidad reservada para órdenes
+  @Prop({ type: Number, required: true })
+  reservedQuantity: number;
 
-  @Prop({ required: true })
-  costPrice: number; // precio de costo de este lote
+  @Prop({ type: Number, required: true })
+  costPrice: number;
 
-  @Prop({ required: true })
+  @Prop({ type: Date, required: true })
   receivedDate: Date;
 
-  @Prop()
+  @Prop({ type: Date })
   expirationDate?: Date;
 
-  @Prop()
+  @Prop({ type: Date })
   manufacturingDate?: Date;
 
   @Prop({ type: Types.ObjectId, ref: "Supplier" })
   supplierId?: Types.ObjectId;
 
-  @Prop()
+  @Prop({ type: String })
   supplierInvoice?: string;
 
-  @Prop({ required: true, default: "available" })
-  status: string; // available, reserved, expired, damaged, sold
+  @Prop({ type: String, required: true, default: "available" })
+  status: string;
 
   @Prop({ type: Object })
   qualityCheck?: {
@@ -54,46 +54,46 @@ export class InventoryLot {
   @Prop({ type: Types.ObjectId, ref: "User" })
   createdBy: Types.ObjectId;
 }
+export const InventoryLotSchema = SchemaFactory.createForClass(InventoryLot);
 
 @Schema({ timestamps: true })
 export class Inventory {
   @Prop({ type: Types.ObjectId, ref: "Product", required: true })
   productId: Types.ObjectId;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   productSku: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   productName: string;
 
   @Prop({ type: Types.ObjectId, ref: "ProductVariant" })
   variantId?: Types.ObjectId;
 
-  @Prop()
+  @Prop({ type: String })
   variantSku?: string;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   totalQuantity: number;
 
-  @Prop({ required: true })
-  availableQuantity: number; // cantidad total disponible
+  @Prop({ type: Number, required: true })
+  availableQuantity: number;
 
-  @Prop({ required: true })
-  reservedQuantity: number; // cantidad total reservada
+  @Prop({ type: Number, required: true })
+  reservedQuantity: number;
 
-  @Prop({ required: true })
-  committedQuantity: number; // cantidad comprometida en órdenes
+  @Prop({ type: Number, required: true })
+  committedQuantity: number;
 
-  @Prop({ required: true })
-  averageCostPrice: number; // precio promedio ponderado
+  @Prop({ type: Number, required: true })
+  averageCostPrice: number;
 
-  @Prop({ required: true })
-  lastCostPrice: number; // último precio de costo
+  @Prop({ type: Number, required: true })
+  lastCostPrice: number;
 
-  @Prop([InventoryLot])
+  @Prop({ type: [InventoryLotSchema] })
   lots: InventoryLot[];
 
-  // Configuración de ubicación física
   @Prop({ type: Object })
   location: {
     warehouse: string;
@@ -103,27 +103,25 @@ export class Inventory {
     bin: string;
   };
 
-  // Alertas de inventario
   @Prop({ type: Object })
   alerts: {
     lowStock: boolean;
-    nearExpiration: boolean; // productos próximos a vencer
-    expired: boolean; // productos vencidos
+    nearExpiration: boolean;
+    expired: boolean;
     overstock: boolean;
     lastAlertSent?: Date;
   };
 
-  // Métricas de rotación
   @Prop({ type: Object })
   metrics: {
-    turnoverRate: number; // tasa de rotación
-    daysOnHand: number; // días de inventario disponible
+    turnoverRate: number;
+    daysOnHand: number;
     lastSaleDate?: Date;
     averageDailySales: number;
     seasonalityFactor: number;
   };
 
-  @Prop({ default: true })
+  @Prop({ type: Boolean, default: true })
   isActive: boolean;
 
   @Prop({ type: Types.ObjectId, ref: "User" })
@@ -144,29 +142,29 @@ export class InventoryMovement {
   @Prop({ type: Types.ObjectId, ref: "Product", required: true })
   productId: Types.ObjectId;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   productSku: string;
 
-  @Prop()
+  @Prop({ type: String })
   lotNumber?: string;
 
-  @Prop({ required: true })
-  movementType: string; // in, out, adjustment, transfer, reservation, release
+  @Prop({ type: String, required: true })
+  movementType: string;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   quantity: number;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   unitCost: number;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   totalCost: number;
 
-  @Prop()
+  @Prop({ type: String })
   reason: string;
 
-  @Prop()
-  reference?: string; // número de orden, factura, etc.
+  @Prop({ type: String })
+  reference?: string;
 
   @Prop({ type: Types.ObjectId, ref: "Order" })
   orderId?: Types.ObjectId;
@@ -190,7 +188,6 @@ export class InventoryMovement {
 }
 
 export const InventorySchema = SchemaFactory.createForClass(Inventory);
-export const InventoryLotSchema = SchemaFactory.createForClass(InventoryLot);
 export const InventoryMovementSchema =
   SchemaFactory.createForClass(InventoryMovement);
 

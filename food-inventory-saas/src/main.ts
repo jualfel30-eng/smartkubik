@@ -27,8 +27,30 @@ function formatValidationErrors(errors: ValidationError[]): string[] {
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Middlewares
-  app.use(helmet());
+  // Security Middlewares
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"], // Para Swagger UI
+          imgSrc: ["'self'", "data:", "https:"],
+          connectSrc: ["'self'"],
+          fontSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          mediaSrc: ["'self'"],
+          frameSrc: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+          frameAncestors: ["'none'"],
+          upgradeInsecureRequests: [],
+        },
+      },
+      crossOriginEmbedderPolicy: false, // Para permitir imágenes externas
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+    }),
+  );
   app.use(compression());
 
   // Dynamic CORS from .env

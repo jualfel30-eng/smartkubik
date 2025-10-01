@@ -46,7 +46,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       firstName: user.firstName,
       lastName: user.lastName,
       role: payload.role,
-      tenantId: payload.tenantId || user.tenantId, // Use tenantId from payload if it exists
+      tenantId: user.tenantId, // Use tenantId from payload if it exists
     };
 
     this.logger.debug(`Validation successful for user: ${user.email}`);

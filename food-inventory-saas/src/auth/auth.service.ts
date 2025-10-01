@@ -12,6 +12,7 @@ import * as bcrypt from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
 import { User, UserDocument } from "../schemas/user.schema";
 import { Tenant, TenantDocument } from "../schemas/tenant.schema";
+import { LoggerSanitizer } from "../utils/logger-sanitizer.util";
 import {
   LoginDto,
   RegisterDto,

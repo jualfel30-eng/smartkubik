@@ -17,6 +17,7 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { SanitizeString, SanitizeText } from "../decorators/sanitize.decorator";
 
 // --- Custom Validator for Supplier Contacts ---
 @ValidatorConstraint({ name: "isContactMandatoryForSupplier", async: false })
@@ -48,6 +49,7 @@ export class CustomerTaxInfoDto {
   })
   @IsString()
   @IsNotEmpty()
+  @SanitizeString()
   taxId: string;
 
   @ApiProperty({
@@ -60,6 +62,7 @@ export class CustomerTaxInfoDto {
   @ApiPropertyOptional({ description: "Nombre fiscal o razón social" })
   @IsOptional()
   @IsString()
+  @SanitizeString()
   taxName?: string;
 }
 
@@ -74,21 +77,25 @@ export class CustomerAddressDto {
   @ApiPropertyOptional({ description: "Calle" })
   @IsOptional()
   @IsString()
+  @SanitizeString()
   street?: string;
 
   @ApiPropertyOptional({ description: "Ciudad" })
   @IsOptional()
   @IsString()
+  @SanitizeString()
   city?: string;
 
   @ApiPropertyOptional({ description: "Municipio" })
   @IsOptional()
   @IsString()
+  @SanitizeString()
   municipality?: string;
 
   @ApiPropertyOptional({ description: "Estado" })
   @IsOptional()
   @IsString()
+  @SanitizeString()
   state?: string;
 
   @ApiPropertyOptional({
@@ -111,6 +118,7 @@ export class CustomerContactDto {
   @ApiProperty({ description: "Valor del contacto" })
   @IsString()
   @IsNotEmpty()
+  @SanitizeString()
   value: string;
 
   @ApiPropertyOptional({ description: "Es contacto principal", default: false })
@@ -145,11 +153,13 @@ export class CreateCustomerDto {
   @ApiProperty({ description: "Nombre del cliente o contacto" })
   @IsString()
   @IsNotEmpty()
+  @SanitizeString()
   name: string;
 
   @ApiPropertyOptional({ description: "Nombre de la empresa (si aplica)" })
   @IsOptional()
   @IsString()
+  @SanitizeString()
   companyName?: string;
 
   @ApiProperty({
@@ -221,6 +231,7 @@ export class CreateCustomerDto {
   @ApiPropertyOptional({ description: "Notas del cliente" })
   @IsOptional()
   @IsString()
+  @SanitizeText()
   notes?: string;
 }
 
@@ -296,6 +307,7 @@ export class UpdateCustomerDto {
   @ApiPropertyOptional({ description: "Notas del cliente" })
   @IsOptional()
   @IsString()
+  @SanitizeText()
   notes?: string;
 }
 

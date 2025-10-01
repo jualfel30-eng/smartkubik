@@ -25,3 +25,11 @@ export class AuditLog {
 }
 
 export const AuditLogSchema = SchemaFactory.createForClass(AuditLog);
+
+// Índices para optimizar consultas de auditoría
+AuditLogSchema.index({ performedBy: 1, createdAt: -1 });
+AuditLogSchema.index({ tenantId: 1, createdAt: -1 });
+AuditLogSchema.index({ action: 1, createdAt: -1 });
+AuditLogSchema.index({ targetId: 1, createdAt: -1 });
+AuditLogSchema.index({ createdAt: -1 }); // Para limpieza de logs antiguos
+AuditLogSchema.index({ ipAddress: 1, createdAt: -1 });

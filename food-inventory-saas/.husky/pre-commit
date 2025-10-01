@@ -1,0 +1,42 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔒 Running security checks before commit..."
+
+# Run linting
+echo "📝 Running ESLint..."
+npm run lint || {
+  echo "❌ ESLint failed. Please fix linting errors."
+  exit 1
+}
+
+# Run security unit tests (fast)
+echo "🛡️  Running XSS sanitization tests..."
+npm run test:security:unit -- --passWithNoTests || {
+  echo "❌ Security unit tests failed!"
+  exit 1
+}
+
+# Check for common security anti-patterns
+echo "🔍 Checking for security anti-patterns..."
+
+# Check for hardcoded secrets
+if git diff --cached | grep -iE "(password|secret|api_key|token)\s*=\s*['\"][^'\"]{8,}"; then
+  echo "⚠️  WARNING: Possible hardcoded secret detected!"
+  echo "   Please use environment variables instead."
+  exit 1
+fi
+
+# Check for console.log with sensitive data
+if git diff --cached | grep -E "console\.(log|debug|info).*\b(password|token|secret)\b"; then
+  echo "⚠️  WARNING: Possible sensitive data in console.log!"
+  exit 1
+fi
+
+# Check for disabled security features
+if git diff --cached | grep -E "(helmet.*false|csrf.*false|sanitize.*false)"; then
+  echo "⚠️  WARNING: Security feature appears to be disabled!"
+  exit 1
+fi
+
+echo "✅ All security checks passed!"

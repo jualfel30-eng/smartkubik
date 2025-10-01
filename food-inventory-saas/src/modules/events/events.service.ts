@@ -88,8 +88,11 @@ export class EventsService {
     id: string,
     user: any,
   ): Promise<{ deleted: boolean; id: string }> {
-    await this.findOne(id, user);
-    await this.eventModel.deleteOne({ _id: id }).exec();
+    // Validar propiedad antes de eliminar
+    const event = await this.findOne(id, user);
+
+    // findOne ya valida tenantId, pero aseguramos la eliminación también lo haga
+    await this.eventModel.deleteOne({ _id: id, tenantId: event.tenantId }).exec();
     return { deleted: true, id };
   }
 }

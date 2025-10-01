@@ -45,6 +45,12 @@ export class SubscriptionPlansService {
   }
 
   async remove(id: string): Promise<{ message: string }> {
+    // Validar que el plan existe antes de archivar (super-admin no usa tenantId)
+    const plan = await this.planModel.findById(id);
+    if (!plan) {
+      throw new NotFoundException(`Subscription plan with ID "${id}" not found`);
+    }
+
     const result = await this.planModel.updateOne({ _id: id }, { isArchived: true });
     if (result.matchedCount === 0) {
       throw new NotFoundException(`Subscription plan with ID "${id}" not found`);

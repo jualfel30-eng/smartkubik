@@ -22,28 +22,28 @@ export class Payment {
   @Prop({ type: Types.ObjectId, ref: 'Payable', required: false })
   payableId?: Types.ObjectId;
 
-  @Prop({ required: true })
+  @Prop({ type: Date, required: true })
   date: Date;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   amount: number;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   method: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   currency: string;
 
-  @Prop()
+  @Prop({ type: String })
   reference?: string;
 
-  @Prop({ required: true, default: 'confirmed' })
-  status: string; // pending, confirmed, failed, refunded
+  @Prop({ type: String, required: true, default: 'confirmed' })
+  status: string;
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;
 
-  @Prop()
+  @Prop({ type: Date })
   confirmedAt?: Date;
 
   @Prop({ type: Types.ObjectId, ref: 'User' })

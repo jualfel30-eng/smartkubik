@@ -17,6 +17,7 @@ import {
   ProductQueryDto,
 } from "../../dto/product.dto";
 import { CreateProductWithPurchaseDto } from "../../dto/composite.dto";
+import { BulkCreateProductsDto } from './dto/bulk-create-products.dto';
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from '../../guards/tenant.guard';
 import { PermissionsGuard } from '../../guards/permissions.guard';
@@ -48,6 +49,16 @@ export class ProductsController {
       req.user,
     );
     return { success: true, data: product };
+  }
+
+  @Post("bulk")
+  @Permissions("products_create")
+  async bulkCreate(@Body() bulkCreateProductsDto: BulkCreateProductsDto, @Request() req) {
+    const result = await this.productsService.bulkCreate(
+      bulkCreateProductsDto,
+      req.user,
+    );
+    return { success: true, data: result };
   }
 
   @Get()

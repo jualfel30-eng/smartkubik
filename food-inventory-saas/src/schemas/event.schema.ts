@@ -5,22 +5,22 @@ export type EventDocument = Event & Document;
 
 @Schema({ timestamps: true })
 export class Event {
-  @Prop({ required: true, trim: true })
+  @Prop({ type: String, required: true, trim: true })
   title: string;
 
-  @Prop({ trim: true })
+  @Prop({ type: String, trim: true })
   description?: string;
 
-  @Prop({ required: true })
+  @Prop({ type: Date, required: true })
   start: Date;
 
-  @Prop()
+  @Prop({ type: Date })
   end?: Date;
 
-  @Prop({ default: false })
+  @Prop({ type: Boolean, default: false })
   allDay: boolean;
 
-  @Prop({ trim: true })
+  @Prop({ type: String, trim: true })
   color?: string;
 
   @Prop({ type: Types.ObjectId, ref: "User", required: true })

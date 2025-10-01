@@ -19,6 +19,7 @@ import {
 } from "../../dto/inventory.dto";
 import { EventsService } from "../events/events.service";
 import { CreateEventDto } from "../../dto/event.dto";
+import { BulkAdjustInventoryDto } from "./dto/bulk-adjust-inventory.dto";
 
 @Injectable()
 export class InventoryService {
@@ -319,6 +320,60 @@ export class InventoryService {
     await this.checkAndCreateAlerts(inventory, user, session);
 
     return inventory;
+  }
+
+  async bulkAdjustInventory(bulkAdjustDto: BulkAdjustInventoryDto, user: any) {
+    const session = await this.connection.startSession();
+    session.startTransaction();
+    try {
+      const results: InventoryDocument[] = [];
+      for (const item of bulkAdjustDto.items) {
+        const inventory = await this.inventoryModel.findOne({ productSku: item.SKU, tenantId: user.tenantId }).session(session);
+        if (!inventory) {
+          this.logger.warn(`Inventario no encontrado para SKU: ${item.SKU} durante ajuste masivo. Omitiendo.`);
+          continue;
+        }
+
+        const difference = item.NuevaCantidad - inventory.totalQuantity;
+        inventory.totalQuantity = item.NuevaCantidad;
+        inventory.availableQuantity += difference;
+        
+        await inventory.save({ session });
+
+        await this.createMovementRecord(
+          {
+            inventoryId: inventory._id.toString(),
+            productId: inventory.productId.toString(),
+            productSku: inventory.productSku,
+            movementType: 'adjustment',
+            quantity: Math.abs(difference),
+            unitCost: inventory.averageCostPrice,
+            totalCost: Math.abs(difference) * inventory.averageCostPrice,
+            reason: bulkAdjustDto.reason,
+            balanceAfter: {
+              totalQuantity: inventory.totalQuantity,
+              availableQuantity: inventory.availableQuantity,
+              reservedQuantity: inventory.reservedQuantity,
+              averageCostPrice: inventory.averageCostPrice,
+            },
+          },
+          user,
+          session,
+        );
+
+        await this.checkAndCreateAlerts(inventory, user, session);
+        results.push(inventory);
+      }
+
+      await session.commitTransaction();
+      return { success: true, message: `${results.length} registros de inventario ajustados exitosamente.` };
+    } catch (error) {
+      await session.abortTransaction();
+      this.logger.error(`Error durante el ajuste masivo de inventario: ${error.message}`, error.stack);
+      throw new Error('Error al ajustar el inventario masivamente.');
+    } finally {
+      session.endSession();
+    }
   }
 
   private async checkAndCreateAlerts(

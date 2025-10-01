@@ -11,13 +11,13 @@ export class Shift {
   @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true, index: true })
   tenantId: Types.ObjectId;
 
-  @Prop({ required: true, index: true })
+  @Prop({ type: Date, required: true, index: true })
   clockIn: Date;
 
-  @Prop()
+  @Prop({ type: Date })
   clockOut?: Date;
 
-  @Prop()
+  @Prop({ type: Number })
   durationInHours?: number;
 
   @Prop({ type: Object })

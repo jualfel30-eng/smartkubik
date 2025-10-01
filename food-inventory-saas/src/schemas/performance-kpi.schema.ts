@@ -11,23 +11,23 @@ export class PerformanceKpi {
   @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true })
   tenantId: Types.ObjectId;
 
-  @Prop({ required: true, index: true })
-  date: Date; // The specific day for which the KPI is calculated (set to midnight)
+  @Prop({ type: Date, required: true, index: true })
+  date: Date;
 
-  @Prop({ required: true })
-  totalSales: number; // Sum of totalAmount from orders
+  @Prop({ type: Number, required: true })
+  totalSales: number;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   numberOfOrders: number;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   totalHoursWorked: number;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   salesPerHour: number;
 
   @Prop({ type: Object })
-  salesByChannel?: Record<string, number>; // e.g., { online: 500, in_store: 1200 }
+  salesByChannel?: Record<string, number>;
 }
 
 export const PerformanceKpiSchema = SchemaFactory.createForClass(PerformanceKpi);

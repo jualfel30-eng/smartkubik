@@ -5,10 +5,10 @@ export type RoleDocument = Role & Document;
 
 @Schema({ timestamps: true })
 export class Role {
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   name: string;
 
-  @Prop()
+  @Prop({ type: String })
   description?: string;
 
   @Prop({ type: [String], default: [] })

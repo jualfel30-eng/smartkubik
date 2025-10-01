@@ -5,89 +5,90 @@ export type PayableDocument = Payable & Document;
 
 @Schema()
 export class PayableStatusHistory {
-  @Prop({ required: true })
-  status: string; // draft, open, partially_paid, paid, void
+  @Prop({ type: String, required: true })
+  status: string;
 
-  @Prop({ required: true, default: Date.now })
+  @Prop({ type: Date, required: true, default: Date.now })
   changedAt: Date;
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   changedBy: Types.ObjectId;
 
-  @Prop()
+  @Prop({ type: String })
   notes?: string;
 }
+const PayableStatusHistorySchema = SchemaFactory.createForClass(PayableStatusHistory);
 
 @Schema()
 export class PayableLine {
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   description: string;
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   amount: number;
 
-  @Prop()
+  @Prop({ type: Number })
   quantity?: number;
 
-  @Prop()
+  @Prop({ type: Number })
   unitPrice?: number;
 
   @Prop({ type: Types.ObjectId, ref: 'Product' })
   productId?: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: 'ChartOfAccount', required: true })
-  accountId: Types.ObjectId; // The expense account to debit
+  accountId: Types.ObjectId;
 }
 export const PayableLineSchema = SchemaFactory.createForClass(PayableLine);
 
 @Schema({ timestamps: true })
 export class Payable {
-  @Prop({ required: true, unique: true, index: true })
-  payableNumber: string; // Generic invoice/payable number
+  @Prop({ type: String, required: true, unique: true, index: true })
+  payableNumber: string;
 
   @Prop({ type: String, required: true, index: true })
   tenantId: string;
 
-  @Prop({ required: true, enum: ['purchase_order', 'payroll', 'service_payment', 'utility_bill', 'other'] })
+  @Prop({ type: String, required: true, enum: ['purchase_order', 'payroll', 'service_payment', 'utility_bill', 'other'] })
   type: string;
 
-  @Prop({ required: true, enum: ['supplier', 'employee', 'custom'] })
+  @Prop({ type: String, required: true, enum: ['supplier', 'employee', 'custom'] })
   payeeType: string;
 
-  @Prop({ type: Types.ObjectId, refPath: 'payeeType' }) // Dynamic ref based on payeeType
+  @Prop({ type: Types.ObjectId, refPath: 'payeeType' })
   payeeId?: Types.ObjectId;
 
-  @Prop({ required: true })
-  payeeName: string; // For display, or if payee is 'custom'
+  @Prop({ type: String, required: true })
+  payeeName: string;
 
-  @Prop({ required: true })
+  @Prop({ type: Date, required: true })
   issueDate: Date;
 
-  @Prop()
+  @Prop({ type: Date })
   dueDate?: Date;
 
-  @Prop()
+  @Prop({ type: String })
   description?: string;
 
-  @Prop([PayableLineSchema])
+  @Prop({ type: [PayableLineSchema] })
   lines: PayableLine[];
 
-  @Prop({ required: true })
+  @Prop({ type: Number, required: true })
   totalAmount: number;
 
-  @Prop({ required: true, default: 0 })
+  @Prop({ type: Number, required: true, default: 0 })
   paidAmount: number;
 
-  @Prop({ required: true, default: 'draft', index: true })
-  status: string; // draft, open, partially_paid, paid, void
+  @Prop({ type: String, required: true, default: 'draft', index: true })
+  status: string;
 
-  @Prop([PayableStatusHistory])
+  @Prop({ type: [PayableStatusHistorySchema] })
   history: PayableStatusHistory[];
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;
 
-  @Prop()
+  @Prop({ type: String })
   notes?: string;
   
   @Prop({ type: Types.ObjectId, ref: 'PurchaseOrder' })
