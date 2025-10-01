@@ -433,13 +433,6 @@ export default function ComprasManagement() {
       : 0;
     const remainingBalance = totalAmount - advancePaymentAmount;
 
-    console.log('💰 Payment Calculation Debug:', {
-      totalAmount,
-      advancePaymentPercentage: po.paymentTerms.advancePaymentPercentage,
-      advancePaymentAmount,
-      remainingBalance
-    });
-
     // Build payment methods array
     const allPaymentMethods = [...po.paymentTerms.paymentMethods];
     if (po.paymentTerms.customPaymentMethod.trim()) {

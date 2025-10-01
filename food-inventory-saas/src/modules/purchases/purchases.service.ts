@@ -208,8 +208,6 @@ export class PurchasesService {
 
       const paymentTerms = savedPurchaseOrder.paymentTerms;
 
-      this.logger.log(`💰 Payment Terms Debug:`, JSON.stringify(paymentTerms, null, 2));
-
       // If advance payment is required, create TWO payables
       if (
         paymentTerms?.requiresAdvancePayment &&
