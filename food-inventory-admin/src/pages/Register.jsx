@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '../hooks/use-auth';
 import { fetchApi } from '../lib/api';
 import { businessCategories } from '../lib/business-data';
+import 'react-phone-number-input/style.css';
+import PhoneInput from 'react-phone-number-input';
 
 // Step 1 Component
 const Step1Form = ({ formData, setFormData, onNext }) => {
@@ -144,6 +146,10 @@ const Step2Form = ({ formData, setFormData, onNext, onBack }) => {
     setFormData(prev => ({ ...prev, [id]: value }));
   };
 
+  const handlePhoneChange = (value) => {
+    setFormData(prev => ({ ...prev, phone: value }));
+  };
+
   return (
     <form onSubmit={(e) => { e.preventDefault(); onNext(); }} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
@@ -162,7 +168,15 @@ const Step2Form = ({ formData, setFormData, onNext, onBack }) => {
       </div>
       <div className="space-y-2">
         <Label htmlFor="phone">Teléfono</Label>
-        <Input id="phone" type="tel" value={formData.phone} onChange={handleChange} required />
+        <PhoneInput
+          id="phone"
+          placeholder="4122346587"
+          value={formData.phone}
+          onChange={handlePhoneChange}
+          defaultCountry="VE"
+          required
+          className="input"
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="password">Contraseña</Label>

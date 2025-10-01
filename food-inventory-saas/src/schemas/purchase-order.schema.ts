@@ -76,6 +76,18 @@ export class PurchaseOrder {
   @Prop({ type: [PurchaseOrderStatusHistorySchema] })
   history: PurchaseOrderStatusHistory[];
 
+  @Prop({ type: Object })
+  paymentTerms: {
+    isCredit: boolean;
+    creditDays: number; // Calculado desde paymentDueDate - purchaseDate
+    paymentMethods: string[]; // ['efectivo', 'transferencia', 'pago_movil', 'zelle', 'binance', etc.]
+    paymentDueDate?: Date; // Fecha seleccionada por el usuario
+    requiresAdvancePayment: boolean;
+    advancePaymentPercentage?: number;
+    advancePaymentAmount?: number;
+    remainingBalance?: number;
+  };
+
   @Prop({ type: String })
   notes?: string;
 

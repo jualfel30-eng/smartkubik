@@ -30,6 +30,11 @@ import { FormStateProvider } from './context/FormStateContext.jsx';
 import { AccountingProvider } from './context/AccountingContext.jsx';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx';
 
+// Tutorial Imports (Desactivado)
+// import { TutorialProvider, useTutorial } from './context/TutorialContext.jsx';
+// import Tutorial from './components/Tutorial.jsx';
+// import ComprehensiveElementScanner from './components/ComprehensiveElementScanner.jsx';
+
 // Lazy load the components
 const CRMManagement = lazy(() => import('@/components/CRMManagement.jsx'));
 const OrdersManagement = lazy(() => import('@/components/orders/v2/OrdersManagementV2.jsx').then(module => ({ default: module.OrdersManagementV2 })));
@@ -39,9 +44,9 @@ const Register = lazy(() => import('./pages/Register'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 const DashboardView = lazy(() => import('./components/DashboardView.jsx'));
 const SettingsPage = lazy(() => import('./components/SettingsPage.jsx'));
-const InventoryDashboard = lazy(() => import('./components/InventoryDashboard.jsx'));
-const AccountingDashboard = lazy(() => import('./components/AccountingDashboard.jsx'));
-const AccountsReceivableReport = lazy(() => import('./components/AccountsReceivableReport.jsx'));
+const InventoryDashboard = lazy(() => import('@/components/InventoryDashboard.jsx'));
+const AccountingDashboard = lazy(() => import('@/components/AccountingDashboard.jsx'));
+const AccountsReceivableReport = lazy(() => import('@/components/AccountsReceivableReport.jsx'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage.jsx'));
 const SuperAdminLayout = lazy(() => import('./layouts/SuperAdminLayout'));
 const SmartKubikLanding = lazy(() => import('./pages/SmartKubikLanding'));
@@ -62,6 +67,7 @@ function TenantLayout() {
   const { user, logout, hasPermission } = useAuth();
   const { isClockedIn, clockIn, clockOut, isLoading: isShiftLoading } = useShift();
   const navigate = useNavigate();
+  // const { startTutorial } = useTutorial(); // Desactivado
 
   useEffect(() => {
     const currentPath = location.pathname.substring(1);
@@ -113,7 +119,7 @@ function TenantLayout() {
   };
 
   const navLinks = [
-    { name: 'Dashboard', href: 'dashboard', icon: LayoutDashboard, permission: 'dashboard_read' },
+    { name: 'Panel de Control', href: 'dashboard', icon: LayoutDashboard, permission: 'dashboard_read' },
     { name: 'Órdenes', href: 'orders', icon: ShoppingCart, permission: 'orders_read' },
     { name: 'Inventario', href: 'inventory-management', icon: Package, permission: 'inventory_read' },
     { name: 'Contabilidad', href: 'accounting-management', icon: BookCopy, permission: 'accounting_read' },
@@ -126,6 +132,11 @@ function TenantLayout() {
   return (
     <div className="min-h-screen bg-background">
       <Toaster richColors />
+      {/* <Tutorial /> */}
+      {/* <Button onClick={startTutorial} className="fixed bottom-4 right-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg z-[10001] flex items-center px-4 py-2">
+        <PlayCircle className="h-5 w-5 mr-2" />
+        Seguir tutorial de uso
+      </Button> */}
       
       {/* Mobile Header & Menu */}
       <div className="md:hidden">
@@ -215,7 +226,7 @@ function TenantLayout() {
             )}
             <ThemeToggle />
             {hasPermission('tenant_settings_read') && (
-                <Button variant="outline" size="icon" onClick={() => navigate('/settings')}>
+                <Button id="settings-button" variant="outline" size="icon" onClick={() => navigate('/settings')}>
                     <Settings className="h-4 w-4" />
                 </Button>
             )}
@@ -282,15 +293,17 @@ function AppContent() {
           path="/*" 
           element={
             <ProtectedRoute>
-              <FormStateProvider>
-                <CrmProvider>
-                  <ShiftProvider>
-                    <AccountingProvider>
-                      <TenantLayout />
-                    </AccountingProvider>
-                  </ShiftProvider>
-                </CrmProvider>
-              </FormStateProvider>
+              {/* <TutorialProvider> */}
+                <FormStateProvider>
+                  <CrmProvider>
+                    <ShiftProvider>
+                      <AccountingProvider>
+                        <TenantLayout />
+                      </AccountingProvider>
+                    </ShiftProvider>
+                  </CrmProvider>
+                </FormStateProvider>
+              {/* </TutorialProvider> */}
             </ProtectedRoute>
           }
         />
@@ -307,6 +320,7 @@ function App() {
           <AppContent />
         </AuthProvider>
       </ThemeProvider>
+      {/* {process.env.NODE_ENV === 'development' && <ComprehensiveElementScanner />} */}
     </Router>
   );
 }

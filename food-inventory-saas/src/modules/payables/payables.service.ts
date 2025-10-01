@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Payable, PayableDocument } from '../../schemas/payable.schema';
 import { AccountingService } from '../accounting/accounting.service';
+import { EventsService } from '../events/events.service';
 import {
   IsString,
   IsNumber,
@@ -131,6 +132,7 @@ export class PayablesService {
   constructor(
     @InjectModel(Payable.name) private payableModel: Model<PayableDocument>,
     private readonly accountingService: AccountingService,
+    private readonly eventsService: EventsService,
   ) {}
 
   async create(createPayableDto: CreatePayableDto, tenantId: string, userId: string): Promise<Payable> {
@@ -171,6 +173,37 @@ export class PayablesService {
       throw accountingError;
     }
     // --- End of Automatic Journal Entry Creation ---
+
+    // --- Create Calendar Event for Payment Due Date ---
+    if (savedPayable.dueDate) {
+      try {
+        this.logger.log(
+          `Creating calendar event for payable ${savedPayable.payableNumber} due on ${savedPayable.dueDate}`,
+        );
+
+        await this.eventsService.create(
+          {
+            title: `💳 Pago: ${savedPayable.payeeName} - $${savedPayable.totalAmount}`,
+            description: savedPayable.description || `Pago pendiente por $${savedPayable.totalAmount} - ${savedPayable.payableNumber}`,
+            start: new Date(savedPayable.dueDate).toISOString(),
+            allDay: true,
+            color: '#ef4444', // Red color for payables
+          },
+          { id: userId, tenantId },
+        );
+
+        this.logger.log(
+          `Successfully created calendar event for payable ${savedPayable.payableNumber}`,
+        );
+      } catch (eventError) {
+        this.logger.error(
+          `Failed to create calendar event for payable ${savedPayable.payableNumber}. The payable was created successfully.`,
+          eventError.stack,
+        );
+        // No re-throw - calendar event creation is not critical
+      }
+    }
+    // --- End of Calendar Event Creation ---
 
     return savedPayable;
   }

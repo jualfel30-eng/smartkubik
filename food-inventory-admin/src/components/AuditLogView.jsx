@@ -47,7 +47,7 @@ export default function AuditLogView() {
             <CardDescription>Registro de acciones importantes realizadas por el Super Administrador.</CardDescription>
           </div>
           <Button variant="outline" onClick={() => navigate('/super-admin')}>
-            Volver al Dashboard
+            Volver al Panel de Control
           </Button>
         </div>
       </CardHeader>

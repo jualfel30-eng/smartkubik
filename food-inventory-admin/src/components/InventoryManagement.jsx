@@ -7,10 +7,11 @@ import { Label } from '@/components/ui/label.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
-import { Combobox } from '@/components/ui/combobox.jsx';
+import { SearchableSelect } from '@/components/orders/v2/custom/SearchableSelect';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu.jsx';
 import * as XLSX from 'xlsx';
 import { fetchApi } from '../lib/api';
+import { toast } from 'sonner';
 import { 
   Plus, 
   Search, 
@@ -44,7 +45,12 @@ function InventoryManagement() {
     lots: [],
   });
   const [editFormData, setEditFormData] = useState({ newQuantity: 0, reason: '' });
+  const [productSearchInput, setProductSearchInput] = useState('');
   const fileInputRef = useRef(null);
+  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
+  const [previewData, setPreviewData] = useState([]);
+  const [previewHeaders, setPreviewHeaders] = useState([]);
+  const [importReason, setImportReason] = useState('');
 
   const handleLotChange = (index, field, value) => {
     const updatedLots = [...newInventoryItem.lots];
@@ -73,7 +79,6 @@ function InventoryManagement() {
         fetchApi('/products')
       ]);
 
-      console.log('Respuesta de API /inventory:', inventoryItems);
       setInventoryData(inventoryItems.data || []);
       setProducts(productsList.data || []);
 
@@ -113,6 +118,12 @@ function InventoryManagement() {
     return <Badge className="bg-green-100 text-green-800">Disponible</Badge>;
   };
 
+  const handleProductSelection = (selectedOption) => {
+    const newProductId = selectedOption ? selectedOption.value : '';
+    setNewInventoryItem({ ...newInventoryItem, productId: newProductId });
+    setProductSearchInput(''); // Clear input after selection
+  };
+
   const handleAddItem = async () => {
     if (!newInventoryItem.productId) {
       alert('Por favor, selecciona un producto.');
@@ -149,8 +160,10 @@ function InventoryManagement() {
         method: 'POST', 
         body: JSON.stringify(payload) 
       });
+      document.dispatchEvent(new CustomEvent('inventory-form-success'));
       setIsAddDialogOpen(false);
       setNewInventoryItem({ productId: '', totalQuantity: 0, averageCostPrice: 0, lots: [] });
+      setProductSearchInput('');
       loadData(); // Recargar datos
     } catch (err) {
       alert(`Error: ${err.message}`);
@@ -189,6 +202,23 @@ function InventoryManagement() {
 
   const handleDeleteItem = (id) => console.log("Delete item logic needs to be connected to the API", id);
 
+  const handleDownloadTemplate = () => {
+    const headers = ['SKU', 'NuevaCantidad'];
+    const exampleSkus = inventoryData.slice(0, 3).map(item => item.productSku);
+    const exampleData = [
+      [exampleSkus[0] || 'SKU-001', 100],
+      [exampleSkus[1] || 'SKU-002', 50],
+      [exampleSkus[2] || 'PROD-ABC', 250],
+    ];
+
+    const data = [headers, ...exampleData];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Plantilla de Inventario");
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    saveAs(new Blob([wbout], { type: 'application/octet-stream' }), 'plantilla_ajuste_inventario.xlsx');
+  };
+
   const handleExport = (fileType) => {
     const dataToExport = filteredData.map(item => ({
       'SKU': item.productSku,
@@ -206,16 +236,123 @@ function InventoryManagement() {
     XLSX.writeFile(wb, `inventario.${fileType}`);
   };
 
-  const handleImport = () => {};
+  const handleImport = () => {
+    fileInputRef.current.click();
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = event.target.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        
+        if (json.length < 2) {
+          throw new Error("El archivo está vacío o no tiene datos.");
+        }
+
+        const headers = json[0];
+        const rows = json.slice(1).map(row => {
+          let rowData = {};
+          headers.forEach((header, index) => {
+            rowData[header] = row[index];
+          });
+          return rowData;
+        }).filter(row => row.SKU && row.NuevaCantidad !== undefined && row.NuevaCantidad !== '');
+
+        if (rows.length === 0) {
+          throw new Error("No se encontraron filas con datos válidos en el archivo. Asegúrate de que las columnas SKU y NuevaCantidad tengan valores.");
+        }
+
+        // Validate required columns
+        if (!headers.includes('SKU') || !headers.includes('NuevaCantidad')) {
+          throw new Error("El archivo debe contener las columnas 'SKU' y 'NuevaCantidad'.");
+        }
+
+        setPreviewHeaders(headers);
+        setPreviewData(rows);
+        setIsPreviewDialogOpen(true);
+
+      } catch (err) {
+        toast.error("Error al procesar el archivo", { description: err.message });
+      }
+    };
+    reader.readAsBinaryString(file);
+
+    // Reset file input
+    e.target.value = null;
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importReason) {
+      toast.error('La razón del ajuste es obligatoria.');
+      return;
+    }
+
+    const validItems = previewData
+      .map(row => ({
+        SKU: row.SKU,
+        NuevaCantidad: Number(row.NuevaCantidad),
+      }))
+      .filter(item => item.SKU && !isNaN(item.NuevaCantidad));
+
+    if (validItems.length === 0) {
+      toast.error('No hay datos válidos para importar.');
+      return;
+    }
+
+    const payload = {
+      items: validItems,
+      reason: importReason,
+    };
+
+    try {
+      await fetchApi('/inventory/bulk-adjust', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      
+      setIsPreviewDialogOpen(false);
+      setImportReason('');
+      toast.success('Inventario ajustado masivamente con éxito.');
+      loadData(); // Reload data to show changes
+
+    } catch (error) {
+      toast.error('Error al ajustar el inventario', {
+        description: error.message,
+      });
+    }
+  };
 
   if (loading) return <div>Cargando inventario...</div>;
   if (error) return <div className="text-red-600">Error: {error}</div>;
 
   return (
     <div className="space-y-6">
-      <div class="flex flex-col gap-4">
-        <div class="flex flex-col sm:flex-row justify-start items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleImport} className="w-full sm:w-auto"><Upload className="h-4 w-4 mr-2" />Importar</Button>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row justify-start items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full sm:w-auto"><Upload className="h-4 w-4 mr-2" />Importar</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onSelect={handleImport}>Importar Archivo</DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleDownloadTemplate}>Descargar Plantilla</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: 'none' }}
+              accept=".xlsx, .csv"
+              onChange={handleFileSelect}
+            />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="w-full sm:w-auto"><Download className="h-4 w-4 mr-2" />Exportar</Button>
@@ -233,7 +370,7 @@ function InventoryManagement() {
         <div>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white w-full sm:w-auto"><Plus className="h-5 w-5 mr-2" />Agregar Inventario</Button>
+                <Button id="add-inventory-button" size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white w-full sm:w-auto"><Plus className="h-5 w-5 mr-2" />Agregar Inventario</Button>
               </DialogTrigger>
               <DialogContent className="max-w-lg">
                 <DialogHeader>
@@ -243,13 +380,20 @@ function InventoryManagement() {
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label htmlFor="product">Producto</Label>
-                    <Combobox
+                    <SearchableSelect
                       options={products.map(p => ({ value: p._id, label: `${p.name} (${p.sku})` }))}
-                      value={newInventoryItem.productId}
-                      onChange={(value) => setNewInventoryItem({...newInventoryItem, productId: value})}
-                      placeholder="Seleccionar producto"
-                      searchPlaceholder="Buscar producto..."
-                      emptyPlaceholder="No se encontraron productos."
+                      onSelection={handleProductSelection}
+                      inputValue={productSearchInput}
+                      onInputChange={setProductSearchInput}
+                      value={
+                        newInventoryItem.productId
+                          ? { 
+                              value: newInventoryItem.productId, 
+                              label: products.find(p => p._id === newInventoryItem.productId)?.name || productSearchInput
+                            }
+                          : null
+                      }
+                      placeholder="Buscar producto..."
                     />
                   </div>
                   <div className="space-y-2">
@@ -412,6 +556,47 @@ function InventoryManagement() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleUpdateItem}>Guardar Ajuste</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Previsualización de Importación</DialogTitle>
+            <DialogDescription>
+              Se encontraron {previewData.length} registros para actualizar. Revisa los datos antes de confirmar.
+              Las columnas requeridas son 'SKU' y 'NuevaCantidad'.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {previewHeaders.map(header => <TableHead key={header}>{header}</TableHead>)}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {previewData.map((row, rowIndex) => (
+                  <TableRow key={rowIndex}>
+                    {previewHeaders.map(header => <TableCell key={`${rowIndex}-${header}`}>{String(row[header])}</TableCell>)}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="mt-4">
+            <Label htmlFor="importReason">Razón del Ajuste Masivo</Label>
+            <Input
+              id="importReason"
+              value={importReason}
+              onChange={(e) => setImportReason(e.target.value)}
+              placeholder="Ej: Conteo físico anual, corrección de sistema, etc."
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPreviewDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleConfirmImport}>Confirmar Importación</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

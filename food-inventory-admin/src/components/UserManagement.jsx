@@ -73,6 +73,7 @@ const UserManagement = () => {
       const response = await inviteUser(newUserData);
       if (response.success) {
         toast.success('Usuario creado exitosamente. Se ha enviado un correo con sus credenciales.');
+        document.dispatchEvent(new CustomEvent('user-form-success'));
         setInviteModalOpen(false);
         fetchUsersAndRoles();
         setNewUserData({ firstName: '', lastName: '', email: '', role: '' });
@@ -135,7 +136,7 @@ const UserManagement = () => {
         {hasPermission('users_create') && (
             <Dialog open={isInviteModalOpen} onOpenChange={setInviteModalOpen}>
             <DialogTrigger asChild>
-                <Button>
+                <Button id="invite-user-button">
                 <PlusCircle className="h-4 w-4 mr-2" />
                 Invitar Usuario
                 </Button>

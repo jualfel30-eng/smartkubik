@@ -19,10 +19,29 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { generateDocumentPDF } from '@/lib/pdfGenerator.js';
 import { toast } from 'sonner';
-import { Printer, Download } from 'lucide-react';
+import { Printer, Download, Truck, Package, Ship } from 'lucide-react';
 
-const formatCurrency = (amount) => 
+const formatCurrency = (amount) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
+
+const getDeliveryMethodLabel = (method) => {
+  const labels = {
+    pickup: 'Retiro en Tienda',
+    delivery: 'Delivery Local',
+    envio_nacional: 'Envío Nacional',
+  };
+  return labels[method] || method;
+};
+
+const getDeliveryIcon = (method) => {
+  const icons = {
+    pickup: Package,
+    delivery: Truck,
+    envio_nacional: Ship,
+  };
+  const Icon = icons[method] || Package;
+  return <Icon className="h-4 w-4" />;
+};
 
 export function OrderDetailsDialog({ isOpen, onClose, order, tenantSettings }) {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -76,10 +95,32 @@ export function OrderDetailsDialog({ isOpen, onClose, order, tenantSettings }) {
               <p className="text-sm"><strong>Email:</strong> {order.customerEmail || 'N/A'}</p>
               <p className="text-sm"><strong>Teléfono:</strong> {order.customerPhone || 'N/A'}</p>
             </div>
-            {order.shipping?.address && (
+
+            {order.shipping && (
               <div>
-                <h4 className="font-semibold mb-2">Dirección de Envío</h4>
-                <p className="text-sm">{order.shipping.address.street}, {order.shipping.address.city}, {order.shipping.address.state}</p>
+                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                  {getDeliveryIcon(order.shipping.method)}
+                  Método de Entrega
+                </h4>
+                <p className="text-sm">
+                  <strong>Método:</strong> {getDeliveryMethodLabel(order.shipping.method)}
+                </p>
+                {order.shipping.distance && (
+                  <p className="text-sm">
+                    <strong>Distancia:</strong> {order.shipping.distance.toFixed(2)} km
+                  </p>
+                )}
+                {order.shipping.estimatedDuration && (
+                  <p className="text-sm">
+                    <strong>Duración estimada:</strong> {Math.round(order.shipping.estimatedDuration)} min
+                  </p>
+                )}
+                {order.shipping.address && (
+                  <p className="text-sm mt-2">
+                    <strong>Dirección:</strong><br />
+                    {order.shipping.address.street}, {order.shipping.address.city}, {order.shipping.address.state}
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -91,6 +132,7 @@ export function OrderDetailsDialog({ isOpen, onClose, order, tenantSettings }) {
                 <TableRow>
                   <TableHead>Producto</TableHead>
                   <TableHead className="text-center">Cantidad</TableHead>
+                  <TableHead className="text-center">Unidad</TableHead>
                   <TableHead className="text-right">Precio Unit.</TableHead>
                   <TableHead className="text-right">Total</TableHead>
                 </TableRow>
@@ -98,8 +140,22 @@ export function OrderDetailsDialog({ isOpen, onClose, order, tenantSettings }) {
               <TableBody>
                 {order.items?.map((item) => (
                   <TableRow key={item.productId}>
-                    <TableCell>{item.productName}</TableCell>
+                    <TableCell>
+                      {item.productName}
+                      {item.selectedUnit && (
+                        <div className="text-xs text-muted-foreground">
+                          {item.quantityInBaseUnit && `(${item.quantityInBaseUnit} ${item.productSku?.includes('gramos') ? 'g' : 'unidades base'})`}
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell className="text-center">{item.quantity}</TableCell>
+                    <TableCell className="text-center">
+                      {item.selectedUnit ? (
+                        <Badge variant="outline" className="text-xs">{item.selectedUnit}</Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
                     <TableCell className="text-right">{formatCurrency(item.totalPrice)}</TableCell>
                   </TableRow>

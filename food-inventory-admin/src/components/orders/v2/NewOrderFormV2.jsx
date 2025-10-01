@@ -297,23 +297,31 @@ export function NewOrderFormV2({ onOrderCreated }) {
     }
     const existingItem = newOrder.items.find(item => item.productId === product._id);
     if (existingItem) {
-      const updatedItems = newOrder.items.map(item => 
-        item.productId === product._id 
-          ? { ...item, quantity: item.quantity + 1 } 
+      const updatedItems = newOrder.items.map(item =>
+        item.productId === product._id
+          ? { ...item, quantity: item.quantity + 1 }
           : item
       );
       setNewOrder(prev => ({ ...prev, items: updatedItems }));
     } else {
+      // Check if product has multiple selling units
+      const hasMultiUnit = product.hasMultipleSellingUnits && product.sellingUnits?.length > 0;
+      const defaultUnit = hasMultiUnit ? product.sellingUnits.find(u => u.isDefault) || product.sellingUnits[0] : null;
+
       const newItem = {
         productId: product._id,
         name: product.name,
         sku: variant.sku,
-        quantity: 1,
-        unitPrice: variant.basePrice || 0,
+        quantity: defaultUnit?.minimumQuantity || 1,
+        unitPrice: hasMultiUnit ? (defaultUnit?.pricePerUnit || 0) : (variant.basePrice || 0),
         ivaApplicable: product.ivaApplicable,
         igtfExempt: product.igtfExempt,
         isSoldByWeight: product.isSoldByWeight,
         unitOfMeasure: product.unitOfMeasure,
+        // Multi-unit specific fields
+        hasMultipleSellingUnits: hasMultiUnit,
+        sellingUnits: hasMultiUnit ? product.sellingUnits : null,
+        selectedUnit: hasMultiUnit ? defaultUnit?.abbreviation : null,
       };
       setNewOrder(prev => ({ ...prev, items: [...prev.items, newItem] }));
     }
@@ -335,6 +343,24 @@ export function NewOrderFormV2({ onOrderCreated }) {
     const updatedItems = newOrder.items.map(item =>
       item.productId === productId ? { ...item, quantity: sanitizedValue } : item
     );
+    setNewOrder(prev => ({ ...prev, items: updatedItems }));
+  };
+
+  const handleUnitChange = (productId, newUnitAbbr) => {
+    const updatedItems = newOrder.items.map(item => {
+      if (item.productId === productId && item.hasMultipleSellingUnits) {
+        const selectedUnit = item.sellingUnits.find(u => u.abbreviation === newUnitAbbr);
+        if (selectedUnit) {
+          return {
+            ...item,
+            selectedUnit: selectedUnit.abbreviation,
+            unitPrice: selectedUnit.pricePerUnit,
+            quantity: selectedUnit.minimumQuantity || item.quantity,
+          };
+        }
+      }
+      return item;
+    });
     setNewOrder(prev => ({ ...prev, items: updatedItems }));
   };
 
@@ -398,7 +424,8 @@ export function NewOrderFormV2({ onOrderCreated }) {
         productId: item.productId,
         quantity: item.isSoldByWeight
           ? parseFloat(item.quantity) || 0
-          : parseInt(item.quantity, 10) || 0
+          : parseInt(item.quantity, 10) || 0,
+        ...(item.selectedUnit && { selectedUnit: item.selectedUnit })
       })),
       ...(paymentsPayload.length > 0 && { payments: paymentsPayload }),
       notes: newOrder.notes,
@@ -642,25 +669,51 @@ export function NewOrderFormV2({ onOrderCreated }) {
                   />
                 </div>
             </div>
-            <div className="border rounded-lg mt-4"><Table><TableHeader><TableRow><TableHead>Producto</TableHead><TableHead className="w-24">Cant.</TableHead><TableHead>Precio Unit.</TableHead><TableHead>Total</TableHead><TableHead>Acción</TableHead></TableRow></TableHeader><TableBody>
+            <div className="border rounded-lg mt-4"><Table><TableHeader><TableRow><TableHead>Producto</TableHead><TableHead className="w-24">Cant.</TableHead><TableHead className="w-32">Unidad</TableHead><TableHead>Precio Unit.</TableHead><TableHead>Total</TableHead><TableHead>Acción</TableHead></TableRow></TableHeader><TableBody>
               {newOrder.items.length > 0 ? (
                 newOrder.items.map(item => (
                   <TableRow key={item.productId}>
                     <TableCell>
                       {item.name}
                       <div className="text-sm text-muted-foreground">{item.sku}</div>
+                      {item.hasMultipleSellingUnits && (
+                        <div className="text-xs text-blue-600 mt-1">Multi-unidad</div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center">
                         <Input
                           type="text"
-                          inputMode={item.isSoldByWeight ? "decimal" : "numeric"}
+                          inputMode={item.isSoldByWeight || item.hasMultipleSellingUnits ? "decimal" : "numeric"}
                           value={item.quantity}
-                          onChange={(e) => handleItemQuantityChange(item.productId, e.target.value, item.isSoldByWeight)}
+                          onChange={(e) => handleItemQuantityChange(item.productId, e.target.value, item.isSoldByWeight || item.hasMultipleSellingUnits)}
                           className="w-20 h-8 text-center"
                         />
-                        <span className="ml-2 text-xs text-muted-foreground">{item.unitOfMeasure}</span>
+                        {!item.hasMultipleSellingUnits && (
+                          <span className="ml-2 text-xs text-muted-foreground">{item.unitOfMeasure}</span>
+                        )}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {item.hasMultipleSellingUnits && item.sellingUnits ? (
+                        <Select
+                          value={item.selectedUnit}
+                          onValueChange={(value) => handleUnitChange(item.productId, value)}
+                        >
+                          <SelectTrigger className="h-8 w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {item.sellingUnits.filter(u => u.isActive !== false).map((unit) => (
+                              <SelectItem key={unit.abbreviation} value={unit.abbreviation}>
+                                {unit.name} ({unit.abbreviation})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
                     </TableCell>
                     <TableCell>${(item.unitPrice || 0).toFixed(2)}</TableCell>
                     <TableCell>${((item.unitPrice || 0) * (parseFloat(item.quantity) || 0)).toFixed(2)}</TableCell>
@@ -673,7 +726,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan="5" className="text-center">
+                  <TableCell colSpan="6" className="text-center">
                     No hay productos en la orden
                   </TableCell>
                 </TableRow>

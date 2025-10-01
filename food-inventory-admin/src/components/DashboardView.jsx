@@ -82,7 +82,7 @@ function DashboardView() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center">
-        <h2 className="text-3xl font-bold text-foreground">Dashboard</h2>
+        <h2 className="text-3xl font-bold text-foreground">Panel de Control</h2>
         <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4 mt-4 md:mt-0">
           <Button onClick={() => navigate('/purchases')}>
             <Truck className="mr-2 h-5 w-5" />

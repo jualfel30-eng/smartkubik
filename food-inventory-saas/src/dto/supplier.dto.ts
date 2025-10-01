@@ -1,5 +1,52 @@
-import { IsString, IsOptional, IsEmail } from "class-validator";
+import { IsString, IsOptional, IsEmail, IsBoolean, IsNumber, IsArray, ValidateNested, Min, Max } from "class-validator";
+import { Type } from "class-transformer";
 import { SanitizeString } from "../decorators/sanitize.decorator";
+
+export class PaymentSettingsDto {
+  @IsOptional()
+  @IsBoolean()
+  acceptsCredit?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  defaultCreditDays?: number; // 0, 30, 60, 90 días
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  creditLimit?: number;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  acceptedPaymentMethods?: string[]; // ['efectivo', 'transferencia', 'pago_movil', 'zelle', 'binance', etc.]
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @SanitizeString()
+  customPaymentMethods?: string[]; // Métodos personalizados
+
+  @IsOptional()
+  @IsString()
+  preferredPaymentMethod?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  requiresAdvancePayment?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  advancePaymentPercentage?: number;
+
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  paymentNotes?: string;
+}
 
 export class CreateSupplierDto {
   @IsString()
@@ -22,4 +69,9 @@ export class CreateSupplierDto {
   @IsEmail()
   @IsOptional()
   contactEmail?: string; // "Correo" - Email no necesita sanitización, solo validación
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PaymentSettingsDto)
+  paymentSettings?: PaymentSettingsDto;
 }

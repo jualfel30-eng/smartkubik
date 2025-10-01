@@ -13,7 +13,7 @@ import {
 } from '../lib/api';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from './ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { toast } from 'sonner';
 import { Input } from './ui/input';
@@ -57,15 +57,22 @@ const CreateRecurringPayableDialog = ({ isOpen, onOpenChange, accounts, supplier
   };
 
   const [newTemplate, setNewTemplate] = useState(initialTemplateState);
+  const [supplierSearchInput, setSupplierSearchInput] = useState('');
 
   const supplierOptions = useMemo(() => 
     suppliers.map(s => ({ 
       value: s._id, 
-      label: `${s.name} - ${s.taxInfo?.rif || 'N/A'}`,
+      label: `${s.companyName || s.name} - ${s.taxInfo?.rif || 'N/A'}`,
       supplier: s 
     })), [suppliers]);
 
+  const handleSupplierInputChange = (value) => {
+    setSupplierSearchInput(value);
+    setNewTemplate(prev => ({ ...prev, isNewSupplier: true, supplierId: null, payeeName: value }));
+  };
+
   const handleSupplierSelection = (selectedOption) => {
+    setSupplierSearchInput('');
     if (!selectedOption) {
       setNewTemplate(prev => ({ ...prev, ...initialTemplateState, lines: prev.lines }));
       return;
@@ -78,7 +85,7 @@ const CreateRecurringPayableDialog = ({ isOpen, onOpenChange, accounts, supplier
         ...prev, 
         isNewSupplier: false, 
         supplierId: supplier._id, 
-        payeeName: supplier.name, 
+        payeeName: supplier.companyName || supplier.name, 
         supplierRif: supplier.taxInfo?.rif || '' 
       }));
     }
@@ -139,6 +146,7 @@ const CreateRecurringPayableDialog = ({ isOpen, onOpenChange, accounts, supplier
       await createRecurringPayable(payload);
       toast.success("Plantilla de pago recurrente creada con éxito.");
       setNewTemplate(initialTemplateState);
+      setSupplierSearchInput('');
       onSuccess();
       onOpenChange(false);
     } catch (error) {
@@ -151,6 +159,7 @@ const CreateRecurringPayableDialog = ({ isOpen, onOpenChange, accounts, supplier
       <DialogContent className="sm:max-w-[700px]">
         <DialogHeader>
           <DialogTitle>Crear Nueva Plantilla de Pago Recurrente</DialogTitle>
+          <DialogDescription>Define una plantilla para gastos que se repiten, como alquileres o servicios.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -167,6 +176,8 @@ const CreateRecurringPayableDialog = ({ isOpen, onOpenChange, accounts, supplier
                   isCreatable
                   options={supplierOptions}
                   onSelection={handleSupplierSelection}
+                  inputValue={supplierSearchInput}
+                  onInputChange={handleSupplierInputChange}
                   value={newTemplate.payeeName ? { value: newTemplate.supplierId || newTemplate.payeeName, label: newTemplate.payeeName } : null}
                   placeholder="Buscar o crear proveedor..."
                 />
@@ -254,11 +265,11 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
   const [selectedPayable, setSelectedPayable] = useState(null);
 
   const supplierOptions = useMemo(() => 
-    suppliers.map(s => ({ 
-      value: s._id, 
-      label: `${s.name} - ${s.taxInfo?.rif || 'N/A'}`,
-      supplier: s 
-    })), [suppliers]);
+    suppliers.map(supplier => ({
+      value: supplier._id,
+      label: `${supplier.companyName || supplier.name} - ${supplier.taxInfo?.taxId || 'N/A'}`,
+    })), 
+  [suppliers]);
 
   const handleOpenPaymentDialog = (payable) => {
     setSelectedPayable(payable);
@@ -272,20 +283,30 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
 
   const handleSupplierSelection = (selectedOption) => {
     if (!selectedOption) {
-      setNewPayable({ ...initialPayableState, lines: newPayable.lines });
+      setNewPayable(initialPayableState);
       return;
     }
+
     if (selectedOption.__isNew__) {
-      setNewPayable(prev => ({ ...prev, isNewSupplier: true, supplierId: null, supplierName: selectedOption.label, supplierRif: '' }));
-    } else {
-      const { supplier } = selectedOption;
       setNewPayable(prev => ({ 
-        ...prev, 
-        isNewSupplier: false, 
-        supplierId: supplier._id, 
-        supplierName: supplier.name, 
-        supplierRif: supplier.taxInfo?.rif || '' 
+        ...initialPayableState,
+        isNewSupplier: true,
+        supplierName: selectedOption.label,
       }));
+    } else {
+      const supplier = suppliers.find(s => s._id === selectedOption.value);
+      if (supplier) {
+        setNewPayable({
+          ...initialPayableState,
+          isNewSupplier: false,
+          supplierId: supplier._id,
+          supplierName: supplier.companyName || supplier.name,
+          supplierRif: supplier.taxInfo?.taxId || supplier.taxInfo?.rif || '',
+          supplierContactName: supplier.contacts?.[0]?.name || supplier.name || '',
+          supplierContactEmail: supplier.contacts?.find(c => c.type === 'email')?.value || '',
+          supplierContactPhone: supplier.contacts?.find(c => c.type === 'phone')?.value || '',
+        });
+      }
     }
   };
 
@@ -326,10 +347,16 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
         }
         const newSupplierPayload = {
           name: newPayable.supplierName,
-          rif: newPayable.supplierRif,
-          contactName: newPayable.supplierContactName,
-          contactEmail: newPayable.supplierContactEmail,
-          contactPhone: newPayable.supplierContactPhone,
+          companyName: newPayable.supplierName,
+          customerType: 'supplier',
+          taxInfo: {
+              taxId: newPayable.supplierRif,
+              taxType: 'J' // Defaulting to 'J' for legal entity
+          },
+          contacts: [
+              {type: 'email', value: newPayable.supplierContactEmail, isPrimary: true, name: newPayable.supplierContactName},
+              {type: 'phone', value: newPayable.supplierContactPhone, isPrimary: false, name: newPayable.supplierContactName}
+          ].filter(c => c.value)
         };
         const createdSupplier = await createSupplier(newSupplierPayload);
         currentSupplierId = createdSupplier._id;
@@ -371,49 +398,66 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
 
   const getTotalAmount = (lines) => lines.reduce((acc, line) => acc + Number(line.amount || 0), 0);
 
+  const getSupplierSelectValue = () => {
+    if (newPayable.isNewSupplier && newPayable.supplierName) {
+      return {
+        value: newPayable.supplierName, // Use name as value for new creatable option
+        label: newPayable.supplierName,
+      };
+    } else if (newPayable.supplierId && newPayable.supplierName) {
+      return {
+        value: newPayable.supplierId,
+        label: `${newPayable.supplierName} - ${newPayable.supplierRif || 'N/A'}`
+      };
+    }
+    return null;
+  };
+
   return (
     <>
       <Card>
         <CardHeader className="flex">
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <Dialog open={isCreateDialogOpen} onOpenChange={(isOpen) => { setIsCreateDialogOpen(isOpen); if (!isOpen) setNewPayable(initialPayableState); }}>
             <DialogTrigger asChild><Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white"><PlusCircle className="mr-2 h-5 w-5" />Registrar Cuenta por Pagar</Button></DialogTrigger>
             <DialogContent className="sm:max-w-[800px]">
-                <DialogHeader><DialogTitle>Registrar Nueva Cuenta por Pagar</DialogTitle></DialogHeader>
+                <DialogHeader>
+                  <DialogTitle>Registrar Nueva Cuenta por Pagar</DialogTitle>
+                  <DialogDescription>Rellena los datos para registrar un nuevo gasto o factura pendiente de pago.</DialogDescription>
+                </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="p-4 border rounded-lg space-y-4">
                     <Label className="text-base font-semibold">Datos del Proveedor</Label>
                     <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label>Nombre del Proveedor</Label>
-                        <SearchableSelect
-                        isCreatable
-                        options={supplierOptions}
-                        onSelection={handleSupplierSelection}
-                        value={newPayable.supplierName ? { value: newPayable.supplierId || newPayable.supplierName, label: newPayable.supplierName } : null}
-                        placeholder="Buscar o crear proveedor..."
-                        />
+                      <div className="space-y-2">
+                          <Label>Nombre del Proveedor</Label>
+                          <SearchableSelect
+                            isCreatable
+                            options={supplierOptions}
+                            onSelection={handleSupplierSelection}
+                            value={getSupplierSelectValue()}
+                            placeholder="Buscar o crear proveedor..."
+                          />
+                          
+                      </div>
+                      <div className="space-y-2">
+                          <Label>RIF</Label>
+                          <Input name="supplierRif" value={newPayable.supplierRif} onChange={handleInputChange} placeholder="J-12345678-9" disabled={!newPayable.isNewSupplier} />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                        <Label>RIF</Label>
-                        <Input name="supplierRif" value={newPayable.supplierRif} onChange={handleInputChange} placeholder="J-12345678-9" disabled={!newPayable.isNewSupplier && newPayable.supplierId} />
-                    </div>
-                    </div>
-                    {newPayable.isNewSupplier && (
                     <div className="grid grid-cols-3 gap-4 pt-2">
                         <div className="space-y-2">
                         <Label>Nombre del Contacto</Label>
-                        <Input name="supplierContactName" value={newPayable.supplierContactName} onChange={handleInputChange} placeholder="Persona de contacto" />
+                        <Input name="supplierContactName" value={newPayable.supplierContactName} onChange={handleInputChange} placeholder="Persona de contacto" disabled={!newPayable.isNewSupplier} />
                         </div>
                         <div className="space-y-2">
                         <Label>Email del Contacto</Label>
-                        <Input name="supplierContactEmail" type="email" value={newPayable.supplierContactEmail} onChange={handleInputChange} placeholder="ejemplo@dominio.com" />
+                        <Input name="supplierContactEmail" type="email" value={newPayable.supplierContactEmail} onChange={handleInputChange} placeholder="ejemplo@dominio.com" disabled={!newPayable.isNewSupplier} />
                         </div>
                         <div className="space-y-2">
                         <Label>Teléfono del Contacto</Label>
-                        <Input name="supplierContactPhone" value={newPayable.supplierContactPhone} onChange={handleInputChange} placeholder="0414-1234567" />
+                        <Input name="supplierContactPhone" value={newPayable.supplierContactPhone} onChange={handleInputChange} placeholder="0414-1234567" disabled={!newPayable.isNewSupplier} />
                         </div>
                     </div>
-                    )}
                 </div>
 
                 <div className="p-4 border rounded-lg space-y-4">
@@ -623,6 +667,8 @@ const PaymentHistory = () => {
   );
 };
 
+
+
 const PayablesManagement = () => {
   const [payables, setPayables] = useState([]);
   const [accounts, setAccounts] = useState([]);
@@ -640,8 +686,8 @@ const PayablesManagement = () => {
 
   const fetchSuppliers = useCallback(async () => {
     try {
-      const response = await fetchApi('/suppliers');
-      setSuppliers(response || []);
+      const response = await fetchApi('/customers?customerType=supplier');
+      setSuppliers(response.data || []);
     } catch (error) {
       toast.error('Error al cargar los proveedores.');
     }

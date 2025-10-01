@@ -118,6 +118,15 @@ export class PurchasesService {
           notes: "Orden de compra creada.",
         },
       ],
+      paymentTerms: dto.paymentTerms || {
+        isCredit: false,
+        creditDays: 0,
+        paymentMethods: ["efectivo"],
+        requiresAdvancePayment: false,
+        advancePaymentPercentage: 0,
+        advancePaymentAmount: 0,
+        remainingBalance: totalAmount,
+      },
       notes: dto.notes,
       createdBy: user.id,
       tenantId: user.tenantId,
@@ -185,39 +194,103 @@ export class PurchasesService {
 
     const savedPurchaseOrder = await purchaseOrder.save({ session });
 
-    // --- Create Payable from Purchase Order ---
+    // --- Create Payable(s) from Purchase Order ---
     try {
       this.logger.log(
-        `Attempting to create payable for purchase order ${savedPurchaseOrder.poNumber}`,
+        `Attempting to create payable(s) for purchase order ${savedPurchaseOrder.poNumber}`,
       );
-      
+
       // The payable lines will reference the inventory account
       const inventoryAccount = await (this.accountingService as any).findOrCreateAccount(
         { code: "1103", name: "Inventario", type: "Activo" },
         user.tenantId,
       );
 
-      const createPayableDto: CreatePayableDto = {
-        type: 'purchase_order',
-        payeeType: 'supplier',
-        payeeId: savedPurchaseOrder.supplierId.toString(),
-        payeeName: savedPurchaseOrder.supplierName,
-        issueDate: savedPurchaseOrder.purchaseDate,
-        description: `Factura por orden de compra #${savedPurchaseOrder.poNumber}`,
-        lines: [
-          {
-            description: `Compra de mercancía según orden ${savedPurchaseOrder.poNumber}`,
-            amount: savedPurchaseOrder.totalAmount,
-            accountId: inventoryAccount._id.toString(),
-          },
-        ],
-        relatedPurchaseOrderId: savedPurchaseOrder._id.toString(), // Link payable to PO
-      };
+      const paymentTerms = savedPurchaseOrder.paymentTerms;
 
-      await this.payablesService.create(createPayableDto, user.tenantId, user.id);
-      this.logger.log(
-        `Successfully created payable for PO ${savedPurchaseOrder.poNumber}`
-      );
+      this.logger.log(`💰 Payment Terms Debug:`, JSON.stringify(paymentTerms, null, 2));
+
+      // If advance payment is required, create TWO payables
+      if (
+        paymentTerms?.requiresAdvancePayment &&
+        paymentTerms.advancePaymentAmount &&
+        paymentTerms.advancePaymentAmount > 0 &&
+        paymentTerms.remainingBalance &&
+        paymentTerms.advancePaymentPercentage
+      ) {
+        this.logger.log(
+          `Creating split payables: Advance $${paymentTerms.advancePaymentAmount}, Balance $${paymentTerms.remainingBalance}`
+        );
+
+        // 1. Create payable for ADVANCE PAYMENT (due immediately)
+        const advancePayableDto: CreatePayableDto = {
+          type: 'purchase_order',
+          payeeType: 'supplier',
+          payeeId: savedPurchaseOrder.supplierId.toString(),
+          payeeName: savedPurchaseOrder.supplierName,
+          issueDate: savedPurchaseOrder.purchaseDate,
+          dueDate: savedPurchaseOrder.purchaseDate, // Due immediately
+          description: `Adelanto (${paymentTerms.advancePaymentPercentage}%) - OC #${savedPurchaseOrder.poNumber}`,
+          lines: [
+            {
+              description: `Adelanto de ${paymentTerms.advancePaymentPercentage}% según orden ${savedPurchaseOrder.poNumber}`,
+              amount: paymentTerms.advancePaymentAmount,
+              accountId: inventoryAccount._id.toString(),
+            },
+          ],
+          relatedPurchaseOrderId: savedPurchaseOrder._id.toString(),
+        };
+
+        await this.payablesService.create(advancePayableDto, user.tenantId, user.id);
+        this.logger.log(`Created advance payment payable: $${paymentTerms.advancePaymentAmount}`);
+
+        // 2. Create payable for REMAINING BALANCE (due on payment due date)
+        const balancePayableDto: CreatePayableDto = {
+          type: 'purchase_order',
+          payeeType: 'supplier',
+          payeeId: savedPurchaseOrder.supplierId.toString(),
+          payeeName: savedPurchaseOrder.supplierName,
+          issueDate: savedPurchaseOrder.purchaseDate,
+          dueDate: paymentTerms.paymentDueDate || savedPurchaseOrder.purchaseDate,
+          description: `Saldo restante - OC #${savedPurchaseOrder.poNumber}`,
+          lines: [
+            {
+              description: `Saldo pendiente (${100 - paymentTerms.advancePaymentPercentage}%) según orden ${savedPurchaseOrder.poNumber}`,
+              amount: paymentTerms.remainingBalance,
+              accountId: inventoryAccount._id.toString(),
+            },
+          ],
+          relatedPurchaseOrderId: savedPurchaseOrder._id.toString(),
+        };
+
+        await this.payablesService.create(balancePayableDto, user.tenantId, user.id);
+        this.logger.log(`Created balance payable: $${paymentTerms.remainingBalance}`);
+
+      } else {
+        // No advance payment - create SINGLE payable
+        const createPayableDto: CreatePayableDto = {
+          type: 'purchase_order',
+          payeeType: 'supplier',
+          payeeId: savedPurchaseOrder.supplierId.toString(),
+          payeeName: savedPurchaseOrder.supplierName,
+          issueDate: savedPurchaseOrder.purchaseDate,
+          dueDate: paymentTerms?.paymentDueDate || savedPurchaseOrder.purchaseDate,
+          description: `Factura por orden de compra #${savedPurchaseOrder.poNumber}`,
+          lines: [
+            {
+              description: `Compra de mercancía según orden ${savedPurchaseOrder.poNumber}`,
+              amount: savedPurchaseOrder.totalAmount,
+              accountId: inventoryAccount._id.toString(),
+            },
+          ],
+          relatedPurchaseOrderId: savedPurchaseOrder._id.toString(),
+        };
+
+        await this.payablesService.create(createPayableDto, user.tenantId, user.id);
+        this.logger.log(
+          `Successfully created single payable for PO ${savedPurchaseOrder.poNumber}`
+        );
+      }
 
     } catch (payableError) {
       this.logger.error(

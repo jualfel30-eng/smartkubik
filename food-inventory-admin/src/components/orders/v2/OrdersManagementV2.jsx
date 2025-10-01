@@ -172,6 +172,7 @@ export function OrdersManagementV2() {
   ], [handleOpenPaymentDialog, handleRefresh, handleOpenDetailsDialog]);
 
   const handleOrderCreated = () => {
+    document.dispatchEvent(new CustomEvent('order-form-success'));
     fetchOrders(1, searchTerm);
     loadCustomers();
   };

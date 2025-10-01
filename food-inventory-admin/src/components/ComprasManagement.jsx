@@ -69,6 +69,14 @@ const initialPoState = {
   purchaseDate: new Date(),
   items: [],
   notes: '',
+  paymentTerms: {
+    isCredit: false,
+    paymentDueDate: null,
+    paymentMethods: [],
+    customPaymentMethod: '',
+    requiresAdvancePayment: false,
+    advancePaymentPercentage: 0,
+  }
 };
 
 export default function ComprasManagement() {
@@ -266,12 +274,17 @@ export default function ComprasManagement() {
       setPo(prev => ({ ...prev, supplierId: '', supplierName: selectedOption.label }));
     } else {
       const { customer } = selectedOption;
+      // Extract tax type and RIF number from taxId (format: "J-12345678")
+      const fullRif = customer.taxInfo?.taxId || '';
+      const [taxType, ...rifParts] = fullRif.split('-');
+      const rifNumber = rifParts.join('-');
+
       setPo(prev => ({
         ...prev,
         supplierId: customer._id,
         supplierName: customer.companyName || customer.name,
-        supplierRif: customer.taxInfo?.taxId || '',
-        taxType: customer.taxInfo?.taxType || 'J',
+        supplierRif: rifNumber,
+        taxType: taxType || customer.taxInfo?.taxType || 'J',
         contactName: customer.contacts?.[0]?.name || customer.name || '',
         contactPhone: customer.contacts?.find(c => c.type === 'phone')?.value || '',
         contactEmail: customer.contacts?.find(c => c.type === 'email')?.value || '',
@@ -280,21 +293,30 @@ export default function ComprasManagement() {
   };
 
   const handleRifSelection = (selectedOption) => {
+    console.log('handleRifSelection called with:', selectedOption);
     if (!selectedOption) {
       setPo(prev => ({ ...prev, supplierId: '', supplierName: '', supplierRif: '', taxType: 'J' }));
       return;
     }
     if (selectedOption.__isNew__) {
       const [type, ...rifParts] = selectedOption.label.split('-');
+      console.log('New RIF - Type:', type, 'Number:', rifParts.join('-'));
       setPo(prev => ({ ...prev, supplierId: '', supplierName: '', taxType: type, supplierRif: rifParts.join('-') }));
     } else {
       const { customer } = selectedOption;
+      // Extract tax type and RIF number from taxId (format: "J-12345678")
+      const fullRif = customer.taxInfo?.taxId || '';
+      const [taxType, ...rifParts] = fullRif.split('-');
+      const rifNumber = rifParts.join('-');
+
+      console.log('Existing RIF - Full:', fullRif, 'Type:', taxType, 'Number:', rifNumber);
+
       setPo(prev => ({
         ...prev,
         supplierId: customer._id,
         supplierName: customer.companyName || customer.name,
-        supplierRif: customer.taxInfo?.taxId || '',
-        taxType: customer.taxInfo?.taxType || 'J',
+        supplierRif: rifNumber,
+        taxType: taxType || customer.taxInfo?.taxType || 'J',
         contactName: customer.contacts?.[0]?.name || customer.name || '',
         contactPhone: customer.contacts?.find(c => c.type === 'phone')?.value || '',
         contactEmail: customer.contacts?.find(c => c.type === 'email')?.value || '',
@@ -313,14 +335,17 @@ export default function ComprasManagement() {
       customer: s,
     })),[suppliers]);
 
-  const supplierRifOptions = useMemo(() =>
-    suppliers
+  const supplierRifOptions = useMemo(() => {
+    const options = suppliers
       .filter(s => s.taxInfo?.taxId)
       .map(s => ({
         value: s._id,
         label: s.taxInfo.taxId,
         customer: s,
-      })),[suppliers]);
+      }));
+    console.log('supplierRifOptions:', options);
+    return options;
+  }, [suppliers]);
 
   const supplierOptions = useMemo(() =>
     suppliers.map(s => ({
@@ -400,6 +425,35 @@ export default function ComprasManagement() {
     }
 
     setPoLoading(true);
+
+    // Calculate total amount for advance payment
+    const totalAmount = po.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.costPrice)), 0);
+    const advancePaymentAmount = po.paymentTerms.requiresAdvancePayment
+      ? (totalAmount * (po.paymentTerms.advancePaymentPercentage / 100))
+      : 0;
+    const remainingBalance = totalAmount - advancePaymentAmount;
+
+    console.log('💰 Payment Calculation Debug:', {
+      totalAmount,
+      advancePaymentPercentage: po.paymentTerms.advancePaymentPercentage,
+      advancePaymentAmount,
+      remainingBalance
+    });
+
+    // Build payment methods array
+    const allPaymentMethods = [...po.paymentTerms.paymentMethods];
+    if (po.paymentTerms.customPaymentMethod.trim()) {
+      allPaymentMethods.push(po.paymentTerms.customPaymentMethod.trim());
+    }
+
+    // Calculate credit days if payment due date is set
+    let creditDays = 0;
+    if (po.paymentTerms.isCredit && po.paymentTerms.paymentDueDate) {
+      const purchaseDate = new Date(po.purchaseDate);
+      const dueDate = new Date(po.paymentTerms.paymentDueDate);
+      creditDays = Math.ceil((dueDate - purchaseDate) / (1000 * 60 * 60 * 24));
+    }
+
     const dto = {
       purchaseDate: format(po.purchaseDate, 'yyyy-MM-dd'),
       items: po.items.map(item => ({
@@ -412,6 +466,16 @@ export default function ComprasManagement() {
         expirationDate: item.expirationDate || undefined,
       })),
       notes: po.notes,
+      paymentTerms: {
+        isCredit: po.paymentTerms.isCredit,
+        creditDays: creditDays,
+        paymentMethods: allPaymentMethods,
+        paymentDueDate: po.paymentTerms.paymentDueDate ? format(po.paymentTerms.paymentDueDate, 'yyyy-MM-dd') : undefined,
+        requiresAdvancePayment: po.paymentTerms.requiresAdvancePayment,
+        advancePaymentPercentage: po.paymentTerms.advancePaymentPercentage,
+        advancePaymentAmount,
+        remainingBalance,
+      }
     };
 
     if (po.supplierId) {
@@ -462,15 +526,16 @@ export default function ComprasManagement() {
                 <DialogTrigger asChild>
                     <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white w-full md:w-auto"><PlusCircle className="mr-2 h-5 w-5" /> Añadir Inventario</Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-5xl">
+                <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
                     <DialogHeader><DialogTitle>Nueva Orden de Compra</DialogTitle><DialogDescription>Crea una nueva orden de compra para reabastecer tu inventario.</DialogDescription></DialogHeader>
-                    
-                    <div className="space-y-6 p-1">
+
+                    <div className="space-y-6 p-1 overflow-y-auto flex-1">
                         <div className="p-4 border rounded-lg space-y-4">
                             <h3 className="text-lg font-semibold">Proveedor</h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>RIF del Proveedor</Label>
+                                    {console.log('RIF field - po.supplierRif:', po.supplierRif, 'po.taxType:', po.taxType, 'po.supplierId:', po.supplierId)}
                                     <SearchableSelect
                                         isCreatable
                                         options={supplierRifOptions}
@@ -494,6 +559,117 @@ export default function ComprasManagement() {
                                     <Input value={po.contactName} onChange={e => handleFieldChange('contactName', e.target.value)} />
                                 </div>
                                 <div className="space-y-2"><Label>Teléfono del Contacto</Label><Input value={po.contactPhone} onChange={e => handleFieldChange('contactPhone', e.target.value)} /></div>
+                            </div>
+                        </div>
+
+                        <div className="p-4 border rounded-lg space-y-4">
+                            <h3 className="text-lg font-semibold">Términos de Pago</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id="isCredit"
+                                        checked={po.paymentTerms.isCredit}
+                                        onCheckedChange={(checked) => setPo(prev => ({
+                                            ...prev,
+                                            paymentTerms: { ...prev.paymentTerms, isCredit: checked, paymentDueDate: checked ? prev.paymentTerms.paymentDueDate : null }
+                                        }))}
+                                    />
+                                    <Label htmlFor="isCredit">¿Acepta crédito?</Label>
+                                </div>
+                                {po.paymentTerms.isCredit && (
+                                    <div className="space-y-2">
+                                        <Label>Fecha de Vencimiento del Pago</Label>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button variant="outline" className="w-full justify-start text-left font-normal">
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                    {po.paymentTerms.paymentDueDate ? format(po.paymentTerms.paymentDueDate, "PPP") : <span>Selecciona fecha de pago</span>}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={po.paymentTerms.paymentDueDate}
+                                                    onSelect={(date) => setPo(prev => ({
+                                                        ...prev,
+                                                        paymentTerms: { ...prev.paymentTerms, paymentDueDate: date }
+                                                    }))}
+                                                    disabled={(date) => date < po.purchaseDate}
+                                                    initialFocus
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                )}
+                                <div className="col-span-2 space-y-2">
+                                    <Label>Métodos de Pago Aceptados (selecciona uno o varios)</Label>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-3 border rounded-lg">
+                                        {[
+                                            { value: 'efectivo', label: 'Efectivo' },
+                                            { value: 'transferencia', label: 'Transferencia Bancaria' },
+                                            { value: 'pago_movil', label: 'Pago Móvil' },
+                                            { value: 'zelle', label: 'Zelle' },
+                                            { value: 'binance', label: 'Binance' },
+                                            { value: 'paypal', label: 'PayPal' },
+                                        ].map(method => (
+                                            <div key={method.value} className="flex items-center space-x-2">
+                                                <Checkbox
+                                                    id={`payment-${method.value}`}
+                                                    checked={po.paymentTerms.paymentMethods.includes(method.value)}
+                                                    onCheckedChange={(checked) => {
+                                                        setPo(prev => ({
+                                                            ...prev,
+                                                            paymentTerms: {
+                                                                ...prev.paymentTerms,
+                                                                paymentMethods: checked
+                                                                    ? [...prev.paymentTerms.paymentMethods, method.value]
+                                                                    : prev.paymentTerms.paymentMethods.filter(m => m !== method.value)
+                                                            }
+                                                        }));
+                                                    }}
+                                                />
+                                                <Label htmlFor={`payment-${method.value}`} className="text-sm font-normal cursor-pointer">{method.label}</Label>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="col-span-2 space-y-2">
+                                    <Label>Método de Pago Personalizado (opcional)</Label>
+                                    <Input
+                                        value={po.paymentTerms.customPaymentMethod}
+                                        onChange={e => setPo(prev => ({
+                                            ...prev,
+                                            paymentTerms: { ...prev.paymentTerms, customPaymentMethod: e.target.value }
+                                        }))}
+                                        placeholder="Ej: Cripto, Bitcoin, USDT, etc."
+                                    />
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id="requiresAdvancePayment"
+                                        checked={po.paymentTerms.requiresAdvancePayment}
+                                        onCheckedChange={(checked) => setPo(prev => ({
+                                            ...prev,
+                                            paymentTerms: { ...prev.paymentTerms, requiresAdvancePayment: checked }
+                                        }))}
+                                    />
+                                    <Label htmlFor="requiresAdvancePayment">¿Requiere adelanto?</Label>
+                                </div>
+                                {po.paymentTerms.requiresAdvancePayment && (
+                                    <div className="space-y-2">
+                                        <Label>Porcentaje de Adelanto (%)</Label>
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            value={po.paymentTerms.advancePaymentPercentage}
+                                            onChange={e => setPo(prev => ({
+                                                ...prev,
+                                                paymentTerms: { ...prev.paymentTerms, advancePaymentPercentage: Number(e.target.value) }
+                                            }))}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -541,7 +717,7 @@ export default function ComprasManagement() {
                         </div>
                     </div>
 
-                    <DialogFooter>
+                    <DialogFooter className="flex-shrink-0">
                         <Button variant="outline" onClick={() => setIsNewPurchaseDialogOpen(false)}>Cancelar</Button>
                         <Button onClick={handlePoSubmit} disabled={poLoading}>{poLoading ? 'Creando...' : 'Crear Orden de Compra'}</Button>
                     </DialogFooter>
@@ -717,7 +893,27 @@ export default function ComprasManagement() {
                         </div>
                         <div className="space-y-2">
                         <Label htmlFor="variantBasePrice">Precio de Venta ($)</Label>
-                        <Input id="variantBasePrice" type="number" value={newProduct.variant.basePrice} onChange={(e) => setNewProduct({...newProduct, variant: {...newProduct.variant, basePrice: parseFloat(e.target.value) || 0}})} />
+                        <Input
+                          id="variantBasePrice"
+                          type="number"
+                          value={newProduct.variant.basePrice}
+                          onFocus={() => {
+                            if (newProduct.variant.basePrice === 0) {
+                              setNewProduct({...newProduct, variant: {...newProduct.variant, basePrice: ''}});
+                            }
+                          }}
+                          onChange={(e) => {
+                            setNewProduct({...newProduct, variant: {...newProduct.variant, basePrice: e.target.value }});
+                          }}
+                          onBlur={() => {
+                            const price = parseFloat(newProduct.variant.basePrice);
+                            if (isNaN(price) || newProduct.variant.basePrice === '') {
+                              setNewProduct({...newProduct, variant: {...newProduct.variant, basePrice: 0}});
+                            } else {
+                              setNewProduct({...newProduct, variant: {...newProduct.variant, basePrice: price}});
+                            }
+                          }}
+                        />
                         </div>
                     </div>
                     </div>
@@ -731,7 +927,27 @@ export default function ComprasManagement() {
                         </div>
                         <div className="space-y-2">
                         <Label htmlFor="invCostPrice">Precio Costo ($)</Label>
-                        <Input id="invCostPrice" type="number" value={newProduct.inventory.costPrice} onChange={(e) => setNewProduct({...newProduct, inventory: {...newProduct.inventory, costPrice: parseFloat(e.target.value) || 0}})} />
+                        <Input
+                          id="invCostPrice"
+                          type="number"
+                          value={newProduct.inventory.costPrice}
+                          onFocus={() => {
+                            if (newProduct.inventory.costPrice === 0) {
+                              setNewProduct({...newProduct, inventory: {...newProduct.inventory, costPrice: ''}});
+                            }
+                          }}
+                          onChange={(e) => {
+                            setNewProduct({...newProduct, inventory: {...newProduct.inventory, costPrice: e.target.value }});
+                          }}
+                          onBlur={() => {
+                            const price = parseFloat(newProduct.inventory.costPrice);
+                            if (isNaN(price) || newProduct.inventory.costPrice === '') {
+                              setNewProduct({...newProduct, inventory: {...newProduct.inventory, costPrice: 0}});
+                            } else {
+                              setNewProduct({...newProduct, inventory: {...newProduct.inventory, costPrice: price}});
+                            }
+                          }}
+                        />
                         </div>
                         {newProduct.isPerishable && (
                         <>

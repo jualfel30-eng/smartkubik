@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1759334101718" clover="3.2.0">
-  <project timestamp="1759334101718" name="All files">
-    <metrics statements="5400" coveredstatements="14" conditionals="1073" coveredconditionals="1" methods="668" coveredmethods="4" elements="7141" coveredelements="19" complexity="0" loc="5400" ncloc="5400" packages="45" files="169" classes="169"/>
+<coverage generated="1759335609626" clover="3.2.0">
+  <project timestamp="1759335609626" name="All files">
+    <metrics statements="5476" coveredstatements="14" conditionals="1096" coveredconditionals="1" methods="687" coveredmethods="4" elements="7259" coveredelements="19" complexity="0" loc="5476" ncloc="5476" packages="46" files="172" classes="172"/>
     <package name="src">
       <metrics statements="393" coveredstatements="0" conditionals="71" coveredconditionals="0" methods="57" coveredmethods="0"/>
       <file name="app.controller.ts" path="/Users/jualfelsantamaria/Documents/Saas/V1.03/FOOD-INVENTORY-SAAS-COMPLETO/food-inventory-saas/src/app.controller.ts">
@@ -4727,6 +4727,94 @@
         <line num="79" count="0" type="stmt"/>
         <line num="81" count="0" type="stmt"/>
         <line num="88" count="0" type="stmt"/>
+      </file>
+    </package>
+    <package name="src.modules.security-monitoring">
+      <metrics statements="76" coveredstatements="0" conditionals="23" coveredconditionals="0" methods="19" coveredmethods="0"/>
+      <file name="security-monitoring.controller.ts" path="/Users/jualfelsantamaria/Documents/Saas/V1.03/FOOD-INVENTORY-SAAS-COMPLETO/food-inventory-saas/src/modules/security-monitoring/security-monitoring.controller.ts">
+        <metrics statements="19" coveredstatements="0" conditionals="4" coveredconditionals="0" methods="4" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="5" count="0" type="stmt"/>
+        <line num="6" count="0" type="stmt"/>
+        <line num="7" count="0" type="stmt"/>
+        <line num="11" count="0" type="stmt"/>
+        <line num="13" count="0" type="stmt"/>
+        <line num="19" count="0" type="stmt"/>
+        <line num="20" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="21" count="0" type="stmt"/>
+        <line num="29" count="0" type="stmt"/>
+        <line num="30" count="0" type="stmt"/>
+        <line num="31" count="0" type="stmt"/>
+        <line num="39" count="0" type="stmt"/>
+        <line num="43" count="0" type="stmt"/>
+        <line num="44" count="0" type="cond" truecount="0" falsecount="2"/>
+        <line num="45" count="0" type="stmt"/>
+      </file>
+      <file name="security-monitoring.module.ts" path="/Users/jualfelsantamaria/Documents/Saas/V1.03/FOOD-INVENTORY-SAAS-COMPLETO/food-inventory-saas/src/modules/security-monitoring/security-monitoring.module.ts">
+        <metrics statements="6" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="0" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="5" count="0" type="stmt"/>
+        <line num="17" count="0" type="stmt"/>
+      </file>
+      <file name="security-monitoring.service.ts" path="/Users/jualfelsantamaria/Documents/Saas/V1.03/FOOD-INVENTORY-SAAS-COMPLETO/food-inventory-saas/src/modules/security-monitoring/security-monitoring.service.ts">
+        <metrics statements="51" coveredstatements="0" conditionals="19" coveredconditionals="0" methods="15" coveredmethods="0"/>
+        <line num="1" count="0" type="stmt"/>
+        <line num="2" count="0" type="stmt"/>
+        <line num="3" count="0" type="stmt"/>
+        <line num="4" count="0" type="stmt"/>
+        <line num="17" count="0" type="stmt"/>
+        <line num="18" count="0" type="stmt"/>
+        <line num="22" count="0" type="stmt"/>
+        <line num="29" count="0" type="stmt"/>
+        <line num="32" count="0" type="stmt"/>
+        <line num="33" count="0" type="stmt"/>
+        <line num="41" count="0" type="stmt"/>
+        <line num="42" count="0" type="stmt"/>
+        <line num="54" count="0" type="stmt"/>
+        <line num="58" count="0" type="cond" truecount="0" falsecount="3"/>
+        <line num="59" count="0" type="stmt"/>
+        <line num="67" count="0" type="stmt"/>
+        <line num="82" count="0" type="stmt"/>
+        <line num="93" count="0" type="stmt"/>
+        <line num="103" count="0" type="stmt"/>
+        <line num="114" count="0" type="stmt"/>
+        <line num="123" count="0" type="stmt"/>
+        <line num="135" count="0" type="stmt"/>
+        <line num="156" count="0" type="stmt"/>
+        <line num="177" count="0" type="stmt"/>
+        <line num="179" count="0" type="stmt"/>
+        <line num="185" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="186" count="0" type="stmt"/>
+        <line num="203" count="0" type="stmt"/>
+        <line num="205" count="0" type="stmt"/>
+        <line num="211" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="212" count="0" type="stmt"/>
+        <line num="226" count="0" type="stmt"/>
+        <line num="228" count="0" type="stmt"/>
+        <line num="234" count="0" type="stmt"/>
+        <line num="236" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="237" count="0" type="stmt"/>
+        <line num="251" count="0" type="stmt"/>
+        <line num="253" count="0" type="stmt"/>
+        <line num="254" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="255" count="0" type="stmt"/>
+        <line num="265" count="0" type="stmt"/>
+        <line num="289" count="0" type="stmt"/>
+        <line num="305" count="0" type="stmt"/>
+        <line num="309" count="0" type="cond" truecount="0" falsecount="1"/>
+        <line num="310" count="0" type="stmt"/>
+        <line num="313" count="0" type="stmt"/>
+        <line num="326" count="0" type="stmt"/>
+        <line num="339" count="0" type="cond" truecount="0" falsecount="4"/>
+        <line num="342" count="0" type="stmt"/>
+        <line num="344" count="0" type="stmt"/>
+        <line num="346" count="0" type="stmt"/>
       </file>
     </package>
     <package name="src.modules.seeding">

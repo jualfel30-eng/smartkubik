@@ -44,6 +44,37 @@ export class SupplierPaymentTerm {
 }
 const SupplierPaymentTermSchema = SchemaFactory.createForClass(SupplierPaymentTerm);
 
+@Schema()
+export class SupplierPaymentSettings {
+  @Prop({ type: Boolean, default: false })
+  acceptsCredit: boolean;
+
+  @Prop({ type: Number, default: 0 })
+  defaultCreditDays: number; // 30, 60, 90 días
+
+  @Prop({ type: Number, default: 0 })
+  creditLimit: number; // Límite de crédito en USD/Bs
+
+  @Prop({ type: [String], default: [] })
+  acceptedPaymentMethods: string[]; // ['efectivo', 'transferencia', 'pago_movil', 'zelle', 'binance', 'paypal', etc.]
+
+  @Prop({ type: [String], default: [] })
+  customPaymentMethods: string[]; // Métodos personalizados agregados por el usuario
+
+  @Prop({ type: String })
+  preferredPaymentMethod?: string;
+
+  @Prop({ type: Boolean, default: false })
+  requiresAdvancePayment: boolean; // Requiere adelanto
+
+  @Prop({ type: Number, default: 0 })
+  advancePaymentPercentage?: number; // Porcentaje de adelanto (ej: 50%)
+
+  @Prop({ type: String })
+  paymentNotes?: string; // Notas sobre condiciones de pago
+}
+const SupplierPaymentSettingsSchema = SchemaFactory.createForClass(SupplierPaymentSettings);
+
 @Schema({ timestamps: true })
 export class Supplier {
   @Prop({ type: String, required: true })
@@ -80,6 +111,9 @@ export class Supplier {
 
   @Prop({ type: [SupplierPaymentTermSchema] })
   paymentTerms: SupplierPaymentTerm[];
+
+  @Prop({ type: SupplierPaymentSettingsSchema, default: {} })
+  paymentSettings: SupplierPaymentSettings;
 
   @Prop({ type: [String] })
   categories: string[];

@@ -40,7 +40,9 @@ const initialNewProductState = {
   taxCategory: 'general',
   isSoldByWeight: false,
   unitOfMeasure: 'unidad',
-  inventoryConfig: { 
+  hasMultipleSellingUnits: false,
+  sellingUnits: [],
+  inventoryConfig: {
     minimumStock: 10,
     maximumStock: 100,
     reorderPoint: 20,
@@ -168,6 +170,8 @@ function ProductsManagement() {
       }],
       pricingRules: { cashDiscount: 0, cardSurcharge: 0, minimumMargin: 0.2, maximumDiscount: 0.5 },
       igtfExempt: false,
+      hasMultipleSellingUnits: newProduct.hasMultipleSellingUnits,
+      sellingUnits: newProduct.hasMultipleSellingUnits ? newProduct.sellingUnits : [],
     };
     if (!payload.isPerishable) {
       delete payload.shelfLifeDays;
@@ -198,6 +202,8 @@ function ProductsManagement() {
       inventoryConfig: editingProduct.inventoryConfig,
       isSoldByWeight: editingProduct.isSoldByWeight,
       unitOfMeasure: editingProduct.unitOfMeasure,
+      hasMultipleSellingUnits: editingProduct.hasMultipleSellingUnits,
+      sellingUnits: editingProduct.hasMultipleSellingUnits ? editingProduct.sellingUnits : [],
     };
 
     try {
@@ -455,7 +461,7 @@ function ProductsManagement() {
             <DialogTrigger asChild>
               <Button id="add-product-button" size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white"><Plus className="h-5 w-5 mr-2" /> Agregar Producto</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-3xl h-[90vh] flex flex-col p-0">
+            <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
               <DialogHeader className="px-6 pt-6">
                 <DialogTitle>Agregar Nuevo Producto</DialogTitle>
                 <DialogDescription>Completa la información para crear un nuevo producto en el catálogo.</DialogDescription>
@@ -564,7 +570,7 @@ function ProductsManagement() {
                     <Label htmlFor="isSoldByWeight">Vendido por Peso</Label>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="unitOfMeasure">Unidad de Medida</Label>
+                    <Label htmlFor="unitOfMeasure">Unidad de Medida Base (Inventario)</Label>
                     <Select value={newProduct.unitOfMeasure} onValueChange={(value) => setNewProduct({...newProduct, unitOfMeasure: value})}>
                       <SelectTrigger>
                         <SelectValue />
@@ -572,10 +578,13 @@ function ProductsManagement() {
                       <SelectContent>
                         <SelectItem value="unidad">Unidad</SelectItem>
                         <SelectItem value="kg">Kilogramo (kg)</SelectItem>
-                        <SelectItem value="g">Gramo (g)</SelectItem>
+                        <SelectItem value="gramos">Gramos (g)</SelectItem>
                         <SelectItem value="lb">Libra (lb)</SelectItem>
+                        <SelectItem value="litros">Litros (L)</SelectItem>
+                        <SelectItem value="ml">Mililitros (ml)</SelectItem>
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">Esta es la unidad en la que se guardará el inventario</p>
                   </div>
                   <div className="flex items-center space-x-2 pt-2">
                     <Checkbox id="ivaApplicable" checked={!newProduct.ivaApplicable} onCheckedChange={(checked) => setNewProduct({...newProduct, ivaApplicable: !checked})} />
@@ -627,6 +636,218 @@ function ProductsManagement() {
                     </div>
                   </div>
                 )}
+
+                <div className="col-span-2 border-t pt-4 mt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex-1">
+                      <h4 className="text-lg font-medium">Unidades de Venta Múltiples</h4>
+                      <p className="text-sm text-muted-foreground">Configura diferentes unidades de venta (kg, g, lb, cajas, etc.)</p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="hasMultipleSellingUnits"
+                        checked={newProduct.hasMultipleSellingUnits}
+                        onCheckedChange={(checked) => setNewProduct({...newProduct, hasMultipleSellingUnits: checked})}
+                      />
+                      <Label htmlFor="hasMultipleSellingUnits">Habilitar</Label>
+                    </div>
+                  </div>
+
+                  {newProduct.hasMultipleSellingUnits && (
+                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md">
+                      <p className="text-xs font-semibold text-blue-900 dark:text-blue-200 mb-1">⚠️ IMPORTANTE - Unidad Base del Inventario:</p>
+                      <p className="text-xs text-blue-800 dark:text-blue-300 mb-2">
+                        El inventario SIEMPRE se guarda en <span className="font-bold">"{newProduct.unitOfMeasure}"</span>.
+                        El Factor de Conversión indica cuántas unidades base equivalen a 1 unidad de venta.
+                      </p>
+                      <div className="text-xs text-blue-800 dark:text-blue-300 space-y-1">
+                        <p className="font-semibold">Ejemplos:</p>
+                        <p>• Si la unidad base es "gramos" y vendes en "kg": Factor = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">1000</span> (1 kg = 1000 g)</p>
+                        <p>• Si la unidad base es "gramos" y vendes en "g": Factor = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">1</span> (1 g = 1 g)</p>
+                        <p>• Si la unidad base es "kg" y vendes en "kg": Factor = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">1</span> (1 kg = 1 kg)</p>
+                        <p>• Si la unidad base es "unidad" y vendes en "caja de 24": Factor = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">24</span> (1 caja = 24 unidades)</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {newProduct.hasMultipleSellingUnits && (
+                    <div className="space-y-4">
+                      {newProduct.sellingUnits.map((unit, index) => (
+                        <div key={index} className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                          <div className="flex items-center justify-between">
+                            <h5 className="font-medium">Unidad {index + 1}</h5>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                const units = [...newProduct.sellingUnits];
+                                units.splice(index, 1);
+                                setNewProduct({...newProduct, sellingUnits: units});
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            <div className="space-y-2">
+                              <Label>Nombre</Label>
+                              <Input
+                                placeholder="Ej: Kilogramos"
+                                value={unit.name || ''}
+                                onChange={(e) => {
+                                  const units = [...newProduct.sellingUnits];
+                                  units[index].name = e.target.value;
+                                  setNewProduct({...newProduct, sellingUnits: units});
+                                }}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Abreviación</Label>
+                              <Input
+                                placeholder="Ej: kg"
+                                value={unit.abbreviation || ''}
+                                onChange={(e) => {
+                                  const units = [...newProduct.sellingUnits];
+                                  units[index].abbreviation = e.target.value;
+                                  setNewProduct({...newProduct, sellingUnits: units});
+                                }}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="flex items-center gap-1">
+                                Factor Conversión
+                                <span className="text-xs text-muted-foreground">(Cuántos {newProduct.unitOfMeasure} = 1 {unit.abbreviation || 'unidad'})</span>
+                              </Label>
+                              <Input
+                                type="number"
+                                step="0.001"
+                                placeholder="Ej: 1000"
+                                value={unit.conversionFactor || ''}
+                                onChange={(e) => {
+                                  const units = [...newProduct.sellingUnits];
+                                  units[index].conversionFactor = parseFloat(e.target.value) || 0;
+                                  setNewProduct({...newProduct, sellingUnits: units});
+                                }}
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                1 {unit.abbreviation || 'unidad'} = {unit.conversionFactor || 0} {newProduct.unitOfMeasure}
+                              </p>
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Precio/Unidad ($)</Label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                placeholder="Ej: 20.00"
+                                value={unit.pricePerUnit || ''}
+                                onChange={(e) => {
+                                  const units = [...newProduct.sellingUnits];
+                                  units[index].pricePerUnit = parseFloat(e.target.value) || 0;
+                                  setNewProduct({...newProduct, sellingUnits: units});
+                                }}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Costo/Unidad ($)</Label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                placeholder="Ej: 12.00"
+                                value={unit.costPerUnit || ''}
+                                onChange={(e) => {
+                                  const units = [...newProduct.sellingUnits];
+                                  units[index].costPerUnit = parseFloat(e.target.value) || 0;
+                                  setNewProduct({...newProduct, sellingUnits: units});
+                                }}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Cant. Mínima</Label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                placeholder="Ej: 0.5"
+                                value={unit.minimumQuantity || ''}
+                                onChange={(e) => {
+                                  const units = [...newProduct.sellingUnits];
+                                  units[index].minimumQuantity = parseFloat(e.target.value) || 0;
+                                  setNewProduct({...newProduct, sellingUnits: units});
+                                }}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Incremento</Label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                placeholder="Ej: 0.5"
+                                value={unit.incrementStep || ''}
+                                onChange={(e) => {
+                                  const units = [...newProduct.sellingUnits];
+                                  units[index].incrementStep = parseFloat(e.target.value) || 0;
+                                  setNewProduct({...newProduct, sellingUnits: units});
+                                }}
+                              />
+                            </div>
+                            <div className="space-y-2 flex items-end">
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`default-${index}`}
+                                  checked={unit.isDefault || false}
+                                  onCheckedChange={(checked) => {
+                                    const units = newProduct.sellingUnits.map((u, i) => ({
+                                      ...u,
+                                      isDefault: i === index ? checked : false
+                                    }));
+                                    setNewProduct({...newProduct, sellingUnits: units});
+                                  }}
+                                />
+                                <Label htmlFor={`default-${index}`}>Por defecto</Label>
+                              </div>
+                            </div>
+                            <div className="space-y-2 flex items-end">
+                              <div className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`active-${index}`}
+                                  checked={unit.isActive !== false}
+                                  onCheckedChange={(checked) => {
+                                    const units = [...newProduct.sellingUnits];
+                                    units[index].isActive = checked;
+                                    setNewProduct({...newProduct, sellingUnits: units});
+                                  }}
+                                />
+                                <Label htmlFor={`active-${index}`}>Activa</Label>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setNewProduct({
+                            ...newProduct,
+                            sellingUnits: [...newProduct.sellingUnits, {
+                              name: '',
+                              abbreviation: '',
+                              conversionFactor: 1,
+                              pricePerUnit: 0,
+                              costPerUnit: 0,
+                              isActive: true,
+                              isDefault: newProduct.sellingUnits.length === 0,
+                              minimumQuantity: 0,
+                              incrementStep: 0
+                            }]
+                          });
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Agregar Unidad
+                      </Button>
+                    </div>
+                  )}
+                </div>
 
                 <div className="col-span-2 border-t pt-4 mt-4">
                   <h4 className="text-lg font-medium mb-4">Variante Inicial (Requerida)</h4>
@@ -762,6 +983,12 @@ function ProductsManagement() {
                           if (productToEdit.unitOfMeasure === undefined) {
                             productToEdit.unitOfMeasure = 'unidad';
                           }
+                          if (productToEdit.hasMultipleSellingUnits === undefined) {
+                            productToEdit.hasMultipleSellingUnits = false;
+                          }
+                          if (!productToEdit.sellingUnits) {
+                            productToEdit.sellingUnits = [];
+                          }
                           setEditingProduct(productToEdit);
                           setIsEditDialogOpen(true);
                         }}><Edit className="h-4 w-4" /></Button>
@@ -779,12 +1006,12 @@ function ProductsManagement() {
       {/* Edit Product Dialog */}
       {editingProduct && (
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-3xl">
+          <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>Editar Producto: {editingProduct.name}</DialogTitle>
               <DialogDescription>Modifica la información del producto y sus precios.</DialogDescription>
             </DialogHeader>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-4">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-4 overflow-y-auto pr-2">
               <div className="space-y-2">
                 <Label htmlFor="edit-name">Nombre del Producto</Label>
                 <Input id="edit-name" value={editingProduct.name} onChange={(e) => setEditingProduct({...editingProduct, name: e.target.value})} />
@@ -812,7 +1039,7 @@ function ProductsManagement() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="edit-unitOfMeasure">Unidad de Medida</Label>
+                <Label htmlFor="edit-unitOfMeasure">Unidad de Medida Base (Inventario)</Label>
                 <Select value={editingProduct.unitOfMeasure} onValueChange={(value) => setEditingProduct({...editingProduct, unitOfMeasure: value})}>
                   <SelectTrigger>
                     <SelectValue />
@@ -820,10 +1047,13 @@ function ProductsManagement() {
                   <SelectContent>
                     <SelectItem value="unidad">Unidad</SelectItem>
                     <SelectItem value="kg">Kilogramo (kg)</SelectItem>
-                    <SelectItem value="g">Gramo (g)</SelectItem>
+                    <SelectItem value="gramos">Gramos (g)</SelectItem>
                     <SelectItem value="lb">Libra (lb)</SelectItem>
+                    <SelectItem value="litros">Litros (L)</SelectItem>
+                    <SelectItem value="ml">Mililitros (ml)</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">Esta es la unidad en la que se guardará el inventario</p>
               </div>
 
               {editingProduct.inventoryConfig && (
@@ -849,6 +1079,224 @@ function ProductsManagement() {
                     </div>
                 </div>
               )}
+
+              <div className="col-span-2 border-t pt-4 mt-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex-1">
+                    <h4 className="text-lg font-medium">Unidades de Venta Múltiples</h4>
+                    <p className="text-sm text-muted-foreground">Configura diferentes unidades de venta (kg, g, lb, cajas, etc.)</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit-hasMultipleSellingUnits"
+                      checked={editingProduct.hasMultipleSellingUnits || false}
+                      onCheckedChange={(checked) => {
+                        setEditingProduct({
+                          ...editingProduct,
+                          hasMultipleSellingUnits: checked,
+                          sellingUnits: checked ? (editingProduct.sellingUnits || []) : []
+                        });
+                      }}
+                    />
+                    <Label htmlFor="edit-hasMultipleSellingUnits">Habilitar</Label>
+                  </div>
+                </div>
+
+                {editingProduct.hasMultipleSellingUnits && (
+                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md">
+                    <p className="text-xs font-semibold text-blue-900 dark:text-blue-200 mb-1">⚠️ IMPORTANTE - Unidad Base del Inventario:</p>
+                    <p className="text-xs text-blue-800 dark:text-blue-300 mb-2">
+                      El inventario SIEMPRE se guarda en <span className="font-bold">"{editingProduct.unitOfMeasure}"</span>.
+                      El Factor de Conversión indica cuántas unidades base equivalen a 1 unidad de venta.
+                    </p>
+                    <div className="text-xs text-blue-800 dark:text-blue-300 space-y-1">
+                      <p className="font-semibold">Ejemplos:</p>
+                      <p>• Si la unidad base es "gramos" y vendes en "kg": Factor = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">1000</span> (1 kg = 1000 g)</p>
+                      <p>• Si la unidad base es "gramos" y vendes en "g": Factor = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">1</span> (1 g = 1 g)</p>
+                      <p>• Si la unidad base es "kg" y vendes en "kg": Factor = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">1</span> (1 kg = 1 kg)</p>
+                      <p>• Si la unidad base es "unidad" y vendes en "caja de 24": Factor = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">24</span> (1 caja = 24 unidades)</p>
+                    </div>
+                  </div>
+                )}
+
+                {editingProduct.hasMultipleSellingUnits && (
+                  <div className="space-y-4">
+                    {(editingProduct.sellingUnits || []).map((unit, index) => (
+                      <div key={index} className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                        <div className="flex items-center justify-between">
+                          <h5 className="font-medium">Unidad {index + 1}</h5>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const units = [...editingProduct.sellingUnits];
+                              units.splice(index, 1);
+                              setEditingProduct({...editingProduct, sellingUnits: units});
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          <div className="space-y-2">
+                            <Label>Nombre</Label>
+                            <Input
+                              placeholder="Ej: Kilogramos"
+                              value={unit.name || ''}
+                              onChange={(e) => {
+                                const units = [...editingProduct.sellingUnits];
+                                units[index].name = e.target.value;
+                                setEditingProduct({...editingProduct, sellingUnits: units});
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Abreviación</Label>
+                            <Input
+                              placeholder="Ej: kg"
+                              value={unit.abbreviation || ''}
+                              onChange={(e) => {
+                                const units = [...editingProduct.sellingUnits];
+                                units[index].abbreviation = e.target.value;
+                                setEditingProduct({...editingProduct, sellingUnits: units});
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="flex items-center gap-1">
+                              Factor Conversión
+                              <span className="text-xs text-muted-foreground">(Cuántos {editingProduct.unitOfMeasure} = 1 {unit.abbreviation || 'unidad'})</span>
+                            </Label>
+                            <Input
+                              type="number"
+                              step="0.001"
+                              placeholder="Ej: 1000"
+                              value={unit.conversionFactor || ''}
+                              onChange={(e) => {
+                                const units = [...editingProduct.sellingUnits];
+                                units[index].conversionFactor = parseFloat(e.target.value) || 0;
+                                setEditingProduct({...editingProduct, sellingUnits: units});
+                              }}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              1 {unit.abbreviation || 'unidad'} = {unit.conversionFactor || 0} {editingProduct.unitOfMeasure}
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Precio/Unidad ($)</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="Ej: 20.00"
+                              value={unit.pricePerUnit || ''}
+                              onChange={(e) => {
+                                const units = [...editingProduct.sellingUnits];
+                                units[index].pricePerUnit = parseFloat(e.target.value) || 0;
+                                setEditingProduct({...editingProduct, sellingUnits: units});
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Costo/Unidad ($)</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="Ej: 12.00"
+                              value={unit.costPerUnit || ''}
+                              onChange={(e) => {
+                                const units = [...editingProduct.sellingUnits];
+                                units[index].costPerUnit = parseFloat(e.target.value) || 0;
+                                setEditingProduct({...editingProduct, sellingUnits: units});
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Cant. Mínima</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="Ej: 0.5"
+                              value={unit.minimumQuantity || ''}
+                              onChange={(e) => {
+                                const units = [...editingProduct.sellingUnits];
+                                units[index].minimumQuantity = parseFloat(e.target.value) || 0;
+                                setEditingProduct({...editingProduct, sellingUnits: units});
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Incremento</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="Ej: 0.5"
+                              value={unit.incrementStep || ''}
+                              onChange={(e) => {
+                                const units = [...editingProduct.sellingUnits];
+                                units[index].incrementStep = parseFloat(e.target.value) || 0;
+                                setEditingProduct({...editingProduct, sellingUnits: units});
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-2 flex items-end">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`edit-default-${index}`}
+                                checked={unit.isDefault || false}
+                                onCheckedChange={(checked) => {
+                                  const units = editingProduct.sellingUnits.map((u, i) => ({
+                                    ...u,
+                                    isDefault: i === index ? checked : false
+                                  }));
+                                  setEditingProduct({...editingProduct, sellingUnits: units});
+                                }}
+                              />
+                              <Label htmlFor={`edit-default-${index}`}>Por defecto</Label>
+                            </div>
+                          </div>
+                          <div className="space-y-2 flex items-end">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`edit-active-${index}`}
+                                checked={unit.isActive !== false}
+                                onCheckedChange={(checked) => {
+                                  const units = [...editingProduct.sellingUnits];
+                                  units[index].isActive = checked;
+                                  setEditingProduct({...editingProduct, sellingUnits: units});
+                                }}
+                              />
+                              <Label htmlFor={`edit-active-${index}`}>Activa</Label>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setEditingProduct({
+                          ...editingProduct,
+                          sellingUnits: [...(editingProduct.sellingUnits || []), {
+                            name: '',
+                            abbreviation: '',
+                            conversionFactor: 1,
+                            pricePerUnit: 0,
+                            costPerUnit: 0,
+                            isActive: true,
+                            isDefault: (editingProduct.sellingUnits || []).length === 0,
+                            minimumQuantity: 0,
+                            incrementStep: 0
+                          }]
+                        });
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Agregar Unidad
+                    </Button>
+                  </div>
+                )}
+              </div>
               
               <div className="col-span-2 border-t pt-4 mt-4">
                 <h4 className="text-lg font-medium mb-4">Editar Precios de Variante Principal</h4>

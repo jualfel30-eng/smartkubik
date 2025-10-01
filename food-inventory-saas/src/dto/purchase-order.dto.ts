@@ -8,6 +8,9 @@ import {
   IsNumber,
   IsPositive,
   ValidateIf,
+  IsBoolean,
+  Min,
+  Max,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { SanitizeString, SanitizeText } from "../decorators/sanitize.decorator";
@@ -40,6 +43,43 @@ class PurchaseOrderItemDto {
   @IsOptional()
   @IsDateString()
   expirationDate?: string;
+}
+
+class PaymentTermsDto {
+  @IsBoolean()
+  isCredit: boolean;
+
+  @IsNumber()
+  @Min(0)
+  creditDays: number; // Calculated from paymentDueDate - purchaseDate
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  paymentMethods?: string[]; // ['efectivo', 'transferencia', 'pago_movil', 'zelle', 'binance', etc.]
+
+  @IsOptional()
+  @IsDateString()
+  paymentDueDate?: string;
+
+  @IsBoolean()
+  requiresAdvancePayment: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  advancePaymentPercentage?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  advancePaymentAmount?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  remainingBalance?: number;
 }
 
 export class CreatePurchaseOrderDto {
@@ -84,4 +124,9 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   @SanitizeText()
   notes?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PaymentTermsDto)
+  paymentTerms?: PaymentTermsDto;
 }

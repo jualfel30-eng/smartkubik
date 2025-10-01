@@ -28,6 +28,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useCRM } from '@/hooks/use-crm.js';
+import { LocationPicker } from '@/components/ui/LocationPicker.jsx';
 
 const initialNewContactState = {
   name: '',
@@ -40,7 +41,8 @@ const initialNewContactState = {
   state: '',
   notes: '',
   taxType: 'V',
-  taxId: ''
+  taxId: '',
+  primaryLocation: null
 };
 
 function CRMManagement() {
@@ -51,7 +53,7 @@ function CRMManagement() {
   const [filterTier, setFilterTier] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  
+
   const [selectedContactId, setSelectedContactId] = useState(null);
   const [editingFormState, setEditingFormState] = useState({});
   const [newContact, setNewContact] = useState(initialNewContactState);
@@ -125,6 +127,7 @@ function CRMManagement() {
       state: contact.addresses?.[0]?.state || '',
       taxId: contact.taxInfo?.taxId || '',
       taxType: contact.taxInfo?.taxType || 'V',
+      primaryLocation: contact.primaryLocation || null,
     });
     setIsEditDialogOpen(true);
   };
@@ -146,6 +149,7 @@ function CRMManagement() {
       addresses: [{ type: 'shipping', street: newContact.address, city: newContact.city, state: newContact.state, isDefault: true }],
       contacts: contactsPayload,
       notes: newContact.notes,
+      primaryLocation: newContact.primaryLocation,
     };
 
     try {
@@ -193,6 +197,13 @@ function CRMManagement() {
             state: editingFormState.state,
             isDefault: true
         }];
+    }
+
+    // Compara primaryLocation
+    const oldLocation = originalContact.primaryLocation;
+    const newLocation = editingFormState.primaryLocation;
+    if (JSON.stringify(oldLocation) !== JSON.stringify(newLocation)) {
+      changedFields.primaryLocation = newLocation;
     }
 
     if (Object.keys(changedFields).length === 0) {
@@ -247,6 +258,13 @@ function CRMManagement() {
               <div className="space-y-2"><Label>Ciudad</Label><Input value={newContact.city} onChange={(e) => setNewContact({...newContact, city: e.target.value})} /></div>
               <div className="space-y-2"><Label>Estado</Label><Input value={newContact.state} onChange={(e) => setNewContact({...newContact, state: e.target.value})} /></div>
               <div className="col-span-2 space-y-2"><Label>Identificación Fiscal</Label><div className="flex gap-2"><Select value={newContact.taxType} onValueChange={(value) => setNewContact({...newContact, taxType: value})}><SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="V">V</SelectItem><SelectItem value="E">E</SelectItem><SelectItem value="J">J</SelectItem><SelectItem value="G">G</SelectItem></SelectContent></Select><Input value={newContact.taxId} onChange={(e) => setNewContact({...newContact, taxId: e.target.value})} /></div></div>
+              <div className="col-span-2 space-y-2">
+                <LocationPicker
+                  label="Ubicación del Cliente"
+                  value={newContact.primaryLocation}
+                  onChange={(location) => setNewContact({...newContact, primaryLocation: location})}
+                />
+              </div>
               <div className="col-span-2 space-y-2"><Label>Notas</Label><Textarea value={newContact.notes} onChange={(e) => setNewContact({...newContact, notes: e.target.value})} /></div>
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button><Button onClick={handleAddContact}>Agregar Contacto</Button></DialogFooter>
@@ -319,6 +337,13 @@ function CRMManagement() {
                 <div className="space-y-2"><Label>Ciudad</Label><Input value={editingFormState.city} onChange={(e) => setEditingFormState({...editingFormState, city: e.target.value})} /></div>
                 <div className="space-y-2"><Label>Estado</Label><Input value={editingFormState.state} onChange={(e) => setEditingFormState({...editingFormState, state: e.target.value})} /></div>
                 <div className="col-span-2 space-y-2"><Label>Identificación Fiscal</Label><div className="flex gap-2"><Select value={editingFormState.taxType} onValueChange={(value) => setEditingFormState({...editingFormState, taxType: value})}><SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="V">V</SelectItem><SelectItem value="E">E</SelectItem><SelectItem value="J">J</SelectItem><SelectItem value="G">G</SelectItem></SelectContent></Select><Input value={editingFormState.taxId} onChange={(e) => setEditingFormState({...editingFormState, taxId: e.target.value})} /></div></div>
+                <div className="col-span-2 space-y-2">
+                  <LocationPicker
+                    label="Ubicación del Cliente"
+                    value={editingFormState.primaryLocation}
+                    onChange={(location) => setEditingFormState({...editingFormState, primaryLocation: location})}
+                  />
+                </div>
                 <div className="col-span-2 space-y-2"><Label>Notas</Label><Textarea value={editingFormState.notes} onChange={(e) => setEditingFormState({...editingFormState, notes: e.target.value})} /></div>
             </div>
             <DialogFooter><Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button><Button onClick={handleEditContact}>Guardar Cambios</Button></DialogFooter>

@@ -11,6 +11,7 @@ import RolesManagement from './RolesManagement';
 import UserManagement from './UserManagement'; // Importar UserManagement
 import ChangePasswordForm from './ChangePasswordForm'; // Importar ChangePasswordForm
 import UsageAndBilling from './UsageAndBilling'; // Importar UsageAndBilling
+import { DeliverySettings } from './DeliverySettings'; // Importar DeliverySettings
 import { useAuth } from '@/hooks/use-auth.jsx'; // Importar useAuth
 
 const initialSettings = {
@@ -209,8 +210,9 @@ const SettingsPage = () => {
       <h1 className="text-3xl font-bold">Configuración</h1>
       
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="delivery">Delivery</TabsTrigger>
           <TabsTrigger value="security">Seguridad</TabsTrigger>
           {hasPermission('users_read') && <TabsTrigger value="users">Usuarios</TabsTrigger>}
           {hasPermission('roles_read') && <TabsTrigger value="roles">Roles y Permisos</TabsTrigger>}
@@ -371,6 +373,9 @@ const SettingsPage = () => {
               {isSaving ? 'Guardando...' : 'Guardar Cambios'}
             </Button>
           </div>
+        </TabsContent>
+        <TabsContent value="delivery">
+          <DeliverySettings />
         </TabsContent>
         <TabsContent value="security">
           <div className="grid gap-6 mt-4">

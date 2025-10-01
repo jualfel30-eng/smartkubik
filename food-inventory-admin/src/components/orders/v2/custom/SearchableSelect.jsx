@@ -1,24 +1,45 @@
-import React from 'react';
-import Select from 'react-select';
+import React, { useState } from 'react';
 import CreatableSelect from 'react-select/creatable';
 
-/**
- * A generic, styled, searchable select component that can optionally be creatable.
- * It uses Tailwind CSS classes to match the project's shadcn/ui theme.
- * @param {boolean} isCreatable - If true, renders a CreatableSelect, otherwise a standard Select.
- */
 export function SearchableSelect({
-  options,
+  options = [],
   onSelection,
-  value,
-  placeholder,
-  isCreatable = false,
+  onInputChange,
+  value = null,
+  placeholder = '',
+  isCreatable = true,
+  inputValue, // Opcional
   ...props
 }) {
-  const Component = isCreatable ? CreatableSelect : Select;
+  const [internalInputValue, setInternalInputValue] = useState('');
+  
+  const isControlled = inputValue !== undefined;
+  const currentInputValue = isControlled ? inputValue : internalInputValue;
 
-  const handleChange = (selectedOption) => {
-    onSelection(selectedOption);
+  const handleInputChange = (newInputValue, actionMeta) => {
+    if (actionMeta.action === 'input-change') {
+      if (onInputChange) {
+        onInputChange(newInputValue, actionMeta);
+      }
+      
+      if (!isControlled) {
+        setInternalInputValue(newInputValue);
+      }
+    }
+  };
+
+  const handleChange = (selectedOption, actionMeta) => {
+    if (onSelection) {
+      onSelection(selectedOption, actionMeta);
+    }
+    
+    if (selectedOption && actionMeta.action === 'select-option') {
+      if (onInputChange && isControlled) {
+        onInputChange('', { action: 'clear-input' });
+      } else if (!isControlled) {
+        setInternalInputValue('');
+      }
+    }
   };
 
   const classNames = {
@@ -34,23 +55,26 @@ export function SearchableSelect({
       isFocused
         ? "cursor-default rounded-sm bg-accent text-accent-foreground px-2 py-1.5 text-sm"
         : "cursor-default px-2 py-1.5 text-sm",
-    clearIndicator: () => "text-muted-foreground hover:text-foreground p-1",
-    dropdownIndicator: () => "text-muted-foreground hover:text-foreground p-1",
-    indicatorSeparator: () => "bg-border mx-1",
   };
 
   return (
-    <Component
-      {...props}
-      isClearable
-      onChange={handleChange}
+    <CreatableSelect
       options={options}
+      onChange={handleChange}
+      onInputChange={handleInputChange}
+      inputValue={currentInputValue}
       value={value}
       placeholder={placeholder}
+      isClearable
+      isSearchable
+      blurInputOnSelect={false}
+      openMenuOnClick={true}
+      openMenuOnFocus={true}
       unstyled
       classNames={classNames}
       formatCreateLabel={(inputValue) => `Crear nuevo: "${inputValue}"`}
       noOptionsMessage={() => "No se encontraron resultados"}
+      {...props}
     />
   );
 }

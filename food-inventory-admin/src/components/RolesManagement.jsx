@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { getRoles, createRole, updateRole, deleteRole, getPermissions } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth.jsx';
@@ -143,6 +142,7 @@ const RolesManagement = () => {
 
       if (response.success) {
         toast.success(`Rol ${currentRole?._id ? 'actualizado' : 'creado'} correctamente`);
+        document.dispatchEvent(new CustomEvent('role-form-success'));
         setIsDialogOpen(false);
         fetchData();
       } else {
@@ -169,7 +169,7 @@ const RolesManagement = () => {
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Roles y Permisos</CardTitle>
         {hasPermission('roles_create') && (
-            <Button onClick={handleAddNewRole}>Añadir Rol</Button>
+            <Button id="add-role-button" onClick={handleAddNewRole}>Añadir Rol</Button>
         )}
       </CardHeader>
       <CardContent>
