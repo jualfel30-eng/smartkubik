@@ -166,7 +166,6 @@ function ProductsManagement() {
       variants: [{
         ...newProduct.variant,
         sku: `${newProduct.sku}-VAR1`,
-        barcode: `${newProduct.sku}-VAR1`,
       }],
       pricingRules: { cashDiscount: 0, cardSurcharge: 0, minimumMargin: 0.2, maximumDiscount: 0.5 },
       igtfExempt: false,
@@ -204,6 +203,8 @@ function ProductsManagement() {
       unitOfMeasure: editingProduct.unitOfMeasure,
       hasMultipleSellingUnits: editingProduct.hasMultipleSellingUnits,
       sellingUnits: editingProduct.hasMultipleSellingUnits ? editingProduct.sellingUnits : [],
+      ivaApplicable: editingProduct.ivaApplicable,
+      variants: editingProduct.variants,
     };
 
     try {
@@ -539,6 +540,10 @@ function ProductsManagement() {
                     <div className="space-y-2">
                       <Label htmlFor="sku">SKU Principal</Label>
                       <Input id="sku" value={newProduct.sku} onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})} placeholder="EJ: ARR-BLANCO" />
+                    </div>
+                    <div class="space-y-2">
+                      <Label htmlFor="barcode">Código de Barras (UPC)</Label>
+                      <Input id="barcode" value={newProduct.variant.barcode} onChange={(e) => setNewProduct({...newProduct, variant: {...newProduct.variant, barcode: e.target.value}})} placeholder="Ej: 7591234567890" />
                     </div>
                   </div>
                 </div>
@@ -1024,6 +1029,18 @@ function ProductsManagement() {
                 <Label htmlFor="edit-brand">Marca</Label>
                 <Input id="edit-brand" value={editingProduct.brand} onChange={(e) => setEditingProduct({...editingProduct, brand: e.target.value})} />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-sku">SKU</Label>
+                <Input id="edit-sku" value={editingProduct.sku} onChange={(e) => setEditingProduct({...editingProduct, sku: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-barcode">Código de Barras (UPC)</Label>
+                <Input id="edit-barcode" value={editingProduct.variants[0].barcode} onChange={(e) => {
+                  const newVariants = [...editingProduct.variants];
+                  newVariants[0].barcode = e.target.value;
+                  setEditingProduct({...editingProduct, variants: newVariants});
+                }} />
+              </div>
               <div className="col-span-2 space-y-2">
                 <Label htmlFor="edit-description">Descripción</Label>
                 <Textarea id="edit-description" value={editingProduct.description} onChange={(e) => setEditingProduct({...editingProduct, description: e.target.value})} />
@@ -1036,6 +1053,11 @@ function ProductsManagement() {
               <div className="flex items-center space-x-2 pt-2">
                 <Checkbox id="edit-isSoldByWeight" checked={editingProduct.isSoldByWeight} onCheckedChange={(checked) => setEditingProduct({...editingProduct, isSoldByWeight: checked})} />
                 <Label htmlFor="edit-isSoldByWeight">Vendido por Peso</Label>
+              </div>
+
+              <div className="flex items-center space-x-2 pt-2">
+                <Checkbox id="edit-ivaApplicable" checked={!editingProduct.ivaApplicable} onCheckedChange={(checked) => setEditingProduct({...editingProduct, ivaApplicable: !checked})} />
+                <Label htmlFor="edit-ivaApplicable">Exento de IVA</Label>
               </div>
 
               <div className="space-y-2">

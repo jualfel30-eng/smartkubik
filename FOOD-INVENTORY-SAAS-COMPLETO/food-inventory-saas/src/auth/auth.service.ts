@@ -515,7 +515,9 @@ export class AuthService {
 
     // Load permission names from database
     let permissionNames: string[] = [];
-    if (Array.isArray(role.permissions) && role.permissions.length > 0) {
+    if (role.name === 'super_admin') {
+      permissionNames = role.permissions as string[];
+    } else if (Array.isArray(role.permissions) && role.permissions.length > 0) {
       const permissionDocs = await this.userModel.db.collection('permissions').find({
         _id: { $in: role.permissions.map(p => typeof p === 'string' ? new (require('mongoose').Types.ObjectId)(p) : p) }
       }).toArray();

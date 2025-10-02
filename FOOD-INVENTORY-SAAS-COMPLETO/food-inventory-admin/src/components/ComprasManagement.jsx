@@ -799,6 +799,10 @@ export default function ComprasManagement() {
                         <Label htmlFor="sku">SKU Principal</Label>
                         <Input id="sku" value={newProduct.sku} onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})} placeholder="EJ: ARR-BLANCO" />
                         </div>
+                        <div class="space-y-2">
+                          <Label htmlFor="barcode">Código de Barras (UPC)</Label>
+                          <Input id="barcode" value={newProduct.variant.barcode} onChange={(e) => setNewProduct({...newProduct, variant: {...newProduct.variant, barcode: e.target.value}})} placeholder="Ej: 7591234567890" />
+                        </div>
                     </div>
                     </div>
 
