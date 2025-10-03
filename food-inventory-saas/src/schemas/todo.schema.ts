@@ -11,6 +11,18 @@ export class Todo {
   @Prop({ type: Boolean, default: false })
   isCompleted: boolean;
 
+  @Prop({ type: Date, required: false })
+  dueDate?: Date;
+
+  @Prop({ type: [String], default: [] })
+  tags: string[];
+
+  @Prop({ type: String, enum: ['low', 'medium', 'high'], default: 'medium' })
+  priority: string;
+
+  @Prop({ type: String, required: false })
+  relatedEventId?: string;
+
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   createdBy: Types.ObjectId;
 

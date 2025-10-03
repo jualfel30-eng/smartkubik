@@ -4,10 +4,14 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { CreateTodoDto, UpdateTodoDto } from '../../dto/todo.dto';
 import { Todo, TodoDocument } from '../../schemas/todo.schema';
+import { Event, EventDocument } from '../../schemas/event.schema';
 
 @Injectable()
 export class TodosService {
-  constructor(@InjectModel(Todo.name) private todoModel: Model<TodoDocument>) {}
+  constructor(
+    @InjectModel(Todo.name) private todoModel: Model<TodoDocument>,
+    @InjectModel(Event.name) private eventModel: Model<EventDocument>,
+  ) {}
 
   async create(createTodoDto: CreateTodoDto, user: any): Promise<Todo> {
     const newTodo = new this.todoModel({
@@ -23,6 +27,22 @@ export class TodosService {
   }
 
   async update(id: string, updateTodoDto: UpdateTodoDto, tenantId: string): Promise<Todo | null> {
+    const todo = await this.todoModel.findOne({ _id: id, tenantId: new Types.ObjectId(tenantId) });
+
+    if (!todo) {
+      return null;
+    }
+
+    // Si se marca como completada y tiene un evento relacionado, eliminar el evento
+    if (updateTodoDto.isCompleted && todo.relatedEventId) {
+      try {
+        await this.eventModel.findByIdAndDelete(todo.relatedEventId).exec();
+      } catch (error) {
+        console.error('Error deleting related event:', error);
+        // Continuar con la actualización del todo aunque falle la eliminación del evento
+      }
+    }
+
     return this.todoModel.findOneAndUpdate({ _id: id, tenantId: new Types.ObjectId(tenantId) }, updateTodoDto, { new: true }).exec();
   }
 

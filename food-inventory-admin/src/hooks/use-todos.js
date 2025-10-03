@@ -23,11 +23,11 @@ export const useTodos = () => {
     fetchTodos();
   }, [fetchTodos]);
 
-  const addTodo = async (title) => {
+  const addTodo = async (todoData) => {
     try {
       const newTodo = await fetchApi('/todos', {
         method: 'POST',
-        body: JSON.stringify({ title }),
+        body: JSON.stringify(todoData),
       });
       setTodos(prevTodos => [newTodo, ...prevTodos]);
     } catch (err) {
