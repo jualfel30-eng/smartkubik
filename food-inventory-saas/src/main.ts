@@ -7,6 +7,7 @@ import * as compression from "compression";
 import { ValidationError } from "class-validator";
 import { ConfigService } from '@nestjs/config';
 import { SeederService } from './database/seeds/seeder.service';
+import { logFeatureStatus } from './config/features.config';
 
 // Helper function to format validation errors
 function formatValidationErrors(errors: ValidationError[]): string[] {
@@ -103,5 +104,8 @@ async function bootstrap() {
   const port = process.env.PORT || 3000;
   await app.listen(port);
   console.log(`Application is running on: ${await app.getUrl()}`);
+
+  // Log feature flags status
+  logFeatureStatus();
 }
 bootstrap();
