@@ -103,7 +103,9 @@ export class SuperAdminService {
     if (!userToImpersonate) {
       throw new NotFoundException(`Usuario con ID "${userId}" no encontrado`);
     }
-    const { accessToken, refreshToken } = await this.authService.login(userToImpersonate, true, currentUser.id);
+
+    // Pass userId string directly to login method
+    const { accessToken, refreshToken } = await this.authService.login(userId, true, currentUser.id);
 
     console.log('---!!! [DEBUG] userToImpersonate object:', userToImpersonate, '!!! ---');
 

@@ -35,9 +35,11 @@ export class AuthService {
     private rolesService: RolesService,
   ) {}
 
-  async login(loginDto: LoginDto, isImpersonation: boolean = false, impersonatorId?: string) {
+  async login(loginDto: LoginDto | UserDocument | string, isImpersonation: boolean = false, impersonatorId?: string) {
     if (isImpersonation) {
-      const user = await this.userModel.findById(loginDto).populate('role').exec();
+      // When impersonating, loginDto is actually a User document or userId
+      const userId = typeof loginDto === 'string' ? loginDto : (loginDto as any)._id || (loginDto as any).id;
+      const user = await this.userModel.findById(userId).populate('role').exec();
       if (!user) {
         throw new NotFoundException('Usuario a impersonar no encontrado');
       }
