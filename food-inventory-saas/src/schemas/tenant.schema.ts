@@ -105,6 +105,14 @@ export class Tenant {
   @Prop({ type: String, required: true })
   businessType: string;
 
+  @Prop({
+    type: String,
+    enum: ['FOOD_SERVICE', 'RETAIL', 'SERVICES', 'HYBRID'],
+    default: 'FOOD_SERVICE',
+    required: true
+  })
+  vertical: string;
+
   @Prop({ type: Object })
   contactInfo: {
     email: string;
@@ -128,6 +136,35 @@ export class Tenant {
 
   @Prop({ type: TenantSettingsSchema })
   settings: TenantSettings;
+
+  @Prop({ type: Object, default: {} })
+  enabledModules: {
+    // Core modules (available for all verticals)
+    inventory?: boolean;
+    orders?: boolean;
+    customers?: boolean;
+    suppliers?: boolean;
+    reports?: boolean;
+    accounting?: boolean;
+
+    // FOOD_SERVICE specific modules
+    tables?: boolean;
+    recipes?: boolean;
+    kitchenDisplay?: boolean;
+    menuEngineering?: boolean;
+
+    // RETAIL specific modules
+    pos?: boolean;
+    variants?: boolean;
+    ecommerce?: boolean;
+    loyaltyProgram?: boolean;
+
+    // SERVICES specific modules
+    appointments?: boolean;
+    resources?: boolean;
+    booking?: boolean;
+    servicePackages?: boolean;
+  };
 
   @Prop({ type: String, required: true, default: "trial" })
   subscriptionPlan: string;

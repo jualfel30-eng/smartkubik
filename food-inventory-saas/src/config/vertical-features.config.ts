@@ -1,0 +1,125 @@
+/**
+ * Configuración de módulos disponibles por vertical
+ *
+ * Define qué módulos están disponibles para cada tipo de negocio (vertical).
+ * Estos valores se usan como defaults cuando se crea un nuevo tenant.
+ */
+
+export const VERTICAL_FEATURES = {
+  FOOD_SERVICE: {
+    // Core modules
+    inventory: true,
+    orders: true,
+    customers: true,
+    suppliers: true,
+    reports: true,
+    accounting: true,
+
+    // Food service specific
+    tables: true,
+    recipes: true,
+    kitchenDisplay: true,
+    menuEngineering: true,
+
+    // Disabled for food service
+    pos: false,
+    variants: false,
+    ecommerce: false,
+    loyaltyProgram: false,
+    appointments: false,
+    resources: false,
+    booking: false,
+    servicePackages: false,
+  },
+
+  RETAIL: {
+    // Core modules
+    inventory: true,
+    orders: true,
+    customers: true,
+    suppliers: true,
+    reports: true,
+    accounting: true,
+
+    // Retail specific
+    pos: true,
+    variants: true,
+    ecommerce: true,
+    loyaltyProgram: true,
+
+    // Disabled for retail
+    tables: false,
+    recipes: false,
+    kitchenDisplay: false,
+    menuEngineering: false,
+    appointments: false,
+    resources: false,
+    booking: false,
+    servicePackages: false,
+  },
+
+  SERVICES: {
+    // Core modules
+    inventory: true,
+    orders: true,
+    customers: true,
+    suppliers: true,
+    reports: true,
+    accounting: true,
+
+    // Services specific
+    appointments: true,
+    resources: true,
+    booking: true,
+    servicePackages: true,
+
+    // Disabled for services
+    tables: false,
+    recipes: false,
+    kitchenDisplay: false,
+    menuEngineering: false,
+    pos: false,
+    variants: false,
+    ecommerce: false,
+    loyaltyProgram: false,
+  },
+
+  HYBRID: {
+    // Core modules (all enabled for hybrid)
+    inventory: true,
+    orders: true,
+    customers: true,
+    suppliers: true,
+    reports: true,
+    accounting: true,
+
+    // All vertical-specific modules enabled (admin decides which to use)
+    tables: true,
+    recipes: true,
+    kitchenDisplay: true,
+    menuEngineering: true,
+    pos: true,
+    variants: true,
+    ecommerce: true,
+    loyaltyProgram: true,
+    appointments: true,
+    resources: true,
+    booking: true,
+    servicePackages: true,
+  },
+};
+
+/**
+ * Obtiene los módulos habilitados por defecto para un vertical
+ */
+export function getDefaultModulesForVertical(vertical: string) {
+  return VERTICAL_FEATURES[vertical] || VERTICAL_FEATURES.FOOD_SERVICE;
+}
+
+/**
+ * Verifica si un módulo está disponible para un vertical
+ */
+export function isModuleAvailableForVertical(vertical: string, module: string): boolean {
+  const features = VERTICAL_FEATURES[vertical] || VERTICAL_FEATURES.FOOD_SERVICE;
+  return features[module] ?? false;
+}
