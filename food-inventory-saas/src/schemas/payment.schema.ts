@@ -37,6 +37,9 @@ export class Payment {
   @Prop({ type: String })
   reference?: string;
 
+  @Prop({ type: Types.ObjectId, ref: 'BankAccount', required: false })
+  bankAccountId?: Types.ObjectId;
+
   @Prop({ type: String, required: true, default: 'confirmed' })
   status: string;
 

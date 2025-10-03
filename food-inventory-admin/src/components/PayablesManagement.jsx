@@ -262,6 +262,7 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
   const [newPayable, setNewPayable] = useState(initialPayableState);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedPayable, setSelectedPayable] = useState(null);
 
   const supplierOptions = useMemo(() => 
@@ -274,6 +275,11 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
   const handleOpenPaymentDialog = (payable) => {
     setSelectedPayable(payable);
     setIsPaymentDialogOpen(true);
+  };
+
+  const handleOpenViewDialog = (payable) => {
+    setSelectedPayable(payable);
+    setIsViewDialogOpen(true);
   };
 
   const handlePaymentSuccess = () => {
@@ -515,7 +521,7 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
                   <TableCell>${(payable.paidAmount || 0).toFixed(2)}</TableCell>
                   <TableCell>{payable.status}</TableCell>
                   <TableCell className="text-center">
-                    <Button variant="ghost" size="icon" onClick={() => toast.info('La vista de detalles se implementará pronto.')}>
+                    <Button variant="ghost" size="icon" onClick={() => handleOpenViewDialog(payable)}>
                       <Eye className="h-4 w-4" />
                     </Button>
                   </TableCell>
@@ -530,6 +536,121 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
           </Table>
         </CardContent>
       </Card>
+
+      {/* View Details Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Detalles de Cuenta por Pagar</DialogTitle>
+            <DialogDescription>
+              Información completa del registro
+            </DialogDescription>
+          </DialogHeader>
+          {selectedPayable && (
+            <div className="space-y-4">
+              {/* Información del Proveedor */}
+              <div className="p-4 border rounded-lg space-y-2">
+                <h3 className="font-semibold text-base">Información del Proveedor</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Nombre:</span>
+                    <p className="font-medium">{selectedPayable.payeeName || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Tipo:</span>
+                    <p className="font-medium capitalize">{selectedPayable.payeeType || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Información del Pago */}
+              <div className="p-4 border rounded-lg space-y-2">
+                <h3 className="font-semibold text-base">Detalles del Pago</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Tipo de Gasto:</span>
+                    <p className="font-medium capitalize">{selectedPayable.type?.replace(/_/g, ' ') || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Estado:</span>
+                    <p className="font-medium capitalize">{selectedPayable.status || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Fecha de Emisión:</span>
+                    <p className="font-medium">{new Date(selectedPayable.issueDate).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Fecha de Vencimiento:</span>
+                    <p className="font-medium">{selectedPayable.dueDate ? new Date(selectedPayable.dueDate).toLocaleDateString() : 'No definida'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Líneas del Gasto */}
+              <div className="p-4 border rounded-lg space-y-2">
+                <h3 className="font-semibold text-base">Líneas del Gasto</h3>
+                <div className="space-y-2">
+                  {selectedPayable.lines?.map((line, index) => (
+                    <div key={index} className="flex justify-between items-center p-2 bg-muted rounded text-sm">
+                      <div className="flex-1">
+                        <p className="font-medium">{line.description || 'Sin descripción'}</p>
+                        {line.accountId && (
+                          <p className="text-xs text-muted-foreground">
+                            Cuenta: {accounts.find(a => a._id === line.accountId)?.name || line.accountId}
+                          </p>
+                        )}
+                      </div>
+                      <p className="font-semibold">${Number(line.amount || 0).toFixed(2)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Resumen de Montos */}
+              <div className="p-4 border rounded-lg space-y-2 bg-muted/50">
+                <h3 className="font-semibold text-base">Resumen</h3>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Monto Total:</span>
+                    <span className="font-semibold">${getTotalAmount(selectedPayable.lines).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Monto Pagado:</span>
+                    <span className="font-semibold text-green-600">${(selectedPayable.paidAmount || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t">
+                    <span className="font-semibold">Saldo Pendiente:</span>
+                    <span className="font-bold text-lg text-orange-600">
+                      ${(getTotalAmount(selectedPayable.lines) - (selectedPayable.paidAmount || 0)).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notas */}
+              {selectedPayable.notes && (
+                <div className="p-4 border rounded-lg space-y-2">
+                  <h3 className="font-semibold text-base">Notas</h3>
+                  <p className="text-sm text-muted-foreground">{selectedPayable.notes}</p>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>Cerrar</Button>
+            {selectedPayable && selectedPayable.status !== 'paid' && (
+              <Button onClick={() => {
+                setIsViewDialogOpen(false);
+                handleOpenPaymentDialog(selectedPayable);
+              }}>
+                <CreditCard className="mr-2 h-4 w-4" />
+                Registrar Pago
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <PaymentDialog isOpen={isPaymentDialogOpen} onClose={() => setIsPaymentDialogOpen(false)} payable={selectedPayable} onPaymentSuccess={handlePaymentSuccess} />
     </>
   );

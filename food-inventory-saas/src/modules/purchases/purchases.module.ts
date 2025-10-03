@@ -14,6 +14,7 @@ import { Product, ProductSchema } from "../../schemas/product.schema";
 import { InventoryModule } from "../inventory/inventory.module";
 import { AccountingModule } from "../accounting/accounting.module";
 import { PayablesModule } from "../payables/payables.module"; // Import PayablesModule
+import { EventsModule } from "../events/events.module"; // Import EventsModule
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { PayablesModule } from "../payables/payables.module"; // Import Payables
     InventoryModule,
     AccountingModule,
     PayablesModule, // Add PayablesModule here
+    EventsModule, // Add EventsModule here
   ],
   controllers: [PurchasesController],
   providers: [PurchasesService],

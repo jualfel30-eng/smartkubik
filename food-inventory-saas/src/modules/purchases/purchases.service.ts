@@ -17,6 +17,7 @@ import { CustomersService } from "../customers/customers.service";
 import { InventoryService } from "../inventory/inventory.service";
 import { AccountingService } from "../accounting/accounting.service";
 import { PayablesService, CreatePayableDto } from "../payables/payables.service"; // Import PayablesService and DTO
+import { EventsService } from "../events/events.service"; // Import EventsService
 
 @Injectable()
 export class PurchasesService {
@@ -30,6 +31,7 @@ export class PurchasesService {
     private readonly inventoryService: InventoryService,
     private readonly accountingService: AccountingService,
     private readonly payablesService: PayablesService, // Inject PayablesService
+    private readonly eventsService: EventsService, // Inject EventsService
   ) {}
 
   async create(
@@ -134,6 +136,26 @@ export class PurchasesService {
 
     const newPurchaseOrder = new this.poModel(poData);
     const savedPurchaseOrder = await newPurchaseOrder.save({ session });
+
+    // Crear evento y tarea automáticamente si tiene fecha de pago
+    if (dto.paymentTerms?.paymentDueDate) {
+      try {
+        await this.eventsService.createFromPurchase(
+          {
+            _id: savedPurchaseOrder._id.toString(),
+            purchaseOrderNumber: poNumber,
+            supplierName,
+            totalAmount,
+            paymentDueDate: new Date(dto.paymentTerms.paymentDueDate),
+          },
+          user,
+        );
+        this.logger.log(`Created event and task for purchase order: ${poNumber}`);
+      } catch (error) {
+        this.logger.error(`Error creating event for purchase order: ${error.message}`);
+        // No fallar la creación de la compra si falla el evento
+      }
+    }
 
     this.logger.log(`Creating new purchase order: ${poNumber}`);
     return savedPurchaseOrder;

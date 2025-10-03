@@ -6,6 +6,7 @@ import { Payable, PayableDocument } from '../../schemas/payable.schema';
 import { Order, OrderDocument } from '../../schemas/order.schema';
 import { CreatePaymentDto } from '../../dto/payment.dto';
 import { AccountingService } from '../accounting/accounting.service';
+import { BankAccountsService } from '../bank-accounts/bank-accounts.service';
 
 @Injectable()
 export class PaymentsService {
@@ -16,6 +17,7 @@ export class PaymentsService {
     @InjectModel(Payable.name) private payableModel: Model<PayableDocument>,
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>, // Injected OrderModel
     private readonly accountingService: AccountingService,
+    private readonly bankAccountsService: BankAccountsService,
   ) {}
 
   async create(dto: CreatePaymentDto, user: any): Promise<PaymentDocument> {
@@ -48,6 +50,22 @@ export class PaymentsService {
     } else {
       // This case should ideally not be reached due to initial validation
       throw new BadRequestException('Invalid payment type or missing ID.');
+    }
+
+    // Update bank account balance if bankAccountId is provided
+    if (newPayment.bankAccountId) {
+      try {
+        const adjustment = paymentType === 'sale' ? newPayment.amount : -newPayment.amount;
+        await this.bankAccountsService.updateBalance(
+          newPayment.bankAccountId.toString(),
+          adjustment,
+          tenantId
+        );
+        this.logger.log(`Updated bank account ${newPayment.bankAccountId} balance by ${adjustment}`);
+      } catch (error) {
+        this.logger.error(`Failed to update bank account balance: ${error.message}`);
+        // Don't fail the payment if bank account update fails
+      }
     }
 
     return newPayment;

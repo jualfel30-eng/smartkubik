@@ -5,9 +5,8 @@ import { PayablesService } from './payables.service';
 import { Payable, PayableSchema } from '../../schemas/payable.schema';
 import { Tenant, TenantSchema } from '../../schemas/tenant.schema';
 import { User, UserSchema } from '../../schemas/user.schema';
-import { Event, EventSchema } from '../../schemas/event.schema';
 import { AccountingModule } from '../accounting/accounting.module'; // Import AccountingModule
-import { EventsService } from '../events/events.service';
+import { EventsModule } from '../events/events.module'; // Import EventsModule
 
 @Module({
   imports: [
@@ -15,12 +14,12 @@ import { EventsService } from '../events/events.service';
       { name: Payable.name, schema: PayableSchema },
       { name: Tenant.name, schema: TenantSchema },
       { name: User.name, schema: UserSchema },
-      { name: Event.name, schema: EventSchema },
     ]),
     AccountingModule, // Add AccountingModule here
+    EventsModule, // Add EventsModule here
   ],
   controllers: [PayablesController],
-  providers: [PayablesService, EventsService],
+  providers: [PayablesService],
   exports: [PayablesService], // Export PayablesService to be used in other modules
 })
 export class PayablesModule {}
