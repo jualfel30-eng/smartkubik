@@ -37,6 +37,7 @@ import { TodosModule } from './modules/todos/todos.module';
 import { SeederModule } from './database/seeds/seeder.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
 import { ExchangeRateModule } from './modules/exchange-rate/exchange-rate.module';
+import { BankAccountsModule } from './modules/bank-accounts/bank-accounts.module';
 
 @Module({
   imports: [
@@ -100,6 +101,7 @@ import { ExchangeRateModule } from './modules/exchange-rate/exchange-rate.module
     SeederModule,
     DeliveryModule,
     ExchangeRateModule,
+    BankAccountsModule,
   ],
   controllers: [AppController, TenantController],
   providers: [

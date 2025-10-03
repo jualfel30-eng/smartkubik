@@ -403,16 +403,20 @@ export class InventoryService {
     const minStock = product.inventoryConfig?.minimumStock ?? 0;
     if (minStock > 0 && inventory.availableQuantity <= minStock) {
       inventory.alerts.lowStock = true;
-      const eventDto: CreateEventDto = {
-        title: `Alerta de Stock Bajo: ${product.name}`,
-        description: `El producto ${product.name} (SKU: ${product.sku}) ha alcanzado el umbral de stock mínimo. Cantidad disponible: ${inventory.availableQuantity}, Mínimo: ${minStock}`,
-        start: today.toISOString(),
-        end: today.toISOString(),
-        allDay: true,
-      };
-      await this.eventsService.create(eventDto, user, session);
+
+      // Crear evento y tarea automáticamente para stock bajo
+      await this.eventsService.createFromInventoryAlert(
+        {
+          productName: product.name,
+          alertType: 'low_stock',
+          currentStock: inventory.availableQuantity,
+          minimumStock: minStock,
+        },
+        user,
+      );
+
       inventory.alerts.lastAlertSent = today;
-      this.logger.log(`Low stock alert created for product: ${product.sku}`);
+      this.logger.log(`Low stock alert and task created for product: ${product.sku}`);
     } else {
       inventory.alerts.lowStock = false;
     }
@@ -433,17 +437,20 @@ export class InventoryService {
           lot.availableQuantity > 0
         ) {
           nearExpirationFound = true;
-          const eventDto: CreateEventDto = {
-            title: `Alerta de Vencimiento: ${product.name}`,
-            description: `El lote ${lot.lotNumber} del producto ${product.name} (SKU: ${product.sku}) vence el ${lot.expirationDate.toLocaleDateString()}. Cantidad disponible en lote: ${lot.availableQuantity}`,
-            start: today.toISOString(),
-            end: today.toISOString(),
-            allDay: true,
-          };
-          await this.eventsService.create(eventDto, user, session);
+
+          // Crear evento y tarea automáticamente para producto por vencer
+          await this.eventsService.createFromInventoryAlert(
+            {
+              productName: `${product.name} (Lote: ${lot.lotNumber})`,
+              alertType: 'expiring_soon',
+              expirationDate: lot.expirationDate,
+            },
+            user,
+          );
+
           inventory.alerts.lastAlertSent = today;
           this.logger.log(
-            `Near expiration alert created for product: ${product.sku}, Lot: ${lot.lotNumber}`,
+            `Near expiration alert and task created for product: ${product.sku}, Lot: ${lot.lotNumber}`,
           );
           break;
         }
