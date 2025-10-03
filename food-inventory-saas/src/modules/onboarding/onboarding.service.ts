@@ -11,6 +11,7 @@ import { JwtService } from '@nestjs/jwt';
 import { SeedingService } from '../seeding/seeding.service';
 import { RoleDocument } from '../../schemas/role.schema';
 import { LoggerSanitizer } from '../../utils/logger-sanitizer.util';
+import { getDefaultModulesForVertical } from '../../config/vertical-features.config';
 
 
 @Injectable()
@@ -61,10 +62,22 @@ export class OnboardingService {
     try {
       // 1. Create Tenant
       const trialPlan = await this.subscriptionPlansService.findOneByName('Trial');
+
+      // Determine vertical (default to FOOD_SERVICE if not provided)
+      const vertical = dto.vertical || 'FOOD_SERVICE';
+
+      // Get default enabled modules for the vertical
+      const enabledModules = getDefaultModulesForVertical(vertical);
+
+      this.logger.log(`Creating tenant with vertical: ${vertical}`);
+      this.logger.log(`Enabled modules: ${JSON.stringify(enabledModules)}`);
+
       const newTenant = new this.tenantModel({
         name: dto.businessName,
         code: tenantCode,
         businessType: dto.businessType,
+        vertical: vertical,
+        enabledModules: enabledModules,
         contactInfo: {
           email: dto.email,
           phone: dto.phone,

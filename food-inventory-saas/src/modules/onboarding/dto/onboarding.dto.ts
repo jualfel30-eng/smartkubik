@@ -1,4 +1,4 @@
-import { IsString, IsEmail, MinLength, IsNotEmpty, IsNumber, IsOptional, IsPhoneNumber } from 'class-validator';
+import { IsString, IsEmail, MinLength, IsNotEmpty, IsNumber, IsOptional, IsPhoneNumber, IsEnum } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { SanitizeString } from '../../../decorators/sanitize.decorator';
 
@@ -14,6 +14,16 @@ export class CreateTenantWithAdminDto {
   @IsNotEmpty()
   @SanitizeString()
   businessType: string;
+
+  @ApiProperty({
+    description: 'Vertical del negocio',
+    enum: ['FOOD_SERVICE', 'RETAIL', 'SERVICES', 'LOGISTICS', 'HYBRID'],
+    example: 'FOOD_SERVICE',
+    required: false
+  })
+  @IsEnum(['FOOD_SERVICE', 'RETAIL', 'SERVICES', 'LOGISTICS', 'HYBRID'])
+  @IsOptional()
+  vertical?: string;
 
   @ApiProperty({ description: 'Número de usuarios que usarán el sistema', example: 5 })
   @IsNumber()
