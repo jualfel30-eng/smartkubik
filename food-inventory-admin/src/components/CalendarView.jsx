@@ -11,6 +11,7 @@ import { TodoList } from './TodoList.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMediaQuery } from '@/hooks/use-media-query.js';
+import { useTodos } from '@/hooks/use-todos.js';
 
 export function CalendarView() {
   const [events, setEvents] = useState([]);
@@ -20,6 +21,7 @@ export function CalendarView() {
   const [calendarTitle, setCalendarTitle] = useState('');
   const [activeView, setActiveView] = useState('dayGridMonth');
   const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const { todos, refetch: refetchTodos } = useTodos();
 
   const fetchEvents = useCallback(async () => {
     if (!calendarRef.current) return;
@@ -43,6 +45,41 @@ export function CalendarView() {
   useEffect(() => {
     // El fetch inicial se dispara desde la prop `datesSet` del calendario
   }, []);
+
+  // Combinar eventos con todos que tengan fecha
+  const allCalendarEvents = [...events];
+
+  todos.forEach(todo => {
+    if (todo.dueDate) {
+      const tagColors = {
+        'pagos': '#ef4444',
+        'compras': '#3b82f6',
+        'fiscal': '#a855f7',
+        'legal': '#f59e0b',
+        'produccion': '#22c55e',
+        'mantenimiento': '#f97316',
+      };
+
+      const primaryTag = todo.tags?.[0];
+      const color = tagColors[primaryTag] || '#6366f1';
+
+      allCalendarEvents.push({
+        id: `todo-${todo._id}`,
+        title: `📋 ${todo.title}`,
+        start: todo.dueDate,
+        allDay: true,
+        backgroundColor: color,
+        borderColor: color,
+        extendedProps: {
+          type: 'todo',
+          todoId: todo._id,
+          tags: todo.tags,
+          priority: todo.priority,
+          isCompleted: todo.isCompleted,
+        },
+      });
+    }
+  });
 
   const handleDateSelect = (selectInfo) => {
     setSelectedEvent({
@@ -111,6 +148,8 @@ export function CalendarView() {
       toast.success("Evento Eliminado");
       setIsDialogOpen(false);
       fetchEvents();
+      // Refrescar todos porque la eliminación del evento también elimina tareas relacionadas
+      refetchTodos();
     } catch (error) {
       console.error("Error al eliminar el evento:", error);
       toast.error("Error al eliminar el evento", { description: error.message });
@@ -185,7 +224,7 @@ export function CalendarView() {
                     weekends={true}
                     fixedWeekCount={false}
                     longPressDelay={1}
-                    events={events}
+                    events={allCalendarEvents}
                     select={handleDateSelect}
                     eventClick={handleEventClick}
                     eventDrop={handleEventDrop}
@@ -197,7 +236,7 @@ export function CalendarView() {
             </Card>
           </div>
           <div>
-            <TodoList />
+            <TodoList onTodoComplete={fetchEvents} />
           </div>
         </div>
         <EventDialog 

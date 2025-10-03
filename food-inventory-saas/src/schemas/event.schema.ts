@@ -23,6 +23,18 @@ export class Event {
   @Prop({ type: String, trim: true })
   color?: string;
 
+  @Prop({ type: String, enum: ['manual', 'purchase', 'payment', 'inventory'], default: 'manual' })
+  type: string;
+
+  @Prop({ type: String })
+  relatedPurchaseId?: string;
+
+  @Prop({ type: String })
+  relatedPaymentId?: string;
+
+  @Prop({ type: String })
+  relatedInventoryId?: string;
+
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;
 
