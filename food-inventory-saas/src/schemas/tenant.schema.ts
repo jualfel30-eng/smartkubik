@@ -107,7 +107,7 @@ export class Tenant {
 
   @Prop({
     type: String,
-    enum: ['FOOD_SERVICE', 'RETAIL', 'SERVICES', 'HYBRID'],
+    enum: ['FOOD_SERVICE', 'RETAIL', 'SERVICES', 'LOGISTICS', 'HYBRID'],
     default: 'FOOD_SERVICE',
     required: true
   })
@@ -164,6 +164,14 @@ export class Tenant {
     resources?: boolean;
     booking?: boolean;
     servicePackages?: boolean;
+
+    // LOGISTICS specific modules
+    shipments?: boolean;
+    tracking?: boolean;
+    routes?: boolean;
+    fleet?: boolean;
+    warehousing?: boolean;
+    dispatch?: boolean;
   };
 
   @Prop({ type: String, required: true, default: "trial" })

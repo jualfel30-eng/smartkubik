@@ -30,6 +30,12 @@ export const VERTICAL_FEATURES = {
     resources: false,
     booking: false,
     servicePackages: false,
+    shipments: false,
+    tracking: false,
+    routes: false,
+    fleet: false,
+    warehousing: false,
+    dispatch: false,
   },
 
   RETAIL: {
@@ -56,6 +62,12 @@ export const VERTICAL_FEATURES = {
     resources: false,
     booking: false,
     servicePackages: false,
+    shipments: false,
+    tracking: false,
+    routes: false,
+    fleet: false,
+    warehousing: false,
+    dispatch: false,
   },
 
   SERVICES: {
@@ -82,6 +94,44 @@ export const VERTICAL_FEATURES = {
     variants: false,
     ecommerce: false,
     loyaltyProgram: false,
+    shipments: false,
+    tracking: false,
+    routes: false,
+    fleet: false,
+    warehousing: false,
+    dispatch: false,
+  },
+
+  LOGISTICS: {
+    // Core modules
+    inventory: true,
+    orders: true,
+    customers: true,
+    suppliers: true,
+    reports: true,
+    accounting: true,
+
+    // Logistics specific
+    shipments: true,
+    tracking: true,
+    routes: true,
+    fleet: true,
+    warehousing: true,
+    dispatch: true,
+
+    // Disabled for logistics
+    tables: false,
+    recipes: false,
+    kitchenDisplay: false,
+    menuEngineering: false,
+    pos: false,
+    variants: false,
+    ecommerce: false,
+    loyaltyProgram: false,
+    appointments: false,
+    resources: false,
+    booking: false,
+    servicePackages: false,
   },
 
   HYBRID: {
@@ -106,6 +156,12 @@ export const VERTICAL_FEATURES = {
     resources: true,
     booking: true,
     servicePackages: true,
+    shipments: true,
+    tracking: true,
+    routes: true,
+    fleet: true,
+    warehousing: true,
+    dispatch: true,
   },
 };
 
