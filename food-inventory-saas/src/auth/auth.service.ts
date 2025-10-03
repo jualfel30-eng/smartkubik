@@ -39,7 +39,10 @@ export class AuthService {
     if (isImpersonation) {
       // When impersonating, loginDto is actually a User document or userId
       const userId = typeof loginDto === 'string' ? loginDto : (loginDto as any)._id || (loginDto as any).id;
-      const user = await this.userModel.findById(userId).populate('role').exec();
+      const user = await this.userModel.findById(userId).populate({
+        path: 'role',
+        populate: { path: 'permissions', select: 'name' }
+      }).exec();
       if (!user) {
         throw new NotFoundException('Usuario a impersonar no encontrado');
       }
@@ -517,14 +520,37 @@ export class AuthService {
 
     // Load permission names from database
     let permissionNames: string[] = [];
-    if (role.name === 'super_admin') {
-      permissionNames = role.permissions as string[];
-    } else if (Array.isArray(role.permissions) && role.permissions.length > 0) {
-      const permissionDocs = await this.userModel.db.collection('permissions').find({
-        _id: { $in: role.permissions.map(p => typeof p === 'string' ? new (require('mongoose').Types.ObjectId)(p) : p) }
-      }).toArray();
-      permissionNames = permissionDocs.map(p => p.name);
-      this.logger.log(`🔧 Loaded ${permissionNames.length} permission names from DB`);
+    if (Array.isArray(role.permissions) && role.permissions.length > 0) {
+      const firstPermission = role.permissions[0];
+
+      // Check if permissions are strings (permission names directly)
+      if (typeof firstPermission === 'string') {
+        permissionNames = role.permissions as string[];
+        this.logger.log(`🔧 Permissions are strings: ${permissionNames.length} permissions`);
+      }
+      // Check if permissions are already populated (objects with 'name' property)
+      else if (typeof firstPermission === 'object' && firstPermission !== null && 'name' in firstPermission) {
+        permissionNames = role.permissions.map((p: any) => p.name);
+        this.logger.log(`🔧 Permissions already populated: ${permissionNames.length} permissions`);
+      }
+      // Permissions are ObjectIds, need to fetch from DB
+      else {
+        const ObjectId = require('mongoose').Types.ObjectId;
+        const permissionIds = role.permissions.map(p => {
+          if (typeof p === 'string') {
+            return ObjectId.isValid(p) ? new ObjectId(p) : null;
+          }
+          return p;
+        }).filter(p => p !== null);
+
+        if (permissionIds.length > 0) {
+          const permissionDocs = await this.userModel.db.collection('permissions').find({
+            _id: { $in: permissionIds }
+          }).toArray();
+          permissionNames = permissionDocs.map(p => p.name);
+          this.logger.log(`🔧 Loaded ${permissionNames.length} permission names from DB`);
+        }
+      }
     }
 
     const payload = {

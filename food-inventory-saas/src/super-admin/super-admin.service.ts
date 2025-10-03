@@ -99,23 +99,21 @@ export class SuperAdminService {
   }
 
   async impersonateUser(userId: string, currentUser: any, ipAddress: string): Promise<{ accessToken: string, refreshToken: string }> {
-    const userToImpersonate = await this.userModel.findById(userId).exec();
-    if (!userToImpersonate) {
-      throw new NotFoundException(`Usuario con ID "${userId}" no encontrado`);
-    }
+    // Pass userId string directly to login method (it will fetch and populate the user)
+    const { accessToken, refreshToken, user } = await this.authService.login(userId, true, currentUser.id);
 
-    // Pass userId string directly to login method
-    const { accessToken, refreshToken } = await this.authService.login(userId, true, currentUser.id);
+    console.log('---!!! [DEBUG] userToImpersonate object:', user, '!!! ---');
 
-    console.log('---!!! [DEBUG] userToImpersonate object:', userToImpersonate, '!!! ---');
+    const userIdStr = (user as any)._id ? (user as any)._id.toString() : (user as any).id.toString();
+    const tenantIdStr = (user as any).tenantId ? (user as any).tenantId.toString() : null;
 
     await this.auditLogService.createLog(
       'impersonate_user',
       currentUser.id.toString(),
-      { impersonatedUserEmail: userToImpersonate.email },
+      { impersonatedUserEmail: user.email },
       ipAddress,
-      userToImpersonate.tenantId ? userToImpersonate.tenantId.toString() : null,
-      userToImpersonate._id.toString(),
+      tenantIdStr,
+      userIdStr,
     );
 
     return { accessToken, refreshToken };
