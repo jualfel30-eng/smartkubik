@@ -1,0 +1,68 @@
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException, Logger } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Tenant, TenantDocument } from '../schemas/tenant.schema';
+import { REQUIRED_MODULE_KEY } from '../decorators/require-module.decorator';
+
+/**
+ * Guard to check if a tenant has a specific module enabled
+ * Works in conjunction with @RequireModule() decorator
+ */
+@Injectable()
+export class ModuleAccessGuard implements CanActivate {
+  private readonly logger = new Logger(ModuleAccessGuard.name);
+
+  constructor(
+    private reflector: Reflector,
+    @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    // Get required module from decorator metadata
+    const requiredModule = this.reflector.getAllAndOverride<string>(REQUIRED_MODULE_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    // If no module is required, allow access
+    if (!requiredModule) {
+      return true;
+    }
+
+    const request = context.switchToHttp().getRequest();
+    const user = request.user;
+
+    // Super-admin always has access to all modules
+    if (user?.isSuperAdmin) {
+      this.logger.log(`Super-admin access granted for module: ${requiredModule}`);
+      return true;
+    }
+
+    if (!user || !user.tenantId) {
+      throw new ForbiddenException('Usuario o tenant no encontrado');
+    }
+
+    // Fetch tenant and check if module is enabled
+    const tenant = await this.tenantModel.findById(user.tenantId).exec();
+
+    if (!tenant) {
+      throw new ForbiddenException('Tenant no encontrado');
+    }
+
+    const enabledModules = tenant.enabledModules || {};
+    const isModuleEnabled = enabledModules[requiredModule];
+
+    if (!isModuleEnabled) {
+      this.logger.warn(
+        `Access denied for tenant ${tenant.code}: module '${requiredModule}' is not enabled (vertical: ${tenant.vertical})`,
+      );
+      throw new ForbiddenException(
+        `El módulo '${requiredModule}' no está habilitado para este tenant. Contacte al administrador para habilitar este módulo.`,
+      );
+    }
+
+    this.logger.log(`Access granted for tenant ${tenant.code}: module '${requiredModule}' is enabled`);
+    return true;
+  }
+}
