@@ -6,6 +6,7 @@ import path from 'path'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(),tailwindcss()],
+  assetsInclude: ['**/*.lottie'],
   test: {
     globals: true,
     environment: 'jsdom',

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
+import RubikLoader from './RubikLoader';
 
 export default function AuditLogView() {
   const navigate = useNavigate();
@@ -31,7 +32,7 @@ export default function AuditLogView() {
   }, [loadLogs]);
 
   if (loading) {
-    return <div>Cargando logs de auditoría...</div>;
+    return <RubikLoader message="Cargando logs de auditoría..." />;
   }
 
   if (error) {

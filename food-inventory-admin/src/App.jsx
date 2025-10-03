@@ -5,11 +5,11 @@ import { Badge } from '@/components/ui/badge.jsx';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth, AuthProvider } from './hooks/use-auth.jsx';
 import { useShift, ShiftProvider } from './context/ShiftContext.jsx';
-import { 
-  Package, 
-  Users, 
-  ShoppingCart, 
-  Settings, 
+import {
+  Package,
+  Users,
+  ShoppingCart,
+  Settings,
   LogOut,
   CalendarDays,
   BookCopy,
@@ -20,6 +20,7 @@ import {
   Menu,
   X,
   Truck,
+  Building2,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import './App.css';
@@ -51,12 +52,14 @@ const ReportsPage = lazy(() => import('./pages/ReportsPage.jsx'));
 const SuperAdminLayout = lazy(() => import('./layouts/SuperAdminLayout'));
 const SmartKubikLanding = lazy(() => import('./pages/SmartKubikLanding'));
 const ComprasManagement = lazy(() => import('@/components/ComprasManagement.jsx'));
+const BankAccountsManagement = lazy(() => import('@/components/BankAccountsManagement.jsx'));
+const RubikLoader = lazy(() => import('@/components/RubikLoader.jsx'));
 
 // Loading fallback component
 const LoadingFallback = () => (
-  <div className="flex items-center justify-center h-screen">
-    <div className="text-lg">Cargando...</div>
-  </div>
+  <Suspense fallback={<div className="flex items-center justify-center h-screen"><div className="text-lg">Cargando...</div></div>}>
+    <RubikLoader fullScreen message="Cargando..." />
+  </Suspense>
 );
 
 // Tenant Layout Component
@@ -123,6 +126,7 @@ function TenantLayout() {
     { name: 'Órdenes', href: 'orders', icon: ShoppingCart, permission: 'orders_read' },
     { name: 'Inventario', href: 'inventory-management', icon: Package, permission: 'inventory_read' },
     { name: 'Contabilidad', href: 'accounting-management', icon: BookCopy, permission: 'accounting_read' },
+    { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: Building2, permission: 'accounting_read' },
     { name: 'CRM', href: 'crm', icon: Users, permission: 'customers_read' },
     { name: 'Compras', href: 'purchases', icon: Truck, permission: 'purchases_read' },
     { name: 'Calendario', href: 'calendar', icon: CalendarDays, permission: 'events_read' },
@@ -262,6 +266,7 @@ function TenantLayout() {
             <Route path="purchases" element={<ComprasManagement />} />
             <Route path="accounting-management" element={<AccountingDashboard />} />
             <Route path="accounting/reports/accounts-receivable" element={<AccountsReceivableReport />} />
+            <Route path="bank-accounts" element={<BankAccountsManagement />} />
             <Route path="calendar" element={<CalendarView />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="reports" element={<ReportsPage />} />
