@@ -21,6 +21,9 @@ import {
   X,
   Truck,
   Building2,
+  Calendar,
+  Briefcase,
+  UserSquare,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import './App.css';
@@ -54,6 +57,9 @@ const SmartKubikLanding = lazy(() => import('./pages/SmartKubikLanding'));
 const ComprasManagement = lazy(() => import('@/components/ComprasManagement.jsx'));
 const BankAccountsManagement = lazy(() => import('@/components/BankAccountsManagement.jsx'));
 const RubikLoader = lazy(() => import('@/components/RubikLoader.jsx'));
+const ServicesManagement = lazy(() => import('@/components/ServicesManagement.jsx'));
+const ResourcesManagement = lazy(() => import('@/components/ResourcesManagement.jsx'));
+const AppointmentsManagement = lazy(() => import('@/components/AppointmentsManagement.jsx'));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -129,6 +135,9 @@ function TenantLayout() {
     { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: Building2, permission: 'accounting_read' },
     { name: 'CRM', href: 'crm', icon: Users, permission: 'customers_read' },
     { name: 'Compras', href: 'purchases', icon: Truck, permission: 'purchases_read' },
+    { name: 'Citas', href: 'appointments', icon: Calendar, permission: 'appointments_read' },
+    { name: 'Servicios', href: 'services', icon: Briefcase, permission: 'appointments_read' },
+    { name: 'Recursos', href: 'resources', icon: UserSquare, permission: 'appointments_read' },
     { name: 'Calendario', href: 'calendar', icon: CalendarDays, permission: 'events_read' },
     { name: 'Reportes', href: 'reports', icon: AreaChart, permission: 'reports_read' },
   ];
@@ -267,6 +276,9 @@ function TenantLayout() {
             <Route path="accounting-management" element={<AccountingDashboard />} />
             <Route path="accounting/reports/accounts-receivable" element={<AccountsReceivableReport />} />
             <Route path="bank-accounts" element={<BankAccountsManagement />} />
+            <Route path="appointments" element={<AppointmentsManagement />} />
+            <Route path="services" element={<ServicesManagement />} />
+            <Route path="resources" element={<ResourcesManagement />} />
             <Route path="calendar" element={<CalendarView />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="reports" element={<ReportsPage />} />
