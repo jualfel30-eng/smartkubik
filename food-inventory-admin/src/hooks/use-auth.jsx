@@ -5,23 +5,29 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [tenant, setTenant] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('accessToken'));
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('accessToken'));
 
   useEffect(() => {
     const storedToken = localStorage.getItem('accessToken');
     const storedUser = localStorage.getItem('user');
+    const storedTenant = localStorage.getItem('tenant');
     if (storedToken && storedUser && storedUser !== 'undefined') {
       try {
         setUser(JSON.parse(storedUser));
         setToken(storedToken);
         setIsAuthenticated(true);
+        if (storedTenant && storedTenant !== 'undefined') {
+          setTenant(JSON.parse(storedTenant));
+        }
       } catch (e) {
         console.error("Failed to parse stored user:", e);
         // Clear corrupted data if parsing fails
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
+        localStorage.removeItem('tenant');
       }
     }
   }, []);
@@ -33,17 +39,21 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ email, password, tenantCode }),
       });
 
-      const { accessToken, refreshToken, user: userData } = data.data;
+      const { accessToken, refreshToken, user: userData, tenant: tenantData } = data.data;
       localStorage.setItem('accessToken', accessToken);
       if (refreshToken) {
         localStorage.setItem('refreshToken', refreshToken);
       }
       localStorage.setItem('user', JSON.stringify(userData));
+      if (tenantData) {
+        localStorage.setItem('tenant', JSON.stringify(tenantData));
+        setTenant(tenantData);
+      }
       setToken(accessToken);
       setUser(userData);
       setIsAuthenticated(true);
 
-      return { success: true, user: userData };
+      return { success: true, user: userData, tenant: tenantData };
     } catch (error) {
       console.error('Login failed:', error);
       logout(); // Ensure clean state on failure
@@ -76,8 +86,10 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('tenant');
     setToken(null);
     setUser(null);
+    setTenant(null);
     setIsAuthenticated(false);
   };
 
@@ -101,6 +113,7 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
+    tenant,
     token,
     isAuthenticated,
     login,

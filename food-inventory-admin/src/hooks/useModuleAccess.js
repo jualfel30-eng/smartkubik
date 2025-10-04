@@ -1,5 +1,4 @@
-import { useContext } from 'react';
-import { AuthContext } from '../contexts/AuthContext';
+import { useAuth } from './use-auth';
 
 /**
  * Hook to check if a specific module is enabled for the current tenant
@@ -19,7 +18,7 @@ import { AuthContext } from '../contexts/AuthContext';
  * };
  */
 export const useModuleAccess = (moduleName) => {
-  const { tenant } = useContext(AuthContext);
+  const { tenant } = useAuth();
 
   if (!tenant || !tenant.enabledModules) {
     // If no tenant or no enabledModules, deny access by default
@@ -40,7 +39,7 @@ export const useModuleAccess = (moduleName) => {
  * const hasFoodServiceFeatures = useAnyModuleAccess(['tables', 'recipes', 'kitchenDisplay']);
  */
 export const useAnyModuleAccess = (moduleNames) => {
-  const { tenant } = useContext(AuthContext);
+  const { tenant } = useAuth();
 
   if (!tenant || !tenant.enabledModules) {
     return false;
@@ -59,7 +58,7 @@ export const useAnyModuleAccess = (moduleNames) => {
  * const hasCompleteRetailSuite = useAllModulesAccess(['pos', 'variants', 'ecommerce']);
  */
 export const useAllModulesAccess = (moduleNames) => {
-  const { tenant } = useContext(AuthContext);
+  const { tenant } = useAuth();
 
   if (!tenant || !tenant.enabledModules) {
     return false;
@@ -74,6 +73,6 @@ export const useAllModulesAccess = (moduleNames) => {
  * @returns {string} - Vertical name (e.g., 'FOOD_SERVICE', 'RETAIL', 'LOGISTICS')
  */
 export const useVertical = () => {
-  const { tenant } = useContext(AuthContext);
+  const { tenant } = useAuth();
   return tenant?.vertical || 'FOOD_SERVICE';
 };

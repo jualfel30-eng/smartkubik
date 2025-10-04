@@ -45,6 +45,8 @@ const OrdersManagement = lazy(() => import('@/components/orders/v2/OrdersManagem
 const CalendarView = lazy(() => import('@/components/CalendarView.jsx').then(module => ({ default: module.CalendarView })));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 const DashboardView = lazy(() => import('./components/DashboardView.jsx'));
 const SettingsPage = lazy(() => import('./components/SettingsPage.jsx'));
@@ -297,6 +299,8 @@ function AppContent() {
         <Route path="/" element={<SmartKubikLanding />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route 
           path="/super-admin/*" 

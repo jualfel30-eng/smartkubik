@@ -40,4 +40,34 @@ export class MailService {
 
     await this.transporter.sendMail(mailOptions);
   }
+
+  async sendPasswordResetEmail(email: string, resetToken: string) {
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5174';
+    const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+    const mailOptions = {
+      from: this.configService.get<string>('SMTP_FROM'),
+      to: email,
+      subject: 'Recuperación de Contraseña',
+      html: `
+        <h1>Recuperación de Contraseña</h1>
+        <p>Hola,</p>
+        <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta.</p>
+        <p>Haz clic en el siguiente enlace para restablecer tu contraseña:</p>
+        <p>
+          <a href="${resetLink}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">
+            Restablecer Contraseña
+          </a>
+        </p>
+        <p>O copia y pega este enlace en tu navegador:</p>
+        <p>${resetLink}</p>
+        <p><strong>Este enlace expirará en 1 hora.</strong></p>
+        <p>Si no solicitaste restablecer tu contraseña, puedes ignorar este correo.</p>
+        <p>Saludos,</p>
+        <p>El equipo</p>
+      `,
+    };
+
+    await this.transporter.sendMail(mailOptions);
+  }
 }

@@ -23,6 +23,7 @@ import {
 } from "../dto/auth.dto";
 import { RolesService } from "../modules/roles/roles.service";
 import { Role, RoleDocument } from '../schemas/role.schema';
+import { MailService } from '../modules/mail/mail.service';
 
 @Injectable()
 export class AuthService {
@@ -33,6 +34,7 @@ export class AuthService {
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     private jwtService: JwtService,
     private rolesService: RolesService,
+    private mailService: MailService,
   ) {}
 
   async login(loginDto: LoginDto | UserDocument | string, isImpersonation: boolean = false, impersonatorId?: string) {
@@ -154,6 +156,8 @@ export class AuthService {
           code: tenant.code,
           name: tenant.name,
           businessType: tenant.businessType,
+          vertical: tenant.vertical,
+          enabledModules: tenant.enabledModules,
         },
         ...tokens,
       };
@@ -229,6 +233,9 @@ export class AuthService {
         id: tenant._id,
         code: tenant.code,
         name: tenant.name,
+        businessType: tenant.businessType,
+        vertical: tenant.vertical,
+        enabledModules: tenant.enabledModules,
       },
       ...tokens,
     };
@@ -290,6 +297,8 @@ export class AuthService {
           code: tenant.code,
           name: tenant.name,
           businessType: tenant.businessType,
+          vertical: tenant.vertical,
+          enabledModules: tenant.enabledModules,
         },
         ...tokens,
       };
@@ -451,6 +460,18 @@ export class AuthService {
       );
 
       this.logger.log(`Password reset token generated for user: ${user.email}`);
+
+      // Enviar correo con el link de recuperación
+      try {
+        await this.mailService.sendPasswordResetEmail(user.email, resetToken);
+        this.logger.log(`Password reset email sent to: ${user.email}`);
+      } catch (error) {
+        this.logger.error(`Failed to send password reset email: ${error.message}`);
+        // No lanzamos error para no revelar si el usuario existe
+      }
+    } else {
+      this.logger.log(`Password reset requested for non-existent user: ${forgotPasswordDto.email}`);
+      // No revelamos que el usuario no existe por seguridad
     }
   }
 
@@ -524,28 +545,35 @@ export class AuthService {
       const firstPermission = role.permissions[0];
       const ObjectId = require('mongoose').Types.ObjectId;
 
+      this.logger.log(`🔧 First permission type: ${typeof firstPermission}, value: ${JSON.stringify(firstPermission)}`);
+
       // Check if permissions are already populated (objects with 'name' property)
       if (typeof firstPermission === 'object' && firstPermission !== null && 'name' in firstPermission) {
         permissionNames = role.permissions.map((p: any) => p.name);
         this.logger.log(`🔧 Permissions already populated: ${permissionNames.length} permissions`);
       }
-      // Check if permissions are ObjectIds (check if first item is a valid ObjectId string)
-      else if (typeof firstPermission === 'string' && ObjectId.isValid(firstPermission)) {
+      // Check if permissions are ObjectIds (either string or ObjectId instance)
+      else if (ObjectId.isValid(firstPermission) || firstPermission instanceof ObjectId) {
         // Permissions are ObjectIds, need to fetch from DB
         const permissionIds = role.permissions.map((p: any) => {
-          if (typeof p === 'string') {
-            return ObjectId.isValid(p) ? new ObjectId(p) : null;
+          if (typeof p === 'string' && ObjectId.isValid(p)) {
+            return new ObjectId(p);
+          } else if (p instanceof ObjectId) {
+            return p;
+          } else if (typeof p === 'object' && p._id) {
+            return new ObjectId(p._id);
           }
-          // If it's already an ObjectId instance, use it directly
-          return p;
+          return null;
         }).filter(p => p !== null);
+
+        this.logger.log(`🔧 Found ${permissionIds.length} ObjectIds to load`);
 
         if (permissionIds.length > 0) {
           const permissionDocs = await this.userModel.db.collection('permissions').find({
             _id: { $in: permissionIds }
           }).toArray();
           permissionNames = permissionDocs.map(p => p.name);
-          this.logger.log(`🔧 Loaded ${permissionNames.length} permission names from DB (were ObjectIds)`);
+          this.logger.log(`🔧 Loaded ${permissionNames.length} permission names from DB: ${permissionNames.slice(0, 5).join(', ')}...`);
         }
       }
       // Check if permissions are strings (permission names directly)
@@ -553,6 +581,8 @@ export class AuthService {
         permissionNames = role.permissions as string[];
         this.logger.log(`🔧 Permissions are permission name strings: ${permissionNames.length} permissions`);
       }
+    } else {
+      this.logger.warn(`⚠️ Role ${role.name} has no permissions or permissions is not an array`);
     }
 
     const payload = {

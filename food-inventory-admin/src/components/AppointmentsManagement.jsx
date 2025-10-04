@@ -122,9 +122,10 @@ function AppointmentsManagement() {
   const loadCustomers = async () => {
     try {
       const data = await fetchApi('/customers');
-      setCustomers(data);
+      setCustomers(data.data || data || []);
     } catch (error) {
       console.error('Error loading customers:', error);
+      setCustomers([]);
     }
   };
 

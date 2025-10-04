@@ -10,10 +10,12 @@ import { User, UserSchema } from "../schemas/user.schema";
 import { Tenant, TenantSchema } from "../schemas/tenant.schema";
 import { RolesModule } from '../modules/roles/roles.module';
 import { GoogleStrategy } from './google.strategy';
+import { MailModule } from '../modules/mail/mail.module';
 
 @Module({
   imports: [
     RolesModule,
+    MailModule,
     PassportModule.register({ defaultStrategy: "jwt" }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

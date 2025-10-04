@@ -91,8 +91,13 @@ export default function TenantConfigurationEdit() {
   const loadTenantConfiguration = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/super-admin/tenants/${tenantId}/configuration`);
-      const { tenant, roles, allPermissions } = response.data;
+      const data = await api.get(`/super-admin/tenants/${tenantId}/configuration`);
+      console.log('📊 Data recibida del backend:', data);
+
+      const { tenant, roles, allPermissions } = data;
+      console.log('👤 Tenant:', tenant);
+      console.log('🎭 Roles:', roles);
+      console.log('🔑 All Permissions:', allPermissions);
 
       setTenant(tenant);
       setRoles(roles);
@@ -104,9 +109,10 @@ export default function TenantConfigurationEdit() {
       roles.forEach(role => {
         rolePerms[role._id] = role.permissions.map(p => p._id || p);
       });
+      console.log('✅ Role Permissions State:', rolePerms);
       setRolePermissions(rolePerms);
     } catch (error) {
-      console.error('Error loading tenant configuration:', error);
+      console.error('❌ Error loading tenant configuration:', error);
       toast.error('Error al cargar la configuración del tenant');
     } finally {
       setLoading(false);
@@ -160,13 +166,16 @@ export default function TenantConfigurationEdit() {
     }
   };
 
-  // Group permissions by module
+  // Group permissions by module (or category for legacy permissions)
   const permissionsByModule = allPermissions.reduce((acc, permission) => {
-    const module = permission.module || 'other';
+    const module = permission.module || permission.category || 'other';
     if (!acc[module]) acc[module] = [];
     acc[module].push(permission);
     return acc;
   }, {});
+
+  console.log('🗂️ Permissions by Module:', permissionsByModule);
+  console.log('📋 Roles array length:', roles.length);
 
   if (loading) {
     return (
