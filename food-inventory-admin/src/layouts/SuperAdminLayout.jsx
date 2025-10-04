@@ -20,6 +20,7 @@ import SuperAdminCrm from '@/components/super-admin/SuperAdminCrm';
 import SuperAdminCalendar from '@/components/super-admin/SuperAdminCalendar';
 import TenantUserList from '@/components/TenantUserList';
 import AuditLogView from '@/components/AuditLogView';
+import TenantConfigurationEdit from '@/components/super-admin/TenantConfigurationEdit';
 
 const navItems = [
   { to: '/super-admin/tenants', icon: Settings, label: 'Gestión de Tenants' },
@@ -127,6 +128,7 @@ function SuperAdminLayout() {
               <Route path="calendar" element={<SuperAdminCalendar />} />
               <Route path="tenants" element={<SuperAdminDashboard />} />
               <Route path="tenants/:tenantId/users" element={<TenantUserList />} />
+              <Route path="tenants/:tenantId/configuration" element={<TenantConfigurationEdit />} />
               <Route path="audit-logs" element={<AuditLogView />} />
               <Route path="*" element={<Navigate to="tenants" />} />
             </Routes>

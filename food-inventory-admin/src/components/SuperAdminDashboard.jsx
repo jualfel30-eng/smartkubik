@@ -146,6 +146,7 @@ export default function SuperAdminDashboard() {
                     <TableCell className="space-x-2">
                       <Button variant="outline" size="sm" onClick={() => setEditingTenant(tenant)}>Editar</Button>
                       <Button variant="outline" size="sm" onClick={() => navigate(`/super-admin/tenants/${tenant._id}/users`)}>Ver Usuarios</Button>
+                      <Button variant="outline" size="sm" onClick={() => navigate(`/super-admin/tenants/${tenant._id}/configuration`)}>Configurar</Button>
                     </TableCell>
                   </TableRow>
                 ))}
