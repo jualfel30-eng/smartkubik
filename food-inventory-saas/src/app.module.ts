@@ -38,6 +38,7 @@ import { SeederModule } from './database/seeds/seeder.module';
 import { DeliveryModule } from './modules/delivery/delivery.module';
 import { ExchangeRateModule } from './modules/exchange-rate/exchange-rate.module';
 import { BankAccountsModule } from './modules/bank-accounts/bank-accounts.module';
+import { AppointmentsModule } from './modules/appointments/appointments.module';
 
 @Module({
   imports: [
@@ -102,6 +103,7 @@ import { BankAccountsModule } from './modules/bank-accounts/bank-accounts.module
     DeliveryModule,
     ExchangeRateModule,
     BankAccountsModule,
+    AppointmentsModule,
   ],
   controllers: [AppController, TenantController],
   providers: [
