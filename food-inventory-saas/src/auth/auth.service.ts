@@ -522,20 +522,19 @@ export class AuthService {
     let permissionNames: string[] = [];
     if (Array.isArray(role.permissions) && role.permissions.length > 0) {
       const firstPermission = role.permissions[0];
+      const ObjectId = require('mongoose').Types.ObjectId;
 
-      // Check if permissions are strings (permission names directly)
-      if (typeof firstPermission === 'string') {
-        permissionNames = role.permissions as string[];
-        this.logger.log(`🔧 Permissions are strings: ${permissionNames.length} permissions`);
-      }
       // Check if permissions are already populated (objects with 'name' property)
-      else if (typeof firstPermission === 'object' && firstPermission !== null && 'name' in firstPermission) {
+      if (typeof firstPermission === 'object' && firstPermission !== null && 'name' in firstPermission) {
         permissionNames = role.permissions.map((p: any) => p.name);
         this.logger.log(`🔧 Permissions already populated: ${permissionNames.length} permissions`);
       }
-      // Permissions are ObjectIds, need to fetch from DB
-      else {
-        const ObjectId = require('mongoose').Types.ObjectId;
+      // Check if permissions are ObjectIds (as strings or ObjectId instances)
+      else if (
+        (typeof firstPermission === 'string' && ObjectId.isValid(firstPermission)) ||
+        (typeof firstPermission === 'object' && firstPermission instanceof ObjectId)
+      ) {
+        // Permissions are ObjectIds, need to fetch from DB
         const permissionIds = role.permissions.map(p => {
           if (typeof p === 'string') {
             return ObjectId.isValid(p) ? new ObjectId(p) : null;
@@ -548,8 +547,13 @@ export class AuthService {
             _id: { $in: permissionIds }
           }).toArray();
           permissionNames = permissionDocs.map(p => p.name);
-          this.logger.log(`🔧 Loaded ${permissionNames.length} permission names from DB`);
+          this.logger.log(`🔧 Loaded ${permissionNames.length} permission names from DB (were ObjectIds)`);
         }
+      }
+      // Check if permissions are strings (permission names directly)
+      else if (typeof firstPermission === 'string') {
+        permissionNames = role.permissions as string[];
+        this.logger.log(`🔧 Permissions are permission name strings: ${permissionNames.length} permissions`);
       }
     }
 
