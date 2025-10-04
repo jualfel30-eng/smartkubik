@@ -532,7 +532,7 @@ export class AuthService {
       // Check if permissions are ObjectIds (as strings or ObjectId instances)
       else if (
         (typeof firstPermission === 'string' && ObjectId.isValid(firstPermission)) ||
-        (typeof firstPermission === 'object' && firstPermission instanceof ObjectId)
+        (typeof firstPermission === 'object' && firstPermission !== null && firstPermission.constructor?.name === 'ObjectId')
       ) {
         // Permissions are ObjectIds, need to fetch from DB
         const permissionIds = role.permissions.map(p => {
