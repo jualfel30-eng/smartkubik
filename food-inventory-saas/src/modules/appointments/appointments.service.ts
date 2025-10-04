@@ -59,7 +59,7 @@ export class AppointmentsService {
     }
 
     // Validate resource (if provided)
-    let resource = null;
+    let resource: any = null;
     if (createAppointmentDto.resourceId) {
       resource = await this.resourceModel
         .findOne({ _id: createAppointmentDto.resourceId, tenantId })
@@ -88,12 +88,17 @@ export class AppointmentsService {
       );
     }
 
+    // Get primary phone from customer contacts
+    const primaryPhone = customer.contacts?.find(
+      (c: any) => c.type === 'phone' && c.isPrimary,
+    )?.value || customer.contacts?.find((c: any) => c.type === 'phone')?.value;
+
     // Create appointment with denormalized data
     const newAppointment = new this.appointmentModel({
       ...createAppointmentDto,
       tenantId,
       customerName: customer.name,
-      customerPhone: customer.phone,
+      customerPhone: primaryPhone,
       serviceName: service.name,
       serviceDuration: service.duration,
       servicePrice: service.price,
@@ -226,10 +231,14 @@ export class AppointmentsService {
 
     const updated = await this.appointmentModel
       .findOneAndUpdate({ _id: id, tenantId }, { $set: updateData }, { new: true })
-      .populate('customerId', 'name phone email')
+      .populate('customerId', 'name contacts email')
       .populate('serviceId', 'name duration price')
       .populate('resourceId', 'name type')
       .exec();
+
+    if (!updated) {
+      throw new NotFoundException(`Cita con ID ${id} no encontrada`);
+    }
 
     this.logger.log(`Appointment updated successfully: ${id}`);
     return updated;
