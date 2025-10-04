@@ -8,7 +8,15 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { ArrowLeft, Save, Settings, Shield } from 'lucide-react';
-import api from '@/lib/api';
+import { fetchApi } from '@/lib/api';
+
+const api = {
+  get: (url) => fetchApi(url, { method: 'GET' }),
+  post: (url, data) => fetchApi(url, { method: 'POST', body: JSON.stringify(data) }),
+  patch: (url, data) => fetchApi(url, { method: 'PATCH', body: JSON.stringify(data) }),
+  put: (url, data) => fetchApi(url, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (url) => fetchApi(url, { method: 'DELETE' }),
+};
 
 const MODULE_GROUPS = {
   core: {
