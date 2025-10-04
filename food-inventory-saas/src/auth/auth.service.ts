@@ -529,16 +529,14 @@ export class AuthService {
         permissionNames = role.permissions.map((p: any) => p.name);
         this.logger.log(`🔧 Permissions already populated: ${permissionNames.length} permissions`);
       }
-      // Check if permissions are ObjectIds (as strings or ObjectId instances)
-      else if (
-        (typeof firstPermission === 'string' && ObjectId.isValid(firstPermission)) ||
-        (typeof firstPermission === 'object' && firstPermission !== null && firstPermission.constructor?.name === 'ObjectId')
-      ) {
+      // Check if permissions are ObjectIds (check if first item is a valid ObjectId string)
+      else if (typeof firstPermission === 'string' && ObjectId.isValid(firstPermission)) {
         // Permissions are ObjectIds, need to fetch from DB
-        const permissionIds = role.permissions.map(p => {
+        const permissionIds = role.permissions.map((p: any) => {
           if (typeof p === 'string') {
             return ObjectId.isValid(p) ? new ObjectId(p) : null;
           }
+          // If it's already an ObjectId instance, use it directly
           return p;
         }).filter(p => p !== null);
 
