@@ -3,6 +3,8 @@ import { SuperAdminService } from './super-admin.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { SuperAdminGuard } from '../guards/super-admin.guard';
 import { UpdateTenantDto } from '../dto/update-tenant.dto';
+import { UpdateTenantModulesDto } from '../dto/update-tenant-modules.dto';
+import { UpdateRolePermissionsDto } from '../dto/update-role-permissions.dto';
 
 @UseGuards(JwtAuthGuard, SuperAdminGuard)
 @Controller('super-admin')
@@ -52,5 +54,28 @@ export class SuperAdminController {
   @Get('events')
   findAllEvents() {
     return this.superAdminService.findAllEvents();
+  }
+
+  @Get('tenants/:id/configuration')
+  getTenantConfiguration(@Param('id') id: string) {
+    return this.superAdminService.getTenantConfiguration(id);
+  }
+
+  @Patch('tenants/:id/modules')
+  updateTenantModules(
+    @Param('id') id: string,
+    @Body() updateDto: UpdateTenantModulesDto,
+    @Req() req
+  ) {
+    return this.superAdminService.updateTenantModules(id, updateDto, req.user.id, req.ip);
+  }
+
+  @Patch('roles/:roleId/permissions')
+  updateRolePermissions(
+    @Param('roleId') roleId: string,
+    @Body() updateDto: UpdateRolePermissionsDto,
+    @Req() req
+  ) {
+    return this.superAdminService.updateRolePermissions(roleId, updateDto, req.user.id, req.ip);
   }
 }

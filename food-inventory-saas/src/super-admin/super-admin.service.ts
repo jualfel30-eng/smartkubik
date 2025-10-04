@@ -4,7 +4,11 @@ import { Model, Types } from 'mongoose';
 import { Tenant, TenantDocument } from '../schemas/tenant.schema';
 import { User, UserDocument } from '../schemas/user.schema';
 import { Event, EventDocument } from '../schemas/event.schema';
+import { Role, RoleDocument } from '../schemas/role.schema';
+import { Permission, PermissionDocument } from '../schemas/permission.schema';
 import { UpdateTenantDto } from '../dto/update-tenant.dto';
+import { UpdateTenantModulesDto } from '../dto/update-tenant-modules.dto';
+import { UpdateRolePermissionsDto } from '../dto/update-role-permissions.dto';
 import { AuthService } from '../auth/auth.service';
 import { AuditLogService } from '../modules/audit-log/audit-log.service';
 import { getPlanLimits } from '../config/subscriptions.config';
@@ -15,6 +19,8 @@ export class SuperAdminService {
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Event.name) private eventModel: Model<EventDocument>,
+    @InjectModel(Role.name) private roleModel: Model<RoleDocument>,
+    @InjectModel(Permission.name) private permissionModel: Model<PermissionDocument>,
     @Inject(AuthService) private authService: AuthService,
     private auditLogService: AuditLogService,
   ) {}
@@ -151,5 +157,105 @@ export class SuperAdminService {
       newUsersLast30Days,
       activeUsersLast24Hours,
     };
+  }
+
+  /**
+   * Get tenant configuration including modules and roles with permissions
+   */
+  async getTenantConfiguration(tenantId: string) {
+    const tenant = await this.tenantModel.findById(tenantId).exec();
+    if (!tenant) {
+      throw new NotFoundException(`Tenant con ID "${tenantId}" no encontrado`);
+    }
+
+    // Get all roles for this tenant
+    const roles = await this.roleModel
+      .find({ tenantId: new Types.ObjectId(tenantId) })
+      .populate('permissions')
+      .exec();
+
+    // Get all available permissions
+    const allPermissions = await this.permissionModel.find().exec();
+
+    return {
+      tenant,
+      roles,
+      allPermissions,
+    };
+  }
+
+  /**
+   * Update tenant enabled modules
+   */
+  async updateTenantModules(
+    tenantId: string,
+    updateDto: UpdateTenantModulesDto,
+    performedBy: string,
+    ipAddress: string,
+  ) {
+    const tenant = await this.tenantModel.findById(tenantId).exec();
+    if (!tenant) {
+      throw new NotFoundException(`Tenant con ID "${tenantId}" no encontrado`);
+    }
+
+    const oldModules = { ...tenant.enabledModules };
+
+    const updatedTenant = await this.tenantModel.findByIdAndUpdate(
+      tenantId,
+      { $set: { enabledModules: updateDto.enabledModules } },
+      { new: true },
+    ).exec();
+
+    if (!updatedTenant) {
+      throw new NotFoundException(`Tenant con ID "${tenantId}" no encontrado`);
+    }
+
+    await this.auditLogService.createLog(
+      'update_tenant_modules',
+      performedBy,
+      { oldModules, newModules: updatedTenant.enabledModules },
+      ipAddress,
+      tenantId,
+    );
+
+    return updatedTenant;
+  }
+
+  /**
+   * Update permissions for a specific role
+   */
+  async updateRolePermissions(
+    roleId: string,
+    updateDto: UpdateRolePermissionsDto,
+    performedBy: string,
+    ipAddress: string,
+  ) {
+    const role = await this.roleModel.findById(roleId).exec();
+    if (!role) {
+      throw new NotFoundException(`Rol con ID "${roleId}" no encontrado`);
+    }
+
+    const oldPermissions = role.permissions.map(p => p.toString());
+
+    const updatedRole = await this.roleModel.findByIdAndUpdate(
+      roleId,
+      { $set: { permissions: updateDto.permissionIds } },
+      { new: true },
+    ).populate('permissions').exec();
+
+    await this.auditLogService.createLog(
+      'update_role_permissions',
+      performedBy,
+      {
+        roleId,
+        roleName: role.name,
+        oldPermissions,
+        newPermissions: updateDto.permissionIds
+      },
+      ipAddress,
+      role.tenantId?.toString(),
+    );
+
+    return updatedRole;
   }
 }
