@@ -1,10 +1,9 @@
 import ModernEcommerce from '@/templates/ModernEcommerce';
-// Importar otros templates cuando se creen
-// import ModernServices from '@/templates/ModernServices'; // Prompt 6
+import ModernServices from '@/templates/ModernServices';
 
 const TEMPLATES = {
   'modern-ecommerce': ModernEcommerce,
-  // 'modern-services': ModernServices, // Prompt 6
+  'modern-services': ModernServices,
 };
 
 /**
