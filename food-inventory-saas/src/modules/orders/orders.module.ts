@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { OrdersController } from "./orders.controller";
+import { OrdersPublicController } from "./orders-public.controller";
 import { OrdersService } from "./orders.service";
 import { AuthModule } from "../../auth/auth.module";
 import { InventoryModule } from "../inventory/inventory.module";
@@ -30,7 +31,7 @@ import { DeliveryModule } from "../delivery/delivery.module";
       { name: Tenant.name, schema: TenantSchema },
     ]),
   ],
-  controllers: [OrdersController],
+  controllers: [OrdersController, OrdersPublicController],
   providers: [OrdersService],
   exports: [OrdersService],
 })

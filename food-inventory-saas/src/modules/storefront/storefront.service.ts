@@ -400,3 +400,20 @@ export class StorefrontService {
     };
   }
 }
+
+  /**
+   * Obtener lista de dominios activos (para Next.js ISR)
+   */
+  async getActiveDomains(): Promise<string[]> {
+    this.logger.log("Getting list of active domains");
+
+    const configs = await this.storefrontConfigModel
+      .find({ isActive: true }, { domain: 1, _id: 0 })
+      .exec();
+
+    const domains = configs.map((config) => config.domain);
+
+    this.logger.log(`Found ${domains.length} active domains`);
+
+    return domains;
+  }

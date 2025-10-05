@@ -201,3 +201,37 @@ export class StorefrontPublicController {
     };
   }
 }
+
+  @Public()
+  @Get("active-domains")
+  @ApiOperation({
+    summary: "Obtener lista de dominios activos",
+    description:
+      "Endpoint público para obtener la lista de todos los dominios de storefront activos. Útil para Next.js generateStaticParams()",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Lista de dominios obtenida exitosamente",
+    schema: {
+      type: "object",
+      properties: {
+        success: { type: "boolean", example: true },
+        data: {
+          type: "array",
+          items: { type: "string" },
+          example: [
+            "tienda-ejemplo.localhost",
+            "salon-belleza.localhost",
+            "demo-store.smartkubik.com",
+          ],
+        },
+      },
+    },
+  })
+  async getActiveDomains() {
+    const domains = await this.storefrontService.getActiveDomains();
+    return {
+      success: true,
+      data: domains,
+    };
+  }

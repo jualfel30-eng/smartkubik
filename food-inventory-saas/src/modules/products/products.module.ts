@@ -1,6 +1,7 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { ProductsController } from "./products.controller";
+import { ProductsPublicController } from "./products-public.controller";
 import { ProductsService } from "./products.service";
 import { AuthModule } from "../../auth/auth.module";
 import { Product, ProductSchema } from "../../schemas/product.schema";
@@ -22,7 +23,7 @@ import { RolesModule } from '../roles/roles.module';
     forwardRef(() => InventoryModule),
     forwardRef(() => PurchasesModule),
   ],
-  controllers: [ProductsController],
+  controllers: [ProductsController, ProductsPublicController],
   providers: [ProductsService],
   exports: [ProductsService],
 })
