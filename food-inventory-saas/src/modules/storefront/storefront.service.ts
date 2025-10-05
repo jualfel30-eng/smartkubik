@@ -399,7 +399,6 @@ export class StorefrontService {
       message: "Configuración de storefront eliminada exitosamente",
     };
   }
-}
 
   /**
    * Obtener lista de dominios activos (para Next.js ISR)
@@ -417,3 +416,4 @@ export class StorefrontService {
 
     return domains;
   }
+}
