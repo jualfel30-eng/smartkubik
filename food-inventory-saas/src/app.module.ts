@@ -39,6 +39,7 @@ import { DeliveryModule } from './modules/delivery/delivery.module';
 import { ExchangeRateModule } from './modules/exchange-rate/exchange-rate.module';
 import { BankAccountsModule } from './modules/bank-accounts/bank-accounts.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
+import { StorefrontModule } from './modules/storefront/storefront.module';
 
 @Module({
   imports: [
@@ -104,6 +105,7 @@ import { AppointmentsModule } from './modules/appointments/appointments.module';
     ExchangeRateModule,
     BankAccountsModule,
     AppointmentsModule,
+    StorefrontModule,
   ],
   controllers: [AppController, TenantController],
   providers: [
