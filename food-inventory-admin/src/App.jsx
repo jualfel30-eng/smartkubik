@@ -24,6 +24,7 @@ import {
   Calendar,
   Briefcase,
   UserSquare,
+  Store,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import './App.css';
@@ -62,6 +63,7 @@ const RubikLoader = lazy(() => import('@/components/RubikLoader.jsx'));
 const ServicesManagement = lazy(() => import('@/components/ServicesManagement.jsx'));
 const ResourcesManagement = lazy(() => import('@/components/ResourcesManagement.jsx'));
 const AppointmentsManagement = lazy(() => import('@/components/AppointmentsManagement.jsx'));
+const StorefrontSettings = lazy(() => import('@/components/StorefrontSettings'));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -133,6 +135,7 @@ function TenantLayout() {
     { name: 'Panel de Control', href: 'dashboard', icon: LayoutDashboard, permission: 'dashboard_read' },
     { name: 'Órdenes', href: 'orders', icon: ShoppingCart, permission: 'orders_read' },
     { name: 'Inventario', href: 'inventory-management', icon: Package, permission: 'inventory_read' },
+    { name: 'Mi Storefront', href: 'storefront', icon: Store, permission: 'dashboard_read' },
     { name: 'Contabilidad', href: 'accounting-management', icon: BookCopy, permission: 'accounting_read' },
     { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: Building2, permission: 'accounting_read' },
     { name: 'CRM', href: 'crm', icon: Users, permission: 'customers_read' },
@@ -272,6 +275,7 @@ function TenantLayout() {
           <Routes>
             <Route path="dashboard" element={<DashboardView />} />
             <Route path="inventory-management" element={<InventoryDashboard />} />
+            <Route path="storefront" element={<StorefrontSettings />} />
             <Route path="crm" element={<CRMManagement />} />
             <Route path="orders" element={<OrdersManagement />} />
             <Route path="purchases" element={<ComprasManagement />} />
