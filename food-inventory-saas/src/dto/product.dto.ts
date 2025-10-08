@@ -530,4 +530,10 @@ export class ProductQueryDto {
   @IsOptional()
   @IsEnum(["asc", "desc"])
   sortOrder?: string = "desc";
+
+  @ApiPropertyOptional({ description: "Incluir productos inactivos en el resultado", default: false })
+  @IsOptional()
+  @Transform(({ value }) => value === "true" || value === true)
+  @IsBoolean()
+  includeInactive?: boolean = false;
 }

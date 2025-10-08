@@ -70,6 +70,7 @@ function ProductsManagement() {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newProduct, setNewProduct] = useState(initialNewProductState);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -125,11 +126,20 @@ function ProductsManagement() {
     }
   }, [isAddDialogOpen]);
 
-  const loadProducts = useCallback(async () => {
+  const loadProducts = useCallback(async (status = 'all') => {
     try {
       setLoading(true);
       setError(null);
-      const data = await fetchApi('/products');
+      const baseParams = new URLSearchParams({ page: '1', limit: '100' });
+      if (status === 'active') {
+        baseParams.set('isActive', 'true');
+      } else if (status === 'inactive') {
+        baseParams.set('isActive', 'false');
+      } else {
+        baseParams.set('includeInactive', 'true');
+      }
+      const queryString = `?${baseParams.toString()}`;
+      const data = await fetchApi(`/products${queryString}`);
       setProducts(data.data || []);
     } catch (err) {
       setError(err.message);
@@ -140,23 +150,27 @@ function ProductsManagement() {
   }, []);
 
   useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
+    loadProducts(statusFilter);
+  }, [loadProducts, statusFilter]);
 
   useEffect(() => {
     let filtered = products;
     if (searchTerm) {
-      filtered = filtered.filter(p => 
+      filtered = filtered.filter((p) =>
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.brand.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
     if (filterCategory !== 'all') {
-      filtered = filtered.filter(p => p.category === filterCategory);
+      filtered = filtered.filter((p) => p.category === filterCategory);
+    }
+    if (statusFilter !== 'all') {
+      const shouldBeActive = statusFilter === 'active';
+      filtered = filtered.filter((p) => (p.isActive ?? true) === shouldBeActive);
     }
     setFilteredProducts(filtered);
-  }, [searchTerm, filterCategory, products]);
+  }, [searchTerm, filterCategory, statusFilter, products]);
 
   const categories = [...new Set(products.map(p => p.category))];
 
@@ -182,7 +196,7 @@ function ProductsManagement() {
       await fetchApi('/products', { method: 'POST', body: JSON.stringify(payload) });
       document.dispatchEvent(new CustomEvent('product-form-success'));
       setIsAddDialogOpen(false);
-      loadProducts();
+      loadProducts(statusFilter);
     } catch (err) {
       alert(`Error: ${err.message}`);
     }
@@ -214,7 +228,7 @@ function ProductsManagement() {
       });
       setIsEditDialogOpen(false);
       setEditingProduct(null);
-      loadProducts();
+      loadProducts(statusFilter);
     } catch (err) {
       alert(`Error al actualizar el producto: ${err.message}`);
     }
@@ -224,7 +238,7 @@ function ProductsManagement() {
     if (window.confirm('¿Estás seguro de que quieres eliminar este producto?')) {
       try {
         await fetchApi(`/products/${productId}`, { method: 'DELETE' });
-        loadProducts();
+        loadProducts(statusFilter);
       } catch (err) {
         alert(`Error: ${err.message}`);
       }
@@ -369,7 +383,7 @@ function ProductsManagement() {
 
       setIsPreviewDialogOpen(false);
       alert(`${payload.products.length} productos importados exitosamente.`);
-      loadProducts(); // Recargar la lista de productos
+      loadProducts(statusFilter); // Recargar la lista de productos
 
     } catch (error) {
       alert(`Error al importar los productos: ${error.message}`);
@@ -424,11 +438,11 @@ function ProductsManagement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-start items-center space-x-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">Acciones en Lote</Button>
-            </DropdownMenuTrigger>
+          <div className="flex justify-start items-center space-x-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">Acciones en Lote</Button>
+              </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuItem onSelect={handleDownloadTemplate}>
                 Descargar Plantilla
@@ -942,6 +956,16 @@ function ProductsManagement() {
               <SelectContent>
                 <SelectItem value="all">Todas las categorías</SelectItem>
                 {categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value)}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filtrar por estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los estados</SelectItem>
+                <SelectItem value="active">Solo activos</SelectItem>
+                <SelectItem value="inactive">Solo inactivos</SelectItem>
               </SelectContent>
             </Select>
           </div>

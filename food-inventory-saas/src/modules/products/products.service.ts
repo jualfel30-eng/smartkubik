@@ -305,8 +305,12 @@ export class ProductsService {
       category,
       brand,
       isActive = true,
+      includeInactive = false,
     } = query;
-    const filter: any = { tenantId: tenantId, isActive };
+    const filter: any = { tenantId: tenantId };
+    if (!includeInactive) {
+      filter.isActive = isActive;
+    }
     if (search) {
       filter.$text = { $search: search };
     }
