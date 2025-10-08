@@ -9,7 +9,7 @@ import { StorefrontService } from "./storefront.service";
 import { Public } from "../../decorators/public.decorator";
 
 @ApiTags("Storefront Public")
-@Controller("api/v1/public/storefront")
+@Controller("public/storefront")
 export class StorefrontPublicController {
   constructor(private readonly storefrontService: StorefrontService) {}
 
@@ -200,7 +200,6 @@ export class StorefrontPublicController {
       data: config,
     };
   }
-}
 
   @Public()
   @Get("active-domains")
@@ -235,3 +234,5 @@ export class StorefrontPublicController {
       data: domains,
     };
   }
+
+}

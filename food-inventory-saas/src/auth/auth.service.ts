@@ -24,6 +24,7 @@ import {
 import { RolesService } from "../modules/roles/roles.service";
 import { Role, RoleDocument } from '../schemas/role.schema';
 import { MailService } from '../modules/mail/mail.service';
+import { TokenService } from './token.service';
 
 @Injectable()
 export class AuthService {
@@ -35,6 +36,7 @@ export class AuthService {
     private jwtService: JwtService,
     private rolesService: RolesService,
     private mailService: MailService,
+    private tokenService: TokenService,
   ) {}
 
   async login(loginDto: LoginDto | UserDocument | string, isImpersonation: boolean = false, impersonatorId?: string) {
@@ -49,7 +51,10 @@ export class AuthService {
         throw new NotFoundException('Usuario a impersonar no encontrado');
       }
       const tenant = await this.tenantModel.findById(user.tenantId).exec();
-      const tokens = await this.generateTokens(user, tenant, true, impersonatorId);
+      const tokens = await this.tokenService.generateTokens(user, tenant, {
+        impersonation: true,
+        impersonatorId,
+      });
       return {
         user,
         tenant,
@@ -135,7 +140,7 @@ export class AuthService {
     this.logger.log(`🏢 Fetching tenant info...`);
     const tenant = tenantCode ? await this.tenantModel.findById(user.tenantId).exec() : null;
     this.logger.log(`🔑 Generating tokens...`);
-    const tokens = await this.generateTokens(user, tenant);
+    const tokens = await this.tokenService.generateTokens(user, tenant);
 
     this.logger.log(`✅ Successful login for user: ${user.email}`);
 
@@ -215,8 +220,11 @@ export class AuthService {
 
     await this.tenantModel.findByIdAndUpdate(tenant._id, { $inc: { 'usage.currentUsers': 1 } });
 
-    const userWithRole = await savedUser.populate('role');
-    const tokens = await this.generateTokens(userWithRole, tenant);
+    const userWithRole = await savedUser.populate({
+      path: 'role',
+      populate: { path: 'permissions', select: 'name' },
+    });
+    const tokens = await this.tokenService.generateTokens(userWithRole, tenant);
 
     this.logger.log(`User registered successfully: ${savedUser.email}`);
 
@@ -275,8 +283,8 @@ export class AuthService {
       }
     }
     
-    // If tenant is null here, it's a super_admin. generateTokens can handle a null tenant.
-    const tokens = await this.generateTokens(user, tenant);
+    // If tenant is null here, it's a super_admin. TokenService handles a null tenant.
+    const tokens = await this.tokenService.generateTokens(user, tenant);
 
     this.logger.log(`Successful Google login for user: ${user.email}`);
 
@@ -386,7 +394,7 @@ export class AuthService {
         throw new UnauthorizedException("Tenant inválido");
       }
 
-      return this.generateTokens(user, tenant);
+      return this.tokenService.generateTokens(user, tenant);
     } catch (error) {
       throw new UnauthorizedException("Refresh token inválido");
     }
@@ -524,97 +532,6 @@ export class AuthService {
 
   async logout(userId: string) {
     this.logger.log(`Logout for user ID: ${userId}`);
-  }
-
-  private async generateTokens(user: UserDocument, tenant: TenantDocument | null, isImpersonation: boolean = false, impersonatorId?: string) {
-    this.logger.log(`🔧 Generating tokens - user.role type: ${typeof user.role}`);
-    this.logger.log(`🔧 user.role content: ${JSON.stringify(user.role)}`);
-    const role = user.role as unknown as RoleDocument;
-
-    if (!role || !role.name) {
-      this.logger.error(`❌ Role is null/undefined or missing name for user ${user.email}`);
-      this.logger.error(`❌ Role object: ${JSON.stringify(role)}`);
-      throw new Error('User role is not properly populated');
-    }
-
-    this.logger.log(`🔧 Role found: ${role.name}`);
-
-    // Load permission names from database
-    let permissionNames: string[] = [];
-    if (Array.isArray(role.permissions) && role.permissions.length > 0) {
-      const firstPermission = role.permissions[0];
-      const ObjectId = require('mongoose').Types.ObjectId;
-
-      this.logger.log(`🔧 First permission type: ${typeof firstPermission}, value: ${JSON.stringify(firstPermission)}`);
-
-      // Check if permissions are already populated (objects with 'name' property)
-      if (typeof firstPermission === 'object' && firstPermission !== null && 'name' in firstPermission) {
-        permissionNames = role.permissions.map((p: any) => p.name);
-        this.logger.log(`🔧 Permissions already populated: ${permissionNames.length} permissions`);
-      }
-      // Check if permissions are ObjectIds (either string or ObjectId instance)
-      else if (ObjectId.isValid(firstPermission) || firstPermission instanceof ObjectId) {
-        // Permissions are ObjectIds, need to fetch from DB
-        const permissionIds = role.permissions.map((p: any) => {
-          if (typeof p === 'string' && ObjectId.isValid(p)) {
-            return new ObjectId(p);
-          } else if (p instanceof ObjectId) {
-            return p;
-          } else if (typeof p === 'object' && p._id) {
-            return new ObjectId(p._id);
-          }
-          return null;
-        }).filter(p => p !== null);
-
-        this.logger.log(`🔧 Found ${permissionIds.length} ObjectIds to load`);
-
-        if (permissionIds.length > 0) {
-          const permissionDocs = await this.userModel.db.collection('permissions').find({
-            _id: { $in: permissionIds }
-          }).toArray();
-          permissionNames = permissionDocs.map(p => p.name);
-          this.logger.log(`🔧 Loaded ${permissionNames.length} permission names from DB: ${permissionNames.slice(0, 5).join(', ')}...`);
-        }
-      }
-      // Check if permissions are strings (permission names directly)
-      else if (typeof firstPermission === 'string') {
-        permissionNames = role.permissions as string[];
-        this.logger.log(`🔧 Permissions are permission name strings: ${permissionNames.length} permissions`);
-      }
-    } else {
-      this.logger.warn(`⚠️ Role ${role.name} has no permissions or permissions is not an array`);
-    }
-
-    const payload = {
-      sub: user._id,
-      email: user.email,
-      role: {
-        name: role.name,
-        permissions: permissionNames,
-      },
-      tenantId: tenant ? tenant._id : null,
-      tenantCode: tenant ? tenant.code : null,
-      impersonated: isImpersonation,
-      impersonatorId: isImpersonation ? impersonatorId : null,
-    };
-
-    this.logger.log(`🔧 Signing JWT tokens...`);
-    const [accessToken, refreshToken] = await Promise.all([
-      this.jwtService.signAsync(payload, {
-        expiresIn: process.env.JWT_EXPIRES_IN || "15m",
-      }),
-      this.jwtService.signAsync({ sub: user._id }, {
-        secret: process.env.JWT_REFRESH_SECRET,
-        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
-      }),
-    ]);
-
-    this.logger.log(`✅ Tokens generated successfully`);
-    return {
-      accessToken,
-      refreshToken,
-      expiresIn: process.env.JWT_EXPIRES_IN || "15m",
-    };
   }
 
   private async handleFailedLogin(user: UserDocument) {

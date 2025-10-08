@@ -20,18 +20,18 @@ export function ContactInfoEditor({ config, onUpdate, saving }: ContactInfoEdito
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Información de Contacto</h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Información de Contacto</h3>
 
         {/* Email */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
             📧 Email
           </label>
           <input
             type="email"
             value={contactInfo.email}
             onChange={(e) => setContactInfo({ ...contactInfo, email: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-gray-100"
             placeholder="contacto@mi-tienda.com"
             required
           />
@@ -39,14 +39,14 @@ export function ContactInfoEditor({ config, onUpdate, saving }: ContactInfoEdito
 
         {/* Teléfono */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
             📞 Teléfono
           </label>
           <input
             type="tel"
             value={contactInfo.phone}
             onChange={(e) => setContactInfo({ ...contactInfo, phone: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-gray-100"
             placeholder="+1234567890"
             required
           />
@@ -54,7 +54,7 @@ export function ContactInfoEditor({ config, onUpdate, saving }: ContactInfoEdito
 
         {/* Dirección */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-4">
             📍 Dirección (Opcional)
           </label>
 
@@ -66,7 +66,7 @@ export function ContactInfoEditor({ config, onUpdate, saving }: ContactInfoEdito
                 ...contactInfo,
                 address: { ...contactInfo.address, street: e.target.value } as any
               })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-gray-100"
               placeholder="Calle y número"
             />
 
@@ -78,7 +78,7 @@ export function ContactInfoEditor({ config, onUpdate, saving }: ContactInfoEdito
                   ...contactInfo,
                   address: { ...contactInfo.address, city: e.target.value } as any
                 })}
-                className="px-3 py-2 border border-gray-300 rounded-md"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-gray-100"
                 placeholder="Ciudad"
               />
               <input
@@ -88,7 +88,7 @@ export function ContactInfoEditor({ config, onUpdate, saving }: ContactInfoEdito
                   ...contactInfo,
                   address: { ...contactInfo.address, state: e.target.value } as any
                 })}
-                className="px-3 py-2 border border-gray-300 rounded-md"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-gray-100"
                 placeholder="Estado/Provincia"
               />
             </div>
@@ -101,7 +101,7 @@ export function ContactInfoEditor({ config, onUpdate, saving }: ContactInfoEdito
                   ...contactInfo,
                   address: { ...contactInfo.address, country: e.target.value } as any
                 })}
-                className="px-3 py-2 border border-gray-300 rounded-md"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-gray-100"
                 placeholder="País"
               />
               <input
@@ -111,7 +111,7 @@ export function ContactInfoEditor({ config, onUpdate, saving }: ContactInfoEdito
                   ...contactInfo,
                   address: { ...contactInfo.address, postalCode: e.target.value } as any
                 })}
-                className="px-3 py-2 border border-gray-300 rounded-md"
+                className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-gray-100"
                 placeholder="Código Postal"
               />
             </div>

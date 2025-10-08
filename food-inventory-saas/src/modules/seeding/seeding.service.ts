@@ -1,7 +1,7 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { ClientSession, Model } from 'mongoose';
 import { ChartOfAccounts, ChartOfAccountsDocument } from '../../schemas/chart-of-accounts.schema';
 
 @Injectable()
@@ -12,7 +12,7 @@ export class SeedingService {
     @InjectModel(ChartOfAccounts.name) private chartOfAccountsModel: Model<ChartOfAccountsDocument>,
   ) {}
 
-  async seedChartOfAccounts(tenantId: string) {
+  async seedChartOfAccounts(tenantId: string, session?: ClientSession) {
     this.logger.log(`Iniciando seeding del plan de cuentas para el tenant: ${tenantId}`);
 
     const accountsToCreate = [
@@ -34,17 +34,21 @@ export class SeedingService {
 
     try {
       for (const acc of accountsToCreate) {
-        await this.chartOfAccountsModel.create({
+        const account = new this.chartOfAccountsModel({
           ...acc,
           tenantId: tenantId,
           isEditable: !acc.isSystemAccount,
         });
+        if (session) {
+          await account.save({ session });
+        } else {
+          await account.save();
+        }
       }
       this.logger.log(`Plan de cuentas creado exitosamente para el tenant: ${tenantId}`);
     } catch (error) {
       this.logger.error(`Error durante el seeding del plan de cuentas para el tenant: ${tenantId}`, error.stack);
-      // In a real-world scenario, you might want to throw an exception
-      // to let the calling service know that something went wrong.
+      throw error;
     }
   }
 

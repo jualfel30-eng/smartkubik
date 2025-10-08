@@ -42,7 +42,7 @@ export class MailService {
   }
 
   async sendPasswordResetEmail(email: string, resetToken: string) {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'http://localhost:5174';
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://app.smartkubik.com';
     const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
 
     const mailOptions = {

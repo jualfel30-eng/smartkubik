@@ -1,14 +1,16 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { ClientSession, Model, Types } from 'mongoose';
 import { Role, RoleDocument } from '../../schemas/role.schema';
 import { CreateRoleDto, UpdateRoleDto } from '../../dto/role.dto';
 import { PermissionsService } from '../permissions/permissions.service';
+import { Permission, PermissionDocument } from '../../schemas/permission.schema';
 
 @Injectable()
 export class RolesService {
   constructor(
     @InjectModel(Role.name) private roleModel: Model<RoleDocument>,
+    @InjectModel(Permission.name) private permissionModel: Model<PermissionDocument>,
     private permissionsService: PermissionsService,
   ) {}
 
@@ -68,23 +70,36 @@ export class RolesService {
     return result;
   }
 
-  async findOrCreateAdminRoleForTenant(tenantId: Types.ObjectId): Promise<RoleDocument> {
+  async findOrCreateAdminRoleForTenant(tenantId: Types.ObjectId, enabledModules: string[], session?: ClientSession): Promise<RoleDocument> {
     const adminRoleName = 'admin';
-    let adminRole = await this.roleModel.findOne({ name: adminRoleName, tenantId }).exec();
+    const roleQuery = this.roleModel.findOne({ name: adminRoleName, tenantId });
+    if (session) {
+      roleQuery.session(session);
+    }
+    let adminRole = await roleQuery.exec();
 
     if (adminRole) {
       return adminRole;
     }
 
-    const allPermissions = this.permissionsService.findAll();
-    
+    const permissionNames = this.permissionsService.findByModules(enabledModules);
+    const permissionsQuery = this.permissionModel.find({ name: { $in: permissionNames } }).select('_id');
+    if (session) {
+      permissionsQuery.session(session);
+    }
+    const permissions = await permissionsQuery.exec();
+    const permissionIds = permissions.map(p => p._id);
+
     adminRole = new this.roleModel({
       name: adminRoleName,
       tenantId: tenantId,
-      permissions: allPermissions,
+      permissions: permissionIds,
       isDefault: true,
     });
 
+    if (session) {
+      return adminRole.save({ session });
+    }
     return adminRole.save();
   }
 }

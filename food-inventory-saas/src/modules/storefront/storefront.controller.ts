@@ -28,7 +28,7 @@ import { Permissions } from "../../decorators/permissions.decorator";
 @ApiTags("Storefront Admin")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
-@Controller("api/v1/admin/storefront")
+@Controller(["admin/storefront", "storefront"])
 export class StorefrontController {
   constructor(private readonly storefrontService: StorefrontService) {}
 

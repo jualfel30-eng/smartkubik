@@ -32,34 +32,34 @@ export function DomainSettings({ config, onUpdate, onDelete, saving }: DomainSet
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Configuración General</h3>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Configuración General</h3>
 
         {/* Dominio */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
             Dominio del Storefront
           </label>
           <input
             type="text"
             value={domain}
             onChange={(e) => setDomain(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-gray-100"
             placeholder="mi-tienda"
           />
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             URL: <span className="font-medium">localhost:3001/{domain}</span>
           </p>
         </div>
 
         {/* Template Type */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
             Tipo de Template
           </label>
           <select
             value={templateType}
             onChange={(e) => setTemplateType(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-gray-100"
           >
             <option value="ecommerce">E-commerce Moderno</option>
             <option value="modern-ecommerce">E-commerce Moderno (Alt)</option>
@@ -75,13 +75,13 @@ export function DomainSettings({ config, onUpdate, onDelete, saving }: DomainSet
               type="checkbox"
               checked={isActive}
               onChange={(e) => setIsActive(e.target.checked)}
-              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              className="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-700 rounded focus:ring-blue-500"
             />
-            <span className="ml-2 text-sm font-medium text-gray-700">
+            <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-200">
               Storefront Activo
             </span>
           </label>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             {isActive
               ? '🟢 El storefront está visible públicamente'
               : '🔴 El storefront no es accesible públicamente'}
@@ -89,9 +89,9 @@ export function DomainSettings({ config, onUpdate, onDelete, saving }: DomainSet
         </div>
 
         {/* Info Box */}
-        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-          <h4 className="text-sm font-medium text-blue-900 mb-2">ℹ️ Información</h4>
-          <ul className="text-sm text-blue-700 space-y-1">
+        <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-md p-4 transition-colors">
+          <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">ℹ️ Información</h4>
+          <ul className="text-sm text-blue-700 dark:text-blue-200 space-y-1">
             <li>• Los cambios de dominio pueden tardar hasta 60 segundos en propagarse (ISR)</li>
             <li>• Solo puede haber un storefront activo por tenant</li>
             <li>• El dominio debe ser único en todo el sistema</li>

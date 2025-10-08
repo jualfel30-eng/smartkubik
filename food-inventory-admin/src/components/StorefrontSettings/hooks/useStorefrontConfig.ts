@@ -1,7 +1,5 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+import { useEffect, useState } from 'react';
+import { fetchApi } from '../../../lib/api';
 
 export interface StorefrontConfig {
   _id: string;
@@ -41,138 +39,137 @@ export interface StorefrontConfig {
   };
 }
 
+const extractPayload = (response: any) => response?.data ?? response ?? null;
+
+const isNotFoundError = (error: any) => {
+  const message = error?.message?.toLowerCase?.() ?? '';
+  return (
+    message.includes('no se encontró') ||
+    message.includes('not found') ||
+    message.includes('404') ||
+    message.includes('cannot get')
+  );
+};
+
 export function useStorefrontConfig() {
   const [config, setConfig] = useState<StorefrontConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Obtener token JWT del localStorage
-  const getAuthToken = () => localStorage.getItem('token');
-
-  // GET: Obtener configuración actual
   const fetchConfig = async () => {
     try {
       setLoading(true);
-      const token = getAuthToken();
-      const response = await axios.get(`${API_BASE_URL}/storefront`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setConfig(response.data.data || response.data);
+      const response = await fetchApi('/storefront');
+      setConfig(extractPayload(response));
       setError(null);
     } catch (err: any) {
-      if (err.response?.status === 404) {
-        setConfig(null); // No existe config, mostrar formulario de creación
+      if (isNotFoundError(err)) {
+        setConfig(null);
+        setError(null);
       } else {
-        setError(err.response?.data?.message || 'Error al cargar configuración');
+        setError(err?.message ?? 'Error al cargar configuración');
       }
     } finally {
       setLoading(false);
     }
   };
 
-  // POST: Crear nueva configuración
   const createConfig = async (data: Partial<StorefrontConfig>) => {
     try {
       setSaving(true);
-      const token = getAuthToken();
-      const response = await axios.post(`${API_BASE_URL}/storefront`, data, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await fetchApi('/storefront', {
+        method: 'POST',
+        body: JSON.stringify(data),
       });
-      setConfig(response.data.data || response.data);
+      const payload = extractPayload(response);
+      setConfig(payload);
       setError(null);
-      return { success: true, data: response.data.data || response.data };
+      return { success: true, data: payload };
     } catch (err: any) {
-      const errorMsg = err.response?.data?.message || 'Error al crear configuración';
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
+      const message = err?.message ?? 'Error al crear configuración';
+      setError(message);
+      return { success: false, error: message };
     } finally {
       setSaving(false);
     }
   };
 
-  // PATCH: Actualizar parcialmente
   const updateConfig = async (data: Partial<StorefrontConfig>) => {
     try {
       setSaving(true);
-      const token = getAuthToken();
-      const response = await axios.patch(`${API_BASE_URL}/storefront`, data, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await fetchApi('/storefront', {
+        method: 'PATCH',
+        body: JSON.stringify(data),
       });
-      setConfig(response.data.data || response.data);
+      const payload = extractPayload(response);
+      setConfig(payload);
       setError(null);
-      return { success: true, data: response.data.data || response.data };
+      return { success: true, data: payload };
     } catch (err: any) {
-      const errorMsg = err.response?.data?.message || 'Error al actualizar configuración';
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
+      const message = err?.message ?? 'Error al actualizar configuración';
+      setError(message);
+      return { success: false, error: message };
     } finally {
       setSaving(false);
     }
   };
 
-  // PUT: Reemplazo completo
   const replaceConfig = async (data: Partial<StorefrontConfig>) => {
     try {
       setSaving(true);
-      const token = getAuthToken();
-      const response = await axios.put(`${API_BASE_URL}/storefront`, data, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await fetchApi('/storefront', {
+        method: 'PUT',
+        body: JSON.stringify(data),
       });
-      setConfig(response.data.data || response.data);
+      const payload = extractPayload(response);
+      setConfig(payload);
       setError(null);
-      return { success: true, data: response.data.data || response.data };
+      return { success: true, data: payload };
     } catch (err: any) {
-      const errorMsg = err.response?.data?.message || 'Error al reemplazar configuración';
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
+      const message = err?.message ?? 'Error al reemplazar configuración';
+      setError(message);
+      return { success: false, error: message };
     } finally {
       setSaving(false);
     }
   };
 
-  // DELETE: Eliminar configuración
   const deleteConfig = async () => {
     try {
       setSaving(true);
-      const token = getAuthToken();
-      await axios.delete(`${API_BASE_URL}/storefront`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await fetchApi('/storefront', { method: 'DELETE' });
       setConfig(null);
       setError(null);
       return { success: true };
     } catch (err: any) {
-      const errorMsg = err.response?.data?.message || 'Error al eliminar configuración';
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
+      const message = err?.message ?? 'Error al eliminar configuración';
+      setError(message);
+      return { success: false, error: message };
     } finally {
       setSaving(false);
     }
   };
 
-  // POST: Resetear a valores por defecto
   const resetConfig = async () => {
     try {
       setSaving(true);
-      const token = getAuthToken();
-      const response = await axios.post(`${API_BASE_URL}/storefront/reset`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setConfig(response.data.data || response.data);
+      const response = await fetchApi('/storefront/reset', { method: 'POST' });
+      const payload = extractPayload(response);
+      setConfig(payload);
       setError(null);
-      return { success: true, data: response.data.data || response.data };
+      return { success: true, data: payload };
     } catch (err: any) {
-      const errorMsg = err.response?.data?.message || 'Error al resetear configuración';
-      setError(errorMsg);
-      return { success: false, error: errorMsg };
+      const message = err?.message ?? 'Error al resetear configuración';
+      setError(message);
+      return { success: false, error: message };
     } finally {
       setSaving(false);
     }
   };
 
   useEffect(() => {
-    fetchConfig();
+    void fetchConfig();
   }, []);
 
   return {
@@ -185,6 +182,6 @@ export function useStorefrontConfig() {
     updateConfig,
     replaceConfig,
     deleteConfig,
-    resetConfig
+    resetConfig,
   };
 }

@@ -1,7 +1,5 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { JwtModule } from '@nestjs/jwt';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { OnboardingController } from './onboarding.controller';
 import { OnboardingService } from './onboarding.service';
 import { Tenant, TenantSchema } from '../../schemas/tenant.schema';
@@ -10,6 +8,7 @@ import { RolesModule } from '../roles/roles.module';
 
 import { SeedingModule } from '../seeding/seeding.module';
 import { SubscriptionPlansModule } from '../subscription-plans/subscription-plans.module';
+import { AuthModule } from '../../auth/auth.module';
 
 @Module({
   imports: [
@@ -20,16 +19,7 @@ import { SubscriptionPlansModule } from '../subscription-plans/subscription-plan
     RolesModule,
     SeedingModule,
     SubscriptionPlansModule,
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
-        signOptions: {
-          expiresIn: configService.get<string>('JWT_EXPIRES_IN', '15m'),
-        },
-      }),
-      inject: [ConfigService],
-    }),
+    AuthModule,
   ],
   controllers: [OnboardingController],
   providers: [OnboardingService],

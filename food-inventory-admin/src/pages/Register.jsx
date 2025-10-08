@@ -7,34 +7,53 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '../hooks/use-auth';
 import { fetchApi } from '../lib/api';
-import { businessCategories } from '../lib/business-data';
 import 'react-phone-number-input/style.css';
 import PhoneInput from 'react-phone-number-input';
 
+const businessVerticals = [
+  {
+    name: 'Servicios de Comida',
+    value: 'FOOD_SERVICE',
+    categories: ['Restaurante', 'Cafetería', 'Food Truck', 'Catering', 'Bar'],
+  },
+  {
+    name: 'Minoristas / Distribución',
+    value: 'RETAIL',
+    categories: ['Supermercado', 'Tienda de Abarrotes', 'Distribuidor Mayorista', 'Mercado de Agricultores', 'Moda', 'Calzado', 'Juguetes', 'Herramientas', 'Deporte', 'Tecnología'],
+  },
+  {
+    name: 'Servicios',
+    value: 'SERVICES',
+    categories: ['Hotel', 'Hospital', 'Escuela', 'Oficina Corporativa'],
+  },
+  {
+    name: 'Logística',
+    value: 'LOGISTICS',
+    categories: ['Almacén', 'Centro de Distribución', 'Transporte Refrigerado'],
+  },
+];
+
 // Step 1 Component
 const Step1Form = ({ formData, setFormData, onNext }) => {
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [subcategories, setSubcategories] = useState([]);
+  const [categories, setCategories] = useState([]);
 
   useEffect(() => {
-    if (formData.category) {
-      const category = businessCategories.find(c => c.name === formData.category);
-      if (category) {
-        setSelectedCategory(category);
-        setSubcategories(category.subcategories);
+    if (formData.vertical) {
+      const vertical = businessVerticals.find(v => v.value === formData.vertical);
+      if (vertical) {
+        setCategories(vertical.categories);
       } else {
-        setSelectedCategory(null);
-        setSubcategories([]);
+        setCategories([]);
       }
     }
-  }, [formData.category]);
+  }, [formData.vertical]);
 
-  const handleCategoryChange = (value) => {
-    setFormData(prev => ({ ...prev, category: value, subcategory: '', otherCategory: '', otherSubcategory: '' }));
+  const handleVerticalChange = (value) => {
+    setFormData(prev => ({ ...prev, vertical: value, specificCategory: '' }));
   };
 
-  const handleSubcategoryChange = (value) => {
-    setFormData(prev => ({ ...prev, subcategory: value, otherSubcategory: '' }));
+  const handleCategoryChange = (value) => {
+    setFormData(prev => ({ ...prev, specificCategory: value }));
   };
 
   const handleChange = (e) => {
@@ -55,15 +74,33 @@ const Step1Form = ({ formData, setFormData, onNext }) => {
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="businessType">Tipo de Negocio</Label>
-        <Input
-          id="businessType"
-          placeholder="Ej: restaurante, panadería, etc."
-          value={formData.businessType}
-          onChange={handleChange}
-          required
-        />
+        <Label>Vertical de Negocio</Label>
+        <Select onValueChange={handleVerticalChange} value={formData.vertical}>
+          <SelectTrigger>
+            <SelectValue placeholder="Seleccione una vertical" />
+          </SelectTrigger>
+          <SelectContent>
+            {businessVerticals.map(v => (
+              <SelectItem key={v.value} value={v.value}>{v.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
+      {formData.vertical && (
+        <div className="space-y-2">
+          <Label>Categoría Específica</Label>
+          <Select onValueChange={handleCategoryChange} value={formData.specificCategory}>
+            <SelectTrigger>
+              <SelectValue placeholder="Seleccione una categoría" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map(cat => (
+                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="space-y-2">
         <Label htmlFor="numberOfUsers">Número de Usuarios</Label>
         <Input
@@ -75,65 +112,6 @@ const Step1Form = ({ formData, setFormData, onNext }) => {
           required
         />
       </div>
-      <div className="space-y-2">
-        <Label>Categoría del Negocio</Label>
-        <Select onValueChange={handleCategoryChange} value={formData.category}>
-          <SelectTrigger>
-            <SelectValue placeholder="Seleccione una categoría" />
-          </SelectTrigger>
-          <SelectContent>
-            {businessCategories.map(cat => (
-              <SelectItem key={cat.name} value={cat.name}>{cat.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {formData.category === 'Otro' && (
-          <Input
-            id="otherCategory"
-            placeholder="Especifique otra categoría"
-            value={formData.otherCategory}
-            onChange={handleChange}
-            className="mt-2"
-          />
-        )}
-      </div>
-      {formData.category && formData.category !== 'Otro' && subcategories.length > 0 && (
-        <div className="space-y-2">
-          <Label>Subcategoría</Label>
-          <Select onValueChange={handleSubcategoryChange} value={formData.subcategory}>
-            <SelectTrigger>
-              <SelectValue placeholder="Seleccione una subcategoría" />
-            </SelectTrigger>
-            <SelectContent>
-              {subcategories.map(sub => (
-                <SelectItem key={sub} value={sub}>{sub}</SelectItem>
-              ))}
-               <SelectItem value="Otro">Otro</SelectItem>
-            </SelectContent>
-          </Select>
-          {formData.subcategory === 'Otro' && (
-            <Input
-              id="otherSubcategory"
-              placeholder="Especifique otra subcategoría"
-              value={formData.otherSubcategory}
-              onChange={handleChange}
-              className="mt-2"
-            />
-          )}
-        </div>
-      )}
-       {formData.category === 'Otro' && (
-        <div className="space-y-2">
-          <Label>Subcategoría</Label>
-            <Input
-              id="otherSubcategory"
-              placeholder="Especifique otra subcategoría"
-              value={formData.otherSubcategory}
-              onChange={handleChange}
-              className="mt-2"
-            />
-        </div>
-      )}
       <Button type="submit" className="w-full">Siguiente</Button>
     </form>
   );
@@ -192,18 +170,16 @@ const Step2Form = ({ formData, setFormData, onNext, onBack }) => {
 
 // Step 3 Component
 const Step3Summary = ({ formData, onBack, onSubmit, loading, error }) => {
-  const category = formData.category === 'Otro' ? formData.otherCategory : formData.category;
-  const subcategory = formData.subcategory === 'Otro' ? formData.otherSubcategory : formData.subcategory;
+  const verticalName = businessVerticals.find(v => v.value === formData.vertical)?.name || formData.vertical;
 
   return (
     <div className="space-y-4">
       <h3 className="font-medium">Resumen de Registro</h3>
       <div className="space-y-2 rounded-md border p-4">
         <p><strong>Negocio:</strong> {formData.businessName}</p>
-        <p><strong>Tipo:</strong> {formData.businessType}</p>
+        <p><strong>Vertical:</strong> {verticalName}</p>
+        <p><strong>Categoría:</strong> {formData.specificCategory}</p>
         <p><strong>Usuarios:</strong> {formData.numberOfUsers}</p>
-        <p><strong>Categoría:</strong> {category}</p>
-        <p><strong>Subcategoría:</strong> {subcategory}</p>
         <p><strong>Administrador:</strong> {formData.firstName} {formData.lastName}</p>
         <p><strong>Email:</strong> {formData.email}</p>
         <p><strong>Teléfono:</strong> {formData.phone}</p>
@@ -223,12 +199,9 @@ function Register() {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     businessName: '',
-    businessType: '',
     numberOfUsers: '',
-    category: '',
-    subcategory: '',
-    otherCategory: '',
-    otherSubcategory: '',
+    vertical: '',
+    specificCategory: '',
     firstName: '',
     lastName: '',
     email: '',
@@ -249,9 +222,8 @@ function Register() {
 
     const payload = {
       ...formData,
+      businessType: formData.specificCategory,
       numberOfUsers: parseInt(formData.numberOfUsers, 10),
-      categories: formData.category === 'Otro' ? formData.otherCategory : formData.category,
-      subcategories: formData.subcategory === 'Otro' ? formData.otherSubcategory : formData.subcategory,
     };
 
     try {

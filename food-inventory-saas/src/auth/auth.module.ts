@@ -8,14 +8,18 @@ import { AuthService } from "./auth.service";
 import { JwtStrategy } from "./jwt.strategy";
 import { User, UserSchema } from "../schemas/user.schema";
 import { Tenant, TenantSchema } from "../schemas/tenant.schema";
+import { Role, RoleSchema } from "../schemas/role.schema";
 import { RolesModule } from '../modules/roles/roles.module';
 import { GoogleStrategy } from './google.strategy';
 import { MailModule } from '../modules/mail/mail.module';
+import { PermissionsModule } from '../modules/permissions/permissions.module';
+import { TokenService } from './token.service';
 
 @Module({
   imports: [
     RolesModule,
     MailModule,
+    PermissionsModule,
     PassportModule.register({ defaultStrategy: "jwt" }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -30,14 +34,16 @@ import { MailModule } from '../modules/mail/mail.module';
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: Tenant.name, schema: TenantSchema },
+      { name: Role.name, schema: RoleSchema },
     ]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, TokenService],
   exports: [
     AuthService,
     JwtStrategy,
     PassportModule,
+    TokenService,
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: Tenant.name, schema: TenantSchema },
