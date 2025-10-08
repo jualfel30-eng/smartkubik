@@ -70,11 +70,28 @@ export const AuthProvider = ({ children }) => {
       setToken(accessToken);
       
       // Fetch user profile
-      const userData = await getProfile();
-      localStorage.setItem('user', JSON.stringify(userData));
-      setUser(userData);
+      const profileResponse = await getProfile();
+      const profileData = profileResponse?.data || profileResponse;
+
+      localStorage.setItem('user', JSON.stringify(profileData));
+      setUser(profileData);
+
+      const tenantInfo = profileData?.tenant || profileData?.tenantId;
+      if (tenantInfo) {
+        const normalizedTenant = {
+          id: tenantInfo.id || tenantInfo._id,
+          code: tenantInfo.code,
+          name: tenantInfo.name,
+          businessType: tenantInfo.businessType,
+          vertical: tenantInfo.vertical,
+          enabledModules: tenantInfo.enabledModules,
+        };
+        localStorage.setItem('tenant', JSON.stringify(normalizedTenant));
+        setTenant(normalizedTenant);
+      }
+
       setIsAuthenticated(true);
-      return userData; // Return user data on success
+      return profileData; // Return user data on success
     } catch (error) {
       console.error('Login with tokens failed:', error);
       logout(); // Ensure clean state on failure

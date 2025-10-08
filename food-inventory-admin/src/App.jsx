@@ -77,7 +77,7 @@ function TenantLayout() {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, logout, hasPermission } = useAuth();
+  const { user, tenant, logout, hasPermission } = useAuth();
   const { isClockedIn, clockIn, clockOut, isLoading: isShiftLoading } = useShift();
   const navigate = useNavigate();
   // const { startTutorial } = useTutorial(); // Desactivado
@@ -135,7 +135,7 @@ function TenantLayout() {
     { name: 'Panel de Control', href: 'dashboard', icon: LayoutDashboard, permission: 'dashboard_read' },
     { name: 'Órdenes', href: 'orders', icon: ShoppingCart, permission: 'orders_read' },
     { name: 'Inventario', href: 'inventory-management', icon: Package, permission: 'inventory_read' },
-    { name: 'Mi Storefront', href: 'storefront', icon: Store, permission: 'dashboard_read' },
+    { name: 'Mi Storefront', href: 'storefront', icon: Store, permission: 'dashboard_read', requiresModule: 'ecommerce' },
     { name: 'Contabilidad', href: 'accounting-management', icon: BookCopy, permission: 'accounting_read' },
     { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: Building2, permission: 'accounting_read' },
     { name: 'CRM', href: 'crm', icon: Users, permission: 'customers_read' },
@@ -183,7 +183,11 @@ function TenantLayout() {
             </div>
             
             <nav className="flex-1 flex flex-col space-y-2">
-              {navLinks.map(link => hasPermission(link.permission) && (
+              {navLinks.map(link => {
+                if (link.requiresModule && !tenant?.enabledModules?.[link.requiresModule]) {
+                  return null;
+                }
+                return hasPermission(link.permission) && (
                 <Button
                   key={link.name}
                   variant={activeTab === link.href ? 'secondary' : 'ghost'}
@@ -193,7 +197,8 @@ function TenantLayout() {
                   <link.icon className="mr-3 h-5 w-5" />
                   {link.name}
                 </Button>
-              ))}
+              );
+              })}
             </nav>
 
             <div className="mt-auto">
@@ -260,12 +265,17 @@ function TenantLayout() {
       <div className="hidden md:block bg-card py-2">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="px-6">
           <TabsList className="max-w-full overflow-x-auto">
-            {navLinks.map(link => hasPermission(link.permission) && (
+            {navLinks.map(link => {
+              if (link.requiresModule && !tenant?.enabledModules?.[link.requiresModule]) {
+                return null;
+              }
+              return hasPermission(link.permission) && (
               <TabsTrigger key={link.href} value={link.href}>
                 <link.icon className="mr-2 h-4 w-4" />
                 {link.name}
               </TabsTrigger>
-            ))}
+            );
+            })}
           </TabsList>
         </Tabs>
       </div>
@@ -275,7 +285,14 @@ function TenantLayout() {
           <Routes>
             <Route path="dashboard" element={<DashboardView />} />
             <Route path="inventory-management" element={<InventoryDashboard />} />
-            <Route path="storefront" element={<StorefrontSettings />} />
+            <Route
+              path="storefront"
+              element={
+                tenant?.enabledModules?.ecommerce
+                  ? <StorefrontSettings />
+                  : <Navigate to="/dashboard" replace />
+              }
+            />
             <Route path="crm" element={<CRMManagement />} />
             <Route path="orders" element={<OrdersManagement />} />
             <Route path="purchases" element={<ComprasManagement />} />
