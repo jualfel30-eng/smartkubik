@@ -78,4 +78,12 @@ export class SuperAdminController {
   ) {
     return this.superAdminService.updateRolePermissions(roleId, updateDto, req.user.id, req.ip);
   }
+
+  @Post('tenants/:tenantId/sync-memberships')
+  syncTenantMemberships(
+    @Param('tenantId') tenantId: string,
+    @Req() req,
+  ) {
+    return this.superAdminService.syncTenantMemberships(tenantId, req.user.id, req.ip);
+  }
 }

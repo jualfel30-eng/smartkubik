@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchApi } from '../lib/api';
+import { fetchApi, syncTenantMemberships } from '../lib/api';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
@@ -53,6 +53,48 @@ const TenantStatusSelector = ({ tenant, onStatusChange }) => {
         <SelectItem value="cancelled">Cancelado</SelectItem>
       </SelectContent>
     </Select>
+  );
+};
+
+const TenantActions = ({ tenant, onEdit, onUsers, onConfig, onSynced }) => {
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      const result = await syncTenantMemberships(tenant._id);
+      const { stats } = result || {};
+      toast.success(`Membresías sincronizadas para ${tenant.name}`, {
+        description: stats
+          ? `Usuarios: ${stats.usersProcessed}, nuevas: ${stats.created}, actualizadas: ${stats.updated}`
+          : undefined,
+      });
+      if (onSynced) {
+        onSynced(result);
+      }
+    } catch (error) {
+      toast.error(`Error al sincronizar membresías de ${tenant.name}`, {
+        description: error.message,
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button variant="outline" size="sm" onClick={onEdit}>Editar</Button>
+      <Button variant="outline" size="sm" onClick={onUsers}>Ver Usuarios</Button>
+      <Button variant="outline" size="sm" onClick={onConfig}>Configurar</Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleSync}
+        disabled={isSyncing}
+      >
+        {isSyncing ? 'Sincronizando...' : 'Sincronizar membresías'}
+      </Button>
+    </div>
   );
 };
 
@@ -143,10 +185,14 @@ export default function SuperAdminDashboard() {
                     <TableCell>
                       <TenantStatusSelector tenant={tenant} onStatusChange={handleTenantUpdate} />
                     </TableCell>
-                    <TableCell className="space-x-2">
-                      <Button variant="outline" size="sm" onClick={() => setEditingTenant(tenant)}>Editar</Button>
-                      <Button variant="outline" size="sm" onClick={() => navigate(`/super-admin/tenants/${tenant._id}/users`)}>Ver Usuarios</Button>
-                      <Button variant="outline" size="sm" onClick={() => navigate(`/super-admin/tenants/${tenant._id}/configuration`)}>Configurar</Button>
+                    <TableCell>
+                      <TenantActions
+                        tenant={tenant}
+                        onEdit={() => setEditingTenant(tenant)}
+                        onUsers={() => navigate(`/super-admin/tenants/${tenant._id}/users`)}
+                        onConfig={() => navigate(`/super-admin/tenants/${tenant._id}/configuration`)}
+                        onSynced={() => loadTenants()}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}

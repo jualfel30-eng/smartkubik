@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Tenant, TenantDocument } from '../schemas/tenant.schema';
@@ -12,6 +12,7 @@ import { UpdateRolePermissionsDto } from '../dto/update-role-permissions.dto';
 import { AuthService } from '../auth/auth.service';
 import { AuditLogService } from '../modules/audit-log/audit-log.service';
 import { getPlanLimits } from '../config/subscriptions.config';
+import { UserTenantMembership, UserTenantMembershipDocument, MembershipStatus } from '../schemas/user-tenant-membership.schema';
 
 @Injectable()
 export class SuperAdminService {
@@ -21,6 +22,8 @@ export class SuperAdminService {
     @InjectModel(Event.name) private eventModel: Model<EventDocument>,
     @InjectModel(Role.name) private roleModel: Model<RoleDocument>,
     @InjectModel(Permission.name) private permissionModel: Model<PermissionDocument>,
+    @InjectModel(UserTenantMembership.name)
+    private membershipModel: Model<UserTenantMembershipDocument>,
     @Inject(AuthService) private authService: AuthService,
     private auditLogService: AuditLogService,
   ) {}
@@ -219,6 +222,153 @@ export class SuperAdminService {
     );
 
     return updatedTenant;
+  }
+
+  async syncTenantMemberships(
+    tenantId: string,
+    performedBy: string,
+    ipAddress: string,
+  ) {
+    if (!Types.ObjectId.isValid(tenantId)) {
+      throw new BadRequestException('Tenant ID inválido');
+    }
+
+    const tenant = await this.tenantModel.findById(tenantId).exec();
+    if (!tenant) {
+      throw new NotFoundException(`Tenant con ID "${tenantId}" no encontrado`);
+    }
+
+    const users = await this.userModel
+      .find({ tenantId: tenant._id })
+      .populate('role')
+      .exec();
+
+    const memberships = await this.membershipModel
+      .find({ tenantId: tenant._id })
+      .exec();
+
+    const membershipMap = new Map<string, UserTenantMembershipDocument>();
+    memberships.forEach((membership) => {
+      membershipMap.set(membership.userId.toString(), membership);
+    });
+
+    let created = 0;
+    let updated = 0;
+    let defaultAssigned = memberships.some((membership) => membership.isDefault);
+    const skipped: string[] = [];
+
+    for (const user of users) {
+      const role = user.role as RoleDocument | Types.ObjectId | string | undefined;
+      const roleId = role && typeof role === 'object' && '_id' in role ? (role as RoleDocument)._id : role;
+
+      if (!roleId) {
+        skipped.push(user.email);
+        continue;
+      }
+
+      const status: MembershipStatus = user.isActive ? 'active' : 'inactive';
+      const userIdStr = user._id.toString();
+      const existingMembership = membershipMap.get(userIdStr);
+
+      if (existingMembership) {
+        const updates: Partial<UserTenantMembership> = {};
+        if (!existingMembership.roleId.equals(roleId)) {
+          updates.roleId = roleId as Types.ObjectId;
+        }
+        if (existingMembership.status !== status) {
+          updates.status = status;
+        }
+        if (Object.keys(updates).length > 0) {
+          await this.membershipModel.updateOne(
+            { _id: existingMembership._id },
+            { $set: updates },
+          );
+          updated += 1;
+        }
+        continue;
+      }
+
+      const newMembership = await this.membershipModel.create({
+        userId: user._id,
+        tenantId: tenant._id,
+        roleId,
+        status,
+        isDefault: !defaultAssigned,
+      });
+
+      membershipMap.set(userIdStr, newMembership);
+      created += 1;
+      if (!defaultAssigned) {
+        defaultAssigned = true;
+      }
+    }
+
+    if (membershipMap.size > 0 && !defaultAssigned) {
+      const firstMembership = membershipMap.values().next().value as UserTenantMembershipDocument | undefined;
+      if (firstMembership) {
+        await this.membershipModel.updateOne(
+          { _id: firstMembership._id },
+          { $set: { isDefault: true } },
+        );
+        updated += 1;
+        defaultAssigned = true;
+      }
+    }
+
+    const summaryMemberships = await this.membershipModel
+      .find({ tenantId: tenant._id })
+      .populate('userId', 'email firstName lastName isActive')
+      .populate('roleId', 'name')
+      .exec();
+
+    await this.auditLogService.createLog(
+      'sync_tenant_memberships',
+      performedBy,
+      {
+        tenantId,
+        stats: {
+          usersProcessed: users.length,
+          memberships: summaryMemberships.length,
+          created,
+          updated,
+          skipped,
+        },
+      },
+      ipAddress,
+      tenantId,
+    );
+
+    return {
+      tenantId,
+      stats: {
+        usersProcessed: users.length,
+        memberships: summaryMemberships.length,
+        created,
+        updated,
+        skipped,
+        defaultAssigned,
+      },
+      memberships: summaryMemberships.map((membership) => ({
+        id: membership._id.toString(),
+        user: membership.userId
+          ? {
+              id: (membership.userId as any)._id?.toString?.() ?? '',
+              email: (membership.userId as any).email,
+              firstName: (membership.userId as any).firstName,
+              lastName: (membership.userId as any).lastName,
+              isActive: (membership.userId as any).isActive,
+            }
+          : null,
+        role: membership.roleId
+          ? {
+              id: (membership.roleId as any)._id?.toString?.() ?? '',
+              name: (membership.roleId as any).name,
+            }
+          : null,
+        status: membership.status,
+        isDefault: membership.isDefault,
+      })),
+    };
   }
 
   /**

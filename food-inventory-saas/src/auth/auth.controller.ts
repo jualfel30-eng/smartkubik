@@ -27,6 +27,7 @@ import {
   ForgotPasswordDto,
   ResetPasswordDto,
   RefreshTokenDto,
+  SwitchTenantDto,
 } from "../dto/auth.dto";
 import { JwtAuthGuard } from "../guards/jwt-auth.guard";
 import { TenantGuard } from "../guards/tenant.guard";
@@ -59,6 +60,35 @@ export class AuthController {
       throw new HttpException(
         error.message || "Error en el login",
         HttpStatus.UNAUTHORIZED,
+      );
+    }
+  }
+
+  @Post("switch-tenant")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Cambiar el tenant activo del usuario autenticado" })
+  @ApiResponse({ status: 200, description: "Tenant cambiado exitosamente" })
+  async switchTenant(
+    @Body() switchTenantDto: SwitchTenantDto,
+    @Request() req,
+  ) {
+    try {
+      const result = await this.authService.switchTenant(
+        req.user.id,
+        switchTenantDto.membershipId,
+        switchTenantDto.rememberAsDefault ?? false,
+      );
+
+      return {
+        success: true,
+        message: "Tenant cambiado exitosamente",
+        data: result,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "No se pudo cambiar de tenant",
+        error.status || HttpStatus.BAD_REQUEST,
       );
     }
   }

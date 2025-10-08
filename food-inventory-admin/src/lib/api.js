@@ -140,6 +140,12 @@ export const deleteUser = (userId) => {
     });
 };
 
+export const syncTenantMemberships = (tenantId) => {
+  return fetchApi(`/super-admin/tenants/${tenantId}/sync-memberships`, {
+    method: 'POST',
+  });
+};
+
 // Payables API
 export const getPayables = () => {
   return fetchApi('/payables');
@@ -156,6 +162,16 @@ export const updatePayable = (id, payableData) => {
   return fetchApi(`/payables/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(payableData),
+  });
+};
+
+export const switchTenant = (membershipId, options = {}) => {
+  return fetchApi('/auth/switch-tenant', {
+    method: 'POST',
+    body: JSON.stringify({
+      membershipId,
+      rememberAsDefault: Boolean(options.rememberAsDefault),
+    }),
   });
 };
 

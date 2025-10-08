@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
+import { Model, Types } from "mongoose";
 import * as bcrypt from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
 import { User, UserDocument } from "../schemas/user.schema";
@@ -25,6 +25,8 @@ import { RolesService } from "../modules/roles/roles.service";
 import { Role, RoleDocument } from '../schemas/role.schema';
 import { MailService } from '../modules/mail/mail.service';
 import { TokenService } from './token.service';
+import { isFeatureEnabled } from '../config/features.config';
+import { MembershipsService, MembershipSummary } from '../modules/memberships/memberships.service';
 
 @Injectable()
 export class AuthService {
@@ -37,6 +39,7 @@ export class AuthService {
     private rolesService: RolesService,
     private mailService: MailService,
     private tokenService: TokenService,
+    private membershipsService: MembershipsService,
   ) {}
 
   async login(loginDto: LoginDto | UserDocument | string, isImpersonation: boolean = false, impersonatorId?: string) {
@@ -63,54 +66,230 @@ export class AuthService {
     }
 
     const { email, password, tenantCode, ip } = loginDto as LoginDto;
-    this.logger.log(`Login attempt for email: ${email} - Tenant: ${tenantCode || 'SUPER_ADMIN'}`);
+    const trimmedEmail = email.trim();
+    const emailCandidates = Array.from(
+      new Set([trimmedEmail, trimmedEmail.toLowerCase()]),
+    );
+    const normalizedTenantCode = tenantCode
+      ? tenantCode.trim().toUpperCase()
+      : '';
+    const multiTenantEnabled =
+      isFeatureEnabled('MULTI_TENANT_LOGIN') && !normalizedTenantCode;
 
-    let user: UserDocument | null;
+    if (multiTenantEnabled) {
+      return this.loginMultiTenantFlow(
+        emailCandidates,
+        trimmedEmail,
+        password,
+        ip,
+      );
+    }
 
-    // Handle Super Admin Login
+    return this.loginLegacyFlow(
+      emailCandidates,
+      trimmedEmail,
+      password,
+      normalizedTenantCode || null,
+      ip,
+    );
+  }
+
+  private async loginLegacyFlow(
+    emailCandidates: string[],
+    rawEmail: string,
+    password: string,
+    tenantCode: string | null,
+    ip?: string,
+  ) {
+    const sanitizedEmailForLog = LoggerSanitizer.sanitize({ email: rawEmail });
+    this.logger.log(
+      `Login attempt (legacy) for email: ${sanitizedEmailForLog.email} - Tenant: ${tenantCode || 'SUPER_ADMIN'}`,
+    );
+
+    let user: UserDocument | null = null;
+    let tenant: TenantDocument | null = null;
+
     if (!tenantCode) {
-      user = await this.userModel.findOne({ email: email.trim(), tenantId: null }).populate('role').exec();
+      user = await this.userModel
+        .findOne({ email: { $in: emailCandidates }, tenantId: null })
+        .populate({
+          path: 'role',
+          populate: { path: 'permissions', select: 'name' },
+        })
+        .exec();
+
       if (!user) {
-        this.logger.warn(`Super admin login failed: User not found for email ${email}`);
+        this.logger.warn(
+          `Super admin login failed: User not found for email ${sanitizedEmailForLog.email}`,
+        );
         throw new UnauthorizedException("Credenciales inválidas");
       }
-      const userRole = user.role as unknown as Role;
-      if (userRole.name !== 'super_admin') {
-        throw new UnauthorizedException("Se requiere un código de tenant para este usuario.");
-      }
 
+      const roleDoc = user.role as unknown as Role;
+      if (!roleDoc || roleDoc.name !== 'super_admin') {
+        throw new UnauthorizedException(
+          "Se requiere un código de tenant para este usuario.",
+        );
+      }
     } else {
-      // Handle Tenant User Login
-      const tenant = await this.tenantModel.findOne({ code: tenantCode });
+      tenant = await this.tenantModel.findOne({ code: tenantCode }).exec();
       if (!tenant) {
-        this.logger.warn(`Login failed: Tenant not found for code ${tenantCode}`);
+        this.logger.warn(
+          `Login failed: Tenant not found for code ${tenantCode}`,
+        );
         throw new UnauthorizedException("Credenciales inválidas");
       }
-      this.logger.log(`✅ Tenant found: ${tenant.name} (${tenant._id})`);
 
-      user = await this.userModel.findOne({ email: email.trim(), tenantId: tenant._id }).populate({
-        path: 'role',
-        populate: { path: 'permissions', select: 'name' }
-      }).exec();
+      this.logger.log(
+        `✅ Tenant found: ${tenant.name} (${tenant._id.toString()})`,
+      );
+
+      user = await this.userModel
+        .findOne({
+          email: { $in: emailCandidates },
+          tenantId: tenant._id,
+        })
+        .populate({
+          path: 'role',
+          populate: { path: 'permissions', select: 'name' },
+        })
+        .exec();
+
       if (!user) {
-        this.logger.warn(`Login failed: User not found for email ${email} in tenant ${tenantCode}`);
+        this.logger.warn(
+          `Login failed: User not found for email ${sanitizedEmailForLog.email} in tenant ${tenantCode}`,
+        );
         throw new UnauthorizedException("Credenciales inválidas");
       }
-      this.logger.log(`✅ User found: ${user.firstName} ${user.lastName} (${user._id})`);
 
-      if (tenant.status !== "active") {
-        this.logger.warn(`Tenant ${tenantCode} is not active: ${tenant.status}`);
-        throw new UnauthorizedException("La organización (tenant) está inactiva");
+      this.logger.log(
+        `✅ User found: ${user.firstName} ${user.lastName} (${user._id.toString()})`,
+      );
+
+      if (tenant.status !== 'active') {
+        this.logger.warn(
+          `Tenant ${tenant.code} is not active: ${tenant.status}`,
+        );
+        throw new UnauthorizedException(
+          'La organización (tenant) está inactiva',
+        );
       }
     }
 
-    // Common logic for both user types
-    if (user.lockUntil && user.lockUntil > new Date()) {
-      const remainingTime = Math.ceil((user.lockUntil.getTime() - Date.now()) / 60000);
-      this.logger.warn(`User ${email} is locked until ${user.lockUntil}`);
-      throw new UnauthorizedException(`Cuenta bloqueada. Intente en ${remainingTime} minutos.`);
+    if (!user) {
+      throw new UnauthorizedException("Credenciales inválidas");
     }
 
+    await this.ensureUserNotLocked(user, rawEmail);
+    await this.verifyPasswordOrThrow(user, password, rawEmail);
+
+    if (!user.isActive) {
+      this.logger.warn(`❌ User ${rawEmail} is not active`);
+      throw new UnauthorizedException("Usuario inactivo");
+    }
+    this.logger.log(`✅ User is active`);
+
+    await this.persistSuccessfulLogin(user, ip);
+
+    if (tenantCode && !tenant) {
+      tenant = await this.tenantModel.findById(user.tenantId).exec();
+    }
+
+    this.logger.log(`🔑 Generating tokens...`);
+    const tokens = await this.tokenService.generateTokens(user, tenant);
+    this.logger.log(`✅ Successful login for user: ${user.email}`);
+
+    const userPayload = this.buildUserPayload(
+      user,
+      tenant ? tenant._id : null,
+    );
+
+    if (tenant) {
+      return {
+        user: userPayload,
+        tenant: this.buildTenantPayload(tenant),
+        ...tokens,
+      };
+    }
+
+    return {
+      user: userPayload,
+      ...tokens,
+    };
+  }
+
+  private async loginMultiTenantFlow(
+    emailCandidates: string[],
+    rawEmail: string,
+    password: string,
+    ip?: string,
+  ) {
+    const sanitizedEmailForLog = LoggerSanitizer.sanitize({ email: rawEmail });
+    this.logger.log(
+      `Login attempt (multi-tenant) for email: ${sanitizedEmailForLog.email}`,
+    );
+
+    const user = await this.userModel
+      .findOne({ email: { $in: emailCandidates } })
+      .populate({
+        path: 'role',
+        populate: { path: 'permissions', select: 'name' },
+      })
+      .exec();
+
+    if (!user) {
+      this.logger.warn(
+        `Multi-tenant login failed: User not found for email ${sanitizedEmailForLog.email}`,
+      );
+      throw new UnauthorizedException("Credenciales inválidas");
+    }
+
+    await this.ensureUserNotLocked(user, rawEmail);
+    await this.verifyPasswordOrThrow(user, password, rawEmail);
+
+    if (!user.isActive) {
+      this.logger.warn(`❌ User ${rawEmail} is not active`);
+      throw new UnauthorizedException("Usuario inactivo");
+    }
+
+    await this.persistSuccessfulLogin(user, ip);
+
+    const memberships: MembershipSummary[] =
+      await this.membershipsService.findActiveMembershipsForUser(user._id);
+
+    if (!memberships.length) {
+      this.logger.warn(
+        `User ${sanitizedEmailForLog.email} has no active memberships`,
+      );
+    }
+
+    const tokens = await this.tokenService.generateTokens(user, null);
+
+    return {
+      user: this.buildUserPayload(user, null),
+      tenant: null,
+      memberships,
+      ...tokens,
+    };
+  }
+
+  private async ensureUserNotLocked(user: UserDocument, email: string) {
+    if (user.lockUntil && user.lockUntil > new Date()) {
+      const remainingTime = Math.ceil(
+        (user.lockUntil.getTime() - Date.now()) / 60000,
+      );
+      this.logger.warn(`User ${email} is locked until ${user.lockUntil}`);
+      throw new UnauthorizedException(
+        `Cuenta bloqueada. Intente en ${remainingTime} minutos.`,
+      );
+    }
+  }
+
+  private async verifyPasswordOrThrow(
+    user: UserDocument,
+    password: string,
+    email: string,
+  ) {
     this.logger.log(`🔐 Verifying password for user ${email}...`);
     const isPasswordValid = await bcrypt.compare(password, user.password);
     this.logger.log(`🔐 Password valid: ${isPasswordValid}`);
@@ -120,59 +299,136 @@ export class AuthService {
       await this.handleFailedLogin(user);
       throw new UnauthorizedException("Credenciales inválidas");
     }
+  }
 
-    if (!user.isActive) {
-      this.logger.warn(`❌ User ${email} is not active`);
-      throw new UnauthorizedException("Usuario inactivo");
-    }
-    this.logger.log(`✅ User is active`);
-
+  private async persistSuccessfulLogin(user: UserDocument, ip?: string) {
     this.logger.log(`📝 Updating user login info...`);
     await this.userModel.updateOne(
       { _id: user._id },
       {
         $unset: { loginAttempts: 1, lockUntil: 1 },
-        lastLoginAt: new Date(),
-        lastLoginIP: ip || "unknown",
+        $set: {
+          lastLoginAt: new Date(),
+          lastLoginIP: ip || 'unknown',
+        },
       },
     );
+  }
 
-    this.logger.log(`🏢 Fetching tenant info...`);
-    const tenant = tenantCode ? await this.tenantModel.findById(user.tenantId).exec() : null;
-    this.logger.log(`🔑 Generating tokens...`);
-    const tokens = await this.tokenService.generateTokens(user, tenant);
-
-    this.logger.log(`✅ Successful login for user: ${user.email}`);
-
-    const userPayload = {
+  private buildUserPayload(
+    user: UserDocument,
+    tenantIdOverride?: Types.ObjectId | string | null,
+  ) {
+    return {
       id: user._id,
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
-      tenantId: user.tenantId,
+      tenantId:
+        tenantIdOverride !== undefined ? tenantIdOverride : user.tenantId,
     };
+  }
 
-    if (tenant) {
-      return {
-        user: userPayload,
-        tenant: {
-          id: tenant._id,
-          code: tenant.code,
-          name: tenant.name,
-          businessType: tenant.businessType,
-          vertical: tenant.vertical,
-          enabledModules: tenant.enabledModules,
-        },
-        ...tokens,
-      };
-    } else {
-      // Super admin payload
-      return {
-        user: userPayload,
-        ...tokens,
-      };
+  private buildTenantPayload(tenant: TenantDocument) {
+    return {
+      id: tenant._id,
+      code: tenant.code,
+      name: tenant.name,
+      businessType: tenant.businessType,
+      vertical: tenant.vertical,
+      enabledModules: tenant.enabledModules,
+    };
+  }
+
+  async switchTenant(
+    userId: string,
+    membershipId: string,
+    rememberAsDefault = false,
+  ) {
+    this.logger.log(
+      `Switch tenant requested for user ${userId} -> membership ${membershipId}`,
+    );
+
+    const membership = await this.membershipsService.getMembershipForUserOrFail(
+      membershipId,
+      userId,
+    );
+
+    if (membership.status !== 'active') {
+      throw new UnauthorizedException('La membresía no está activa');
     }
+
+    const [user, tenant, membershipRole] = await Promise.all([
+      this.userModel
+        .findById(userId)
+        .populate({
+          path: 'role',
+          populate: { path: 'permissions', select: 'name' },
+        })
+        .exec(),
+      this.membershipsService.resolveTenantById(membership.tenantId),
+      this.membershipsService.resolveRoleById(membership.roleId),
+    ]);
+
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('Usuario inválido o inactivo');
+    }
+
+    if (!tenant) {
+      throw new NotFoundException(
+        'Tenant de la membresía no encontrado o inactivo',
+      );
+    }
+
+    if (tenant.status !== 'active') {
+      throw new UnauthorizedException('El tenant está inactivo');
+    }
+
+    if (!membershipRole) {
+      throw new UnauthorizedException('Rol de la membresía inválido');
+    }
+
+    const tokens = await this.tokenService.generateTokens(user, tenant, {
+      membershipId: membership._id.toString(),
+      roleOverride: membershipRole,
+    });
+
+    // Mantener compatibilidad con código existente que lee user.tenantId
+    if (
+      !user.tenantId ||
+      user.tenantId.toString() !== tenant._id.toString()
+    ) {
+      await this.userModel.updateOne(
+        { _id: user._id },
+        { $set: { tenantId: tenant._id } },
+      );
+    }
+
+    if (rememberAsDefault) {
+      await this.membershipsService.setDefaultMembership(
+        userId,
+        membership._id,
+      );
+      membership.isDefault = true;
+    }
+
+    // Reusar datos cargados para evitar queries extra en el summary
+    (membership as any).tenantId = tenant;
+    (membership as any).roleId = membershipRole;
+    const membershipSummary =
+      await this.membershipsService.buildMembershipSummary(membership);
+
+    const membershipsSnapshot =
+      await this.membershipsService.findActiveMembershipsForUser(user._id);
+
+    return {
+      user: this.buildUserPayload(user, tenant._id),
+      tenant: this.buildTenantPayload(tenant),
+      membership: membershipSummary,
+       memberships: membershipsSnapshot,
+      ...tokens,
+    };
   }
 
   async register(registerDto: RegisterDto) {

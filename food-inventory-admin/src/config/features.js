@@ -33,6 +33,10 @@ export const FEATURES = {
 
   CUSTOMER_SEGMENTATION:
     import.meta.env.VITE_ENABLE_CUSTOMER_SEGMENTATION === 'true',
+
+  // Fase 1B: Login Multi-Tenant
+  MULTI_TENANT_LOGIN:
+    import.meta.env.VITE_ENABLE_MULTI_TENANT_LOGIN === 'true',
 };
 
 /**

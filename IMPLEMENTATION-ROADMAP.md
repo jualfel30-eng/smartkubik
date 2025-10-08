@@ -878,6 +878,200 @@ git push origin v2.1.0-fase1
 
 ---
 
+## 🔐 FASE 1B: LOGIN MULTI-TENANT SIN FRICCIÓN
+
+**Objetivo**: Eliminar la dependencia del `tenantCode` en el login, habilitar cuentas globales por email y permitir a un usuario seleccionar cualquiera de sus tenant memberships después de autenticarse.
+
+**Duración estimada**: 10-12 horas (dividido en 3 sub-fases)  
+**Riesgo**: Medio (impacta autenticación y autorización)  
+**Reversibilidad**: Alta si mantenemos compatibilidad en cada sub-fase
+
+### Por qué va antes de Fase 2
+- ✅ Reduce fricción inmediata reportada por clientes (alto impacto en adopción)
+- ✅ Aísla la nueva arquitectura de identidad antes de expandir módulos financieros
+- ✅ Evita tocar teclas críticas sin tener un plan de rollback probado
+- ✅ Prepara el camino para futuras features multi-tenant (por ejemplo controlar múltiples sedes)
+
+### Sub-fases
+```
+FASE 1B.1: Backend - Identidad global y memberships (4-5 h)
+   └─> FASE 1B.2: Frontend - Selector de tenant y UX (3-4 h)
+          └─> FASE 1B.3: Migraciones, rollout y soporte dual (3 h)
+```
+
+### 🔹 FASE 1B.1: BACKEND - IDENTIDAD GLOBAL Y MEMBERSHIPS
+
+**Feature flag sugerida**: `ENABLE_MULTI_TENANT_LOGIN`
+
+#### Checklist previo
+```bash
+# 1. Backup de base de datos y estado actual
+./scripts/backup-before-phase.sh
+
+# 2. Crear rama dedicada
+git checkout -b fase-1b.1/multi-tenant-backend
+
+# 3. Agregar feature flag temporal en configs
+ENABLE_MULTI_TENANT_LOGIN=false
+```
+
+#### Paso 1: Crear esquema `UserTenantMembership` (Mongo)
+- Archivo nuevo: `food-inventory-saas/src/schemas/user-tenant-membership.schema.ts`
+- Campos clave: `userId`, `tenantId`, `roleId`, `status`, `default`, `permissionsCache`
+- Índices:
+  - `{ userId: 1, tenantId: 1 }` unique
+  - `{ tenantId: 1, status: 1 }`
+
+#### Paso 2: Servicio y repositorio
+- Crear módulo ligero `memberships` con service + DTOs + guards
+- Métodos mínimos:
+  - `findActiveMembershipsByUser(email | userId)`
+  - `setDefaultMembership(userId, membershipId)`
+  - `assertUserAccess(userId, tenantId)`
+
+#### Paso 3: Ajustar `AuthService.login`
+- Aceptar `email` + `password` únicamente.
+- Si `ENABLE_MULTI_TENANT_LOGIN=false`, seguir ruta antigua (compatibilidad).
+- Si flag en true:
+  - Buscar usuario por email (ignorando `tenantId`).
+  - Validar password y estado.
+  - Consultar memberships activas (`status === 'active'`).
+  - Generar JWT sin `tenantId` (solo `userId`, `roleGlobal`, scopes base).
+  - Retornar `{ user, memberships }`.
+
+#### Paso 4: Endpoint `POST /auth/switch-tenant`
+- Recibe `membershipId` y valida pertenencia.
+- Genera tokens de corta duración (access/refresh) con `tenantContext`.
+- Adjunta permisos del rol + membership.
+- Respuesta: `{ tokens, tenant, permissions }`.
+
+#### Paso 5: Guards y headers
+- Actualizar `JwtAuthGuard` para aceptar token sin tenant o con `tenantContext`.
+- En endpoints multi-tenant, exigir header `x-tenant-id` o `tenantId` en token.
+- Añadir helper `TenantContextService` para resolver el tenant activo.
+
+#### Paso 6: Tests
+- Unit tests para `AuthService.login` (modo legacy vs flag on).
+- Tests para `switch-tenant` asegurando que no permite memberships ajenos.
+- Ajustar E2E básicos de login.
+
+**Commit sugeridos**
+```bash
+git commit -m "feat(auth): add user-tenant membership schema and service"
+git commit -m "feat(auth): support email-only login behind feature flag"
+git commit -m "feat(auth): add tenant switch endpoint and guards"
+git commit -m "test(auth): cover membership login flows"
+```
+
+### 🔹 FASE 1B.2: FRONTEND - SELECTOR DE TENANT Y UX
+
+**Feature flag**: `ENABLE_MULTI_TENANT_LOGIN` (compartida con backend)
+
+#### Checklist previo
+```bash
+git checkout -b fase-1b.2/multi-tenant-frontend
+ENABLE_MULTI_TENANT_LOGIN=true # en .env.local
+```
+
+#### Paso 1: Actualizar `useAuth`
+- Aceptar respuesta `{ user, memberships }` cuando flag activo.
+- Guardar `memberships` en contexto.
+- Crear métodos `setActiveMembership` y `loadTenantContext`.
+
+#### Paso 2: Nuevo componente `TenantPickerDialog`
+- Ubicación: `food-inventory-admin/src/components/auth/TenantPickerDialog.jsx`
+- Casos:
+  - 0 memberships → mostrar error “No tienes organizaciones activas”.
+  - 1 membership → autoseleccionar y llamar `/auth/switch-tenant`.
+  - >1 memberships → lista con búsqueda, badges de rol, botón “Recordar como predeterminada”.
+
+#### Paso 3: Flujo en `Login.jsx`
+- Ocultar campo `tenantCode` si flag activo.
+- Tras login exitoso:
+  - Mostrar `TenantPickerDialog` si múltiples memberships.
+  - Guardar `activeTenant` en `localStorage`.
+  - Cargar token contextual y redirigir.
+
+#### Paso 4: Navbar / Switcher persistente
+- Agregar botón en layout principal para cambiar de tenant.
+- Mostrar nombre + role + badge “Predeterminado”.
+- Al cambiar, refrescar datos y token (`/auth/switch-tenant`).
+
+#### Paso 5: Manejo de permisos
+- Asegurar que `useAuth.permissions` se refresque después de `switchTenant`.
+- Invalidar queries (React Query o fetch manual) dependientes de tenant.
+
+#### Paso 6: Tests / QA
+- Test unitario para `useAuth` (mock de memberships).
+- Test de integración (Cypress o Playwright) para flujo multi-tenant.
+- Checklist manual: flujos legacy (flag off) y nuevo login (flag on).
+
+**Commits sugeridos**
+```bash
+git commit -m "feat(auth): add tenant picker dialog and multi-tenant UX"
+git commit -m "feat(auth): add tenant switcher to admin layout"
+git commit -m "test(auth): cover multi-tenant login happy path"
+```
+
+### 🔹 FASE 1B.3: MIGRACIONES, ROLLOUT Y SOPORTE DUAL
+
+#### Paso 1: Script de migración
+- Ubicación: `scripts/migrations/2025-01-backfill-memberships.js`
+- Por cada usuario con `tenantId`:
+  - Crear membership `active`.
+  - Marcar `default=true`.
+  - Guardar `roleId` actual.
+- Logs detallados + dry-run opcional.
+- Disponible acción manual en Super Admin (`Sincronizar membresías`) que reusa esta lógica desde la interfaz.
+
+#### Paso 2: Normalización de tenant codes
+- Script secundario que itera sobre tenants y aplica `code = code.trim().toUpperCase()`.
+- Mantener compatibilidad permitiendo `tenantCode` en minúscula (`toUpperCase()` antes de buscar).
+
+#### Paso 3: Rollout plan
+1. **Staging**  
+   - Ejecutar migración con flag on.  
+   - QA completo (legacy y multi-tenant).
+2. **Producción - Fase 1**  
+   - Ejecutar migración con flag off (usuarios aún ven login actual).  
+   - Validar que todo sigue operando.
+3. **Producción - Fase 2**  
+   - Activar flag para organizaciones piloto.  
+   - Monitorear métricas (logins fallidos, soporte).
+4. **Producción - Fase 3**  
+   - Activar flag global.  
+   - Comunicar cambio a clientes, incluir tutorial rápido.
+
+#### Paso 4: Rollback
+- Script `rollback-memberships.js` que elimina memberships creadas y restaura `tenantId` si fuese necesario.
+- Mantener backups lo suficientemente recientes.
+- Revertir flag a `false` y redeploy versión previa si hay incidente.
+
+#### Paso 5: Métricas de éxito
+- Disminución de tickets por “tenant code inválido” a 0.
+- % de logins exitosos en primer intento > 95%.
+- Usuarios con más de un tenant logran cambiar sin errores (monitorear logs de `/auth/switch-tenant`).
+
+#### Paso 6: Documentación
+- Actualizar `PROYECTO_COMPLETO_README.md` con nuevo flujo.
+- Crear guía rápida para soporte (`docs/soporte/login-multi-tenant.md`).
+- Grabar GIF o video corto mostrando el selector.
+
+**Commits sugeridos**
+```bash
+git commit -m "chore(migrations): create user-tenant membership backfill script"
+git commit -m "docs(auth): document multi-tenant login rollout plan"
+```
+
+### Validación final de la fase
+- [ ] Tests unitarios y e2e pasando con flag on/off.
+- [ ] Scripts de migración probados en staging con snapshot de prod.
+- [ ] QA manual de flujos críticos (login, switch, logout, permisos).
+- [ ] Observabilidad: logs, métricas, alertas configuradas para monitorear fallos de login.
+- [ ] Plan de comunicación listo (email a clientes + notas de versión).
+
+---
+
 ## 🏦 FASE 2: CUENTAS BANCARIAS - MEJORAS INCREMENTALES
 
 **Objetivo**: Implementar Fases 2-4 del módulo de cuentas bancarias

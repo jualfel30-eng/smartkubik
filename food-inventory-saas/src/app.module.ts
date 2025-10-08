@@ -49,8 +49,26 @@ import { StorefrontModule } from './modules/storefront/storefront.module';
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => {
-        const uri = configService.get<string>("MONGODB_URI");
-        console.log("--- Connecting to MongoDB at:", uri, "---");
+        const isTestEnv =
+          process.env.NODE_ENV === "test" || !!process.env.JEST_WORKER_ID;
+        const primaryUri = configService.get<string>("MONGODB_URI");
+        const testUri =
+          configService.get<string>("MONGODB_TEST_URI") ||
+          "mongodb://127.0.0.1:27017/food-inventory-test?tls=false";
+
+        const uri = isTestEnv ? testUri : primaryUri;
+
+        if (!uri) {
+          throw new Error(
+            "No MongoDB URI configured. Ensure MONGODB_URI or MONGODB_TEST_URI is set.",
+          );
+        }
+
+        console.log(
+          `--- Connecting to MongoDB (${isTestEnv ? "test" : "default"}) at:`,
+          uri,
+          "---",
+        );
         return { uri };
       },
       inject: [ConfigService],

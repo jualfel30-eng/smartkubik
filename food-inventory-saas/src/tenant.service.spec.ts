@@ -3,6 +3,8 @@ import { TenantService } from "./tenant.service";
 import { getModelToken } from "@nestjs/mongoose";
 import { Tenant } from "./schemas/tenant.schema";
 import { User } from "./schemas/user.schema";
+import { Customer } from "./schemas/customer.schema";
+import { MailService } from "./modules/mail/mail.service";
 
 // Mock the Mongoose model methods used in the service
 const mockTenantModel = {
@@ -16,6 +18,16 @@ const mockUserModel = {
   find: jest.fn().mockReturnThis(),
   select: jest.fn().mockReturnThis(),
   exec: jest.fn(),
+};
+
+const mockCustomerModel = {
+  find: jest.fn().mockReturnThis(),
+  select: jest.fn().mockReturnThis(),
+  exec: jest.fn(),
+};
+
+const mockMailService = {
+  sendTenantInviteEmail: jest.fn(),
 };
 
 describe("TenantService", () => {
@@ -32,6 +44,14 @@ describe("TenantService", () => {
         {
           provide: getModelToken(User.name),
           useValue: mockUserModel,
+        },
+        {
+          provide: getModelToken(Customer.name),
+          useValue: mockCustomerModel,
+        },
+        {
+          provide: MailService,
+          useValue: mockMailService,
         },
       ],
     }).compile();

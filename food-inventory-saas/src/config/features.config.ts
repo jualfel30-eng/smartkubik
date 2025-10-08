@@ -1,3 +1,12 @@
+import { config as loadEnv } from 'dotenv';
+import { join } from 'path';
+import { existsSync } from 'fs';
+
+const envPath = join(__dirname, '../../', '.env');
+if (existsSync(envPath)) {
+  loadEnv({ path: envPath });
+}
+
 /**
  * Feature Flags Configuration
  *
@@ -21,6 +30,9 @@ export interface FeatureFlags {
   // Fase 4: Features Avanzadas
   PREDICTIVE_ANALYTICS: boolean;
   CUSTOMER_SEGMENTATION: boolean;
+
+  // Fase 1B: Login Multi-Tenant
+  MULTI_TENANT_LOGIN: boolean;
 }
 
 /**
@@ -55,6 +67,10 @@ export const FEATURES: FeatureFlags = {
 
   CUSTOMER_SEGMENTATION:
     process.env.ENABLE_CUSTOMER_SEGMENTATION === 'true',
+
+  // Fase 1B
+  MULTI_TENANT_LOGIN:
+    process.env.ENABLE_MULTI_TENANT_LOGIN === 'true',
 };
 
 /**

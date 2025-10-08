@@ -14,12 +14,14 @@ import { GoogleStrategy } from './google.strategy';
 import { MailModule } from '../modules/mail/mail.module';
 import { PermissionsModule } from '../modules/permissions/permissions.module';
 import { TokenService } from './token.service';
+import { MembershipsModule } from '../modules/memberships/memberships.module';
 
 @Module({
   imports: [
     RolesModule,
     MailModule,
     PermissionsModule,
+    MembershipsModule,
     PassportModule.register({ defaultStrategy: "jwt" }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

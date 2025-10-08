@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
+import { Response } from 'supertest';
 import { AppModule } from '../../src/app.module';
+import { configureApp } from '../../src/app.setup';
+
+jest.setTimeout(60000);
 
 describe('Rate Limiting Security Tests (Integration)', () => {
   let app: INestApplication;
@@ -12,20 +16,19 @@ describe('Rate Limiting Security Tests (Integration)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-
-    // Configure app exactly like in main.ts
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        transform: true,
-      }),
-    );
+    await configureApp(app, {
+      includeSwagger: true,
+      runSeeder: false,
+      setGlobalPrefix: true,
+    });
 
     await app.init();
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   describe('POST /auth/login - Rate Limiting', () => {
@@ -122,7 +125,7 @@ describe('Rate Limiting Security Tests (Integration)', () => {
       ];
 
       // Make 100+ requests across different endpoints
-      const requests = [];
+      const requests: Array<Promise<Response>> = [];
       for (let i = 0; i < 120; i++) {
         const endpoint = endpoints[i % endpoints.length];
         requests.push(
@@ -193,7 +196,7 @@ describe('Rate Limiting Security Tests (Integration)', () => {
 
       // Simulate DoS: 200 requests as fast as possible
       const startTime = Date.now();
-      const requests = Array.from({ length: 200 }, () =>
+      const requests: Array<Promise<Response>> = Array.from({ length: 200 }, () =>
         request(app.getHttpServer())
           .get(endpoint)
           .set('Authorization', 'Bearer fake-token')
@@ -216,7 +219,7 @@ describe('Rate Limiting Security Tests (Integration)', () => {
       const endpoint = '/api/v1/auth/login';
 
       // Send requests with delays to avoid burst detection
-      const responses = [];
+      const responses: Response[] = [];
       for (let i = 0; i < 10; i++) {
         const response = await request(app.getHttpServer())
           .post(endpoint)

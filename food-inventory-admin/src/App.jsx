@@ -34,6 +34,7 @@ import { CrmProvider } from './context/CrmContext.jsx';
 import { FormStateProvider } from './context/FormStateContext.jsx';
 import { AccountingProvider } from './context/AccountingContext.jsx';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx';
+import { TenantPickerDialog } from '@/components/auth/TenantPickerDialog.jsx';
 
 // Tutorial Imports (Desactivado)
 // import { TutorialProvider, useTutorial } from './context/TutorialContext.jsx';
@@ -77,7 +78,19 @@ function TenantLayout() {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, tenant, logout, hasPermission } = useAuth();
+  const [isTenantDialogOpen, setTenantDialogOpen] = useState(false);
+  const [tenantDialogError, setTenantDialogError] = useState('');
+  const {
+    user,
+    tenant,
+    memberships,
+    activeMembershipId,
+    selectTenant,
+    isSwitchingTenant,
+    isMultiTenantEnabled,
+    logout,
+    hasPermission,
+  } = useAuth();
   const { isClockedIn, clockIn, clockOut, isLoading: isShiftLoading } = useShift();
   const navigate = useNavigate();
   // const { startTutorial } = useTutorial(); // Desactivado
@@ -98,6 +111,32 @@ function TenantLayout() {
   const handleTabChange = (tab) => {
     navigate(`/${tab}`);
   }
+
+  const openTenantDialog = () => {
+    setTenantDialogError('');
+    setTenantDialogOpen(true);
+  };
+
+  const handleTenantSwitch = async (
+    membershipId,
+    rememberAsDefault,
+  ) => {
+    setTenantDialogError('');
+    try {
+      await selectTenant(membershipId, { rememberAsDefault });
+      setTenantDialogOpen(false);
+    } catch (err) {
+      console.error('Tenant switch failed:', err);
+      setTenantDialogError(
+        err.message || 'No se pudo cambiar de organización.',
+      );
+    }
+  };
+
+  const handleTenantDialogClose = () => {
+    setTenantDialogOpen(false);
+    setTenantDialogError('');
+  };
 
   const ShiftTimer = () => {
     const { activeShift } = useShift();
@@ -206,6 +245,16 @@ function TenantLayout() {
                     <span className="text-sm text-muted-foreground">Hola, {user?.firstName || 'Usuario'}</span>
                     <ThemeToggle />
                 </div>
+                {isMultiTenantEnabled && memberships.length > 0 && (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start mb-2"
+                    onClick={openTenantDialog}
+                  >
+                    <Building2 className="mr-3 h-5 w-5" />
+                    {tenant?.name || 'Seleccionar organización'}
+                  </Button>
+                )}
                 {hasPermission('tenant_settings_read') && (
                     <Button variant="outline" className="w-full justify-start mb-2" onClick={() => navigate('/settings')}>
                         <Settings className="mr-3 h-5 w-5" />
@@ -245,6 +294,16 @@ function TenantLayout() {
               <Button variant="outline" size="sm" onClick={clockIn} disabled={isShiftLoading}>
                 <PlayCircle className="h-4 w-4 mr-2" />
                 Iniciar Turno
+              </Button>
+            )}
+            {isMultiTenantEnabled && memberships.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={openTenantDialog}
+              >
+                <Building2 className="h-4 w-4 mr-2" />
+                {tenant?.name || 'Seleccionar organización'}
               </Button>
             )}
             <ThemeToggle />
@@ -309,6 +368,15 @@ function TenantLayout() {
           </Routes>
         </Suspense>
       </main>
+      <TenantPickerDialog
+        isOpen={isTenantDialogOpen}
+        memberships={memberships}
+        defaultMembershipId={activeMembershipId}
+        onSelect={handleTenantSwitch}
+        onCancel={handleTenantDialogClose}
+        isLoading={isSwitchingTenant}
+        errorMessage={tenantDialogError}
+      />
     </div>
   );
 }

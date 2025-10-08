@@ -10,6 +10,8 @@ import { PermissionsService } from '../modules/permissions/permissions.service';
 export interface TokenGenerationOptions {
   impersonation?: boolean;
   impersonatorId?: string;
+  membershipId?: string;
+  roleOverride?: RoleDocument | Types.ObjectId | string | null;
 }
 
 @Injectable()
@@ -25,24 +27,27 @@ export class TokenService {
     tenant: TenantDocument | null,
     options: TokenGenerationOptions = {},
   ) {
-    const rawRole = user.role as RoleDocument | Types.ObjectId | string | null | undefined;
+    const rawRole =
+      (options.roleOverride ??
+        (user.role as RoleDocument | Types.ObjectId | string | null | undefined));
 
     let permissionNames: string[] = [];
     let roleId: Types.ObjectId | string | undefined;
     let roleName: string | undefined;
+    let resolvedRoleDoc: RoleDocument | null | undefined;
 
-    if (rawRole && typeof rawRole === 'object' && 'name' in rawRole && '_id' in rawRole) {
-      roleId = (rawRole as RoleDocument)._id;
-      roleName = (rawRole as any).name;
-      const rolePermissions = (rawRole as RoleDocument & { permissions?: any[] }).permissions;
+    if (rawRole && typeof rawRole === 'object' && '_id' in rawRole) {
+      resolvedRoleDoc = rawRole as RoleDocument;
+      roleId = resolvedRoleDoc._id;
+      roleName = (resolvedRoleDoc as any).name;
+      const rolePermissions = (resolvedRoleDoc as any).permissions;
       if (Array.isArray(rolePermissions) && rolePermissions.length > 0) {
         permissionNames = rolePermissions
-          .map((permission) => {
-            if (permission && typeof permission === 'object' && 'name' in permission) {
-              return (permission as any).name as string;
-            }
-            return null;
-          })
+          .map((permission: any) =>
+            permission && typeof permission === 'object' && 'name' in permission
+              ? (permission as any).name
+              : null,
+          )
           .filter((name): name is string => Boolean(name));
       }
     } else if (rawRole) {
@@ -57,24 +62,31 @@ export class TokenService {
     }
 
     if (permissionNames.length === 0) {
-      const roleDoc = await this.roleModel
-        .findById(roleId)
-        .populate({ path: 'permissions', select: 'name' })
-        .exec();
+      resolvedRoleDoc =
+        resolvedRoleDoc ??
+        (await this.roleModel
+          .findById(roleId)
+          .populate({ path: 'permissions', select: 'name' })
+          .exec());
 
-      if (!roleDoc) {
+      if (!resolvedRoleDoc) {
         throw new Error('Role associated to user not found');
       }
 
-      permissionNames = Array.isArray(roleDoc.permissions)
-        ? (roleDoc.permissions as any[])
+      permissionNames = Array.isArray(resolvedRoleDoc.permissions)
+        ? (resolvedRoleDoc.permissions as any[])
             .map((permission) => permission?.name)
             .filter((name): name is string => Boolean(name))
         : [];
-      roleName = roleDoc.name;
+      roleName = resolvedRoleDoc.name;
     }
 
-    if (!roleName && typeof rawRole === 'object' && rawRole && 'name' in rawRole) {
+    if (
+      !roleName &&
+      typeof rawRole === 'object' &&
+      rawRole &&
+      'name' in rawRole
+    ) {
       roleName = (rawRole as any).name;
     }
 
@@ -98,6 +110,10 @@ export class TokenService {
       tenantId: tenant ? tenant._id : null,
       tenantCode: tenant ? tenant.code : null,
     };
+
+    if (options.membershipId) {
+      payload.membershipId = options.membershipId;
+    }
 
     if (options.impersonation) {
       payload.impersonated = true;

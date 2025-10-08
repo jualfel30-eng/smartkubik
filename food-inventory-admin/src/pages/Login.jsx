@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../hooks/use-auth.jsx';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { TenantPickerDialog } from '@/components/auth/TenantPickerDialog.jsx';
 
 function Login() {
   const [email, setEmail] = useState('');
@@ -12,28 +13,126 @@ function Login() {
   const [tenantCode, setTenantCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const [availableMemberships, setAvailableMemberships] = useState([]);
+  const [showTenantDialog, setShowTenantDialog] = useState(false);
+  const [defaultMembershipId, setDefaultMembershipId] = useState(null);
+  const [tenantSelectionError, setTenantSelectionError] = useState('');
+  const closingAfterSelectionRef = useRef(false);
+  const {
+    login,
+    selectTenant,
+    isMultiTenantEnabled,
+    isSwitchingTenant,
+    logout,
+  } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setTenantSelectionError('');
     setLoading(true);
     try {
-      const { success, message, user } = await login(email, password, tenantCode);
-      if (success) {
-        if (user.role.name === 'super_admin') {
-          navigate('/super-admin');
-        } else {
-          navigate('/dashboard');
+      const result = await login(
+        email,
+        password,
+        isMultiTenantEnabled ? undefined : tenantCode.trim().toUpperCase(),
+      );
+
+      if (isMultiTenantEnabled && Array.isArray(result?.memberships)) {
+        const memberships = result.memberships;
+        if (memberships.length === 0) {
+          setError(
+            'Tu cuenta no tiene organizaciones activas asignadas. Contacta a tu administrador.',
+          );
+          logout();
+          return;
         }
+
+        const activeMemberships = memberships.filter(
+          (membership) => membership.status === 'active',
+        );
+
+        if (activeMemberships.length === 0) {
+          setError(
+            'Todas tus organizaciones están inactivas. Contacta a tu administrador.',
+          );
+          logout();
+          return;
+        }
+
+        setAvailableMemberships(memberships);
+        setDefaultMembershipId(
+          result.defaultMembershipId || activeMemberships[0]?.id || null,
+        );
+        setShowTenantDialog(true);
+        return;
+      }
+
+      if (!result?.success) {
+        setError(
+          result?.message ||
+            'Credenciales incorrectas o error en el servidor.',
+        );
+        return;
+      }
+
+      const roleName = result?.user?.role?.name;
+      if (roleName === 'super_admin') {
+        navigate('/super-admin');
       } else {
-        setError(message || 'Credenciales incorrectas o error en el servidor.');
+        navigate('/dashboard');
       }
     } catch (err) {
-      setError('Ocurrió un error inesperado.');
+      console.error('Login error:', err);
+      setError(err.message || 'Ocurrió un error inesperado.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  const handleTenantSelection = async (
+    membershipId,
+    rememberAsDefault,
+  ) => {
+    setTenantSelectionError('');
+    try {
+      const result = await selectTenant(membershipId, {
+        rememberAsDefault,
+      });
+      closingAfterSelectionRef.current = true;
+      setShowTenantDialog(false);
+      setAvailableMemberships([]);
+      setDefaultMembershipId(null);
+
+      const roleName = result?.user?.role?.name;
+      if (roleName === 'super_admin') {
+        navigate('/super-admin');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      console.error('Switch tenant error:', err);
+      setTenantSelectionError(
+        err.message || 'No se pudo activar la organización seleccionada.',
+      );
+    }
+  };
+
+  const handleTenantDialogClose = () => {
+    if (closingAfterSelectionRef.current) {
+      closingAfterSelectionRef.current = false;
+      setAvailableMemberships([]);
+      setDefaultMembershipId(null);
+      setTenantSelectionError('');
+      return;
+    }
+
+    setShowTenantDialog(false);
+    setAvailableMemberships([]);
+    setDefaultMembershipId(null);
+    setTenantSelectionError('');
+    logout();
   };
 
   return (
@@ -73,16 +172,18 @@ function Login() {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="tenantCode">Código de Tenant (Opcional)</Label>
-              <Input
-                id="tenantCode"
-                type="text"
-                placeholder="Dejar en blanco para Super Admin"
-                value={tenantCode}
-                onChange={(e) => setTenantCode(e.target.value)}
-              />
-            </div>
+            {!isMultiTenantEnabled && (
+              <div className="space-y-2">
+                <Label htmlFor="tenantCode">Código de Tenant (Opcional)</Label>
+                <Input
+                  id="tenantCode"
+                  type="text"
+                  placeholder="EJ: SMARTFOOD"
+                  value={tenantCode}
+                  onChange={(e) => setTenantCode(e.target.value.toUpperCase())}
+                />
+              </div>
+            )}
             {error && <p className="text-sm text-red-600">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Ingresando...' : 'Ingresar'}
@@ -116,6 +217,15 @@ function Login() {
           </div>
         </CardContent>
       </Card>
+      <TenantPickerDialog
+        isOpen={showTenantDialog}
+        memberships={availableMemberships}
+        defaultMembershipId={defaultMembershipId}
+        onSelect={handleTenantSelection}
+        onCancel={handleTenantDialogClose}
+        isLoading={isSwitchingTenant}
+        errorMessage={tenantSelectionError}
+      />
     </div>
   );
 }

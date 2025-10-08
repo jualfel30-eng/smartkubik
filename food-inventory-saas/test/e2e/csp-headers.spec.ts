@@ -2,6 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from '../../src/app.module';
+import { configureApp } from '../../src/app.setup';
+
+jest.setTimeout(30000);
 
 describe('Content Security Policy E2E Tests', () => {
   let app: INestApplication;
@@ -12,11 +15,18 @@ describe('Content Security Policy E2E Tests', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    await configureApp(app, {
+      includeSwagger: true,
+      runSeeder: false,
+      setGlobalPrefix: true,
+    });
     await app.init();
   });
 
   afterAll(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   describe('CSP Headers Presence', () => {
@@ -166,6 +176,10 @@ describe('Content Security Policy E2E Tests', () => {
       // script-src should ONLY allow 'self'
       const scriptSrcMatch = csp.match(/script-src ([^;]+)/);
       expect(scriptSrcMatch).toBeTruthy();
+
+      if (!scriptSrcMatch) {
+        throw new Error('Missing script-src directive in CSP header');
+      }
 
       const scriptSrcValue = scriptSrcMatch[1];
 

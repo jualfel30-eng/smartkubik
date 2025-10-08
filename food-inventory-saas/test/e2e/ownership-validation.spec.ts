@@ -1,9 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from '../../src/app.module';
-import { Connection } from 'mongoose';
+import { Connection, Types } from 'mongoose';
 import { getConnectionToken } from '@nestjs/mongoose';
+import { configureApp } from '../../src/app.setup';
+
+jest.setTimeout(60000);
 
 describe('Ownership Validation E2E Tests', () => {
   let app: INestApplication;
@@ -23,13 +26,11 @@ describe('Ownership Validation E2E Tests', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        transform: true,
-      }),
-    );
+    await configureApp(app, {
+      includeSwagger: true,
+      runSeeder: false,
+      setGlobalPrefix: true,
+    });
 
     await app.init();
 
@@ -42,7 +43,9 @@ describe('Ownership Validation E2E Tests', () => {
   afterAll(async () => {
     // Cleanup: Delete test data
     await cleanupTestData();
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   async function setupTenants() {
@@ -131,17 +134,21 @@ describe('Ownership Validation E2E Tests', () => {
 
   async function cleanupTestData() {
     if (mongoConnection) {
+      const tenantObjectIds = [tenant1Id, tenant2Id]
+        .filter((id): id is string => Boolean(id))
+        .map((id) => new Types.ObjectId(id));
+
       await mongoConnection.collection('users').deleteMany({
         email: { $regex: /tenant[12]-.*@example\.com/ },
       });
       await mongoConnection.collection('tenants').deleteMany({
-        _id: { $in: [tenant1Id, tenant2Id] },
+        _id: { $in: tenantObjectIds },
       });
       await mongoConnection.collection('products').deleteMany({
-        tenantId: { $in: [tenant1Id, tenant2Id] },
+        tenantId: { $in: tenantObjectIds },
       });
       await mongoConnection.collection('customers').deleteMany({
-        tenantId: { $in: [tenant1Id, tenant2Id] },
+        tenantId: { $in: tenantObjectIds },
       });
     }
   }

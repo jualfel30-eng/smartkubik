@@ -37,6 +37,20 @@ export class LoginDto {
   ip?: string;
 }
 
+export class SwitchTenantDto {
+  @ApiProperty({ description: "ID de la membresía a activar" })
+  @IsString()
+  @IsNotEmpty()
+  membershipId: string;
+
+  @ApiPropertyOptional({
+    description: "Recordar esta membresía como predeterminada",
+  })
+  @IsOptional()
+  @IsBoolean()
+  rememberAsDefault?: boolean;
+}
+
 export class RegisterDto {
   @ApiProperty({ description: "Email del usuario" })
   @IsEmail()

@@ -9,6 +9,7 @@ import { Role, RoleSchema } from '../schemas/role.schema';
 import { Permission, PermissionSchema } from '../schemas/permission.schema';
 import { AuthModule } from '../auth/auth.module';
 import { AuditLogModule } from '../modules/audit-log/audit-log.module';
+import { UserTenantMembership, UserTenantMembershipSchema } from '../schemas/user-tenant-membership.schema';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AuditLogModule } from '../modules/audit-log/audit-log.module';
       { name: Event.name, schema: EventSchema },
       { name: Role.name, schema: RoleSchema },
       { name: Permission.name, schema: PermissionSchema },
+      { name: UserTenantMembership.name, schema: UserTenantMembershipSchema },
     ]),
     AuthModule,
     AuditLogModule,
@@ -26,4 +28,3 @@ import { AuditLogModule } from '../modules/audit-log/audit-log.module';
   providers: [SuperAdminService]
 })
 export class SuperAdminModule {}
-
