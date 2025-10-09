@@ -5,6 +5,9 @@ import { Badge } from '@/components/ui/badge.jsx';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth, AuthProvider } from './hooks/use-auth.jsx';
 import { useShift, ShiftProvider } from './context/ShiftContext.jsx';
+import { useTheme } from '@/components/ThemeProvider';
+import SmartKubikLogoDark from '@/assets/logo-smartkubik.png';
+import SmartKubikLogoLight from '@/assets/logo-smartkubik-light.png';
 import {
   Package,
   Users,
@@ -91,8 +94,16 @@ function TenantLayout() {
     logout,
     hasPermission,
   } = useAuth();
+  const { theme } = useTheme();
   const { isClockedIn, clockIn, clockOut, isLoading: isShiftLoading } = useShift();
   const navigate = useNavigate();
+  const [resolvedTheme, setResolvedTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+    }
+    return theme === 'dark' ? 'dark' : 'light';
+  });
+  const logoSrc = resolvedTheme === 'dark' ? SmartKubikLogoDark : SmartKubikLogoLight;
   // const { startTutorial } = useTutorial(); // Desactivado
 
   useEffect(() => {
@@ -102,6 +113,22 @@ function TenantLayout() {
     setActiveTab(tab);
     setMobileMenuOpen(false); // Close mobile menu on navigation
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (theme === 'system') {
+      const media = window.matchMedia('(prefers-color-scheme: dark)');
+      const updateTheme = (event) => setResolvedTheme(event.matches ? 'dark' : 'light');
+      setResolvedTheme(media.matches ? 'dark' : 'light');
+      media.addEventListener('change', updateTheme);
+      return () => media.removeEventListener('change', updateTheme);
+    }
+
+    setResolvedTheme(theme);
+  }, [theme]);
 
   const handleLogout = () => {
     logout();
@@ -199,8 +226,7 @@ function TenantLayout() {
       <div className="md:hidden">
         <header className="bg-card border-b border-border px-4 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Package className="h-7 w-7 text-blue-600" />
-            <h1 className="text-xl font-bold text-foreground">Smart Kubik</h1>
+            <img src={logoSrc} alt="Smart Kubik" className="h-8 w-auto" />
           </div>
           <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(!isMobileMenuOpen)}>
             <Menu className="h-6 w-6" />
@@ -213,8 +239,7 @@ function TenantLayout() {
           <div className="relative z-10 h-full w-72 bg-card p-6 flex flex-col">
             <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-2">
-                    <Package className="h-8 w-8 text-blue-600" />
-                    <h1 className="text-2xl font-bold text-foreground">Smart Kubik</h1>
+                    <img src={logoSrc} alt="Smart Kubik" className="h-9 w-auto" />
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(false)}>
                     <X className="h-6 w-6" />
@@ -275,8 +300,7 @@ function TenantLayout() {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <Package className="h-8 w-8 text-blue-600" />
-              <h1 className="text-2xl font-bold text-foreground">Smart Kubik</h1>
+              <img src={logoSrc} alt="Smart Kubik" className="h-10 w-auto" />
             </div>
             <Badge variant="secondary" className="bg-green-100 text-green-800">
               🇻🇪 Venezuela

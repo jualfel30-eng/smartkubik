@@ -5,6 +5,7 @@ import { User, UserSchema } from '../src/schemas/user.schema';
 import { Role, RoleSchema } from '../src/schemas/role.schema';
 import { ChartOfAccounts, ChartOfAccountsSchema } from '../src/schemas/chart-of-accounts.schema';
 import { ALL_PERMISSIONS } from '../src/modules/permissions/constants';
+import { getDefaultModulesForVertical } from '../src/config/vertical-features.config';
 
 async function seedDatabase() {
   const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/food-inventory-saas';
@@ -28,6 +29,8 @@ async function seedDatabase() {
     code: 'EARLYADOPTER',
     name: 'Early Adopter Inc.',
     businessType: 'retail',
+    vertical: 'HYBRID',
+    enabledModules: getDefaultModulesForVertical('HYBRID'),
     contactInfo: {
       email: 'contact@earlyadopter.com',
       phone: '+582125551234',

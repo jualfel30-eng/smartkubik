@@ -258,6 +258,7 @@ export class UpdateCustomerDto {
       "Repartidor",
       "Cajero",
       "Mesonero",
+      "all",
     ],
   })
   @IsOptional()
@@ -271,6 +272,7 @@ export class UpdateCustomerDto {
     "Repartidor",
     "Cajero",
     "Mesonero",
+    "all",
   ])
   customerType?: string;
 

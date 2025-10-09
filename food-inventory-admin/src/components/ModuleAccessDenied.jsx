@@ -32,7 +32,7 @@ export default function ModuleAccessDenied({ moduleName, vertical }) {
     RETAIL: 'Retail',
     SERVICES: 'Servicios',
     LOGISTICS: 'Logística',
-    HYBRID: 'Híbrido',
+    HYBRID: 'Mixta',
   };
 
   const displayName = moduleDisplayNames[moduleName] || moduleName;

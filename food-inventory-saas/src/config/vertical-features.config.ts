@@ -179,3 +179,18 @@ export function isModuleAvailableForVertical(vertical: string, module: string): 
   const features = VERTICAL_FEATURES[vertical] || VERTICAL_FEATURES.FOOD_SERVICE;
   return features[module] ?? false;
 }
+
+/**
+ * Combina los módulos por defecto del vertical con los módulos configurados explícitamente
+ * Permite que los valores `false` guardados sobrescriban los defaults habilitados.
+ */
+export function getEffectiveModulesForTenant(
+  vertical: string,
+  enabledModules?: Record<string, boolean>,
+): Record<string, boolean> {
+  const defaults = getDefaultModulesForVertical(vertical);
+  return {
+    ...defaults,
+    ...(enabledModules || {}),
+  };
+}

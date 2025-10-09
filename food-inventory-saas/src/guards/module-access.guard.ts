@@ -3,6 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Tenant, TenantDocument } from '../schemas/tenant.schema';
+import { getEffectiveModulesForTenant } from '../config/vertical-features.config';
 import { REQUIRED_MODULE_KEY } from '../decorators/require-module.decorator';
 
 /**
@@ -50,19 +51,34 @@ export class ModuleAccessGuard implements CanActivate {
       throw new ForbiddenException('Tenant no encontrado');
     }
 
-    const enabledModules = tenant.enabledModules || {};
-    const isModuleEnabled = enabledModules[requiredModule];
-
-    if (!isModuleEnabled) {
+    const explicitState = tenant.enabledModules?.[requiredModule];
+    if (explicitState === false) {
       this.logger.warn(
-        `Access denied for tenant ${tenant.code}: module '${requiredModule}' is not enabled (vertical: ${tenant.vertical})`,
+        `Access denied for tenant ${tenant.code}: module '${requiredModule}' explicitly disabled (vertical: ${tenant.vertical})`,
       );
       throw new ForbiddenException(
         `El módulo '${requiredModule}' no está habilitado para este tenant. Contacte al administrador para habilitar este módulo.`,
       );
     }
 
-    this.logger.log(`Access granted for tenant ${tenant.code}: module '${requiredModule}' is enabled`);
+    const effectiveModules = getEffectiveModulesForTenant(
+      tenant.vertical || 'FOOD_SERVICE',
+      tenant.enabledModules,
+    );
+
+    if (!effectiveModules[requiredModule]) {
+      this.logger.warn(
+        `Access denied for tenant ${tenant.code}: module '${requiredModule}' not available for vertical ${tenant.vertical}`,
+      );
+      throw new ForbiddenException(
+        `El módulo '${requiredModule}' no está habilitado para este tenant. Contacte al administrador para habilitar este módulo.`,
+      );
+    }
+
+    const accessSource = explicitState === true ? 'explicitly enabled' : 'enabled by vertical configuration';
+    this.logger.log(
+      `Access granted for tenant ${tenant.code}: module '${requiredModule}' ${accessSource}`,
+    );
     return true;
   }
 }

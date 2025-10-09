@@ -1,4 +1,4 @@
-import { createContext, useState, useCallback, useEffect, useContext } from 'react';
+import { createContext, useState, useCallback, useEffect, useContext, useRef } from 'react';
 import { fetchApi } from '@/lib/api';
 
 // 1. Crear el Contexto
@@ -11,13 +11,53 @@ export const CrmProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const extractCustomers = (payload) => {
+    const candidates = [
+      payload,
+      payload?.data,
+      payload?.data?.customers,
+      payload?.customers,
+      payload?.data?.data,
+    ];
+
+    for (const candidate of candidates) {
+      if (Array.isArray(candidate)) {
+        return candidate;
+      }
+    }
+
+    return [];
+  };
+
+  const mergeUniqueCustomers = (...lists) => {
+    const map = new Map();
+    lists.flat().forEach((customer) => {
+      if (customer && customer._id) {
+        map.set(customer._id, customer);
+      }
+    });
+    return Array.from(map.values());
+  };
+
   const loadCustomers = useCallback(async () => {
     try {
-      const data = await fetchApi('/customers?limit=100');
-      setCrmData(data.data || []);
+      setError(null);
+      const response = await fetchApi('/customers?limit=100');
+      let customers = extractCustomers(response);
+
+      if (customers.length === 0) {
+        const businessResponse = await fetchApi('/customers?customerType=business&limit=100');
+        const suppliersResponse = await fetchApi('/customers?customerType=supplier&limit=100');
+        const businessCustomers = extractCustomers(businessResponse);
+        const suppliers = extractCustomers(suppliersResponse);
+        customers = mergeUniqueCustomers(businessCustomers, suppliers);
+      }
+
+      setCrmData(customers);
     } catch (err) {
       console.error("Error loading customers:", err.message);
       setCrmData([]);
+      setError(err.message);
     }
   }, []);
 
@@ -31,7 +71,13 @@ export const CrmProvider = ({ children }) => {
     }
   }, []);
 
+  const didLoadRef = useRef(false);
+
   useEffect(() => {
+    if (didLoadRef.current) {
+      return;
+    }
+    didLoadRef.current = true;
     const loadInitialData = async () => {
       setLoading(true);
       setError(null);

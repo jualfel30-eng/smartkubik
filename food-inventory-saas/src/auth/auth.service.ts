@@ -27,6 +27,7 @@ import { MailService } from '../modules/mail/mail.service';
 import { TokenService } from './token.service';
 import { isFeatureEnabled } from '../config/features.config';
 import { MembershipsService, MembershipSummary } from '../modules/memberships/memberships.service';
+import { getEffectiveModulesForTenant } from '../config/vertical-features.config';
 
 @Injectable()
 export class AuthService {
@@ -331,13 +332,18 @@ export class AuthService {
   }
 
   private buildTenantPayload(tenant: TenantDocument) {
+    const effectiveModules = getEffectiveModulesForTenant(
+      tenant.vertical || 'FOOD_SERVICE',
+      tenant.enabledModules,
+    );
+
     return {
       id: tenant._id,
       code: tenant.code,
       name: tenant.name,
       businessType: tenant.businessType,
       vertical: tenant.vertical,
-      enabledModules: tenant.enabledModules,
+      enabledModules: effectiveModules,
     };
   }
 
@@ -493,14 +499,7 @@ export class AuthService {
         role: userWithRole.role,
         tenantId: userWithRole.tenantId,
       },
-      tenant: {
-        id: tenant._id,
-        code: tenant.code,
-        name: tenant.name,
-        businessType: tenant.businessType,
-        vertical: tenant.vertical,
-        enabledModules: tenant.enabledModules,
-      },
+      tenant: this.buildTenantPayload(tenant),
       ...tokens,
     };
   }
@@ -556,14 +555,7 @@ export class AuthService {
     if (tenant) {
       return {
         user: userPayload,
-        tenant: {
-          id: tenant._id,
-          code: tenant.code,
-          name: tenant.name,
-          businessType: tenant.businessType,
-          vertical: tenant.vertical,
-          enabledModules: tenant.enabledModules,
-        },
+        tenant: this.buildTenantPayload(tenant),
         ...tokens,
       };
     } else {

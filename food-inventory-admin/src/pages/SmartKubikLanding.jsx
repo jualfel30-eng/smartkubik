@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Check, Star, Users, TrendingUp, Shield, Zap, BarChart3, MessageCircle, Calendar, Package, CreditCard, Settings, PlayCircle, ArrowRight, Menu, X, Sun, Moon } from 'lucide-react';
+import SmartKubikLogoDark from '@/assets/logo-smartkubik.png';
+import SmartKubikLogoLight from '@/assets/logo-smartkubik-light.png';
 
 const SmartKubikLanding = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -27,6 +29,7 @@ const SmartKubikLanding = () => {
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode);
   };
+  const logoSrc = isDarkMode ? SmartKubikLogoDark : SmartKubikLogoLight;
 
   const features = [
     {
@@ -207,14 +210,9 @@ const SmartKubikLanding = () => {
       {/* Navigation - Clean Microsoft style */}
       <nav className={`fixed top-0 w-full ${themeClasses.navBg} backdrop-blur-sm border-b ${themeClasses.borderLight} z-50 transition-colors duration-200`}>
         <div className="max-w-6xl mx-auto px-6">
-          <div className="flex justify-between items-center h-16">
+            <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3 animate-fadeIn">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded flex items-center justify-center">
-                <div className="w-4 h-4 bg-white rounded-sm opacity-90"></div>
-              </div>
-              <span className={`text-xl font-semibold ${themeClasses.text}`}>
-                Smart Kubik
-              </span>
+              <img src={logoSrc} alt="Smart Kubik" className="h-10 w-auto" />
             </div>
             
             <div className="hidden md:flex items-center space-x-8">

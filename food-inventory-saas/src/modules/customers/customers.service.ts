@@ -84,9 +84,18 @@ export class CustomersService {
       sortOrder = "desc",
     } = query;
 
-    const filter: any = { tenantId };
+    const tenantIdVariants: (string | Types.ObjectId)[] = [tenantId];
+    if (Types.ObjectId.isValid(tenantId)) {
+      tenantIdVariants.push(new Types.ObjectId(tenantId));
+    }
 
-    if (customerType) filter.customerType = customerType;
+    const filter: any = {
+      tenantId: tenantIdVariants.length > 1 ? { $in: tenantIdVariants } : tenantId,
+    };
+
+    if (customerType && customerType !== 'all') {
+      filter.customerType = customerType;
+    }
     if (status) filter.status = status;
     if (assignedTo) filter.assignedTo = new Types.ObjectId(assignedTo);
 

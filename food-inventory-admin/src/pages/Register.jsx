@@ -31,6 +31,17 @@ const businessVerticals = [
     value: 'LOGISTICS',
     categories: ['Almacén', 'Centro de Distribución', 'Transporte Refrigerado'],
   },
+  {
+    name: 'Mixta (Multi-vertical)',
+    value: 'HYBRID',
+    categories: [
+      'Hotel con Restaurante',
+      'Hotel con Tienda Boutique',
+      'Restaurante + Tienda',
+      'Resort Todo Incluido',
+      'Centro Comercial Gastronómico',
+    ],
+  },
 ];
 
 // Step 1 Component

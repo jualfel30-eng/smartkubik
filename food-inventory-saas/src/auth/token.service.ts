@@ -6,6 +6,7 @@ import { Role, RoleDocument } from '../schemas/role.schema';
 import { UserDocument } from '../schemas/user.schema';
 import { TenantDocument } from '../schemas/tenant.schema';
 import { PermissionsService } from '../modules/permissions/permissions.service';
+import { getEffectiveModulesForTenant } from '../config/vertical-features.config';
 
 export interface TokenGenerationOptions {
   impersonation?: boolean;
@@ -90,8 +91,12 @@ export class TokenService {
       roleName = (rawRole as any).name;
     }
 
-    if (permissionNames.length === 0 && tenant?.enabledModules) {
-      const enabledModuleNames = Object.entries(tenant.enabledModules)
+    if (permissionNames.length === 0 && tenant) {
+      const effectiveModules = getEffectiveModulesForTenant(
+        tenant.vertical || 'FOOD_SERVICE',
+        tenant.enabledModules,
+      );
+      const enabledModuleNames = Object.entries(effectiveModules)
         .filter(([, isEnabled]) => isEnabled)
         .map(([moduleName]) => moduleName);
 

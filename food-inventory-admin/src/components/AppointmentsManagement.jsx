@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input.jsx';
 import { Label } from '@/components/ui/label.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { fetchApi } from '../lib/api';
 import { useModuleAccess } from '../hooks/useModuleAccess';
@@ -24,10 +24,12 @@ import {
   PlayCircle
 } from 'lucide-react';
 
+const UNASSIGNED_RESOURCE = '__UNASSIGNED__';
+
 const initialAppointmentState = {
   customerId: '',
   serviceId: '',
-  resourceId: '',
+  resourceId: UNASSIGNED_RESOURCE,
   startTime: '',
   endTime: '',
   notes: '',
@@ -51,11 +53,21 @@ function AppointmentsManagement() {
   const [customers, setCustomers] = useState([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState(null);
-  const [formData, setFormData] = useState(initialAppointmentState);
+  const [formData, setFormData] = useState({ ...initialAppointmentState });
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+
+  const normalizeListResponse = (apiResponse) => {
+    if (Array.isArray(apiResponse)) {
+      return apiResponse;
+    }
+    if (apiResponse && Array.isArray(apiResponse.data)) {
+      return apiResponse.data;
+    }
+    return [];
+  };
 
   if (!hasAccess) {
     return <ModuleAccessDenied moduleName="appointments" />;
@@ -92,7 +104,7 @@ function AppointmentsManagement() {
       if (statusFilter !== 'all') params.append('status', statusFilter);
 
       const data = await fetchApi(`/appointments?${params}`);
-      setAppointments(data);
+      setAppointments(normalizeListResponse(data));
     } catch (error) {
       console.error('Error loading appointments:', error);
       alert('Error al cargar las citas');
@@ -104,25 +116,27 @@ function AppointmentsManagement() {
   const loadServices = async () => {
     try {
       const data = await fetchApi('/services/active');
-      setServices(data);
+      setServices(normalizeListResponse(data));
     } catch (error) {
       console.error('Error loading services:', error);
+      setServices([]);
     }
   };
 
   const loadResources = async () => {
     try {
       const data = await fetchApi('/resources/active');
-      setResources(data);
+      setResources(normalizeListResponse(data));
     } catch (error) {
       console.error('Error loading resources:', error);
+      setResources([]);
     }
   };
 
   const loadCustomers = async () => {
     try {
       const data = await fetchApi('/customers');
-      setCustomers(data.data || data || []);
+      setCustomers(normalizeListResponse(data));
     } catch (error) {
       console.error('Error loading customers:', error);
       setCustomers([]);
@@ -131,7 +145,7 @@ function AppointmentsManagement() {
 
   const openCreateDialog = () => {
     setEditingAppointment(null);
-    setFormData(initialAppointmentState);
+    setFormData({ ...initialAppointmentState });
     setIsDialogOpen(true);
   };
 
@@ -140,7 +154,7 @@ function AppointmentsManagement() {
     setFormData({
       customerId: appointment.customerId._id || appointment.customerId,
       serviceId: appointment.serviceId._id || appointment.serviceId,
-      resourceId: appointment.resourceId?._id || appointment.resourceId || '',
+      resourceId: appointment.resourceId?._id || appointment.resourceId || UNASSIGNED_RESOURCE,
       startTime: new Date(appointment.startTime).toISOString().slice(0, 16),
       endTime: new Date(appointment.endTime).toISOString().slice(0, 16),
       notes: appointment.notes || '',
@@ -150,37 +164,37 @@ function AppointmentsManagement() {
   };
 
   const handleServiceChange = (serviceId) => {
-    const service = services.find(s => s._id === serviceId);
-    setFormData({ ...formData, serviceId });
-
-    // Auto-calculate end time if start time is set
-    if (formData.startTime && service) {
-      const start = new Date(formData.startTime);
-      const end = new Date(start.getTime() + service.duration * 60000);
-      setFormData({
-        ...formData,
-        serviceId,
-        endTime: end.toISOString().slice(0, 16),
-      });
-    }
+    const serviceList = Array.isArray(services) ? services : [];
+    const service = serviceList.find(s => s._id === serviceId);
+    setFormData(prev => {
+      const next = { ...prev, serviceId };
+      if (prev.startTime && service?.duration) {
+        const start = new Date(prev.startTime);
+        if (!Number.isNaN(start.getTime())) {
+          const end = new Date(start.getTime() + service.duration * 60000);
+          next.endTime = end.toISOString().slice(0, 16);
+        }
+      }
+      return next;
+    });
   };
 
   const handleStartTimeChange = (startTime) => {
-    setFormData({ ...formData, startTime });
-
-    // Auto-calculate end time based on service duration
-    if (formData.serviceId) {
-      const service = services.find(s => s._id === formData.serviceId);
-      if (service) {
-        const start = new Date(startTime);
-        const end = new Date(start.getTime() + service.duration * 60000);
-        setFormData({
-          ...formData,
-          startTime,
-          endTime: end.toISOString().slice(0, 16),
-        });
+    const serviceList = Array.isArray(services) ? services : [];
+    setFormData(prev => {
+      const next = { ...prev, startTime };
+      if (prev.serviceId) {
+        const service = serviceList.find(s => s._id === prev.serviceId);
+        if (service?.duration) {
+          const start = new Date(startTime);
+          if (!Number.isNaN(start.getTime())) {
+            const end = new Date(start.getTime() + service.duration * 60000);
+            next.endTime = end.toISOString().slice(0, 16);
+          }
+        }
       }
-    }
+      return next;
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -193,6 +207,10 @@ function AppointmentsManagement() {
         ...formData,
         startTime: new Date(formData.startTime).toISOString(),
         endTime: new Date(formData.endTime).toISOString(),
+        resourceId:
+          (formData.resourceId || UNASSIGNED_RESOURCE) === UNASSIGNED_RESOURCE
+            ? undefined
+            : formData.resourceId,
       };
 
       if (editingAppointment) {
@@ -447,6 +465,9 @@ function AppointmentsManagement() {
             <DialogTitle>
               {editingAppointment ? 'Editar Cita' : 'Nueva Cita'}
             </DialogTitle>
+            <DialogDescription>
+              Completa la información de la cita y asigna un recurso opcional antes de guardar.
+            </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -482,7 +503,7 @@ function AppointmentsManagement() {
                     <SelectValue placeholder="Selecciona un servicio" />
                   </SelectTrigger>
                   <SelectContent>
-                    {services.map((service) => (
+                    {(Array.isArray(services) ? services : []).map((service) => (
                       <SelectItem key={service._id} value={service._id}>
                         {service.name} ({service.duration} min)
                       </SelectItem>
@@ -494,15 +515,20 @@ function AppointmentsManagement() {
               <div>
                 <Label htmlFor="resourceId">Recurso</Label>
                 <Select
-                  value={formData.resourceId}
-                  onValueChange={(value) => setFormData({ ...formData, resourceId: value })}
+                  value={formData.resourceId || UNASSIGNED_RESOURCE}
+                  onValueChange={(value) =>
+                    setFormData({
+                      ...formData,
+                      resourceId: value || UNASSIGNED_RESOURCE,
+                    })
+                  }
                 >
                   <SelectTrigger id="resourceId">
                     <SelectValue placeholder="Sin asignar" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Sin asignar</SelectItem>
-                    {resources.map((resource) => (
+                    <SelectItem value={UNASSIGNED_RESOURCE}>Sin asignar</SelectItem>
+                    {(Array.isArray(resources) ? resources : []).map((resource) => (
                       <SelectItem key={resource._id} value={resource._id}>
                         {resource.name}
                       </SelectItem>
