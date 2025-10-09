@@ -20,14 +20,13 @@ import {
   StopCircle,
   AreaChart,
   LayoutDashboard,
-  Menu,
-  X,
   Truck,
   Building2,
   Calendar,
   Briefcase,
   UserSquare,
   Store,
+  PanelLeft,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import './App.css';
@@ -36,8 +35,21 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { CrmProvider } from './context/CrmContext.jsx';
 import { FormStateProvider } from './context/FormStateContext.jsx';
 import { AccountingProvider } from './context/AccountingContext.jsx';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx';
 import { TenantPickerDialog } from '@/components/auth/TenantPickerDialog.jsx';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarRail,
+  SidebarSeparator,
+  SidebarTrigger,
+  useSidebar,
+} from '@/components/ui/sidebar.jsx';
 
 // Tutorial Imports (Desactivado)
 // import { TutorialProvider, useTutorial } from './context/TutorialContext.jsx';
@@ -80,7 +92,6 @@ const LoadingFallback = () => (
 function TenantLayout() {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isTenantDialogOpen, setTenantDialogOpen] = useState(false);
   const [tenantDialogError, setTenantDialogError] = useState('');
   const {
@@ -111,7 +122,6 @@ function TenantLayout() {
     const defaultTab = 'dashboard';
     const tab = currentPath.split('/')[0] || defaultTab;
     setActiveTab(tab);
-    setMobileMenuOpen(false); // Close mobile menu on navigation
   }, [location.pathname]);
 
   useEffect(() => {
@@ -213,195 +223,211 @@ function TenantLayout() {
     { name: 'Reportes', href: 'reports', icon: AreaChart, permission: 'reports_read' },
   ];
 
-  return (
-    <div className="min-h-screen bg-background">
-      <Toaster richColors />
-      {/* <Tutorial /> */}
-      {/* <Button onClick={startTutorial} className="fixed bottom-4 right-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg z-[10001] flex items-center px-4 py-2">
-        <PlayCircle className="h-5 w-5 mr-2" />
-        Seguir tutorial de uso
-      </Button> */}
-      
-      {/* Mobile Header & Menu */}
-      <div className="md:hidden">
-        <header className="bg-card border-b border-border px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <img src={logoSrc} alt="Smart Kubik" className="h-8 w-auto" />
-          </div>
-          <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(!isMobileMenuOpen)}>
-            <Menu className="h-6 w-6" />
-          </Button>
-        </header>
+  const SidebarNavigation = () => {
+    const { state, setOpen, isMobile, setOpenMobile } = useSidebar();
 
-        {/* Mobile Menu (Drawer) */}
-        <div className={`fixed inset-0 z-40 transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out`}>
-          <div className="absolute inset-0 bg-black/60" onClick={() => setMobileMenuOpen(false)}></div>
-          <div className="relative z-10 h-full w-72 bg-card p-6 flex flex-col">
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-2">
-                    <img src={logoSrc} alt="Smart Kubik" className="h-9 w-auto" />
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(false)}>
-                    <X className="h-6 w-6" />
-                </Button>
-            </div>
-            
-            <nav className="flex-1 flex flex-col space-y-2">
-              {navLinks.map(link => {
-                if (link.requiresModule && !tenant?.enabledModules?.[link.requiresModule]) {
-                  return null;
-                }
-                return hasPermission(link.permission) && (
-                <Button
-                  key={link.name}
-                  variant={activeTab === link.href ? 'secondary' : 'ghost'}
-                  className="justify-start"
-                  onClick={() => handleTabChange(link.href)}
-                >
-                  <link.icon className="mr-3 h-5 w-5" />
-                  {link.name}
-                </Button>
-              );
-              })}
-            </nav>
+    const handleNavigationClick = (href) => {
+      if (!href) return;
 
-            <div className="mt-auto">
-                <div className="flex items-center justify-between mb-4">
-                    <span className="text-sm text-muted-foreground">Hola, {user?.firstName || 'Usuario'}</span>
-                    <ThemeToggle />
-                </div>
-                {isMultiTenantEnabled && memberships.length > 0 && (
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start mb-2"
-                    onClick={openTenantDialog}
-                  >
-                    <Building2 className="mr-3 h-5 w-5" />
-                    {tenant?.name || 'Seleccionar organización'}
-                  </Button>
-                )}
-                {hasPermission('tenant_settings_read') && (
-                    <Button variant="outline" className="w-full justify-start mb-2" onClick={() => navigate('/settings')}>
-                        <Settings className="mr-3 h-5 w-5" />
-                        Configuración
-                    </Button>
-                )}
-                <Button variant="outline" className="w-full justify-start" onClick={handleLogout}>
-                  <LogOut className="mr-3 h-5 w-5" />
-                  Cerrar Sesión
-                </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      if (!isMobile && state === 'collapsed') {
+        setOpen(true);
+        return;
+      }
 
-      {/* Desktop Header */}
-      <header className="hidden md:block bg-card border-border px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <img src={logoSrc} alt="Smart Kubik" className="h-10 w-auto" />
-            </div>
-            <Badge variant="secondary" className="bg-green-100 text-green-800">
-              🇻🇪 Venezuela
-            </Badge>
-          </div>
-          <div className="flex items-center space-x-4">
-             <span className="text-sm text-muted-foreground">Hola, {user?.firstName || 'Usuario'}</span>
-             <ShiftTimer />
-            {isClockedIn ? (
-              <Button variant="destructive" size="sm" onClick={clockOut} disabled={isShiftLoading}>
-                <StopCircle className="h-4 w-4 mr-2" />
-                Finalizar Turno
-              </Button>
-            ) : (
-              <Button variant="outline" size="sm" onClick={clockIn} disabled={isShiftLoading}>
-                <PlayCircle className="h-4 w-4 mr-2" />
-                Iniciar Turno
-              </Button>
-            )}
-            {isMultiTenantEnabled && memberships.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={openTenantDialog}
+      handleTabChange(href);
+
+      if (isMobile) {
+        setOpenMobile(false);
+      }
+    };
+
+    return (
+      <SidebarMenu>
+        {navLinks.map(link => {
+          if (link.requiresModule && !tenant?.enabledModules?.[link.requiresModule]) {
+            return null;
+          }
+
+          if (!hasPermission(link.permission)) {
+            return null;
+          }
+
+          return (
+            <SidebarMenuItem key={link.href}>
+              <SidebarMenuButton
+                tooltip={link.name}
+                isActive={activeTab === link.href}
+                className="gap-3 justify-start"
+                aria-label={link.name}
+                onClick={() => handleNavigationClick(link.href)}
               >
-                <Building2 className="h-4 w-4 mr-2" />
+                <link.icon style={{ width: '24px', height: '24px' }} strokeWidth={1.25} />
+                <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">{link.name}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          );
+        })}
+      </SidebarMenu>
+    );
+  };
+
+  const SidebarFooterContent = () => {
+    const { toggleSidebar } = useSidebar();
+
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            tooltip="Colapsar menú"
+            className="gap-3 justify-start"
+            onClick={toggleSidebar}
+          >
+            <PanelLeft style={{ width: '24px', height: '24px' }} strokeWidth={1.25} />
+            <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">Colapsar menú</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+        {isMultiTenantEnabled && memberships.length > 0 && (
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip={tenant?.name || 'Seleccionar organización'}
+              className="gap-3 justify-start"
+              onClick={openTenantDialog}
+            >
+              <Building2 style={{ width: '24px', height: '24px' }} strokeWidth={1.25} />
+              <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">
                 {tenant?.name || 'Seleccionar organización'}
-              </Button>
-            )}
-            <ThemeToggle />
-            {hasPermission('tenant_settings_read') && (
-                <Button id="settings-button" variant="outline" size="icon" onClick={() => navigate('/settings')}>
-                    <Settings className="h-4 w-4" />
+              </span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        )}
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            tooltip="Configuración"
+            className="gap-3 justify-start"
+            onClick={() => navigate('/settings')}
+          >
+            <Settings style={{ width: '24px', height: '24px' }} strokeWidth={1.25} />
+            <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">Configuración</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            tooltip="Cerrar Sesión"
+            className="gap-3 justify-start"
+            onClick={handleLogout}
+          >
+            <LogOut style={{ width: '24px', height: '24px' }} strokeWidth={1.25} />
+            <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">Cerrar Sesión</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    );
+  };
+
+  return (
+    <SidebarProvider defaultOpen={false}>
+      <Toaster richColors />
+      <Sidebar collapsible="icon" className="bg-card border-r border-border">
+        <SidebarContent className="px-2 py-4">
+          <SidebarNavigation />
+        </SidebarContent>
+        <SidebarSeparator />
+        <SidebarFooter className="border-t border-border px-3 py-4">
+          <SidebarFooterContent />
+        </SidebarFooter>
+        <SidebarRail />
+      </Sidebar>
+      <SidebarInset className="bg-background">
+        <div className="flex min-h-screen flex-col">
+          <div className="flex items-center justify-between border-b border-border bg-card px-4 py-3 md:hidden">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger className="text-muted-foreground" />
+              <img src={logoSrc} alt="Smart Kubik" className="h-8 w-auto" />
+            </div>
+            <div className="flex items-center gap-2">
+              <ShiftTimer />
+              <ThemeToggle />
+            </div>
+          </div>
+          <div className="hidden items-center justify-between border-b border-border bg-card px-6 py-4 md:flex">
+            <div className="flex items-center gap-3">
+              <img src={logoSrc} alt="Smart Kubik" className="h-12 w-auto" />
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-muted-foreground">Hola, {user?.firstName || 'Usuario'}</span>
+              <ShiftTimer />
+              {isClockedIn ? (
+                <Button variant="destructive" size="sm" onClick={clockOut} disabled={isShiftLoading}>
+                  <StopCircle className="mr-2 h-4 w-4" />
+                  Finalizar Turno
                 </Button>
-            )}
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Cerrar Sesión
-            </Button>
+              ) : (
+                <Button variant="outline" size="sm" onClick={clockIn} disabled={isShiftLoading}>
+                  <PlayCircle className="mr-2 h-4 w-4" />
+                  Iniciar Turno
+                </Button>
+              )}
+              {isMultiTenantEnabled && memberships.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={openTenantDialog}
+                >
+                  <Building2 className="mr-2 h-4 w-4" />
+                  {tenant?.name || 'Seleccionar organización'}
+                </Button>
+              )}
+              <ThemeToggle />
+              <Button id="settings-button" variant="outline" size="icon" onClick={() => navigate('/settings')}>
+                <Settings className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Cerrar Sesión
+              </Button>
+            </div>
+          </div>
+          <div className="flex-1 p-4 md:p-6">
+            <Suspense fallback={<LoadingFallback />}>
+              <Routes>
+                <Route path="dashboard" element={<DashboardView />} />
+                <Route path="inventory-management" element={<InventoryDashboard />} />
+                <Route
+                  path="storefront"
+                  element={
+                    tenant?.enabledModules?.ecommerce
+                      ? <StorefrontSettings />
+                      : <Navigate to="/dashboard" replace />
+                  }
+                />
+                <Route path="crm" element={<CRMManagement />} />
+                <Route path="orders" element={<OrdersManagement />} />
+                <Route path="purchases" element={<ComprasManagement />} />
+                <Route path="accounting-management" element={<AccountingDashboard />} />
+                <Route path="accounting/reports/accounts-receivable" element={<AccountsReceivableReport />} />
+                <Route path="bank-accounts" element={<BankAccountsManagement />} />
+                <Route path="appointments" element={<AppointmentsManagement />} />
+                <Route path="services" element={<ServicesManagement />} />
+                <Route path="resources" element={<ResourcesManagement />} />
+                <Route path="calendar" element={<CalendarView />} />
+                <Route path="settings" element={<SettingsPage />} />
+                <Route path="reports" element={<ReportsPage />} />
+                <Route path="*" element={<Navigate to="dashboard" />} />
+              </Routes>
+            </Suspense>
           </div>
         </div>
-      </header>
-
-      {/* Desktop Tabs */}
-      <div className="hidden md:block bg-card py-2">
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="px-6">
-          <TabsList className="max-w-full overflow-x-auto">
-            {navLinks.map(link => {
-              if (link.requiresModule && !tenant?.enabledModules?.[link.requiresModule]) {
-                return null;
-              }
-              return hasPermission(link.permission) && (
-              <TabsTrigger key={link.href} value={link.href}>
-                <link.icon className="mr-2 h-4 w-4" />
-                {link.name}
-              </TabsTrigger>
-            );
-            })}
-          </TabsList>
-        </Tabs>
-      </div>
-
-      <main className="p-4 md:p-6">
-        <Suspense fallback={<LoadingFallback />}>
-          <Routes>
-            <Route path="dashboard" element={<DashboardView />} />
-            <Route path="inventory-management" element={<InventoryDashboard />} />
-            <Route
-              path="storefront"
-              element={
-                tenant?.enabledModules?.ecommerce
-                  ? <StorefrontSettings />
-                  : <Navigate to="/dashboard" replace />
-              }
-            />
-            <Route path="crm" element={<CRMManagement />} />
-            <Route path="orders" element={<OrdersManagement />} />
-            <Route path="purchases" element={<ComprasManagement />} />
-            <Route path="accounting-management" element={<AccountingDashboard />} />
-            <Route path="accounting/reports/accounts-receivable" element={<AccountsReceivableReport />} />
-            <Route path="bank-accounts" element={<BankAccountsManagement />} />
-            <Route path="appointments" element={<AppointmentsManagement />} />
-            <Route path="services" element={<ServicesManagement />} />
-            <Route path="resources" element={<ResourcesManagement />} />
-            <Route path="calendar" element={<CalendarView />} />
-            <Route path="settings" element={<SettingsPage />} />
-            <Route path="reports" element={<ReportsPage />} />
-            <Route path="*" element={<Navigate to="dashboard" />} />
-          </Routes>
-        </Suspense>
-      </main>
-      <TenantPickerDialog
-        isOpen={isTenantDialogOpen}
-        memberships={memberships}
-        defaultMembershipId={activeMembershipId}
-        onSelect={handleTenantSwitch}
-        onCancel={handleTenantDialogClose}
-        isLoading={isSwitchingTenant}
-        errorMessage={tenantDialogError}
-      />
-    </div>
+        <TenantPickerDialog
+          isOpen={isTenantDialogOpen}
+          memberships={memberships}
+          defaultMembershipId={activeMembershipId}
+          onSelect={handleTenantSwitch}
+          onCancel={handleTenantDialogClose}
+          isLoading={isSwitchingTenant}
+          errorMessage={tenantDialogError}
+        />
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 

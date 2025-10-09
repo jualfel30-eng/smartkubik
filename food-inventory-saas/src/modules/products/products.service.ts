@@ -53,7 +53,7 @@ export class ProductsService {
 
     const existingProduct = await this.productModel.findOne({
       sku: dto.product.sku,
-      tenantId: user.tenantId,
+      tenantId: new Types.ObjectId(user.tenantId),
     });
     if (existingProduct) {
       throw new BadRequestException(
@@ -123,7 +123,7 @@ export class ProductsService {
           },
         ],
         createdBy: user.id,
-        tenantId: user.tenantId,
+        tenantId: new Types.ObjectId(user.tenantId),
       };
       const createdProduct = new this.productModel(productData);
       const savedProduct = await createdProduct.save();
@@ -210,7 +210,7 @@ export class ProductsService {
 
     const existingProduct = await this.productModel.findOne({
       sku: createProductDto.sku,
-      tenantId: user.tenantId,
+      tenantId: new Types.ObjectId(user.tenantId),
     });
     if (existingProduct) {
       throw new Error(`El SKU ${createProductDto.sku} ya existe`);
@@ -219,7 +219,7 @@ export class ProductsService {
       ...createProductDto,
       isActive: true, // Explicitly set new products as active
       createdBy: user.id,
-      tenantId: user.tenantId,
+      tenantId: new Types.ObjectId(user.tenantId),
     };
     const createdProduct = new this.productModel(productData);
     const savedProduct = await createdProduct.save();
@@ -307,7 +307,7 @@ export class ProductsService {
       isActive = true,
       includeInactive = false,
     } = query;
-    const filter: any = { tenantId: tenantId };
+    const filter: any = { tenantId: new Types.ObjectId(tenantId) };
     if (!includeInactive) {
       filter.isActive = isActive;
     }
@@ -321,6 +321,9 @@ export class ProductsService {
       filter.brand = brand;
     }
     const skip = (page - 1) * limit;
+    this.logger.debug(
+      `findAll -> tenantId=${tenantId}, includeInactive=${includeInactive}, isActive=${isActive}, page=${page}, limit=${limit}, search=${search ?? ""}, category=${category ?? ""}, brand=${brand ?? ""}`,
+    );
     const [products, total] = await Promise.all([
       this.productModel
         .find(filter)
@@ -341,7 +344,7 @@ export class ProductsService {
   }
 
   async findOne(id: string, tenantId: string): Promise<ProductDocument | null> {
-    return this.productModel.findOne({ _id: id, tenantId }).exec();
+    return this.productModel.findOne({ _id: id, tenantId: new Types.ObjectId(tenantId) }).exec();
   }
 
   async update(
@@ -385,14 +388,14 @@ export class ProductsService {
   }
 
   async remove(id: string, tenantId: string): Promise<any> {
-    const productToRemove = await this.productModel.findOne({ _id: id, tenantId }).lean();
+    const productToRemove = await this.productModel.findOne({ _id: id, tenantId: new Types.ObjectId(tenantId) }).lean();
     if (!productToRemove) {
         throw new NotFoundException("Producto no encontrado");
     }
 
     const imagesSize = this.calculateImagesSize(productToRemove.variants);
 
-    const result = await this.productModel.deleteOne({ _id: id, tenantId }).exec();
+    const result = await this.productModel.deleteOne({ _id: id, tenantId: new Types.ObjectId(tenantId) }).exec();
 
     if (result.deletedCount > 0) {
       await this.tenantModel.findByIdAndUpdate(tenantId, { 
@@ -407,13 +410,13 @@ export class ProductsService {
 
   async getCategories(tenantId: string): Promise<string[]> {
     return this.productModel
-      .distinct("category", { tenantId: tenantId })
+      .distinct("category", { tenantId: new Types.ObjectId(tenantId) })
       .exec();
   }
 
   async getSubcategories(tenantId: string): Promise<string[]> {
     return this.productModel
-      .distinct("subcategory", { tenantId: tenantId })
+      .distinct("subcategory", { tenantId: new Types.ObjectId(tenantId) })
       .exec();
   }
 

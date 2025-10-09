@@ -10,6 +10,10 @@ export const CrmProvider = ({ children }) => {
   const [paymentMethods, setPaymentMethods] = useState([]); // New state for payment methods
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageLimit, setPageLimit] = useState(25);
+  const [totalCustomers, setTotalCustomers] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   const extractCustomers = (payload) => {
     const candidates = [
@@ -39,25 +43,31 @@ export const CrmProvider = ({ children }) => {
     return Array.from(map.values());
   };
 
-  const loadCustomers = useCallback(async () => {
+  const loadCustomers = useCallback(async (page = 1, limit = 25) => {
     try {
+      setLoading(true);
       setError(null);
-      const response = await fetchApi('/customers?limit=100');
-      let customers = extractCustomers(response);
 
-      if (customers.length === 0) {
-        const businessResponse = await fetchApi('/customers?customerType=business&limit=100');
-        const suppliersResponse = await fetchApi('/customers?customerType=supplier&limit=100');
-        const businessCustomers = extractCustomers(businessResponse);
-        const suppliers = extractCustomers(suppliersResponse);
-        customers = mergeUniqueCustomers(businessCustomers, suppliers);
-      }
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString()
+      });
 
-      setCrmData(customers);
+      const response = await fetchApi(`/customers?${params.toString()}`);
+
+      setCrmData(response.data?.customers || response.data || []);
+      setTotalCustomers(response.pagination?.total || 0);
+      setTotalPages(response.pagination?.totalPages || 0);
+      setCurrentPage(page);
+      setPageLimit(limit);
     } catch (err) {
       console.error("Error loading customers:", err.message);
       setCrmData([]);
+      setTotalCustomers(0);
+      setTotalPages(0);
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -137,6 +147,12 @@ export const CrmProvider = ({ children }) => {
     updateCustomer,
     deleteCustomer,
     loadCustomers,
+    currentPage,
+    pageLimit,
+    totalCustomers,
+    totalPages,
+    setCurrentPage,
+    setPageLimit,
   };
 
   return <CrmContext.Provider value={value}>{children}</CrmContext.Provider>;

@@ -46,7 +46,7 @@ const initialNewContactState = {
 };
 
 function CRMManagement() {
-  const { crmData, loading, error, addCustomer, updateCustomer, deleteCustomer, loadCustomers } = useCRM();
+  const { crmData, loading, error, addCustomer, updateCustomer, deleteCustomer, loadCustomers, currentPage, pageLimit, totalCustomers, totalPages, setCurrentPage, setPageLimit } = useCRM();
   const [filteredData, setFilteredData] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
@@ -240,7 +240,7 @@ function CRMManagement() {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <h2 className="text-3xl font-bold text-foreground">Gestión de Contactos</h2>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <Button onClick={loadCustomers} disabled={loading} variant="outline" className="w-full sm:w-auto">
+          <Button onClick={() => loadCustomers(currentPage, pageLimit)} disabled={loading} variant="outline" className="w-full sm:w-auto">
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Actualizando...' : 'Actualizar'}
           </Button>
@@ -318,6 +318,70 @@ function CRMManagement() {
                 })}
               </TableBody>
             </Table>
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="flex items-center justify-between px-2 py-4">
+            <div className="flex items-center space-x-2">
+              <p className="text-sm text-muted-foreground">
+                Mostrando {filteredData.length} de {totalCustomers} clientes
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-2">
+                <Label htmlFor="pageLimit" className="text-sm">Mostrar:</Label>
+                <Select value={pageLimit.toString()} onValueChange={(value) => {
+                  setPageLimit(parseInt(value));
+                  setCurrentPage(1);
+                  loadCustomers(1, parseInt(value));
+                }}>
+                  <SelectTrigger className="w-[100px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newPage = Math.max(1, currentPage - 1);
+                    setCurrentPage(newPage);
+                    loadCustomers(newPage, pageLimit);
+                  }}
+                  disabled={currentPage === 1}
+                >
+                  Anterior
+                </Button>
+
+                <div className="flex items-center space-x-1">
+                  <span className="text-sm">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const newPage = Math.min(totalPages, currentPage + 1);
+                    setCurrentPage(newPage);
+                    loadCustomers(newPage, pageLimit);
+                  }}
+                  disabled={currentPage === totalPages}
+                >
+                  Siguiente
+                </Button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

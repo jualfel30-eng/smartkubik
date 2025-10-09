@@ -488,7 +488,7 @@ export class ProductQueryDto {
   @Transform(({ value }) => parseInt(value))
   @IsNumber()
   @Min(1)
-  @Max(100)
+  @Max(500)
   limit?: number = 20;
 
   @ApiPropertyOptional({ description: "Término de búsqueda" })
@@ -508,7 +508,18 @@ export class ProductQueryDto {
 
   @ApiPropertyOptional({ description: "Solo productos activos", default: true })
   @IsOptional()
-  @Transform(({ value }) => value === "true")
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === "") {
+      return true;
+    }
+    if (typeof value === "boolean") {
+      return value;
+    }
+    if (typeof value === "string") {
+      return value.toLowerCase() === "true";
+    }
+    return Boolean(value);
+  })
   @IsBoolean()
   isActive?: boolean = true;
 

@@ -27,8 +27,10 @@ export function OrdersManagementV2() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const debouncedSearchTerm = useDebounce(searchTerm, 500);
+  const debouncedSearchTerm = useDebounce(searchTerm, 800);
   const [tenantSettings, setTenantSettings] = useState(null);
+  const [pageLimit, setPageLimit] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // State for Payment Dialog
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
@@ -38,16 +40,17 @@ export function OrdersManagementV2() {
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedOrderForDetails, setSelectedOrderForDetails] = useState(null);
 
-  const fetchOrders = async (page = 1, search = '') => {
+  const fetchOrders = async (page = 1, limit = 25, search = '') => {
     try {
       setLoading(true);
-      const url = `/orders?page=${page}&limit=10&search=${search}&_=${new Date().getTime()}`;
+      const url = `/orders?page=${page}&limit=${limit}&search=${search}&_=${new Date().getTime()}`;
       const data = await fetchApi(url);
-      
+
       setData({
         orders: data.data || [],
         pagination: data.pagination
       });
+      setCurrentPage(page);
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -59,8 +62,12 @@ export function OrdersManagementV2() {
 
   // Effect for initial load and search term changes
   useEffect(() => {
-    fetchOrders(1, debouncedSearchTerm);
-  }, [debouncedSearchTerm]);
+    setCurrentPage(1);
+    const timeoutId = setTimeout(() => {
+      fetchOrders(1, pageLimit, debouncedSearchTerm);
+    }, debouncedSearchTerm ? 800 : 0);
+    return () => clearTimeout(timeoutId);
+  }, [debouncedSearchTerm, pageLimit]);
 
   // Effect to fetch tenant settings
   useEffect(() => {
@@ -69,12 +76,24 @@ export function OrdersManagementV2() {
     }).catch(err => console.error("Failed to fetch tenant settings:", err));
   }, []);
 
+  // Effect for page changes
+  useEffect(() => {
+    if (currentPage > 1) {
+      fetchOrders(currentPage, pageLimit, debouncedSearchTerm);
+    }
+  }, [currentPage]);
+
   const handleRefresh = useCallback(() => {
-    fetchOrders(data.pagination?.page || 1, debouncedSearchTerm);
-  }, [data.pagination, fetchOrders, debouncedSearchTerm]);
+    fetchOrders(currentPage, pageLimit, debouncedSearchTerm);
+  }, [currentPage, pageLimit, debouncedSearchTerm]);
 
   const handlePageChange = (newPage) => {
-    fetchOrders(newPage, debouncedSearchTerm);
+    setCurrentPage(newPage);
+  };
+
+  const handlePageLimitChange = (newLimit) => {
+    setPageLimit(newLimit);
+    setCurrentPage(1);
   };
 
   // Handlers for Payment Dialog
@@ -173,7 +192,7 @@ export function OrdersManagementV2() {
 
   const handleOrderCreated = () => {
     document.dispatchEvent(new CustomEvent('order-form-success'));
-    fetchOrders(1, searchTerm);
+    fetchOrders(1, pageLimit, searchTerm);
     loadCustomers();
   };
 
@@ -224,6 +243,8 @@ export function OrdersManagementV2() {
               data={data.orders}
               pagination={data.pagination}
               onPageChange={handlePageChange}
+              pageLimit={pageLimit}
+              onPageLimitChange={handlePageLimitChange}
             />
           )}
         </CardContent>

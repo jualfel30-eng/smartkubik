@@ -18,24 +18,44 @@ export default function PurchaseHistory() {
   const [selectedPurchaseOrder, setSelectedPurchaseOrder] = useState(null);
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
   const [poForRating, setPoForRating] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageLimit, setPageLimit] = useState(25);
+  const [totalPurchases, setTotalPurchases] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
-  const loadPurchases = async () => {
+  const loadPurchases = async (page = 1, limit = 25) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchApi('/purchases');
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString()
+      });
+
+      const data = await fetchApi(`/purchases?${params.toString()}`);
       setPurchases(data.data || []);
+      setTotalPurchases(data.pagination?.total || 0);
+      setTotalPages(data.pagination?.totalPages || 0);
+      setCurrentPage(page);
     } catch (err) {
       setError(err.message);
       setPurchases([]);
+      setTotalPurchases(0);
+      setTotalPages(0);
       toast.error('Error de Conexión', { description: 'No se pudo conectar con el servidor para cargar el historial.' });
     }
     setLoading(false);
   };
 
   useEffect(() => {
-    loadPurchases();
+    loadPurchases(currentPage, pageLimit);
   }, []);
+
+  useEffect(() => {
+    if (currentPage > 1) {
+      loadPurchases(currentPage, pageLimit);
+    }
+  }, [currentPage]);
 
   const handleStatusChange = (purchaseOrder, newStatus) => {
     if (newStatus !== 'received') return;
@@ -52,10 +72,19 @@ export default function PurchaseHistory() {
       toast.success('Orden Recibida', { description: 'El inventario ha sido actualizado correctamente.' });
 
       setIsRatingModalOpen(false);
-      loadPurchases();
+      loadPurchases(currentPage, pageLimit);
     } catch (err) {
       toast.error('Error en el Proceso', { description: err.message });
     }
+  };
+
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+  };
+
+  const handlePageLimitChange = (newLimit) => {
+    setPageLimit(newLimit);
+    setCurrentPage(1);
   };
 
   const handleViewDetails = (purchaseOrder) => {
@@ -137,6 +166,61 @@ export default function PurchaseHistory() {
               )}
             </TableBody>
           </Table>
+
+          {totalPages > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
+              <div className="flex items-center gap-2">
+                <p className="text-sm text-muted-foreground">
+                  Mostrando {purchases.length} de {totalPurchases} órdenes de compra
+                </p>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-muted-foreground">Filas por página:</p>
+                  <Select
+                    value={pageLimit.toString()}
+                    onValueChange={(value) => handlePageLimitChange(parseInt(value))}
+                  >
+                    <SelectTrigger className="h-8 w-[70px]">
+                      <SelectValue placeholder={pageLimit.toString()} />
+                    </SelectTrigger>
+                    <SelectContent side="top">
+                      {[10, 25, 50, 100].map((limit) => (
+                        <SelectItem key={limit} value={limit.toString()}>
+                          {limit}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {totalPages > 1 && (
+                  <>
+                    <div className="text-sm text-muted-foreground">
+                      Página {currentPage} de {totalPages}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage <= 1}
+                      >
+                        Anterior
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage >= totalPages}
+                      >
+                        Siguiente
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -35,14 +35,29 @@ export default function BankAccountsManagement() {
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [loading, setLoading] = useState(true);
   const [balancesByCurrency, setBalancesByCurrency] = useState({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageLimit, setPageLimit] = useState(25);
+  const [totalAccounts, setTotalAccounts] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
-  const fetchAccounts = useCallback(async () => {
+  const fetchAccounts = useCallback(async (page = 1, limit = 25) => {
     try {
       setLoading(true);
-      const response = await fetchApi('/bank-accounts');
-      setAccounts(response || []);
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString()
+      });
+
+      const response = await fetchApi(`/bank-accounts?${params.toString()}`);
+      setAccounts(response.data || response || []);
+      setTotalAccounts(response.pagination?.total || 0);
+      setTotalPages(response.pagination?.totalPages || 0);
+      setCurrentPage(page);
     } catch (error) {
       toast.error('Error al cargar cuentas bancarias', { description: error.message });
+      setAccounts([]);
+      setTotalAccounts(0);
+      setTotalPages(0);
     } finally {
       setLoading(false);
     }
@@ -58,9 +73,15 @@ export default function BankAccountsManagement() {
   }, []);
 
   useEffect(() => {
-    fetchAccounts();
+    fetchAccounts(currentPage, pageLimit);
     fetchBalancesByCurrency();
-  }, [fetchAccounts, fetchBalancesByCurrency]);
+  }, [fetchBalancesByCurrency]);
+
+  useEffect(() => {
+    if (currentPage > 1) {
+      fetchAccounts(currentPage, pageLimit);
+    }
+  }, [currentPage]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -120,7 +141,7 @@ export default function BankAccountsManagement() {
         toast.success('Cuenta bancaria creada');
       }
       setIsDialogOpen(false);
-      fetchAccounts();
+      fetchAccounts(currentPage, pageLimit);
       fetchBalancesByCurrency();
     } catch (error) {
       toast.error('Error al guardar cuenta bancaria', { description: error.message });
@@ -133,7 +154,7 @@ export default function BankAccountsManagement() {
     try {
       await fetchApi(`/bank-accounts/${id}`, { method: 'DELETE' });
       toast.success('Cuenta bancaria eliminada');
-      fetchAccounts();
+      fetchAccounts(currentPage, pageLimit);
       fetchBalancesByCurrency();
     } catch (error) {
       toast.error('Error al eliminar cuenta bancaria', { description: error.message });
@@ -154,11 +175,20 @@ export default function BankAccountsManagement() {
       });
       toast.success('Saldo ajustado correctamente');
       setIsAdjustDialogOpen(false);
-      fetchAccounts();
+      fetchAccounts(currentPage, pageLimit);
       fetchBalancesByCurrency();
     } catch (error) {
       toast.error('Error al ajustar saldo', { description: error.message });
     }
+  };
+
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+  };
+
+  const handlePageLimitChange = (newLimit) => {
+    setPageLimit(newLimit);
+    setCurrentPage(1);
   };
 
   const getAccountTypeBadge = (type) => {
@@ -416,6 +446,61 @@ export default function BankAccountsManagement() {
               ))}
             </TableBody>
           </Table>
+
+          {totalPages > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
+              <div className="flex items-center gap-2">
+                <p className="text-sm text-muted-foreground">
+                  Mostrando {accounts.length} de {totalAccounts} cuentas bancarias
+                </p>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-muted-foreground">Filas por página:</p>
+                  <Select
+                    value={pageLimit.toString()}
+                    onValueChange={(value) => handlePageLimitChange(parseInt(value))}
+                  >
+                    <SelectTrigger className="h-8 w-[70px]">
+                      <SelectValue placeholder={pageLimit.toString()} />
+                    </SelectTrigger>
+                    <SelectContent side="top">
+                      {[10, 25, 50, 100].map((limit) => (
+                        <SelectItem key={limit} value={limit.toString()}>
+                          {limit}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {totalPages > 1 && (
+                  <>
+                    <div className="text-sm text-muted-foreground">
+                      Página {currentPage} de {totalPages}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage <= 1}
+                      >
+                        Anterior
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage >= totalPages}
+                      >
+                        Siguiente
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

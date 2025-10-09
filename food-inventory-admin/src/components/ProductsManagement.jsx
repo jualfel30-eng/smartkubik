@@ -71,6 +71,11 @@ function ProductsManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageLimit, setPageLimit] = useState(25);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const lastFetchRef = useRef({ filter: null, timestamp: 0 });
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newProduct, setNewProduct] = useState(initialNewProductState);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -126,51 +131,73 @@ function ProductsManagement() {
     }
   }, [isAddDialogOpen]);
 
-  const loadProducts = useCallback(async (status = 'all') => {
+  const loadProducts = useCallback(async (page = 1, limit = 25, status = 'all', search = '', category = 'all') => {
     try {
       setLoading(true);
       setError(null);
-      const baseParams = new URLSearchParams({ page: '1', limit: '100' });
+
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString()
+      });
+
       if (status === 'active') {
-        baseParams.set('isActive', 'true');
+        params.set('isActive', 'true');
       } else if (status === 'inactive') {
-        baseParams.set('isActive', 'false');
+        params.set('isActive', 'false');
       } else {
-        baseParams.set('includeInactive', 'true');
+        params.set('includeInactive', 'true');
       }
-      const queryString = `?${baseParams.toString()}`;
-      const data = await fetchApi(`/products${queryString}`);
-      setProducts(data.data || []);
+
+      // Add search parameter if provided
+      if (search && search.trim() !== '') {
+        params.set('search', search.trim());
+      }
+
+      // Add category filter if not 'all'
+      if (category && category !== 'all') {
+        params.set('category', category);
+      }
+
+      const queryString = `?${params.toString()}`;
+      const response = await fetchApi(`/products${queryString}`);
+
+      setProducts(response.data || []);
+      setTotalProducts(response.pagination?.total || 0);
+      setTotalPages(response.pagination?.totalPages || 0);
     } catch (err) {
       setError(err.message);
       setProducts([]);
+      setTotalProducts(0);
+      setTotalPages(0);
     } finally {
       setLoading(false);
     }
   }, []);
 
+  // Load products when filters change - debounce search
   useEffect(() => {
-    loadProducts(statusFilter);
-  }, [loadProducts, statusFilter]);
+    setCurrentPage(1); // Reset to page 1 when filters change
 
+    // Debounce search input to avoid making requests while typing
+    const timeoutId = setTimeout(() => {
+      loadProducts(1, pageLimit, statusFilter, searchTerm, filterCategory);
+    }, searchTerm ? 800 : 0); // 800ms debounce for search, instant for other filters
+
+    return () => clearTimeout(timeoutId);
+  }, [statusFilter, pageLimit, searchTerm, filterCategory]);
+
+  // Load products when page changes (only when currentPage changes, not on initial load)
   useEffect(() => {
-    let filtered = products;
-    if (searchTerm) {
-      filtered = filtered.filter((p) =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.brand.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+    if (currentPage > 1) {
+      loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory);
     }
-    if (filterCategory !== 'all') {
-      filtered = filtered.filter((p) => p.category === filterCategory);
-    }
-    if (statusFilter !== 'all') {
-      const shouldBeActive = statusFilter === 'active';
-      filtered = filtered.filter((p) => (p.isActive ?? true) === shouldBeActive);
-    }
-    setFilteredProducts(filtered);
-  }, [searchTerm, filterCategory, statusFilter, products]);
+  }, [currentPage]);
+
+  // Now products === filteredProducts since filtering is done in backend
+  useEffect(() => {
+    setFilteredProducts(products);
+  }, [products]);
 
   const categories = [...new Set(products.map(p => p.category))];
 
@@ -196,7 +223,7 @@ function ProductsManagement() {
       await fetchApi('/products', { method: 'POST', body: JSON.stringify(payload) });
       document.dispatchEvent(new CustomEvent('product-form-success'));
       setIsAddDialogOpen(false);
-      loadProducts(statusFilter);
+      loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory);
     } catch (err) {
       alert(`Error: ${err.message}`);
     }
@@ -228,7 +255,7 @@ function ProductsManagement() {
       });
       setIsEditDialogOpen(false);
       setEditingProduct(null);
-      loadProducts(statusFilter);
+      loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory);
     } catch (err) {
       alert(`Error al actualizar el producto: ${err.message}`);
     }
@@ -238,7 +265,7 @@ function ProductsManagement() {
     if (window.confirm('¿Estás seguro de que quieres eliminar este producto?')) {
       try {
         await fetchApi(`/products/${productId}`, { method: 'DELETE' });
-        loadProducts(statusFilter);
+        loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory);
       } catch (err) {
         alert(`Error: ${err.message}`);
       }
@@ -383,7 +410,7 @@ function ProductsManagement() {
 
       setIsPreviewDialogOpen(false);
       alert(`${payload.products.length} productos importados exitosamente.`);
-      loadProducts(statusFilter); // Recargar la lista de productos
+      loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory); // Recargar la lista de productos
 
     } catch (error) {
       alert(`Error al importar los productos: ${error.message}`);
@@ -1028,6 +1055,61 @@ function ProductsManagement() {
                 ))}
               </TableBody>
             </Table>
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="flex items-center justify-between px-2 py-4">
+            <div className="flex items-center space-x-2">
+              <p className="text-sm text-muted-foreground">
+                Mostrando {filteredProducts.length} de {totalProducts} productos
+              </p>
+            </div>
+
+            <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-2">
+                <Label htmlFor="pageLimit" className="text-sm">Mostrar:</Label>
+                <Select value={pageLimit.toString()} onValueChange={(value) => {
+                  setPageLimit(parseInt(value));
+                  setCurrentPage(1);
+                }}>
+                  <SelectTrigger className="w-[100px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Anterior
+                </Button>
+
+                <div className="flex items-center space-x-1">
+                  <span className="text-sm">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Siguiente
+                </Button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

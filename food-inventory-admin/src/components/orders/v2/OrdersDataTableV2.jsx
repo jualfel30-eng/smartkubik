@@ -9,12 +9,19 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   useReactTable,
   getCoreRowModel,
   flexRender,
 } from "@tanstack/react-table";
 
-export function OrdersDataTableV2({ columns, data, pagination, onPageChange }) {
+export function OrdersDataTableV2({ columns, data, pagination, onPageChange, pageLimit, onPageLimitChange }) {
   const table = useReactTable({
     data: data || [],
     columns,
@@ -79,27 +86,58 @@ export function OrdersDataTableV2({ columns, data, pagination, onPageChange }) {
           </TableBody>
         </Table>
       </div>
-      {pagination && pagination.totalPages > 1 && (
-        <div className="flex items-center justify-end space-x-2 flex-wrap">
-          <div className="flex-1 text-sm text-muted-foreground">
-            Página {pagination.page} de {pagination.totalPages}
+      {pagination && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-muted-foreground">
+              Mostrando {data?.length || 0} de {pagination.total || 0} órdenes
+            </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePreviousPage}
-            disabled={pagination.page <= 1}
-          >
-            Anterior
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleNextPage}
-            disabled={pagination.page >= pagination.totalPages}
-          >
-            Siguiente
-          </Button>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-muted-foreground">Filas por página:</p>
+              <Select
+                value={pageLimit?.toString() || "25"}
+                onValueChange={(value) => onPageLimitChange?.(parseInt(value))}
+              >
+                <SelectTrigger className="h-8 w-[70px]">
+                  <SelectValue placeholder={pageLimit?.toString() || "25"} />
+                </SelectTrigger>
+                <SelectContent side="top">
+                  {[10, 25, 50, 100].map((limit) => (
+                    <SelectItem key={limit} value={limit.toString()}>
+                      {limit}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {pagination.totalPages > 1 && (
+              <>
+                <div className="text-sm text-muted-foreground">
+                  Página {pagination.page} de {pagination.totalPages}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePreviousPage}
+                    disabled={pagination.page <= 1}
+                  >
+                    Anterior
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleNextPage}
+                    disabled={pagination.page >= pagination.totalPages}
+                  >
+                    Siguiente
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
     </div>
