@@ -133,7 +133,7 @@ export class AuthController {
     // Redirect to frontend with tokens
     // In a real app, you might want to use a more secure way to pass tokens,
     // like setting a httpOnly cookie.
-    const frontendUrl = process.env.FRONTEND_URL || 'https://app.smartkubik.com';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://smartkubik.com';
     res.redirect(`${frontendUrl}/auth/callback?accessToken=${result.accessToken}&refreshToken=${result.refreshToken}`);
   }
 
