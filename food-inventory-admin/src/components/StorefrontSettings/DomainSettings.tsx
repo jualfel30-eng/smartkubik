@@ -61,11 +61,12 @@ export function DomainSettings({ config, onUpdate, onDelete, saving }: DomainSet
             onChange={(e) => setTemplateType(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-gray-100"
           >
-            <option value="ecommerce">E-commerce Moderno</option>
-            <option value="modern-ecommerce">E-commerce Moderno (Alt)</option>
-            <option value="services">Servicios Profesionales</option>
-            <option value="modern-services">Servicios Modernos</option>
+            <option value="ecommerce">E-commerce</option>
+            <option value="services">Servicios</option>
           </select>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Elige el tipo de plantilla según tu modelo de negocio
+          </p>
         </div>
 
         {/* Estado Activo/Inactivo */}

@@ -2,7 +2,7 @@
 
 export interface StorefrontConfig {
   _id: string;
-  tenantId: string;
+  tenantId: string | { _id: string; [key: string]: any };
   isActive: boolean;
   domain: string;
   theme: {
@@ -26,7 +26,12 @@ export interface StorefrontConfig {
   contactInfo: {
     email?: string;
     phone?: string;
-    address?: string;
+    address?: {
+      street?: string;
+      city?: string;
+      state?: string;
+      country?: string;
+    };
   };
   createdAt: string;
   updatedAt: string;

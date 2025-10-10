@@ -39,9 +39,17 @@ function Login() {
         isMultiTenantEnabled ? undefined : tenantCode.trim().toUpperCase(),
       );
 
+      const roleName = result?.user?.role?.name;
+
       if (isMultiTenantEnabled && Array.isArray(result?.memberships)) {
         const memberships = result.memberships;
+
+        // Super admins no necesitan memberships
         if (memberships.length === 0) {
+          if (roleName === 'super_admin') {
+            navigate('/super-admin');
+            return;
+          }
           setError(
             'Tu cuenta no tiene organizaciones activas asignadas. Contacta a tu administrador.',
           );
@@ -54,6 +62,10 @@ function Login() {
         );
 
         if (activeMemberships.length === 0) {
+          if (roleName === 'super_admin') {
+            navigate('/super-admin');
+            return;
+          }
           setError(
             'Todas tus organizaciones están inactivas. Contacta a tu administrador.',
           );
@@ -77,11 +89,10 @@ function Login() {
         return;
       }
 
-      const roleName = result?.user?.role?.name;
       if (roleName === 'super_admin') {
         navigate('/super-admin');
       } else {
-        navigate('/dashboard');
+        navigate('/organizations');
       }
     } catch (err) {
       console.error('Login error:', err);
@@ -109,7 +120,7 @@ function Login() {
       if (roleName === 'super_admin') {
         navigate('/super-admin');
       } else {
-        navigate('/dashboard');
+        navigate('/organizations');
       }
     } catch (err) {
       console.error('Switch tenant error:', err);
@@ -141,7 +152,9 @@ function Login() {
         <CardHeader>
           <CardTitle className="text-2xl">Login</CardTitle>
           <CardDescription>
-            Ingresa tus credenciales para acceder al panel de administración.
+            {isMultiTenantEnabled
+              ? 'Ingresa tus credenciales. Podrás seleccionar tu organización después.'
+              : 'Ingresa tus credenciales para acceder al panel de administración.'}
           </CardDescription>
         </CardHeader>
         <CardContent>

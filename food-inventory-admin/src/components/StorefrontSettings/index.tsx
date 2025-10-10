@@ -35,10 +35,10 @@ export default function StorefrontSettings() {
           const formData = new FormData(e.currentTarget);
           const domain = formData.get('domain') as string;
 
-          const result = await createConfig({ 
+          const result = await createConfig({
             domain,
             isActive: false,
-            templateType: 'modern-ecommerce',
+            templateType: 'ecommerce',
             theme: {
               primaryColor: '#3B82F6',
               secondaryColor: '#10B981'

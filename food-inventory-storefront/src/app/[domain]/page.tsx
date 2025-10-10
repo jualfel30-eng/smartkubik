@@ -12,24 +12,30 @@ export default async function StorefrontPage({
 }: StorefrontPageProps) {
   const { domain } = await params;
   const config = await getStorefrontConfig(domain);
-  
+
+  // Extract tenantId as string (could be object or string from backend)
+  const tenantId: string = typeof config.tenantId === 'string'
+    ? config.tenantId
+    : (config.tenantId._id as string);
+
   // Fetch featured products (first 8)
-  const { data: featuredProducts } = await getProducts(config.tenantId, {
+  const { data: featuredProducts } = await getProducts(tenantId, {
     limit: 8,
     page: 1,
   });
 
   // Fetch categories
-  const categories = await getCategories(config.tenantId);
+  const categories = await getCategories(tenantId);
 
   // Get the appropriate template
   const Template = getTemplate(config.templateType || 'ecommerce');
 
   return (
-    <Template 
-      config={config} 
+    <Template
+      config={config as any}
       featuredProducts={featuredProducts}
       categories={categories}
+      domain={domain}
     />
   );
 }

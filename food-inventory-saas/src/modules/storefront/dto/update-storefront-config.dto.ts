@@ -198,13 +198,13 @@ export class UpdateContactInfoConfigDto {
 
 export class UpdateStorefrontConfigDto {
   @ApiPropertyOptional({
-    description: "Dominio del storefront",
-    example: "mitienda.smartkubik.com",
+    description: "Dominio del storefront (slug único)",
+    example: "mitienda",
   })
   @IsOptional()
   @IsString()
-  @Matches(/^[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,}$/i, {
-    message: "El dominio debe ser válido (ej: mitienda.smartkubik.com)",
+  @Matches(/^[a-z0-9]+([a-z0-9-]*[a-z0-9])?$/, {
+    message: "El dominio debe contener solo letras minúsculas, números y guiones (ej: mitienda, mi-tienda-01)",
   })
   domain?: string;
 

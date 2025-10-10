@@ -2,24 +2,31 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { StorefrontConfig } from '@/lib/api';
+import Link from 'next/link';
+import { StorefrontConfig } from '@/types';
 
 interface ModernEcommerceProps {
   config: StorefrontConfig;
+  featuredProducts?: any[];
+  categories?: string[];
+  domain?: string;
 }
 
-export default function ModernEcommerce({ config }: ModernEcommerceProps) {
+export default function ModernEcommerce({ config, featuredProducts = [], categories: propCategories = [], domain }: ModernEcommerceProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
+  // Usar productos pasados como prop o los del config como fallback
+  const products = featuredProducts.length > 0 ? featuredProducts : ((config as any).products || []);
+
   // Obtener categorías únicas de los productos
-  const categories = config.products 
-    ? ['all', ...new Set(config.products.map(p => p.category))]
-    : ['all'];
-  
+  const categories = propCategories.length > 0
+    ? ['all', ...propCategories]
+    : (products.length > 0 ? ['all', ...new Set(products.map((p: any) => p.category))] : ['all']);
+
   // Filtrar productos por categoría
   const filteredProducts = selectedCategory === 'all'
-    ? config.products || []
-    : (config.products || []).filter(p => p.category === selectedCategory);
+    ? products
+    : products.filter((p: any) => p.category === selectedCategory);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -28,17 +35,17 @@ export default function ModernEcommerce({ config }: ModernEcommerceProps) {
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              {config.logo && (
-                <Image 
-                  src={config.logo} 
-                  alt={config.name} 
+              {config.theme?.logo && (
+                <Image
+                  src={config.theme.logo}
+                  alt={config.seo?.title || 'Logo'}
                   width={48}
                   height={48}
                   className="h-12 w-auto rounded-lg"
                 />
               )}
               <h1 className="text-3xl font-bold text-gray-900">
-                {config.name}
+                {config.seo?.title || config.domain}
               </h1>
             </div>
             <nav className="hidden md:flex space-x-8">
@@ -61,11 +68,11 @@ export default function ModernEcommerce({ config }: ModernEcommerceProps) {
         <div className="container mx-auto px-4">
           <div className="text-center max-w-3xl mx-auto">
             <h2 className="text-5xl font-bold text-gray-900 mb-6">
-              Bienvenido a {config.name}
+              Bienvenido a {config.seo?.title || config.domain}
             </h2>
-            {config.description && (
+            {config.seo?.description && (
               <p className="text-xl text-gray-600 mb-8">
-                {config.description}
+                {config.seo.description}
               </p>
             )}
             <div className="flex justify-center space-x-4">
@@ -144,9 +151,9 @@ export default function ModernEcommerce({ config }: ModernEcommerceProps) {
           </h3>
 
           {/* Category Filters */}
-          {config.products && config.products.length > 0 && (
+          {products && products.length > 0 && (
             <div className="flex flex-wrap justify-center gap-4 mb-12">
-              {categories.map(cat => (
+              {(categories as string[]).map((cat: string) => (
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
@@ -165,7 +172,7 @@ export default function ModernEcommerce({ config }: ModernEcommerceProps) {
           {/* Products Grid */}
           {filteredProducts.length > 0 ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredProducts.map(product => (
+              {filteredProducts.map((product: any) => (
                 <div 
                   key={product._id} 
                   className="bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all transform hover:-translate-y-1"
@@ -203,16 +210,21 @@ export default function ModernEcommerce({ config }: ModernEcommerceProps) {
                           </p>
                         )}
                       </div>
-                      <button
-                        disabled={product.stock === 0}
-                        className={`px-6 py-3 rounded-lg font-semibold transition-colors ${
-                          product.stock === 0
-                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg hover:shadow-xl'
-                        }`}
-                      >
-                        {product.stock === 0 ? 'Agotado' : 'Agregar'}
-                      </button>
+                      {domain && product.stock > 0 ? (
+                        <Link
+                          href={`/${domain}/productos/${product._id}`}
+                          className="px-6 py-3 rounded-lg font-semibold transition-colors bg-blue-600 text-white hover:bg-blue-700 shadow-lg hover:shadow-xl inline-block"
+                        >
+                          Ver detalles
+                        </Link>
+                      ) : (
+                        <button
+                          disabled
+                          className="px-6 py-3 rounded-lg font-semibold transition-colors bg-gray-300 text-gray-500 cursor-not-allowed"
+                        >
+                          Agotado
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -266,7 +278,18 @@ export default function ModernEcommerce({ config }: ModernEcommerceProps) {
                     <span className="text-blue-600 text-xl">📍</span>
                     <div>
                       <p className="font-medium">Dirección</p>
-                      <p className="text-gray-600">{config.contactInfo.address}</p>
+                      <p className="text-gray-600">
+                        {typeof config.contactInfo.address === 'string'
+                          ? config.contactInfo.address
+                          : [
+                              config.contactInfo.address.street,
+                              config.contactInfo.address.city,
+                              config.contactInfo.address.state,
+                              config.contactInfo.address.country,
+                            ]
+                              .filter(Boolean)
+                              .join(', ')}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -314,9 +337,9 @@ export default function ModernEcommerce({ config }: ModernEcommerceProps) {
       <footer className="bg-gray-900 text-white py-12">
         <div className="container mx-auto px-4">
           <div className="text-center">
-            <h3 className="text-2xl font-bold mb-4">{config.name}</h3>
+            <h3 className="text-2xl font-bold mb-4">{config.seo?.title || config.domain}</h3>
             <p className="text-gray-400 mb-6">
-              {config.description || 'Tu tienda de confianza'}
+              {config.seo?.description || 'Tu tienda de confianza'}
             </p>
             <div className="flex justify-center space-x-6">
               <a href="#" className="text-gray-400 hover:text-white transition-colors">
@@ -331,7 +354,7 @@ export default function ModernEcommerce({ config }: ModernEcommerceProps) {
             </div>
             <div className="mt-8 pt-8 border-t border-gray-800">
               <p className="text-gray-500 text-sm">
-                © {new Date().getFullYear()} {config.name}. Todos los derechos reservados.
+                © {new Date().getFullYear()} {config.seo?.title || config.domain}. Todos los derechos reservados.
               </p>
             </div>
           </div>

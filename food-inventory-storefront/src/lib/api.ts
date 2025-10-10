@@ -3,11 +3,34 @@ import { StorefrontConfig, ProductsResponse, OrderData, Order } from '@/types';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 /**
+ * Transforma un producto del backend al formato esperado por el frontend
+ */
+function transformProduct(product: any): any {
+  const firstVariant = product.variants?.[0];
+  const firstImage = firstVariant?.images?.[0];
+
+  return {
+    _id: product._id,
+    name: product.name,
+    description: product.description || '',
+    sku: product.sku || firstVariant?.sku || '',
+    category: product.category || 'Sin categoría',
+    brand: product.brand || '',
+    price: firstVariant?.basePrice || 0,
+    imageUrl: firstImage || null,
+    image: firstImage || null, // compatibility
+    stock: firstVariant?.stock || 0,
+    isActive: product.isActive,
+    tenantId: product.tenantId,
+  };
+}
+
+/**
  * Obtiene la configuración del storefront para un dominio específico
  */
 export async function getStorefrontConfig(domain: string): Promise<StorefrontConfig> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/storefront/preview/${domain}`, {
+    const res = await fetch(`${API_BASE}/api/v1/public/storefront/by-domain/${domain}`, {
       next: {
         revalidate: 60, // Revalidar cada 60 segundos
         tags: [`storefront-${domain}`]
@@ -22,7 +45,7 @@ export async function getStorefrontConfig(domain: string): Promise<StorefrontCon
     }
 
     const data = await res.json();
-    return data;
+    return data.data; // El backend devuelve { success: true, data: {...} }
   } catch (error) {
     console.error('Error fetching storefront config:', error);
     throw error;
@@ -35,7 +58,7 @@ export async function getStorefrontConfig(domain: string): Promise<StorefrontCon
 export async function getActiveDomains(): Promise<string[]> {
   try {
     const response = await fetch(
-      `${API_BASE}/api/v1/storefront/active-domains`,
+      `${API_BASE}/api/v1/public/storefront/active-domains`,
       { next: { revalidate: 60 } }
     );
 
@@ -43,7 +66,8 @@ export async function getActiveDomains(): Promise<string[]> {
       throw new Error('Failed to fetch active domains');
     }
 
-    return response.json();
+    const data = await response.json();
+    return data.data; // El backend devuelve { success: true, data: [...] }
   } catch (error) {
     console.error('Error fetching active domains:', error);
     return [];
@@ -51,7 +75,7 @@ export async function getActiveDomains(): Promise<string[]> {
 }
 
 /**
- * Obtiene productos con opciones de filtrado y paginación
+ * Obtiene productos con opciones de filtrado y paginación (endpoint público)
  */
 export async function getProducts(
   tenantId: string,
@@ -77,7 +101,7 @@ export async function getProducts(
       params.append('search', options.search);
     }
 
-    const res = await fetch(`${API_BASE}/api/v1/products?${params}`, {
+    const res = await fetch(`${API_BASE}/api/v1/public/products?${params}`, {
       next: {
         revalidate: 300, // Revalidar cada 5 minutos
         tags: [`products-${tenantId}`]
@@ -88,8 +112,15 @@ export async function getProducts(
       throw new Error(`Error al cargar productos: ${res.status}`);
     }
 
-    const data = await res.json();
-    return data;
+    const response = await res.json();
+
+    // Transformar productos para que tengan el formato esperado
+    const transformedProducts = response.data.map(transformProduct);
+
+    return {
+      data: transformedProducts,
+      ...response.pagination
+    };
   } catch (error) {
     console.error('Error fetching products:', error);
     throw error;
@@ -97,11 +128,11 @@ export async function getProducts(
 }
 
 /**
- * Obtiene un producto específico por ID
+ * Obtiene un producto específico por ID (endpoint público)
  */
 export async function getProductById(productId: string, tenantId: string): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/products/${productId}?tenantId=${tenantId}`, {
+    const res = await fetch(`${API_BASE}/api/v1/public/products/${productId}?tenantId=${tenantId}`, {
       next: {
         revalidate: 300,
         tags: [`product-${productId}`]
@@ -115,8 +146,8 @@ export async function getProductById(productId: string, tenantId: string): Promi
       throw new Error(`Error al cargar producto: ${res.status}`);
     }
 
-    const data = await res.json();
-    return data;
+    const response = await res.json();
+    return transformProduct(response.data);
   } catch (error) {
     console.error('Error fetching product:', error);
     throw error;
@@ -124,14 +155,26 @@ export async function getProductById(productId: string, tenantId: string): Promi
 }
 
 /**
- * Obtiene las categorías únicas de productos de un tenant
+ * Obtiene las categorías únicas de productos de un tenant (endpoint público)
  */
 export async function getCategories(tenantId: string): Promise<string[]> {
   try {
-    // Obtener todos los productos y extraer categorías únicas
-    const { data: products } = await getProducts(tenantId, { limit: 1000 });
-    const categories = [...new Set(products.map(p => p.category))].filter(Boolean);
-    return categories;
+    const res = await fetch(
+      `${API_BASE}/api/v1/public/products/categories/list?tenantId=${tenantId}`,
+      {
+        next: {
+          revalidate: 300,
+          tags: [`categories-${tenantId}`]
+        }
+      }
+    );
+
+    if (!res.ok) {
+      throw new Error('Failed to fetch categories');
+    }
+
+    const result = await res.json();
+    return result.data; // Backend returns { success: true, data: [...] }
   } catch (error) {
     console.error('Error fetching categories:', error);
     return [];

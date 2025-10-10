@@ -17,14 +17,10 @@ export class StorefrontConfigService {
   /**
    * Obtener la configuración del storefront del tenant actual
    */
-  async getConfig(tenantId: string): Promise<StorefrontConfigDocument> {
-    const config = await this.storefrontConfigModel.findOne({ 
-      tenantId: new Types.ObjectId(tenantId) 
+  async getConfig(tenantId: string): Promise<StorefrontConfigDocument | null> {
+    const config = await this.storefrontConfigModel.findOne({
+      tenantId: new Types.ObjectId(tenantId)
     });
-
-    if (!config) {
-      throw new NotFoundException('No se encontró configuración del storefront para este tenant');
-    }
 
     return config;
   }
@@ -78,6 +74,10 @@ export class StorefrontConfigService {
   ): Promise<StorefrontConfigDocument> {
     const config = await this.getConfig(tenantId);
 
+    if (!config) {
+      throw new NotFoundException('No se encontró configuración del storefront para este tenant');
+    }
+
     if (!config.theme) {
       config.theme = {} as any;
     }
@@ -91,6 +91,11 @@ export class StorefrontConfigService {
    */
   async toggleActive(tenantId: string, isActive: boolean): Promise<StorefrontConfigDocument> {
     const config = await this.getConfig(tenantId);
+
+    if (!config) {
+      throw new NotFoundException('No se encontró configuración del storefront para este tenant');
+    }
+
     config.isActive = isActive;
     return config.save();
   }
@@ -100,6 +105,11 @@ export class StorefrontConfigService {
    */
   async updateCustomCSS(tenantId: string, customCSS: string): Promise<StorefrontConfigDocument> {
     const config = await this.getConfig(tenantId);
+
+    if (!config) {
+      throw new NotFoundException('No se encontró configuración del storefront para este tenant');
+    }
+
     config.customCSS = customCSS;
     return config.save();
   }
@@ -125,11 +135,15 @@ export class StorefrontConfigService {
    */
   async uploadLogo(tenantId: string, logoUrl: string): Promise<StorefrontConfigDocument> {
     const config = await this.getConfig(tenantId);
-    
+
+    if (!config) {
+      throw new NotFoundException('No se encontró configuración del storefront para este tenant');
+    }
+
     if (!config.theme) {
       config.theme = {} as any;
     }
-    
+
     config.theme.logo = logoUrl;
     return config.save();
   }
@@ -139,11 +153,15 @@ export class StorefrontConfigService {
    */
   async uploadFavicon(tenantId: string, faviconUrl: string): Promise<StorefrontConfigDocument> {
     const config = await this.getConfig(tenantId);
-    
+
+    if (!config) {
+      throw new NotFoundException('No se encontró configuración del storefront para este tenant');
+    }
+
     if (!config.theme) {
       config.theme = {} as any;
     }
-    
+
     config.theme.favicon = faviconUrl;
     return config.save();
   }

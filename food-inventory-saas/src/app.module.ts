@@ -40,6 +40,8 @@ import { ExchangeRateModule } from './modules/exchange-rate/exchange-rate.module
 import { BankAccountsModule } from './modules/bank-accounts/bank-accounts.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { StorefrontModule } from './modules/storefront/storefront.module';
+import { OrganizationsModule } from './modules/organizations/organizations.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -124,6 +126,8 @@ import { StorefrontModule } from './modules/storefront/storefront.module';
     BankAccountsModule,
     AppointmentsModule,
     StorefrontModule,
+    OrganizationsModule,
+    UsersModule,
   ],
   controllers: [AppController, TenantController],
   providers: [

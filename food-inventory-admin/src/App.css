@@ -118,6 +118,18 @@
   }
 }
 
+@layer components {
+  /* Force consistent icon size in sidebar - always 20px */
+  [data-sidebar="menu-button"] svg {
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    min-height: 20px !important;
+    max-width: 20px !important;
+    max-height: 20px !important;
+  }
+}
+
 /* Custom styles for FullCalendar */
 .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-frame {
     background-color: oklch(var(--primary) / 0.1);
@@ -187,14 +199,3 @@
   to { opacity: 1; }
 }
 
-/* Sidebar collapsed width adjustment for better icon centering */
-[data-state="collapsed"] {
-  --sidebar-width: 4rem;
-}
-
-/* Ensure icons are perfectly centered in collapsed sidebar */
-[data-state="collapsed"] .sidebar-menu-button {
-  justify-content: center;
-  padding-left: 0;
-  padding-right: 0;
-}

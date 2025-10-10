@@ -23,10 +23,19 @@ import {
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { TenantGuard } from '../../guards/tenant.guard';
 
-@Controller('api/v1/storefront')
+@Controller('storefront')
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class StorefrontConfigController {
   constructor(private readonly storefrontConfigService: StorefrontConfigService) {}
+
+  /**
+   * GET /api/v1/storefront
+   * Obtener la configuración del storefront del tenant actual (alias del /config)
+   */
+  @Get()
+  async getConfigRoot(@Request() req) {
+    return this.storefrontConfigService.getConfig(req.user.tenantId);
+  }
 
   /**
    * GET /api/v1/storefront/config
@@ -35,6 +44,18 @@ export class StorefrontConfigController {
   @Get('config')
   async getConfig(@Request() req) {
     return this.storefrontConfigService.getConfig(req.user.tenantId);
+  }
+
+  /**
+   * POST /api/v1/storefront
+   * Crear o actualizar la configuración completa del storefront (alias del /config)
+   */
+  @Post()
+  async createConfigRoot(
+    @Request() req,
+    @Body() createDto: CreateStorefrontConfigDto,
+  ) {
+    return this.storefrontConfigService.upsertConfig(req.user.tenantId, createDto);
   }
 
   /**

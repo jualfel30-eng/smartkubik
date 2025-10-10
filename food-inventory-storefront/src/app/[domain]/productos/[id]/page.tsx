@@ -3,26 +3,33 @@ import { getStorefrontConfig, getProductById, getProducts } from '@/lib/api';
 import { ProductDetailClient } from './ProductDetailClient';
 
 interface ProductDetailPageProps {
-  params: {
+  params: Promise<{
     domain: string;
     id: string;
-  };
+  }>;
 }
 
 export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
   try {
+    const { domain, id } = await params;
+
     // Fetch storefront configuration
-    const config = await getStorefrontConfig(params.domain);
+    const config = await getStorefrontConfig(domain);
+
+    // Extract tenantId
+    const tenantId: string = typeof config.tenantId === 'string'
+      ? config.tenantId
+      : (config.tenantId._id as string);
 
     // Fetch product details
-    const product = await getProductById(params.id, config.tenantId);
+    const product = await getProductById(id, tenantId);
 
     if (!product) {
       notFound();
     }
 
     // Fetch related products (same category)
-    const { data: relatedProducts } = await getProducts(config.tenantId, {
+    const { data: relatedProducts } = await getProducts(tenantId, {
       category: product.category,
       limit: 4,
     });

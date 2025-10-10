@@ -89,7 +89,18 @@ export function Footer({ config, domain }: FooterProps) {
               {config.contactInfo.address && (
                 <li className="flex items-start">
                   <MapPin className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
-                  <span>{config.contactInfo.address}</span>
+                  <span>
+                    {typeof config.contactInfo.address === 'string'
+                      ? config.contactInfo.address
+                      : [
+                          config.contactInfo.address.street,
+                          config.contactInfo.address.city,
+                          config.contactInfo.address.state,
+                          config.contactInfo.address.country,
+                        ]
+                          .filter(Boolean)
+                          .join(', ')}
+                  </span>
                 </li>
               )}
             </ul>

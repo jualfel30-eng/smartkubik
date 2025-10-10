@@ -2,27 +2,36 @@ import { getStorefrontConfig, getProducts, getCategories } from '@/lib/api';
 import { ProductsPageClient } from './ProductsPageClient';
 
 interface ProductsPageProps {
-  params: {
+  params: Promise<{
     domain: string;
-  };
-  searchParams: {
+  }>;
+  searchParams: Promise<{
     page?: string;
     category?: string;
     search?: string;
-  };
+  }>;
 }
 
 export default async function ProductsPage({ params, searchParams }: ProductsPageProps) {
+  // Await params and searchParams (Next.js 15 requirement)
+  const { domain } = await params;
+  const resolvedSearchParams = await searchParams;
+
   // Fetch storefront configuration
-  const config = await getStorefrontConfig(params.domain);
+  const config = await getStorefrontConfig(domain);
+
+  // Extract tenantId as string
+  const tenantId: string = typeof config.tenantId === 'string'
+    ? config.tenantId
+    : (config.tenantId._id as string);
 
   // Parse query params
-  const page = parseInt(searchParams.page || '1', 10);
-  const category = searchParams.category;
-  const search = searchParams.search;
+  const page = parseInt(resolvedSearchParams.page || '1', 10);
+  const category = resolvedSearchParams.category;
+  const search = resolvedSearchParams.search;
 
   // Fetch products with filters
-  const productsData = await getProducts(config.tenantId, {
+  const productsData = await getProducts(tenantId, {
     page,
     limit: 20,
     category,
@@ -30,7 +39,7 @@ export default async function ProductsPage({ params, searchParams }: ProductsPag
   });
 
   // Fetch all categories for filter
-  const categories = await getCategories(config.tenantId);
+  const categories = await getCategories(tenantId);
 
   return (
     <ProductsPageClient

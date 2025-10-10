@@ -4,6 +4,9 @@ import ModernServices from '@/templates/ModernServices';
 const TEMPLATES = {
   'modern-ecommerce': ModernEcommerce,
   'modern-services': ModernServices,
+  // Alias para compatibilidad con backend
+  'ecommerce': ModernEcommerce,
+  'services': ModernServices,
 };
 
 /**
@@ -12,5 +15,5 @@ const TEMPLATES = {
  * @returns Componente del template
  */
 export function getTemplate(templateName: string) {
-  return TEMPLATES[templateName as keyof typeof TEMPLATES] || TEMPLATES['modern-ecommerce'];
+  return TEMPLATES[templateName as keyof typeof TEMPLATES] || TEMPLATES['ecommerce'];
 }

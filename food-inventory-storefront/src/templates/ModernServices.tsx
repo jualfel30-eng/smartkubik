@@ -30,7 +30,12 @@ interface ModernServicesProps {
     contactInfo: {
       phone: string;
       email: string;
-      address: string;
+      address?: string | {
+        street?: string;
+        city?: string;
+        state?: string;
+        country?: string;
+      };
     };
   };
 }
@@ -196,13 +201,26 @@ export default function ModernServices({ config }: ModernServicesProps) {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3">
-                  <span className="text-primary text-xl">📍</span>
-                  <div>
-                    <p className="font-medium">Dirección</p>
-                    <p className="text-gray-600">{config.contactInfo.address}</p>
+                {config.contactInfo.address && (
+                  <div className="flex items-start gap-3">
+                    <span className="text-primary text-xl">📍</span>
+                    <div>
+                      <p className="font-medium">Dirección</p>
+                      <p className="text-gray-600">
+                        {typeof config.contactInfo.address === 'string'
+                          ? config.contactInfo.address
+                          : [
+                              config.contactInfo.address.street,
+                              config.contactInfo.address.city,
+                              config.contactInfo.address.state,
+                              config.contactInfo.address.country,
+                            ]
+                              .filter(Boolean)
+                              .join(', ')}
+                      </p>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               {/* Redes Sociales */}

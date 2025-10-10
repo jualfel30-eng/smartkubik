@@ -82,8 +82,13 @@ export function CheckoutPageClient({ config }: CheckoutPageClientProps) {
     setSubmitting(true);
 
     try {
+      // Extract tenantId as string
+      const tenantId: string = typeof config.tenantId === 'string'
+        ? config.tenantId
+        : (config.tenantId._id as string);
+
       const orderData: OrderData = {
-        tenantId: config.tenantId,
+        tenantId,
         customerName: formData.customerName,
         customerEmail: formData.customerEmail,
         customerPhone: formData.customerPhone,

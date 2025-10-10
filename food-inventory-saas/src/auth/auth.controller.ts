@@ -276,6 +276,23 @@ export class AuthController {
     }
   }
 
+  @Get("me")
+  @UseGuards(JwtAuthGuard, TenantGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Obtener información del usuario actual" })
+  @ApiResponse({ status: 200, description: "Usuario obtenido exitosamente" })
+  async getMe(@Request() req) {
+    try {
+      const profile = await this.authService.getProfile(req.user.id);
+      return profile;
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al obtener usuario",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   @Post("logout")
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

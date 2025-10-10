@@ -14,7 +14,7 @@ export class StorefrontPublicController {
   constructor(private readonly storefrontService: StorefrontService) {}
 
   @Public()
-  @Get(":tenantId/config")
+  @Get("by-tenant/:tenantId")
   @ApiOperation({
     summary: "Obtener configuración de storefront por tenant ID",
     description:
@@ -111,7 +111,7 @@ export class StorefrontPublicController {
   }
 
   @Public()
-  @Get(":domain/config")
+  @Get("by-domain/:domain")
   @ApiOperation({
     summary: "Obtener configuración de storefront por dominio",
     description:
@@ -120,7 +120,7 @@ export class StorefrontPublicController {
   @ApiParam({
     name: "domain",
     description: "Dominio del storefront",
-    example: "mitienda.smartkubik.com",
+    example: "mitienda",
   })
   @ApiResponse({
     status: 200,
