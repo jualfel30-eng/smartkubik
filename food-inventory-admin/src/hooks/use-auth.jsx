@@ -15,12 +15,39 @@ const STORAGE_KEYS = {
   TENANT: 'tenant',
   MEMBERSHIPS: 'memberships',
   ACTIVE_MEMBERSHIP: 'activeMembershipId',
+  LAST_LOCATION: 'lastLocation',
 };
 
 export const AuthProvider = ({ children }) => {
   const multiTenantEnabled = isFeatureEnabled('MULTI_TENANT_LOGIN');
-  const [user, setUser] = useState(null);
-  const [tenant, setTenant] = useState(null);
+  const [user, setUser] = useState(() => {
+    const stored = localStorage.getItem(STORAGE_KEYS.USER);
+    if (!stored || stored === 'undefined') return null;
+    try {
+      return JSON.parse(stored);
+    } catch (error) {
+      console.error('Failed to parse stored user:', error);
+      return null;
+    }
+  });
+  const [tenant, setTenant] = useState(() => {
+    const stored = localStorage.getItem(STORAGE_KEYS.TENANT);
+    const storedActiveMembership = localStorage.getItem(STORAGE_KEYS.ACTIVE_MEMBERSHIP);
+
+    if (!stored || stored === 'undefined') return null;
+
+    // En modo multi-tenant: solo cargar tenant si hay activeMembershipId
+    if (multiTenantEnabled && !storedActiveMembership) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(stored);
+    } catch (error) {
+      console.error('Failed to parse stored tenant:', error);
+      return null;
+    }
+  });
   const [memberships, setMemberships] = useState(() => {
     const stored = localStorage.getItem(STORAGE_KEYS.MEMBERSHIPS);
     if (!stored || stored === 'undefined') return [];
@@ -62,41 +89,12 @@ export const AuthProvider = ({ children }) => {
     resetState();
   };
 
+  // Este useEffect ya no es necesario para la inicialización,
+  // porque ahora se hace en el useState inicial.
+  // Lo mantenemos vacío para evitar warnings de dependencias.
   useEffect(() => {
-    const storedToken = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
-    const storedUser = localStorage.getItem(STORAGE_KEYS.USER);
-    const storedTenant = localStorage.getItem(STORAGE_KEYS.TENANT);
-
-    if (storedToken && storedUser && storedUser !== 'undefined') {
-      try {
-        setUser(JSON.parse(storedUser));
-        setToken(storedToken);
-        setIsAuthenticated(true);
-
-        if (storedTenant && storedTenant !== 'undefined') {
-          setTenant(JSON.parse(storedTenant));
-        } else if (multiTenantEnabled) {
-          setTenant(null);
-        }
-      } catch (error) {
-        console.error('Failed to parse stored auth data:', error);
-        clearStoredSession();
-      }
-    }
-
-    const storedMemberships = localStorage.getItem(STORAGE_KEYS.MEMBERSHIPS);
-    if (storedMemberships && storedMemberships !== 'undefined') {
-      try {
-        const parsedMemberships = JSON.parse(storedMemberships);
-        if (Array.isArray(parsedMemberships)) {
-          setMemberships(parsedMemberships);
-        }
-      } catch (error) {
-        console.error('Failed to parse stored memberships:', error);
-        localStorage.removeItem(STORAGE_KEYS.MEMBERSHIPS);
-      }
-    }
-  }, [multiTenantEnabled]);
+    // Inicialización ahora en useState
+  }, []);
 
   const login = async (email, password, tenantCode) => {
     try {
@@ -300,6 +298,24 @@ export const AuthProvider = ({ children }) => {
     return permissions.includes(permission);
   };
 
+  const saveLastLocation = (path) => {
+    // Only save locations that are not login/auth related
+    // Organizations page is now saved so user stays there on refresh
+    if (path && !path.includes('/login') && !path.includes('/register') && !path.includes('/forgot-password') && !path.includes('/reset-password') && !path.includes('/auth/callback')) {
+      localStorage.setItem(STORAGE_KEYS.LAST_LOCATION, path);
+    }
+  };
+
+  const getLastLocation = () => {
+    const lastLocation = localStorage.getItem(STORAGE_KEYS.LAST_LOCATION);
+    // Return last location or default to dashboard
+    return lastLocation || '/dashboard';
+  };
+
+  const clearLastLocation = () => {
+    localStorage.removeItem(STORAGE_KEYS.LAST_LOCATION);
+  };
+
   const value = {
     user,
     tenant,
@@ -315,6 +331,9 @@ export const AuthProvider = ({ children }) => {
     loginWithTokens,
     permissions,
     hasPermission,
+    saveLastLocation,
+    getLastLocation,
+    clearLastLocation,
   };
 
   return (

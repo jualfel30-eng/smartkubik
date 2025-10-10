@@ -472,7 +472,8 @@ export class InventoryService {
       dateTo,
       orderId,
     } = query;
-    const filter: any = { tenantId: tenantId };
+    const tenantObjectId = new Types.ObjectId(tenantId);
+    const filter: any = { tenantId: tenantObjectId };
     if (inventoryId) filter.inventoryId = new Types.ObjectId(inventoryId);
     if (productSku) filter.productSku = productSku;
     if (movementType) filter.movementType = movementType;
@@ -503,10 +504,11 @@ export class InventoryService {
   }
 
   async getLowStockAlerts(tenantId: string) {
+    const tenantObjectId = new Types.ObjectId(tenantId);
     return this.inventoryModel.aggregate([
       {
         $match: {
-          tenantId: tenantId,
+          tenantId: tenantObjectId,
         },
       },
       {
@@ -540,11 +542,12 @@ export class InventoryService {
   }
 
   async getExpirationAlerts(tenantId: string, days: number = 7) {
+    const tenantObjectId = new Types.ObjectId(tenantId);
     const alertDate = new Date();
     alertDate.setDate(alertDate.getDate() + days);
     return this.inventoryModel
       .find({
-        tenantId,
+        tenantId: tenantObjectId,
         "lots.expirationDate": { $lte: alertDate },
         "lots.status": "available",
       })
@@ -553,19 +556,20 @@ export class InventoryService {
   }
 
   async getInventorySummary(tenantId: string) {
+    const tenantObjectId = new Types.ObjectId(tenantId);
     const [totalProducts, lowStockCount, expirationCount, totalValue] =
       await Promise.all([
-        this.inventoryModel.countDocuments({ tenantId }),
+        this.inventoryModel.countDocuments({ tenantId: tenantObjectId }),
         this.inventoryModel.countDocuments({
-          tenantId,
+          tenantId: tenantObjectId,
           "alerts.lowStock": true,
         }),
         this.inventoryModel.countDocuments({
-          tenantId,
+          tenantId: tenantObjectId,
           "alerts.nearExpiration": true,
         }),
         this.inventoryModel.aggregate([
-          { $match: { tenantId: tenantId } },
+          { $match: { tenantId: tenantObjectId } },
           {
             $group: {
               _id: null,
@@ -606,7 +610,9 @@ export class InventoryService {
       sortBy = "lastUpdated",
       sortOrder = "desc",
     } = query;
-    const filter: any = { tenantId: tenantId };
+    // Convert tenantId to ObjectId to handle both string and ObjectId types in database
+    const tenantObjectId = new Types.ObjectId(tenantId);
+    const filter: any = { tenantId: tenantObjectId };
     if (warehouse) filter["location.warehouse"] = warehouse;
     if (lowStock) filter["alerts.lowStock"] = true;
     if (nearExpiration) filter["alerts.nearExpiration"] = true;
@@ -646,8 +652,9 @@ export class InventoryService {
     id: string,
     tenantId: string,
   ): Promise<InventoryDocument | null> {
+    const tenantObjectId = new Types.ObjectId(tenantId);
     return this.inventoryModel
-      .findOne({ _id: id, tenantId })
+      .findOne({ _id: id, tenantId: tenantObjectId })
       .populate("productId", "name category brand isPerishable")
       .exec();
   }
@@ -656,8 +663,9 @@ export class InventoryService {
     productSku: string,
     tenantId: string,
   ): Promise<InventoryDocument | null> {
+    const tenantObjectId = new Types.ObjectId(tenantId);
     return this.inventoryModel
-      .findOne({ productSku, tenantId })
+      .findOne({ productSku, tenantId: tenantObjectId })
       .populate("productId", "name category brand isPerishable")
       .exec();
   }

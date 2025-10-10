@@ -27,6 +27,8 @@ import {
   UserSquare,
   Store,
   PanelLeft,
+  CreditCard,
+  Building,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import './App.css';
@@ -40,13 +42,13 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarHeader,
   SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
   SidebarRail,
-  SidebarSeparator,
   SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar.jsx';
@@ -65,6 +67,7 @@ const Register = lazy(() => import('./pages/Register'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
+const OrganizationSelector = lazy(() => import('./pages/OrganizationSelector'));
 const DashboardView = lazy(() => import('./components/DashboardView.jsx'));
 const SettingsPage = lazy(() => import('./components/SettingsPage.jsx'));
 const InventoryDashboard = lazy(() => import('@/components/InventoryDashboard.jsx'));
@@ -80,6 +83,7 @@ const ServicesManagement = lazy(() => import('@/components/ServicesManagement.js
 const ResourcesManagement = lazy(() => import('@/components/ResourcesManagement.jsx'));
 const AppointmentsManagement = lazy(() => import('@/components/AppointmentsManagement.jsx'));
 const StorefrontSettings = lazy(() => import('@/components/StorefrontSettings'));
+const OrganizationsManagement = lazy(() => import('@/components/OrganizationsManagement.jsx'));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -87,6 +91,7 @@ const LoadingFallback = () => (
     <RubikLoader fullScreen message="Cargando..." />
   </Suspense>
 );
+
 
 // Tenant Layout Component
 function TenantLayout() {
@@ -104,6 +109,7 @@ function TenantLayout() {
     isMultiTenantEnabled,
     logout,
     hasPermission,
+    saveLastLocation,
   } = useAuth();
   const { theme } = useTheme();
   const { isClockedIn, clockIn, clockOut, isLoading: isShiftLoading } = useShift();
@@ -122,7 +128,12 @@ function TenantLayout() {
     const defaultTab = 'dashboard';
     const tab = currentPath.split('/')[0] || defaultTab;
     setActiveTab(tab);
-  }, [location.pathname]);
+
+    // Save current location for persistence
+    if (tenant && location.pathname) {
+      saveLastLocation(location.pathname);
+    }
+  }, [location.pathname, tenant, saveLastLocation]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -213,7 +224,7 @@ function TenantLayout() {
     { name: 'Inventario', href: 'inventory-management', icon: Package, permission: 'inventory_read' },
     { name: 'Mi Storefront', href: 'storefront', icon: Store, permission: 'dashboard_read', requiresModule: 'ecommerce' },
     { name: 'Contabilidad', href: 'accounting-management', icon: BookCopy, permission: 'accounting_read' },
-    { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: Building2, permission: 'accounting_read' },
+    { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: CreditCard, permission: 'accounting_read' },
     { name: 'CRM', href: 'crm', icon: Users, permission: 'customers_read' },
     { name: 'Compras', href: 'purchases', icon: Truck, permission: 'purchases_read' },
     { name: 'Citas', href: 'appointments', icon: Calendar, permission: 'appointments_read' },
@@ -229,13 +240,15 @@ function TenantLayout() {
     const handleNavigationClick = (href) => {
       if (!href) return;
 
+      // Expandir el sidebar si está colapsado (pero seguir navegando)
       if (!isMobile && state === 'collapsed') {
         setOpen(true);
-        return;
       }
 
+      // Siempre navegar
       handleTabChange(href);
 
+      // Cerrar sidebar en móvil
       if (isMobile) {
         setOpenMobile(false);
       }
@@ -261,12 +274,58 @@ function TenantLayout() {
                 aria-label={link.name}
                 onClick={() => handleNavigationClick(link.href)}
               >
-                <link.icon style={{ width: '24px', height: '24px' }} strokeWidth={1.25} />
+                <link.icon strokeWidth={1.25} />
                 <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">{link.name}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           );
         })}
+      </SidebarMenu>
+    );
+  };
+
+  const SidebarHeaderContent = () => {
+    const { state, setOpen, isMobile, setOpenMobile } = useSidebar();
+
+    const handleOrganizationsClick = () => {
+      if (!isMobile && state === 'collapsed') {
+        setOpen(true);
+      }
+
+      handleTabChange('organizations');
+
+      if (isMobile) {
+        setOpenMobile(false);
+      }
+    };
+
+    return (
+      <SidebarMenu>
+        {isMultiTenantEnabled && memberships.length > 0 && (
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip={tenant?.name || 'Seleccionar organización'}
+              className="gap-3 justify-start"
+              onClick={openTenantDialog}
+            >
+              <Building2 strokeWidth={1.25} />
+              <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">
+                {tenant?.name || 'Seleccionar organización'}
+              </span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        )}
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            tooltip="Mis Organizaciones"
+            isActive={activeTab === 'organizations'}
+            className="gap-3 justify-start"
+            onClick={handleOrganizationsClick}
+          >
+            <Building strokeWidth={1.25} />
+            <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">Mis Organizaciones</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
       </SidebarMenu>
     );
   };
@@ -282,31 +341,17 @@ function TenantLayout() {
             className="gap-3 justify-start"
             onClick={toggleSidebar}
           >
-            <PanelLeft style={{ width: '24px', height: '24px' }} strokeWidth={1.25} />
+            <PanelLeft strokeWidth={1.25} />
             <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">Colapsar menú</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
-        {isMultiTenantEnabled && memberships.length > 0 && (
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip={tenant?.name || 'Seleccionar organización'}
-              className="gap-3 justify-start"
-              onClick={openTenantDialog}
-            >
-              <Building2 style={{ width: '24px', height: '24px' }} strokeWidth={1.25} />
-              <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">
-                {tenant?.name || 'Seleccionar organización'}
-              </span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        )}
         <SidebarMenuItem>
           <SidebarMenuButton
             tooltip="Configuración"
             className="gap-3 justify-start"
             onClick={() => navigate('/settings')}
           >
-            <Settings style={{ width: '24px', height: '24px' }} strokeWidth={1.25} />
+            <Settings strokeWidth={1.25} />
             <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">Configuración</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
@@ -316,7 +361,7 @@ function TenantLayout() {
             className="gap-3 justify-start"
             onClick={handleLogout}
           >
-            <LogOut style={{ width: '24px', height: '24px' }} strokeWidth={1.25} />
+            <LogOut strokeWidth={1.25} />
             <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">Cerrar Sesión</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
@@ -328,11 +373,13 @@ function TenantLayout() {
     <SidebarProvider defaultOpen={false}>
       <Toaster richColors />
       <Sidebar collapsible="icon" className="bg-card border-r border-border">
+        <SidebarHeader className="border-b border-border px-2 py-3">
+          <SidebarHeaderContent />
+        </SidebarHeader>
         <SidebarContent className="px-2 py-4">
           <SidebarNavigation />
         </SidebarContent>
-        <SidebarSeparator />
-        <SidebarFooter className="border-t border-border px-3 py-4">
+        <SidebarFooter className="border-t border-border px-2 py-3">
           <SidebarFooterContent />
         </SidebarFooter>
         <SidebarRail />
@@ -406,6 +453,7 @@ function TenantLayout() {
                 <Route path="accounting-management" element={<AccountingDashboard />} />
                 <Route path="accounting/reports/accounts-receivable" element={<AccountsReceivableReport />} />
                 <Route path="bank-accounts" element={<BankAccountsManagement />} />
+                <Route path="organizations" element={<OrganizationsManagement />} />
                 <Route path="appointments" element={<AppointmentsManagement />} />
                 <Route path="services" element={<ServicesManagement />} />
                 <Route path="resources" element={<ResourcesManagement />} />
@@ -441,18 +489,26 @@ function AppContent() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route 
-          path="/super-admin/*" 
+        <Route
+          path="/organizations"
+          element={
+            <ProtectedRoute>
+              <OrganizationSelector />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/super-admin/*"
           element={
             <ProtectedRoute>
               <SuperAdminLayout />
             </ProtectedRoute>
           }
         />
-        <Route 
-          path="/*" 
+        <Route
+          path="/*"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requireOrganization>
               {/* <TutorialProvider> */}
                 <FormStateProvider>
                   <CrmProvider>

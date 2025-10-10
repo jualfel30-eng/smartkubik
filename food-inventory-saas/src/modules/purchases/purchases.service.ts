@@ -162,7 +162,10 @@ export class PurchasesService {
   }
 
   async findAll(tenantId: string) {
-    return this.poModel.find({ tenantId }).sort({ purchaseDate: -1 }).exec();
+    // Convert tenantId to ObjectId to handle both string and ObjectId types in database
+    const { Types } = require('mongoose');
+    const tenantObjectId = new Types.ObjectId(tenantId);
+    return this.poModel.find({ tenantId: tenantObjectId }).sort({ purchaseDate: -1 }).exec();
   }
 
   async receivePurchaseOrder(
