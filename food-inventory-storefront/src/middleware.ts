@@ -13,18 +13,37 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Extraer el dominio del path (formato: /[domain]/...)
-  const pathParts = pathname.split('/').filter(Boolean);
-  const domain = pathParts[0];
+  let domain: string | null = null;
+  const hostname = request.headers.get('host') || '';
 
-  // Si no hay dominio en el path, dejar pasar
+  // MODO 1: Detectar subdominio (producción)
+  // Ejemplo: cliente.smartkubik.com
+  const subdomainMatch = hostname.match(/^([^.]+)\.smartkubik\.com$/);
+  if (subdomainMatch && !['www', 'admin', 'api'].includes(subdomainMatch[1])) {
+    domain = subdomainMatch[1];
+  }
+
+  // MODO 2: Detectar dominio en el path (desarrollo local)
+  // Ejemplo: localhost:3001/cliente
+  if (!domain) {
+    const pathParts = pathname.split('/').filter(Boolean);
+    if (pathParts.length > 0) {
+      domain = pathParts[0];
+    }
+  }
+
+  // Si no hay dominio, dejar pasar
   if (!domain) {
     return NextResponse.next();
   }
 
   try {
+    // Obtener URL del backend desde env o usar localhost
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+    const apiUrl = backendUrl.replace('/api/v1', ''); // Remove /api/v1 if present
+
     // Llamar al backend para validar el tenant
-    const response = await fetch(`http://localhost:3000/api/v1/public/storefront/by-domain/${domain}`);
+    const response = await fetch(`${apiUrl}/api/v1/public/storefront/by-domain/${domain}`);
 
     if (!response.ok) {
       // Si el storefront no existe, continuar sin headers adicionales
