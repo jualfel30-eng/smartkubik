@@ -1,6 +1,12 @@
 #!/bin/bash
 
 # --- Script para actualizar y reiniciar smartkubik (Admin + Backend + Storefront) ---
+
+# Cargar NVM
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+# Usar Node 20
 nvm use 20
 
 # --- Configuración ---
