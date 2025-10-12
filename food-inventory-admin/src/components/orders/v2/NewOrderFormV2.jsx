@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card.jsx';
 import { Input } from '@/components/ui/input.jsx';
@@ -15,6 +15,8 @@ import { SearchableSelect } from './custom/SearchableSelect';
 import { MixedPaymentDialog } from './MixedPaymentDialog';
 import { LocationPicker } from '@/components/ui/LocationPicker.jsx';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
+import ModifierSelector from '@/components/restaurant/ModifierSelector.jsx';
+import { useAuth } from '@/hooks/use-auth.jsx';
 
 const initialOrderState = {
   customerId: '',
@@ -37,12 +39,17 @@ const initialOrderState = {
 export function NewOrderFormV2({ onOrderCreated }) {
   const { crmData: customers, paymentMethods, loading: contextLoading } = useCrmContext();
   const { rate: bcvRate, loading: loadingRate, error: rateError } = useExchangeRate();
+  const { tenant } = useAuth();
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [newOrder, setNewOrder] = useState(initialOrderState);
   const [isMixedPaymentModalOpen, setIsMixedPaymentModalOpen] = useState(false);
   const [mixedPaymentData, setMixedPaymentData] = useState(null);
   const [municipios, setMunicipios] = useState([]);
+  const [showModifierSelector, setShowModifierSelector] = useState(false);
+  const [pendingProductConfig, setPendingProductConfig] = useState(null);
+  const [tables, setTables] = useState([]);
+  const [selectedTable, setSelectedTable] = useState('none');
 
   // Estados separados para los inputs de búsqueda
   const [customerNameInput, setCustomerNameInput] = useState('');
@@ -50,6 +57,25 @@ export function NewOrderFormV2({ onOrderCreated }) {
   const [productSearchInput, setProductSearchInput] = useState('');
   const [shippingCost, setShippingCost] = useState(0);
   const [calculatingShipping, setCalculatingShipping] = useState(false);
+  const restaurantEnabled = Boolean(
+    tenant?.enabledModules?.restaurant ||
+    tenant?.enabledModules?.tables ||
+    tenant?.enabledModules?.kitchenDisplay
+  );
+  const supportsModifiers = Boolean(
+    restaurantEnabled ||
+    tenant?.enabledModules?.retail ||
+    tenant?.enabledModules?.variants
+  );
+  const calculateModifierAdjustment = (item) =>
+    (item?.modifiers || []).reduce(
+      (sum, mod) => sum + ((mod.priceAdjustment || 0) * (mod.quantity || 1)),
+      0
+    );
+  const getItemQuantityValue = (item) => parseFloat(item.quantity) || 0;
+  const getItemFinalUnitPrice = (item) =>
+    (typeof item.finalPrice === 'number' ? item.finalPrice : undefined) ??
+    (typeof item.unitPrice === 'number' ? item.unitPrice : 0);
 
   // Debug: verificar tasa de cambio
   useEffect(() => {
@@ -82,9 +108,12 @@ export function NewOrderFormV2({ onOrderCreated }) {
 
       setCalculatingShipping(true);
       try {
-        const subtotal = newOrder.items.reduce((sum, item) => sum + (item.unitPrice * (parseFloat(item.quantity) || 0)), 0);
+        const subtotal = newOrder.items.reduce((sum, item) => {
+          const quantity = getItemQuantityValue(item);
+          return sum + (getItemFinalUnitPrice(item) * quantity);
+        }, 0);
         const iva = newOrder.items.reduce((sum, item) =>
-          item.ivaApplicable ? sum + (item.unitPrice * (parseFloat(item.quantity) || 0) * 0.16) : sum, 0);
+          item.ivaApplicable ? sum + (getItemFinalUnitPrice(item) * getItemQuantityValue(item) * 0.16) : sum, 0);
         const orderAmount = subtotal + iva;
 
         const payload = {
@@ -148,6 +177,33 @@ export function NewOrderFormV2({ onOrderCreated }) {
     };
     loadProducts();
   }, []);
+
+  const loadAvailableTables = useCallback(async () => {
+    try {
+      const response = await fetchApi('/tables');
+      const data = response.data || response;
+      if (Array.isArray(data)) {
+        const availableTables = data.filter((table) =>
+          ['available', 'reserved'].includes(table.status)
+        );
+        setTables(availableTables);
+      } else {
+        setTables([]);
+      }
+    } catch (error) {
+      console.error('Error loading tables:', error);
+      setTables([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!restaurantEnabled) {
+      setTables([]);
+      setSelectedTable('none');
+      return;
+    }
+    loadAvailableTables();
+  }, [restaurantEnabled, loadAvailableTables]);
 
   useEffect(() => {
     if (paymentMethods.length > 0 && !newOrder.paymentMethod) {
@@ -286,7 +342,62 @@ export function NewOrderFormV2({ onOrderCreated }) {
     }));
   };
 
-  const handleProductSelection = (selectedOption) => {
+  const addConfiguredProductToOrder = (config, { modifiers = [], specialInstructions, priceAdjustment = 0 }) => {
+    if (!config) return;
+
+    const {
+      product,
+      variant,
+      hasMultiUnit,
+      defaultUnit,
+      baseUnitPrice,
+      initialQuantity,
+    } = config;
+
+    const finalUnitPrice = baseUnitPrice + priceAdjustment;
+
+    setNewOrder(prev => {
+      const newItem = {
+        productId: product._id,
+        name: product.name,
+        sku: variant.sku,
+        quantity: initialQuantity,
+        unitPrice: baseUnitPrice,
+        finalPrice: finalUnitPrice,
+        modifiers,
+        specialInstructions,
+        ivaApplicable: product.ivaApplicable,
+        igtfExempt: product.igtfExempt,
+        isSoldByWeight: product.isSoldByWeight,
+        unitOfMeasure: product.unitOfMeasure,
+        hasMultipleSellingUnits: hasMultiUnit,
+        sellingUnits: hasMultiUnit ? product.sellingUnits : null,
+        selectedUnit: hasMultiUnit ? defaultUnit?.abbreviation : null,
+      };
+
+      const items = [...prev.items];
+      const matchIndex = items.findIndex(item =>
+        item.productId === newItem.productId &&
+        (item.selectedUnit || null) === (newItem.selectedUnit || null) &&
+        JSON.stringify(item.modifiers || []) === JSON.stringify(newItem.modifiers || []) &&
+        (item.specialInstructions || '') === (newItem.specialInstructions || '')
+      );
+
+      if (matchIndex !== -1) {
+        const existingQuantity = parseFloat(items[matchIndex].quantity) || 0;
+        items[matchIndex] = {
+          ...items[matchIndex],
+          quantity: existingQuantity + newItem.quantity,
+        };
+      } else {
+        items.push(newItem);
+      }
+
+      return { ...prev, items };
+    });
+  };
+
+  const handleProductSelection = async (selectedOption) => {
     if (!selectedOption) return;
     const product = selectedOption.product;
     if (!product) return;
@@ -295,37 +406,61 @@ export function NewOrderFormV2({ onOrderCreated }) {
         alert(`El producto seleccionado (${product.name}) no tiene variantes configuradas y no se puede añadir.`);
         return;
     }
-    const existingItem = newOrder.items.find(item => item.productId === product._id);
-    if (existingItem) {
-      const updatedItems = newOrder.items.map(item =>
-        item.productId === product._id
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      );
-      setNewOrder(prev => ({ ...prev, items: updatedItems }));
-    } else {
-      // Check if product has multiple selling units
-      const hasMultiUnit = product.hasMultipleSellingUnits && product.sellingUnits?.length > 0;
-      const defaultUnit = hasMultiUnit ? product.sellingUnits.find(u => u.isDefault) || product.sellingUnits[0] : null;
+    const hasMultiUnit = product.hasMultipleSellingUnits && product.sellingUnits?.length > 0;
+    const defaultUnit = hasMultiUnit ? product.sellingUnits.find(u => u.isDefault) || product.sellingUnits[0] : null;
+    const baseUnitPrice = hasMultiUnit ? (defaultUnit?.pricePerUnit || 0) : (variant.basePrice || 0);
+    const initialQuantity = hasMultiUnit ? (defaultUnit?.minimumQuantity || 1) : 1;
 
-      const newItem = {
-        productId: product._id,
-        name: product.name,
-        sku: variant.sku,
-        quantity: defaultUnit?.minimumQuantity || 1,
-        unitPrice: hasMultiUnit ? (defaultUnit?.pricePerUnit || 0) : (variant.basePrice || 0),
-        ivaApplicable: product.ivaApplicable,
-        igtfExempt: product.igtfExempt,
-        isSoldByWeight: product.isSoldByWeight,
-        unitOfMeasure: product.unitOfMeasure,
-        // Multi-unit specific fields
-        hasMultipleSellingUnits: hasMultiUnit,
-        sellingUnits: hasMultiUnit ? product.sellingUnits : null,
-        selectedUnit: hasMultiUnit ? defaultUnit?.abbreviation : null,
-      };
-      setNewOrder(prev => ({ ...prev, items: [...prev.items, newItem] }));
+    const config = {
+      product,
+      variant,
+      hasMultiUnit,
+      defaultUnit,
+      baseUnitPrice,
+      initialQuantity,
+    };
+
+    setPendingProductConfig(config);
+
+    if (!supportsModifiers) {
+      addConfiguredProductToOrder(config, { modifiers: [], specialInstructions: undefined, priceAdjustment: 0 });
+      setProductSearchInput('');
+      setPendingProductConfig(null);
+      return;
     }
-    setProductSearchInput(''); // Limpiar input de busqueda de producto
+
+    try {
+      const groups = await fetchApi(`/modifier-groups/product/${product._id}`);
+      if (Array.isArray(groups) && groups.length > 0) {
+        setShowModifierSelector(true);
+        setProductSearchInput('');
+      } else {
+        addConfiguredProductToOrder(config, { modifiers: [], specialInstructions: undefined, priceAdjustment: 0 });
+        setProductSearchInput('');
+        setPendingProductConfig(null);
+      }
+    } catch (error) {
+      console.error('Error loading modifiers:', error);
+      addConfiguredProductToOrder(config, { modifiers: [], specialInstructions: undefined, priceAdjustment: 0 });
+      setProductSearchInput('');
+      setPendingProductConfig(null);
+    }
+  };
+
+  const handleModifierClose = () => {
+    setShowModifierSelector(false);
+    setPendingProductConfig(null);
+  };
+
+  const handleModifierConfirm = ({ modifiers = [], specialInstructions, priceAdjustment = 0 }) => {
+    if (!pendingProductConfig) {
+      handleModifierClose();
+      return;
+    }
+
+    addConfiguredProductToOrder(pendingProductConfig, { modifiers, specialInstructions, priceAdjustment });
+    setProductSearchInput('');
+    handleModifierClose();
   };
 
   const handleItemQuantityChange = (productId, newQuantityStr, isSoldByWeight) => {
@@ -355,6 +490,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
             ...item,
             selectedUnit: selectedUnit.abbreviation,
             unitPrice: selectedUnit.pricePerUnit,
+            finalPrice: selectedUnit.pricePerUnit + calculateModifierAdjustment(item),
             quantity: selectedUnit.minimumQuantity || item.quantity,
           };
         }
@@ -370,9 +506,15 @@ export function NewOrderFormV2({ onOrderCreated }) {
 
   const handlePaymentMethodChange = (value) => {
     if (value === 'pago_mixto') {
-      const subtotal = newOrder.items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
-      const iva = newOrder.items.reduce((sum, item) => 
-        item.ivaApplicable ? sum + (item.unitPrice * item.quantity * 0.16) : sum, 0);
+      const subtotal = newOrder.items.reduce((sum, item) => {
+        const quantity = getItemQuantityValue(item);
+        return sum + (getItemFinalUnitPrice(item) * quantity);
+      }, 0);
+      const iva = newOrder.items.reduce((sum, item) => {
+        if (!item.ivaApplicable) return sum;
+        const quantity = getItemQuantityValue(item);
+        return sum + (getItemFinalUnitPrice(item) * quantity * 0.16);
+      }, 0);
       const totalForModal = subtotal + iva;
       if (totalForModal <= 0) {
         alert("Añada productos a la orden antes de definir un pago mixto.");
@@ -425,12 +567,22 @@ export function NewOrderFormV2({ onOrderCreated }) {
         quantity: item.isSoldByWeight
           ? parseFloat(item.quantity) || 0
           : parseInt(item.quantity, 10) || 0,
-        ...(item.selectedUnit && { selectedUnit: item.selectedUnit })
+        ...(item.selectedUnit && { selectedUnit: item.selectedUnit }),
+        modifiers: item.modifiers || [],
+        specialInstructions: item.specialInstructions,
+        unitPrice: item.unitPrice,
+        finalPrice: getItemFinalUnitPrice(item),
       })),
       ...(paymentsPayload.length > 0 && { payments: paymentsPayload }),
       notes: newOrder.notes,
       deliveryMethod: newOrder.deliveryMethod,
       shippingAddress: (newOrder.deliveryMethod === 'delivery' || newOrder.deliveryMethod === 'envio_nacional') && newOrder.shippingAddress.street ? newOrder.shippingAddress : undefined,
+      ...(restaurantEnabled && selectedTable !== 'none' && { tableId: selectedTable }),
+      subtotal: totals.subtotal,
+      ivaTotal: totals.iva,
+      igtfTotal: totals.igtf,
+      shippingCost: totals.shipping,
+      totalAmount: totals.total,
     };
     try {
       await fetchApi('/orders', { method: 'POST', body: JSON.stringify(payload) });
@@ -440,6 +592,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
       setCustomerNameInput('');
       setCustomerRifInput('');
       setProductSearchInput('');
+      setSelectedTable('none');
       if (onOrderCreated) {
         onOrderCreated();
       }
@@ -470,9 +623,15 @@ export function NewOrderFormV2({ onOrderCreated }) {
   [products]);
 
   const totals = useMemo(() => {
-    const subtotal = newOrder.items.reduce((sum, item) => sum + (item.unitPrice * (parseFloat(item.quantity) || 0)), 0);
-    const iva = newOrder.items.reduce((sum, item) => 
-        item.ivaApplicable ? sum + (item.unitPrice * (parseFloat(item.quantity) || 0) * 0.16) : sum, 0);
+    const subtotal = newOrder.items.reduce((sum, item) => {
+      const quantity = getItemQuantityValue(item);
+      return sum + (getItemFinalUnitPrice(item) * quantity);
+    }, 0);
+    const iva = newOrder.items.reduce((sum, item) => {
+      if (!item.ivaApplicable) return sum;
+      const quantity = getItemQuantityValue(item);
+      return sum + (getItemFinalUnitPrice(item) * quantity * 0.16);
+    }, 0);
     
     let igtf = 0;
     if (mixedPaymentData) {
@@ -481,8 +640,11 @@ export function NewOrderFormV2({ onOrderCreated }) {
       const selectedPayMethod = paymentMethods.find(m => m.id === newOrder.paymentMethod);
       const appliesIgtf = selectedPayMethod?.igtfApplicable || false;
       if (appliesIgtf) {
-        const igtfBase = newOrder.items.reduce((sum, item) => 
-            !item.igtfExempt ? sum + (item.unitPrice * (parseFloat(item.quantity) || 0)) : sum, 0);
+        const igtfBase = newOrder.items.reduce((sum, item) => {
+          if (item.igtfExempt) return sum;
+          const quantity = getItemQuantityValue(item);
+          return sum + (getItemFinalUnitPrice(item) * quantity);
+        }, 0);
         igtf = igtfBase * 0.03;
       }
     }
@@ -494,7 +656,19 @@ export function NewOrderFormV2({ onOrderCreated }) {
   const isCreateDisabled = newOrder.items.length === 0 || !newOrder.customerName || !newOrder.customerRif || !newOrder.paymentMethod;
 
   return (
-    <Card className="mb-8">
+    <>
+      {supportsModifiers && showModifierSelector && pendingProductConfig && (
+        <ModifierSelector
+          product={{
+            _id: pendingProductConfig.product._id,
+            name: pendingProductConfig.product.name,
+            price: pendingProductConfig.baseUnitPrice,
+          }}
+          onClose={handleModifierClose}
+          onConfirm={handleModifierConfirm}
+        />
+      )}
+      <Card className="mb-8">
       <MixedPaymentDialog 
         isOpen={isMixedPaymentModalOpen}
         onClose={() => setIsMixedPaymentModalOpen(false)}
@@ -563,14 +737,40 @@ export function NewOrderFormV2({ onOrderCreated }) {
           </div>
         </div>
 
+        {restaurantEnabled && (
+          <div className="p-4 border rounded-lg space-y-4">
+            <Label className="text-base font-semibold">Mesa (Opcional)</Label>
+            <Select value={selectedTable} onValueChange={(value) => setSelectedTable(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona una mesa disponible..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sin mesa asignada</SelectItem>
+                {tables.map((table) => (
+                  <SelectItem key={table._id} value={table._id}>
+                    Mesa {table.tableNumber} · {table.section} · {table.maxCapacity} personas
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {tables.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                No hay mesas disponibles en este momento.
+              </p>
+            )}
+          </div>
+        )}
+
         {newOrder.deliveryMethod === 'delivery' && (
           <div className="p-4 border rounded-lg space-y-4">
             <Label className="text-base font-semibold">Ubicación de Entrega</Label>
 
             {newOrder.customerLocation && newOrder.customerId && newOrder.useExistingLocation && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+              <div className="p-3 rounded-lg border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-900/30 space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium text-blue-900">Ubicación guardada del cliente</Label>
+                  <Label className="text-sm font-medium text-blue-900 dark:text-blue-200">
+                    Ubicación guardada del cliente
+                  </Label>
                   <Button
                     type="button"
                     variant="ghost"
@@ -581,7 +781,9 @@ export function NewOrderFormV2({ onOrderCreated }) {
                   </Button>
                 </div>
                 {newOrder.customerLocation.formattedAddress && (
-                  <p className="text-sm text-blue-700">{newOrder.customerLocation.formattedAddress}</p>
+                  <p className="text-sm text-blue-700 dark:text-blue-200">
+                    {newOrder.customerLocation.formattedAddress}
+                  </p>
                 )}
               </div>
             )}
@@ -594,7 +796,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
                   onChange={(location) => setNewOrder(prev => ({ ...prev, customerLocation: location }))}
                 />
                 {!newOrder.customerId && newOrder.customerLocation && (
-                  <p className="text-sm text-green-600 mt-2">
+                  <p className="text-sm text-green-600 dark:text-green-400 mt-2">
                     ✓ Esta ubicación se guardará automáticamente en el perfil del cliente
                   </p>
                 )}
@@ -677,7 +879,29 @@ export function NewOrderFormV2({ onOrderCreated }) {
                       {item.name}
                       <div className="text-sm text-muted-foreground">{item.sku}</div>
                       {item.hasMultipleSellingUnits && (
-                        <div className="text-xs text-blue-600 mt-1">Multi-unidad</div>
+                        <div className="text-xs text-blue-600 dark:text-blue-300 mt-1">Multi-unidad</div>
+                      )}
+                      {item.modifiers && item.modifiers.length > 0 && (
+                        <div className="text-xs text-muted-foreground mt-2 space-y-1">
+                          {item.modifiers.map((mod, index) => {
+                            const adjustment = (Number(mod.priceAdjustment) || 0) * (mod.quantity || 1);
+                            return (
+                              <div key={`${mod.modifierId || mod.name}-${index}`} className="flex items-center gap-1">
+                                <span>• {mod.name}{mod.quantity > 1 ? ` x${mod.quantity}` : ''}</span>
+                                {adjustment !== 0 && (
+                                  <span>
+                                    ({adjustment > 0 ? '+' : ''}${adjustment.toFixed(2)})
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {item.specialInstructions && (
+                        <div className="text-xs text-orange-600 dark:text-orange-300 italic mt-2">
+                          ⚠ {item.specialInstructions}
+                        </div>
                       )}
                     </TableCell>
                     <TableCell>
@@ -715,8 +939,15 @@ export function NewOrderFormV2({ onOrderCreated }) {
                         <span className="text-sm text-muted-foreground">-</span>
                       )}
                     </TableCell>
-                    <TableCell>${(item.unitPrice || 0).toFixed(2)}</TableCell>
-                    <TableCell>${((item.unitPrice || 0) * (parseFloat(item.quantity) || 0)).toFixed(2)}</TableCell>
+                    <TableCell>
+                      ${getItemFinalUnitPrice(item).toFixed(2)}
+                      {item.modifiers && item.modifiers.length > 0 && (
+                        <div className="text-xs text-muted-foreground">
+                          Base: ${(Number(item.unitPrice) || 0).toFixed(2)}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>${(getItemFinalUnitPrice(item) * getItemQuantityValue(item)).toFixed(2)}</TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon" onClick={() => removeProductFromOrder(item.productId)}>
                         <Trash2 className="h-4 w-4 text-red-500" />
@@ -743,9 +974,13 @@ export function NewOrderFormV2({ onOrderCreated }) {
               <div className="bg-muted/50 p-4 rounded-lg space-y-2 text-sm">
                 <div className="flex justify-between"><span>Subtotal:</span><span>${totals.subtotal.toFixed(2)}</span></div>
                 <div className="flex justify-between"><span>IVA (16%):</span><span>${totals.iva.toFixed(2)}</span></div>
-                {totals.igtf > 0 && <div className="flex justify-between text-orange-600"><span>IGTF (3%):</span><span>${totals.igtf.toFixed(2)}</span></div>}
+                {totals.igtf > 0 && (
+                  <div className="flex justify-between text-orange-600 dark:text-orange-300">
+                    <span>IGTF (3%):</span><span>${totals.igtf.toFixed(2)}</span>
+                  </div>
+                )}
                 {totals.shipping > 0 && (
-                  <div className="flex justify-between text-blue-600">
+                  <div className="flex justify-between text-blue-600 dark:text-blue-300">
                     <span>Envío:</span>
                     <span>
                       {calculatingShipping ? 'Calculando...' : `$${totals.shipping.toFixed(2)}`}
@@ -786,12 +1021,30 @@ export function NewOrderFormV2({ onOrderCreated }) {
                 </Select>
             </div>
             <Button onClick={handleCreateOrder} disabled={isCreateDisabled} size="lg" className="bg-[#FB923C] text-white hover:bg-[#F97316] w-full">Crear Orden</Button>
-            <Button variant="outline" onClick={() => setNewOrder(initialOrderState)} className="w-full">Limpiar Formulario</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setNewOrder(initialOrderState);
+                setSelectedTable('none');
+              }}
+              className="w-full"
+            >
+              Limpiar Formulario
+            </Button>
         </div>
 
         {/* Desktop layout */}
         <div className="hidden sm:flex justify-end items-center gap-2 w-full">
-          <Button variant="outline" onClick={() => setNewOrder(initialOrderState)} className="w-auto">Limpiar Formulario</Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setNewOrder(initialOrderState);
+              setSelectedTable('none');
+            }}
+            className="w-auto"
+          >
+            Limpiar Formulario
+          </Button>
           <Select value={newOrder.paymentMethod} onValueChange={handlePaymentMethodChange} disabled={contextLoading}>
               <SelectTrigger className="w-48"><SelectValue placeholder="Forma de Pago" /></SelectTrigger>
               <SelectContent>{paymentMethods.map(method => (<SelectItem key={method.id} value={method.id}>{method.name}</SelectItem>))}</SelectContent>
@@ -799,6 +1052,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
           <Button id="create-order-button" onClick={handleCreateOrder} disabled={isCreateDisabled} size="lg" className="bg-[#FB923C] text-white hover:bg-[#F97316] w-48">Crear Orden</Button>
         </div>
       </CardFooter>
-    </Card>
+      </Card>
+    </>
   );
 }

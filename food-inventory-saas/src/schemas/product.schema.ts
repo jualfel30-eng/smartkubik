@@ -11,7 +11,7 @@ export class ProductVariant {
   @Prop({ type: String, required: true })
   sku: string;
 
-  @Prop({ type: String, required: true })
+  @Prop({ type: String })
   barcode: string;
 
   @Prop({ type: String, required: true })

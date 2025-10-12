@@ -582,8 +582,8 @@ function ProductsManagement() {
                       <Label htmlFor="sku">SKU Principal</Label>
                       <Input id="sku" value={newProduct.sku} onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})} placeholder="EJ: ARR-BLANCO" />
                     </div>
-                    <div class="space-y-2">
-                      <Label htmlFor="barcode">Código de Barras (UPC)</Label>
+                    <div className="space-y-2">
+                      <Label htmlFor="barcode">Código de Barras (UPC) (Opcional)</Label>
                       <Input id="barcode" value={newProduct.variant.barcode} onChange={(e) => setNewProduct({...newProduct, variant: {...newProduct.variant, barcode: e.target.value}})} placeholder="Ej: 7591234567890" />
                     </div>
                   </div>
@@ -1140,7 +1140,7 @@ function ProductsManagement() {
                 <Input id="edit-sku" value={editingProduct.sku} onChange={(e) => setEditingProduct({...editingProduct, sku: e.target.value})} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-barcode">Código de Barras (UPC)</Label>
+                <Label htmlFor="edit-barcode">Código de Barras (UPC) (Opcional)</Label>
                 <Input id="edit-barcode" value={editingProduct.variants[0].barcode} onChange={(e) => {
                   const newVariants = [...editingProduct.variants];
                   newVariants[0].barcode = e.target.value;

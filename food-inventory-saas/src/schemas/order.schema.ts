@@ -26,6 +26,23 @@ export class OrderItemLot {
 }
 const OrderItemLotSchema = SchemaFactory.createForClass(OrderItemLot);
 
+// Applied Modifier (selected by customer)
+@Schema()
+export class AppliedModifier {
+  @Prop({ type: Types.ObjectId, ref: "Modifier", required: true })
+  modifierId: Types.ObjectId;
+
+  @Prop({ type: String, required: true })
+  name: string; // Guardamos el nombre por si el modificador se elimina después
+
+  @Prop({ type: Number, required: true, default: 0 })
+  priceAdjustment: number;
+
+  @Prop({ type: Number, default: 1, min: 1 })
+  quantity: number; // Para "Extra Bacon x2"
+}
+const AppliedModifierSchema = SchemaFactory.createForClass(AppliedModifier);
+
 @Schema()
 export class OrderItem {
   @Prop({ type: Types.ObjectId, ref: "Product", required: true })
@@ -66,6 +83,14 @@ export class OrderItem {
 
   @Prop({ type: [OrderItemLotSchema] })
   lots: OrderItemLot[];
+
+  // NUEVO: Modifiers aplicados al item
+  @Prop({ type: [AppliedModifierSchema], default: [] })
+  modifiers: AppliedModifier[];
+
+  // NUEVO: Instrucciones especiales (alergias, preferencias)
+  @Prop({ type: String, trim: true })
+  specialInstructions?: string;
 
   @Prop({ type: Number, required: true })
   ivaAmount: number;
@@ -175,6 +200,22 @@ export class Order {
   @Prop({ type: String, required: true, default: "pending" })
   paymentStatus: string;
 
+  // ========================================
+  // NUEVOS CAMPOS PARA SPLIT BILLS
+  // ========================================
+
+  @Prop({ type: Boolean, default: false })
+  isSplit: boolean; // Si la cuenta está dividida
+
+  @Prop({ type: Types.ObjectId, ref: 'BillSplit' })
+  activeSplitId?: Types.ObjectId; // Split activo (si hay uno)
+
+  @Prop({ type: Number, default: 0 })
+  totalTipsAmount: number; // Total de propinas agregadas
+
+  @Prop({ type: Types.ObjectId, ref: 'Table' })
+  tableId?: Types.ObjectId; // Mesa asociada (para restaurantes)
+
   @Prop({ type: OrderShippingSchema })
   shipping?: OrderShipping;
 
@@ -255,6 +296,8 @@ OrderSchema.index({ "inventoryReservation.isReserved": 1, tenantId: 1 });
 OrderSchema.index({ "inventoryReservation.expiresAt": 1, tenantId: 1 });
 OrderSchema.index({ assignedTo: 1, status: 1, tenantId: 1 });
 OrderSchema.index({ totalAmount: -1, createdAt: -1, tenantId: 1 });
+OrderSchema.index({ tableId: 1, tenantId: 1 });
+OrderSchema.index({ isSplit: 1, activeSplitId: 1, tenantId: 1 });
 
 // Índice de texto para búsqueda
 OrderSchema.index({

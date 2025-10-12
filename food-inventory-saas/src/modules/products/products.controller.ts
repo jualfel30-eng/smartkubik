@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
   Request,
+  ForbiddenException,
 } from "@nestjs/common";
 import { ProductsService } from "./products.service";
 import {
@@ -28,12 +29,26 @@ import { Permissions } from '../../decorators/permissions.decorator';
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
+  private ensureTenantConfirmed(req: any) {
+    if (req?.tenant && req.tenant.isConfirmed === false) {
+      throw new ForbiddenException(
+        'Tu cuenta aún no está confirmada. Ingresa el código enviado por correo para habilitar la creación de productos.',
+      );
+    }
+    if (req?.user && req.user.tenantConfirmed === false) {
+      throw new ForbiddenException(
+        'Tu cuenta aún no está confirmada. Ingresa el código enviado por correo para habilitar la creación de productos.',
+      );
+    }
+  }
+
   @Post("/with-initial-purchase")
   @Permissions("products_create")
   async createWithInitialPurchase(
     @Body() createDto: CreateProductWithPurchaseDto,
     @Request() req,
   ) {
+    this.ensureTenantConfirmed(req);
     const product = await this.productsService.createWithInitialPurchase(
       createDto,
       req.user,
@@ -44,6 +59,7 @@ export class ProductsController {
   @Post()
   @Permissions("products_create")
   async create(@Body() createProductDto: CreateProductDto, @Request() req) {
+    this.ensureTenantConfirmed(req);
     const product = await this.productsService.create(
       createProductDto,
       req.user,
@@ -54,6 +70,7 @@ export class ProductsController {
   @Post("bulk")
   @Permissions("products_create")
   async bulkCreate(@Body() bulkCreateProductsDto: BulkCreateProductsDto, @Request() req) {
+    this.ensureTenantConfirmed(req);
     const result = await this.productsService.bulkCreate(
       bulkCreateProductsDto,
       req.user,

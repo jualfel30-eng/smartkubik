@@ -7,11 +7,79 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
+import { Input } from './ui/input';
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
 import TenantEditForm from './TenantEditForm';
-import { FileText } from 'lucide-react';
+import { FileText, Trash2, Search } from 'lucide-react';
 import GlobalMetricsDashboard from './GlobalMetricsDashboard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import PlanManagement from './super-admin/PlanManagement';
+
+// ... (TenantDeleteDialog and TenantStatusSelector components remain the same)
+
+const TenantDeleteDialog = ({ isOpen, onClose, tenant, onDeleted }) => {
+  const [confirmationText, setConfirmationText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setConfirmationText('');
+      setIsDeleting(false);
+    }
+  }, [isOpen]);
+
+  if (!tenant) return null;
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await fetchApi(`/super-admin/tenants/${tenant._id}`, { method: 'DELETE' });
+      toast.success(`Tenant "${tenant.name}" eliminado exitosamente.`);
+      if (onDeleted) {
+        onDeleted();
+      }
+      onClose();
+    } catch (error) {
+      toast.error('Error al eliminar el tenant', { description: error.message });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const isConfirmationMatching = confirmationText === tenant.name;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Eliminar Tenant: {tenant.name}</DialogTitle>
+          <DialogDescription>
+            Esta acción es irreversible y eliminará permanentemente el tenant y todos sus datos asociados, incluyendo usuarios, productos, y órdenes. 
+            Para confirmar, por favor escribe el nombre del tenant: <strong>{tenant.name}</strong>
+          </DialogDescription>
+        </DialogHeader>
+        <div className="py-4">
+          <Input 
+            value={confirmationText}
+            onChange={(e) => setConfirmationText(e.target.value)}
+            placeholder="Escribe el nombre del tenant"
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isDeleting}>Cancelar</Button>
+          <Button 
+            variant="destructive" 
+            onClick={handleDelete} 
+            disabled={!isConfirmationMatching || isDeleting}
+          >
+            {isDeleting ? 'Eliminando...' : 'Eliminar permanentemente'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 const TenantStatusSelector = ({ tenant, onStatusChange }) => {
   const [currentStatus, setCurrentStatus] = useState(tenant.status);
@@ -56,7 +124,7 @@ const TenantStatusSelector = ({ tenant, onStatusChange }) => {
   );
 };
 
-const TenantActions = ({ tenant, onEdit, onUsers, onConfig, onSynced }) => {
+const TenantActions = ({ tenant, onEdit, onUsers, onConfig, onSynced, onDelete }) => {
   const [isSyncing, setIsSyncing] = useState(false);
 
   const handleSync = async () => {
@@ -92,7 +160,10 @@ const TenantActions = ({ tenant, onEdit, onUsers, onConfig, onSynced }) => {
         onClick={handleSync}
         disabled={isSyncing}
       >
-        {isSyncing ? 'Sincronizando...' : 'Sincronizar membresías'}
+        {isSyncing ? 'Sincronizando...' : 'Sincronizar'}
+      </Button>
+      <Button variant="destructive" size="sm" onClick={onDelete}>
+        <Trash2 className="h-4 w-4" />
       </Button>
     </div>
   );
@@ -104,12 +175,33 @@ export default function SuperAdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editingTenant, setEditingTenant] = useState(null);
+  const [deletingTenant, setDeletingTenant] = useState(null);
+  const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0 });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setPagination(p => ({ ...p, page: 1 })); // Reset to page 1 on new search
+    }, 500);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchTerm]);
 
   const loadTenants = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetchApi('/super-admin/tenants');
-      setTenants(response || []); // API returns a raw array
+      const params = new URLSearchParams({
+        page: pagination.page,
+        limit: pagination.limit,
+        search: debouncedSearchTerm,
+      });
+      const response = await fetchApi(`/super-admin/tenants?${params.toString()}`);
+      setTenants(response.tenants || []);
+      setPagination(p => ({ ...p, total: response.total || 0 }));
     } catch (err) {
       setError(err.message);
       setTenants([]);
@@ -117,7 +209,7 @@ export default function SuperAdminDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [pagination.page, pagination.limit, debouncedSearchTerm]);
 
   useEffect(() => {
     loadTenants();
@@ -130,87 +222,147 @@ export default function SuperAdminDashboard() {
     setEditingTenant(null);
   };
 
-  if (loading) {
-    return <div>Cargando tenants...</div>;
-  }
+  const totalPages = Math.ceil(pagination.total / pagination.limit);
 
   if (error) {
     return <div className="text-red-500">Error: {error}</div>;
   }
 
   return (
-    <Tabs defaultValue="dashboard" className="space-y-4">
-      <TabsList>
-        <TabsTrigger value="dashboard">Gestión de Tenants</TabsTrigger>
-        <TabsTrigger value="plans">Gestión de Planes</TabsTrigger>
-      </TabsList>
-      <TabsContent value="dashboard" className="space-y-4">
-        <GlobalMetricsDashboard />
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Panel de Super Administrador</CardTitle>
-                <CardDescription>Gestión centralizada de todos los tenants del sistema.</CardDescription>
+    <>
+      <Tabs defaultValue="dashboard" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="dashboard">Gestión de Tenants</TabsTrigger>
+          <TabsTrigger value="plans">Gestión de Planes</TabsTrigger>
+        </TabsList>
+        <TabsContent value="dashboard" className="space-y-4">
+          <GlobalMetricsDashboard />
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Panel de Super Administrador</CardTitle>
+                  <CardDescription>Gestión centralizada de todos los tenants del sistema. Mostrando {tenants.length} de {pagination.total} tenants.</CardDescription>
+                </div>
+                <Button variant="outline" onClick={() => navigate('/super-admin/audit-logs')}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Ver Logs de Auditoría
+                </Button>
               </div>
-              <Button variant="outline" onClick={() => navigate('/super-admin/audit-logs')}>
-                <FileText className="h-4 w-4 mr-2" />
-                Ver Logs de Auditoría
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nombre del Tenant</TableHead>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Expira</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tenants.map((tenant) => (
-                  <TableRow key={tenant._id}>
-                    <TableCell className="font-medium">{tenant.name}</TableCell>
-                    <TableCell>{tenant.code}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{tenant.subscriptionPlan}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      {tenant.subscriptionExpiresAt ? new Date(tenant.subscriptionExpiresAt).toLocaleDateString() : 'N/A'}
-                    </TableCell>
-                    <TableCell>
-                      <TenantStatusSelector tenant={tenant} onStatusChange={handleTenantUpdate} />
-                    </TableCell>
-                    <TableCell>
-                      <TenantActions
-                        tenant={tenant}
-                        onEdit={() => setEditingTenant(tenant)}
-                        onUsers={() => navigate(`/super-admin/tenants/${tenant._id}/users`)}
-                        onConfig={() => navigate(`/super-admin/tenants/${tenant._id}/configuration`)}
-                        onSynced={() => loadTenants()}
+              <div className="flex items-center gap-4 mt-4">
+                <div className="relative w-full max-w-sm">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    placeholder="Buscar por nombre, código o email..."
+                    className="pl-8"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <Select 
+                  value={pagination.limit.toString()} 
+                  onValueChange={(value) => setPagination(p => ({ ...p, limit: parseInt(value), page: 1 }))}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Resultados por página" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="25">25 por página</SelectItem>
+                    <SelectItem value="50">50 por página</SelectItem>
+                    <SelectItem value="100">100 por página</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div>Cargando tenants...</div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nombre del Tenant</TableHead>
+                      <TableHead>Código</TableHead>
+                      <TableHead>Plan</TableHead>
+                      <TableHead>Expira</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {tenants.map((tenant) => (
+                      <TableRow key={tenant._id}>
+                        <TableCell className="font-medium">{tenant.name}</TableCell>
+                        <TableCell>{tenant.code}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{tenant.subscriptionPlan}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {tenant.subscriptionExpiresAt ? new Date(tenant.subscriptionExpiresAt).toLocaleDateString() : 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                          <TenantStatusSelector tenant={tenant} onStatusChange={handleTenantUpdate} />
+                        </TableCell>
+                        <TableCell>
+                          <TenantActions
+                            tenant={tenant}
+                            onEdit={() => setEditingTenant(tenant)}
+                            onUsers={() => navigate(`/super-admin/tenants/${tenant._id}/users`)}
+                            onConfig={() => navigate(`/super-admin/tenants/${tenant._id}/configuration`)}
+                            onSynced={loadTenants}
+                            onDelete={() => setDeletingTenant(tenant)}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-muted-foreground">
+                  Página {pagination.page} de {totalPages}
+                </div>
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        href="#"
+                        onClick={(e) => { e.preventDefault(); setPagination(p => ({ ...p, page: Math.max(1, p.page - 1) })); }}
+                        disabled={pagination.page === 1}
                       />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-        {editingTenant && (
-          <TenantEditForm
-            tenant={editingTenant}
-            onSave={handleTenantUpdate}
-            onCancel={() => setEditingTenant(null)}
-          />
-        )}
-      </TabsContent>
-      <TabsContent value="plans">
-        <PlanManagement />
-      </TabsContent>
-    </Tabs>
+                    </PaginationItem>
+                    {/* Add page numbers if needed in the future */}
+                    <PaginationItem>
+                      <PaginationNext 
+                        href="#"
+                        onClick={(e) => { e.preventDefault(); setPagination(p => ({ ...p, page: Math.min(totalPages, p.page + 1) })); }}
+                        disabled={pagination.page === totalPages}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            </CardContent>
+          </Card>
+          {editingTenant && (
+            <TenantEditForm
+              tenant={editingTenant}
+              onSave={handleTenantUpdate}
+              onCancel={() => setEditingTenant(null)}
+            />
+          )}
+        </TabsContent>
+        <TabsContent value="plans">
+          <PlanManagement />
+        </TabsContent>
+      </Tabs>
+      <TenantDeleteDialog 
+        isOpen={!!deletingTenant}
+        onClose={() => setDeletingTenant(null)}
+        tenant={deletingTenant}
+        onDeleted={loadTenants}
+      />
+    </>
   );
 }

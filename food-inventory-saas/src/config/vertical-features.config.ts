@@ -16,6 +16,7 @@ export const VERTICAL_FEATURES = {
     accounting: true,
 
     // Food service specific
+    restaurant: true, // This flag enables the whole restaurant section in the frontend
     tables: true,
     recipes: true,
     kitchenDisplay: true,

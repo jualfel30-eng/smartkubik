@@ -344,6 +344,8 @@ export class AuthService {
       businessType: tenant.businessType,
       vertical: tenant.vertical,
       enabledModules: effectiveModules,
+      subscriptionPlan: tenant.subscriptionPlan,
+      isConfirmed: tenant.isConfirmed,
     };
   }
 
@@ -767,7 +769,7 @@ export class AuthService {
     const user = await this.userModel
       .findById(userId)
       .select("-password -passwordResetToken -emailVerificationToken")
-      .populate("tenantId", "code name businessType")
+      .populate("tenantId", "code name businessType subscriptionPlan isConfirmed")
       .populate('role')
       .exec();
 

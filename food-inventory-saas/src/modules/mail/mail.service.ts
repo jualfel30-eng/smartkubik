@@ -70,4 +70,48 @@ export class MailService {
 
     await this.transporter.sendMail(mailOptions);
   }
+
+  async sendTenantWelcomeEmail(email: string, options: { businessName: string; planName: string; confirmationCode: string }) {
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://smartkubik.com';
+    const confirmationUrl = `${frontendUrl}/confirm-account`;
+
+    const mailOptions = {
+      from: this.configService.get<string>('SMTP_FROM'),
+      to: email,
+      subject: '¡Bienvenido a SmartKubik! Confirma tu cuenta',
+      html: `
+        <table style="width:100%;max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;border-collapse:collapse;">
+          <tr>
+            <td style="padding:24px 0;text-align:center;background-color:#111827;color:#ffffff;">
+              <h1 style="margin:0;font-size:24px;">Bienvenido a SmartKubik</h1>
+              <p style="margin:8px 0 0;font-size:14px;">${options.businessName}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px;background-color:#f9fafb;color:#111827;">
+              <p style="margin:0 0 16px;font-size:16px;">Hola,</p>
+              <p style="margin:0 0 16px;font-size:14px;">Gracias por iniciar tu registro en SmartKubik. Seleccionaste el plan <strong>${options.planName}</strong>. Para comenzar a usar todas las funcionalidades, confirma tu cuenta ingresando el siguiente código:</p>
+              <div style="margin:24px 0;text-align:center;">
+                <span style="display:inline-block;padding:12px 24px;font-size:24px;font-weight:bold;letter-spacing:6px;background-color:#1f2937;color:#ffffff;border-radius:8px;">
+                  ${options.confirmationCode}
+                </span>
+              </div>
+              <p style="margin:0 0 16px;font-size:14px;">Puedes ingresar este código en la siguiente página:</p>
+              <p style="margin:0 0 24px;text-align:center;">
+                <a href="${confirmationUrl}" style="display:inline-block;padding:12px 24px;background-color:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;font-size:14px;">Confirmar cuenta</a>
+              </p>
+              <p style="margin:0 0 8px;font-size:12px;color:#6b7280;">El código expira en 1 hora. Si no solicitaste esta cuenta, puedes ignorar este correo.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px;text-align:center;background-color:#f3f4f6;color:#6b7280;font-size:12px;">
+              SmartKubik · Transformando la gestión de tu negocio gastronómico
+            </td>
+          </tr>
+        </table>
+      `,
+    };
+
+    await this.transporter.sendMail(mailOptions);
+  }
 }

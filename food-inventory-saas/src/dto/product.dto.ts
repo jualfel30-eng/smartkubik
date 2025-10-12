@@ -30,11 +30,11 @@ export class CreateProductVariantDto {
   @SanitizeString()
   sku: string;
 
-  @ApiProperty({ description: "Código de barras" })
+  @ApiPropertyOptional({ description: "Código de barras" })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @SanitizeString()
-  barcode: string;
+  barcode?: string;
 
   @ApiProperty({ description: "Unidad de medida", example: "kg" })
   @IsString()

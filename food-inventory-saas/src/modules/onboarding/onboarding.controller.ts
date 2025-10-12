@@ -2,7 +2,7 @@ import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../../decorators/public.decorator';
-import { CreateTenantWithAdminDto } from './dto/onboarding.dto';
+import { CreateTenantWithAdminDto, ConfirmTenantDto } from './dto/onboarding.dto';
 import { OnboardingService } from './onboarding.service';
 
 @ApiTags('onboarding')
@@ -20,5 +20,16 @@ export class OnboardingController {
   @ApiResponse({ status: 429, description: 'Demasiados intentos. Intente más tarde' })
   async register(@Body() createTenantDto: CreateTenantWithAdminDto) {
     return this.onboardingService.createTenantAndAdmin(createTenantDto);
+  }
+
+  @Public()
+  @Post('confirm')
+  @Throttle({ short: { limit: 5, ttl: 60000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Confirmar un tenant con el código enviado por correo' })
+  @ApiResponse({ status: 200, description: 'Tenant confirmado exitosamente.' })
+  @ApiResponse({ status: 400, description: 'Código inválido o expirado.' })
+  async confirm(@Body() confirmTenantDto: ConfirmTenantDto) {
+    return this.onboardingService.confirmTenant(confirmTenantDto);
   }
 }

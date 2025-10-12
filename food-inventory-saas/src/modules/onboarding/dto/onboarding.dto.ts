@@ -68,4 +68,28 @@ export class CreateTenantWithAdminDto {
   @IsString()
   @MinLength(8)
   password: string; // No sanitizar passwords
+
+  @ApiProperty({ description: 'Plan de suscripción seleccionado', example: 'professional' })
+  @IsString()
+  @IsNotEmpty()
+  @SanitizeString()
+  subscriptionPlan: string;
+}
+
+export class ConfirmTenantDto {
+  @ApiProperty({ description: 'Código del tenant', example: 'EL-BUEN-SABOR' })
+  @IsString()
+  @IsNotEmpty()
+  @SanitizeString()
+  tenantCode: string;
+
+  @ApiProperty({ description: 'Email utilizado durante el registro', example: 'admin@buensabor.com' })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ description: 'Código de confirmación recibido por correo', example: '482193' })
+  @IsString()
+  @IsNotEmpty()
+  @SanitizeString()
+  confirmationCode: string;
 }

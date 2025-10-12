@@ -79,6 +79,23 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
   };
 
+  const normalizeTenant = (rawTenant) => {
+    if (!rawTenant) return null;
+    return {
+      id: rawTenant.id || rawTenant._id,
+      code: rawTenant.code,
+      name: rawTenant.name,
+      businessType: rawTenant.businessType,
+      vertical: rawTenant.vertical,
+      enabledModules: rawTenant.enabledModules,
+      subscriptionPlan: rawTenant.subscriptionPlan,
+      isConfirmed:
+        typeof rawTenant.isConfirmed === 'boolean'
+          ? rawTenant.isConfirmed
+          : Boolean(rawTenant.tenantConfirmed),
+    };
+  };
+
   const clearStoredSession = () => {
     localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
     localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
@@ -152,8 +169,9 @@ export const AuthProvider = ({ children }) => {
       }
 
       if (tenantData) {
-        localStorage.setItem(STORAGE_KEYS.TENANT, JSON.stringify(tenantData));
-        setTenant(tenantData);
+        const normalizedTenant = normalizeTenant(tenantData);
+        localStorage.setItem(STORAGE_KEYS.TENANT, JSON.stringify(normalizedTenant));
+        setTenant(normalizedTenant);
       } else {
         localStorage.removeItem(STORAGE_KEYS.TENANT);
         setTenant(null);
@@ -211,13 +229,14 @@ export const AuthProvider = ({ children }) => {
 
       setToken(accessToken);
       setUser(userData);
-      setTenant(tenantData);
+      const normalizedTenant = normalizeTenant(tenantData);
+      setTenant(normalizedTenant);
       setActiveMembershipId(membership?.id || membershipId);
       setIsAuthenticated(true);
 
       return {
         user: userData,
-        tenant: tenantData,
+        tenant: normalizedTenant,
         membership,
       };
     } catch (error) {
@@ -251,6 +270,11 @@ export const AuthProvider = ({ children }) => {
           businessType: tenantInfo.businessType,
           vertical: tenantInfo.vertical,
           enabledModules: tenantInfo.enabledModules,
+          subscriptionPlan: tenantInfo.subscriptionPlan,
+          isConfirmed:
+            typeof tenantInfo.isConfirmed === 'boolean'
+              ? tenantInfo.isConfirmed
+              : Boolean(tenantInfo.tenantConfirmed),
         };
         localStorage.setItem(
           STORAGE_KEYS.TENANT,
@@ -319,6 +343,7 @@ export const AuthProvider = ({ children }) => {
   const value = {
     user,
     tenant,
+    tenantConfirmed: tenant ? tenant.isConfirmed !== false : true,
     token,
     memberships,
     activeMembershipId,

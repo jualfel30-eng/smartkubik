@@ -14,6 +14,27 @@ import { AuditLogService } from '../modules/audit-log/audit-log.service';
 import { getPlanLimits } from '../config/subscriptions.config';
 import { UserTenantMembership, UserTenantMembershipDocument, MembershipStatus } from '../schemas/user-tenant-membership.schema';
 
+const BASELINE_PERMISSIONS = [
+  {
+    name: 'restaurant_read',
+    description: 'Acceso de lectura a módulos de restaurante',
+    module: 'restaurant',
+    action: 'read',
+  },
+  {
+    name: 'restaurant_write',
+    description: 'Acceso de escritura a módulos de restaurante',
+    module: 'restaurant',
+    action: 'write',
+  },
+  {
+    name: 'orders_write',
+    description: 'Permite crear y enviar órdenes a cocina',
+    module: 'orders',
+    action: 'write',
+  },
+];
+
 @Injectable()
 export class SuperAdminService {
   constructor(
@@ -166,6 +187,8 @@ export class SuperAdminService {
    * Get tenant configuration including modules and roles with permissions
    */
   async getTenantConfiguration(tenantId: string) {
+    await this.ensureBaselinePermissions();
+
     const tenant = await this.tenantModel.findById(tenantId).exec();
     if (!tenant) {
       throw new NotFoundException(`Tenant con ID "${tenantId}" no encontrado`);
@@ -222,6 +245,22 @@ export class SuperAdminService {
     );
 
     return updatedTenant;
+  }
+
+  private async ensureBaselinePermissions() {
+    for (const permission of BASELINE_PERMISSIONS) {
+      await this.permissionModel.updateOne(
+        { name: permission.name },
+        {
+          $setOnInsert: {
+            description: permission.description,
+            module: permission.module,
+            action: permission.action,
+          },
+        },
+        { upsert: true },
+      );
+    }
   }
 
   async syncTenantMemberships(

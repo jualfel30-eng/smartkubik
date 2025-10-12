@@ -9,9 +9,11 @@ import { PaymentDialogV2 } from './PaymentDialogV2';
 import { OrderStatusSelector } from './OrderStatusSelector';
 import { OrderDetailsDialog } from './OrderDetailsDialog';
 import { Button } from "@/components/ui/button";
-import { CreditCard, RefreshCw, Search, Printer } from "lucide-react";
+import { CreditCard, RefreshCw, Search, Printer, ChefHat } from "lucide-react";
 import { useDebounce } from '@/hooks/use-debounce.js';
 import { useCrmContext } from '@/context/CrmContext.jsx';
+import { toast } from 'sonner';
+import { useAuth } from '@/hooks/use-auth.jsx';
 
 const paymentStatusMap = {
   pending: { label: 'Pendiente', variant: 'outline' },
@@ -23,6 +25,7 @@ const paymentStatusMap = {
 
 export function OrdersManagementV2() {
   const { loadCustomers } = useCrmContext();
+  const { tenant } = useAuth();
   const [data, setData] = useState({ orders: [], pagination: null });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -31,6 +34,11 @@ export function OrdersManagementV2() {
   const [tenantSettings, setTenantSettings] = useState(null);
   const [pageLimit, setPageLimit] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
+  const restaurantEnabled = Boolean(
+    tenant?.enabledModules?.restaurant ||
+    tenant?.enabledModules?.tables ||
+    tenant?.enabledModules?.kitchenDisplay
+  );
 
   // State for Payment Dialog
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
@@ -123,7 +131,49 @@ export function OrdersManagementV2() {
     setSelectedOrderForDetails(null);
   }, []);
 
-  const columns = useMemo(() => [
+  const estimatePrepTime = useCallback((itemCount = 1) => {
+    const normalizedCount = Math.max(itemCount, 1);
+    return 5 + Math.max(normalizedCount - 1, 0) * 2;
+  }, []);
+
+  const sendToKitchen = useCallback(async (order) => {
+    if (!restaurantEnabled) {
+      toast.error('El módulo de restaurante no está habilitado para este tenant');
+      return;
+    }
+
+    if (!order || order.status !== 'confirmed') {
+      toast.error('Solo se pueden enviar a cocina órdenes confirmadas');
+      return;
+    }
+
+    try {
+      const itemCount =
+        (Array.isArray(order.items) && order.items.length) ||
+        order.itemsCount ||
+        order.totalItems ||
+        1;
+
+      await fetchApi('/kitchen-display/create', {
+        method: 'POST',
+        body: JSON.stringify({
+          orderId: order._id,
+          priority: 'normal',
+          estimatedPrepTime: estimatePrepTime(itemCount),
+          notes: order.notes || undefined,
+        }),
+      });
+
+      toast.success(`Orden #${order.orderNumber} enviada a cocina`);
+      handleRefresh();
+    } catch (error) {
+      console.error('Error sending to kitchen:', error);
+      toast.error('Error al enviar orden a cocina');
+    }
+  }, [restaurantEnabled, estimatePrepTime, handleRefresh]);
+
+  const columns = useMemo(() => {
+    const baseColumns = [
     { accessorKey: "orderNumber", header: "Número de Orden" },
     { accessorKey: "customerName", header: "Cliente" },
     {
@@ -188,7 +238,34 @@ export function OrdersManagementV2() {
         );
       },
     },
-  ], [handleOpenPaymentDialog, handleRefresh, handleOpenDetailsDialog]);
+  ];
+
+    if (restaurantEnabled) {
+      baseColumns.push({
+        id: "kitchen",
+        header: () => <div className="text-center">Cocina</div>,
+        cell: ({ row }) => {
+          const order = row.original;
+
+          return (
+            <div className="text-center">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => sendToKitchen(order)}
+                disabled={order.status !== 'confirmed'}
+              >
+                <ChefHat className="mr-2 h-4 w-4" />
+                Enviar a Cocina
+              </Button>
+            </div>
+          );
+        },
+      });
+    }
+
+    return baseColumns;
+  }, [handleOpenPaymentDialog, handleOpenDetailsDialog, restaurantEnabled, sendToKitchen]);
 
   const handleOrderCreated = () => {
     document.dispatchEvent(new CustomEvent('order-form-success'));
@@ -262,6 +339,7 @@ export function OrdersManagementV2() {
         onClose={handleCloseDetailsDialog}
         order={selectedOrderForDetails}
         tenantSettings={tenantSettings}
+        onUpdate={handleRefresh}
       />
     </div>
   );

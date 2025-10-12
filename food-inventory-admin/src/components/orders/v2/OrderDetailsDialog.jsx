@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { generateDocumentPDF } from '@/lib/pdfGenerator.js';
 import { toast } from 'sonner';
-import { Printer, Download, Truck, Package, Ship } from 'lucide-react';
+import { Printer, Download, Truck, Package, Ship, Users } from 'lucide-react';
+import { fetchApi } from '@/lib/api.js';
+import SplitBillModal from '@/components/restaurant/SplitBillModal.jsx';
+import { useAuth } from '@/hooks/use-auth.jsx';
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
@@ -43,8 +46,47 @@ const getDeliveryIcon = (method) => {
   return <Icon className="h-4 w-4" />;
 };
 
-export function OrderDetailsDialog({ isOpen, onClose, order, tenantSettings }) {
+export function OrderDetailsDialog({ isOpen, onClose, order, tenantSettings, onUpdate }) {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showSplitModal, setShowSplitModal] = useState(false);
+  const [billSplit, setBillSplit] = useState(null);
+  const { tenant } = useAuth();
+  const restaurantEnabled = Boolean(
+    tenant?.enabledModules?.restaurant ||
+    tenant?.enabledModules?.tables ||
+    tenant?.enabledModules?.kitchenDisplay
+  );
+
+  const fetchBillSplit = useCallback(async (splitId) => {
+    if (!splitId) return;
+    try {
+      const data = await fetchApi(`/bill-splits/${splitId}`);
+      setBillSplit(data);
+    } catch (error) {
+      console.error('Error loading bill split:', error);
+    }
+  }, []);
+
+  const activeSplitId = order?.activeSplitId;
+  const isSplitOrder = order?.isSplit;
+  const orderId = order?._id;
+  const splitPeopleCount = billSplit?.numberOfPeople ?? billSplit?.parts?.length ?? 0;
+
+  useEffect(() => {
+    if (!restaurantEnabled) {
+      setBillSplit(null);
+      return;
+    }
+    if (isSplitOrder && activeSplitId) {
+      fetchBillSplit(activeSplitId);
+    } else {
+      setBillSplit(null);
+    }
+  }, [restaurantEnabled, isSplitOrder, activeSplitId, fetchBillSplit]);
+
+  useEffect(() => {
+    setShowSplitModal(false);
+  }, [orderId]);
 
   if (!order) return null;
 
@@ -74,8 +116,25 @@ export function OrderDetailsDialog({ isOpen, onClose, order, tenantSettings }) {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl">
+    <>
+      {restaurantEnabled && showSplitModal && order && (
+        <SplitBillModal
+          order={order}
+          onClose={() => setShowSplitModal(false)}
+          onSuccess={async (newSplit) => {
+            setBillSplit(newSplit);
+            setShowSplitModal(false);
+            if (newSplit?._id) {
+              await fetchBillSplit(newSplit._id);
+            } else if (order?.activeSplitId) {
+              await fetchBillSplit(order.activeSplitId);
+            }
+            if (onUpdate) onUpdate();
+          }}
+          />
+      )}
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Detalles de la Orden #{order.orderNumber}</DialogTitle>
           <DialogDescription>
@@ -172,9 +231,44 @@ export function OrderDetailsDialog({ isOpen, onClose, order, tenantSettings }) {
               <div className="flex justify-between"><p>IVA (16%):</p> <p className="font-medium">{formatCurrency(order.ivaTotal)}</p></div>
               <div className="flex justify-between"><p>IGTF (3%):</p> <p className="font-medium">{formatCurrency(order.igtfTotal)}</p></div>
               <div className="flex justify-between text-base font-bold"><p>Monto Total:</p> <p>{formatCurrency(order.totalAmount)}</p></div>
-              <div className="flex justify-between text-red-500"><p>Balance Pendiente:</p> <p>{formatCurrency((order.totalAmount || 0) - (order.paidAmount || 0))}</p></div>
+              <div className="flex justify-between text-red-500 dark:text-red-400">
+                <p>Balance Pendiente:</p> <p>{formatCurrency((order.totalAmount || 0) - (order.paidAmount || 0))}</p>
+              </div>
             </div>
           </div>
+
+          {restaurantEnabled && billSplit && (
+            <div className="mt-4 p-4 rounded-lg border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-900/30">
+              <h4 className="font-semibold mb-2 flex items-center">
+                <Users className="mr-2 h-4 w-4" />
+                Cuenta Dividida ({splitPeopleCount} personas)
+              </h4>
+
+              <div className="space-y-2">
+                {billSplit.parts?.map((part, index) => {
+                  const totalAmount = part.totalAmount ?? part.total ?? 0;
+                  const isPaid = part.paymentStatus === 'paid';
+                  return (
+                    <div key={index} className="flex justify-between text-sm">
+                      <span>{part.personName || `Persona ${index + 1}`}</span>
+                      <span className={isPaid ? 'text-green-600 dark:text-green-400 font-semibold' : ''}>
+                        {formatCurrency(totalAmount)} - {isPaid ? '✓ Pagado' : 'Pendiente'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-3"
+                onClick={() => setShowSplitModal(true)}
+              >
+                Ver Detalles del Split
+              </Button>
+            </div>
+          )}
 
         </div>
 
@@ -182,7 +276,16 @@ export function OrderDetailsDialog({ isOpen, onClose, order, tenantSettings }) {
             <div>
                 <Button variant="secondary" onClick={onClose}>Cerrar</Button>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 justify-end">
+                {restaurantEnabled && order.status === 'confirmed' && !isSplitOrder && !billSplit && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowSplitModal(true)}
+                  >
+                    <Users className="mr-2 h-4 w-4" />
+                    Dividir Cuenta
+                  </Button>
+                )}
                 <Button variant="outline" onClick={() => handlePdfAction('print')} disabled={isGenerating || !tenantSettings}>
                     <Printer className="mr-2 h-4 w-4" />
                     {isGenerating ? 'Generando...' : 'Imprimir'}
@@ -193,7 +296,8 @@ export function OrderDetailsDialog({ isOpen, onClose, order, tenantSettings }) {
                 </Button>
             </div>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

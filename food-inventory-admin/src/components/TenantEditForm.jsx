@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { fetchApi } from '../lib/api';
 import { toast } from 'sonner';
 import { Button } from './ui/button';
@@ -10,7 +10,25 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 
 export default function TenantEditForm({ tenant, onSave, onCancel }) {
-  const [formData, setFormData] = useState(tenant);
+  const normalizedTenant = useMemo(() => {
+    return {
+      ...tenant,
+      contactInfo: tenant.contactInfo || { email: '', phone: '', address: {} },
+      taxInfo: tenant.taxInfo || { rif: '', businessName: '' },
+      enabledModules: {
+        ecommerce: false,
+        inventory: false,
+        orders: false,
+        customers: false,
+        suppliers: false,
+        reports: false,
+        accounting: true,
+        ...(tenant.enabledModules || {}),
+      },
+    };
+  }, [tenant]);
+
+  const [formData, setFormData] = useState(normalizedTenant);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (e) => {
