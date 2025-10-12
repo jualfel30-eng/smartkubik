@@ -147,6 +147,9 @@ export class Tenant {
     reports?: boolean;
     accounting?: boolean;
 
+    // Communication modules
+    chat?: boolean;
+
     // FOOD_SERVICE specific modules
     tables?: boolean;
     recipes?: boolean;
@@ -176,6 +179,18 @@ export class Tenant {
 
   @Prop({ type: String, required: true, default: "trial" })
   subscriptionPlan: string;
+
+  @Prop({ type: Boolean, default: false })
+  isConfirmed: boolean;
+
+  @Prop({ type: String })
+  confirmationCode?: string;
+
+  @Prop({ type: Date })
+  confirmationCodeExpiresAt?: Date;
+
+  @Prop({ type: Date })
+  confirmedAt?: Date;
 
   @Prop({ type: Date })
   subscriptionExpiresAt?: Date;
@@ -213,6 +228,9 @@ export class Tenant {
 
   @Prop({ type: String, default: "es" })
   language: string;
+
+  @Prop({ type: String, required: false })
+  whapiToken?: string;
 }
 
 export const TenantSchema = SchemaFactory.createForClass(Tenant);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, Settings, Shield } from 'lucide-react';
+import { ArrowLeft, Save, Settings, Shield, Sparkles } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const api = {
   get: (url) => fetchApi(url, { method: 'GET' }),
@@ -24,10 +25,15 @@ const MODULE_GROUPS = {
     description: 'Funcionalidades básicas disponibles para todos',
     modules: ['inventory', 'orders', 'customers', 'suppliers', 'reports', 'accounting']
   },
+  communication: {
+    title: 'Comunicación',
+    description: 'Módulos para la interacción con clientes',
+    modules: ['chat']
+  },
   food_service: {
     title: 'Restaurantes',
     description: 'Específico para negocios de comida',
-    modules: ['tables', 'recipes', 'kitchenDisplay', 'menuEngineering']
+    modules: ['restaurant', 'tables', 'recipes', 'kitchenDisplay', 'menuEngineering']
   },
   retail: {
     title: 'Retail',
@@ -49,6 +55,7 @@ const MODULE_GROUPS = {
 const MODULE_LABELS = {
   inventory: 'Inventario',
   orders: 'Órdenes',
+  orders_write: 'Órdenes (escritura)',
   customers: 'Clientes',
   suppliers: 'Proveedores',
   reports: 'Reportes',
@@ -57,6 +64,7 @@ const MODULE_LABELS = {
   recipes: 'Recetas',
   kitchenDisplay: 'Display de Cocina',
   menuEngineering: 'Ingeniería de Menú',
+  restaurant: 'Suite de Restaurante',
   pos: 'Punto de Venta',
   variants: 'Variantes',
   ecommerce: 'E-commerce',
@@ -70,8 +78,30 @@ const MODULE_LABELS = {
   routes: 'Rutas',
   fleet: 'Flota',
   warehousing: 'Almacenamiento',
-  dispatch: 'Despacho'
+  dispatch: 'Despacho',
+  chat: 'WhatsApp Chat'
 };
+
+const RESTAURANT_MODULES_PRESET = [
+  'restaurant',
+  'tables',
+  'kitchenDisplay',
+  'menuEngineering',
+  'orders',
+  'inventory',
+  'customers',
+];
+
+const RESTAURANT_PERMISSION_NAMES = [
+  'restaurant_read',
+  'restaurant_write',
+  'orders_create',
+  'orders_read',
+  'orders_update',
+  'orders_write',
+  'inventory_read',
+  'inventory_update',
+];
 
 export default function TenantConfigurationEdit() {
   const { tenantId } = useParams();
@@ -83,6 +113,8 @@ export default function TenantConfigurationEdit() {
   const [allPermissions, setAllPermissions] = useState([]);
   const [enabledModules, setEnabledModules] = useState({});
   const [rolePermissions, setRolePermissions] = useState({});
+  const [presetDialogOpen, setPresetDialogOpen] = useState(false);
+  const [selectedPresetRoles, setSelectedPresetRoles] = useState([]);
 
   useEffect(() => {
     loadTenantConfiguration();
@@ -101,6 +133,7 @@ export default function TenantConfigurationEdit() {
 
       setTenant(tenant);
       setRoles(roles);
+      setSelectedPresetRoles(roles.map((role) => role._id));
       setAllPermissions(allPermissions);
       setEnabledModules(tenant.enabledModules || {});
 
@@ -177,6 +210,64 @@ export default function TenantConfigurationEdit() {
   console.log('🗂️ Permissions by Module:', permissionsByModule);
   console.log('📋 Roles array length:', roles.length);
 
+  const permissionIdByName = useMemo(() => {
+    const map = new Map();
+    allPermissions.forEach((permission) => {
+      map.set(permission.name, permission._id);
+    });
+    return map;
+  }, [allPermissions]);
+
+  const togglePresetRole = (roleId) => {
+    setSelectedPresetRoles((prev) =>
+      prev.includes(roleId) ? prev.filter((id) => id !== roleId) : [...prev, roleId]
+    );
+  };
+
+  const applyRestaurantPreset = () => {
+    if (selectedPresetRoles.length === 0) {
+      toast.error('Selecciona al menos un rol para aplicar el preset.');
+      return;
+    }
+
+    setEnabledModules((prev) => {
+      const updated = { ...prev };
+      RESTAURANT_MODULES_PRESET.forEach((module) => {
+        updated[module] = true;
+      });
+      return updated;
+    });
+
+    const missingPermissions = new Set();
+    const updatedRolePermissions = { ...rolePermissions };
+
+    selectedPresetRoles.forEach((roleId) => {
+      const currentPermissions = new Set(updatedRolePermissions[roleId] || []);
+      RESTAURANT_PERMISSION_NAMES.forEach((permissionName) => {
+        const permissionId = permissionIdByName.get(permissionName);
+        if (permissionId) {
+          currentPermissions.add(permissionId);
+        } else {
+          missingPermissions.add(permissionName);
+        }
+      });
+      updatedRolePermissions[roleId] = Array.from(currentPermissions);
+    });
+
+    setRolePermissions(updatedRolePermissions);
+    setPresetDialogOpen(false);
+
+    if (missingPermissions.size > 0) {
+      toast.warning(
+        `No se encontraron los siguientes permisos en el sistema: ${Array.from(
+          missingPermissions
+        ).join(', ')}. Ejecuta "npm run seed:permissions" para registrarlos.`
+      );
+    } else {
+      toast.success('Preset de restaurante aplicado. Recuerda guardar los cambios.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -205,6 +296,30 @@ export default function TenantConfigurationEdit() {
           {saving ? 'Guardando...' : 'Guardar Cambios'}
         </Button>
       </div>
+
+      {/* Quick Presets */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5" />
+            <CardTitle>Acciones rápidas</CardTitle>
+          </div>
+          <CardDescription>
+            Usa presets para habilitar módulos y permisos recomendados según la vertical.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="text-sm text-muted-foreground max-w-2xl">
+            <p className="font-medium text-foreground">Vertical restaurante</p>
+            <p>
+              Activa mesas, KDS y asigna permisos básicos (<code>restaurant_read</code>,{' '}
+              <code>restaurant_write</code>, etc.) a los roles seleccionados. Ideal para probar el
+              flujo completo de pedidos con cocina.
+            </p>
+          </div>
+          <Button onClick={() => setPresetDialogOpen(true)}>Activar vertical restaurante</Button>
+        </CardContent>
+      </Card>
 
       {/* Modules Section */}
       <Card>
@@ -309,6 +424,45 @@ export default function TenantConfigurationEdit() {
           {saving ? 'Guardando...' : 'Guardar Cambios'}
         </Button>
       </div>
+
+      <Dialog open={presetDialogOpen} onOpenChange={setPresetDialogOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Activar vertical restaurante</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Selecciona los roles que recibirán los permisos recomendados. Puedes ajustar módulos y
+              permisos manualmente antes de guardar.
+            </p>
+            <div className="border rounded-md p-3 space-y-2">
+              {roles.map((role) => (
+                <label
+                  key={role._id}
+                  className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-muted/60 cursor-pointer"
+                >
+                  <Checkbox
+                    checked={selectedPresetRoles.includes(role._id)}
+                    onCheckedChange={() => togglePresetRole(role._id)}
+                  />
+                  <span className="text-sm font-medium">{role.name}</span>
+                </label>
+              ))}
+              {roles.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No se encontraron roles para este tenant.
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPresetDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={applyRestaurantPreset}>Aplicar preset</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

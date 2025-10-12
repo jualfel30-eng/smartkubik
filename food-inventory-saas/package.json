@@ -28,6 +28,7 @@
     "db:migrate:tenant-ids": "ts-node -r dotenv/config scripts/migrate-tenant-ids-to-string.ts",
     "db:migrate:vertical": "ts-node -r dotenv/config scripts/migrate-tenants-vertical.ts",
     "seed:plans": "ts-node -r dotenv/config scripts/seed-subscription-plans.ts",
+    "seed:restaurant": "ts-node -r dotenv/config scripts/seed-restaurant.ts",
     "db:reset": "ts-node scripts/reset-database.ts",
     "debug:data": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/debug-data.ts",
     "seed:super-admin": "ts-node -r dotenv/config scripts/seed-super-admin.ts",
@@ -43,10 +44,12 @@
     "@nestjs/mongoose": "^10.0.1",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.0.0",
+    "@nestjs/platform-socket.io": "^10.4.20",
     "@nestjs/schedule": "^6.0.1",
     "@nestjs/serve-static": "^4.0.0",
     "@nestjs/swagger": "^7.1.16",
     "@nestjs/throttler": "^5.2.0",
+    "@nestjs/websockets": "^10.4.20",
     "@types/nodemailer": "^7.0.1",
     "@types/passport-google-oauth20": "^2.0.16",
     "axios": "^1.12.2",
@@ -69,6 +72,7 @@
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
     "sanitize-html": "^2.17.0",
+    "socket.io": "^4.8.1",
     "uuid": "^9.0.1"
   },
   "devDependencies": {

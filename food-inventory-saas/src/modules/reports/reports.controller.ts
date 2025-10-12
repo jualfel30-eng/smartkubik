@@ -3,7 +3,7 @@ import { Controller, Get, Query, UseGuards, Req } from '@nestjs/common';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { ReportsService } from './reports.service';
 import { AccountsReceivableReportQueryDto } from './dto/reports.dto';
-import { TenantGuard } from 'src/guards/tenant.guard';
+import { TenantGuard } from '../../guards/tenant.guard';
 
 @Controller('reports')
 @UseGuards(JwtAuthGuard, TenantGuard)

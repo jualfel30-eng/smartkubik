@@ -114,6 +114,7 @@ export class TokenService {
       },
       tenantId: tenant ? tenant._id : null,
       tenantCode: tenant ? tenant.code : null,
+      tenantConfirmed: tenant ? Boolean((tenant as any).isConfirmed) : null,
     };
 
     if (options.membershipId) {

@@ -30,7 +30,7 @@ import { SharedModule } from './common/shared.module';
 import { ShiftsModule } from './modules/shifts/shifts.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { MailModule } from './modules/mail/mail.module';
-import { SuperAdminModule } from './super-admin/super-admin.module';
+import { SuperAdminModule } from './modules/super-admin/super-admin.module';
 import { SubscriptionPlansModule } from './modules/subscription-plans/subscription-plans.module';
 import { RatingsModule } from './modules/ratings/ratings.module';
 import { TodosModule } from './modules/todos/todos.module';
@@ -42,6 +42,11 @@ import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { StorefrontModule } from './modules/storefront/storefront.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { UsersModule } from './modules/users/users.module';
+import { TablesModule } from './modules/tables/tables.module';
+import { ModifierGroupsModule } from './modules/modifier-groups/modifier-groups.module';
+import { BillSplitsModule } from './modules/bill-splits/bill-splits.module';
+import { KitchenDisplayModule } from './modules/kitchen-display/kitchen-display.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -128,6 +133,11 @@ import { UsersModule } from './modules/users/users.module';
     StorefrontModule,
     OrganizationsModule,
     UsersModule,
+    TablesModule,
+    ModifierGroupsModule,
+    BillSplitsModule,
+    KitchenDisplayModule,
+    ChatModule,
   ],
   controllers: [AppController, TenantController],
   providers: [

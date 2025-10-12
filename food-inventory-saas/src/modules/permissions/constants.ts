@@ -23,6 +23,7 @@ export const ALL_PERMISSIONS = [
     'orders_create',
     'orders_read',
     'orders_update',
+    'orders_write',
     'payables_create',
     'payables_read',
     'payables_update',
@@ -53,4 +54,8 @@ export const ALL_PERMISSIONS = [
     'reports_read',
     'billing_read',
     'MANAGE_TENANTS',
+    'restaurant_read',
+    'restaurant_write',
+    'chat_read',
+    'chat_write',
   ];

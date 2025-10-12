@@ -29,6 +29,9 @@ import {
   PanelLeft,
   CreditCard,
   Building,
+  Utensils,
+  ChefHat,
+  MessageSquare, // Icono añadido para WhatsApp
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import './App.css';
@@ -53,17 +56,13 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar.jsx';
 
-// Tutorial Imports (Desactivado)
-// import { TutorialProvider, useTutorial } from './context/TutorialContext.jsx';
-// import Tutorial from './components/Tutorial.jsx';
-// import ComprehensiveElementScanner from './components/ComprehensiveElementScanner.jsx';
-
 // Lazy load the components
 const CRMManagement = lazy(() => import('@/components/CRMManagement.jsx'));
 const OrdersManagement = lazy(() => import('@/components/orders/v2/OrdersManagementV2.jsx').then(module => ({ default: module.OrdersManagementV2 })));
 const CalendarView = lazy(() => import('@/components/CalendarView.jsx').then(module => ({ default: module.CalendarView })));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
+const ConfirmAccount = lazy(() => import('./pages/ConfirmAccount'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
@@ -84,6 +83,9 @@ const ResourcesManagement = lazy(() => import('@/components/ResourcesManagement.
 const AppointmentsManagement = lazy(() => import('@/components/AppointmentsManagement.jsx'));
 const StorefrontSettings = lazy(() => import('@/components/StorefrontSettings'));
 const OrganizationsManagement = lazy(() => import('@/components/OrganizationsManagement.jsx'));
+const FloorPlan = lazy(() => import('@/components/restaurant/FloorPlan.jsx').then(module => ({ default: module.FloorPlan })));
+const KitchenDisplay = lazy(() => import('@/components/restaurant/KitchenDisplay.jsx'));
+const WhatsAppInbox = lazy(() => import('./pages/WhatsAppInbox.jsx')); // <-- Componente de WhatsApp añadido
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -121,7 +123,6 @@ function TenantLayout() {
     return theme === 'dark' ? 'dark' : 'light';
   });
   const logoSrc = resolvedTheme === 'dark' ? SmartKubikLogoDark : SmartKubikLogoLight;
-  // const { startTutorial } = useTutorial(); // Desactivado
 
   useEffect(() => {
     const currentPath = location.pathname.substring(1);
@@ -129,7 +130,6 @@ function TenantLayout() {
     const tab = currentPath.split('/')[0] || defaultTab;
     setActiveTab(tab);
 
-    // Save current location for persistence
     if (tenant && location.pathname) {
       saveLastLocation(location.pathname);
     }
@@ -218,11 +218,21 @@ function TenantLayout() {
     return <Badge variant="outline" className="bg-blue-100 text-blue-800">{duration}</Badge>;
   };
 
+  const restaurantModuleEnabled = Boolean(
+    tenant?.enabledModules?.restaurant ||
+    tenant?.enabledModules?.tables ||
+    tenant?.enabledModules?.kitchenDisplay ||
+    tenant?.enabledModules?.menuEngineering
+  );
+
   const navLinks = [
     { name: 'Panel de Control', href: 'dashboard', icon: LayoutDashboard, permission: 'dashboard_read' },
     { name: 'Órdenes', href: 'orders', icon: ShoppingCart, permission: 'orders_read' },
+    { name: 'WhatsApp', href: 'whatsapp', icon: MessageSquare, permission: 'chat_read' }, // <-- Enlace de WhatsApp añadido
     { name: 'Inventario', href: 'inventory-management', icon: Package, permission: 'inventory_read' },
     { name: 'Mi Storefront', href: 'storefront', icon: Store, permission: 'dashboard_read', requiresModule: 'ecommerce' },
+    { name: 'Mesas', href: 'restaurant/floor-plan', icon: Utensils, permission: 'restaurant_read', requiresModule: 'restaurant' },
+    { name: 'Cocina (KDS)', href: 'restaurant/kitchen-display', icon: ChefHat, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Contabilidad', href: 'accounting-management', icon: BookCopy, permission: 'accounting_read' },
     { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: CreditCard, permission: 'accounting_read' },
     { name: 'CRM', href: 'crm', icon: Users, permission: 'customers_read' },
@@ -240,15 +250,12 @@ function TenantLayout() {
     const handleNavigationClick = (href) => {
       if (!href) return;
 
-      // Expandir el sidebar si está colapsado (pero seguir navegando)
       if (!isMobile && state === 'collapsed') {
         setOpen(true);
       }
 
-      // Siempre navegar
       handleTabChange(href);
 
-      // Cerrar sidebar en móvil
       if (isMobile) {
         setOpenMobile(false);
       }
@@ -257,8 +264,13 @@ function TenantLayout() {
     return (
       <SidebarMenu>
         {navLinks.map(link => {
-          if (link.requiresModule && !tenant?.enabledModules?.[link.requiresModule]) {
-            return null;
+          if (link.requiresModule) {
+            if (link.requiresModule === 'restaurant' && !restaurantModuleEnabled) {
+              return null;
+            }
+            if (link.requiresModule !== 'restaurant' && !tenant?.enabledModules?.[link.requiresModule]) {
+              return null;
+            }
           }
 
           if (!hasPermission(link.permission)) {
@@ -449,6 +461,7 @@ function TenantLayout() {
                 />
                 <Route path="crm" element={<CRMManagement />} />
                 <Route path="orders" element={<OrdersManagement />} />
+                <Route path="whatsapp" element={<WhatsAppInbox />} /> {/* <-- Ruta de WhatsApp añadida */}
                 <Route path="purchases" element={<ComprasManagement />} />
                 <Route path="accounting-management" element={<AccountingDashboard />} />
                 <Route path="accounting/reports/accounts-receivable" element={<AccountsReceivableReport />} />
@@ -458,6 +471,8 @@ function TenantLayout() {
                 <Route path="services" element={<ServicesManagement />} />
                 <Route path="resources" element={<ResourcesManagement />} />
                 <Route path="calendar" element={<CalendarView />} />
+                <Route path="restaurant/floor-plan" element={<FloorPlan />} />
+                <Route path="restaurant/kitchen-display" element={<KitchenDisplay />} />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="reports" element={<ReportsPage />} />
                 <Route path="*" element={<Navigate to="dashboard" />} />
@@ -486,6 +501,7 @@ function AppContent() {
         <Route path="/" element={<SmartKubikLanding />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/confirm-account" element={<ConfirmAccount />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
@@ -509,7 +525,6 @@ function AppContent() {
           path="/*"
           element={
             <ProtectedRoute requireOrganization>
-              {/* <TutorialProvider> */}
                 <FormStateProvider>
                   <CrmProvider>
                     <ShiftProvider>
@@ -519,7 +534,6 @@ function AppContent() {
                     </ShiftProvider>
                   </CrmProvider>
                 </FormStateProvider>
-              {/* </TutorialProvider> */}
             </ProtectedRoute>
           }
         />
@@ -536,7 +550,6 @@ function App() {
           <AppContent />
         </AuthProvider>
       </ThemeProvider>
-      {/* {process.env.NODE_ENV === 'development' && <ComprehensiveElementScanner />} */}
     </Router>
   );
 }
