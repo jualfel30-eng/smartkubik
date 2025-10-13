@@ -6,8 +6,8 @@ import { Message, MessageDocument, SenderType } from './schemas/message.schema';
 import { Tenant, TenantDocument } from '../schemas/tenant.schema';
 import { ChatGateway } from './chat.gateway';
 import { ConfigService } from '@nestjs/config';
-import axios from 'axios';
 import { SuperAdminService } from '../modules/super-admin/super-admin.service';
+import { Configuration, UsersApi, ChannelApi, MessagesApi, SendMessageTextRequest, SenderText, EventTypeEnum } from '../lib/whapi-sdk/whapi-sdk-typescript-fetch';
 
 @Injectable()
 export class ChatService {
@@ -35,25 +35,21 @@ export class ChatService {
     }
 
     try {
-      const url = 'https://gate.whapi.cloud/users/login';
-      const headers = { 'Authorization': `Bearer ${centralApiToken}` };
+      const config = new Configuration({ accessToken: centralApiToken });
+      const usersApi = new UsersApi(config);
       
-      const response = await axios.get(url, { headers });
-      const { qr_code, token: newChannelToken } = response.data;
+      const response = await usersApi.loginUser();
 
-      if (!newChannelToken) {
-        throw new InternalServerErrorException('Whapi did not return a token for the new channel.');
+      if (!response.base64) {
+        throw new InternalServerErrorException('Whapi did not return a QR code.');
       }
+      
+      // TODO: The logic for obtaining and saving a new channel token was flawed.
+      // The loginUser method only returns a QR code for linking, not a new token.
+      // The token management strategy needs to be revisited. For now, we are only returning the QR code.
+      this.logger.warn(`Token acquisition logic in generateQrCode needs review. Only returning QR code.`);
 
-      // Save the new token to the tenant
-      await this.tenantModel.updateOne(
-        { _id: new Types.ObjectId(tenantId) },
-        { $set: { whapiToken: newChannelToken } }
-      ).exec();
-
-      this.logger.log(`Successfully saved new Whapi token for tenant ${tenantId}`);
-
-      return { qrCode: qr_code };
+      return { qrCode: response.base64 };
 
     } catch (error) {
       this.logger.error(`Failed to generate QR code from Whapi: ${error.message}`, error.stack);
@@ -78,14 +74,10 @@ export class ChatService {
     const webhookUrl = `${baseUrl}/chat/whapi-webhook?tenantId=${tenantId}`;
 
     try {
-      const url = 'https://gate.whapi.cloud/settings';
-      const body = { webhookUrl };
-      const headers = {
-        'Authorization': `Bearer ${tenant.whapiToken}`,
-        'Content-Type': 'application/json',
-      };
+      const config = new Configuration({ accessToken: tenant.whapiToken });
+      const channelApi = new ChannelApi(config);
 
-      await axios.patch(url, body, { headers });
+      await channelApi.updateChannelSettings({ settings: { webhooks: [{ url: webhookUrl, events: [{ type: EventTypeEnum.Messages }] }] } });
 
       this.logger.log(`Successfully configured webhook for tenant ${tenantId} to: ${webhookUrl}`);
       return { success: true };
@@ -99,11 +91,11 @@ export class ChatService {
   async getConversations(tenantId: string): Promise<ConversationDocument[]> {
     this.logger.log(`Fetching conversations for tenant: ${tenantId}`);
     return this.conversationModel
-      .find({ tenantId })
+      .find({ tenantId: new Types.ObjectId(tenantId) })
       .sort({ updatedAt: -1 })
       .populate({
         path: 'messages',
-        options: { sort: { createdAt: -1 }, limit: 1 } // Populate only the last message
+        options: { sort: { createdAt: -1 }, limit: 1 }
       })
       .exec();
   }
@@ -112,7 +104,7 @@ export class ChatService {
     this.logger.log(`Fetching messages for conversation ${conversationId} in tenant ${tenantId}`);
     const conversation = await this.conversationModel.findById(conversationId).exec();
 
-    if (!conversation || conversation.tenantId !== tenantId) {
+    if (!conversation || conversation.tenantId.toString() !== tenantId) {
       throw new UnauthorizedException('You do not have access to this conversation.');
     }
 
@@ -131,33 +123,30 @@ export class ChatService {
     }
 
     const conversation = await this.conversationModel.findById(data.conversationId).exec();
-    if (!conversation || conversation.tenantId !== tenantId) {
+    if (!conversation || conversation.tenantId.toString() !== tenantId) {
       throw new NotFoundException('Conversation not found');
     }
 
-    // 1. Save the message to the DB first
     const savedMessage = await this.saveMessage(conversation, tenantId, data.content, SenderType.USER);
-
-    // 2. Emit the message to the frontend immediately for a snappy UI
     this.chatGateway.emitNewMessage(tenantId, savedMessage);
 
-    // 3. Send the message via Whapi API using the tenant-specific token
     try {
-      const url = 'https://gate.whapi.cloud/messages/text';
-      const body = {
-        to: conversation.customerPhoneNumber,
-        body: data.content,
-      };
-      const headers = {
-        'Authorization': `Bearer ${tenant.whapiToken}`,
-        'Content-Type': 'application/json',
+      const config = new Configuration({ accessToken: tenant.whapiToken });
+      const messagesApi = new MessagesApi(config);
+      
+      const sendMessageTextRequest: SendMessageTextRequest = {
+        senderText: {
+          to: conversation.customerPhoneNumber,
+          body: data.content,
+        }
       };
 
-      await axios.post(url, body, { headers });
-      this.logger.log(`Successfully sent message to ${conversation.customerPhoneNumber} via Whapi`);
+      await messagesApi.sendMessageText(sendMessageTextRequest);
+
+      this.logger.log(`Successfully sent message to ${conversation.customerPhoneNumber} via Whapi SDK`);
 
     } catch (error) {
-      this.logger.error(`Failed to send message via Whapi: ${error.message}`, error.stack);
+      this.logger.error(`Failed to send message via Whapi SDK: ${error.message}`, error.stack);
     }
   }
 
@@ -180,7 +169,7 @@ export class ChatService {
   }
 
   private async findOrCreateConversation(tenantId: string, customerPhoneNumber: string): Promise<ConversationDocument> {
-    let conversation = await this.conversationModel.findOne({ tenantId, customerPhoneNumber }).exec();
+    let conversation = await this.conversationModel.findOne({ tenantId: new Types.ObjectId(tenantId), customerPhoneNumber }).exec();
 
     if (!conversation) {
       this.logger.log(`Creating new conversation for ${customerPhoneNumber} in tenant ${tenantId}`);
@@ -193,7 +182,7 @@ export class ChatService {
 
   private async saveMessage(conversation: ConversationDocument, tenantId: string, content: string, sender: SenderType): Promise<MessageDocument> {
     const newMessage = new this.messageModel({
-      tenantId,
+      tenantId: new Types.ObjectId(tenantId),
       conversationId: conversation._id,
       content,
       sender,
