@@ -1,7 +1,8 @@
 
 import { Injectable, Logger, NotFoundException, InternalServerErrorException } from '@nestjs/common';
-import { InjectConnection } from '@nestjs/mongoose';
-import { Connection, Types } from 'mongoose';
+import { InjectModel, InjectConnection } from '@nestjs/mongoose';
+import { Connection, Model, Types } from 'mongoose';
+import { GlobalSetting, GlobalSettingDocument } from '../../schemas/global-settings.schema';
 
 @Injectable()
 export class SuperAdminService {
@@ -21,7 +22,20 @@ export class SuperAdminService {
 
   constructor(
     @InjectConnection() private readonly connection: Connection,
+    @InjectModel(GlobalSetting.name) private readonly globalSettingModel: Model<GlobalSettingDocument>,
   ) {}
+
+  async getSetting(key: string): Promise<GlobalSettingDocument | null> {
+    return this.globalSettingModel.findOne({ key }).exec();
+  }
+
+  async updateSetting(key: string, value: string): Promise<GlobalSettingDocument> {
+    return this.globalSettingModel.findOneAndUpdate(
+      { key },
+      { $set: { value } },
+      { new: true, upsert: true }
+    ).exec();
+  }
 
   async getTenants(page = 1, limit = 10, search = ''): Promise<any> {
     this.logger.log(`Fetching tenants for Super Admin: page=${page}, limit=${limit}, search=${search}`);

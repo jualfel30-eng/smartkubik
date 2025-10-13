@@ -1,5 +1,4 @@
-
-import { Controller, Delete, Param, UseGuards, HttpCode, HttpStatus, Get, Query, Patch, Body } from '@nestjs/common';
+import { Controller, Delete, Param, UseGuards, HttpCode, HttpStatus, Get, Query, Patch, Body, Post } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { SuperAdminGuard } from './guards/super-admin.guard';
@@ -28,6 +27,20 @@ export class SuperAdminController {
   @ApiResponse({ status: 200, description: 'Configuración del tenant obtenida exitosamente.' })
   async getTenantConfiguration(@Param('tenantId') tenantId: string) {
     return this.superAdminService.getTenantConfiguration(tenantId);
+  }
+
+  @Get('settings/:key')
+  @ApiOperation({ summary: '[SUPER ADMIN] Get a global setting by key' })
+  @ApiResponse({ status: 200, description: 'Setting retrieved successfully.' })
+  async getSetting(@Param('key') key: string) {
+    return this.superAdminService.getSetting(key);
+  }
+
+  @Post('settings')
+  @ApiOperation({ summary: '[SUPER ADMIN] Create or update a global setting' })
+  @ApiResponse({ status: 200, description: 'Setting updated successfully.' })
+  async updateSetting(@Body() body: { key: string; value: string }) {
+    return this.superAdminService.updateSetting(body.key, body.value);
   }
 
   @Patch('tenants/:tenantId/modules')

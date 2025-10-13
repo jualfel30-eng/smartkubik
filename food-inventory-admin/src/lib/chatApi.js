@@ -5,7 +5,7 @@ const API_BASE_URL = 'http://localhost:3000/api/v1';
 
 const getAuthToken = () => {
   // In a real app, you would get this from localStorage, cookies, or a state management library
-  return localStorage.getItem('token'); 
+  return localStorage.getItem('accessToken'); 
 };
 
 const apiClient = axios.create({

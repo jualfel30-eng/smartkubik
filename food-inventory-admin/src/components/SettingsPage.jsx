@@ -12,6 +12,7 @@ import UserManagement from './UserManagement'; // Importar UserManagement
 import ChangePasswordForm from './ChangePasswordForm'; // Importar ChangePasswordForm
 import UsageAndBilling from './UsageAndBilling'; // Importar UsageAndBilling
 import { DeliverySettings } from './DeliverySettings'; // Importar DeliverySettings
+import WhatsAppConnection from './WhatsAppConnection'; // Importar WhatsAppConnection
 import { useAuth } from '@/hooks/use-auth.jsx'; // Importar useAuth
 
 const initialSettings = {
@@ -63,7 +64,7 @@ const SettingsPage = () => {
   const [logoPreviewUrl, setLogoPreviewUrl] = useState('');
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const fileInputRef = useRef(null);
-  const { hasPermission } = useAuth(); // Obtener hasPermission
+  const { hasPermission, tenant } = useAuth(); // Obtener hasPermission y tenant
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -210,9 +211,10 @@ const SettingsPage = () => {
       <h1 className="text-3xl font-bold">Configuración</h1>
       
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="delivery">Delivery</TabsTrigger>
+          {tenant?.enabledModules?.chat && hasPermission('chat_read') && <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>}
           <TabsTrigger value="security">Seguridad</TabsTrigger>
           {hasPermission('users_read') && <TabsTrigger value="users">Usuarios</TabsTrigger>}
           {hasPermission('roles_read') && <TabsTrigger value="roles">Roles y Permisos</TabsTrigger>}
@@ -376,6 +378,9 @@ const SettingsPage = () => {
         </TabsContent>
         <TabsContent value="delivery">
           <DeliverySettings />
+        </TabsContent>
+        <TabsContent value="whatsapp">
+          <WhatsAppConnection />
         </TabsContent>
         <TabsContent value="security">
           <div className="grid gap-6 mt-4">

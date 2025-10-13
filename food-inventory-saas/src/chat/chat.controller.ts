@@ -7,6 +7,20 @@ import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
+  @Get('qr-code')
+  @UseGuards(JwtAuthGuard)
+  async generateQrCode(@Req() req) {
+    const tenantId = req.user.tenantId;
+    return this.chatService.generateQrCode(tenantId);
+  }
+
+  @Post('configure-webhook')
+  @UseGuards(JwtAuthGuard)
+  async configureWebhook(@Req() req) {
+    const tenantId = req.user.tenantId;
+    return this.chatService.configureWebhook(tenantId);
+  }
+
   @Get('conversations')
   @UseGuards(JwtAuthGuard)
   async getConversations(@Req() req) {

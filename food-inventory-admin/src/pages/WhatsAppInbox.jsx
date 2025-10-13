@@ -72,58 +72,60 @@ const WhatsAppInbox = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100 font-sans">
-      <div className="w-1/4 bg-white border-r border-gray-200 flex flex-col">
-        <div className="p-4 border-b border-gray-200">
+    <div className="flex h-screen bg-background text-foreground font-sans">
+      {/* Conversations Sidebar */}
+      <div className="w-1/4 bg-card border-r border-border flex flex-col">
+        <div className="p-4 border-b border-border">
           <h2 className="text-xl font-bold">Conversations</h2>
         </div>
         <div className="overflow-y-auto">
           {conversations.map(convo => (
-            <div key={convo._id} onClick={() => handleSelectConversation(convo)} className={`p-4 cursor-pointer hover:bg-gray-100 ${activeConversation?._id === convo._id ? 'bg-gray-100' : ''}`}>
+            <div key={convo._id} onClick={() => handleSelectConversation(convo)} className={`p-4 cursor-pointer hover:bg-muted ${activeConversation?._id === convo._id ? 'bg-muted' : ''}`}>
               <p className="font-semibold">{convo.customerName || convo.customerPhoneNumber}</p>
-              <p className="text-sm text-gray-600 truncate">{convo.messages?.[0]?.content || 'No messages yet'}</p>
+              <p className="text-sm text-muted-foreground truncate">{convo.messages?.[0]?.content || 'No messages yet'}</p>
             </div>
           ))}
         </div>
       </div>
 
+      {/* Active Chat Area */}
       <div className="flex-1 flex flex-col">
         {activeConversation ? (
           <>
-            <div className="bg-white p-4 border-b border-gray-200">
+            <div className="bg-card p-4 border-b border-border">
               <h2 className="text-xl font-bold">{activeConversation.customerName || activeConversation.customerPhoneNumber}</h2>
             </div>
-            <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
+            <div className="flex-1 p-4 overflow-y-auto bg-muted/50">
               {loading ? (
                 <p>Loading messages...</p>
               ) : (
                 messages.map((msg, index) => (
                   <div key={index} className={`flex mb-2 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-lg px-4 py-2 rounded-lg shadow ${msg.sender === 'user' ? 'bg-blue-500 text-white' : 'bg-white'}`}>
+                    <div className={`max-w-lg px-4 py-2 rounded-lg shadow ${msg.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-card'}`}>
                       {msg.content}
                     </div>
                   </div>
                 ))
               )}
             </div>
-            <div className="bg-white p-4 border-t border-gray-200">
+            <div className="bg-card p-4 border-t border-border">
               <form onSubmit={handleSendMessage} className="flex">
                 <input
                   type="text"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   placeholder="Type a message..."
-                  className="flex-1 p-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 p-2 bg-transparent border border-input rounded-l-md focus:outline-none focus:ring-2 focus:ring-ring"
                 />
-                <button type="submit" className="px-4 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600 focus:outline-none">
+                <button type="submit" className="px-4 py-2 bg-primary text-primary-foreground rounded-r-md hover:bg-primary/90 focus:outline-none">
                   Send
                 </button>
               </form>
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-gray-500">Select a conversation to start chatting</p>
+          <div className="flex-1 flex items-center justify-center bg-muted/50">
+            <p className="text-muted-foreground">Select a conversation to start chatting</p>
           </div>
         )}
       </div>

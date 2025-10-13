@@ -1,11 +1,13 @@
 import { Injectable, Logger, NotFoundException, InternalServerErrorException, UnauthorizedException, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Conversation, ConversationDocument } from './schemas/conversation.schema';
 import { Message, MessageDocument, SenderType } from './schemas/message.schema';
+import { Tenant, TenantDocument } from '../schemas/tenant.schema';
 import { ChatGateway } from './chat.gateway';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
+import { SuperAdminService } from '../modules/super-admin/super-admin.service';
 
 @Injectable()
 export class ChatService {
@@ -14,10 +16,85 @@ export class ChatService {
   constructor(
     @InjectModel(Conversation.name) private conversationModel: Model<ConversationDocument>,
     @InjectModel(Message.name) private messageModel: Model<MessageDocument>,
+    @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     @Inject(forwardRef(() => ChatGateway)) 
     private readonly chatGateway: ChatGateway,
     private readonly configService: ConfigService,
+    private readonly superAdminService: SuperAdminService,
   ) {}
+
+  async generateQrCode(tenantId: string): Promise<{ qrCode: string }> {
+    this.logger.log(`Generating QR code for tenant: ${tenantId}`);
+    
+    const masterTokenSetting = await this.superAdminService.getSetting('WHAPI_MASTER_TOKEN');
+    const centralApiToken = masterTokenSetting?.value;
+
+    if (!centralApiToken) {
+      this.logger.error('Central WHAPI_MASTER_TOKEN is not configured in Super Admin settings.');
+      throw new InternalServerErrorException('Chat service is not configured.');
+    }
+
+    try {
+      const url = 'https://gate.whapi.cloud/users/login';
+      const headers = { 'Authorization': `Bearer ${centralApiToken}` };
+      
+      const response = await axios.get(url, { headers });
+      const { qr_code, token: newChannelToken } = response.data;
+
+      if (!newChannelToken) {
+        throw new InternalServerErrorException('Whapi did not return a token for the new channel.');
+      }
+
+      // Save the new token to the tenant
+      await this.tenantModel.updateOne(
+        { _id: new Types.ObjectId(tenantId) },
+        { $set: { whapiToken: newChannelToken } }
+      ).exec();
+
+      this.logger.log(`Successfully saved new Whapi token for tenant ${tenantId}`);
+
+      return { qrCode: qr_code };
+
+    } catch (error) {
+      this.logger.error(`Failed to generate QR code from Whapi: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('Error communicating with WhatsApp provider.');
+    }
+  }
+
+  async configureWebhook(tenantId: string): Promise<{ success: boolean }> {
+    this.logger.log(`Configuring webhook for tenant: ${tenantId}`);
+    
+    const tenant = await this.tenantModel.findById(tenantId).exec();
+    if (!tenant || !tenant.whapiToken) {
+      throw new NotFoundException('Tenant not found or WhatsApp token is missing.');
+    }
+
+    const baseUrl = this.configService.get<string>('API_BASE_URL');
+    if (!baseUrl) {
+      this.logger.error('API_BASE_URL is not configured.');
+      throw new InternalServerErrorException('Server base URL is not configured.');
+    }
+
+    const webhookUrl = `${baseUrl}/chat/whapi-webhook?tenantId=${tenantId}`;
+
+    try {
+      const url = 'https://gate.whapi.cloud/settings';
+      const body = { webhookUrl };
+      const headers = {
+        'Authorization': `Bearer ${tenant.whapiToken}`,
+        'Content-Type': 'application/json',
+      };
+
+      await axios.patch(url, body, { headers });
+
+      this.logger.log(`Successfully configured webhook for tenant ${tenantId} to: ${webhookUrl}`);
+      return { success: true };
+
+    } catch (error) {
+      this.logger.error(`Failed to configure webhook with Whapi: ${error.message}`, error.stack);
+      throw new InternalServerErrorException('Error communicating with WhatsApp provider.');
+    }
+  }
 
   async getConversations(tenantId: string): Promise<ConversationDocument[]> {
     this.logger.log(`Fetching conversations for tenant: ${tenantId}`);
@@ -48,6 +125,11 @@ export class ChatService {
   async sendOutgoingMessage(data: { conversationId: string; content: string }, tenantId: string): Promise<void> {
     this.logger.log(`Handling outgoing message for conversation ${data.conversationId} in tenant ${tenantId}`);
 
+    const tenant = await this.tenantModel.findById(tenantId).exec();
+    if (!tenant || !tenant.whapiToken) {
+        throw new InternalServerErrorException('WhatsApp is not configured for this tenant.');
+    }
+
     const conversation = await this.conversationModel.findById(data.conversationId).exec();
     if (!conversation || conversation.tenantId !== tenantId) {
       throw new NotFoundException('Conversation not found');
@@ -59,14 +141,7 @@ export class ChatService {
     // 2. Emit the message to the frontend immediately for a snappy UI
     this.chatGateway.emitNewMessage(tenantId, savedMessage);
 
-    // 3. Send the message via Whapi API
-    const apiToken = this.configService.get<string>('WHAPI_API_TOKEN');
-    if (!apiToken) {
-      this.logger.error('WHAPI_API_TOKEN is not configured.');
-      // Optionally, update message status to 'failed'
-      throw new InternalServerErrorException('Chat service is not configured.');
-    }
-
+    // 3. Send the message via Whapi API using the tenant-specific token
     try {
       const url = 'https://gate.whapi.cloud/messages/text';
       const body = {
@@ -74,7 +149,7 @@ export class ChatService {
         body: data.content,
       };
       const headers = {
-        'Authorization': `Bearer ${apiToken}`,
+        'Authorization': `Bearer ${tenant.whapiToken}`,
         'Content-Type': 'application/json',
       };
 
@@ -83,10 +158,6 @@ export class ChatService {
 
     } catch (error) {
       this.logger.error(`Failed to send message via Whapi: ${error.message}`, error.stack);
-      // Here you could implement a retry mechanism or mark the message as failed in the database
-      // For now, we just log the error.
-      // We don't re-throw the error because the message is already saved and sent to the frontend.
-      // We want to avoid the client seeing an error if the message is already in their chat history.
     }
   }
 

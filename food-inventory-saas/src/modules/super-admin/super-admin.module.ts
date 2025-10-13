@@ -1,7 +1,9 @@
 
 import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
 import { SuperAdminController } from './super-admin.controller';
 import { SuperAdminService } from './super-admin.service';
+import { GlobalSetting, GlobalSettingSchema } from '../../schemas/global-settings.schema';
 import { AppointmentsModule } from '../appointments/appointments.module';
 import { BankAccountsModule } from '../bank-accounts/bank-accounts.module';
 import { BillSplitsModule } from '../bill-splits/bill-splits.module';
@@ -28,6 +30,9 @@ import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
+    MongooseModule.forFeature([
+      { name: GlobalSetting.name, schema: GlobalSettingSchema },
+    ]),
     AppointmentsModule,
     BankAccountsModule,
     BillSplitsModule,
@@ -54,5 +59,6 @@ import { UsersModule } from '../users/users.module';
   ],
   controllers: [SuperAdminController],
   providers: [SuperAdminService],
+  exports: [SuperAdminService],
 })
 export class SuperAdminModule {}
