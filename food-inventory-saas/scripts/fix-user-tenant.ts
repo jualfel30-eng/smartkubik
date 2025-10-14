@@ -6,10 +6,10 @@ import * as path from 'path';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-async function fixUserTenant(userEmail: string, correctTenantCode: string) {
-  if (!userEmail || !correctTenantCode) {
-    console.error('❌ ERROR: Debe proporcionar email y nombre del tenant.');
-    console.log('📖 Uso: npm run fix-user-tenant <email> <tenant_code>');
+async function fixUserTenant(userEmail: string, correctTenantId: string) {
+  if (!userEmail || !correctTenantId) {
+    console.error('❌ ERROR: Debe proporcionar el email del usuario y el ID del tenant correcto.');
+    console.log('📖 Uso: npm run fix-user-tenant <email> <tenant_id>');
     process.exit(1);
   }
 
@@ -33,25 +33,24 @@ async function fixUserTenant(userEmail: string, correctTenantCode: string) {
     console.log(`   - Tenant ID actual: ${user.tenantId}`);
 
     // 2. Find the correct tenant
-    console.log(`🏢 Buscando tenant: ${correctTenantCode}`);
-    const correctTenant = await TenantModel.findOne({ code: correctTenantCode });
+    console.log(`🏢 Buscando tenant por ID: ${correctTenantId}`);
+    const correctTenant = await TenantModel.findById(correctTenantId);
     if (!correctTenant) {
-      console.error(`❌ ERROR: No se encontró tenant con código ${correctTenantCode}`);
+      console.error(`❌ ERROR: No se encontró tenant con ID ${correctTenantId}`);
       process.exit(1);
     }
-    const correctTenantId = correctTenant._id;
-    console.log(`   - Tenant correcto encontrado: ${correctTenant.name} (ID: ${correctTenantId})`);
+    console.log(`   - Tenant correcto encontrado: ${correctTenant.name} (ID: ${correctTenant._id})`);
 
     // 3. Compare and update
-    if (user.tenantId.toString() === correctTenantId.toString()) {
+    if (user.tenantId && user.tenantId.toString() === correctTenant._id.toString()) {
       console.log('\n✅ El usuario ya tiene el tenantId correcto. No se necesita ninguna acción.');
     } else {
-      console.log('\n⚠️  El tenantId del usuario es incorrecto. Procediendo a corregir...');
+      console.log('\n⚠️  El tenantId del usuario es incorrecto o no está asignado. Procediendo a corregir...');
       const oldTenantId = user.tenantId;
-      user.tenantId = correctTenantId;
+      user.tenantId = correctTenant._id;
       await user.save();
       console.log('✅ Corrección completada!');
-      console.log(`   - ID de tenant anterior: ${oldTenantId}`);
+      console.log(`   - ID de tenant anterior: ${oldTenantId || 'N/A'}`);
       console.log(`   - ID de tenant nuevo:   ${user.tenantId}`);
     }
 
@@ -65,6 +64,6 @@ async function fixUserTenant(userEmail: string, correctTenantCode: string) {
 }
 
 const userEmailArg = process.argv[2];
-const tenantCodeArg = process.argv[3];
+const tenantIdArg = process.argv[3];
 
-fixUserTenant(userEmailArg, tenantCodeArg);
+fixUserTenant(userEmailArg, tenantIdArg);

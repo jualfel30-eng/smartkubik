@@ -48,11 +48,11 @@ const TENANT_COLLECTIONS: CollectionConfig[] = [
   { name: 'todos', model: Todo, schema: TodoSchema, tenantIdType: 'ObjectId' },
 ];
 
-async function verifyTenantData(tenantName: string) {
-  if (!tenantName) {
-    console.error('❌ ERROR: Debe proporcionar el nombre del tenant');
-    console.log('📖 Uso: npm run verify-tenant NOMBRE_DEL_TENANT');
-    console.log('📖 Ejemplo: npm run verify-tenant EARLYADOPTER');
+async function verifyTenantData(tenantIdArg: string) {
+  if (!tenantIdArg) {
+    console.error('❌ ERROR: Debe proporcionar el ID del tenant a verificar.');
+    console.log('📖 Uso: npm run verify-tenant <tenant_id>');
+    console.log('📖 Ejemplo: npm run verify-tenant 60d21b4667d0d8992e610c85');
     process.exit(1);
   }
 
@@ -65,15 +65,12 @@ async function verifyTenantData(tenantName: string) {
     console.log(`✅ Conectado a: ${MONGODB_URI}`);
 
     // Step 2: Find and verify tenant
-    console.log(`🔍 Buscando tenant '${tenantName}'...`);
+    console.log(`🔍 Buscando tenant con ID '${tenantIdArg}'...`);
     const TenantModel = model(Tenant.name, TenantSchema);
-    const tenant = await TenantModel.findOne({ code: tenantName });
+    const tenant = await TenantModel.findById(tenantIdArg);
 
     if (!tenant) {
-      console.error(`❌ ERROR: No se encontró ningún tenant con el nombre '${tenantName}'`);
-      const allTenants = await TenantModel.find({}, { code: 1, name: 1 });
-      console.log('🔍 Tenants disponibles:');
-      allTenants.forEach(t => console.log(`   - ${t.code} (${t.name})`));
+      console.error(`❌ ERROR: No se encontró ningún tenant con el ID '${tenantIdArg}'`);
       process.exit(1);
     }
 
@@ -82,7 +79,7 @@ async function verifyTenantData(tenantName: string) {
     console.log('\n🔬 MODO VERIFICACIÓN: No se eliminará ningún dato.\n');
 
     // Step 3: Proceed with filtered verification
-    console.log('🔎 Iniciando verificación de datos a eliminar...\n');
+    console.log('🔎 Iniciando verificación de datos...\n');
 
     let totalDocsToClean = 0;
     const results: { collection: string; count: number; error?: string }[] = [];
@@ -101,7 +98,7 @@ async function verifyTenantData(tenantName: string) {
         // Use countDocuments instead of deleteMany
         const count = await Model.countDocuments(filter);
 
-        console.log(`   - ${collection.name}: ${count} documentos para eliminar.`);
+        console.log(`   - ${collection.name}: ${count} documentos encontrados.`);
         
         totalDocsToClean += count;
         results.push({ collection: collection.name, count: count });
@@ -114,9 +111,9 @@ async function verifyTenantData(tenantName: string) {
 
     // Step 4: Final report
     console.log('\n📊 REPORTE DE VERIFICACIÓN:');
-    console.log('===========================');
-    console.log(`🎯 Tenant a procesar: ${tenant.code} - ${tenant.name}`);
-    console.log(`📁 Total de documentos a eliminar: ${totalDocsToClean}`);
+    console.log('=========================== ');
+    console.log(`🎯 Tenant verificado: ${tenant.name} (ID: ${tenantId})`);
+    console.log(`📁 Total de documentos asociados: ${totalDocsToClean}`);
     console.log('\n📋 Detalle por colección:');
     
     results.forEach(result => {
@@ -140,5 +137,5 @@ async function verifyTenantData(tenantName: string) {
   }
 }
 
-const tenantName = process.argv[2];
-verifyTenantData(tenantName);
+const tenantIdArg = process.argv[2];
+verifyTenantData(tenantIdArg);

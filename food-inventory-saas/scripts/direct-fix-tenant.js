@@ -1,7 +1,7 @@
 // food-inventory-saas/scripts/direct-fix-tenant.js
 
 // This script directly updates the database to fix a user's tenantId using mongoose.
-// It is intended for a one-time, emergency fix.
+// It should be used when a user is incorrectly assigned to a tenant.
 
 // IMPORTANT: Ensure MONGODB_URI is set in your .env file.
 require('dotenv').config({ path: './.env' });
@@ -9,14 +9,13 @@ require('dotenv').config({ path: './.env' });
 const mongoose = require('mongoose');
 
 // --- CONFIGURATION ---
-const USER_EMAIL_TO_FIX = 'admin@earlyadopter.com';
-const TARGET_TENANT_CODE = 'EARLYADOPTER';
-// ---------------------
+// Values are now passed as command-line arguments
+// -------------------- 
 
 // Define minimal schemas to interact with the collections
 const TenantSchema = new mongoose.Schema({
   name: String,
-  code: String,
+  // code: String, // Deprecated
 });
 const UserSchema = new mongoose.Schema({
   email: String,
@@ -26,7 +25,14 @@ const UserSchema = new mongoose.Schema({
 const Tenant = mongoose.model('Tenant', TenantSchema, 'tenants');
 const User = mongoose.model('User', UserSchema, 'users');
 
-async function fixUserTenant() {
+async function fixUserTenant(userEmail, targetTenantId) {
+  if (!userEmail || !targetTenantId) {
+    console.error('FATAL ERROR: Missing arguments.');
+    console.log('Usage: node scripts/direct-fix-tenant.js <user_email> <target_tenant_id>');
+    console.log('Example: node scripts/direct-fix-tenant.js user@example.com 60d21b4667d0d8992e610c85');
+    process.exit(1);
+  }
+
   const uri = process.env.MONGODB_URI;
   if (!uri) {
     console.error('FATAL ERROR: MONGODB_URI is not defined in your .env file.');
@@ -38,12 +44,18 @@ async function fixUserTenant() {
     console.log('✅ Connected to MongoDB via Mongoose.');
 
     // 1. Find the target tenant
-    console.log(`\n1. Searching for tenant with code: "${TARGET_TENANT_CODE}"...`);
-    const tenant = await Tenant.findOne({ code: TARGET_TENANT_CODE });
+    console.log(`\n1. Searching for tenant with ID: "${targetTenantId}"...`);
+    let tenant;
+    try {
+        tenant = await Tenant.findById(targetTenantId);
+    } catch(e) {
+        console.error(`\n❌ ERROR: The provided tenant ID "${targetTenantId}" is not a valid ObjectId.`);
+        return;
+    }
 
     if (!tenant) {
-      console.error(`\n❌ ERROR: Tenant with code "${TARGET_TENANT_CODE}" not found.`);
-      console.error('   Please verify the tenant code is correct.');
+      console.error(`\n❌ ERROR: Tenant with ID "${targetTenantId}" not found.`);
+      console.error('   Please verify the tenant ID is correct.');
       return;
     }
 
@@ -51,11 +63,11 @@ async function fixUserTenant() {
     console.log(`   Found tenant: "${tenant.name}" with ID: ${correctTenantId}`);
 
     // 2. Find the user and check their current tenantId
-    console.log(`\n2. Searching for user with email: "${USER_EMAIL_TO_FIX}"...`);
-    const user = await User.findOne({ email: USER_EMAIL_TO_FIX });
+    console.log(`\n2. Searching for user with email: "${userEmail}"...`);
+    const user = await User.findOne({ email: userEmail });
 
     if (!user) {
-        console.error(`\n❌ ERROR: User with email "${USER_EMAIL_TO_FIX}" not found.`);
+        console.error(`\n❌ ERROR: User with email "${userEmail}" not found.`);
         return;
     }
 
@@ -76,10 +88,9 @@ async function fixUserTenant() {
 
     if (result.modifiedCount > 0) {
       console.log('\n✅ SUCCESS: User tenantId updated successfully.');
-      console.log('   The user is now correctly associated with the EARLYADOPTER tenant.');
-      console.log('\n🔥 ACTION REQUIRED: Please log out, clear browser cache/data, and log back in to see the changes.');
+      console.log(`   The user is now correctly associated with the tenant "${tenant.name}".`);
     } else {
-      console.log('\n⚠️ WARNING: User was not updated. This could be because the tenantId was already correct.');
+      console.log('\n⚠️ WARNING: User was not updated. This could be because the tenantId was already correct or another issue occurred.');
     }
 
   } catch (error) {
@@ -90,4 +101,7 @@ async function fixUserTenant() {
   }
 }
 
-fixUserTenant();
+const userEmailArg = process.argv[2];
+const tenantIdArg = process.argv[3];
+
+fixUserTenant(userEmailArg, tenantIdArg);

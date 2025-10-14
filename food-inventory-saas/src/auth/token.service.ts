@@ -113,7 +113,6 @@ export class TokenService {
         permissions: permissionNames,
       },
       tenantId: tenant ? tenant._id : null,
-      tenantCode: tenant ? tenant.code : null,
       tenantConfirmed: tenant ? Boolean((tenant as any).isConfirmed) : null,
     };
 

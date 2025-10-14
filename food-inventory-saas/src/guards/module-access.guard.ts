@@ -54,7 +54,7 @@ export class ModuleAccessGuard implements CanActivate {
     const explicitState = tenant.enabledModules?.[requiredModule];
     if (explicitState === false) {
       this.logger.warn(
-        `Access denied for tenant ${tenant.code}: module '${requiredModule}' explicitly disabled (vertical: ${tenant.vertical})`,
+        `Access denied for tenant ${tenant.name}: module '${requiredModule}' explicitly disabled (vertical: ${tenant.vertical})`,
       );
       throw new ForbiddenException(
         `El módulo '${requiredModule}' no está habilitado para este tenant. Contacte al administrador para habilitar este módulo.`,
@@ -68,7 +68,7 @@ export class ModuleAccessGuard implements CanActivate {
 
     if (!effectiveModules[requiredModule]) {
       this.logger.warn(
-        `Access denied for tenant ${tenant.code}: module '${requiredModule}' not available for vertical ${tenant.vertical}`,
+        `Access denied for tenant ${tenant.name}: module '${requiredModule}' not available for vertical ${tenant.vertical}`,
       );
       throw new ForbiddenException(
         `El módulo '${requiredModule}' no está habilitado para este tenant. Contacte al administrador para habilitar este módulo.`,
@@ -77,7 +77,7 @@ export class ModuleAccessGuard implements CanActivate {
 
     const accessSource = explicitState === true ? 'explicitly enabled' : 'enabled by vertical configuration';
     this.logger.log(
-      `Access granted for tenant ${tenant.code}: module '${requiredModule}' ${accessSource}`,
+      `Access granted for tenant ${tenant.name}: module '${requiredModule}' ${accessSource}`,
     );
     return true;
   }

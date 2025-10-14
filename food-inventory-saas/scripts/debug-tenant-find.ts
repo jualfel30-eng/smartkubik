@@ -18,7 +18,7 @@ async function debugConnection() {
     if (tenants.length > 0) {
       console.log(`[DEBUG] Success! Found ${tenants.length} tenant(s):`);
       tenants.forEach(t => {
-        console.log(`  - Code: ${t.code}, Name: ${t.name}, ID: ${t._id}`);
+        console.log(`  - Name: ${t.name}, ID: ${t._id}`);
       });
     } else {
       console.log('[DEBUG] The "tenants" collection appears to be empty.');

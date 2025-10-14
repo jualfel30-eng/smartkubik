@@ -44,6 +44,7 @@ export class AuthService {
   ) {}
 
   async login(loginDto: LoginDto | UserDocument | string, isImpersonation: boolean = false, impersonatorId?: string) {
+    this.logger.log(`Received login DTO: ${JSON.stringify(loginDto)}`);
     if (isImpersonation) {
       // When impersonating, loginDto is actually a User document or userId
       const userId = typeof loginDto === 'string' ? loginDto : (loginDto as any)._id || (loginDto as any).id;
@@ -66,158 +67,20 @@ export class AuthService {
       };
     }
 
-    const { email, password, tenantCode, ip } = loginDto as LoginDto;
+    const { email, password, ip } = loginDto as LoginDto;
     const trimmedEmail = email.trim();
     const emailCandidates = Array.from(
       new Set([trimmedEmail, trimmedEmail.toLowerCase()]),
     );
-    const normalizedTenantCode = tenantCode
-      ? tenantCode.trim().toUpperCase()
-      : '';
-    const multiTenantEnabled =
-      isFeatureEnabled('MULTI_TENANT_LOGIN') && !normalizedTenantCode;
 
-    if (multiTenantEnabled) {
-      return this.loginMultiTenantFlow(
-        emailCandidates,
-        trimmedEmail,
-        password,
-        ip,
-      );
-    }
-
-    return this.loginLegacyFlow(
+    return this.loginMultiTenantFlow(
       emailCandidates,
       trimmedEmail,
       password,
-      normalizedTenantCode || null,
       ip,
     );
   }
 
-  private async loginLegacyFlow(
-    emailCandidates: string[],
-    rawEmail: string,
-    password: string,
-    tenantCode: string | null,
-    ip?: string,
-  ) {
-    const sanitizedEmailForLog = LoggerSanitizer.sanitize({ email: rawEmail });
-    this.logger.log(
-      `Login attempt (legacy) for email: ${sanitizedEmailForLog.email} - Tenant: ${tenantCode || 'SUPER_ADMIN'}`,
-    );
-
-    let user: UserDocument | null = null;
-    let tenant: TenantDocument | null = null;
-
-    if (!tenantCode) {
-      user = await this.userModel
-        .findOne({ email: { $in: emailCandidates }, tenantId: null })
-        .populate({
-          path: 'role',
-          populate: { path: 'permissions', select: 'name' },
-        })
-        .exec();
-
-      if (!user) {
-        this.logger.warn(
-          `Super admin login failed: User not found for email ${sanitizedEmailForLog.email}`,
-        );
-        throw new UnauthorizedException("Credenciales inválidas");
-      }
-
-      const roleDoc = user.role as unknown as Role;
-      if (!roleDoc || roleDoc.name !== 'super_admin') {
-        throw new UnauthorizedException(
-          "Se requiere un código de tenant para este usuario.",
-        );
-      }
-    } else {
-      tenant = await this.tenantModel.findOne({ code: tenantCode }).exec();
-      if (!tenant) {
-        this.logger.warn(
-          `Login failed: Tenant not found for code ${tenantCode}`,
-        );
-        throw new UnauthorizedException("Credenciales inválidas");
-      }
-
-      this.logger.log(
-        `✅ Tenant found: ${tenant.name} (${tenant._id.toString()})`,
-      );
-
-      user = await this.userModel
-        .findOne({
-          email: { $in: emailCandidates },
-          tenantId: tenant._id,
-        })
-        .populate({
-          path: 'role',
-          populate: { path: 'permissions', select: 'name' },
-        })
-        .exec();
-
-      if (!user) {
-        this.logger.warn(
-          `Login failed: User not found for email ${sanitizedEmailForLog.email} in tenant ${tenantCode}`,
-        );
-        throw new UnauthorizedException("Credenciales inválidas");
-      }
-
-      this.logger.log(
-        `✅ User found: ${user.firstName} ${user.lastName} (${user._id.toString()})`,
-      );
-
-      if (tenant.status !== 'active') {
-        this.logger.warn(
-          `Tenant ${tenant.code} is not active: ${tenant.status}`,
-        );
-        throw new UnauthorizedException(
-          'La organización (tenant) está inactiva',
-        );
-      }
-    }
-
-    if (!user) {
-      throw new UnauthorizedException("Credenciales inválidas");
-    }
-
-    await this.ensureUserNotLocked(user, rawEmail);
-    await this.verifyPasswordOrThrow(user, password, rawEmail);
-
-    if (!user.isActive) {
-      this.logger.warn(`❌ User ${rawEmail} is not active`);
-      throw new UnauthorizedException("Usuario inactivo");
-    }
-    this.logger.log(`✅ User is active`);
-
-    await this.persistSuccessfulLogin(user, ip);
-
-    if (tenantCode && !tenant) {
-      tenant = await this.tenantModel.findById(user.tenantId).exec();
-    }
-
-    this.logger.log(`🔑 Generating tokens...`);
-    const tokens = await this.tokenService.generateTokens(user, tenant);
-    this.logger.log(`✅ Successful login for user: ${user.email}`);
-
-    const userPayload = this.buildUserPayload(
-      user,
-      tenant ? tenant._id : null,
-    );
-
-    if (tenant) {
-      return {
-        user: userPayload,
-        tenant: this.buildTenantPayload(tenant),
-        ...tokens,
-      };
-    }
-
-    return {
-      user: userPayload,
-      ...tokens,
-    };
-  }
 
   private async loginMultiTenantFlow(
     emailCandidates: string[],
@@ -339,7 +202,6 @@ export class AuthService {
 
     return {
       id: tenant._id,
-      code: tenant.code,
       name: tenant.name,
       businessType: tenant.businessType,
       vertical: tenant.vertical,
@@ -440,70 +302,9 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto) {
-    this.logger.log(`Registration attempt for email: ${registerDto.email}`);
-
-    const tenant = await this.tenantModel.findOne({
-      code: registerDto.tenantCode,
-    });
-    if (!tenant) {
-      throw new BadRequestException("Tenant no encontrado");
-    }
-
-    if (tenant.usage.currentUsers >= tenant.limits.maxUsers) {
-      throw new BadRequestException("El tenant ha alcanzado el límite de usuarios.");
-    }
-
-    const existingUser = await this.userModel.findOne({
-      email: registerDto.email,
-      tenantId: tenant._id,
-    });
-
-    if (existingUser) {
-      throw new BadRequestException(
-        "El email ya está registrado en este tenant",
-      );
-    }
-
-    const role: RoleDocument | null = await this.rolesService.findOneByName(registerDto.role, tenant._id.toString());
-    if (!role) {
-        throw new BadRequestException(`Rol '${registerDto.role}' no encontrado.`);
-    }
-
-    const hashedPassword = await bcrypt.hash(registerDto.password, 12);
-
-    const userData = {
-      ...registerDto,
-      password: hashedPassword,
-      tenantId: tenant._id,
-      role: role._id,
-      emailVerificationToken: uuidv4(),
-    };
-
-    const user = new this.userModel(userData);
-    const savedUser = await user.save();
-
-    await this.tenantModel.findByIdAndUpdate(tenant._id, { $inc: { 'usage.currentUsers': 1 } });
-
-    const userWithRole = await savedUser.populate({
-      path: 'role',
-      populate: { path: 'permissions', select: 'name' },
-    });
-    const tokens = await this.tokenService.generateTokens(userWithRole, tenant);
-
-    this.logger.log(`User registered successfully: ${savedUser.email}`);
-
-    return {
-      user: {
-        id: userWithRole._id,
-        email: userWithRole.email,
-        firstName: userWithRole.firstName,
-        lastName: userWithRole.lastName,
-        role: userWithRole.role,
-        tenantId: userWithRole.tenantId,
-      },
-      tenant: this.buildTenantPayload(tenant),
-      ...tokens,
-    };
+    // Public registration is disabled as the new flow is invite-based.
+    this.logger.warn(`Blocked public registration attempt for email: ${registerDto.email}`);
+    throw new BadRequestException("El registro público está deshabilitado. Los usuarios deben ser creados por un administrador.");
   }
 
   async validateOAuthLogin(email: string, provider: string, profile: any): Promise<UserDocument> {
@@ -689,21 +490,7 @@ export class AuthService {
       `Password reset request for email: ${forgotPasswordDto.email}`,
     );
 
-    let user: UserDocument | null = null;
-
-    if (forgotPasswordDto.tenantCode) {
-      const tenant = await this.tenantModel.findOne({
-        code: forgotPasswordDto.tenantCode,
-      });
-      if (tenant) {
-        user = await this.userModel.findOne({
-          email: forgotPasswordDto.email,
-          tenantId: tenant._id,
-        });
-      }
-    } else {
-      user = await this.userModel.findOne({ email: forgotPasswordDto.email });
-    }
+    const user = await this.userModel.findOne({ email: forgotPasswordDto.email });
 
     if (user) {
       const resetToken = uuidv4();
@@ -728,7 +515,7 @@ export class AuthService {
         // No lanzamos error para no revelar si el usuario existe
       }
     } else {
-      this.logger.log(`Password reset requested for non-existent user: ${forgotPasswordDto.email}`);
+      this.logger.warn(`Password reset requested for non-existent user: ${forgotPasswordDto.email}`);
       // No revelamos que el usuario no existe por seguridad
     }
   }

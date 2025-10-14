@@ -56,7 +56,7 @@ export class TenantGuard implements CanActivate {
 
       if (tenant.status !== "active") {
         this.logger.warn(
-          `Inactive tenant access attempt: ${tenant.code} (${tenant.status})`,
+          `Inactive tenant access attempt: ${tenant.name} (${tenant.status})`,
         );
         throw new ForbiddenException(
           `Tenant ${tenant.status}. Contacte al administrador.`,
@@ -68,7 +68,7 @@ export class TenantGuard implements CanActivate {
         tenant.subscriptionExpiresAt &&
         tenant.subscriptionExpiresAt < new Date()
       ) {
-        this.logger.warn(`Expired subscription for tenant: ${tenant.code}`);
+        this.logger.warn(`Expired subscription for tenant: ${tenant.name}`);
         throw new ForbiddenException("Suscripción expirada. Renueve su plan.");
       }
 
@@ -76,7 +76,7 @@ export class TenantGuard implements CanActivate {
       request.tenant = tenant;
 
       this.logger.debug(
-        `Tenant validated: ${tenant.code} for user: ${user.email}`,
+        `Tenant validated: ${tenant.name} for user: ${user.email}`,
       );
       return true;
     } catch (error) {

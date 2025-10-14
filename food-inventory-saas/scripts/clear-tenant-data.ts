@@ -49,11 +49,11 @@ const TENANT_COLLECTIONS: CollectionConfig[] = [
   { name: 'todos', model: Todo, schema: TodoSchema, tenantIdType: 'ObjectId' },
 ];
 
-async function clearTenantData(tenantName: string) {
-  if (!tenantName) {
-    console.error('❌ ERROR: Debe proporcionar el nombre del tenant');
-    console.log('📖 Uso: npm run clear-tenant NOMBRE_DEL_TENANT');
-    console.log('📖 Ejemplo: npm run clear-tenant EARLYADOPTER');
+async function clearTenantData(tenantIdArg: string) {
+  if (!tenantIdArg) {
+    console.error('❌ ERROR: Debe proporcionar el ID del tenant');
+    console.log('📖 Uso: npm run clear-tenant <tenant_id>');
+    console.log('📖 Ejemplo: npm run clear-tenant 60d21b4667d0d8992e610c85');
     process.exit(1);
   }
 
@@ -66,15 +66,12 @@ async function clearTenantData(tenantName: string) {
     console.log(`✅ Conectado a: ${MONGODB_URI}`);
 
     // Paso 2: Buscar y verificar el tenant
-    console.log(`🔍 Buscando tenant '${tenantName}'...`);
+    console.log(`🔍 Buscando tenant con ID '${tenantIdArg}'...`);
     const TenantModel = model(Tenant.name, TenantSchema);
-    const tenant = await TenantModel.findOne({ code: tenantName });
+    const tenant = await TenantModel.findById(tenantIdArg);
 
     if (!tenant) {
-      console.error(`❌ ERROR: No se encontró ningún tenant con el nombre '${tenantName}'`);
-      console.log('🔍 Tenants disponibles:');
-      const allTenants = await TenantModel.find({}, { code: 1, name: 1 });
-      allTenants.forEach(t => console.log(`   - ${t.code} (${t.name})`));
+      console.error(`❌ ERROR: No se encontró ningún tenant con el ID '${tenantIdArg}'`);
       process.exit(1);
     }
 
@@ -83,12 +80,12 @@ async function clearTenantData(tenantName: string) {
 
     // Paso 3: Confirmación de seguridad
     console.log('\n⚠️  ADVERTENCIA: Esta operación eliminará TODOS los datos del tenant especificado');
-    console.log(`📊 Tenant a limpiar: ${tenant.code} - ${tenant.name}`);
+    console.log(`📊 Tenant a limpiar: ${tenant.name} (ID: ${tenantId})`);
     console.log('🛡️  Los datos de otros tenants permanecerán intactos');
     console.log('🔐 Las credenciales de usuarios y definiciones de tenants se preservarán\n');
 
     // En producción, aquí se podría agregar una confirmación interactiva
-    // console.log('⏳ Continuando en 5 segundos... (Ctrl+C para cancelar)');
+    // console.log('⏳Continuando en 5 segundos... (Ctrl+C para cancelar)');
     // await new Promise(resolve => setTimeout(resolve, 5000));
 
     // Paso 4: Proceder con la limpieza filtrada
@@ -130,7 +127,7 @@ async function clearTenantData(tenantName: string) {
     // Paso 5: Reporte final
     console.log('\n📊 REPORTE FINAL:');
     console.log('================');
-    console.log(`🎯 Tenant procesado: ${tenant.code} - ${tenant.name}`);
+    console.log(`🎯 Tenant procesado: ${tenant.name} (ID: ${tenantId})`);
     console.log(`📁 Total de documentos eliminados: ${totalDeleted}`);
     console.log('\n📋 Detalle por colección:');
     
@@ -161,11 +158,11 @@ async function clearTenantData(tenantName: string) {
   }
 }
 
-// Obtener el nombre del tenant desde argumentos de línea de comandos
-const tenantName = process.argv[2];
+// Obtener el ID del tenant desde argumentos de línea de comandos
+const tenantIdArg = process.argv[2];
 
 // Ejecutar el script
-clearTenantData(tenantName).catch(err => {
+clearTenantData(tenantIdArg).catch(err => {
   console.error('💥 Error fatal ejecutando el script:', err);
   process.exit(1);
 });

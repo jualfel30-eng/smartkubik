@@ -26,11 +26,6 @@ export class LoginDto {
   @MinLength(6)
   password: string;
 
-  @ApiPropertyOptional({ description: "Código del tenant" })
-  @IsOptional()
-  @IsString()
-  tenantCode?: string;
-
   @ApiPropertyOptional({ description: "IP del usuario" })
   @IsOptional()
   @IsString()
@@ -90,12 +85,6 @@ export class RegisterDto {
   })
   @IsEnum(["admin", "manager", "employee", "viewer"])
   role: string;
-
-  @ApiProperty({ description: "Código del tenant" })
-  @IsString()
-  @IsNotEmpty()
-  @SanitizeString()
-  tenantCode: string;
 }
 
 export class CreateUserDto {
@@ -250,11 +239,6 @@ export class ForgotPasswordDto {
   @IsEmail()
   @IsNotEmpty()
   email: string;
-
-  @ApiPropertyOptional({ description: "Código del tenant" })
-  @IsOptional()
-  @IsString()
-  tenantCode?: string;
 }
 
 export class ResetPasswordDto {

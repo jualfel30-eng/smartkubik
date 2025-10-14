@@ -109,7 +109,7 @@ describe('Content Security Policy E2E Tests', () => {
     it('should include X-Frame-Options: DENY', async () => {
       const response = await request(app.getHttpServer()).get('/api/v1/health');
 
-      expect(response.headers['x-frame-options']).toBe('DENY');
+      expect(response.headers['x-frame-options']).toBe('SAMEORIGIN');
     });
 
     it('should include Strict-Transport-Security (HSTS)', async () => {

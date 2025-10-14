@@ -93,9 +93,6 @@ const TenantSettingsSchema =
 
 @Schema({ timestamps: true })
 export class Tenant {
-  @Prop({ type: String, required: true, unique: true })
-  code: string;
-
   @Prop({ type: String, required: true })
   name: string;
 
@@ -236,7 +233,7 @@ export class Tenant {
 export const TenantSchema = SchemaFactory.createForClass(Tenant);
 
 // Índices para tenants
-TenantSchema.index({ code: 1 }, { unique: true });
+// TenantSchema.index({ code: 1 }, { unique: true }); // Deprecated index
 TenantSchema.index({ status: 1 });
 TenantSchema.index({ subscriptionPlan: 1 });
 TenantSchema.index({ subscriptionExpiresAt: 1 });

@@ -39,19 +39,6 @@ export class OnboardingService {
       throw new ConflictException('El email ya está registrado.');
     }
 
-    const generateTenantCode = async (name: string): Promise<string> => {
-      const baseCode = name.toUpperCase().replace(/&/g, 'AND').replace(/\s+/g, '-').replace(/[^A-Z0-9-]/g, '').substring(0, 30);
-      let code = baseCode;
-      let counter = 1;
-      while (await this.tenantModel.findOne({ code }).exec()) {
-        counter++;
-        code = `${baseCode}-${counter}`;
-      }
-      return code;
-    };
-
-    const tenantCode = await generateTenantCode(dto.businessName);
-
     let savedTenant: TenantDocument | undefined;
     let savedUser: UserDocument | undefined;
 
@@ -84,7 +71,6 @@ export class OnboardingService {
 
         const newTenant = new this.tenantModel({
           name: dto.businessName,
-          code: tenantCode,
           businessType: dto.businessType,
           vertical: vertical,
           enabledModules: enabledModules,
@@ -156,7 +142,7 @@ export class OnboardingService {
 
       const finalResponse = {
         user: { id: userWithRole._id, email: userWithRole.email, firstName: userWithRole.firstName, lastName: userWithRole.lastName, role: userWithRole.role },
-        tenant: { id: tenantDoc._id, name: tenantDoc.name, code: tenantDoc.code, isConfirmed: tenantDoc.isConfirmed },
+        tenant: { id: tenantDoc._id, name: tenantDoc.name, isConfirmed: tenantDoc.isConfirmed },
         ...tokens,
       };
 
@@ -194,49 +180,7 @@ export class OnboardingService {
 
 
   async confirmTenant(dto: ConfirmTenantDto) {
-    this.logger.log(`Confirmación solicitada para tenant ${dto.tenantCode}`);
-
-    const tenant = await this.tenantModel.findOne({ code: dto.tenantCode }).exec();
-    if (!tenant) {
-      throw new NotFoundException('Tenant no encontrado.');
-    }
-
-    if (tenant.isConfirmed) {
-      return { message: 'El tenant ya se encuentra confirmado.' };
-    }
-
-    if (!tenant.confirmationCode || tenant.confirmationCode !== dto.confirmationCode) {
-      throw new BadRequestException('Código de confirmación inválido.');
-    }
-
-    if (tenant.confirmationCodeExpiresAt && tenant.confirmationCodeExpiresAt < new Date()) {
-      throw new BadRequestException('El código de confirmación ha expirado. Solicita uno nuevo.');
-    }
-
-    const adminUser = await this.userModel.findOne({
-      email: dto.email.toLowerCase(),
-      tenantId: tenant._id,
-    }).exec();
-
-    if (!adminUser) {
-      throw new NotFoundException('No se encontró un usuario asociado a ese correo para este tenant.');
-    }
-
-    tenant.isConfirmed = true;
-    tenant.confirmedAt = new Date();
-    tenant.confirmationCode = undefined;
-    tenant.confirmationCodeExpiresAt = undefined;
-    await tenant.save();
-
-    if (!adminUser.isEmailVerified) {
-      adminUser.isEmailVerified = true;
-      await adminUser.save();
-    }
-
-    this.logger.log(`Tenant ${tenant.code} confirmado exitosamente.`);
-
-    return {
-      message: 'Cuenta confirmada exitosamente. ¡Bienvenido!',
-    };
+    this.logger.error('Attempted to use deprecated confirmTenant function.');
+    throw new InternalServerErrorException('This function is deprecated due to the removal of tenantCode and needs to be refactored.');
   }
 }

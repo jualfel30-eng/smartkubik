@@ -1,54 +1,65 @@
 const mongoose = require('mongoose');
 require('dotenv').config();
 
-async function findCorrectTenant() {
+async function inspectTenant() {
+  const tenantIdArg = process.argv[2];
+
+  if (!tenantIdArg) {
+    console.error('❌ ERROR: Debe proporcionar el ID del tenant a inspeccionar.');
+    console.log('📖 Uso: node scripts/find-correct-tenant.js <tenant_id>');
+    console.log('📖 Ejemplo: node scripts/find-correct-tenant.js 60d21b4667d0d8992e610c85');
+    process.exit(1);
+  }
+
   try {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('✅ Connected to MongoDB\n');
 
     const db = mongoose.connection.db;
 
-    // Buscar TODOS los tenants EARLYADOPTER
-    const tenants = await db.collection('tenants').find({ code: 'EARLYADOPTER' }).toArray();
-
-    console.log(`🔍 Encontrados ${tenants.length} tenant(s) con código EARLYADOPTER:\n`);
-
-    for (const tenant of tenants) {
-      console.log('='.repeat(80));
-      console.log(`🏢 Tenant: ${tenant.name}`);
-      console.log(`🆔 ID: ${tenant._id}`);
-      console.log(`📅 Creado: ${tenant.createdAt}`);
-
-      // Buscar usuarios en este tenant
-      const users = await db.collection('users').find({ tenantId: tenant._id }).toArray();
-      console.log(`👥 Usuarios: ${users.length}`);
-      users.forEach(u => console.log(`   - ${u.email}`));
-
-      // Buscar órdenes en este tenant
-      const ordersCount = await db.collection('orders').countDocuments({ tenantId: tenant._id });
-      console.log(`📦 Órdenes: ${ordersCount}`);
-
-      // Buscar clientes en este tenant
-      const customersCount = await db.collection('customers').countDocuments({ tenantId: tenant._id });
-      console.log(`👤 Clientes: ${customersCount}`);
-
-      // Buscar productos en este tenant
-      const productsCount = await db.collection('products').countDocuments({ tenantId: tenant._id });
-      console.log(`🛍️  Productos: ${productsCount}`);
-
-      console.log('');
+    // Buscar el tenant por ID
+    let tenant;
+    try {
+        tenant = await db.collection('tenants').findOne({ _id: new mongoose.Types.ObjectId(tenantIdArg) });
+    } catch(e) {
+        console.log(`❌ ERROR: El ID proporcionado "${tenantIdArg}" no es un ObjectId válido.`);
+        process.exit(1);
     }
 
-    // Buscar el usuario admin@earlyadopter.com
-    const adminUser = await db.collection('users').findOne({ email: 'admin@earlyadopter.com' });
-
-    if (adminUser) {
-      console.log('='.repeat(80));
-      console.log('👑 USUARIO ADMIN ENCONTRADO:');
-      console.log(`📧 Email: ${adminUser.email}`);
-      console.log(`🆔 TenantId: ${adminUser.tenantId}`);
-      console.log(`\n✅ El tenant CORRECTO a limpiar es el que tiene ID: ${adminUser.tenantId}`);
+    if (!tenant) {
+      console.log(`❌ Tenant con ID ${tenantIdArg} no encontrado`);
+      return;
     }
+
+    console.log('='.repeat(80));
+    console.log('🔍 INFORME DEL TENANT');
+    console.log('='.repeat(80));
+    console.log(`🏢 Tenant: ${tenant.name}`);
+    console.log(`🆔 ID: ${tenant._id}`);
+    console.log(`📅 Creado: ${tenant.createdAt}`);
+    console.log('');
+
+    // Buscar usuarios en este tenant
+    const users = await db.collection('users').find({ tenantId: tenant._id }).toArray();
+    console.log(`👥 Usuarios (${users.length}):`);
+    users.forEach(u => console.log(`   - ${u.email} (ID: ${u._id})`));
+    console.log('');
+
+    // Contar documentos en colecciones asociadas
+    const collectionsToCount = [
+        { name: 'Órdenes', collection: 'orders', emoji: '📦' },
+        { name: 'Clientes', collection: 'customers', emoji: '👤' },
+        { name: 'Productos', collection: 'products', emoji: '🛍️' },
+        { name: 'Inventario', collection: 'inventories', emoji: '📋' },
+    ];
+
+    for (const item of collectionsToCount) {
+        const count = await db.collection(item.collection).countDocuments({ tenantId: tenant._id });
+        console.log(`${item.emoji} ${item.name}: ${count}`);
+    }
+    
+    console.log('\n');
+
 
   } catch (error) {
     console.error('❌ Error:', error.message);
@@ -59,4 +70,5 @@ async function findCorrectTenant() {
   }
 }
 
-findCorrectTenant();
+// The script is renamed in spirit to "inspectTenant", but the file name remains the same.
+spectTenant();

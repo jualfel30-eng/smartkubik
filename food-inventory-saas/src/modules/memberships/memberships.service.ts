@@ -15,7 +15,6 @@ export interface MembershipSummary {
   isDefault: boolean;
   tenant: {
     id: string;
-    code: string;
     name: string;
     status: string;
   };
@@ -114,7 +113,7 @@ export class MembershipsService {
   ): Promise<MembershipSummary> {
     let tenantDoc =
       membership.tenantId as unknown as TenantDocument | null | undefined;
-    if (!tenantDoc || !tenantDoc.code) {
+    if (!tenantDoc || !tenantDoc.name) {
       tenantDoc = await this.resolveTenantById(membership.tenantId);
     }
 
@@ -136,13 +135,11 @@ export class MembershipsService {
       tenant: tenantDoc
         ? {
             id: tenantDoc._id.toString(),
-            code: tenantDoc.code,
             name: tenantDoc.name,
             status: tenantDoc.status,
           }
         : {
             id: '',
-            code: '',
             name: '',
             status: 'inactive',
           },

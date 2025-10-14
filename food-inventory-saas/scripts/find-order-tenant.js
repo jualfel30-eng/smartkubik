@@ -2,51 +2,58 @@ const mongoose = require('mongoose');
 require('dotenv').config();
 
 async function findOrderTenant() {
+  const orderNumberArg = process.argv[2];
+
+  if (!orderNumberArg) {
+    console.error('❌ ERROR: Debe proporcionar un número de orden (orderNumber).');
+    console.log('📖 Uso: node scripts/find-order-tenant.js <order_number>');
+    console.log('📖 Ejemplo: node scripts/find-order-tenant.js ORD-250929-151001-1892');
+    process.exit(1);
+  }
+
   try {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('✅ Connected to MongoDB\n');
 
     const db = mongoose.connection.db;
 
-    // Buscar la orden que mencionaste
+    // 1. Buscar la orden por su número
     const order = await db.collection('orders').findOne({
-      orderNumber: 'ORD-250929-151001-1892'
+      orderNumber: orderNumberArg
     });
 
     if (!order) {
-      console.log('❌ Orden ORD-250929-151001-1892 no encontrada');
+      console.log(`❌ Orden con número "${orderNumberArg}" no encontrada.`);
       return;
     }
 
     console.log('📦 ORDEN ENCONTRADA:');
     console.log('='.repeat(80));
     console.log('Número:', order.orderNumber);
-    console.log('TenantId:', order.tenantId);
-    console.log('CustomerId:', order.customerId);
-    console.log('Monto:', order.finalPrice);
+    console.log('ID de Orden:', order._id);
+    console.log('ID de Tenant:', order.tenantId);
+    console.log('ID de Cliente:', order.customerId);
+    console.log('Monto Final:', order.finalPrice);
 
-    // Buscar el tenant de esta orden
+    if (!order.tenantId) {
+        console.log('\n⚠️ Esta orden no tiene un tenantId asociado.');
+        return;
+    }
+
+    // 2. Buscar el tenant de esta orden
     const tenant = await db.collection('tenants').findOne({ _id: order.tenantId });
 
     if (tenant) {
-      console.log('\n🏢 TENANT DE ESTA ORDEN:');
-      console.log('Código:', tenant.code);
+      console.log('\n🏢 TENANT ASOCIADO:');
       console.log('Nombre:', tenant.name);
       console.log('ID:', tenant._id);
+    } else {
+      console.log(`\n⚠️ No se encontró un tenant con el ID ${order.tenantId}`);
     }
 
-    // Buscar el tenant EARLYADOPTER
-    const earlyadopterTenant = await db.collection('tenants').findOne({ code: 'EARLYADOPTER' });
-
-    if (earlyadopterTenant) {
-      console.log('\n🔍 TENANT EARLYADOPTER:');
-      console.log('ID:', earlyadopterTenant._id);
-      console.log('\n❓SON IGUALES?', order.tenantId.toString() === earlyadopterTenant._id.toString() ? '✅ SÍ' : '❌ NO');
-    }
-
-    // Contar cuántas órdenes hay por tenant
+    // 3. Contar cuántas órdenes hay en total para este tenant
     const ordersCount = await db.collection('orders').countDocuments({ tenantId: order.tenantId });
-    console.log(`\n📊 Este tenant tiene ${ordersCount} órdenes en total`);
+    console.log(`\n📊 Este tenant (${tenant.name}) tiene ${ordersCount} órdenes en total.`);
 
   } catch (error) {
     console.error('❌ Error:', error.message);

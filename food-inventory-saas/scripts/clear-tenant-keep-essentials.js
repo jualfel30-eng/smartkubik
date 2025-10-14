@@ -2,25 +2,40 @@ const mongoose = require('mongoose');
 require('dotenv').config();
 
 async function clearTenantKeepEssentials() {
+  const tenantIdArg = process.argv[2];
+
+  if (!tenantIdArg) {
+    console.error('❌ ERROR: Debe proporcionar el ID del tenant a limpiar.');
+    console.log('📖 Uso: node scripts/clear-tenant-keep-essentials.js <tenant_id>');
+    console.log('📖 Ejemplo: node scripts/clear-tenant-keep-essentials.js 60d21b4667d0d8992e610c85');
+    process.exit(1);
+  }
+
   try {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('✅ Connected to MongoDB\n');
 
     const db = mongoose.connection.db;
 
-    // Buscar el tenant EARLYADOPTER
-    const tenant = await db.collection('tenants').findOne({ code: 'EARLYADOPTER' });
+    // Buscar el tenant por ID
+    let tenant;
+    try {
+        tenant = await db.collection('tenants').findOne({ _id: new mongoose.Types.ObjectId(tenantIdArg) });
+    } catch(e) {
+        console.log(`❌ ERROR: El ID proporcionado "${tenantIdArg}" no es un ObjectId válido.`);
+        process.exit(1);
+    }
 
     if (!tenant) {
-      console.log('❌ Tenant EARLYADOPTER no encontrado');
+      console.log(`❌ Tenant con ID ${tenantIdArg} no encontrado`);
       return;
     }
 
     console.log('🏢 Tenant encontrado:', tenant.name);
     console.log('🆔 TenantId:', tenant._id);
-    console.log('\n🗑️  Limpiando datos del tenant...\n');
+    console.log('\n🗑️  Limpiando datos transaccionales del tenant...\n');
 
-    // Colecciones a limpiar (TODAS las transaccionales)
+    // Colecciones a limpiar (transaccionales)
     const collectionsToClean = [
       'orders',
       'customers',
@@ -34,6 +49,7 @@ async function clearTenantKeepEssentials() {
       'todos',
       'purchaseorders',
       'ratings',
+      // 'products' and 'suppliers' can be considered master data, but are included here for a cleaner state
       'products',
       'suppliers',
     ];
@@ -54,13 +70,13 @@ async function clearTenantKeepEssentials() {
 
     console.log('\n📊 RESUMEN:');
     console.log('='.repeat(80));
-    console.log(`Total de documentos eliminados: ${totalDeleted}`);
+    console.log(`Total de documentos transaccionales eliminados: ${totalDeleted}`);
     console.log('\n✅ PRESERVADO:');
     console.log('  - Plan de cuentas (chartofaccounts)');
     console.log('  - Roles y permisos (roles, permissions)');
-    console.log('  - Usuario super-admin (users)');
+    console.log('  - Usuarios (users)');
     console.log('  - Configuración del tenant (tenants)');
-    console.log('\n⚠️  El sistema está limpio y listo para usar.');
+    console.log('\n⚠️  El sistema está limpio y listo para re-usar.');
 
   } catch (error) {
     console.error('❌ Error:', error.message);
