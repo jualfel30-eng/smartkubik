@@ -3,6 +3,7 @@ import { Injectable, Logger, NotFoundException, InternalServerErrorException } f
 import { InjectModel, InjectConnection } from '@nestjs/mongoose';
 import { Connection, Model, Types } from 'mongoose';
 import { GlobalSetting, GlobalSettingDocument } from '../../schemas/global-settings.schema';
+import { AuthService } from '../../auth/auth.service';
 
 @Injectable()
 export class SuperAdminService {
@@ -23,7 +24,14 @@ export class SuperAdminService {
   constructor(
     @InjectConnection() private readonly connection: Connection,
     @InjectModel(GlobalSetting.name) private readonly globalSettingModel: Model<GlobalSettingDocument>,
+    private readonly authService: AuthService,
   ) {}
+
+  async impersonateUser(targetUserId: string, impersonatorId: string): Promise<any> {
+    this.logger.log(`Impersonation attempt: ${impersonatorId} is trying to impersonate ${targetUserId}`);
+    return this.authService.login(targetUserId, true, impersonatorId);
+  }
+
 
   async getSetting(key: string): Promise<GlobalSettingDocument | null> {
     return this.globalSettingModel.findOne({ key }).exec();
@@ -65,6 +73,43 @@ export class SuperAdminService {
     const totalTenants = await this.connection.model('Tenant').countDocuments();
     const totalUsers = await this.connection.model('User').countDocuments();
     return { totalTenants, totalUsers, placeholder: true };
+  }
+
+  async updateTenantStatus(tenantId: string, status: string): Promise<any> {
+    this.logger.log(`Updating status for tenant ID: ${tenantId} to ${status}`);
+    const updatedTenant = await this.connection.model('Tenant').findByIdAndUpdate(
+      tenantId,
+      { $set: { status } },
+      { new: true },
+    ).exec();
+
+    if (!updatedTenant) {
+      throw new NotFoundException(`Tenant con ID "${tenantId}" no encontrado.`);
+    }
+
+    return updatedTenant;
+  }
+
+  async updateTenant(tenantId: string, updateData: any): Promise<any> {
+    this.logger.log(`Updating tenant ID: ${tenantId}`);
+    // We should add validation here in a real app (e.g., using a DTO)
+    const updatedTenant = await this.connection.model('Tenant').findByIdAndUpdate(
+      tenantId,
+      { $set: updateData },
+      { new: true },
+    ).exec();
+
+    if (!updatedTenant) {
+      throw new NotFoundException(`Tenant con ID "${tenantId}" no encontrado.`);
+    }
+
+    return updatedTenant;
+  }
+
+  async getUsersForTenant(tenantId: string): Promise<any> {
+    this.logger.log(`Fetching users for tenant ID: ${tenantId}`);
+    const users = await this.connection.model('User').find({ tenantId: new Types.ObjectId(tenantId) }).exec();
+    return users;
   }
 
   async getTenantConfiguration(tenantId: string): Promise<any> {
@@ -153,6 +198,47 @@ export class SuperAdminService {
       await session.abortTransaction();
       this.logger.error(`Error al eliminar el tenant con ID ${tenantId}. Transacción abortada.`, error.stack);
       throw new InternalServerErrorException(`Ocurrió un error durante la eliminación: ${error.message}`);
+    } finally {
+      session.endSession();
+    }
+  }
+
+  async syncTenantMemberships(tenantId: string): Promise<{ message: string }> {
+    this.logger.log(`[SYNC-PERMISSIONS] Iniciando sincronización de permisos para el tenant ID: ${tenantId}`);
+    const session = await this.connection.startSession();
+    session.startTransaction();
+
+    try {
+      const tenantObjectId = new Types.ObjectId(tenantId);
+      const RoleModel = this.connection.model('Role');
+      const PermissionModel = this.connection.model('Permission');
+
+      // 1. Find the admin role for the specific tenant
+      const adminRole = await RoleModel.findOne({ tenantId: tenantObjectId, name: 'admin' }).session(session);
+      if (!adminRole) {
+        throw new NotFoundException(`No se encontró un rol 'admin' para el tenant con ID "${tenantId}".`);
+      }
+
+      this.logger.log(`[SYNC-PERMISSIONS] Rol 'admin' encontrado para el tenant. ID del Rol: ${adminRole._id}`);
+
+      // 2. Get all existing permissions in the system
+      const allPermissions = await PermissionModel.find({}).session(session);
+      const allPermissionIds = allPermissions.map(p => p._id);
+
+      this.logger.log(`[SYNC-PERMISSIONS] ${allPermissionIds.length} permisos totales encontrados en el sistema.`);
+
+      // 3. Overwrite the role's permissions with the full list
+      adminRole.permissions = allPermissionIds;
+      await adminRole.save({ session });
+
+      await session.commitTransaction();
+      this.logger.log(`[SUCCESS] Sincronización de permisos completada para el rol admin del tenant ${tenantId}.`);
+
+      return { message: 'Los permisos del rol de administrador han sido sincronizados exitosamente con el estado actual del sistema.' };
+    } catch (error) {
+      await session.abortTransaction();
+      this.logger.error(`[SYNC-PERMISSIONS] Error durante la sincronización para el tenant ID ${tenantId}.`, error.stack);
+      throw new InternalServerErrorException(`Ocurrió un error durante la sincronización de permisos: ${error.message}`);
     } finally {
       session.endSession();
     }

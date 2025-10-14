@@ -46,24 +46,46 @@ export class AuthService {
   async login(loginDto: LoginDto | UserDocument | string, isImpersonation: boolean = false, impersonatorId?: string) {
     this.logger.log(`Received login DTO: ${JSON.stringify(loginDto)}`);
     if (isImpersonation) {
-      // When impersonating, loginDto is actually a User document or userId
+      this.logger.log(`Initiating impersonation flow for user ID: ${loginDto}`);
       const userId = typeof loginDto === 'string' ? loginDto : (loginDto as any)._id || (loginDto as any).id;
+      
       const user = await this.userModel.findById(userId).populate({
         path: 'role',
         populate: { path: 'permissions', select: 'name' }
       }).exec();
+
       if (!user) {
+        this.logger.warn(`Impersonation failed: User not found for ID ${userId}`);
         throw new NotFoundException('Usuario a impersonar no encontrado');
       }
-      const tenant = await this.tenantModel.findById(user.tenantId).exec();
-      const tokens = await this.tokenService.generateTokens(user, tenant, {
+      
+      this.logger.log(`User to impersonate found: ${user.email}`);
+
+      // Align with multi-tenant flow: find all memberships
+      const memberships: MembershipSummary[] =
+        await this.membershipsService.findActiveMembershipsForUser(user._id);
+
+      if (!memberships.length) {
+        this.logger.warn(
+          `User ${user.email} has no active memberships. Impersonation cannot proceed to tenant selection.`
+        );
+      }
+
+      // Generate standard tokens but without a tenant context initially.
+      // The token will contain impersonation flags.
+      const tokens = await this.tokenService.generateTokens(user, null, {
         impersonation: true,
         impersonatorId,
       });
+
+      // Return a payload similar to the standard multi-tenant login,
+      // signaling to the frontend that organization selection is required.
       return {
-        user,
-        tenant,
+        user: this.buildUserPayload(user, null),
+        tenant: null,
+        memberships,
         ...tokens,
+        isImpersonation: true, // Explicit flag for the frontend
       };
     }
 

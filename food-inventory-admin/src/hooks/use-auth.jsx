@@ -247,41 +247,52 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const loginWithTokens = async (accessToken, refreshToken) => {
+  const loginWithTokens = async (data) => {
     try {
+      const {
+        accessToken,
+        refreshToken,
+        user: userData,
+        tenant: tenantData,
+        memberships: membershipsData,
+      } = data;
+
       localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
       if (refreshToken) {
         localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
       }
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
+
       setToken(accessToken);
+      setUser(userData);
+      setIsAuthenticated(true);
 
-      const profileResponse = await getProfile();
-      const profileData = profileResponse?.data || profileResponse;
-
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(profileData));
-      setUser(profileData);
-
-      const tenantInfo = profileData?.tenant || profileData?.tenantId;
-      if (tenantInfo) {
-        const normalizedTenant = {
-          id: tenantInfo.id || tenantInfo._id,
-          code: tenantInfo.code,
-          name: tenantInfo.name,
-          businessType: tenantInfo.businessType,
-          vertical: tenantInfo.vertical,
-          enabledModules: tenantInfo.enabledModules,
-          subscriptionPlan: tenantInfo.subscriptionPlan,
-          isConfirmed:
-            typeof tenantInfo.isConfirmed === 'boolean'
-              ? tenantInfo.isConfirmed
-              : Boolean(tenantInfo.tenantConfirmed),
-        };
+      if (multiTenantEnabled && Array.isArray(membershipsData)) {
+        const sanitizedMemberships = membershipsData.filter(Boolean);
+        setMemberships(sanitizedMemberships);
         localStorage.setItem(
-          STORAGE_KEYS.TENANT,
-          JSON.stringify(normalizedTenant),
+          STORAGE_KEYS.MEMBERSHIPS,
+          JSON.stringify(sanitizedMemberships),
         );
+
+        localStorage.removeItem(STORAGE_KEYS.TENANT);
+        setTenant(null);
+
+        return {
+          success: true,
+          user: userData,
+          memberships: sanitizedMemberships,
+          requiresTenantSelection: sanitizedMemberships.length > 0,
+        };
+      }
+
+      // Fallback for single-tenant or non-membership flows
+      if (tenantData) {
+        const normalizedTenant = normalizeTenant(tenantData);
+        localStorage.setItem(STORAGE_KEYS.TENANT, JSON.stringify(normalizedTenant));
         setTenant(normalizedTenant);
-      } else if (multiTenantEnabled) {
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.TENANT);
         setTenant(null);
       }
 
@@ -289,12 +300,11 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem(STORAGE_KEYS.MEMBERSHIPS);
       localStorage.removeItem(STORAGE_KEYS.ACTIVE_MEMBERSHIP);
 
-      setIsAuthenticated(true);
-      return profileData;
+      return { success: true, user: userData, tenant: tenantData };
     } catch (error) {
       console.error('Login with tokens failed:', error);
       clearStoredSession();
-      return null;
+      throw error;
     }
   };
 

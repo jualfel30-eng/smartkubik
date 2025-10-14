@@ -124,6 +124,15 @@ export default function OrganizationSelector() {
     autoSelectTenant();
   }, [activeMembershipId, memberships, tenant, isAutoSelecting, selectTenant, navigate, getLastLocation, location.state]);
 
+  // Auto-select if there is only one membership
+  useEffect(() => {
+    if (memberships.length === 1 && !activeMembershipId && !tenant && !isAutoSelecting) {
+      const singleMembership = memberships[0];
+      console.log('Only one membership found, auto-selecting:', singleMembership.tenant?.name);
+      handleSelectOrganization(singleMembership);
+    }
+  }, [memberships, activeMembershipId, tenant, isAutoSelecting]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 

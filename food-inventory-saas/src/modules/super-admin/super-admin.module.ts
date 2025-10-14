@@ -27,12 +27,14 @@ import { SuppliersModule } from '../suppliers/suppliers.module';
 import { TablesModule } from '../tables/tables.module';
 import { TodosModule } from '../todos/todos.module';
 import { UsersModule } from '../users/users.module';
+import { AuthModule } from '../../auth/auth.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: GlobalSetting.name, schema: GlobalSettingSchema },
     ]),
+    AuthModule,
     AppointmentsModule,
     BankAccountsModule,
     BillSplitsModule,

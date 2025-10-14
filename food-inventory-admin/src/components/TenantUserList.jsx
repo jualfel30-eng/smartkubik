@@ -41,8 +41,8 @@ export default function TenantUserList() {
 
       if (tokenData && tokenData.accessToken) {
         toast.success('Impersonando al usuario...');
-        await loginWithTokens(tokenData.accessToken, tokenData.refreshToken);
-        navigate('/');
+        await loginWithTokens(tokenData);
+        navigate('/organizations');
       } else {
         throw new Error("No se recibió una respuesta válida para la impersonación.");
       }

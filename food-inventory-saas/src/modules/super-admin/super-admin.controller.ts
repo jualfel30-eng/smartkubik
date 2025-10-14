@@ -1,4 +1,4 @@
-import { Controller, Delete, Param, UseGuards, HttpCode, HttpStatus, Get, Query, Patch, Body, Post } from '@nestjs/common';
+import { Controller, Delete, Param, UseGuards, HttpCode, HttpStatus, Get, Query, Patch, Body, Post, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { SuperAdminGuard } from './guards/super-admin.guard';
@@ -27,6 +27,35 @@ export class SuperAdminController {
   @ApiResponse({ status: 200, description: 'Configuración del tenant obtenida exitosamente.' })
   async getTenantConfiguration(@Param('tenantId') tenantId: string) {
     return this.superAdminService.getTenantConfiguration(tenantId);
+  }
+
+  @Get('tenants/:tenantId/users')
+  @ApiOperation({ summary: '[SUPER ADMIN] Get all users for a specific tenant' })
+  @ApiResponse({ status: 200, description: 'Lista de usuarios obtenida exitosamente.' })
+  async getUsersForTenant(@Param('tenantId') tenantId: string) {
+    return this.superAdminService.getUsersForTenant(tenantId);
+  }
+
+  @Post('tenants/:tenantId/users/:userId/impersonate')
+  @ApiOperation({ summary: '[SUPER ADMIN] Impersonate a user' })
+  @ApiResponse({ status: 200, description: 'Impersonation successful, returns new tokens.' })
+  async impersonateUser(@Param('userId') userId: string, @Request() req) {
+    const impersonatorId = req.user.id;
+    return this.superAdminService.impersonateUser(userId, impersonatorId);
+  }
+
+  @Patch('tenants/:tenantId/status')
+  @ApiOperation({ summary: '[SUPER ADMIN] Update a tenant\'s status' })
+  @ApiResponse({ status: 200, description: 'Tenant status updated successfully.' })
+  async updateTenantStatus(@Param('tenantId') tenantId: string, @Body() body: { status: string }) {
+    return this.superAdminService.updateTenantStatus(tenantId, body.status);
+  }
+
+  @Patch('tenants/:tenantId')
+  @ApiOperation({ summary: '[SUPER ADMIN] Update a tenant\'s details' })
+  @ApiResponse({ status: 200, description: 'Tenant details updated successfully.' })
+  async updateTenant(@Param('tenantId') tenantId: string, @Body() updateData: any) {
+    return this.superAdminService.updateTenant(tenantId, updateData);
   }
 
   @Get('settings/:key')
@@ -78,5 +107,13 @@ export class SuperAdminController {
   @ApiResponse({ status: 404, description: 'Tenant no encontrado.' })
   async deleteTenant(@Param('id') id: string) {
     return this.superAdminService.deleteTenant(id);
+  }
+
+  @Post('tenants/:tenantId/sync-memberships')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '[SUPER ADMIN] Sync a legacy tenant\'s permissions to the current system standard' })
+  @ApiResponse({ status: 200, description: 'Permisos del tenant sincronizados exitosamente.' })
+  async syncTenantMemberships(@Param('tenantId') tenantId: string) {
+    return this.superAdminService.syncTenantMemberships(tenantId);
   }
 }

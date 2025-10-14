@@ -5,19 +5,19 @@ export type OrganizationDocument = Organization & Document;
 
 @Schema({ timestamps: true })
 export class Organization {
-  @Prop({ required: true })
+  @Prop({ type: String, required: true })
   name: string;
 
-  @Prop({ required: false })
+  @Prop({ type: String, required: false })
   description?: string;
 
-  @Prop({ required: false })
+  @Prop({ type: String, required: false })
   address?: string;
 
-  @Prop({ required: false })
+  @Prop({ type: String, required: false })
   phone?: string;
 
-  @Prop({ required: false })
+  @Prop({ type: String, required: false })
   email?: string;
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
@@ -26,7 +26,7 @@ export class Organization {
   @Prop({ type: Types.ObjectId, ref: 'Organization', required: false })
   parentOrganization?: Types.ObjectId;
 
-  @Prop({ enum: ['new-business', 'new-location'], default: 'new-business' })
+  @Prop({ type: String, enum: ['new-business', 'new-location'], default: 'new-business' })
   type?: string;
 
   @Prop({
@@ -55,7 +55,7 @@ export class Organization {
     joinedAt: Date;
   }>;
 
-  @Prop({ default: true })
+  @Prop({ type: Boolean, default: true })
   isActive: boolean;
 
   @Prop({ type: Date, default: Date.now })
