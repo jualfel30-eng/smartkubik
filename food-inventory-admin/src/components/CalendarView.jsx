@@ -113,7 +113,8 @@ export function CalendarView() {
         })
       });
       toast.success("Evento Actualizado");
-      fetchEvents();
+      await fetchEvents();
+      await refetchTodos();
     } catch (error) {
       console.error("Error al actualizar evento:", error);
       toast.error("Error al mover el evento", { description: error.message });
@@ -134,7 +135,8 @@ export function CalendarView() {
       
       toast.success(`Evento ${isUpdate ? 'Actualizado' : 'Creado'}`);
       setIsDialogOpen(false);
-      fetchEvents();
+      await fetchEvents();
+      await refetchTodos();
 
     } catch (error) {
       console.error("Error al guardar el evento:", error);
@@ -144,12 +146,18 @@ export function CalendarView() {
 
   const handleDeleteEvent = async (eventId) => {
     try {
-      await fetchApi(`/events/${eventId}`, { method: 'DELETE' });
-      toast.success("Evento Eliminado");
+      if (eventId.startsWith('todo-')) {
+        const todoId = eventId.replace('todo-', '');
+        await fetchApi(`/todos/${todoId}`, { method: 'DELETE' });
+        toast.success("Tarea eliminada");
+      } else {
+        await fetchApi(`/events/${eventId}`, { method: 'DELETE' });
+        toast.success("Evento Eliminado");
+      }
       setIsDialogOpen(false);
-      fetchEvents();
+      await fetchEvents();
       // Refrescar todos porque la eliminación del evento también elimina tareas relacionadas
-      refetchTodos();
+      await refetchTodos();
     } catch (error) {
       console.error("Error al eliminar el evento:", error);
       toast.error("Error al eliminar el evento", { description: error.message });

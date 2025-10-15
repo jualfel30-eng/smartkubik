@@ -43,11 +43,12 @@ export class InventoryService {
     const existingInventory = await this.inventoryModel
       .findOne({
         productSku: createInventoryDto.productSku,
-        tenantId: user.tenantId,
+        tenantId: this.buildTenantFilter(user.tenantId),
       })
       .session(session ?? null);
-    if (existingInventory)
+    if (existingInventory && existingInventory.isActive !== false) {
       throw new Error("Ya existe inventario para este producto/variante");
+    }
 
     const processedLots =
       createInventoryDto.lots?.map((lot) => ({
@@ -79,7 +80,18 @@ export class InventoryService {
       createdBy: user.id,
       tenantId: user.tenantId,
     };
-    const inventory = new this.inventoryModel(inventoryData);
+    let inventory = existingInventory;
+
+    if (inventory && inventory.isActive === false) {
+      inventory.set({
+        ...inventoryData,
+        isActive: true,
+        updatedBy: user.id,
+      });
+    } else {
+      inventory = new this.inventoryModel(inventoryData);
+    }
+
     const savedInventory = await inventory.save({ session });
 
     if (createInventoryDto.totalQuantity > 0) {
@@ -107,6 +119,46 @@ export class InventoryService {
       );
     }
     return savedInventory;
+  }
+
+  async remove(id: string, tenantId: string, user: any): Promise<boolean> {
+    const inventory = await this.inventoryModel.findOne({
+      _id: id,
+      tenantId: this.buildTenantFilter(tenantId),
+    });
+
+    if (!inventory) {
+      return false;
+    }
+
+    if (inventory.reservedQuantity > 0) {
+      throw new Error(
+        "No se puede eliminar el inventario porque hay unidades reservadas.",
+      );
+    }
+
+    inventory.isActive = false;
+    inventory.totalQuantity = 0;
+    inventory.availableQuantity = 0;
+    inventory.reservedQuantity = 0;
+    inventory.committedQuantity = 0;
+    inventory.lots = [];
+    inventory.alerts = {
+      lowStock: false,
+      nearExpiration: false,
+      expired: false,
+      overstock: false,
+    };
+    inventory.metrics = {
+      turnoverRate: 0,
+      daysOnHand: 0,
+      averageDailySales: 0,
+      seasonalityFactor: 1,
+    };
+    inventory.updatedBy = user.id;
+
+    await inventory.save();
+    return true;
   }
 
   async createMovement(
@@ -472,12 +524,15 @@ export class InventoryService {
       dateTo,
       orderId,
     } = query;
-    const tenantObjectId = new Types.ObjectId(tenantId);
-    const filter: any = { tenantId: tenantObjectId };
-    if (inventoryId) filter.inventoryId = new Types.ObjectId(inventoryId);
+    const filter: any = { tenantId: this.buildTenantFilter(tenantId) };
+    const inventoryObjectId = this.toObjectIdIfValid(inventoryId);
+    if (inventoryObjectId) filter.inventoryId = inventoryObjectId;
+    else if (inventoryId) filter.inventoryId = inventoryId;
     if (productSku) filter.productSku = productSku;
     if (movementType) filter.movementType = movementType;
-    if (orderId) filter.orderId = new Types.ObjectId(orderId);
+    const orderObjectId = this.toObjectIdIfValid(orderId);
+    if (orderObjectId) filter.orderId = orderObjectId;
+    else if (orderId) filter.orderId = orderId;
     if (dateFrom || dateTo) {
       filter.createdAt = {};
       if (dateFrom) filter.createdAt.$gte = new Date(dateFrom);
@@ -504,11 +559,11 @@ export class InventoryService {
   }
 
   async getLowStockAlerts(tenantId: string) {
-    const tenantObjectId = new Types.ObjectId(tenantId);
     return this.inventoryModel.aggregate([
       {
         $match: {
-          tenantId: tenantObjectId,
+          tenantId: this.buildTenantFilter(tenantId),
+          isActive: { $ne: false },
         },
       },
       {
@@ -542,34 +597,43 @@ export class InventoryService {
   }
 
   async getExpirationAlerts(tenantId: string, days: number = 7) {
-    const tenantObjectId = new Types.ObjectId(tenantId);
     const alertDate = new Date();
     alertDate.setDate(alertDate.getDate() + days);
     return this.inventoryModel
       .find({
-        tenantId: tenantObjectId,
+        tenantId: this.buildTenantFilter(tenantId),
         "lots.expirationDate": { $lte: alertDate },
         "lots.status": "available",
+        isActive: { $ne: false },
       })
       .populate("productId", "name category")
       .exec();
   }
 
   async getInventorySummary(tenantId: string) {
-    const tenantObjectId = new Types.ObjectId(tenantId);
     const [totalProducts, lowStockCount, expirationCount, totalValue] =
       await Promise.all([
-        this.inventoryModel.countDocuments({ tenantId: tenantObjectId }),
         this.inventoryModel.countDocuments({
-          tenantId: tenantObjectId,
-          "alerts.lowStock": true,
+          tenantId: this.buildTenantFilter(tenantId),
+          isActive: { $ne: false },
         }),
         this.inventoryModel.countDocuments({
-          tenantId: tenantObjectId,
+          tenantId: this.buildTenantFilter(tenantId),
+          "alerts.lowStock": true,
+          isActive: { $ne: false },
+        }),
+        this.inventoryModel.countDocuments({
+          tenantId: this.buildTenantFilter(tenantId),
           "alerts.nearExpiration": true,
+          isActive: { $ne: false },
         }),
         this.inventoryModel.aggregate([
-          { $match: { tenantId: tenantObjectId } },
+          {
+            $match: {
+              tenantId: this.buildTenantFilter(tenantId),
+              isActive: { $ne: false },
+            },
+          },
           {
             $group: {
               _id: null,
@@ -609,10 +673,17 @@ export class InventoryService {
       minAvailable,
       sortBy = "lastUpdated",
       sortOrder = "desc",
+      includeInactive = false,
     } = query;
-    // Convert tenantId to ObjectId to handle both string and ObjectId types in database
-    const tenantObjectId = new Types.ObjectId(tenantId);
-    const filter: any = { tenantId: tenantObjectId };
+
+    const filter: any = {
+      tenantId: this.buildTenantFilter(tenantId),
+    };
+
+    if (!includeInactive) {
+      filter.isActive = { $ne: false };
+    }
+
     if (warehouse) filter["location.warehouse"] = warehouse;
     if (lowStock) filter["alerts.lowStock"] = true;
     if (nearExpiration) filter["alerts.nearExpiration"] = true;
@@ -652,9 +723,11 @@ export class InventoryService {
     id: string,
     tenantId: string,
   ): Promise<InventoryDocument | null> {
-    const tenantObjectId = new Types.ObjectId(tenantId);
     return this.inventoryModel
-      .findOne({ _id: id, tenantId: tenantObjectId })
+      .findOne({
+        _id: id,
+        tenantId: this.buildTenantFilter(tenantId),
+      })
       .populate("productId", "name category brand isPerishable")
       .exec();
   }
@@ -663,9 +736,11 @@ export class InventoryService {
     productSku: string,
     tenantId: string,
   ): Promise<InventoryDocument | null> {
-    const tenantObjectId = new Types.ObjectId(tenantId);
     return this.inventoryModel
-      .findOne({ productSku, tenantId: tenantObjectId })
+      .findOne({
+        productSku,
+        tenantId: this.buildTenantFilter(tenantId),
+      })
       .populate("productId", "name category brand isPerishable")
       .exec();
   }
@@ -792,5 +867,22 @@ export class InventoryService {
       user,
       session,
     );
+  }
+
+  private buildTenantFilter(tenantId: string | Types.ObjectId) {
+    if (tenantId instanceof Types.ObjectId) {
+      return { $in: [tenantId.toString(), tenantId] };
+    }
+    if (Types.ObjectId.isValid(tenantId)) {
+      const objectId = new Types.ObjectId(tenantId);
+      return { $in: [tenantId, objectId] };
+    }
+    return tenantId;
+  }
+
+  private toObjectIdIfValid(id?: string | Types.ObjectId) {
+    if (!id) return undefined;
+    if (id instanceof Types.ObjectId) return id;
+    return Types.ObjectId.isValid(id) ? new Types.ObjectId(id) : undefined;
   }
 }

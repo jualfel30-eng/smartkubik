@@ -9,6 +9,7 @@ import {
   Request,
   HttpStatus,
   HttpException,
+  Delete,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -57,6 +58,34 @@ export class InventoryController {
     } catch (error) {
       throw new HttpException(
         error.message || "Error al crear el inventario",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Delete(":id")
+  @Permissions("inventory_delete")
+  @ApiOperation({ summary: "Eliminar (desactivar) un inventario" })
+  @ApiResponse({
+    status: 200,
+    description: "Inventario eliminado lógicamente",
+  })
+  async remove(@Param("id") id: string, @Request() req) {
+    try {
+      const removed = await this.inventoryService.remove(id, req.user.tenantId, req.user);
+      if (!removed) {
+        throw new HttpException("Inventario no encontrado", HttpStatus.NOT_FOUND);
+      }
+      return {
+        success: true,
+        message: "Inventario eliminado correctamente",
+      };
+    } catch (error) {
+      if (error.status === HttpStatus.NOT_FOUND) {
+        throw error;
+      }
+      throw new HttpException(
+        error.message || "Error al eliminar el inventario",
         HttpStatus.BAD_REQUEST,
       );
     }

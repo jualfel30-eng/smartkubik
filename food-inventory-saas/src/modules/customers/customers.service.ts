@@ -96,7 +96,11 @@ export class CustomersService {
     if (customerType && customerType !== 'all') {
       filter.customerType = customerType;
     }
-    if (status) filter.status = status;
+    if (status && status !== 'all') {
+      filter.status = status;
+    } else {
+      filter.status = { $ne: "inactive" };
+    }
     if (assignedTo) filter.assignedTo = new Types.ObjectId(assignedTo);
 
     if (search) {
@@ -480,8 +484,13 @@ export class CustomersService {
       updatedBy: user.id,
     };
 
+    const tenantFilter =
+      Types.ObjectId.isValid(user.tenantId)
+        ? { $in: [user.tenantId, new Types.ObjectId(user.tenantId)] }
+        : user.tenantId;
+
     return this.customerModel
-      .findOneAndUpdate({ _id: id, tenantId: user.tenantId }, updateData, {
+      .findOneAndUpdate({ _id: id, tenantId: tenantFilter }, updateData, {
         new: true,
         runValidators: true,
       })
@@ -491,8 +500,13 @@ export class CustomersService {
   async remove(id: string, tenantId: string): Promise<boolean> {
     this.logger.log(`Soft deleting customer with ID: ${id}`);
 
+    const tenantFilter =
+      Types.ObjectId.isValid(tenantId)
+        ? { $in: [tenantId, new Types.ObjectId(tenantId)] }
+        : tenantId;
+
     const result = await this.customerModel.updateOne(
-      { _id: id, tenantId },
+      { _id: id, tenantId: tenantFilter },
       { status: "inactive", inactiveReason: "Eliminado por usuario" },
     );
 

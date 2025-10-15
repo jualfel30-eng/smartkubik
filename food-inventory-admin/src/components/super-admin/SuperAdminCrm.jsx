@@ -12,7 +12,7 @@ const SuperAdminCrm = () => {
     const fetchTenants = async () => {
       try {
         const response = await fetchApi('/super-admin/tenants');
-        setTenants(response || []); // API returns a raw array
+        setTenants(response.tenants || []); // API returns an object { tenants: [], total: X }
       } catch (err) {
         setError(err.message);
         setTenants([]);

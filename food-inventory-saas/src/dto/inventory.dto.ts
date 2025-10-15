@@ -334,6 +334,15 @@ export class InventoryQueryDto {
   @IsOptional()
   @IsEnum(["asc", "desc"])
   sortOrder?: string = "desc";
+
+  @ApiPropertyOptional({
+    description: "Incluir inventario inactivo (borrado lógico)",
+    default: false,
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === "true" || value === true)
+  @IsBoolean()
+  includeInactive?: boolean = false;
 }
 
 export class InventoryMovementQueryDto {

@@ -8,6 +8,7 @@ import { BankStatement, BankStatementSchema } from '../../schemas/bank-statement
 import { AuthModule } from '../../auth/auth.module';
 import { PermissionsModule } from '../permissions/permissions.module';
 import { Tenant, TenantSchema } from '../../schemas/tenant.schema';
+import { ModuleAccessGuard } from '../../guards/module-access.guard';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { Tenant, TenantSchema } from '../../schemas/tenant.schema';
     PermissionsModule,
   ],
   controllers: [BankAccountsController],
-  providers: [BankAccountsService],
+  providers: [BankAccountsService, ModuleAccessGuard],
   exports: [BankAccountsService],
 })
 export class BankAccountsModule {}

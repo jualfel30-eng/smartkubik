@@ -200,7 +200,18 @@ function InventoryManagement() {
     }
   };
 
-  const handleDeleteItem = (id) => console.log("Delete item logic needs to be connected to the API", id);
+  const handleDeleteItem = async (id) => {
+    const confirmed = window.confirm('¿Seguro que deseas eliminar este inventario? Esta acción desactivará el stock asociado.');
+    if (!confirmed) return;
+
+    try {
+      await fetchApi(`/inventory/${id}`, { method: 'DELETE' });
+      toast.success('Inventario eliminado correctamente.');
+      loadData();
+    } catch (err) {
+      toast.error('Error al eliminar inventario', { description: err.message });
+    }
+  };
 
   const handleDownloadTemplate = () => {
     const headers = ['SKU', 'NuevaCantidad'];

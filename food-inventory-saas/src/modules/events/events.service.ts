@@ -4,7 +4,7 @@ import {
   ForbiddenException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model, ClientSession } from "mongoose";
+import { Model, ClientSession, Types } from "mongoose";
 import { Event, EventDocument } from "../../schemas/event.schema";
 import { CreateEventDto, UpdateEventDto } from "../../dto/event.dto";
 import { Todo, TodoDocument } from "../../schemas/todo.schema";
@@ -20,6 +20,7 @@ export class EventsService {
     createEventDto: CreateEventDto,
     user: any,
     session?: ClientSession,
+    options?: { syncTodo?: boolean },
   ): Promise<EventDocument> {
     const eventData = {
       ...createEventDto,
@@ -27,7 +28,28 @@ export class EventsService {
       tenantId: user.tenantId,
     };
     const createdEvent = new this.eventModel(eventData);
-    return createdEvent.save({ session });
+    const savedEvent = await createdEvent.save({ session });
+
+    if (options?.syncTodo !== false) {
+      const dueDate =
+        createEventDto.end ?? createEventDto.start ?? new Date().toISOString();
+
+      try {
+        await this.todoModel.create({
+          title: createEventDto.title,
+          dueDate: new Date(dueDate),
+          tags: ["calendario"],
+          priority: "medium",
+          relatedEventId: savedEvent._id.toString(),
+          createdBy: this.toObjectIdOrValue(user.id),
+          tenantId: this.normalizeTenantValue(user.tenantId),
+        });
+      } catch (error) {
+        console.error("Error creating todo for event:", error);
+      }
+    }
+
+    return savedEvent;
   }
 
   async findAll(
@@ -35,7 +57,7 @@ export class EventsService {
     startDate?: string,
     endDate?: string,
   ): Promise<EventDocument[]> {
-    const query: any = { tenantId: user.tenantId };
+    const query: any = { tenantId: this.buildTenantFilter(user.tenantId) };
     if (startDate && endDate) {
       const rangeStart = new Date(startDate);
       const rangeEnd = new Date(endDate);
@@ -62,14 +84,14 @@ export class EventsService {
   }
 
   async findOne(id: string, user: any): Promise<EventDocument> {
-    const event = await this.eventModel.findById(id).exec();
+    const event = await this.eventModel
+      .findOne({
+        _id: this.toObjectIdOrValue(id),
+        tenantId: this.buildTenantFilter(user.tenantId),
+      })
+      .exec();
     if (!event) {
       throw new NotFoundException(`Evento con ID "${id}" no encontrado.`);
-    }
-    if (event.tenantId.toString() !== user.tenantId) {
-      throw new ForbiddenException(
-        "No tienes permiso para acceder a este evento.",
-      );
     }
     return event;
   }
@@ -83,7 +105,32 @@ export class EventsService {
 
     Object.assign(existingEvent, updateEventDto);
 
-    return existingEvent.save();
+    const savedEvent = await existingEvent.save();
+
+    const dueDate = savedEvent.end ?? savedEvent.start;
+    const todoUpdate: Record<string, any> = {
+      title: savedEvent.title,
+    };
+    if (dueDate) {
+      todoUpdate.dueDate = new Date(dueDate);
+    }
+
+    try {
+      await this.todoModel
+        .findOneAndUpdate(
+          {
+            relatedEventId: savedEvent._id.toString(),
+            tenantId: this.buildTenantFilter(user.tenantId),
+          },
+          todoUpdate,
+          { new: true },
+        )
+        .exec();
+    } catch (error) {
+      console.error("Error syncing todo for event update:", error);
+    }
+
+    return savedEvent;
   }
 
   async remove(
@@ -95,7 +142,12 @@ export class EventsService {
 
     // Eliminar tareas relacionadas con este evento
     try {
-      await this.todoModel.deleteMany({ relatedEventId: id }).exec();
+      await this.todoModel
+        .deleteMany({
+          relatedEventId: id,
+          tenantId: this.buildTenantFilter(user.tenantId),
+        })
+        .exec();
     } catch (error) {
       console.error('Error deleting related todos:', error);
       // Continuar con la eliminación del evento aunque falle la eliminación de todos
@@ -130,7 +182,9 @@ export class EventsService {
       color: '#3b82f6', // Azul para compras
     };
 
-    const event = await this.create(eventData as any, user);
+    const event = await this.create(eventData as any, user, undefined, {
+      syncTodo: false,
+    });
 
     // Crear tarea vinculada
     const todoData = {
@@ -139,8 +193,8 @@ export class EventsService {
       tags: ['compras', 'pagos'],
       priority: this.calculatePriority(purchaseData.paymentDueDate),
       relatedEventId: event._id.toString(),
-      createdBy: user.id,
-      tenantId: user.tenantId,
+      createdBy: this.toObjectIdOrValue(user.id),
+      tenantId: this.normalizeTenantValue(user.tenantId),
     };
 
     const todo = await this.todoModel.create(todoData);
@@ -183,7 +237,9 @@ export class EventsService {
       color: isExpiring ? '#f59e0b' : '#22c55e', // Ámbar para vencimiento, verde para stock
     };
 
-    const event = await this.create(eventData as any, user);
+    const event = await this.create(eventData as any, user, undefined, {
+      syncTodo: false,
+    });
 
     const todoData = {
       title,
@@ -191,8 +247,8 @@ export class EventsService {
       tags: ['produccion'],
       priority: isExpiring ? 'high' : 'medium',
       relatedEventId: event._id.toString(),
-      createdBy: user.id,
-      tenantId: user.tenantId,
+      createdBy: this.toObjectIdOrValue(user.id),
+      tenantId: this.normalizeTenantValue(user.tenantId),
     };
 
     const todo = await this.todoModel.create(todoData);
@@ -203,6 +259,26 @@ export class EventsService {
   /**
    * Calcula la prioridad basada en la fecha de vencimiento
    */
+  private toObjectIdOrValue(id: string | Types.ObjectId) {
+    if (id instanceof Types.ObjectId) {
+      return id;
+    }
+    return Types.ObjectId.isValid(id) ? new Types.ObjectId(id) : id;
+  }
+
+  private normalizeTenantValue(tenantId: string | Types.ObjectId) {
+    const maybeObjectId = this.toObjectIdOrValue(tenantId);
+    return maybeObjectId;
+  }
+
+  private buildTenantFilter(tenantId: string | Types.ObjectId) {
+    const maybeObjectId = this.toObjectIdOrValue(tenantId);
+    if (maybeObjectId instanceof Types.ObjectId) {
+      return { $in: [maybeObjectId, maybeObjectId.toHexString()] };
+    }
+    return tenantId;
+  }
+
   private calculatePriority(dueDate: Date): string {
     const now = new Date();
     const due = new Date(dueDate);

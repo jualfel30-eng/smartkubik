@@ -16,7 +16,7 @@ export class BankAccountsService {
   async create(createBankAccountDto: CreateBankAccountDto, tenantId: string): Promise<BankAccount> {
     const newBankAccount = new this.bankAccountModel({
       ...createBankAccountDto,
-      tenantId: new Types.ObjectId(tenantId),
+      tenantId: this.normalizeTenantValue(tenantId),
       currentBalance: createBankAccountDto.initialBalance,
     });
 
@@ -25,7 +25,7 @@ export class BankAccountsService {
   }
 
   async findAll(tenantId: string, includeInactive: boolean = false): Promise<BankAccount[]> {
-    const filter: any = { tenantId: new Types.ObjectId(tenantId) };
+    const filter: any = { tenantId: this.buildTenantFilter(tenantId) };
 
     if (!includeInactive) {
       filter.isActive = true;
@@ -38,8 +38,11 @@ export class BankAccountsService {
   }
 
   async findOne(id: string, tenantId: string): Promise<BankAccount> {
+    const accountId = this.toObjectIdIfValid(id) ?? id;
+    const tenantFilter = this.buildTenantFilter(tenantId);
+
     const bankAccount = await this.bankAccountModel
-      .findOne({ _id: id, tenantId: new Types.ObjectId(tenantId) })
+      .findOne({ _id: accountId, tenantId: tenantFilter })
       .exec();
 
     if (!bankAccount) {
@@ -50,9 +53,12 @@ export class BankAccountsService {
   }
 
   async update(id: string, updateBankAccountDto: UpdateBankAccountDto, tenantId: string): Promise<BankAccount> {
+    const accountId = this.toObjectIdIfValid(id) ?? id;
+    const tenantFilter = this.buildTenantFilter(tenantId);
+
     const updated = await this.bankAccountModel
       .findOneAndUpdate(
-        { _id: id, tenantId: new Types.ObjectId(tenantId) },
+        { _id: accountId, tenantId: tenantFilter },
         updateBankAccountDto,
         { new: true }
       )
@@ -67,8 +73,11 @@ export class BankAccountsService {
   }
 
   async delete(id: string, tenantId: string): Promise<void> {
+    const accountId = this.toObjectIdIfValid(id) ?? id;
+    const tenantFilter = this.buildTenantFilter(tenantId);
+
     const result = await this.bankAccountModel
-      .deleteOne({ _id: id, tenantId: new Types.ObjectId(tenantId) })
+      .deleteOne({ _id: accountId, tenantId: tenantFilter })
       .exec();
 
     if (result.deletedCount === 0) {
@@ -89,7 +98,10 @@ export class BankAccountsService {
 
     const updated = await this.bankAccountModel
       .findOneAndUpdate(
-        { _id: id, tenantId: new Types.ObjectId(tenantId) },
+        {
+          _id: this.toObjectIdIfValid(id) ?? id,
+          tenantId: this.buildTenantFilter(tenantId),
+        },
         { currentBalance: newBalance },
         { new: true }
       )
@@ -108,7 +120,10 @@ export class BankAccountsService {
 
     const updated = await this.bankAccountModel
       .findOneAndUpdate(
-        { _id: id, tenantId: new Types.ObjectId(tenantId) },
+        {
+          _id: this.toObjectIdIfValid(id) ?? id,
+          tenantId: this.buildTenantFilter(tenantId),
+        },
         { $inc: { currentBalance: amount } },
         { new: true }
       )
@@ -123,7 +138,7 @@ export class BankAccountsService {
 
   async getTotalBalance(tenantId: string, currency?: string): Promise<number> {
     const filter: any = {
-      tenantId: new Types.ObjectId(tenantId),
+      tenantId: this.buildTenantFilter(tenantId),
       isActive: true
     };
 
@@ -137,7 +152,7 @@ export class BankAccountsService {
 
   async getBalancesByCurrency(tenantId: string): Promise<Record<string, number>> {
     const accounts = await this.bankAccountModel
-      .find({ tenantId: new Types.ObjectId(tenantId), isActive: true })
+      .find({ tenantId: this.buildTenantFilter(tenantId), isActive: true })
       .exec();
 
     const balances: Record<string, number> = {};
@@ -151,4 +166,25 @@ export class BankAccountsService {
 
     return balances;
   }
-}
+
+  private toObjectIdIfValid(id: string | Types.ObjectId) {
+    if (id instanceof Types.ObjectId) {
+      return id;
+    }
+    return Types.ObjectId.isValid(id) ? new Types.ObjectId(id) : undefined;
+  }
+
+  private normalizeTenantValue(tenantId: string | Types.ObjectId) {
+    const objectId = this.toObjectIdIfValid(tenantId);
+    return objectId ?? tenantId;
+  }
+
+  private buildTenantFilter(tenantId: string | Types.ObjectId) {
+    const objectId = this.toObjectIdIfValid(tenantId);
+    if (objectId) {
+      return { $in: [objectId, objectId.toHexString()] };
+    }
+    return tenantId;
+  }
+
+ }

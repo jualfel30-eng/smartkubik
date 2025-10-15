@@ -15,10 +15,13 @@ import { CreateBankAccountDto, UpdateBankAccountDto, AdjustBalanceDto } from '..
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { TenantGuard } from '../../guards/tenant.guard';
 import { PermissionsGuard } from '../../guards/permissions.guard';
+import { ModuleAccessGuard } from '../../guards/module-access.guard';
 import { Permissions } from '../../decorators/permissions.decorator';
+import { RequireModule } from '../../decorators/require-module.decorator';
 
 @Controller('bank-accounts')
-@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard, ModuleAccessGuard)
+@RequireModule('bankAccounts')
 export class BankAccountsController {
   constructor(private readonly bankAccountsService: BankAccountsService) {}
 
