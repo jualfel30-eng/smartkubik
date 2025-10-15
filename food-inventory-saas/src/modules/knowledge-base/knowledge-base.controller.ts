@@ -4,6 +4,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { KnowledgeBaseService } from './knowledge-base.service';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiConsumes, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
+import { Request } from 'express';
 
 // Define a type for the request object to include the user property
 interface AuthenticatedRequest extends Request {
@@ -52,12 +53,7 @@ export class KnowledgeBaseController {
     const { tenantId } = req.user;
     const metadata = { source: source || file.originalname };
 
-    await this.knowledgeBaseService.addDocument(
-      tenantId,
-      file.buffer,
-      file.mimetype,
-      metadata,
-    );
+    await this.knowledgeBaseService.addDocument(tenantId, file, metadata);
 
     return { message: 'Document uploaded and processed successfully.' };
   }

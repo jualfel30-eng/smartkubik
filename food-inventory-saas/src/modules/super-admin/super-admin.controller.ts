@@ -1,15 +1,20 @@
-import { Controller, Delete, Param, UseGuards, HttpCode, HttpStatus, Get, Query, Patch, Body, Post, Request } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Delete, Param, UseGuards, HttpCode, HttpStatus, Get, Query, Patch, Body, Post, Request, UseInterceptors, UploadedFile, BadRequestException, Req } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { SuperAdminGuard } from './guards/super-admin.guard';
 import { SuperAdminService } from './super-admin.service';
+import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
 
 @ApiTags('Super Admin')
 @ApiBearerAuth()
 @Controller('super-admin')
 @UseGuards(JwtAuthGuard, SuperAdminGuard)
 export class SuperAdminController {
-  constructor(private readonly superAdminService: SuperAdminService) {}
+  constructor(
+    private readonly superAdminService: SuperAdminService,
+    private readonly knowledgeBaseService: KnowledgeBaseService,
+  ) {}
 
   @Get('tenants')
   @ApiOperation({ summary: '[SUPER ADMIN] Get all tenants with pagination' })
@@ -62,7 +67,8 @@ export class SuperAdminController {
   @ApiOperation({ summary: '[SUPER ADMIN] Get a global setting by key' })
   @ApiResponse({ status: 200, description: 'Setting retrieved successfully.' })
   async getSetting(@Param('key') key: string) {
-    return this.superAdminService.getSetting(key);
+    const setting = await this.superAdminService.getSetting(key);
+    return { data: setting };
   }
 
   @Post('settings')
@@ -115,5 +121,75 @@ export class SuperAdminController {
   @ApiResponse({ status: 200, description: 'Permisos del tenant sincronizados exitosamente.' })
   async syncTenantMemberships(@Param('tenantId') tenantId: string) {
     return this.superAdminService.syncTenantMemberships(tenantId);
+  }
+
+  @Post('knowledge-base/upload')
+  @ApiOperation({ summary: '[SUPER ADMIN] Upload a document to a specified knowledge base' })
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'Document file and target tenantId for the knowledge base',
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        tenantId: { type: 'string', description: 'The target tenantId for the knowledge base (e.g., \"smartkubik_docs\")' },
+        source: { type: 'string', description: 'The source of the document' },
+      },
+    },
+  })
+  async uploadGlobalDocument(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: any,
+  ) {
+    const { tenantId, source } = req.body;
+    if (!file) {
+      throw new BadRequestException('No file uploaded.');
+    }
+    if (!tenantId) {
+      throw new BadRequestException('No tenantId provided in form data.');
+    }
+
+    const metadata = { source };
+
+    await this.knowledgeBaseService.addDocument(tenantId, file, metadata);
+
+    return { message: `Document uploaded and processed successfully for tenant ${tenantId}.` };
+  }
+
+  @Get('knowledge-base/documents')
+  @ApiOperation({ summary: '[SUPER ADMIN] Get a list of documents in a knowledge base' })
+  async getDocuments(@Query('tenantId') tenantId: string) {
+    if (!tenantId) {
+      throw new BadRequestException('tenantId is a required query parameter.');
+    }
+    const documents = await this.knowledgeBaseService.listDocuments(tenantId);
+    return { data: documents };
+  }
+
+  @Get('knowledge-base/query')
+  @ApiOperation({ summary: '[SUPER ADMIN] Query the knowledge base for a given tenant' })
+  async queryKnowledgeBase(
+    @Query('tenantId') tenantId: string,
+    @Query('q') query: string,
+  ) {
+    if (!tenantId || !query) {
+      throw new BadRequestException('tenantId and q are required query parameters.');
+    }
+    const results = await this.knowledgeBaseService.queryKnowledgeBase(tenantId, query);
+    return { data: results };
+  }
+
+  @Delete('knowledge-base/document')
+  @ApiOperation({ summary: '[SUPER ADMIN] Delete a document from a knowledge base by its source' })
+  async deleteDocument(
+    @Query('tenantId') tenantId: string,
+    @Query('source') source: string,
+  ) {
+    if (!tenantId || !source) {
+      throw new BadRequestException('tenantId and source are required query parameters.');
+    }
+    await this.knowledgeBaseService.deleteDocumentBySource(tenantId, source);
+    return { message: `Deletion initiated for document source '${source}' in tenant '${tenantId}'.` };
   }
 }

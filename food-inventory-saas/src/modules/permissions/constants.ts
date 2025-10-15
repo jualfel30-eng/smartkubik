@@ -50,6 +50,7 @@ export const ALL_PERMISSIONS = [
     'storefront_update',
     'storefront_delete',
     'accounting_read',
+    'accounting_write',
     'tenant_settings_read',
     'reports_read',
     'billing_read',

@@ -16,18 +16,22 @@ export class TodosService {
   async create(createTodoDto: CreateTodoDto, user: any): Promise<Todo> {
     const newTodo = new this.todoModel({
       ...createTodoDto,
-      createdBy: new Types.ObjectId(user.sub),
-      tenantId: new Types.ObjectId(user.tenantId),
+      createdBy: this.toObjectIdOrValue(user.sub),
+      tenantId: this.normalizeTenantValue(user.tenantId),
     });
     return newTodo.save();
   }
 
   async findAll(tenantId: string): Promise<Todo[]> {
-    return this.todoModel.find({ tenantId }).sort({ createdAt: -1 }).exec();
+    return this.todoModel
+      .find({ tenantId: this.buildTenantFilter(tenantId) })
+      .sort({ createdAt: -1 })
+      .exec();
   }
 
   async update(id: string, updateTodoDto: UpdateTodoDto, tenantId: string): Promise<Todo | null> {
-    const todo = await this.todoModel.findOne({ _id: id, tenantId: new Types.ObjectId(tenantId) });
+    const tenantFilter = this.buildTenantFilter(tenantId);
+    const todo = await this.todoModel.findOne({ _id: this.toObjectIdOrValue(id), tenantId: tenantFilter });
 
     if (!todo) {
       return null;
@@ -43,16 +47,84 @@ export class TodosService {
       }
     }
 
-    return this.todoModel.findOneAndUpdate({ _id: id, tenantId: new Types.ObjectId(tenantId) }, updateTodoDto, { new: true }).exec();
+    const updatedTodo = await this.todoModel
+      .findOneAndUpdate(
+        { _id: this.toObjectIdOrValue(id), tenantId: tenantFilter },
+        updateTodoDto,
+        { new: true },
+      )
+      .exec();
+
+    if (updatedTodo?.relatedEventId) {
+      const eventUpdate: any = {};
+      if (updateTodoDto.title) {
+        eventUpdate.title = updateTodoDto.title;
+      }
+      if (updateTodoDto.dueDate) {
+        const dueDate = new Date(updateTodoDto.dueDate);
+        eventUpdate.start = dueDate;
+        eventUpdate.allDay = true;
+        eventUpdate.end = null;
+      }
+      if (Object.keys(eventUpdate).length > 0) {
+        try {
+          await this.eventModel.findOneAndUpdate(
+            {
+              _id: this.toObjectIdOrValue(updatedTodo.relatedEventId),
+              tenantId: tenantFilter,
+            },
+            eventUpdate,
+          );
+        } catch (error) {
+          console.error('Error syncing event from todo update:', error);
+        }
+      }
+    }
+
+    return updatedTodo;
   }
 
   async remove(id: string, tenantId: string): Promise<any> {
     // Validar que el todo existe y pertenece al tenant antes de eliminar
-    const todo = await this.todoModel.findOne({ _id: id, tenantId: new Types.ObjectId(tenantId) });
+    const tenantFilter = this.buildTenantFilter(tenantId);
+    const todo = await this.todoModel.findOne({ _id: this.toObjectIdOrValue(id), tenantId: tenantFilter });
     if (!todo) {
       throw new NotFoundException(`Todo con ID "${id}" no encontrado o no tiene permisos para eliminarlo`);
     }
 
-    return this.todoModel.findOneAndDelete({ _id: id, tenantId: new Types.ObjectId(tenantId) }).exec();
+    if (todo.relatedEventId) {
+      try {
+        await this.eventModel.findOneAndDelete({
+          _id: this.toObjectIdOrValue(todo.relatedEventId),
+          tenantId: tenantFilter,
+        });
+      } catch (error) {
+        console.error('Error deleting related event from todo removal:', error);
+      }
+    }
+
+    return this.todoModel
+      .findOneAndDelete({ _id: this.toObjectIdOrValue(id), tenantId: tenantFilter })
+      .exec();
+  }
+
+  private toObjectIdOrValue(id: string | Types.ObjectId) {
+    if (id instanceof Types.ObjectId) {
+      return id;
+    }
+    return Types.ObjectId.isValid(id) ? new Types.ObjectId(id) : id;
+  }
+
+  private normalizeTenantValue(tenantId: string | Types.ObjectId) {
+    const maybeObjectId = this.toObjectIdOrValue(tenantId);
+    return maybeObjectId;
+  }
+
+  private buildTenantFilter(tenantId: string | Types.ObjectId) {
+    const maybeObjectId = this.toObjectIdOrValue(tenantId);
+    if (maybeObjectId instanceof Types.ObjectId) {
+      return { $in: [maybeObjectId, maybeObjectId.toHexString()] };
+    }
+    return tenantId;
   }
 }

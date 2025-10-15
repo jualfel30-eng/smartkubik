@@ -234,7 +234,7 @@ function TenantLayout() {
     { name: 'Mesas', href: 'restaurant/floor-plan', icon: Utensils, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Cocina (KDS)', href: 'restaurant/kitchen-display', icon: ChefHat, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Contabilidad', href: 'accounting-management', icon: BookCopy, permission: 'accounting_read' },
-    { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: CreditCard, permission: 'accounting_read' },
+    { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: CreditCard, permission: 'accounting_read', requiresModule: 'bankAccounts' },
     { name: 'CRM', href: 'crm', icon: Users, permission: 'customers_read' },
     { name: 'Compras', href: 'purchases', icon: Truck, permission: 'purchases_read' },
     { name: 'Citas', href: 'appointments', icon: Calendar, permission: 'appointments_read' },

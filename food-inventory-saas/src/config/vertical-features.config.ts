@@ -14,6 +14,7 @@ export const VERTICAL_FEATURES = {
     suppliers: true,
     reports: true,
     accounting: true,
+    bankAccounts: true,
 
     // Food service specific
     restaurant: true, // This flag enables the whole restaurant section in the frontend
@@ -47,6 +48,7 @@ export const VERTICAL_FEATURES = {
     suppliers: true,
     reports: true,
     accounting: true,
+    bankAccounts: true,
 
     // Retail specific
     pos: true,
@@ -79,6 +81,7 @@ export const VERTICAL_FEATURES = {
     suppliers: true,
     reports: true,
     accounting: true,
+    bankAccounts: true,
 
     // Services specific
     appointments: true,
@@ -111,6 +114,7 @@ export const VERTICAL_FEATURES = {
     suppliers: true,
     reports: true,
     accounting: true,
+    bankAccounts: true,
 
     // Logistics specific
     shipments: true,
@@ -143,6 +147,7 @@ export const VERTICAL_FEATURES = {
     suppliers: true,
     reports: true,
     accounting: true,
+    bankAccounts: true,
 
     // All vertical-specific modules enabled (admin decides which to use)
     tables: true,

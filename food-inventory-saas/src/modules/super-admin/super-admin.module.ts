@@ -27,6 +27,7 @@ import { SuppliersModule } from '../suppliers/suppliers.module';
 import { TablesModule } from '../tables/tables.module';
 import { TodosModule } from '../todos/todos.module';
 import { UsersModule } from '../users/users.module';
+import { KnowledgeBaseModule } from '../knowledge-base/knowledge-base.module';
 import { AuthModule } from '../../auth/auth.module';
 
 @Module({
@@ -35,6 +36,7 @@ import { AuthModule } from '../../auth/auth.module';
       { name: GlobalSetting.name, schema: GlobalSettingSchema },
     ]),
     AuthModule,
+    KnowledgeBaseModule, // <--- AÑADIDO
     AppointmentsModule,
     BankAccountsModule,
     BillSplitsModule,

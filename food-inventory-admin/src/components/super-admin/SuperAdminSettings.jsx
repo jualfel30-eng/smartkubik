@@ -8,32 +8,38 @@ import { fetchApi } from '@/lib/api';
 
 const WHAPI_TOKEN_KEY = 'WHAPI_MASTER_TOKEN';
 const OPENAI_API_KEY = 'OPENAI_API_KEY';
+const PINECONE_API_KEY = 'PINECONE_API_KEY';
+const PINECONE_ENVIRONMENT = 'PINECONE_ENVIRONMENT';
 
 const SuperAdminSettings = () => {
   const [whapiToken, setWhapiToken] = useState('');
   const [openAIApiKey, setOpenAIApiKey] = useState('');
+  const [pineconeApiKey, setPineconeApiKey] = useState('');
+  const [pineconeEnv, setPineconeEnv] = useState('');
   const [loading, setLoading] = useState(true);
   const [savingWhapi, setSavingWhapi] = useState(false);
   const [savingOpenAI, setSavingOpenAI] = useState(false);
+  const [savingPinecone, setSavingPinecone] = useState(false);
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
         setLoading(true);
-        const [whapiRes, openAIRes] = await Promise.all([
-          fetchApi(`/super-admin/settings/${WHAPI_TOKEN_KEY}`).catch(e => e),
-          fetchApi(`/super-admin/settings/${OPENAI_API_KEY}`).catch(e => e)
+        const [whapiRes, openAIRes, pineconeKeyRes, pineconeEnvRes] = await Promise.all([
+          fetchApi(`/super-admin/settings/${WHAPI_TOKEN_KEY}`),
+          fetchApi(`/super-admin/settings/${OPENAI_API_KEY}`),
+          fetchApi(`/super-admin/settings/${PINECONE_API_KEY}`),
+          fetchApi(`/super-admin/settings/${PINECONE_ENVIRONMENT}`),
         ]);
 
-        if (whapiRes?.data?.value) {
-          setWhapiToken(whapiRes.data.value);
-        }
-        if (openAIRes?.data?.value) {
-          setOpenAIApiKey(openAIRes.data.value);
-        }
+        if (whapiRes?.data?.value) setWhapiToken(whapiRes.data.value);
+        if (openAIRes?.data?.value) setOpenAIApiKey(openAIRes.data.value);
+        if (pineconeKeyRes?.data?.value) setPineconeApiKey(pineconeKeyRes.data.value);
+        if (pineconeEnvRes?.data?.value) setPineconeEnv(pineconeEnvRes.data.value);
 
       } catch (error) {
         console.error('Could not fetch existing settings.', error);
+        toast.error('Error al cargar la configuración existente', { description: error.message });
       } finally {
         setLoading(false);
       }
@@ -71,6 +77,27 @@ const SuperAdminSettings = () => {
     }
   };
 
+  const handleSavePinecone = async () => {
+    setSavingPinecone(true);
+    try {
+      await Promise.all([
+        fetchApi('/super-admin/settings', {
+          method: 'POST',
+          body: JSON.stringify({ key: PINECONE_API_KEY, value: pineconeApiKey }),
+        }),
+        fetchApi('/super-admin/settings', {
+          method: 'POST',
+          body: JSON.stringify({ key: PINECONE_ENVIRONMENT, value: pineconeEnv }),
+        }),
+      ]);
+      toast.success('Configuración de Pinecone guardada exitosamente.');
+    } catch (error) {
+      toast.error('Error al guardar la configuración de Pinecone', { description: error.message });
+    } finally {
+      setSavingPinecone(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
         <h1 className="text-3xl font-bold">Integraciones</h1>
@@ -80,23 +107,38 @@ const SuperAdminSettings = () => {
                 <CardDescription>Tokens y claves para servicios de terceros.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
-                <div className="space-y-4">
+                {/* Pinecone Settings */}
+                <div className="space-y-4 p-4 border rounded-lg">
+                    <Label className="text-lg font-semibold">Pinecone</Label>
                     <div className="space-y-2">
-                        <Label htmlFor="whapi-token">Token Maestro de Whapi</Label>
+                        <Label htmlFor="pinecone-key">Clave de API de Pinecone</Label>
                         <Input
-                            id="whapi-token"
+                            id="pinecone-key"
                             type="password"
-                            value={whapiToken}
-                            onChange={(e) => setWhapiToken(e.target.value)}
-                            placeholder="Pega aquí el token de tu cuenta principal de Whapi"
+                            value={pineconeApiKey}
+                            onChange={(e) => setPineconeApiKey(e.target.value)}
+                            placeholder="Pega aquí tu clave de API de Pinecone"
                             disabled={loading}
                         />
                     </div>
-                    <Button onClick={handleSaveWhapi} disabled={savingWhapi || loading}>
-                        {savingWhapi ? 'Guardando...' : 'Guardar Token Whapi'}
+                    <div className="space-y-2">
+                        <Label htmlFor="pinecone-env">Environment de Pinecone</Label>
+                        <Input
+                            id="pinecone-env"
+                            value={pineconeEnv}
+                            onChange={(e) => setPineconeEnv(e.target.value)}
+                            placeholder="Ej: gcp-starter, us-west1-gcp"
+                            disabled={loading}
+                        />
+                    </div>
+                    <Button onClick={handleSavePinecone} disabled={savingPinecone || loading}>
+                        {savingPinecone ? 'Guardando...' : 'Guardar Configuración Pinecone'}
                     </Button>
                 </div>
-                <div className="space-y-4">
+
+                {/* OpenAI Settings */}
+                <div className="space-y-4 p-4 border rounded-lg">
+                    <Label className="text-lg font-semibold">OpenAI</Label>
                     <div className="space-y-2">
                         <Label htmlFor="openai-key">Clave de API de OpenAI</Label>
                         <Input
@@ -110,6 +152,25 @@ const SuperAdminSettings = () => {
                     </div>
                     <Button onClick={handleSaveOpenAI} disabled={savingOpenAI || loading}>
                         {savingOpenAI ? 'Guardando...' : 'Guardar Clave OpenAI'}
+                    </Button>
+                </div>
+
+                {/* Whapi Settings */}
+                <div className="space-y-4 p-4 border rounded-lg">
+                    <Label className="text-lg font-semibold">Whapi</Label>
+                    <div className="space-y-2">
+                        <Label htmlFor="whapi-token">Token Maestro de Whapi</Label>
+                        <Input
+                            id="whapi-token"
+                            type="password"
+                            value={whapiToken}
+                            onChange={(e) => setWhapiToken(e.target.value)}
+                            placeholder="Pega aquí el token de tu cuenta principal de Whapi"
+                            disabled={loading}
+                        />
+                    </div>
+                    <Button onClick={handleSaveWhapi} disabled={savingWhapi || loading}>
+                        {savingWhapi ? 'Guardando...' : 'Guardar Token Whapi'}
                     </Button>
                 </div>
             </CardContent>

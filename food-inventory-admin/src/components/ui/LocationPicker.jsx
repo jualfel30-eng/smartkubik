@@ -58,6 +58,13 @@ export function LocationPicker({ value, onChange, label = 'Ubicación' }) {
   const [isSearching, setIsSearching] = useState(false);
   const [searchSuggestions, setSearchSuggestions] = useState([]);
   const [manualAddress, setManualAddress] = useState(value?.manualAddress || '');
+  const [isMapVisible, setIsMapVisible] = useState(true);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches) {
+      setIsMapVisible(false);
+    }
+  }, []);
 
   // Reverse geocoding usando Nominatim (OpenStreetMap)
   const reverseGeocode = async (lat, lng) => {
@@ -197,6 +204,7 @@ export function LocationPicker({ value, onChange, label = 'Ubicación' }) {
     };
     setCenter(newLocation);
     setMarker(newLocation);
+    setIsMapVisible(true);
     onChange({
       address: result.address,
       coordinates: newLocation,
@@ -216,6 +224,7 @@ export function LocationPicker({ value, onChange, label = 'Ubicación' }) {
           };
           setCenter(newLocation);
           setMarker(newLocation);
+          setIsMapVisible(true);
 
           // Get address for current location
           const address = await reverseGeocode(newLocation.lat, newLocation.lng);
@@ -306,7 +315,16 @@ export function LocationPicker({ value, onChange, label = 'Ubicación' }) {
         </div>
 
         {/* Action buttons */}
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setIsMapVisible((prev) => !prev)}
+            className="flex items-center gap-2"
+          >
+            {isMapVisible ? 'Ocultar mapa' : 'Mostrar mapa'}
+          </Button>
           <Button
             type="button"
             variant="outline"
@@ -330,24 +348,30 @@ export function LocationPicker({ value, onChange, label = 'Ubicación' }) {
         </div>
 
         {/* Map */}
-        <div className="w-full h-[400px] rounded-lg overflow-hidden border">
-          <MapContainer
-            center={[defaultCenter.lat, defaultCenter.lng]}
-            zoom={15}
-            style={{ width: '100%', height: '100%' }}
-            scrollWheelZoom={true}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            <MapUpdater center={center} />
-            <MapClickHandler onLocationSelect={handleMapClick} />
-            {marker && (
-              <Marker position={[marker.lat, marker.lng]} />
-            )}
-          </MapContainer>
-        </div>
+        {isMapVisible ? (
+          <div className="w-full h-[220px] sm:h-[300px] lg:h-[420px] rounded-lg overflow-hidden border">
+            <MapContainer
+              center={[defaultCenter.lat, defaultCenter.lng]}
+              zoom={15}
+              style={{ width: '100%', height: '100%' }}
+              scrollWheelZoom={true}
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <MapUpdater center={center} />
+              <MapClickHandler onLocationSelect={handleMapClick} />
+              {marker && (
+                <Marker position={[marker.lat, marker.lng]} />
+              )}
+            </MapContainer>
+          </div>
+        ) : (
+          <div className="w-full rounded-lg border border-dashed p-4 text-sm text-muted-foreground bg-muted/40">
+            El mapa está oculto para aprovechar mejor el espacio en pantallas pequeñas. Puedes mostrarlo cuando lo necesites.
+          </div>
+        )}
 
         {/* Manual address input */}
         {marker && (

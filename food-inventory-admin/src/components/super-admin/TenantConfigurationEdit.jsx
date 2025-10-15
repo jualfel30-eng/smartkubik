@@ -23,7 +23,7 @@ const MODULE_GROUPS = {
   core: {
     title: 'Módulos Core',
     description: 'Funcionalidades básicas disponibles para todos',
-    modules: ['inventory', 'orders', 'customers', 'suppliers', 'reports', 'accounting']
+    modules: ['inventory', 'orders', 'customers', 'suppliers', 'reports', 'accounting', 'bankAccounts']
   },
   communication: {
     title: 'Comunicación',
@@ -60,6 +60,7 @@ const MODULE_LABELS = {
   suppliers: 'Proveedores',
   reports: 'Reportes',
   accounting: 'Contabilidad',
+  bankAccounts: 'Cuentas Bancarias',
   tables: 'Mesas',
   recipes: 'Recetas',
   kitchenDisplay: 'Display de Cocina',

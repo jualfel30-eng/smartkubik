@@ -13,7 +13,7 @@ export class PermissionsService {
     }
 
     const lowercasedModules = modules.map(m => m.toLowerCase());
-    const coreModules = ['dashboard', 'users', 'roles', 'tenant_settings', 'events', 'crm', 'products', 'payables', 'storefront'];
+    const coreModules = ['dashboard', 'users', 'roles', 'tenant_settings', 'events', 'crm', 'products', 'payables', 'storefront', 'accounting'];
 
     const allRequiredModules = [...new Set([...lowercasedModules, ...coreModules])];
 

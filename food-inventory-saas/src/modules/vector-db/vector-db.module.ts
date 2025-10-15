@@ -1,10 +1,11 @@
 
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { VectorDbService } from './vector-db.service';
 import { OpenaiModule } from '../openai/openai.module';
+import { SuperAdminModule } from '../super-admin/super-admin.module';
 
 @Module({
-  imports: [OpenaiModule],
+  imports: [OpenaiModule, forwardRef(() => SuperAdminModule)],
   providers: [VectorDbService],
   exports: [VectorDbService],
 })
