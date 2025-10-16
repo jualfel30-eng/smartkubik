@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { ClientSession, Model, Types } from 'mongoose';
 import { BankAccount, BankAccountDocument } from '../../schemas/bank-account.schema';
 import { CreateBankAccountDto, UpdateBankAccountDto, AdjustBalanceDto } from '../../dto/bank-account.dto';
 
@@ -37,12 +37,17 @@ export class BankAccountsService {
       .exec();
   }
 
-  async findOne(id: string, tenantId: string): Promise<BankAccount> {
+  async findOne(
+    id: string,
+    tenantId: string,
+    session?: ClientSession,
+  ): Promise<BankAccount> {
     const accountId = this.toObjectIdIfValid(id) ?? id;
     const tenantFilter = this.buildTenantFilter(tenantId);
 
     const bankAccount = await this.bankAccountModel
       .findOne({ _id: accountId, tenantId: tenantFilter })
+      .session(session ?? null)
       .exec();
 
     if (!bankAccount) {
@@ -87,8 +92,13 @@ export class BankAccountsService {
     this.logger.log(`Deleted bank account ${id} for tenant ${tenantId}`);
   }
 
-  async adjustBalance(id: string, adjustBalanceDto: AdjustBalanceDto, tenantId: string): Promise<BankAccount> {
-    const bankAccount = await this.findOne(id, tenantId);
+  async adjustBalance(
+    id: string,
+    adjustBalanceDto: AdjustBalanceDto,
+    tenantId: string,
+    session?: ClientSession,
+  ): Promise<BankAccount> {
+    const bankAccount = await this.findOne(id, tenantId, session);
 
     const adjustment = adjustBalanceDto.type === 'increase'
       ? adjustBalanceDto.amount
@@ -103,8 +113,9 @@ export class BankAccountsService {
           tenantId: this.buildTenantFilter(tenantId),
         },
         { currentBalance: newBalance },
-        { new: true }
+        { new: true },
       )
+      .session(session ?? null)
       .exec();
 
     if (!updated) {
@@ -115,8 +126,13 @@ export class BankAccountsService {
     return updated;
   }
 
-  async updateBalance(id: string, amount: number, tenantId: string): Promise<BankAccount> {
-    const bankAccount = await this.findOne(id, tenantId);
+  async updateBalance(
+    id: string,
+    amount: number,
+    tenantId: string,
+    session?: ClientSession,
+  ): Promise<BankAccount> {
+    await this.findOne(id, tenantId, session);
 
     const updated = await this.bankAccountModel
       .findOneAndUpdate(
@@ -125,8 +141,9 @@ export class BankAccountsService {
           tenantId: this.buildTenantFilter(tenantId),
         },
         { $inc: { currentBalance: amount } },
-        { new: true }
+        { new: true },
       )
+      .session(session ?? null)
       .exec();
 
     if (!updated) {
@@ -136,7 +153,12 @@ export class BankAccountsService {
     return updated;
   }
 
-  async setCurrentBalance(id: string, newBalance: number, tenantId: string): Promise<BankAccount> {
+  async setCurrentBalance(
+    id: string,
+    newBalance: number,
+    tenantId: string,
+    session?: ClientSession,
+  ): Promise<BankAccount> {
     if (!Number.isFinite(newBalance)) {
       throw new Error('Invalid balance value provided');
     }
@@ -150,6 +172,7 @@ export class BankAccountsService {
         { currentBalance: newBalance },
         { new: true },
       )
+      .session(session ?? null)
       .exec();
 
     if (!updated) {

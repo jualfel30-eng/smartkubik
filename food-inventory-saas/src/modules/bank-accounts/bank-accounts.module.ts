@@ -13,6 +13,7 @@ import { BankTransaction, BankTransactionSchema } from '../../schemas/bank-trans
 import { BankTransactionsService } from './bank-transactions.service';
 import { BankTransactionsController } from './bank-transactions.controller';
 import { BankTransfersController } from './bank-transfers.controller';
+import { BankTransfersService } from './bank-transfers.service';
 
 @Module({
   imports: [
@@ -27,7 +28,7 @@ import { BankTransfersController } from './bank-transfers.controller';
     PermissionsModule,
   ],
   controllers: [BankAccountsController, BankTransactionsController, BankTransfersController],
-  providers: [BankAccountsService, BankTransactionsService, ModuleAccessGuard],
-  exports: [BankAccountsService, BankTransactionsService],
+  providers: [BankAccountsService, BankTransactionsService, BankTransfersService, ModuleAccessGuard],
+  exports: [BankAccountsService, BankTransactionsService, BankTransfersService],
 })
 export class BankAccountsModule {}

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { ClientSession, Model, Types } from 'mongoose';
 import {
   BankTransaction,
   BankTransactionDocument,
@@ -40,6 +40,7 @@ export class BankTransactionsService {
     createdBy?: string,
     balanceAfter?: number,
     extra: Partial<BankTransaction> = {},
+    session?: ClientSession,
   ): Promise<BankTransactionDocument> {
     const transactionDate = dto.transactionDate
       ? new Date(dto.transactionDate)
@@ -71,7 +72,8 @@ export class BankTransactionsService {
       ...extra,
     });
 
-    await transaction.save();
+    const saveOptions = session ? { session } : undefined;
+    await transaction.save(saveOptions);
     this.logger.log(
       `Recorded ${transaction.type} transaction of ${transaction.amount} on account ${transaction.bankAccountId}`,
     );
@@ -160,6 +162,7 @@ export class BankTransactionsService {
     userId: string,
     sourceBalanceAfter: number,
     destinationBalanceAfter: number,
+    session?: ClientSession,
   ) {
     const transferGroupId = `TRF-${Date.now()}-${Math.random()
       .toString(16)
@@ -192,6 +195,7 @@ export class BankTransactionsService {
       {
         transferGroupId,
       },
+      session,
     );
 
     const credit = await this.createTransaction(
@@ -214,21 +218,34 @@ export class BankTransactionsService {
       {
         transferGroupId,
       },
+      session,
     );
 
-    await this.bankTransactionModel.findByIdAndUpdate(debit._id, {
-      $set: {
-        transferGroupId,
-        'metadata.counterpartTransactionId': credit._id,
-      },
-    });
+    await this.bankTransactionModel
+      .findByIdAndUpdate(
+        debit._id,
+        {
+          $set: {
+            transferGroupId,
+            'metadata.counterpartTransactionId': credit._id,
+          },
+        },
+        { session },
+      )
+      .exec();
 
-    await this.bankTransactionModel.findByIdAndUpdate(credit._id, {
-      $set: {
-        transferGroupId,
-        'metadata.counterpartTransactionId': debit._id,
-      },
-    });
+    await this.bankTransactionModel
+      .findByIdAndUpdate(
+        credit._id,
+        {
+          $set: {
+            transferGroupId,
+            'metadata.counterpartTransactionId': debit._id,
+          },
+        },
+        { session },
+      )
+      .exec();
 
     return { debit, credit, transferGroupId };
   }
