@@ -219,6 +219,7 @@ const SmartKubikLanding = () => {
               <a href="#features" className={`text-sm ${themeClasses.textSecondary} hover:${themeClasses.text} transition-colors duration-200`}>Características</a>
               <a href="#benefits" className={`text-sm ${themeClasses.textSecondary} hover:${themeClasses.text} transition-colors duration-200`}>Beneficios</a>
               <a href="#pricing" className={`text-sm ${themeClasses.textSecondary} hover:${themeClasses.text} transition-colors duration-200`}>Precios</a>
+              <Link to="/blog" className={`text-sm ${themeClasses.textSecondary} hover:${themeClasses.text} transition-colors duration-200`}>Blog</Link>
               <button
                 onClick={toggleDarkMode}
                 className={`p-2 rounded ${themeClasses.textSecondary} hover:${themeClasses.text} transition-colors duration-200`}
@@ -249,6 +250,7 @@ const SmartKubikLanding = () => {
               <a href="#features" className={`block text-sm ${themeClasses.textSecondary}`}>Características</a>
               <a href="#benefits" className={`block text-sm ${themeClasses.textSecondary}`}>Beneficios</a>
               <a href="#pricing" className={`block text-sm ${themeClasses.textSecondary}`}>Precios</a>
+              <Link to="/blog" className={`block text-sm ${themeClasses.textSecondary}`}>Blog</Link>
               <button
                 onClick={toggleDarkMode}
                 className={`flex items-center space-x-2 text-sm ${themeClasses.textSecondary}`}
@@ -575,11 +577,8 @@ const SmartKubikLanding = () => {
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-4 gap-8">
             <div className="col-span-2">
-              <div className="flex items-center space-x-3 mb-4 animate-fadeIn">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded flex items-center justify-center">
-                  <div className="w-4 h-4 bg-white rounded-sm opacity-90"></div>
-                </div>
-                <span className="text-xl font-semibold">Smart Kubik</span>
+              <div className="flex items-center mb-4 animate-fadeIn">
+                <img src={SmartKubikLogoDark} alt="Smart Kubik" className="h-10 w-auto" />
               </div>
               <p className="text-gray-400 mb-6 max-w-md text-sm">
                 La solución completa para organizar y hacer crecer tu negocio. Diseñado específicamente para empresarios venezolanos.

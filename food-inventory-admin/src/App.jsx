@@ -75,6 +75,8 @@ const AccountsReceivableReport = lazy(() => import('@/components/AccountsReceiva
 const ReportsPage = lazy(() => import('./pages/ReportsPage.jsx'));
 const SuperAdminLayout = lazy(() => import('./layouts/SuperAdminLayout'));
 const SmartKubikLanding = lazy(() => import('./pages/SmartKubikLanding'));
+const BlogIndex = lazy(() => import('./pages/BlogIndex.jsx'));
+const BlogPost = lazy(() => import('./pages/BlogPost.jsx'));
 const ComprasManagement = lazy(() => import('@/components/ComprasManagement.jsx'));
 const BankAccountsManagement = lazy(() => import('@/components/BankAccountsManagement.jsx'));
 const RubikLoader = lazy(() => import('@/components/RubikLoader.jsx'));
@@ -86,6 +88,7 @@ const OrganizationsManagement = lazy(() => import('@/components/OrganizationsMan
 const FloorPlan = lazy(() => import('@/components/restaurant/FloorPlan.jsx').then(module => ({ default: module.FloorPlan })));
 const KitchenDisplay = lazy(() => import('@/components/restaurant/KitchenDisplay.jsx'));
 const WhatsAppInbox = lazy(() => import('./pages/WhatsAppInbox.jsx')); // <-- Componente de WhatsApp añadido
+const AssistantChatWidget = lazy(() => import('@/components/AssistantChatWidget.jsx'));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -490,6 +493,9 @@ function TenantLayout() {
           errorMessage={tenantDialogError}
         />
       </SidebarInset>
+      <Suspense fallback={null}>
+        <AssistantChatWidget />
+      </Suspense>
     </SidebarProvider>
   );
 }
@@ -499,6 +505,8 @@ function AppContent() {
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
         <Route path="/" element={<SmartKubikLanding />} />
+        <Route path="/blog" element={<BlogIndex />} />
+        <Route path="/blog/:slug" element={<BlogPost />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/confirm-account" element={<ConfirmAccount />} />

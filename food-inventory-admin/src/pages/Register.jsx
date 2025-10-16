@@ -11,6 +11,7 @@ import { fetchApi } from '@/lib/api';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { Eye, EyeOff, Check, Sparkles, ArrowRight } from 'lucide-react';
+import smartkubikLogo from '@/assets/logo-smartkubik.png';
 
 const businessVerticals = [
   {
@@ -576,7 +577,8 @@ function Register() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-muted/40 px-4 py-10">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-muted/40 px-4 py-10">
+      <img src={smartkubikLogo} alt="Smartkubik Logo" className="h-12 w-auto mb-8" />
       <Card className="w-full max-w-3xl shadow-lg border border-muted-foreground/10">
         <CardHeader className="space-y-2">
           <CardTitle className="text-2xl">Registro en SmartKubik</CardTitle>
