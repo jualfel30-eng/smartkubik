@@ -18,12 +18,17 @@ import { PermissionsGuard } from '../../guards/permissions.guard';
 import { ModuleAccessGuard } from '../../guards/module-access.guard';
 import { Permissions } from '../../decorators/permissions.decorator';
 import { RequireModule } from '../../decorators/require-module.decorator';
+import { BankTransactionsService } from './bank-transactions.service';
+import { CreateBankTransactionDto } from '../../dto/bank-transaction.dto';
 
 @Controller('bank-accounts')
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard, ModuleAccessGuard)
 @RequireModule('bankAccounts')
 export class BankAccountsController {
-  constructor(private readonly bankAccountsService: BankAccountsService) {}
+  constructor(
+    private readonly bankAccountsService: BankAccountsService,
+    private readonly bankTransactionsService: BankTransactionsService,
+  ) {}
 
   @Post()
   @Permissions('accounting_write')
@@ -89,6 +94,35 @@ export class BankAccountsController {
     @Request() req,
   ) {
     const tenantId = req.user.tenantId;
-    return this.bankAccountsService.adjustBalance(id, adjustBalanceDto, tenantId);
+    const updatedAccount = await this.bankAccountsService.adjustBalance(
+      id,
+      adjustBalanceDto,
+      tenantId,
+    );
+
+    const transactionDto: CreateBankTransactionDto = {
+      type: adjustBalanceDto.type === 'increase' ? 'credit' : 'debit',
+      channel: 'ajuste_manual',
+      amount: adjustBalanceDto.amount,
+      description: `Ajuste manual: ${adjustBalanceDto.reason}`,
+      reference: adjustBalanceDto.reference,
+      metadata: { reason: adjustBalanceDto.reason },
+    };
+
+    await this.bankTransactionsService.createTransaction(
+      tenantId,
+      id,
+      transactionDto,
+      req.user.id,
+      updatedAccount.currentBalance,
+      {
+        metadata: {
+          ...(transactionDto.metadata ?? {}),
+          createdFrom: 'adjust_balance_endpoint',
+        },
+      },
+    );
+
+    return updatedAccount;
   }
 }

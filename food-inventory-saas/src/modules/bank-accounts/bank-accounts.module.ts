@@ -9,6 +9,10 @@ import { AuthModule } from '../../auth/auth.module';
 import { PermissionsModule } from '../permissions/permissions.module';
 import { Tenant, TenantSchema } from '../../schemas/tenant.schema';
 import { ModuleAccessGuard } from '../../guards/module-access.guard';
+import { BankTransaction, BankTransactionSchema } from '../../schemas/bank-transaction.schema';
+import { BankTransactionsService } from './bank-transactions.service';
+import { BankTransactionsController } from './bank-transactions.controller';
+import { BankTransfersController } from './bank-transfers.controller';
 
 @Module({
   imports: [
@@ -17,12 +21,13 @@ import { ModuleAccessGuard } from '../../guards/module-access.guard';
       { name: BankReconciliation.name, schema: BankReconciliationSchema },
       { name: BankStatement.name, schema: BankStatementSchema },
       { name: Tenant.name, schema: TenantSchema },
+      { name: BankTransaction.name, schema: BankTransactionSchema },
     ]),
     AuthModule,
     PermissionsModule,
   ],
-  controllers: [BankAccountsController],
-  providers: [BankAccountsService, ModuleAccessGuard],
-  exports: [BankAccountsService],
+  controllers: [BankAccountsController, BankTransactionsController, BankTransfersController],
+  providers: [BankAccountsService, BankTransactionsService, ModuleAccessGuard],
+  exports: [BankAccountsService, BankTransactionsService],
 })
 export class BankAccountsModule {}

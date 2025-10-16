@@ -1,0 +1,117 @@
+[
+  {
+    "_id": "65200f3ee8a2ae0b67a10001",
+    "tenantId": "651feab0c9a97be2f4a10000",
+    "bankAccountId": "651fead3c9a97be2f4a10002",
+    "type": "credit",
+    "channel": "pago_movil",
+    "method": "VES",
+    "amount": 12500.0,
+    "balanceAfter": 92500.0,
+    "description": "Pago móvil Venta ORD-0104",
+    "reference": "PM123456",
+    "counterpart": {
+      "name": "Farmalab C.A.",
+      "rif": "J-12345678-9",
+      "bank": "BANESCO",
+      "phone": "04141234567"
+    },
+    "transactionDate": "2025-10-05T14:22:35.000Z",
+    "bookingDate": "2025-10-05T14:22:35.000Z",
+    "reconciliationStatus": "pending",
+    "paymentId": "65200f80e8a2ae0b67a10005",
+    "journalEntryId": null,
+    "metadata": {
+      "igftAmount": 375.0,
+      "source": "api/payments",
+      "attachments": [
+        "https://s3.amazonaws.com/kubik/receipts/pm123456.pdf"
+      ]
+    },
+    "createdBy": "6500adf5b5e43b8c0f010002",
+    "createdAt": "2025-10-05T14:22:36.000Z",
+    "updatedAt": "2025-10-05T14:22:36.000Z"
+  },
+  {
+    "_id": "6520101be8a2ae0b67a10002",
+    "tenantId": "651feab0c9a97be2f4a10000",
+    "bankAccountId": "651fead3c9a97be2f4a10002",
+    "type": "debit",
+    "channel": "fee",
+    "method": "VES",
+    "amount": 375.0,
+    "balanceAfter": 92125.0,
+    "description": "IGTF 3% Pago móvil PM123456",
+    "reference": "IGTF7890",
+    "transactionDate": "2025-10-05T14:25:10.000Z",
+    "bookingDate": "2025-10-05T14:25:10.000Z",
+    "reconciliationStatus": "matched",
+    "metadata": {
+      "igftReference": "PM123456",
+      "source": "system:auto-fee"
+    },
+    "linkedMovementId": "65200f3ee8a2ae0b67a10001",
+    "createdBy": "system",
+    "createdAt": "2025-10-05T14:25:11.000Z",
+    "updatedAt": "2025-10-05T15:40:01.000Z"
+  },
+  {
+    "_id": "6520125be8a2ae0b67a10003",
+    "tenantId": "651feab0c9a97be2f4a10000",
+    "bankAccountId": "651fead3c9a97be2f4a10002",
+    "type": "credit",
+    "channel": "pos",
+    "method": "pos_ves",
+    "amount": 4800.0,
+    "balanceAfter": 96925.0,
+    "description": "POS Lote 5829 VISA",
+    "reference": "POS5829",
+    "counterpart": {
+      "terminalId": "TDX00123",
+      "cardType": "VISA",
+      "batch": "5829",
+      "voucher": "00045829"
+    },
+    "transactionDate": "2025-10-04T21:05:00.000Z",
+    "bookingDate": "2025-10-05T09:15:23.000Z",
+    "reconciliationStatus": "in_review",
+    "metadata": {
+      "posCommission": 96.0,
+      "depositDate": "2025-10-05",
+      "source": "integration:banesco-pos"
+    },
+    "createdBy": "6500adf5b5e43b8c0f010002",
+    "createdAt": "2025-10-05T09:16:01.000Z",
+    "updatedAt": "2025-10-05T09:16:01.000Z"
+  },
+  {
+    "_id": "6520139de8a2ae0b67a10004",
+    "tenantId": "651feab0c9a97be2f4a10000",
+    "bankAccountId": "651fead3c9a97be2f4a10002",
+    "type": "debit",
+    "channel": "transferencia",
+    "method": "VES",
+    "amount": 28000.0,
+    "balanceAfter": 68925.0,
+    "description": "Transferencia proveedor LactoSur",
+    "reference": "TRF998877",
+    "counterpart": {
+      "name": "LactoSur C.A.",
+      "rif": "J-22334455-6",
+      "bank": "PROVINCIAL",
+      "accountNumber": "0108-0000-33-0001122344"
+    },
+    "transactionDate": "2025-10-03T13:45:12.000Z",
+    "bookingDate": "2025-10-03T13:45:12.000Z",
+    "reconciliationStatus": "matched",
+    "paymentId": "652013fbe8a2ae0b67a10006",
+    "journalEntryId": "65201440e8a2ae0b67a10007",
+    "metadata": {
+      "purpose": "Pago factura FAC-233",
+      "concept": "Compra de lácteos"
+    },
+    "createdBy": "64ff9d6eb5e43b8c0f000001",
+    "createdAt": "2025-10-03T13:46:01.000Z",
+    "updatedAt": "2025-10-04T08:30:11.000Z"
+  }
+]

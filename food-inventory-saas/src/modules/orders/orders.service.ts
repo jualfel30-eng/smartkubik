@@ -24,6 +24,8 @@ import { PaymentsService } from "../payments/payments.service";
 import { DeliveryService } from "../delivery/delivery.service";
 import { CreatePaymentDto } from "../../dto/payment.dto";
 import { UnitConversionUtil } from "../../utils/unit-conversion.util";
+import { ShiftsService } from "../shifts/shifts.service";
+import { FEATURES } from "../../config/features.config";
 
 @Injectable()
 export class OrdersService {
@@ -38,6 +40,7 @@ export class OrdersService {
     private readonly accountingService: AccountingService,
     private readonly paymentsService: PaymentsService,
     private readonly deliveryService: DeliveryService,
+    private readonly shiftsService: ShiftsService,
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
@@ -53,6 +56,7 @@ export class OrdersService {
       { id: 'efectivo_ves', name: 'Efectivo (VES)', igtfApplicable: false },
       { id: 'transferencia_ves', name: 'Transferencia (VES)', igtfApplicable: false },
       { id: 'pago_movil_ves', name: 'Pago Móvil (VES)', igtfApplicable: false },
+      { id: 'pos_ves', name: 'Punto de Venta (VES)', igtfApplicable: false },
       { id: 'tarjeta_ves', name: 'Tarjeta (VES)', igtfApplicable: false },
       { id: 'pago_mixto', name: 'Pago Mixto', igtfApplicable: false },
     ];
@@ -238,6 +242,48 @@ export class OrdersService {
       tenantId: user.tenantId,
     };
 
+    const shouldAssignEmployee =
+      FEATURES.EMPLOYEE_PERFORMANCE_TRACKING &&
+      user?.id &&
+      user?.tenantId;
+
+    if (shouldAssignEmployee) {
+      try {
+        const activeShift = await this.shiftsService.findActiveShift(
+          user.id,
+          user.tenantId,
+        );
+
+        if (activeShift) {
+          const staffObjectId =
+            user.id instanceof Types.ObjectId
+              ? user.id
+              : Types.ObjectId.isValid(user.id)
+                ? new Types.ObjectId(user.id)
+                : null;
+
+          if (staffObjectId) {
+            orderData.assignedTo = staffObjectId;
+            this.logger.log(
+              `Order will be assigned to user ${user.id} (active shift detected)`,
+            );
+          } else {
+            this.logger.warn(
+              `User ID ${user.id} is not a valid ObjectId. Skipping automatic assignment.`,
+            );
+          }
+        } else {
+          this.logger.debug(
+            `User ${user.id} has no active shift. Order will remain unassigned.`,
+          );
+        }
+      } catch (error) {
+        this.logger.error(
+          `Failed to determine active shift for user ${user?.id}: ${error.message}`,
+        );
+      }
+    }
+
     const order = new this.orderModel(orderData);
     const savedOrder = await order.save();
     await this.tenantModel.findByIdAndUpdate(user.tenantId, { $inc: { 'usage.currentOrders': 1 } });
@@ -342,14 +388,26 @@ export class OrdersService {
     const sortOptions: any = { [sortBy]: sortOrder === "asc" ? 1 : -1 };
     const skip = (page - 1) * limit;
     const [orders, total] = await Promise.all([
-      this.orderModel.find(filter).sort(sortOptions).skip(skip).limit(limit).populate("customerId", "name").populate('payments').exec(),
+      this.orderModel
+        .find(filter)
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(limit)
+        .populate("customerId", "name")
+        .populate("payments")
+        .populate("assignedTo", "firstName lastName email")
+        .exec(),
       this.orderModel.countDocuments(filter),
     ]);
     return { orders, page, limit, total, totalPages: Math.ceil(total / limit) };
   }
 
   async findOne(id: string, tenantId: string): Promise<OrderDocument | null> {
-    return this.orderModel.findOne({ _id: id, tenantId }).populate('payments').exec();
+    return this.orderModel
+      .findOne({ _id: id, tenantId })
+      .populate('payments')
+      .populate('assignedTo', 'firstName lastName email')
+      .exec();
   }
 
   async update(id: string, updateOrderDto: UpdateOrderDto, user: any): Promise<OrderDocument | null> {

@@ -1,0 +1,6 @@
+fecha,descripcion,monto,referencia
+2025-01-03,Depósito ventas día anterior,1250.50,DEP-20250103-001
+2025-01-03,Comisión POS Banco ABC,-25.30,COM-ABC-50321
+2025-01-04,Transferencia recibida sucursal La Urbina,890.00,TRF-URBINA-7781
+2025-01-04,Pago proveedor Lácteos La Victoria,-640.75,PAG-PROV-882
+2025-01-05,Depósito efectivo jornada matutina,450.00,DEP-EFEC-0505

@@ -11,6 +11,9 @@ export class BankReconciliation {
   @Prop({ type: Types.ObjectId, ref: 'BankStatement', required: true })
   bankStatementId: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: 'BankAccount', required: true })
+  bankAccountId: Types.ObjectId;
+
   @Prop({ required: true })
   reconciliationDate: Date;
 
@@ -25,6 +28,20 @@ export class BankReconciliation {
 
   @Prop({ default: 'in_progress' })
   status: 'in_progress' | 'completed';
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  startedBy?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  completedBy?: Types.ObjectId;
+
+  @Prop({ type: Date })
+  completedAt?: Date;
+
+  @Prop({ type: Object, default: {} })
+  summary?: Record<string, any>;
 }
 
 export const BankReconciliationSchema = SchemaFactory.createForClass(BankReconciliation);
+
+BankReconciliationSchema.index({ tenantId: 1, bankAccountId: 1, reconciliationDate: -1 });

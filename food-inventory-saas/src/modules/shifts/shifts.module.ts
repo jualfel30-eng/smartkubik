@@ -8,5 +8,6 @@ import { Shift, ShiftSchema } from '../../schemas/shift.schema';
   imports: [MongooseModule.forFeature([{ name: Shift.name, schema: ShiftSchema }])],
   controllers: [ShiftsController],
   providers: [ShiftsService],
+  exports: [ShiftsService],
 })
 export class ShiftsModule {}

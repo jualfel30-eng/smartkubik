@@ -136,6 +136,30 @@ export class BankAccountsService {
     return updated;
   }
 
+  async setCurrentBalance(id: string, newBalance: number, tenantId: string): Promise<BankAccount> {
+    if (!Number.isFinite(newBalance)) {
+      throw new Error('Invalid balance value provided');
+    }
+
+    const updated = await this.bankAccountModel
+      .findOneAndUpdate(
+        {
+          _id: this.toObjectIdIfValid(id) ?? id,
+          tenantId: this.buildTenantFilter(tenantId),
+        },
+        { currentBalance: newBalance },
+        { new: true },
+      )
+      .exec();
+
+    if (!updated) {
+      throw new NotFoundException(`Bank account with ID ${id} not found`);
+    }
+
+    this.logger.log(`Set current balance for bank account ${id} to ${newBalance}`);
+    return updated;
+  }
+
   async getTotalBalance(tenantId: string, currency?: string): Promise<number> {
     const filter: any = {
       tenantId: this.buildTenantFilter(tenantId),

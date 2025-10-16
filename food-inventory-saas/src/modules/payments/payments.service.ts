@@ -7,6 +7,7 @@ import { Order, OrderDocument } from '../../schemas/order.schema';
 import { CreatePaymentDto } from '../../dto/payment.dto';
 import { AccountingService } from '../accounting/accounting.service';
 import { BankAccountsService } from '../bank-accounts/bank-accounts.service';
+import { BankTransactionsService } from '../bank-accounts/bank-transactions.service';
 
 @Injectable()
 export class PaymentsService {
@@ -18,6 +19,7 @@ export class PaymentsService {
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>, // Injected OrderModel
     private readonly accountingService: AccountingService,
     private readonly bankAccountsService: BankAccountsService,
+    private readonly bankTransactionsService: BankTransactionsService,
   ) {}
 
   async create(dto: CreatePaymentDto, user: any): Promise<PaymentDocument> {
@@ -56,15 +58,35 @@ export class PaymentsService {
     if (newPayment.bankAccountId) {
       try {
         const adjustment = paymentType === 'sale' ? newPayment.amount : -newPayment.amount;
-        await this.bankAccountsService.updateBalance(
+        const updatedAccount = await this.bankAccountsService.updateBalance(
           newPayment.bankAccountId.toString(),
           adjustment,
           tenantId
         );
-        this.logger.log(`Updated bank account ${newPayment.bankAccountId} balance by ${adjustment}`);
+        await this.bankTransactionsService.recordPaymentMovement(
+          tenantId,
+          userId,
+          {
+            bankAccountId: newPayment.bankAccountId.toString(),
+            paymentId: newPayment._id.toString(),
+            paymentType: paymentType as 'sale' | 'payable',
+            amount: newPayment.amount,
+            method: newPayment.method,
+            reference: newPayment.reference,
+            description:
+              paymentType === 'sale'
+                ? `Cobro orden ${orderId ?? ''}`.trim()
+                : `Pago documento ${payableId ?? ''}`.trim(),
+            transactionDate: newPayment.date.toISOString(),
+            metadata: {
+              currency: newPayment.currency,
+            },
+            balanceAfter: updatedAccount.currentBalance,
+          },
+        );
+        this.logger.log(`Updated bank account ${newPayment.bankAccountId} balance by ${adjustment} and recorded movement`);
       } catch (error) {
-        this.logger.error(`Failed to update bank account balance: ${error.message}`);
-        // Don't fail the payment if bank account update fails
+        this.logger.error(`Failed to update bank account balance or record movement: ${error.message}`);
       }
     }
 

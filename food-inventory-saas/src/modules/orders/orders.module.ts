@@ -14,6 +14,7 @@ import { AccountingModule } from "../accounting/accounting.module";
 import { RolesModule } from '../roles/roles.module';
 import { PaymentsModule } from "../payments/payments.module";
 import { DeliveryModule } from "../delivery/delivery.module";
+import { ShiftsModule } from "../shifts/shifts.module";
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { DeliveryModule } from "../delivery/delivery.module";
     RolesModule,
     PaymentsModule,
     DeliveryModule,
+    ShiftsModule,
     MongooseModule.forFeature([
       { name: Order.name, schema: OrderSchema },
       { name: Customer.name, schema: CustomerSchema },

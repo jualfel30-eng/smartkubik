@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { MongooseModule } from "@nestjs/mongoose";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { APP_GUARD } from "@nestjs/core";
+import { WinstonModule } from "nest-winston";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { AuthModule } from "./auth/auth.module";
@@ -51,11 +52,16 @@ import { OpenaiModule } from './modules/openai/openai.module';
 import { VectorDbModule } from './modules/vector-db/vector-db.module';
 import { KnowledgeBaseModule } from './modules/knowledge-base/knowledge-base.module';
 import { AssistantModule } from './modules/assistant/assistant.module';
+import { BankReconciliationModule } from './modules/bank-reconciliation/bank-reconciliation.module';
+import { createWinstonLoggerOptions } from "./config/logger.config";
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+    }),
+    WinstonModule.forRootAsync({
+      useFactory: () => createWinstonLoggerOptions(),
     }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
@@ -133,6 +139,7 @@ import { AssistantModule } from './modules/assistant/assistant.module';
     DeliveryModule,
     ExchangeRateModule,
     BankAccountsModule,
+    BankReconciliationModule,
     AppointmentsModule,
     StorefrontModule,
     OrganizationsModule,
