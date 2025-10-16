@@ -86,16 +86,19 @@ fi
 log_success "Conexión establecida"
 
 log_info "Verificando que el backend esté corriendo..."
-CURRENT_STATUS=$(remote_exec "pm2 status smartkubik-api --no-color | grep smartkubik-api | awk '{print \$10}'")
-if [[ "$CURRENT_STATUS" != "online" ]]; then
-    log_warning "Backend no está corriendo. Estado actual: $CURRENT_STATUS"
-    read -p "¿Continuar de todas formas? (y/n) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+CURRENT_STATUS=$(remote_exec "pm2 jlist 2>/dev/null | grep -o '\"status\":\"online\"' | wc -l" || echo "0")
+if [[ "$CURRENT_STATUS" == "0" ]]; then
+    log_warning "Backend no está corriendo"
+    log_info "Intentando iniciar backend..."
+    remote_exec "cd $BACKEND_DIR && pm2 start ecosystem.config.js" || true
+    sleep 5
+    CURRENT_STATUS=$(remote_exec "pm2 jlist 2>/dev/null | grep -o '\"status\":\"online\"' | wc -l" || echo "0")
+    if [[ "$CURRENT_STATUS" == "0" ]]; then
+        log_error "No se pudo iniciar el backend"
         exit 1
     fi
 fi
-log_success "Backend está corriendo"
+log_success "Backend está corriendo ($CURRENT_STATUS instancia(s))"
 
 # ============================================================
 # PASO 2: CREAR BACKUP
