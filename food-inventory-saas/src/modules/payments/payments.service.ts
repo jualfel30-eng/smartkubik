@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Payment, PaymentDocument } from '../../schemas/payment.schema';
 import { Payable, PayableDocument } from '../../schemas/payable.schema';
 import { Order, OrderDocument } from '../../schemas/order.schema';
@@ -34,8 +34,8 @@ export class PaymentsService {
     const newPayment = new this.paymentModel({
       ...paymentDetails,
       paymentType,
-      orderId,
-      payableId,
+      orderId: orderId ? new Types.ObjectId(orderId) : undefined,
+      payableId: payableId ? new Types.ObjectId(payableId) : undefined,
       tenantId,
       createdBy: userId,
       confirmedBy: userId,
@@ -43,6 +43,7 @@ export class PaymentsService {
     });
     await newPayment.save();
     this.logger.log(`Created new payment document ${newPayment._id} of type ${paymentType}`);
+    this.logger.debug(`🔍 [DEBUG] Payment saved with: payableId=${newPayment.payableId}, orderId=${newPayment.orderId}, amount=${newPayment.amount}`);
 
     // Handle the specific logic for each payment type
     if (paymentType === 'sale' && orderId) {
@@ -138,23 +139,51 @@ export class PaymentsService {
       throw new NotFoundException(`Payable with ID ${payableId} not found.`);
     }
 
+    this.logger.debug(`🔍 [DEBUG] Incoming payment details: id=${payment._id}, payableId=${payment.payableId}, amount=${payment.amount}`);
+
     // Recalculate paid amount and status
     const allPayments = await this.paymentModel.find({ payableId: payable._id });
-    const paidAmount = allPayments.reduce((sum, p) => sum + p.amount, 0);
 
-    if (paidAmount > payable.totalAmount) {
-        throw new BadRequestException(`Payment amount exceeds the remaining balance.`);
+    this.logger.debug(`🔍 [DEBUG] Query for payments with payableId=${payable._id}`);
+    this.logger.debug(`🔍 [DEBUG] Found ${allPayments.length} payments: ${JSON.stringify(allPayments.map(p => ({ id: p._id, amount: p.amount, payableId: p.payableId })))}`);
+
+    const paidAmountRaw = allPayments.reduce(
+      (sum, p) => sum + Number(p?.amount ?? 0),
+      0,
+    );
+    const payableTotal = Number(payable.totalAmount ?? 0);
+
+    this.logger.debug(`🔍 [DEBUG] paidAmountRaw calculated: ${paidAmountRaw} from ${allPayments.length} payments`);
+
+    if (paidAmountRaw > payableTotal + 0.009) {
+      throw new BadRequestException(`Payment amount exceeds the remaining balance.`);
     }
 
-    payable.paidAmount = paidAmount;
-    if (paidAmount >= payable.totalAmount) {
-      payable.status = 'paid';
-    } else {
-      payable.status = 'partially_paid';
-    }
-    
+    const paidAmount = Math.max(0, Math.round((paidAmountRaw + Number.EPSILON) * 100) / 100);
+    const totalAmountRounded = Math.round((payableTotal + Number.EPSILON) * 100) / 100;
+    const remainingBalance = Math.max(0, totalAmountRounded - paidAmount);
+    const tolerance = Math.max(0.01, Number((totalAmountRounded * 0.001).toFixed(2)));
+    const isFullyPaid = remainingBalance <= tolerance;
+
+    // Determine next status based on payment amount
+    const nextStatus = isFullyPaid
+      ? 'paid'
+      : paidAmount > 0
+        ? 'partially_paid'
+        : 'open'; // Default to 'open' for unpaid payables
+
+    this.logger.debug(
+      `Payable ${payableId} payment summary → total: ${totalAmountRounded}, paid: ${paidAmount}, remaining: ${remainingBalance}, tolerance: ${tolerance}, fullyPaid: ${isFullyPaid}, previousStatus: ${payable.status}`,
+    );
+
+    payable.paidAmount = isFullyPaid ? totalAmountRounded : paidAmount;
+    payable.status = nextStatus;
+
     await payable.save();
-    this.logger.log(`Updated payable ${payableId} with new payment ${payment._id}`);
+
+    this.logger.log(
+      `Updated payable ${payableId} with new payment ${payment._id} – status: ${nextStatus} (paid: ${paidAmount}/${totalAmountRounded}, remaining: ${remainingBalance})`,
+    );
 
     // --- Automatic Journal Entry Creation ---
     try {

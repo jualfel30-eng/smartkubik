@@ -147,7 +147,7 @@ export class PayablesService {
       totalAmount,
       payableNumber,
       paidAmount: 0,
-      status: 'draft',
+      status: 'open', // FIXED: Changed from 'draft' to 'open' so payables appear as pending immediately
     });
 
     const savedPayable = await newPayable.save();
@@ -285,5 +285,37 @@ export class PayablesService {
     }
 
     return { success: true, message: 'Payable anulado exitosamente' };
+  }
+
+  async migrateDraftToOpen(tenantId: string): Promise<{ updated: number; payables: any[] }> {
+    this.logger.log(`[Migration] Starting migration of draft payables to open for tenant ${tenantId}`);
+
+    // Find all payables with status 'draft' and paidAmount = 0
+    const draftPayables = await this.payableModel.find({
+      tenantId,
+      status: 'draft',
+      paidAmount: 0,
+    }).exec();
+
+    this.logger.log(`[Migration] Found ${draftPayables.length} draft payables to migrate`);
+
+    // Update all draft payables to open
+    const result = await this.payableModel.updateMany(
+      { tenantId, status: 'draft', paidAmount: 0 },
+      { $set: { status: 'open' } },
+    );
+
+    this.logger.log(`[Migration] Updated ${result.modifiedCount} payables from draft to open`);
+
+    return {
+      updated: result.modifiedCount,
+      payables: draftPayables.map(p => ({
+        id: p._id,
+        payeeName: p.payeeName,
+        totalAmount: p.totalAmount,
+        oldStatus: 'draft',
+        newStatus: 'open',
+      })),
+    };
   }
 }

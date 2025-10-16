@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { 
+import {
   fetchApi,
   getPayables,
   createPayable,
@@ -9,7 +9,9 @@ import {
   generatePayableFromTemplate,
   fetchChartOfAccounts,
   getPayments,
-  createPayment
+  createPayment,
+  migratePayablesDraftToOpen,
+  deletePayable
 } from '../lib/api';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
@@ -19,7 +21,8 @@ import { toast } from 'sonner';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { PlusCircle, Repeat, Eye, CreditCard } from 'lucide-react';
+import { Badge } from './ui/badge';
+import { PlusCircle, Repeat, Eye, CreditCard, Trash2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { PaymentDialog } from './PaymentDialog';
@@ -259,18 +262,25 @@ const CreateRecurringPayableDialog = ({ isOpen, onOpenChange, accounts, supplier
 };
 
 const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSuppliers }) => {
+  console.log('🔴🔴🔴 MonthlyPayables LOADED - CODE IS UPDATED 🔴🔴🔴');
+  console.log('Payables received:', payables);
+
   const [newPayable, setNewPayable] = useState(initialPayableState);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedPayable, setSelectedPayable] = useState(null);
 
-  const supplierOptions = useMemo(() => 
+  const supplierOptions = useMemo(() =>
     suppliers.map(supplier => ({
       value: supplier._id,
       label: `${supplier.companyName || supplier.name} - ${supplier.taxInfo?.taxId || 'N/A'}`,
-    })), 
+    })),
   [suppliers]);
+
+  const pendingPayables = useMemo(() => {
+    return payables.filter(payable => !['paid', 'void'].includes(payable.status));
+  }, [payables]);
 
   const handleOpenPaymentDialog = (payable) => {
     setSelectedPayable(payable);
@@ -513,7 +523,7 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
           <Table>
             <TableHeader><TableRow><TableHead>Proveedor</TableHead><TableHead>Fecha</TableHead><TableHead>Monto Total</TableHead><TableHead>Monto Pagado</TableHead><TableHead>Estado</TableHead><TableHead className="text-center">Ver</TableHead><TableHead className="text-center">Pagar</TableHead></TableRow></TableHeader>
             <TableBody>
-              {payables.map((payable) => (
+              {pendingPayables.map((payable) => (
                 <TableRow key={payable._id}>
                   <TableCell>{payable.payeeName || 'N/A'}</TableCell>
                   <TableCell>{new Date(payable.issueDate).toLocaleDateString()}</TableCell>
@@ -706,6 +716,146 @@ const RecurringPayables = ({ accounts, suppliers }) => {
   );
 };
 
+const PayablesHistory = ({ payables, fetchPayables, suppliers }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPayable, setSelectedPayable] = useState(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+
+  const handleOpenViewDialog = (payable) => {
+    setSelectedPayable(payable);
+    setIsViewDialogOpen(true);
+  };
+
+  const handleDeletePayable = async (payableId) => {
+    if (!window.confirm('¿Estás seguro de eliminar este payable?')) return;
+
+    try {
+      await deletePayable(payableId);
+      toast.success('Payable eliminado exitosamente');
+      fetchPayables();
+    } catch (error) {
+      toast.error('Error al eliminar el payable', { description: error.message });
+    }
+  };
+
+  const getStatusBadgeVariant = (status) => {
+    switch (status) {
+      case 'paid': return 'default';
+      case 'partially_paid': return 'secondary';
+      case 'open': return 'outline';
+      case 'void': return 'destructive';
+      default: return 'outline';
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    const labels = {
+      paid: 'Pagado',
+      partially_paid: 'Parcial',
+      open: 'Abierto',
+      void: 'Anulado',
+      draft: 'Borrador',
+    };
+    return labels[status] || status;
+  };
+
+  const filteredPayables = useMemo(() => {
+    if (!searchTerm.trim()) return payables;
+
+    const searchLower = searchTerm.toLowerCase();
+    return payables.filter(payable =>
+      payable.payeeName?.toLowerCase().includes(searchLower) ||
+      payable.description?.toLowerCase().includes(searchLower) ||
+      payable.payableNumber?.toLowerCase().includes(searchLower)
+    );
+  }, [payables, searchTerm]);
+
+  const getTotalAmount = (lines) => {
+    return lines.reduce((sum, line) => sum + Number(line.amount || 0), 0);
+  };
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>Historial Completo de Payables</CardTitle>
+            <div className="w-1/3">
+              <Input
+                placeholder="Buscar por proveedor, descripción..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Mostrando {filteredPayables.length} de {payables.length} payables totales
+          </p>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Proveedor</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Monto Total</TableHead>
+                <TableHead>Monto Pagado</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-center">Ver</TableHead>
+                <TableHead className="text-center">Eliminar</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredPayables.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan="7" className="text-center">No hay payables registrados</TableCell>
+                </TableRow>
+              ) : (
+                filteredPayables.map((payable) => (
+                  <TableRow key={payable._id}>
+                    <TableCell>{payable.payeeName || 'N/A'}</TableCell>
+                    <TableCell>{new Date(payable.issueDate).toLocaleDateString()}</TableCell>
+                    <TableCell>${getTotalAmount(payable.lines).toFixed(2)}</TableCell>
+                    <TableCell>${(payable.paidAmount || 0).toFixed(2)}</TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusBadgeVariant(payable.status)}>
+                        {getStatusLabel(payable.status)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Button variant="ghost" size="icon" onClick={() => handleOpenViewDialog(payable)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeletePayable(payable._id)}
+                        disabled={payable.status === 'paid' || payable.status === 'partially_paid'}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {selectedPayable && (
+        <ViewPayableDialog
+          isOpen={isViewDialogOpen}
+          onOpenChange={setIsViewDialogOpen}
+          payable={selectedPayable}
+        />
+      )}
+    </>
+  );
+};
+
 const PaymentHistory = () => {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -826,7 +976,24 @@ const PayablesManagement = () => {
     } finally {
       setLoading(false);
     }
-  }, [fetchSuppliers, fetchPayables]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleMigration = async () => {
+    try {
+      const result = await migratePayablesDraftToOpen();
+      if (result.success) {
+        toast.success(`Migración exitosa! ${result.data.updated} payables actualizados de "draft" a "open".`);
+        await fetchPayables(); // Refresh the list
+      } else {
+        toast.error('Error en la migración');
+      }
+    } catch (error) {
+      toast.error('Error al ejecutar la migración', {
+        description: error.message
+      });
+    }
+  };
 
   useEffect(() => {
     fetchInitialData();
@@ -837,22 +1004,38 @@ const PayablesManagement = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Módulo de Pagos</CardTitle>
-        <CardDescription>
-          Gestiona tus cuentas por pagar, pagos recurrentes y consulta el historial de pagos.
-        </CardDescription>
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle>Módulo de Pagos</CardTitle>
+            <CardDescription>
+              Gestiona tus cuentas por pagar, pagos recurrentes y consulta el historial de pagos.
+            </CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleMigration}
+            className="text-xs"
+          >
+            🔄 Migrar Payables (Draft → Open)
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="monthly" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="monthly">Cuentas por Pagar</TabsTrigger>
             <TabsTrigger value="recurring">Pagos Recurrentes</TabsTrigger>
+            <TabsTrigger value="history">Historial Completo</TabsTrigger>
           </TabsList>
           <TabsContent value="monthly">
             <MonthlyPayables payables={payables} fetchPayables={fetchPayables} suppliers={suppliers} accounts={accounts} fetchSuppliers={fetchSuppliers} />
           </TabsContent>
           <TabsContent value="recurring">
             <RecurringPayables suppliers={suppliers} accounts={accounts} />
+          </TabsContent>
+          <TabsContent value="history">
+            <PayablesHistory payables={payables} fetchPayables={fetchPayables} suppliers={suppliers} />
           </TabsContent>
         </Tabs>
         <div className="mt-6">

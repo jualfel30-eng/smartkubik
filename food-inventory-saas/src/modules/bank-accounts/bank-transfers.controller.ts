@@ -35,10 +35,9 @@ export class BankTransfersController {
 
     const result = await this.bankTransfersService.createTransfer(
       tenantId,
-      accountId,
-      dto.destinationAccountId,
-      dto,
       userId,
+      accountId,
+      dto,
     );
 
     return {

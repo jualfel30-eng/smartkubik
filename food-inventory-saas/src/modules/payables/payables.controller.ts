@@ -128,4 +128,24 @@ export class PayablesController {
       );
     }
   }
+
+  @Post('migrate-draft-to-open')
+  @UseGuards(PermissionsGuard)
+  @Permissions("payables_update")
+  @ApiOperation({ summary: 'Migrar payables de draft a open (temporal migration endpoint)' })
+  async migrateDraftToOpen(@Request() req) {
+    try {
+      const result = await this.payablesService.migrateDraftToOpen(req.user.tenantId);
+      return {
+        success: true,
+        message: 'Payables migrados exitosamente',
+        data: result,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Error al migrar payables',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 }
