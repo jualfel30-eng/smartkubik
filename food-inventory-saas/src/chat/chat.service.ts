@@ -211,16 +211,17 @@ export class ChatService {
         return;
       }
 
-      if (!assistantResponse?.sources?.length) {
+      const metadata = {
+        sources: assistantResponse.sources,
+        usedFallback: assistantResponse.usedFallback,
+      };
+
+      if (!assistantResponse.usedFallback && !assistantResponse?.sources?.length) {
         this.logger.log(
           `Assistant response for tenant ${tenant.id} lacks contextual sources. Skipping auto-reply.`,
         );
         return;
       }
-
-      const metadata = {
-        sources: assistantResponse.sources,
-      };
 
       const assistantMessage = await this.saveMessage(
         conversation,

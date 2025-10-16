@@ -1,10 +1,11 @@
-import { Injectable, Logger, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { VectorDbService } from '../vector-db/vector-db.service';
 import { v4 as uuidv4 } from 'uuid';
 import { Document } from '@langchain/core/documents';
 import { PDFParse } from 'pdf-parse';
+import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters';
 import { KnowledgeBaseDocument, KnowledgeBaseDocumentDocument } from '../../schemas/knowledge-base-document.schema';
 
 @Injectable()
@@ -24,7 +25,8 @@ export class KnowledgeBaseService {
 
     const existingDoc = await this.kbDocumentModel.findOne({ tenantId, source }).exec();
     if (existingDoc) {
-      throw new ConflictException(`Document with source '${source}' already exists for this tenant.`);
+      this.logger.log(`Existing document for source '${source}' found. Replacing previous data.`);
+      await this.deleteDocumentBySource(tenantId, source);
     }
 
     let text: string;
@@ -82,38 +84,42 @@ export class KnowledgeBaseService {
     return this.kbDocumentModel.find({ tenantId }).sort({ createdAt: -1 }).exec();
   }
 
-  async queryKnowledgeBase(tenantId: string, queryText: string, nResults: number = 5) {
+  async queryKnowledgeBase(tenantId: string, queryText: string, nResults: number = 5, minScore = 0.75) {
     this.logger.log(`Querying knowledge base for tenant ${tenantId}`);
-    return this.vectorDbService.similaritySearch(queryText, nResults, tenantId);
+    const results = await this.vectorDbService.similaritySearchWithScore(queryText, nResults, tenantId);
+
+    const filtered = results.filter(([, score]) => {
+      // similaritySearchWithScore returns lower score == closer. But need check: likely distance.
+      return score >= minScore;
+    });
+
+    return filtered.map(([document, score]) => ({ document, score }));
   }
 
   private async processAndStoreText(tenantId: string, text: string, metadata: Record<string, any>) {
-    const chunks = this.splitTextIntoChunks(text);
+    const splitter = new RecursiveCharacterTextSplitter({
+      chunkSize: 900,
+      chunkOverlap: 120,
+    });
+
+    const chunks = await splitter.splitText(text);
     this.logger.log(`Split text into ${chunks.length} chunks.`);
 
-    const documents = chunks.map(chunk => new Document({
+    const uploadedAt = new Date().toISOString();
+
+    const documents = chunks.map((chunk, index) => new Document({
       pageContent: chunk,
       metadata: {
         ...metadata,
-        tenantId, // Crucial for data isolation
-        id: uuidv4(),
+        tenantId,
+        chunkIndex: index,
+        chunkId: uuidv4(),
+        uploadedAt,
       }
     }));
 
     await this.vectorDbService.addDocuments(documents);
 
     this.logger.log(`Successfully processed and stored ${documents.length} chunks for tenant ${tenantId}.`);
-  }
-
-  private splitTextIntoChunks(text: string, maxChunkSize = 1000, overlap = 100): string[] {
-    const chunks: string[] = [];
-    let i = 0;
-    while (i < text.length) {
-      const end = Math.min(i + maxChunkSize, text.length);
-      chunks.push(text.slice(i, end));
-      i += maxChunkSize - overlap;
-      if (i >= text.length) break;
-    }
-    return chunks;
   }
 }

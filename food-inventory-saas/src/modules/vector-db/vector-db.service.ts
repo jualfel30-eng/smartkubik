@@ -79,6 +79,16 @@ export class VectorDbService implements OnModuleInit {
     return this.vectorStore!.similaritySearch(query, k, filter);
   }
 
+  async similaritySearchWithScore(query: string, k: number, tenantId: string) {
+    await this.ensureVectorStoreInitialized();
+
+    const filter = {
+      tenantId: { '$eq': tenantId },
+    };
+
+    return this.vectorStore!.similaritySearchWithScore(query, k, filter);
+  }
+
   async deleteDocuments(source: string, tenantId: string): Promise<void> {
     await this.ensureVectorStoreInitialized();
     this.logger.log(`Deleting documents from source '${source}' for tenant '${tenantId}'...`);
