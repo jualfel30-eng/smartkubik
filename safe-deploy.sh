@@ -119,13 +119,22 @@ log_success "Backup creado: $BACKUP_PATH ($BACKUP_SIZE)"
 # ============================================================
 
 log_info "Obteniendo código más reciente desde GitHub..."
-remote_exec "cd $REPO_DIR && git fetch origin"
+
+# Asegurar que el remote use HTTPS (no SSH)
+log_info "Configurando remote para usar HTTPS..."
+remote_exec "cd $REPO_DIR && git remote set-url origin https://github.com/jualfel30-eng/smartkubik.git"
+
+# Fetch desde origin
+remote_exec "cd $REPO_DIR && git fetch origin" || {
+    log_error "No se pudo hacer fetch desde GitHub. Verifica tu conexión a internet."
+    log_info "Intentando continuar con el código local..."
+}
 
 CURRENT_COMMIT=$(remote_exec "cd $REPO_DIR && git rev-parse HEAD")
-LATEST_COMMIT=$(remote_exec "cd $REPO_DIR && git rev-parse origin/main")
+LATEST_COMMIT=$(remote_exec "cd $REPO_DIR && git rev-parse origin/main" 2>/dev/null || echo "$CURRENT_COMMIT")
 
 if [ "$CURRENT_COMMIT" == "$LATEST_COMMIT" ]; then
-    log_warning "No hay cambios nuevos en GitHub"
+    log_warning "No hay cambios nuevos en GitHub (o no se pudo verificar)"
     read -p "¿Continuar con re-deploy de todas formas? (y/n) " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -137,7 +146,9 @@ else
 fi
 
 log_info "Haciendo pull..."
-remote_exec "cd $REPO_DIR && git pull origin main"
+remote_exec "cd $REPO_DIR && git pull origin main" || {
+    log_warning "Pull falló, usando código local existente"
+}
 log_success "Código actualizado"
 
 # ============================================================

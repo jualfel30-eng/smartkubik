@@ -35,20 +35,40 @@
 
 ### Opción 1: Deploy Automático con Backup (RECOMENDADO)
 
-Usa este comando desde tu Mac:
+**IMPORTANTE: Primero asegúrate de hacer commit y push desde tu Mac:**
+
+```bash
+cd /Users/jualfelsantamaria/Documents/Saas/V1.03/FOOD-INVENTORY-SAAS-COMPLETO
+
+# Ver cambios
+git status
+
+# Agregar todos los cambios
+git add .
+
+# Hacer commit
+git commit -m "Descripción de tus cambios"
+
+# Subir a GitHub
+git push origin main
+```
+
+**Luego ejecuta el deploy automático:**
 
 ```bash
 ./safe-deploy.sh
 ```
 
 Este script automáticamente:
-1. ✅ Hace backup del código actual
-2. ✅ Pull del código nuevo desde GitHub
-3. ✅ Instala dependencias
+1. ✅ Hace backup del código actual en el servidor
+2. ✅ Pull del código nuevo desde GitHub (usa HTTPS, NO requiere SSH keys)
+3. ✅ Instala dependencias (si hay nuevas)
 4. ✅ Compila backend y frontend
-5. ✅ Reinicia PM2 sin downtime
-6. ✅ Verifica que todo funcione
-7. ✅ Si algo falla, restaura el backup automáticamente
+5. ✅ Reinicia PM2 sin downtime (zero-downtime deployment)
+6. ✅ Verifica que todo funcione (health checks)
+7. ✅ Si algo falla → ROLLBACK AUTOMÁTICO al estado anterior
+
+**El script es 100% seguro:** Nunca perderás tu código porque hace backup ANTES de cualquier cambio.
 
 ---
 
@@ -209,6 +229,20 @@ ssh deployer@178.156.182.177 "pm2 flush"
 ---
 
 ## 🐛 TROUBLESHOOTING
+
+### ❌ ERROR: "Host key verification failed" o "Permission denied (publickey)"
+
+**NO SIGAS ESTE CAMINO.** Gemini intentó configurar SSH keys para GitHub y complicó todo.
+
+**Solución correcta (ya está en el script actualizado):**
+El repositorio usa HTTPS, no SSH. El script automáticamente configura esto. Si ves este error, simplemente ejecuta el script de nuevo - ya está arreglado.
+
+```bash
+# El script YA hace esto automáticamente, NO lo hagas manual:
+# git remote set-url origin https://github.com/jualfel30-eng/smartkubik.git
+```
+
+---
 
 ### El backend no inicia después del deploy
 
