@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { ClientSession, Model, Types } from 'mongoose';
 import { BankAccount, BankAccountDocument } from '../../schemas/bank-account.schema';
 import { CreateBankAccountDto, UpdateBankAccountDto, AdjustBalanceDto } from '../../dto/bank-account.dto';
+import { BankAlertsService } from './bank-alerts.service';
 
 @Injectable()
 export class BankAccountsService {
@@ -11,6 +12,7 @@ export class BankAccountsService {
   constructor(
     @InjectModel(BankAccount.name)
     private bankAccountModel: Model<BankAccountDocument>,
+    private readonly bankAlertsService: BankAlertsService,
   ) {}
 
   async create(createBankAccountDto: CreateBankAccountDto, tenantId: string): Promise<BankAccount> {
@@ -18,10 +20,14 @@ export class BankAccountsService {
       ...createBankAccountDto,
       tenantId: this.normalizeTenantValue(tenantId),
       currentBalance: createBankAccountDto.initialBalance,
+      alertEnabled: createBankAccountDto.alertEnabled ?? false,
+      minimumBalance: createBankAccountDto.minimumBalance ?? null,
     });
 
     this.logger.log(`Creating bank account for tenant ${tenantId}: ${createBankAccountDto.bankName} - ${createBankAccountDto.accountNumber}`);
-    return newBankAccount.save();
+    const saved = await newBankAccount.save();
+    await this.evaluateAlerts(saved, tenantId);
+    return saved;
   }
 
   async findAll(tenantId: string, includeInactive: boolean = false): Promise<BankAccount[]> {
@@ -61,10 +67,20 @@ export class BankAccountsService {
     const accountId = this.toObjectIdIfValid(id) ?? id;
     const tenantFilter = this.buildTenantFilter(tenantId);
 
+    const updatePayload: Record<string, any> = { ...updateBankAccountDto };
+
+    if (typeof updateBankAccountDto.alertEnabled === 'boolean' && !updateBankAccountDto.alertEnabled) {
+      updatePayload.lastAlertSentAt = null;
+    }
+
+    if (updateBankAccountDto.minimumBalance === null) {
+      updatePayload.lastAlertSentAt = null;
+    }
+
     const updated = await this.bankAccountModel
       .findOneAndUpdate(
         { _id: accountId, tenantId: tenantFilter },
-        updateBankAccountDto,
+        updatePayload,
         { new: true }
       )
       .exec();
@@ -74,6 +90,7 @@ export class BankAccountsService {
     }
 
     this.logger.log(`Updating bank account ${id} for tenant ${tenantId}`);
+    await this.evaluateAlerts(updated, tenantId);
     return updated;
   }
 
@@ -97,6 +114,7 @@ export class BankAccountsService {
     adjustBalanceDto: AdjustBalanceDto,
     tenantId: string,
     session?: ClientSession,
+    options: { userId?: string } = {},
   ): Promise<BankAccount> {
     const bankAccount = await this.findOne(id, tenantId, session);
 
@@ -123,6 +141,7 @@ export class BankAccountsService {
     }
 
     this.logger.log(`Adjusting balance for bank account ${id}: ${adjustBalanceDto.type} ${adjustBalanceDto.amount}. Reason: ${adjustBalanceDto.reason}`);
+    await this.evaluateAlerts(updated, tenantId, options.userId);
     return updated;
   }
 
@@ -131,6 +150,7 @@ export class BankAccountsService {
     amount: number,
     tenantId: string,
     session?: ClientSession,
+    options: { userId?: string } = {},
   ): Promise<BankAccount> {
     await this.findOne(id, tenantId, session);
 
@@ -150,6 +170,7 @@ export class BankAccountsService {
       throw new NotFoundException(`Bank account with ID ${id} not found`);
     }
 
+    await this.evaluateAlerts(updated, tenantId, options.userId);
     return updated;
   }
 
@@ -158,6 +179,7 @@ export class BankAccountsService {
     newBalance: number,
     tenantId: string,
     session?: ClientSession,
+    options: { userId?: string } = {},
   ): Promise<BankAccount> {
     if (!Number.isFinite(newBalance)) {
       throw new Error('Invalid balance value provided');
@@ -180,6 +202,7 @@ export class BankAccountsService {
     }
 
     this.logger.log(`Set current balance for bank account ${id} to ${newBalance}`);
+    await this.evaluateAlerts(updated, tenantId, options.userId);
     return updated;
   }
 
@@ -232,6 +255,25 @@ export class BankAccountsService {
       return { $in: [objectId, objectId.toHexString()] };
     }
     return tenantId;
+  }
+
+  private async evaluateAlerts(
+    account: BankAccountDocument,
+    tenantId: string,
+    userId?: string,
+  ): Promise<void> {
+    if (!account) {
+      return;
+    }
+
+    try {
+      await this.bankAlertsService.evaluateBalance(account, tenantId, { userId });
+    } catch (error) {
+      this.logger.error(
+        `Failed to evaluate alerts for bank account ${account._id}: ${error.message}`,
+        error.stack,
+      );
+    }
   }
 
  }

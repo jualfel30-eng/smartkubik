@@ -41,6 +41,15 @@ export class CreateBankAccountDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean = true;
+
+  @IsBoolean()
+  @IsOptional()
+  alertEnabled?: boolean = false;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  minimumBalance?: number | null;
 }
 
 export class UpdateBankAccountDto {
@@ -83,6 +92,15 @@ export class UpdateBankAccountDto {
   @IsDateString()
   @IsOptional()
   lastReconciliationDate?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  alertEnabled?: boolean;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  minimumBalance?: number | null;
 }
 
 export class AdjustBalanceDto {

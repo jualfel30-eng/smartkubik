@@ -70,6 +70,8 @@ export class BankTransactionsController {
       accountId,
       adjustment,
       tenantId,
+      undefined,
+      { userId },
     );
 
     const transaction = await this.bankTransactionsService.createTransaction(

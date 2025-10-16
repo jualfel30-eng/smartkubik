@@ -98,6 +98,8 @@ export class BankAccountsController {
       id,
       adjustBalanceDto,
       tenantId,
+      undefined,
+      { userId: req.user.id },
     );
 
     const transactionDto: CreateBankTransactionDto = {

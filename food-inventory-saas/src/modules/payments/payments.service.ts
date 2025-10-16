@@ -62,7 +62,9 @@ export class PaymentsService {
         const updatedAccount = await this.bankAccountsService.updateBalance(
           newPayment.bankAccountId.toString(),
           adjustment,
-          tenantId
+          tenantId,
+          undefined,
+          { userId }
         );
         await this.bankTransactionsService.recordPaymentMovement(
           tenantId,

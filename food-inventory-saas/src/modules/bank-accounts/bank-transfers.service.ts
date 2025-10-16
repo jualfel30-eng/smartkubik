@@ -59,6 +59,7 @@ export class BankTransfersService {
         -dto.amount,
         tenantId,
         session,
+        { userId },
       );
 
       const updatedDestination = await this.bankAccountsService.updateBalance(
@@ -66,6 +67,7 @@ export class BankTransfersService {
         dto.amount,
         tenantId,
         session,
+        { userId },
       );
 
       const transfer = await this.bankTransactionsService.createTransfer(

@@ -127,6 +127,8 @@ export class BankReconciliationService {
         bankAccountId,
         parsedEndingBalance,
         tenantId,
+        undefined,
+        {},
       );
     }
 

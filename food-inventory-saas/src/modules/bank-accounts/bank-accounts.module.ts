@@ -14,6 +14,8 @@ import { BankTransactionsService } from './bank-transactions.service';
 import { BankTransactionsController } from './bank-transactions.controller';
 import { BankTransfersController } from './bank-transfers.controller';
 import { BankTransfersService } from './bank-transfers.service';
+import { BankAlertsService } from './bank-alerts.service';
+import { EventsModule } from '../events/events.module';
 
 @Module({
   imports: [
@@ -26,9 +28,10 @@ import { BankTransfersService } from './bank-transfers.service';
     ]),
     AuthModule,
     PermissionsModule,
+    EventsModule,
   ],
   controllers: [BankAccountsController, BankTransactionsController, BankTransfersController],
-  providers: [BankAccountsService, BankTransactionsService, BankTransfersService, ModuleAccessGuard],
-  exports: [BankAccountsService, BankTransactionsService, BankTransfersService],
+  providers: [BankAccountsService, BankTransactionsService, BankTransfersService, BankAlertsService, ModuleAccessGuard],
+  exports: [BankAccountsService, BankTransactionsService, BankTransfersService, BankAlertsService],
 })
 export class BankAccountsModule {}

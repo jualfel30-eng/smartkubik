@@ -43,6 +43,15 @@ export class BankAccount {
 
   @Prop()
   lastReconciliationDate?: Date;
+
+  @Prop({ default: false })
+  alertEnabled?: boolean;
+
+  @Prop({ type: Number, default: null })
+  minimumBalance?: number | null;
+
+  @Prop({ type: Date })
+  lastAlertSentAt?: Date;
 }
 
 export const BankAccountSchema = SchemaFactory.createForClass(BankAccount);
