@@ -97,4 +97,8 @@ export class AdjustBalanceDto {
   @IsEnum(['increase', 'decrease'])
   @IsNotEmpty()
   type: 'increase' | 'decrease';
+
+  @IsString()
+  @IsOptional()
+  reference?: string;
 }

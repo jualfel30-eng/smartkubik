@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -9,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Badge } from './ui/badge';
 import { toast } from 'sonner';
 import { fetchApi } from '../lib/api';
-import { PlusCircle, Edit, Trash2, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, DollarSign, TrendingUp, TrendingDown, List as ListIcon, RefreshCcw, CheckCircle } from 'lucide-react';
 import { Textarea } from './ui/textarea';
 
 const initialFormState = {
@@ -26,6 +27,7 @@ const initialFormState = {
 };
 
 export default function BankAccountsManagement() {
+  const navigate = useNavigate();
   const [accounts, setAccounts] = useState([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAdjustDialogOpen, setIsAdjustDialogOpen] = useState(false);
@@ -39,6 +41,11 @@ export default function BankAccountsManagement() {
   const [pageLimit, setPageLimit] = useState(25);
   const [totalAccounts, setTotalAccounts] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [isMovementsDialogOpen, setIsMovementsDialogOpen] = useState(false);
+  const [selectedAccountForMovements, setSelectedAccountForMovements] = useState(null);
+  const [movements, setMovements] = useState([]);
+  const [movementsPagination, setMovementsPagination] = useState({ page: 1, totalPages: 0, limit: 20 });
+  const [movementsLoading, setMovementsLoading] = useState(false);
 
   const fetchAccounts = useCallback(async (page = 1, limit = 25) => {
     try {
@@ -69,6 +76,32 @@ export default function BankAccountsManagement() {
       setBalancesByCurrency(response || {});
     } catch (error) {
       console.error('Error fetching balances:', error);
+    }
+  }, []);
+
+  const fetchMovements = useCallback(async (accountId, page = 1) => {
+    try {
+      setMovementsLoading(true);
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '20'
+      });
+      const response = await fetchApi(`/bank-accounts/${accountId}/movements?${params.toString()}`);
+      const data = response.data || response;
+      setMovements(Array.isArray(data) ? data : data?.data || []);
+      const pagination = response.pagination || data?.pagination || { page, totalPages: 1, limit: 20, total: movements.length };
+      setMovementsPagination({
+        page: pagination.page || page,
+        totalPages: pagination.totalPages || 1,
+        limit: pagination.limit || 20,
+        totalItems: pagination.total ?? pagination.totalItems ?? movements.length,
+      });
+    } catch (error) {
+      console.error('Error fetching bank movements:', error);
+      toast.error('Error al cargar movimientos bancarios', { description: error.message });
+      setMovements([]);
+    } finally {
+      setMovementsLoading(false);
     }
   }, []);
 
@@ -122,6 +155,27 @@ export default function BankAccountsManagement() {
     setSelectedAccount(account);
     setAdjustmentData({ amount: 0, reason: '', type: 'increase' });
     setIsAdjustDialogOpen(true);
+  };
+
+  const openMovementsDialog = async (account) => {
+    setSelectedAccountForMovements(account);
+    setIsMovementsDialogOpen(true);
+    await fetchMovements(account._id, 1);
+  };
+
+  const handleMovementsPageChange = async (direction) => {
+    if (!selectedAccountForMovements) return;
+    const newPage = movementsPagination.page + direction;
+    if (newPage < 1 || newPage > movementsPagination.totalPages) return;
+    await fetchMovements(selectedAccountForMovements._id, newPage);
+  };
+
+  const handleRefreshMovements = async () => {
+    if (!selectedAccountForMovements) return;
+    await fetchMovements(
+      selectedAccountForMovements._id,
+      movementsPagination.page || 1,
+    );
   };
 
   const handleSubmit = async (e) => {
@@ -186,6 +240,28 @@ export default function BankAccountsManagement() {
     setCurrentPage(newPage);
   };
 
+  const totalsByBank = useMemo(() => {
+    const totals = {};
+    accounts.forEach((account) => {
+      const bankKey = account.bankName || 'Banco sin nombre';
+      const currencyKey = (account.currency || 'VES').toUpperCase();
+      if (!totals[bankKey]) {
+        totals[bankKey] = {};
+      }
+      if (!totals[bankKey][currencyKey]) {
+        totals[bankKey][currencyKey] = 0;
+      }
+      totals[bankKey][currencyKey] += Number(account.currentBalance || 0);
+    });
+    return totals;
+  }, [accounts]);
+
+  const formatCurrency = (value, currency = 'USD') =>
+    new Intl.NumberFormat('es-VE', {
+      style: 'currency',
+      currency: currency.toUpperCase(),
+    }).format(Number(value || 0));
+
   const handlePageLimitChange = (newLimit) => {
     setPageLimit(newLimit);
     setCurrentPage(1);
@@ -229,6 +305,43 @@ export default function BankAccountsManagement() {
           </Card>
         ))}
       </div>
+
+      {/* Totales por banco */}
+      {Object.keys(totalsByBank).length > 0 && (
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold">Totales por banco</h2>
+            <p className="text-sm text-muted-foreground">
+              Suma de saldos por entidad financiera y moneda registrada.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {Object.entries(totalsByBank).map(([bankName, currencies]) => (
+              <Card key={bankName}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base font-semibold">{bankName}</CardTitle>
+                  <CardDescription>Totales agrupados por moneda</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {Object.entries(currencies).map(([currency, total]) => (
+                    <div
+                      key={`${bankName}-${currency}`}
+                      className="flex items-center justify-between rounded-md border px-3 py-2"
+                    >
+                      <span className="text-sm font-medium text-muted-foreground">
+                        {currency}
+                      </span>
+                      <span className="text-base font-semibold">
+                        {formatCurrency(total, currency)}
+                      </span>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Tabla de cuentas */}
       <Card>
@@ -393,7 +506,11 @@ export default function BankAccountsManagement() {
                 <TableHead>Tipo</TableHead>
                 <TableHead>Saldo Actual</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
+                <TableHead className="text-center">Ver Movimientos</TableHead>
+                <TableHead className="text-center">Conciliar</TableHead>
+                <TableHead className="text-center">Ajustar Saldo</TableHead>
+                <TableHead className="text-center">Editar</TableHead>
+                <TableHead className="text-center">Eliminar</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -418,7 +535,27 @@ export default function BankAccountsManagement() {
                       {account.isActive ? 'Activa' : 'Inactiva'}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right space-x-2">
+                  <TableCell className="text-center">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openMovementsDialog(account)}
+                      title="Ver movimientos"
+                    >
+                      <ListIcon className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => navigate(`/bank-accounts/${account._id}/reconciliation`)}
+                      title="Conciliar banco"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                  <TableCell className="text-center">
                     <Button
                       variant="ghost"
                       size="icon"
@@ -427,17 +564,23 @@ export default function BankAccountsManagement() {
                     >
                       <DollarSign className="h-4 w-4" />
                     </Button>
+                  </TableCell>
+                  <TableCell className="text-center">
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => openEditDialog(account)}
+                      title="Editar cuenta"
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
+                  </TableCell>
+                  <TableCell className="text-center">
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => handleDelete(account._id)}
+                      title="Eliminar cuenta"
                     >
                       <Trash2 className="h-4 w-4 text-red-500" />
                     </Button>
@@ -503,6 +646,137 @@ export default function BankAccountsManagement() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={isMovementsDialogOpen} onOpenChange={setIsMovementsDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Movimientos Bancarios</DialogTitle>
+            <DialogDescription>
+              {selectedAccountForMovements
+                ? `${selectedAccountForMovements.bankName} - ${selectedAccountForMovements.accountNumber}`
+                : 'Seleccione una cuenta para ver sus movimientos'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex items-center justify-between pb-2">
+            <div className="text-sm text-muted-foreground">
+              {movementsPagination.totalItems
+                ? `Mostrando ${movements.length} de ${movementsPagination.totalItems} movimientos`
+                : null}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefreshMovements}
+              disabled={movementsLoading}
+            >
+              <RefreshCcw className="h-4 w-4 mr-2" />
+              Refrescar
+            </Button>
+          </div>
+
+          <div className="border rounded-lg overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Descripción</TableHead>
+                  <TableHead>Canal</TableHead>
+                  <TableHead>Referencia</TableHead>
+                  <TableHead className="text-right">Monto</TableHead>
+                  <TableHead className="text-right">Saldo</TableHead>
+                  <TableHead>Estado</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {movementsLoading && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                      Cargando movimientos...
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!movementsLoading && movements.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                      No hay movimientos registrados para esta cuenta.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!movementsLoading &&
+                  movements.map((movement) => (
+                    <TableRow key={movement._id}>
+                      <TableCell>{movement.transactionDate ? new Date(movement.transactionDate).toLocaleDateString('es-VE') : '-'}</TableCell>
+                      <TableCell>
+                        <div className="font-medium">{movement.description}</div>
+                        {movement.metadata?.note && (
+                          <div className="text-xs text-muted-foreground">{movement.metadata.note}</div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{movement.channel}</Badge>
+                      </TableCell>
+                      <TableCell>{movement.reference || '-'}</TableCell>
+                      <TableCell className={`text-right font-semibold ${movement.type === 'debit' ? 'text-red-600' : 'text-green-600'}`}>
+                        {new Intl.NumberFormat('es-VE', {
+                          style: 'currency',
+                          currency: selectedAccountForMovements?.currency || 'VES',
+                          minimumFractionDigits: 2,
+                        }).format(movement.amount)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {movement.balanceAfter !== undefined
+                          ? new Intl.NumberFormat('es-VE', {
+                              style: 'currency',
+                              currency: selectedAccountForMovements?.currency || 'VES',
+                              minimumFractionDigits: 2,
+                            }).format(movement.balanceAfter)
+                          : '-'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{movement.reconciliationStatus || 'pendiente'}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+              </TableBody>
+            </Table>
+          </div>
+
+          {movementsPagination.totalPages > 1 && (
+            <div className="flex items-center justify-between pt-4">
+              <div className="text-sm text-muted-foreground">
+                Página {movementsPagination.page} de {movementsPagination.totalPages}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={movementsPagination.page <= 1 || movementsLoading}
+                  onClick={() => handleMovementsPageChange(-1)}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={
+                    movementsPagination.page >= movementsPagination.totalPages || movementsLoading
+                  }
+                  onClick={() => handleMovementsPageChange(1)}
+                >
+                  Siguiente
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setIsMovementsDialogOpen(false)}>
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog para ajustar saldo */}
       <Dialog open={isAdjustDialogOpen} onOpenChange={setIsAdjustDialogOpen}>

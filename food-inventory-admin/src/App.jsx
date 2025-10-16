@@ -79,6 +79,7 @@ const BlogIndex = lazy(() => import('./pages/BlogIndex.jsx'));
 const BlogPost = lazy(() => import('./pages/BlogPost.jsx'));
 const ComprasManagement = lazy(() => import('@/components/ComprasManagement.jsx'));
 const BankAccountsManagement = lazy(() => import('@/components/BankAccountsManagement.jsx'));
+const BankReconciliationView = lazy(() => import('@/components/BankReconciliationView.jsx'));
 const RubikLoader = lazy(() => import('@/components/RubikLoader.jsx'));
 const ServicesManagement = lazy(() => import('@/components/ServicesManagement.jsx'));
 const ResourcesManagement = lazy(() => import('@/components/ResourcesManagement.jsx'));
@@ -469,6 +470,7 @@ function TenantLayout() {
                 <Route path="accounting-management" element={<AccountingDashboard />} />
                 <Route path="accounting/reports/accounts-receivable" element={<AccountsReceivableReport />} />
                 <Route path="bank-accounts" element={<BankAccountsManagement />} />
+                <Route path="bank-accounts/:accountId/reconciliation" element={<BankReconciliationView />} />
                 <Route path="organizations" element={<OrganizationsManagement />} />
                 <Route path="appointments" element={<AppointmentsManagement />} />
                 <Route path="services" element={<ServicesManagement />} />
