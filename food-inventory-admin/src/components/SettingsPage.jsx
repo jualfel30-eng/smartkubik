@@ -19,6 +19,10 @@ const initialSettings = {
   name: '',
   website: '',
   logo: '',
+  aiAssistant: {
+    autoReplyEnabled: false,
+    knowledgeBaseTenantId: '',
+  },
   contactInfo: {
     email: '',
     phone: '',
@@ -64,7 +68,7 @@ const SettingsPage = () => {
   const [logoPreviewUrl, setLogoPreviewUrl] = useState('');
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const fileInputRef = useRef(null);
-  const { hasPermission, tenant } = useAuth(); // Obtener hasPermission y tenant
+  const { hasPermission, tenant, updateTenantContext } = useAuth(); // Obtener hasPermission y tenant
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -80,6 +84,10 @@ const SettingsPage = () => {
             const newSettings = {
               ...initialSettings,
               ...settingsData,
+              aiAssistant: {
+                ...initialSettings.aiAssistant,
+                ...(settingsData.aiAssistant || {}),
+              },
               contactInfo: { ...initialSettings.contactInfo, ...(settingsData.contactInfo || {}) },
               taxInfo: { ...initialSettings.taxInfo, ...(settingsData.taxInfo || {}) },
               settings: {
@@ -194,6 +202,12 @@ const SettingsPage = () => {
         toast.error('Error al guardar la configuración', { description: error });
       } else {
         toast.success('Configuración guardada correctamente');
+        updateTenantContext?.({
+          aiAssistant: {
+            autoReplyEnabled: Boolean(settings.aiAssistant?.autoReplyEnabled),
+            knowledgeBaseTenantId: settings.aiAssistant?.knowledgeBaseTenantId || '',
+          },
+        });
       }
     } catch (error) {
       toast.error('Error de red', { description: `No se pudo guardar: ${error.message}` });
@@ -365,7 +379,39 @@ const SettingsPage = () => {
                                 placeholder="Ej: Presupuesto válido por 15 días."
                             />
                         </div>
-                    </CardContent>
+                </CardContent>
+              </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Asistente Inteligente</CardTitle>
+                    <CardDescription>Controla cómo responde el asistente dentro de tu organización.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between gap-4 rounded-md border border-border/60 bg-muted/40 p-3">
+                      <div>
+                        <Label className="font-medium">Auto-respuesta en WhatsApp</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Permite que el asistente responda mensajes entrantes usando tu base de conocimiento.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={Boolean(settings.aiAssistant?.autoReplyEnabled)}
+                        onCheckedChange={(checked) =>
+                          handleSwitchChange('aiAssistant.autoReplyEnabled', checked)
+                        }
+                      />
+                    </div>
+
+                    <div className="rounded-md border border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
+                      <p>
+                        El asistente de soporte siempre usa la documentación global de SmartKubik <span className="font-semibold">(smartkubik_docs)</span>.
+                      </p>
+                      <p>
+                        La base de conocimiento personalizada solo se usa para auto-respuestas en WhatsApp cuando el interruptor está activado.
+                      </p>
+                    </div>
+                  </CardContent>
                 </Card>
             </div>
           </div>

@@ -68,7 +68,7 @@ export class TenantService {
         },
         { new: true, runValidators: true },
       )
-      .select("name contactInfo taxInfo logo website timezone settings")
+      .select("name contactInfo taxInfo logo website timezone settings aiAssistant")
       .exec();
 
     if (!updatedTenant) {
@@ -81,7 +81,7 @@ export class TenantService {
   async getSettings(tenantId: string): Promise<Tenant> {
     const tenant = await this.tenantModel
       .findById(tenantId)
-      .select("name contactInfo taxInfo logo website timezone settings limits usage subscriptionPlan")
+      .select("name contactInfo taxInfo logo website timezone settings aiAssistant limits usage subscriptionPlan")
       .exec();
 
     if (!tenant) {
@@ -139,6 +139,17 @@ export class TenantService {
             updatePayload[`settings.documentTemplates.quote.${key}`] = quote[key];
           });
         }
+      }
+    }
+
+    if (updateDto.aiAssistant) {
+      const { autoReplyEnabled, knowledgeBaseTenantId } = updateDto.aiAssistant;
+      if (typeof autoReplyEnabled === 'boolean') {
+        updatePayload['aiAssistant.autoReplyEnabled'] = autoReplyEnabled;
+      }
+      if (knowledgeBaseTenantId !== undefined) {
+        updatePayload['aiAssistant.knowledgeBaseTenantId'] =
+          (knowledgeBaseTenantId || '').trim();
       }
     }
 

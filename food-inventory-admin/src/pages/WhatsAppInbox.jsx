@@ -99,13 +99,24 @@ const WhatsAppInbox = () => {
               {loading ? (
                 <p>Loading messages...</p>
               ) : (
-                messages.map((msg, index) => (
-                  <div key={index} className={`flex mb-2 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-lg px-4 py-2 rounded-lg shadow ${msg.sender === 'user' ? 'bg-primary text-primary-foreground' : 'bg-card'}`}>
-                      {msg.content}
+                messages.map((msg, index) => {
+                  const isUser = msg.sender === 'user';
+                  const isAssistant = msg.sender === 'assistant';
+                  const alignmentClass = isUser ? 'justify-end' : 'justify-start';
+                  const bubbleClass = isUser
+                    ? 'bg-primary text-primary-foreground'
+                    : isAssistant
+                      ? 'bg-secondary text-secondary-foreground border border-primary/30'
+                      : 'bg-card border border-border/20';
+                  
+                  return (
+                    <div key={index} className={`flex mb-3 ${alignmentClass}`}>
+                      <div className={`max-w-lg px-4 py-2 rounded-lg shadow-sm ${bubbleClass}`}>
+                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
             <div className="bg-card p-4 border-t border-border">

@@ -42,7 +42,8 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      return JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      return normalizeTenant(parsed);
     } catch (error) {
       console.error('Failed to parse stored tenant:', error);
       return null;
@@ -81,6 +82,7 @@ export const AuthProvider = ({ children }) => {
 
   const normalizeTenant = (rawTenant) => {
     if (!rawTenant) return null;
+    const aiAssistant = rawTenant.aiAssistant || {};
     return {
       id: rawTenant.id || rawTenant._id,
       code: rawTenant.code,
@@ -93,6 +95,10 @@ export const AuthProvider = ({ children }) => {
         typeof rawTenant.isConfirmed === 'boolean'
           ? rawTenant.isConfirmed
           : Boolean(rawTenant.tenantConfirmed),
+      aiAssistant: {
+        autoReplyEnabled: Boolean(aiAssistant.autoReplyEnabled),
+        knowledgeBaseTenantId: aiAssistant.knowledgeBaseTenantId || '',
+      },
     };
   };
 
@@ -213,7 +219,8 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
       }
       localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
-      localStorage.setItem(STORAGE_KEYS.TENANT, JSON.stringify(tenantData));
+      const normalizedTenant = normalizeTenant(tenantData);
+      localStorage.setItem(STORAGE_KEYS.TENANT, JSON.stringify(normalizedTenant));
       localStorage.setItem(
         STORAGE_KEYS.ACTIVE_MEMBERSHIP,
         membership?.id || membershipId,
@@ -229,7 +236,6 @@ export const AuthProvider = ({ children }) => {
 
       setToken(accessToken);
       setUser(userData);
-      const normalizedTenant = normalizeTenant(tenantData);
       setTenant(normalizedTenant);
       setActiveMembershipId(membership?.id || membershipId);
       setIsAuthenticated(true);
@@ -312,6 +318,15 @@ export const AuthProvider = ({ children }) => {
     clearStoredSession();
   };
 
+  const updateTenantContext = (partialTenant) => {
+    if (!partialTenant) return;
+    setTenant((prev) => {
+      const nextTenant = { ...(prev || {}), ...partialTenant };
+      localStorage.setItem(STORAGE_KEYS.TENANT, JSON.stringify(nextTenant));
+      return nextTenant;
+    });
+  };
+
   const permissions = useMemo(() => {
     if (token) {
       try {
@@ -364,6 +379,7 @@ export const AuthProvider = ({ children }) => {
     selectTenant,
     logout,
     loginWithTokens,
+    updateTenantContext,
     permissions,
     hasPermission,
     saveLastLocation,

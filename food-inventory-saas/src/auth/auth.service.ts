@@ -230,6 +230,10 @@ export class AuthService {
       enabledModules: effectiveModules,
       subscriptionPlan: tenant.subscriptionPlan,
       isConfirmed: tenant.isConfirmed,
+      aiAssistant: tenant.aiAssistant ?? {
+        autoReplyEnabled: false,
+        knowledgeBaseTenantId: '',
+      },
     };
   }
 

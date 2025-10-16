@@ -28,6 +28,7 @@ import { TablesModule } from '../tables/tables.module';
 import { TodosModule } from '../todos/todos.module';
 import { UsersModule } from '../users/users.module';
 import { KnowledgeBaseModule } from '../knowledge-base/knowledge-base.module';
+import { AssistantModule } from '../assistant/assistant.module';
 import { AuthModule } from '../../auth/auth.module';
 
 @Module({
@@ -37,6 +38,7 @@ import { AuthModule } from '../../auth/auth.module';
     ]),
     AuthModule,
     KnowledgeBaseModule, // <--- AÑADIDO
+    AssistantModule,
     AppointmentsModule,
     BankAccountsModule,
     BillSplitsModule,

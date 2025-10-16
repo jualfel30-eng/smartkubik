@@ -8,6 +8,7 @@ import { Message, MessageSchema } from './schemas/message.schema';
 import { WhapiSignatureGuard } from './guards/whapi-signature.guard';
 
 import { SuperAdminModule } from '../modules/super-admin/super-admin.module';
+import { AssistantModule } from '../modules/assistant/assistant.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { SuperAdminModule } from '../modules/super-admin/super-admin.module';
       { name: Message.name, schema: MessageSchema },
     ]),
     SuperAdminModule,
+    AssistantModule,
   ],
   providers: [ChatService, ChatGateway, WhapiSignatureGuard],
   controllers: [ChatController],

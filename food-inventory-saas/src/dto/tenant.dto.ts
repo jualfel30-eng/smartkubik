@@ -9,6 +9,7 @@ import {
   IsNotEmptyObject,
   IsNumber,
   Min,
+  IsBoolean,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { SanitizeString } from "../decorators/sanitize.decorator";
@@ -146,6 +147,19 @@ class DocumentTemplatesSettingsDto {
   quote?: QuoteSettingsDto;
 }
 
+class AiAssistantSettingsDto {
+  @ApiProperty({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  autoReplyEnabled?: boolean;
+
+  @ApiProperty({ example: "smartkubik_docs" })
+  @IsString()
+  @IsOptional()
+  @SanitizeString()
+  knowledgeBaseTenantId?: string;
+}
+
 class OperationalSettingsDto {
     @ApiProperty({ type: CurrencySettingsDto })
     @IsOptional()
@@ -212,6 +226,12 @@ export class UpdateTenantSettingsDto {
   @ValidateNested()
   @Type(() => OperationalSettingsDto)
   settings?: OperationalSettingsDto;
+
+  @ApiProperty({ type: AiAssistantSettingsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AiAssistantSettingsDto)
+  aiAssistant?: AiAssistantSettingsDto;
 }
 
 export class InviteUserDto {

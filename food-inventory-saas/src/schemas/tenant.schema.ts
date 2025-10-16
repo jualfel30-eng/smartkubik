@@ -198,6 +198,18 @@ export class Tenant {
   @Prop({ type: String })
   suspendedReason?: string;
 
+  @Prop({
+    type: {
+      autoReplyEnabled: { type: Boolean, default: false },
+      knowledgeBaseTenantId: { type: String, default: '' },
+    },
+    default: { autoReplyEnabled: false, knowledgeBaseTenantId: '' },
+  })
+  aiAssistant?: {
+    autoReplyEnabled: boolean;
+    knowledgeBaseTenantId?: string;
+  };
+
   @Prop({ type: Object })
   limits: {
     maxUsers: number;

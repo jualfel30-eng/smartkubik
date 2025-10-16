@@ -6,6 +6,7 @@ export type MessageDocument = Message & Document;
 export enum SenderType {
   USER = 'user',
   CUSTOMER = 'customer',
+  ASSISTANT = 'assistant',
 }
 
 @Schema({ timestamps: true })
@@ -21,6 +22,9 @@ export class Message {
 
   @Prop({ required: true })
   content: string;
+
+  @Prop({ type: Object })
+  metadata?: Record<string, any>;
 
   @Prop({ default: Date.now })
   createdAt: Date;

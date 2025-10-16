@@ -1,10 +1,11 @@
-import { Controller, Delete, Param, UseGuards, HttpCode, HttpStatus, Get, Query, Patch, Body, Post, Request, UseInterceptors, UploadedFile, BadRequestException, Req } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { Controller, Delete, Param, UseGuards, HttpCode, HttpStatus, Get, Query, Patch, Body, Post, Request, UseInterceptors, UploadedFiles, BadRequestException, Req } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
 import { SuperAdminGuard } from './guards/super-admin.guard';
 import { SuperAdminService } from './super-admin.service';
 import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
+import { AssistantService } from '../assistant/assistant.service';
 
 @ApiTags('Super Admin')
 @ApiBearerAuth()
@@ -14,6 +15,7 @@ export class SuperAdminController {
   constructor(
     private readonly superAdminService: SuperAdminService,
     private readonly knowledgeBaseService: KnowledgeBaseService,
+    private readonly assistantService: AssistantService,
   ) {}
 
   @Get('tenants')
@@ -124,37 +126,52 @@ export class SuperAdminController {
   }
 
   @Post('knowledge-base/upload')
-  @ApiOperation({ summary: '[SUPER ADMIN] Upload a document to a specified knowledge base' })
-  @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: '[SUPER ADMIN] Upload one or multiple documents to a specified knowledge base' })
+  @UseInterceptors(FilesInterceptor('files'))
   @ApiConsumes('multipart/form-data')
   @ApiBody({
-    description: 'Document file and target tenantId for the knowledge base',
+    description: 'Uno o varios archivos y el tenant de destino para la base de conocimiento',
     schema: {
       type: 'object',
       properties: {
-        file: { type: 'string', format: 'binary' },
-        tenantId: { type: 'string', description: 'The target tenantId for the knowledge base (e.g., \"smartkubik_docs\")' },
-        source: { type: 'string', description: 'The source of the document' },
+        files: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+          description: 'Archivos (PDF o TXT)',
+        },
+        tenantId: {
+          type: 'string',
+          description: 'Tenant de destino (ej: "smartkubik_docs")',
+        },
+        source: {
+          type: 'string',
+          description: 'Nombre de referencia (solo para un único archivo)',
+        },
       },
     },
   })
   async uploadGlobalDocument(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFiles() files: Express.Multer.File[],
     @Req() req: any,
   ) {
     const { tenantId, source } = req.body;
-    if (!file) {
-      throw new BadRequestException('No file uploaded.');
+    if (!files || files.length === 0) {
+      throw new BadRequestException('No files uploaded.');
     }
     if (!tenantId) {
       throw new BadRequestException('No tenantId provided in form data.');
     }
 
-    const metadata = { source };
+    const normalizedSources = Array.isArray(source) ? source : [source];
 
-    await this.knowledgeBaseService.addDocument(tenantId, file, metadata);
+    for (let index = 0; index < files.length; index++) {
+      const file = files[index];
+      const resolvedSource =
+        normalizedSources[index] || (files.length === 1 ? source : '') || file.originalname;
+      await this.knowledgeBaseService.addDocument(tenantId, file, { source: resolvedSource });
+    }
 
-    return { message: `Document uploaded and processed successfully for tenant ${tenantId}.` };
+    return { message: `Uploaded ${files.length} document(s) for tenant ${tenantId}.` };
   }
 
   @Get('knowledge-base/documents')
@@ -191,5 +208,18 @@ export class SuperAdminController {
     }
     await this.knowledgeBaseService.deleteDocumentBySource(tenantId, source);
     return { message: `Deletion initiated for document source '${source}' in tenant '${tenantId}'.` };
+  }
+
+  @Post('assistant/query')
+  @ApiOperation({ summary: '[SUPER ADMIN] Ask the SmartKubik assistant using the knowledge base context' })
+  async askAssistant(
+    @Body() body: { tenantId?: string; question: string; topK?: number },
+  ) {
+    const tenantId = body.tenantId || 'smartkubik_docs';
+    const question = body.question;
+    const topK = body.topK ?? 5;
+
+    const response = await this.assistantService.answerQuestion(tenantId, question, topK);
+    return { data: { tenantId, ...response } };
   }
 }

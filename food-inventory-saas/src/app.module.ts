@@ -50,6 +50,7 @@ import { ChatModule } from './chat/chat.module';
 import { OpenaiModule } from './modules/openai/openai.module';
 import { VectorDbModule } from './modules/vector-db/vector-db.module';
 import { KnowledgeBaseModule } from './modules/knowledge-base/knowledge-base.module';
+import { AssistantModule } from './modules/assistant/assistant.module';
 
 @Module({
   imports: [
@@ -144,6 +145,7 @@ import { KnowledgeBaseModule } from './modules/knowledge-base/knowledge-base.mod
     OpenaiModule,
     VectorDbModule,
     KnowledgeBaseModule,
+    AssistantModule,
   ],
   controllers: [AppController, TenantController],
   providers: [

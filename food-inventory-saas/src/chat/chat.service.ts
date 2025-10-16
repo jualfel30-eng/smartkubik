@@ -7,7 +7,8 @@ import { Tenant, TenantDocument } from '../schemas/tenant.schema';
 import { ChatGateway } from './chat.gateway';
 import { ConfigService } from '@nestjs/config';
 import { SuperAdminService } from '../modules/super-admin/super-admin.service';
-import { Configuration, UsersApi, ChannelApi, MessagesApi, SendMessageTextRequest, SenderText, EventTypeEnum } from '../lib/whapi-sdk/whapi-sdk-typescript-fetch';
+import { Configuration, UsersApi, ChannelApi, MessagesApi, SendMessageTextRequest, EventTypeEnum } from '../lib/whapi-sdk/whapi-sdk-typescript-fetch';
+import { AssistantService } from '../modules/assistant/assistant.service';
 
 @Injectable()
 export class ChatService {
@@ -21,6 +22,7 @@ export class ChatService {
     private readonly chatGateway: ChatGateway,
     private readonly configService: ConfigService,
     private readonly superAdminService: SuperAdminService,
+    private readonly assistantService: AssistantService,
   ) {}
 
   async generateQrCode(tenantId: string): Promise<{ qrCode: string }> {
@@ -130,31 +132,29 @@ export class ChatService {
     const savedMessage = await this.saveMessage(conversation, tenantId, data.content, SenderType.USER);
     this.chatGateway.emitNewMessage(tenantId, savedMessage);
 
-    try {
-      const config = new Configuration({ accessToken: tenant.whapiToken });
-      const messagesApi = new MessagesApi(config);
-      
-      const sendMessageTextRequest: SendMessageTextRequest = {
-        senderText: {
-          to: conversation.customerPhoneNumber,
-          body: data.content,
-        }
-      };
-
-      await messagesApi.sendMessageText(sendMessageTextRequest);
-
-      this.logger.log(`Successfully sent message to ${conversation.customerPhoneNumber} via Whapi SDK`);
-
-    } catch (error) {
-      this.logger.error(`Failed to send message via Whapi SDK: ${error.message}`, error.stack);
-    }
+    await this.dispatchWhatsAppTextMessage(
+      tenant.whapiToken,
+      conversation.customerPhoneNumber,
+      data.content,
+      'manual',
+    );
   }
 
   async handleIncomingMessage(payload: any, tenantId: string): Promise<void> {
     this.logger.log(`Handling incoming message for tenant: ${tenantId}`);
+
+    const tenant = await this.tenantModel.findById(tenantId).exec();
+    if (!tenant) {
+      this.logger.error(`Tenant ${tenantId} not found while processing incoming message.`);
+      return;
+    }
     
-    if (payload.messages) {
+    if (payload?.messages) {
       for (const msg of payload.messages) {
+        if (msg?.fromMe) {
+          continue;
+        }
+
         if (msg.from && msg.text) {
           const customerPhoneNumber = msg.from;
           const content = msg.text.body;
@@ -163,6 +163,8 @@ export class ChatService {
           const savedMessage = await this.saveMessage(conversation, tenantId, content, SenderType.CUSTOMER);
           
           this.chatGateway.emitNewMessage(tenantId, savedMessage);
+
+          await this.maybeRespondWithAssistant(tenant, conversation, content);
         }
       }
     }
@@ -180,13 +182,117 @@ export class ChatService {
     return conversation;
   }
 
-  private async saveMessage(conversation: ConversationDocument, tenantId: string, content: string, sender: SenderType): Promise<MessageDocument> {
-    const newMessage = new this.messageModel({
+  private async maybeRespondWithAssistant(
+    tenant: TenantDocument,
+    conversation: ConversationDocument,
+    customerMessage: string,
+  ): Promise<void> {
+    if (!tenant.aiAssistant?.autoReplyEnabled) {
+      return;
+    }
+
+    if (!tenant.whapiToken) {
+      this.logger.warn(`Auto-reply enabled for tenant ${tenant.id}, but WhatsApp token is missing.`);
+      return;
+    }
+
+    try {
+      const knowledgeBaseTenantId =
+        tenant.aiAssistant.knowledgeBaseTenantId?.trim() || tenant.id.toString();
+
+      const assistantResponse = await this.assistantService.answerQuestion(
+        knowledgeBaseTenantId,
+        customerMessage,
+      );
+
+      const answer = assistantResponse?.answer?.trim();
+      if (!answer) {
+        this.logger.warn(`Assistant returned an empty answer for tenant ${tenant.id}.`);
+        return;
+      }
+
+      if (!assistantResponse?.sources?.length) {
+        this.logger.log(
+          `Assistant response for tenant ${tenant.id} lacks contextual sources. Skipping auto-reply.`,
+        );
+        return;
+      }
+
+      const metadata = {
+        sources: assistantResponse.sources,
+      };
+
+      const assistantMessage = await this.saveMessage(
+        conversation,
+        tenant.id,
+        answer,
+        SenderType.ASSISTANT,
+        metadata,
+      );
+
+      this.chatGateway.emitNewMessage(tenant.id, assistantMessage);
+
+      await this.dispatchWhatsAppTextMessage(
+        tenant.whapiToken,
+        conversation.customerPhoneNumber,
+        answer,
+        'assistant',
+      );
+    } catch (error) {
+      this.logger.error(
+        `Assistant auto-reply failed for tenant ${tenant.id}: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  private async dispatchWhatsAppTextMessage(
+    accessToken: string,
+    recipientPhone: string,
+    body: string,
+    context: 'manual' | 'assistant',
+  ): Promise<void> {
+    try {
+      const config = new Configuration({ accessToken });
+      const messagesApi = new MessagesApi(config);
+      const sendMessageTextRequest: SendMessageTextRequest = {
+        senderText: {
+          to: recipientPhone,
+          body,
+        },
+      };
+
+      await messagesApi.sendMessageText(sendMessageTextRequest);
+      this.logger.log(
+        `[${context}] Successfully sent message to ${recipientPhone} via Whapi SDK`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `[${context}] Failed to send message via Whapi SDK: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  private async saveMessage(
+    conversation: ConversationDocument,
+    tenantId: string,
+    content: string,
+    sender: SenderType,
+    metadata?: Record<string, any>,
+  ): Promise<MessageDocument> {
+    const payload: any = {
       tenantId: new Types.ObjectId(tenantId),
       conversationId: conversation._id,
       content,
       sender,
-    });
+    };
+
+    if (metadata && Object.keys(metadata).length > 0) {
+      payload.metadata = metadata;
+    }
+
+    const newMessage = new this.messageModel(payload);
 
     const savedMessage = await newMessage.save();
     conversation.messages.push(savedMessage._id);

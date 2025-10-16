@@ -6,11 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { fetchApi } from '@/lib/api';
-import { Trash2, Search } from 'lucide-react';
+import { Trash2, Search, Sparkles } from 'lucide-react';
 
 const KnowledgeBaseManagement = () => {
   // State for file upload
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
   const [tenantId, setTenantId] = useState('smartkubik_docs');
   const [source, setSource] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -23,6 +23,9 @@ const KnowledgeBaseManagement = () => {
   const [query, setQuery] = useState('');
   const [isQuerying, setIsQuerying] = useState(false);
   const [queryResults, setQueryResults] = useState([]);
+  const [isAnswering, setIsAnswering] = useState(false);
+  const [assistantAnswer, setAssistantAnswer] = useState(null);
+  const [assistantSources, setAssistantSources] = useState([]);
 
   const fetchDocuments = useCallback(async () => {
     if (!tenantId) return;
@@ -42,28 +45,36 @@ const KnowledgeBaseManagement = () => {
   }, [fetchDocuments]);
 
   const handleFileChange = (event) => {
-    const selectedFile = event.target.files[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      setSource(selectedFile.name);
+    const selectedFiles = Array.from(event.target.files || []);
+    setFiles(selectedFiles);
+    if (selectedFiles.length === 1) {
+      setSource(selectedFiles[0].name);
+    } else {
+      setSource('');
     }
   };
 
   const handleUpload = async () => {
-    if (!file || !tenantId) {
-      toast.error('El archivo y el ID de Tenant son requeridos.');
+    if (!tenantId) {
+      toast.error('El ID de Tenant es requerido.');
+      return;
+    }
+    if (files.length === 0) {
+      toast.error('Debes seleccionar al menos un archivo.');
       return;
     }
     setIsUploading(true);
     const formData = new FormData();
-    formData.append('file', file);
+    files.forEach((file) => formData.append('files', file));
     formData.append('tenantId', tenantId);
-    formData.append('source', source);
+    if (files.length === 1 && source) {
+      formData.append('source', source);
+    }
 
     try {
       await fetchApi('/super-admin/knowledge-base/upload', { method: 'POST', body: formData });
-      toast.success('Documento subido exitosamente.');
-      setFile(null);
+      toast.success(`${files.length > 1 ? `${files.length} documentos` : 'Documento'} subido(s) exitosamente.`);
+      setFiles([]);
       setSource('');
       if (document.getElementById('file-input')) {
         document.getElementById('file-input').value = '';
@@ -96,6 +107,8 @@ const KnowledgeBaseManagement = () => {
     }
     setIsQuerying(true);
     setQueryResults([]);
+    setAssistantAnswer(null);
+    setAssistantSources([]);
     try {
       const response = await fetchApi(`/super-admin/knowledge-base/query?tenantId=${tenantId}&q=${encodeURIComponent(query)}`);
       setQueryResults(response.data || []);
@@ -104,6 +117,36 @@ const KnowledgeBaseManagement = () => {
       toast.error('Error al realizar la consulta', { description: error.message });
     } finally {
       setIsQuerying(false);
+    }
+  };
+
+  const handleAskAssistant = async () => {
+    if (!query || !tenantId) {
+      toast.error('La consulta y el ID de Tenant son requeridos.');
+      return;
+    }
+
+    setIsAnswering(true);
+    setAssistantAnswer(null);
+    setAssistantSources([]);
+
+    try {
+      const response = await fetchApi('/super-admin/assistant/query', {
+        method: 'POST',
+        body: JSON.stringify({
+          tenantId,
+          question: query,
+        }),
+      });
+
+      const payload = response?.data;
+      setAssistantAnswer(payload?.answer || 'No se obtuvo respuesta del asistente.');
+      setAssistantSources(payload?.sources || []);
+      toast.success('Respuesta del asistente generada.');
+    } catch (error) {
+      toast.error('Error al consultar al asistente', { description: error.message });
+    } finally {
+      setIsAnswering(false);
     }
   };
 
@@ -123,14 +166,39 @@ const KnowledgeBaseManagement = () => {
             <Input id="tenant-id" value={tenantId} onChange={(e) => setTenantId(e.target.value)} placeholder="Ej: smartkubik_docs" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="file-input">Archivo de Documento (PDF, TXT)</Label>
-            <Input id="file-input" type="file" onChange={handleFileChange} accept=".pdf,.txt" />
+            <Label htmlFor="file-input">Archivos de Documento (PDF, TXT)</Label>
+            <Input id="file-input" type="file" onChange={handleFileChange} accept=".pdf,.txt" multiple />
           </div>
+          {files.length > 0 && (
+            <div className="rounded-md border border-dashed border-border p-3 text-sm">
+              <p className="font-semibold">Archivos seleccionados ({files.length}):</p>
+              <ul className="mt-1 list-disc space-y-1 pl-5">
+                {files.map((file, index) => (
+                  <li key={`${file.name}-${index}`}>
+                    {file.name}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="space-y-2">
-            <Label htmlFor="source">Fuente del Documento (si se deja en blanco, se usa el nombre del archivo)</Label>
-            <Input id="source" value={source} onChange={(e) => setSource(e.target.value)} placeholder="Ej: manual_usuario_v1.pdf" />
+            <Label htmlFor="source">Fuente del Documento</Label>
+            <Input
+              id="source"
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              placeholder="Ej: manual_usuario_v1.pdf"
+              disabled={files.length !== 1}
+            />
+            {files.length !== 1 && (
+              <p className="text-xs text-muted-foreground">
+                Cuando subas varios archivos, se usará el nombre original de cada uno como fuente.
+              </p>
+            )}
           </div>
-          <Button onClick={handleUpload} disabled={isUploading}>{isUploading ? 'Subiendo...' : 'Subir Documento'}</Button>
+          <Button onClick={handleUpload} disabled={isUploading}>
+            {isUploading ? 'Subiendo...' : `Subir ${files.length > 1 ? 'Documentos' : 'Documento'}`}
+          </Button>
         </CardContent>
       </Card>
 
@@ -172,6 +240,10 @@ const KnowledgeBaseManagement = () => {
           <div className="flex gap-2">
             <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Escribe tu pregunta aquí..." />
             <Button onClick={handleQuery} disabled={isQuerying}><Search className="mr-2 h-4 w-4" />{isQuerying ? 'Buscando...' : 'Preguntar'}</Button>
+            <Button onClick={handleAskAssistant} disabled={isAnswering} variant="outline">
+              <Sparkles className="mr-2 h-4 w-4" />
+              {isAnswering ? 'Generando...' : 'Asistente IA'}
+            </Button>
           </div>
           {queryResults.length > 0 && (
             <div className="space-y-2 pt-4">
@@ -183,6 +255,30 @@ const KnowledgeBaseManagement = () => {
                     <p className="text-xs text-muted-foreground mt-1">Fuente: {result.metadata.source}</p>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+          {assistantAnswer && (
+            <div className="space-y-2 pt-4">
+              <h3 className="font-semibold flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                Respuesta del Asistente
+              </h3>
+              <div className="rounded-md border p-4 space-y-3 text-sm">
+                <p>{assistantAnswer}</p>
+                {assistantSources.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wide">Fuentes</p>
+                    <ul className="list-disc space-y-2 pl-4">
+                      {assistantSources.map((item, index) => (
+                        <li key={index}>
+                          <span className="font-medium">{item.source || `Documento ${index + 1}`}:</span>{' '}
+                          <span className="text-muted-foreground">{item.snippet}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
           )}

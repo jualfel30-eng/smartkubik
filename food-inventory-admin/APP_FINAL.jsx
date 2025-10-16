@@ -44,7 +44,7 @@ import { CrmProvider } from './context/CrmContext.jsx';
 import { FormStateProvider } from './context/FormStateContext.jsx';
 import DashboardView from './components/DashboardView.jsx';
 import AccountingManagement from './components/AccountingManagement.jsx';
-
+import AssistantChatWidget from '@/components/AssistantChatWidget.jsx';
 
 
 // Componente de Layout Principal
@@ -126,6 +126,8 @@ function AdminLayout() {
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>
       </main>
+
+      <AssistantChatWidget />
     </div>
   );
 }
