@@ -601,6 +601,7 @@ export default function ComprasManagement() {
                                             { value: 'efectivo', label: 'Efectivo' },
                                             { value: 'transferencia', label: 'Transferencia Bancaria' },
                                             { value: 'pago_movil', label: 'Pago Móvil' },
+                                            { value: 'pos', label: 'Punto de Venta' },
                                             { value: 'zelle', label: 'Zelle' },
                                             { value: 'binance', label: 'Binance' },
                                             { value: 'paypal', label: 'PayPal' },

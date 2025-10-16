@@ -177,6 +177,28 @@ export function OrdersManagementV2() {
     { accessorKey: "orderNumber", header: "Número de Orden" },
     { accessorKey: "customerName", header: "Cliente" },
     {
+      accessorKey: "assignedTo",
+      header: "Atendido Por",
+      cell: ({ row }) => {
+        const assigned = row.original.assignedTo;
+        if (!assigned) {
+          return <span className="text-muted-foreground">-</span>;
+        }
+
+        if (typeof assigned === 'string') {
+          return <Badge variant="outline">{assigned}</Badge>;
+        }
+
+        const fullName = [assigned.firstName, assigned.lastName]
+          .filter(Boolean)
+          .join(' ')
+          .trim();
+
+        const display = fullName || assigned.email || '—';
+        return <Badge variant="outline">{display}</Badge>;
+      }
+    },
+    {
       accessorKey: "totalAmount",
       header: "Monto Total",
       cell: ({ row }) => {

@@ -10,6 +10,7 @@ const mockPaymentMethods = [
   { id: 'efectivo_usd', name: 'Efectivo (USD)', igtfApplicable: true },
   { id: 'zelle_usd', name: 'Zelle (USD)', igtfApplicable: true },
   { id: 'pago_movil_ves', name: 'Pago Móvil (VES)', igtfApplicable: false },
+  { id: 'pos_ves', name: 'Punto de Venta (VES)', igtfApplicable: false },
   { id: 'pago_mixto', name: 'Pago Mixto', igtfApplicable: false },
 ];
 

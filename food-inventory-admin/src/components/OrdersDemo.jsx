@@ -87,6 +87,7 @@ function OrdersDemo() {
         efectivo_ves: <Banknote className="h-3 w-3 mr-1" />,
         pago_movil_ves: <Smartphone className="h-3 w-3 mr-1" />,
         transferencia_ves: <Banknote className="h-3 w-3 mr-1" />,
+        pos_ves: <CreditCard className="h-3 w-3 mr-1" />,
         tarjeta_ves: <CreditCard className="h-3 w-3 mr-1" />,
         efectivo_usd: <DollarSign className="h-3 w-3 mr-1" />,
         transferencia_usd: <Globe className="h-3 w-3 mr-1" />,
