@@ -220,6 +220,7 @@ const SmartKubikLanding = () => {
               <a href="#benefits" className={`text-sm ${themeClasses.textSecondary} hover:${themeClasses.text} transition-colors duration-200`}>Beneficios</a>
               <a href="#pricing" className={`text-sm ${themeClasses.textSecondary} hover:${themeClasses.text} transition-colors duration-200`}>Precios</a>
               <Link to="/blog" className={`text-sm ${themeClasses.textSecondary} hover:${themeClasses.text} transition-colors duration-200`}>Blog</Link>
+              <Link to="/blog" className={`text-sm ${themeClasses.textSecondary} hover:${themeClasses.text} transition-colors duration-200`}>Blog</Link>
               <button
                 onClick={toggleDarkMode}
                 className={`p-2 rounded ${themeClasses.textSecondary} hover:${themeClasses.text} transition-colors duration-200`}
@@ -250,6 +251,7 @@ const SmartKubikLanding = () => {
               <a href="#features" className={`block text-sm ${themeClasses.textSecondary}`}>Características</a>
               <a href="#benefits" className={`block text-sm ${themeClasses.textSecondary}`}>Beneficios</a>
               <a href="#pricing" className={`block text-sm ${themeClasses.textSecondary}`}>Precios</a>
+              <Link to="/blog" className={`block text-sm ${themeClasses.textSecondary}`}>Blog</Link>
               <Link to="/blog" className={`block text-sm ${themeClasses.textSecondary}`}>Blog</Link>
               <button
                 onClick={toggleDarkMode}
