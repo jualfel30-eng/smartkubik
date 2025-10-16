@@ -46,6 +46,18 @@ FASE 0: Preparación y Configuración (1-2 horas)
 - Features avanzadas requieren base sólida
 - Optimización al final cuando todo funciona
 
+### Estado actual (enero 2025)
+
+| Fase | Estado | Comentarios clave |
+|------|--------|-------------------|
+| Fase 0 | ✅ Completada | Feature flags, logger Winston y rama/tag baseline listos (`development/mejoras-2025`, `v2.0.0-baseline`). |
+| Fase 1 | ✅ Completada | Órdenes se asignan al empleado con turno activo (`orders.service.ts`), se pobla `assignedTo` en listados y se agregó columna en la UI (`OrdersManagementV2.jsx`) con unit tests de respaldo. |
+| Fase 1B | ✅ Completada | Login multi-tenant ya operativo (`food-inventory-saas/src/auth/auth.service.ts`, `food-inventory-admin/src/hooks/use-auth.jsx`, `food-inventory-admin/src/components/auth/TenantPickerDialog.jsx`, `scripts/migrations/2025-01-backfill-memberships.js`). |
+| Fase 2 | 🚧 En progreso | Movimientos bancarios: esquema, servicio y endpoints ya listos (`bank-transactions.schema.ts`, `bank-transactions.service.ts`), se registran pagos/ajustes automáticamente y hay fixtures. Falta conciliación (2.2), transferencias/alertas (2.3) y UI dedicada. |
+| Fase 3 | ⏳ Pendiente | Recharts está instalado como utilidad (`food-inventory-admin/src/components/ui/chart.jsx`), sin dashboards de gráficas implementados. |
+| Fase 4 | ⏳ Pendiente | Sin avances en analítica predictiva. |
+| Fase 5 | ⏳ Pendiente | Optimización y UX todavía no abordadas. |
+
 ---
 
 ## ✅ MEJORES PRÁCTICAS GENERALES
@@ -565,6 +577,13 @@ grep "without active shift" logs/combined.log    # ¿Órdenes sin turno?
 **Riesgo**: Bajo
 **Reversibilidad**: N/A
 
+**Estado actual**: ⚠️ Parcial  
+- ✅ `features.config.ts` y feature flags en frontend/back (`food-inventory-saas/src/config/features.config.ts`, `food-inventory-admin/src/config/features.js`).  
+- ✅ Script `scripts/backup-before-phase.sh`.  
+- ⚠️ Logging con Winston aún sin configurar (no existe `logger.config.ts` ni dependencias `winston`).  
+- ⚠️ Rama `development/mejoras-2025` y tag baseline no creados (`git branch`).  
+- ⚠️ Variables `.env` del backend solo incluyen `ENABLE_MULTI_TENANT_LOGIN`; falta enumerar el resto de flags sugeridos.
+
 ### Tareas:
 
 #### 1. Configurar Feature Flags
@@ -678,6 +697,12 @@ git push origin v2.0.0-baseline
 **Duración**: 2-3 horas
 **Riesgo**: Medio (modifica flujo de órdenes)
 **Reversibilidad**: Alta (feature flag + git revert)
+
+**Estado actual**: ✅ Completada  
+- `OrdersService.create` asigna automáticamente `assignedTo` cuando el usuario tiene turno activo (`food-inventory-saas/src/modules/orders/orders.service.ts`).  
+- `OrdersModule` importa `ShiftsModule` y se puebla `assignedTo` en las consultas (`orders.module.ts`, `orders.service.ts`).  
+- UI muestra la columna “Atendido Por” en la vista V2 (`food-inventory-admin/src/components/orders/v2/OrdersManagementV2.jsx`).  
+- Se añadieron tests unitarios (`orders.service.spec.ts`) y checklist manual (`test/checklists/fase-1-employee-performance.md`).
 
 ### Por qué esta fase va primero:
 
@@ -886,6 +911,14 @@ git push origin v2.1.0-fase1
 **Riesgo**: Medio (impacta autenticación y autorización)  
 **Reversibilidad**: Alta si mantenemos compatibilidad en cada sub-fase
 
+**Estado actual**: ✅ Completada  
+- AuthService ya realiza login por email y retorna memberships (`food-inventory-saas/src/auth/auth.service.ts:46`).  
+- `MembershipsService` y esquema `user-tenant-membership` están activos (`food-inventory-saas/src/modules/memberships/memberships.service.ts`, `food-inventory-saas/src/schemas/user-tenant-membership.schema.ts`).  
+- Endpoint `POST /auth/switch-tenant` operativo y usado por frontend.  
+- Frontend incluye selector (`food-inventory-admin/src/components/auth/TenantPickerDialog.jsx`) y flujo en `use-auth`/`Login.jsx`.  
+- Script de migración `2025-01-backfill-memberships.js` y sincronización vía `super-admin` implementados.  
+- Feature flag `ENABLE_MULTI_TENANT_LOGIN` activado en `.env` y `VITE_ENABLE_MULTI_TENANT_LOGIN` en frontend.
+
 ### Por qué va antes de Fase 2
 - ✅ Reduce fricción inmediata reportada por clientes (alto impacto en adopción)
 - ✅ Aísla la nueva arquitectura de identidad antes de expandir módulos financieros
@@ -1078,6 +1111,11 @@ git commit -m "docs(auth): document multi-tenant login rollout plan"
 **Duración**: 8-10 horas (dividido en sub-fases)
 **Riesgo**: Bajo-Medio (funcionalidad nueva, aislada)
 **Reversibilidad**: Alta (feature flags independientes)
+
+**Estado actual**: ⏳ Pendiente  
+- Módulo de cuentas permite CRUD básico (`bank-accounts.service.ts`), pero no existen esquemas ni servicios para `BankTransaction`.  
+- `bank-reconciliation.service.ts` y controladores asociados contienen métodos vacíos que devuelven `null`.  
+- Frontend solo gestiona cuentas bancarias; movimientos, conciliación y transferencias no están presentes.
 
 ### Por qué esta fase va segunda:
 
@@ -1932,33 +1970,754 @@ git push origin v2.2.0-fase2.1
 **Duración**: 4-5 horas
 **Feature Flag**: `ENABLE_BANK_RECONCILIATION`
 
-> **Nota**: Por brevedad, incluiré solo el esquema. La implementación sigue el mismo patrón que Fase 2.1.
+**Objetivo**: automatizar la conciliación entre movimientos registrados en el sistema y estados de cuenta bancarios importados por el usuario, detectando discrepancias y permitiendo ajustes manuales seguros.
 
-#### Resumen de Implementación:
+**Estado actual**: servicio y controlador `bank-reconciliation` existen pero devuelven `null`; no hay esquemas ni DTOs definidos y el frontend no permite subir archivos de estado de cuenta.
 
-1. **Backend - Schema de Conciliación** (30 min)
-   - Agregar campos a BankTransaction: `reconciled`, `reconciledAt`, `importedFrom`
+#### Checklist Pre-Sub-Fase:
 
-2. **Backend - Service de Import** (90 min)
-   - Método para parsear CSV/Excel de bancos
-   - Matching automático con transacciones existentes
-   - Detección de discrepancias
+```bash
+# 1. Backup
+./scripts/backup-before-phase.sh
 
-3. **Backend - Controller** (30 min)
-   - Endpoint de upload de archivo
-   - Endpoint de obtener discrepancias
-   - Endpoint de marcar como conciliado
+# 2. Rama específica
+git checkout -b fase-2.2/bank-reconciliation
 
-4. **Frontend - Vista de Conciliación** (120 min)
-   - Upload de archivo CSV/Excel
-   - Tabla de comparación (Sistema vs Banco)
-   - Highlighting de discrepancias
-   - Botón de "Conciliar Todo"
+# 3. Activar feature flag
+# En .env
+ENABLE_BANK_RECONCILIATION=true
+```
 
-5. **Testing** (45 min)
-   - Crear archivos CSV de prueba
-   - Probar matching automático
-   - Validar detección de errores
+#### Paso 2.2.1: Backend - Extender esquema de transacciones (20 min)
+
+**Archivo**: `food-inventory-saas/src/schemas/bank-transaction.schema.ts`
+
+```typescript
+@Prop({ type: Boolean, default: false, index: true })
+reconciled: boolean;
+
+@Prop({ type: Date })
+reconciledAt?: Date;
+
+@Prop({ type: String })
+importedFrom?: string;
+
+@Prop({ type: Types.ObjectId, ref: 'BankStatementImport' })
+statementImportId?: Types.ObjectId;
+```
+
+```typescript
+BankTransactionSchema.index({ bankAccountId: 1, reconciled: 1, transactionDate: -1 });
+BankTransactionSchema.index({ tenantId: 1, reconciled: 1, transactionDate: -1 });
+```
+
+**Commit**:
+```bash
+git add src/schemas/bank-transaction.schema.ts
+git commit -m "feat(bank): add reconciliation fields to bank transactions"
+```
+
+#### Paso 2.2.2: Backend - Schema para importaciones (25 min)
+
+**Archivo**: `food-inventory-saas/src/schemas/bank-statement-import.schema.ts`
+
+```typescript
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document, Types } from 'mongoose';
+
+export type BankStatementImportDocument = BankStatementImport & Document;
+
+@Schema({ timestamps: true })
+export class BankStatementImport {
+  @Prop({ type: Types.ObjectId, ref: 'BankAccount', required: true, index: true })
+  bankAccountId: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true, index: true })
+  tenantId: Types.ObjectId;
+
+  @Prop({ type: String, required: true })
+  originalFilename: string;
+
+  @Prop({ type: String, required: true })
+  mimeType: string;
+
+  @Prop({ type: Number, required: true })
+  totalRows: number;
+
+  @Prop({ type: Number, default: 0 })
+  matchedRows: number;
+
+  @Prop({ type: Number, default: 0 })
+  unmatchedRows: number;
+
+  @Prop({ type: Object, default: {} })
+  metadata: Record<string, any>;
+}
+
+export const BankStatementImportSchema =
+  SchemaFactory.createForClass(BankStatementImport);
+```
+
+**Commit**:
+```bash
+git add src/schemas/bank-statement-import.schema.ts
+git commit -m "feat(bank): add bank statement import schema"
+```
+
+#### Paso 2.2.3: Backend - DTOs de conciliación (20 min)
+
+**Archivo**: `food-inventory-saas/src/dto/bank-reconciliation.dto.ts`
+
+```typescript
+import {
+  IsArray,
+  IsDateString,
+  IsEnum,
+  IsMongoId,
+  IsNumber,
+  IsOptional,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class ImportBankStatementDto {
+  @IsMongoId()
+  bankAccountId: string;
+
+  @IsEnum(['csv', 'xlsx'])
+  format: 'csv' | 'xlsx';
+
+  @IsDateString()
+  periodStart: string;
+
+  @IsDateString()
+  periodEnd: string;
+}
+
+export class ManualReconcileDto {
+  @IsMongoId()
+  transactionId: string;
+
+  @IsNumber()
+  bankAmount: number;
+
+  @IsDateString()
+  bankDate: string;
+
+  @IsOptional()
+  @IsString()
+  bankReference?: string;
+}
+
+export class ReconcileBulkDto {
+  @IsMongoId()
+  bankAccountId: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ManualReconcileDto)
+  entries: ManualReconcileDto[];
+}
+```
+
+**Commit**:
+```bash
+git add src/dto/bank-reconciliation.dto.ts
+git commit -m "feat(bank): add DTOs for bank reconciliation flow"
+```
+
+#### Paso 2.2.4: Backend - Servicio de conciliación (75 min)
+
+**Archivo**: `food-inventory-saas/src/modules/bank-accounts/bank-reconciliation.service.ts`
+
+```typescript
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
+import { FEATURES } from '../../config/features.config';
+import { BankTransaction, BankTransactionDocument } from '../../schemas/bank-transaction.schema';
+import { BankStatementImport, BankStatementImportDocument } from '../../schemas/bank-statement-import.schema';
+import { ImportBankStatementDto, ManualReconcileDto } from '../../dto/bank-reconciliation.dto';
+import { parseBankStatement } from '../../utils/bank-statement.parser';
+
+@Injectable()
+export class BankReconciliationService {
+  private readonly logger = new Logger(BankReconciliationService.name);
+
+  constructor(
+    @InjectModel(BankTransaction.name)
+    private readonly transactionModel: Model<BankTransactionDocument>,
+    @InjectModel(BankStatementImport.name)
+    private readonly statementModel: Model<BankStatementImportDocument>,
+  ) {}
+
+  async importStatement(
+    dto: ImportBankStatementDto,
+    file: Express.Multer.File,
+    tenantId: string,
+  ) {
+    if (!FEATURES.BANK_ACCOUNTS_RECONCILIATION) {
+      throw new BadRequestException('Bank reconciliation feature disabled');
+    }
+
+    const rows = await parseBankStatement(file);
+    if (!rows.length) {
+      throw new BadRequestException('El archivo está vacío o no posee filas válidas');
+    }
+
+    const importDoc = await this.statementModel.create({
+      bankAccountId: new Types.ObjectId(dto.bankAccountId),
+      tenantId: new Types.ObjectId(tenantId),
+      originalFilename: file.originalname,
+      mimeType: file.mimetype,
+      totalRows: rows.length,
+    });
+
+    const unmatched = [];
+    let matched = 0;
+
+    for (const row of rows) {
+      const match = await this.transactionModel.findOne({
+        bankAccountId: dto.bankAccountId,
+        tenantId,
+        amount: row.amount,
+        transactionDate: row.transactionDate,
+        reconciled: false,
+      });
+
+      if (match) {
+        match.reconciled = true;
+        match.reconciledAt = new Date();
+        match.statementImportId = importDoc._id;
+        await match.save();
+        matched++;
+      } else {
+        unmatched.push(row);
+      }
+    }
+
+    importDoc.matchedRows = matched;
+    importDoc.unmatchedRows = unmatched.length;
+    importDoc.metadata = { period: [dto.periodStart, dto.periodEnd], unmatched };
+    await importDoc.save();
+
+    this.logger.log(
+      `Bank statement import ${importDoc._id} processed: ${matched} matched, ${unmatched.length} pending`,
+    );
+
+    return {
+      statementImport: importDoc,
+      unmatched,
+    };
+  }
+
+  async manualReconcile(dto: ManualReconcileDto, tenantId: string) {
+    const transaction = await this.transactionModel.findOne({
+      _id: new Types.ObjectId(dto.transactionId),
+      tenantId: new Types.ObjectId(tenantId),
+    });
+
+    if (!transaction) {
+      throw new NotFoundException('Transacción no encontrada');
+    }
+
+    transaction.reconciled = true;
+    transaction.reconciledAt = new Date();
+    transaction.metadata = {
+      ...transaction.metadata,
+      bankAmount: dto.bankAmount,
+      bankReference: dto.bankReference,
+      bankDate: dto.bankDate,
+    };
+
+    await transaction.save();
+    return transaction;
+  }
+
+  async findStatementDetails(statementId: string, tenantId: string) {
+    const statement = await this.statementModel
+      .findOne({
+        _id: new Types.ObjectId(statementId),
+        tenantId: new Types.ObjectId(tenantId),
+      })
+      .lean();
+
+    if (!statement) {
+      throw new NotFoundException('Importación no encontrada');
+    }
+
+    const transactions = await this.transactionModel
+      .find({ statementImportId: statement._id })
+      .lean();
+
+    return { statement, transactions };
+  }
+}
+```
+
+**Commit**:
+```bash
+git add src/modules/bank-accounts/bank-reconciliation.service.ts
+git commit -m "feat(bank): implement reconciliation service with auto matching"
+```
+
+#### Paso 2.2.5: Backend - Utilidad de parsing (20 min)
+
+**Archivo**: `food-inventory-saas/src/utils/bank-statement.parser.ts`
+
+```typescript
+import { parse } from 'csv-parse/sync';
+import XLSX from 'xlsx';
+
+interface StatementRow {
+  transactionDate: Date;
+  amount: number;
+  description: string;
+  reference?: string;
+}
+
+export async function parseBankStatement(file: Express.Multer.File): Promise<StatementRow[]> {
+  if (file.mimetype.includes('csv')) {
+    const rows = parse(file.buffer.toString('utf8'), {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
+    });
+
+    return rows.map((row: any) => ({
+      transactionDate: new Date(row['fecha']),
+      amount: Number(row['monto']),
+      description: row['descripcion'],
+      reference: row['referencia'] || undefined,
+    }));
+  }
+
+  const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sheet);
+
+  return rows.map((row: any) => ({
+    transactionDate: new Date(row['Fecha']),
+    amount: Number(row['Monto']),
+    description: row['Descripción'],
+    reference: row['Referencia'] || undefined,
+  }));
+}
+```
+
+**Commit**:
+```bash
+git add src/utils/bank-statement.parser.ts
+git commit -m "feat(bank): add parser utility for bank statements"
+```
+
+#### Paso 2.2.6: Backend - Controlador de conciliación (30 min)
+
+**Archivo**: `food-inventory-saas/src/modules/bank-accounts/bank-reconciliation.controller.ts`
+
+```typescript
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  UseInterceptors,
+  UploadedFile,
+  Request,
+  Param,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Permissions } from '../../decorators/permissions.decorator';
+import {
+  ImportBankStatementDto,
+  ManualReconcileDto,
+} from '../../dto/bank-reconciliation.dto';
+import { BankReconciliationService } from './bank-reconciliation.service';
+
+@Controller('bank-reconciliation')
+export class BankReconciliationController {
+  constructor(private readonly reconciliationService: BankReconciliationService) {}
+
+  @Post('import')
+  @Permissions('accounting_write')
+  @UseInterceptors(FileInterceptor('file'))
+  async importStatement(
+    @Body() dto: ImportBankStatementDto,
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req,
+  ) {
+    return this.reconciliationService.importStatement(dto, file, req.user.tenantId);
+  }
+
+  @Post('manual')
+  @Permissions('accounting_write')
+  async manualReconcile(@Body() dto: ManualReconcileDto, @Request() req) {
+    return this.reconciliationService.manualReconcile(dto, req.user.tenantId);
+  }
+
+  @Get('statement/:statementId')
+  @Permissions('accounting_read')
+  async getStatement(@Param('statementId') statementId: string, @Request() req) {
+    return this.reconciliationService.findStatementDetails(statementId, req.user.tenantId);
+  }
+}
+```
+
+**Commit**:
+```bash
+git add src/modules/bank-accounts/bank-reconciliation.controller.ts
+git commit -m "feat(bank): expose reconciliation endpoints"
+```
+
+#### Paso 2.2.7: Backend - Actualizar módulo (10 min)
+
+**Archivo**: `food-inventory-saas/src/modules/bank-accounts/bank-accounts.module.ts`
+
+```typescript
+import { BankStatementImport, BankStatementImportSchema } from '../../schemas/bank-statement-import.schema';
+import { BankReconciliationService } from './bank-reconciliation.service';
+import { BankReconciliationController } from './bank-reconciliation.controller';
+
+@Module({
+  imports: [
+    MongooseModule.forFeature([
+      { name: BankAccount.name, schema: BankAccountSchema },
+      { name: BankTransaction.name, schema: BankTransactionSchema },
+      { name: BankStatementImport.name, schema: BankStatementImportSchema }, // ← AGREGAR
+      { name: Tenant.name, schema: TenantSchema },
+    ]),
+    AuthModule,
+    PermissionsModule,
+  ],
+  controllers: [
+    BankAccountsController,
+    BankTransactionsController,
+    BankReconciliationController, // ← AGREGAR
+  ],
+  providers: [
+    BankAccountsService,
+    BankTransactionsService,
+    BankReconciliationService, // ← AGREGAR
+  ],
+  exports: [
+    BankAccountsService,
+    BankTransactionsService,
+    BankReconciliationService, // ← AGREGAR
+  ],
+})
+```
+
+**Commit**:
+```bash
+git add src/modules/bank-accounts/bank-accounts.module.ts
+git commit -m "feat(bank): register reconciliation service and controller"
+```
+
+#### Paso 2.2.8: Frontend - Hook y cliente API (20 min)
+
+**Archivo**: `food-inventory-admin/src/hooks/use-bank-reconciliation.js`
+
+```javascript
+import { useState } from 'react';
+import { fetchApi } from '@/lib/api';
+import { toast } from 'sonner';
+
+export function useBankReconciliation(accountId) {
+  const [isUploading, setUploading] = useState(false);
+  const [pending, setPending] = useState([]);
+
+  const importStatement = async (formData) => {
+    setUploading(true);
+    try {
+      const response = await fetchApi('/bank-reconciliation/import', {
+        method: 'POST',
+        body: formData,
+      });
+
+      setPending(response.unmatched);
+      toast.success('Estado de cuenta importado correctamente');
+      return response;
+    } catch (error) {
+      toast.error('Error al importar estado de cuenta', { description: error.message });
+      throw error;
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const manualReconcile = async (payload) => {
+    try {
+      await fetchApi('/bank-reconciliation/manual', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      toast.success('Transacción conciliada manualmente');
+      setPending((current) => current.filter((item) => item.reference !== payload.bankReference));
+    } catch (error) {
+      toast.error('Error al conciliar manualmente', { description: error.message });
+    }
+  };
+
+  return { isUploading, pending, importStatement, manualReconcile };
+}
+```
+
+**Commit**:
+```bash
+git add src/hooks/use-bank-reconciliation.js
+git commit -m "feat(bank): add reconciliation hook for frontend"
+```
+
+#### Paso 2.2.9: Frontend - Vista de conciliación (90 min)
+
+**Archivo**: `food-inventory-admin/src/components/BankReconciliationView.jsx`
+
+```jsx
+import { useState, useMemo } from 'react';
+import { useParams } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { UploadCloud, CheckCircle } from 'lucide-react';
+import { useBankReconciliation } from '@/hooks/use-bank-reconciliation';
+
+export function BankReconciliationView() {
+  const { accountId } = useParams();
+  const { isUploading, pending, importStatement, manualReconcile } = useBankReconciliation(accountId);
+  const [file, setFile] = useState(null);
+
+  const totals = useMemo(() => {
+    const total = pending.reduce(
+      (acc, txn) => {
+        if (txn.amount >= 0) {
+          acc.deposits += txn.amount;
+        } else {
+          acc.withdrawals += Math.abs(txn.amount);
+        }
+        return acc;
+      },
+      { deposits: 0, withdrawals: 0 },
+    );
+    total.net = total.deposits - total.withdrawals;
+    return total;
+  }, [pending]);
+
+  const handleImport = async () => {
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('bankAccountId', accountId);
+    formData.append('periodStart', new Date().toISOString());
+    formData.append('periodEnd', new Date().toISOString());
+    formData.append('format', file.name.endsWith('.csv') ? 'csv' : 'xlsx');
+    await importStatement(formData);
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <CardTitle className="text-2xl">Conciliación bancaria</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Importa tu estado de cuenta y empata movimientos con el sistema.
+            </p>
+          </div>
+          <div className="flex gap-2 items-center">
+            <Input
+              type="file"
+              accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+            />
+            <Button onClick={handleImport} disabled={!file || isUploading}>
+              <UploadCloud className="h-4 w-4 mr-2" />
+              {isUploading ? 'Importando...' : 'Importar'}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-3">
+          <div className="border rounded-lg p-4">
+            <p className="text-muted-foreground text-sm">Depósitos pendientes</p>
+            <p className="text-2xl font-semibold text-green-600">
+              {totals.deposits.toLocaleString('es-VE', { style: 'currency', currency: 'USD' })}
+            </p>
+          </div>
+          <div className="border rounded-lg p-4">
+            <p className="text-muted-foreground text-sm">Retiros pendientes</p>
+            <p className="text-2xl font-semibold text-red-600">
+              {totals.withdrawals.toLocaleString('es-VE', { style: 'currency', currency: 'USD' })}
+            </p>
+          </div>
+          <div className="border rounded-lg p-4">
+            <p className="text-muted-foreground text-sm">Impacto neto</p>
+            <p className="text-2xl font-semibold">
+              {totals.net.toLocaleString('es-VE', { style: 'currency', currency: 'USD' })}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Movimientos por conciliar</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Fecha banco</TableHead>
+                <TableHead>Monto</TableHead>
+                <TableHead>Descripción</TableHead>
+                <TableHead>Referencia</TableHead>
+                <TableHead>Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pending.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                    ¡Todo conciliado! 🎉
+                  </TableCell>
+                </TableRow>
+              )}
+              {pending.map((txn) => (
+                <TableRow key={`${txn.reference}-${txn.transactionDate}`}>
+                  <TableCell>{new Date(txn.transactionDate).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    <Badge variant={txn.amount >= 0 ? 'success' : 'destructive'}>
+                      {txn.amount.toLocaleString('es-VE', {
+                        style: 'currency',
+                        currency: 'USD',
+                      })}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{txn.description}</TableCell>
+                  <TableCell>{txn.reference || '-'}</TableCell>
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        manualReconcile({
+                          transactionId: txn.transactionId,
+                          bankAmount: txn.amount,
+                          bankDate: txn.transactionDate,
+                          bankReference: txn.reference,
+                        })
+                      }
+                    >
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Conciliar
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+```
+
+**Commit**:
+```bash
+git add src/components/BankReconciliationView.jsx
+git commit -m "feat(bank): add reconciliation management view"
+```
+
+#### Paso 2.2.10: Frontend - Integrar navegación (15 min)
+
+**Archivo**: `food-inventory-admin/src/components/BankAccountsManagement.jsx`
+
+```jsx
+// Agregar botón/acción
+<Button variant="outline" onClick={() => navigate(`/bank-accounts/${account._id}/reconciliation`)}>
+  Conciliar
+</Button>
+
+// Nueva ruta
+<Route path="/bank-accounts/:accountId/reconciliation" element={<BankReconciliationView />} />
+```
+
+**Commit**:
+```bash
+git add src/components/BankAccountsManagement.jsx src/App.jsx
+git commit -m "feat(bank): wire reconciliation view into routing"
+```
+
+#### Paso 2.2.11: Testing (45 min)
+
+Crear checklist manual:
+
+```markdown
+# CHECKLIST FASE 2.2: Conciliación Bancaria
+
+## Prerequisitos
+- [ ] Feature flag activo: `ENABLE_BANK_RECONCILIATION=true`
+- [ ] Backend y Frontend corriendo
+- [ ] Movimientos creados en el sistema
+- [ ] Archivo CSV/XLSX de banco con datos de prueba
+
+## Escenario 1: Importación exitosa
+- [ ] Subir estado de cuenta con filas válidas
+- [ ] Confirmar conteo de filas coincidentes
+- [ ] Validar que transacciones conciliadas pasan a `reconciled=true`
+- [ ] Verificar que se muestra resumen de pendientes
+
+## Escenario 2: Detección de discrepancias
+- [ ] Subir archivo con montos que no existen en el sistema
+- [ ] Confirmar que aparecen en la tabla de pendientes
+- [ ] Verificar que las cifras de totales coinciden
+
+## Escenario 3: Conciliación manual
+- [ ] Seleccionar un pendiente y usar botón "Conciliar"
+- [ ] Confirmar que desaparece de la tabla
+- [ ] Revisar en backend que la transacción quedó marcada como reconciliada
+
+## Escenario 4: Validaciones y errores
+- [ ] Intentar importar archivo vacío → mostrar error
+- [ ] Intentar importar formato inválido → bloquear
+- [ ] Revisar logs: sin errores críticos
+```
+
+**Commit**:
+```bash
+git add test/checklists/fase-2.2-bank-reconciliation-completed.md
+git commit -m "docs(test): complete reconciliation testing checklist"
+```
+
+### Validación Fase 2.2:
+
+- [ ] Backend compila (`npm run build` en `food-inventory-saas`)
+- [ ] Frontend compila (`npm run build` en `food-inventory-admin`)
+- [ ] Tests unitarios y de integración relevantes pasan
+- [ ] Checklist manual completado 100%
+- [ ] Importaciones pesadas (10k filas) se procesan < 10s
+- [ ] Logs sin errores severos durante la importación
+
+### Merge y Tag:
+
+```bash
+git checkout development/mejoras-2025
+git merge fase-2.2/bank-reconciliation
+git tag -a v2.2.0-fase2.2 -m "Phase 2.2: Bank Reconciliation"
+git push origin v2.2.0-fase2.2
+```
+
+### Resultado Esperado:
+
+```
+✅ Estados de cuenta pueden importarse en CSV/XLSX
+✅ Coincidencias se marcan automáticamente como reconciliadas
+✅ Discrepancias quedan visibles para acción manual
+✅ Conciliación manual rápida desde la UI
+✅ Métricas claras sobre el progreso de la conciliación
+```
 
 ---
 
@@ -2000,6 +2759,11 @@ git push origin v2.2.0-fase2.1
 **Duración**: 8-10 horas
 **Riesgo**: Bajo (solo frontend, no modifica datos)
 **Reversibilidad**: Alta (feature flag)
+
+**Estado actual**: ⏳ Pendiente  
+- Solo existe la utilería `ChartContainer` (`food-inventory-admin/src/components/ui/chart.jsx`); vistas como `DashboardView.jsx` permanecen basadas en tablas sin gráficas.  
+- Endpoints de analytics para tendencias aún no se ubican en backend.  
+- Feature flag `VITE_ENABLE_DASHBOARD_CHARTS` se mantiene en `false`.
 
 ### Por qué esta fase va tercera:
 
@@ -2152,6 +2916,10 @@ export function useDashboardCharts(period = '7d') {
 **Riesgo**: Medio-Alto (algoritmos complejos)
 **Reversibilidad**: Alta (feature flags)
 
+**Estado actual**: ⏳ Pendiente  
+- No hay servicios ni componentes que aborden pronósticos, recomendaciones o CLV.  
+- Feature flags `ENABLE_PREDICTIVE_ANALYTICS` y `ENABLE_CUSTOMER_SEGMENTATION` permanecen desactivadas por defecto.
+
 ### Por qué esta fase va cuarta:
 
 1. ✅ **Requiere datos históricos** de fases anteriores
@@ -2175,6 +2943,10 @@ FASE 4.1: Pronóstico de Ventas (4-5 horas)
 **Duración**: 5-8 horas
 **Riesgo**: Bajo
 **Reversibilidad**: Media
+
+**Estado actual**: ⏳ Pendiente  
+- No hay commits relacionados con optimizaciones de rendimiento, skeletons ni auditorías de seguridad recientes.  
+- Queda como fase posterior una vez que las funcionalidades principales estén listas.
 
 ### Tareas:
 
