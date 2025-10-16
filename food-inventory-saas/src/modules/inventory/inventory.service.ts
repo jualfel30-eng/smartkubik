@@ -78,7 +78,7 @@ export class InventoryService {
         seasonalityFactor: 1,
       },
       createdBy: user.id,
-      tenantId: user.tenantId,
+      tenantId: this.normalizeTenantValue(user.tenantId),
     };
     let inventory = existingInventory;
 
@@ -200,7 +200,10 @@ export class InventoryService {
   ) {
     for (const item of reserveDto.items) {
       const inventory = await this.inventoryModel
-        .findOne({ productSku: item.productSku, tenantId: user.tenantId })
+        .findOne({
+          productSku: item.productSku,
+          tenantId: this.buildTenantFilter(user.tenantId),
+        })
         .session(session ?? null);
       if (!inventory)
         throw new Error(
@@ -245,7 +248,7 @@ export class InventoryService {
       .find({
         orderId: releaseDto.orderId,
         movementType: "reservation",
-        tenantId: user.tenantId,
+        tenantId: this.buildTenantFilter(user.tenantId),
       })
       .session(session ?? null);
     if (reservationMovements.length === 0)
@@ -292,7 +295,10 @@ export class InventoryService {
   async commitInventory(order: any, user: any, session?: ClientSession) {
     for (const item of order.items) {
       const inventory = await this.inventoryModel
-        .findOne({ productSku: item.productSku, tenantId: user.tenantId })
+        .findOne({
+          productSku: item.productSku,
+          tenantId: this.buildTenantFilter(user.tenantId),
+        })
         .session(session ?? null);
       if (!inventory) {
         this.logger.warn(
@@ -380,7 +386,12 @@ export class InventoryService {
     try {
       const results: InventoryDocument[] = [];
       for (const item of bulkAdjustDto.items) {
-        const inventory = await this.inventoryModel.findOne({ productSku: item.SKU, tenantId: user.tenantId }).session(session);
+        const inventory = await this.inventoryModel
+          .findOne({
+            productSku: item.SKU,
+            tenantId: this.buildTenantFilter(user.tenantId),
+          })
+          .session(session);
         if (!inventory) {
           this.logger.warn(`Inventario no encontrado para SKU: ${item.SKU} durante ajuste masivo. Omitiendo.`);
           continue;
@@ -753,7 +764,7 @@ export class InventoryService {
     const movement = new this.movementModel({
       ...movementData,
       createdBy: user.id,
-      tenantId: user.tenantId,
+      tenantId: this.normalizeTenantValue(user.tenantId),
     });
     return movement.save({ session });
   }
@@ -770,7 +781,10 @@ export class InventoryService {
     }
 
     let inventory = await this.inventoryModel
-      .findOne({ productSku: item.productSku, tenantId: user.tenantId })
+      .findOne({
+        productSku: item.productSku,
+        tenantId: this.buildTenantFilter(user.tenantId),
+      })
       .session(session ?? null);
 
     if (!inventory) {
@@ -781,7 +795,7 @@ export class InventoryService {
         productId: item.productId,
         productSku: item.productSku,
         productName: product.name,
-        tenantId: user.tenantId,
+        tenantId: this.normalizeTenantValue(user.tenantId),
         totalQuantity: 0,
         availableQuantity: 0,
         reservedQuantity: 0,
@@ -878,6 +892,11 @@ export class InventoryService {
       return { $in: [tenantId, objectId] };
     }
     return tenantId;
+  }
+
+  private normalizeTenantValue(tenantId: string | Types.ObjectId) {
+    const objectId = this.toObjectIdIfValid(tenantId);
+    return objectId ?? tenantId;
   }
 
   private toObjectIdIfValid(id?: string | Types.ObjectId) {
