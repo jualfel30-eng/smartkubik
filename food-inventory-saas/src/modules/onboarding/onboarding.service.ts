@@ -14,6 +14,7 @@ import { LoggerSanitizer } from '../../utils/logger-sanitizer.util';
 import { getDefaultModulesForVertical } from '../../config/vertical-features.config';
 import { TokenService } from '../../auth/token.service';
 import { MailService } from '../mail/mail.service';
+import { isTenantConfirmationEnforced } from '../../config/tenant-confirmation';
 
 @Injectable()
 export class OnboardingService {
@@ -66,8 +67,13 @@ export class OnboardingService {
         this.logger.log(`Creating tenant with vertical: ${vertical}`);
         this.logger.log(`Enabled modules: ${JSON.stringify(enabledModuleNames)}`);
 
-        const confirmationCode = Math.floor(100000 + Math.random() * 900000).toString();
-        const confirmationCodeExpiresAt = new Date(Date.now() + 1000 * 60 * 60);
+        const confirmationEnforced = isTenantConfirmationEnforced();
+        const confirmationCode = confirmationEnforced
+          ? Math.floor(100000 + Math.random() * 900000).toString()
+          : undefined;
+        const confirmationCodeExpiresAt = confirmationEnforced
+          ? new Date(Date.now() + 1000 * 60 * 60)
+          : undefined;
 
         const newTenant = new this.tenantModel({
           name: dto.businessName,
@@ -77,7 +83,7 @@ export class OnboardingService {
           contactInfo: { email: dto.email, phone: dto.phone },
           status: 'active',
           subscriptionPlan: selectedPlan.name,
-          isConfirmed: false,
+          isConfirmed: !confirmationEnforced,
           confirmationCode,
           confirmationCodeExpiresAt,
           limits: selectedPlan.limits,
@@ -153,7 +159,7 @@ export class OnboardingService {
       this.logger.log(`[DEBUG] Returning response: ${JSON.stringify(LoggerSanitizer.sanitize(safeLogResponse))}`);
 
       try {
-        if (tenantDoc.confirmationCode) {
+        if (isTenantConfirmationEnforced() && tenantDoc.confirmationCode) {
           await this.mailService.sendTenantWelcomeEmail(dto.email, {
             businessName: dto.businessName,
             planName: tenantDoc.subscriptionPlan,

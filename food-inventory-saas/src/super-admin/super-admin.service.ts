@@ -360,6 +360,22 @@ export class SuperAdminService {
       .populate('roleId', 'name')
       .exec();
 
+    const hasActiveMemberships = summaryMemberships.some(
+      (membership) => membership.status === 'active',
+    );
+
+    let confirmationFixed = false;
+    if (!tenant.isConfirmed && hasActiveMemberships) {
+      await this.tenantModel.updateOne(
+        { _id: tenant._id },
+        {
+          $set: { isConfirmed: true },
+          $unset: { confirmationCode: '', confirmationCodeExpiresAt: '' },
+        },
+      );
+      confirmationFixed = true;
+    }
+
     await this.auditLogService.createLog(
       'sync_tenant_memberships',
       performedBy,
@@ -371,6 +387,7 @@ export class SuperAdminService {
           created,
           updated,
           skipped,
+          confirmationFixed,
         },
       },
       ipAddress,
@@ -386,6 +403,7 @@ export class SuperAdminService {
         updated,
         skipped,
         defaultAssigned,
+        confirmationFixed,
       },
       memberships: summaryMemberships.map((membership) => ({
         id: membership._id.toString(),

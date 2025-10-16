@@ -23,6 +23,7 @@ import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from '../../guards/tenant.guard';
 import { PermissionsGuard } from '../../guards/permissions.guard';
 import { Permissions } from '../../decorators/permissions.decorator';
+import { shouldBypassTenantConfirmation, isTenantConfirmationEnforced } from '../../config/tenant-confirmation';
 
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 @Controller("products")
@@ -30,12 +31,16 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   private ensureTenantConfirmed(req: any) {
-    if (req?.tenant && req.tenant.isConfirmed === false) {
-      throw new ForbiddenException(
-        'Tu cuenta aún no está confirmada. Ingresa el código enviado por correo para habilitar la creación de productos.',
-      );
+    if (shouldBypassTenantConfirmation()) {
+      return;
     }
-    if (req?.user && req.user.tenantConfirmed === false) {
+
+    const tenantConfirmed =
+      req?.tenant?.isConfirmed !== false || !isTenantConfirmationEnforced();
+    const userConfirmed =
+      req?.user?.tenantConfirmed !== false || !isTenantConfirmationEnforced();
+
+    if (!tenantConfirmed || !userConfirmed) {
       throw new ForbiddenException(
         'Tu cuenta aún no está confirmada. Ingresa el código enviado por correo para habilitar la creación de productos.',
       );

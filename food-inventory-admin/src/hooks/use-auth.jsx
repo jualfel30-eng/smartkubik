@@ -18,6 +18,27 @@ const STORAGE_KEYS = {
   LAST_LOCATION: 'lastLocation',
 };
 
+function normalizeTenant(rawTenant) {
+  if (!rawTenant) return null;
+  const aiAssistant = rawTenant.aiAssistant || {};
+  const isExplicitlyUnconfirmed =
+    rawTenant?.isConfirmed === false || rawTenant?.tenantConfirmed === false;
+  return {
+    id: rawTenant.id || rawTenant._id,
+    code: rawTenant.code,
+    name: rawTenant.name,
+    businessType: rawTenant.businessType,
+    vertical: rawTenant.vertical,
+    enabledModules: rawTenant.enabledModules,
+    subscriptionPlan: rawTenant.subscriptionPlan,
+    isConfirmed: !isExplicitlyUnconfirmed,
+    aiAssistant: {
+      autoReplyEnabled: Boolean(aiAssistant.autoReplyEnabled),
+      knowledgeBaseTenantId: aiAssistant.knowledgeBaseTenantId || '',
+    },
+  };
+}
+
 export const AuthProvider = ({ children }) => {
   const multiTenantEnabled = isFeatureEnabled('MULTI_TENANT_LOGIN');
   const [user, setUser] = useState(() => {

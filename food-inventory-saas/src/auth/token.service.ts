@@ -7,6 +7,7 @@ import { UserDocument } from '../schemas/user.schema';
 import { TenantDocument } from '../schemas/tenant.schema';
 import { PermissionsService } from '../modules/permissions/permissions.service';
 import { getEffectiveModulesForTenant } from '../config/vertical-features.config';
+import { isTenantConfirmationEnforced } from '../config/tenant-confirmation';
 
 export interface TokenGenerationOptions {
   impersonation?: boolean;
@@ -105,6 +106,8 @@ export class TokenService {
       }
     }
 
+    const confirmationEnforced = isTenantConfirmationEnforced();
+
     const payload: Record<string, any> = {
       sub: user._id,
       email: user.email,
@@ -113,7 +116,11 @@ export class TokenService {
         permissions: permissionNames,
       },
       tenantId: tenant ? tenant._id : null,
-      tenantConfirmed: tenant ? Boolean((tenant as any).isConfirmed) : null,
+      tenantConfirmed: tenant
+        ? confirmationEnforced
+          ? Boolean((tenant as any).isConfirmed)
+          : true
+        : null,
     };
 
     if (options.membershipId) {
