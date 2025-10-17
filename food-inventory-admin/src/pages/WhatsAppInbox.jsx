@@ -20,9 +20,10 @@ const WhatsAppInbox = () => {
       // Fetch initial conversations
       getConversations().then(setConversations).catch(console.error);
 
-      // Setup socket connection
-      socket.current = io(SOCKET_URL, {
+      // Setup socket connection to /chat namespace
+      socket.current = io(`${SOCKET_URL}/chat`, {
         query: { tenantId },
+        transports: ['websocket', 'polling'],
       });
 
       socket.current.on('connect', () => console.log('Connected to chat server'));
