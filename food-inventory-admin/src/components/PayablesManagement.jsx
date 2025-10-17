@@ -719,6 +719,8 @@ const PayablesHistory = ({ payables, fetchPayables, suppliers }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPayable, setSelectedPayable] = useState(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const handleOpenViewDialog = (payable) => {
     setSelectedPayable(payable);
@@ -769,6 +771,14 @@ const PayablesHistory = ({ payables, fetchPayables, suppliers }) => {
     );
   }, [payables, searchTerm]);
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredPayables.length / itemsPerPage);
+  const paginatedPayables = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredPayables.slice(startIndex, endIndex);
+  }, [filteredPayables, currentPage, itemsPerPage]);
+
   const getTotalAmount = (lines) => {
     return lines.reduce((sum, line) => sum + Number(line.amount || 0), 0);
   };
@@ -810,7 +820,7 @@ const PayablesHistory = ({ payables, fetchPayables, suppliers }) => {
                   <TableCell colSpan="7" className="text-center">No hay payables registrados</TableCell>
                 </TableRow>
               ) : (
-                filteredPayables.map((payable) => (
+                paginatedPayables.map((payable) => (
                   <TableRow key={payable._id}>
                     <TableCell>{payable.payeeName || 'N/A'}</TableCell>
                     <TableCell>{new Date(payable.issueDate).toLocaleDateString()}</TableCell>
@@ -841,6 +851,31 @@ const PayablesHistory = ({ payables, fetchPayables, suppliers }) => {
               )}
             </TableBody>
           </Table>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-sm text-muted-foreground">
+                Página {currentPage} de {totalPages} ({filteredPayables.length} registros)
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Siguiente
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -859,6 +894,10 @@ const PaymentHistory = () => {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const itemsPerPage = 10;
 
   const fetchPayments = useCallback(async () => {
     try {
@@ -877,7 +916,7 @@ const PaymentHistory = () => {
   const filteredPayments = payments.filter(payment => {
     if (!searchTerm) return true;
     const searchTermLower = searchTerm.toLowerCase();
-    
+
     const concept = payment.paymentType === 'sale'
       ? `pago de orden #${payment.orderId?.orderNumber}`
       : payment.payableId?.description || '';
@@ -892,7 +931,16 @@ const PaymentHistory = () => {
     );
   });
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
+  const paginatedPayments = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredPayments.slice(startIndex, endIndex);
+  }, [filteredPayments, currentPage, itemsPerPage]);
+
   return (
+    <>
     <Card>
       <CardHeader>
         <div className="flex justify-between items-center">
@@ -908,12 +956,12 @@ const PaymentHistory = () => {
       </CardHeader>
       <CardContent>
         <Table>
-          <TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Concepto</TableHead><TableHead>Monto Pagado</TableHead><TableHead>Método</TableHead><TableHead>Referencia</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Concepto</TableHead><TableHead>Monto Pagado</TableHead><TableHead>Método</TableHead><TableHead>Referencia</TableHead><TableHead>Ver</TableHead></TableRow></TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan="5" className="text-center">Cargando...</TableCell></TableRow>
+              <TableRow><TableCell colSpan="6" className="text-center">Cargando...</TableCell></TableRow>
             ) : (
-              filteredPayments.map((payment) => {
+              paginatedPayments.map((payment) => {
                 const isSale = payment.paymentType === 'sale';
                 const concept = isSale 
                   ? `Pago de Orden #${payment.orderId?.orderNumber || 'N/A'}` 
@@ -926,14 +974,166 @@ const PaymentHistory = () => {
                     <TableCell>${Number(payment.amount).toFixed(2)}</TableCell>
                     <TableCell>{payment.method || payment.paymentMethod || '-'}</TableCell>
                     <TableCell>{payment.reference || '-'}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedPayment(payment);
+                          setIsViewDialogOpen(true);
+                        }}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 );
               })
             )}
           </TableBody>
         </Table>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-4">
+            <p className="text-sm text-muted-foreground">
+              Página {currentPage} de {totalPages} ({filteredPayments.length} registros)
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                disabled={currentPage === 1}
+              >
+                Anterior
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Siguiente
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
+
+    {/* View Payment Details Dialog */}
+    <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>Resumen de Transacción</DialogTitle>
+          <DialogDescription>
+            Detalles completos del pago realizado
+          </DialogDescription>
+        </DialogHeader>
+        {selectedPayment && (
+          <div className="space-y-4">
+            {/* Información General */}
+            <div className="p-4 border rounded-lg space-y-2">
+              <h3 className="font-semibold text-base">Información General</h3>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Fecha:</span>
+                  <p className="font-medium">{new Date(selectedPayment.date).toLocaleDateString()}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Tipo de Pago:</span>
+                  <p className="font-medium capitalize">
+                    {selectedPayment.paymentType === 'sale' ? 'Pago de Orden' : 'Pago de Cuenta por Pagar'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Concepto */}
+            <div className="p-4 border rounded-lg space-y-2">
+              <h3 className="font-semibold text-base">Concepto</h3>
+              <p className="text-sm">
+                {selectedPayment.paymentType === 'sale'
+                  ? `Pago de Orden #${selectedPayment.orderId?.orderNumber || 'N/A'}`
+                  : selectedPayment.payableId?.description || 'N/A'}
+              </p>
+            </div>
+
+            {/* Detalles del Pago */}
+            <div className="p-4 border rounded-lg space-y-2 bg-muted/50">
+              <h3 className="font-semibold text-base">Detalles del Pago</h3>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Monto Pagado:</span>
+                  <span className="font-semibold text-green-600">${Number(selectedPayment.amount).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Método de Pago:</span>
+                  <span className="font-medium">{selectedPayment.method || selectedPayment.paymentMethod || '-'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Referencia:</span>
+                  <span className="font-medium">{selectedPayment.reference || '-'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Información Adicional de la Orden (si es pago de orden) */}
+            {selectedPayment.paymentType === 'sale' && selectedPayment.orderId && (
+              <div className="p-4 border rounded-lg space-y-2">
+                <h3 className="font-semibold text-base">Información de la Orden</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {selectedPayment.orderId.customerName && (
+                    <div>
+                      <span className="text-muted-foreground">Cliente:</span>
+                      <p className="font-medium">{selectedPayment.orderId.customerName}</p>
+                    </div>
+                  )}
+                  {selectedPayment.orderId.total && (
+                    <div>
+                      <span className="text-muted-foreground">Total de la Orden:</span>
+                      <p className="font-medium">${Number(selectedPayment.orderId.total).toFixed(2)}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Información Adicional del Payable (si es pago de cuenta por pagar) */}
+            {selectedPayment.paymentType === 'payable' && selectedPayment.payableId && (
+              <div className="p-4 border rounded-lg space-y-2">
+                <h3 className="font-semibold text-base">Información del Proveedor</h3>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {selectedPayment.payableId.payeeName && (
+                    <div>
+                      <span className="text-muted-foreground">Proveedor:</span>
+                      <p className="font-medium">{selectedPayment.payableId.payeeName}</p>
+                    </div>
+                  )}
+                  {selectedPayment.payableId.totalAmount && (
+                    <div>
+                      <span className="text-muted-foreground">Monto Total de la Cuenta:</span>
+                      <p className="font-medium">${Number(selectedPayment.payableId.totalAmount).toFixed(2)}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Notas adicionales si existen */}
+            {selectedPayment.notes && (
+              <div className="p-4 border rounded-lg space-y-2">
+                <h3 className="font-semibold text-base">Notas</h3>
+                <p className="text-sm text-muted-foreground">{selectedPayment.notes}</p>
+              </div>
+            )}
+          </div>
+        )}
+        <div className="flex justify-end space-x-2">
+          <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>Cerrar</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };
 
@@ -997,7 +1197,7 @@ const PayablesManagement = () => {
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="monthly">Cuentas por Pagar</TabsTrigger>
             <TabsTrigger value="recurring">Pagos Recurrentes</TabsTrigger>
-            <TabsTrigger value="history">Historial Completo</TabsTrigger>
+            <TabsTrigger value="history">Historial de Pagos Pendientes</TabsTrigger>
           </TabsList>
           <TabsContent value="monthly">
             <MonthlyPayables payables={payables} fetchPayables={fetchPayables} suppliers={suppliers} accounts={accounts} fetchSuppliers={fetchSuppliers} />

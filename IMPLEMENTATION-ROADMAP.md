@@ -54,7 +54,7 @@ FASE 0: Preparación y Configuración (1-2 horas)
 | Fase 1 | ✅ Completada | Órdenes se asignan al empleado con turno activo (`orders.service.ts`), se pobla `assignedTo` en listados y se agregó columna en la UI (`OrdersManagementV2.jsx`) con unit tests de respaldo. |
 | Fase 1B | ✅ Completada | Login multi-tenant ya operativo (`food-inventory-saas/src/auth/auth.service.ts`, `food-inventory-admin/src/hooks/use-auth.jsx`, `food-inventory-admin/src/components/auth/TenantPickerDialog.jsx`, `scripts/migrations/2025-01-backfill-memberships.js`). |
 | Fase 2 | 🚧 En progreso | Movimientos bancarios: esquema, servicio y endpoints ya listos (`bank-transactions.schema.ts`, `bank-transactions.service.ts`), se registran pagos/ajustes automáticamente y hay fixtures. Falta conciliación (2.2), transferencias/alertas (2.3) y UI dedicada. |
-| Fase 3 | ⏳ Pendiente | Recharts está instalado como utilidad (`food-inventory-admin/src/components/ui/chart.jsx`), sin dashboards de gráficas implementados. |
+| Fase 3 | ✅ Completada | Dashboard con gráficas de ventas, inventario y reportes avanzados operando detrás de flags (`/analytics/*` endpoints + componentes `charts/*`). |
 | Fase 4 | ⏳ Pendiente | Sin avances en analítica predictiva. |
 | Fase 5 | ⏳ Pendiente | Optimización y UX todavía no abordadas. |
 
@@ -2751,6 +2751,751 @@ git push origin v2.2.0-fase2.2
    - Probar validaciones (saldo insuficiente)
    - Verificar alertas se disparan
 
+#### Checklist Pre-Sub-Fase:
+
+```bash
+# 1. Backup completo antes de tocar saldos
+./scripts/backup-before-phase.sh
+
+# 2. Crear rama dedicada
+git checkout -b fase-2.3/bank-transfers-alerts
+
+# 3. Activar feature flag en backend/frontend
+ENABLE_BANK_TRANSFERS=true
+VITE_ENABLE_BANK_TRANSFERS=true
+```
+
+---
+
+#### Paso 2.3.1: Backend - DTO de Transferencias (15 min)
+
+**Archivo**: `food-inventory-saas/src/dto/bank-transaction.dto.ts`
+
+```typescript
+export class CreateBankTransferDto {
+  @IsMongoId()
+  destinationAccountId: string;
+
+  @IsNumber()
+  amount: number;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  reference?: string;
+
+  @IsOptional()
+  @IsString()
+  metadataNote?: string;
+}
+```
+
+> 🎯 Consejo: Reutiliza este DTO tanto para el endpoint como para validaciones internas. Mantén `amount` como número positivo y deja que la lógica decida signo.
+
+**Commit**
+
+```bash
+git add src/dto/bank-transaction.dto.ts
+git commit -m "feat(bank): add transfer DTO for bank accounts"
+```
+
+---
+
+#### Paso 2.3.2: Backend - Extender BankTransactionsService (40 min)
+
+**Archivo**: `food-inventory-saas/src/modules/bank-accounts/bank-transactions.service.ts`
+
+```typescript
+async createTransfer(
+  tenantId: string,
+  sourceAccountId: string,
+  destinationAccountId: string,
+  dto: CreateBankTransferDto,
+  userId: string,
+  sourceBalanceAfter: number,
+  destinationBalanceAfter: number,
+  session?: ClientSession,
+) {
+  const transferGroupId = new Types.ObjectId();
+
+  const debit = new this.transactionModel({
+    bankAccountId: new Types.ObjectId(sourceAccountId),
+    tenantId: new Types.ObjectId(tenantId),
+    type: 'transfer_out',
+    amount: dto.amount,
+    balanceAfter: sourceBalanceAfter,
+    description: dto.description ?? 'Transferencia saliente',
+    reference: dto.reference,
+    transactionDate: new Date(),
+    metadata: {
+      transferGroupId,
+      createdBy: userId,
+      ...dto.metadataNote && { note: dto.metadataNote },
+    },
+  });
+
+  const credit = new this.transactionModel({
+    bankAccountId: new Types.ObjectId(destinationAccountId),
+    tenantId: new Types.ObjectId(tenantId),
+    type: 'transfer_in',
+    amount: dto.amount,
+    balanceAfter: destinationBalanceAfter,
+    description: dto.description ?? 'Transferencia entrante',
+    reference: dto.reference,
+    transactionDate: new Date(),
+    linkedTransferId: debit._id,
+    metadata: {
+      transferGroupId,
+      createdBy: userId,
+      ...dto.metadataNote && { note: dto.metadataNote },
+    },
+  });
+
+  debit.linkedTransferId = credit._id;
+
+  await debit.save({ session });
+  await credit.save({ session });
+
+  return { transferGroupId, debit, credit };
+}
+```
+
+> 💡 Asegúrate de aceptar `session` opcional en los métodos `create`/`find` existentes para que las operaciones sean atómicas dentro de la transacción Mongo.
+
+**Commit**
+
+```bash
+git add src/modules/bank-accounts/bank-transactions.service.ts
+git commit -m "feat(bank): support paired transactions for transfers"
+```
+
+---
+
+#### Paso 2.3.3: Backend - Servicio de Transferencias (60 min)
+
+**Archivo**: `food-inventory-saas/src/modules/bank-accounts/bank-transfers.service.ts`
+
+```typescript
+import { InjectConnection } from '@nestjs/mongoose';
+import { Connection, ClientSession } from 'mongoose';
+
+@Injectable()
+export class BankTransfersService {
+  constructor(
+    private readonly bankAccountsService: BankAccountsService,
+    private readonly bankTransactionsService: BankTransactionsService,
+    private readonly bankAlertsService: BankAlertsService,
+    @InjectConnection() private readonly connection: Connection,
+  ) {}
+
+  async createTransfer(
+    tenantId: string,
+    userId: string,
+    sourceAccountId: string,
+    dto: CreateBankTransferDto,
+  ) {
+    if (!FEATURES.BANK_ACCOUNTS_TRANSFERS) {
+      throw new BadRequestException('La funcionalidad de transferencias está desactivada.');
+    }
+
+    const session: ClientSession = await this.connection.startSession();
+    session.startTransaction();
+
+    try {
+      const source = await this.bankAccountsService.findOne(sourceAccountId, tenantId, session);
+      const destination = await this.bankAccountsService.findOne(dto.destinationAccountId, tenantId, session);
+
+      if (source._id.equals(destination._id)) {
+        throw new BadRequestException('Selecciona cuentas distintas para transferir.');
+      }
+
+      if (dto.amount <= 0) {
+        throw new BadRequestException('El monto debe ser mayor a cero.');
+      }
+
+      if (source.currentBalance < dto.amount) {
+        throw new BadRequestException('Fondos insuficientes en la cuenta origen.');
+      }
+
+      const updatedSource = await this.bankAccountsService.updateBalance(
+        sourceAccountId,
+        -dto.amount,
+        tenantId,
+        session,
+        { userId },
+      );
+
+      const updatedDestination = await this.bankAccountsService.updateBalance(
+        dto.destinationAccountId,
+        dto.amount,
+        tenantId,
+        session,
+        { userId },
+      );
+
+      const transfer = await this.bankTransactionsService.createTransfer(
+        tenantId,
+        sourceAccountId,
+        dto.destinationAccountId,
+        dto,
+        userId,
+        updatedSource.currentBalance,
+        updatedDestination.currentBalance,
+        session,
+      );
+
+      await session.commitTransaction();
+
+      // Evaluar alertas tras la transferencia
+      await this.bankAlertsService.evaluateBalance(updatedSource, tenantId, { userId });
+      await this.bankAlertsService.evaluateBalance(updatedDestination, tenantId, { userId });
+
+      return transfer;
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
+    }
+  }
+}
+```
+
+**Commit**
+
+```bash
+git add src/modules/bank-accounts/bank-transfers.service.ts
+git commit -m "feat(bank): add transfer service with transactional flow"
+```
+
+---
+
+#### Paso 2.3.4: Backend - Controlador de Transferencias (20 min)
+
+**Archivo**: `food-inventory-saas/src/modules/bank-accounts/bank-transfers.controller.ts`
+
+```typescript
+@Controller('bank-accounts/:accountId/transfers')
+@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard, ModuleAccessGuard)
+@RequireModule('bankAccounts')
+export class BankTransfersController {
+  constructor(private readonly bankTransfersService: BankTransfersService) {}
+
+  @Post()
+  @Permissions('accounting_write')
+  async createTransfer(
+    @Param('accountId') accountId: string,
+    @Body() dto: CreateBankTransferDto,
+    @Request() req,
+  ) {
+    const result = await this.bankTransfersService.createTransfer(
+      req.user.tenantId,
+      req.user.id,
+      accountId,
+      dto,
+    );
+
+    return {
+      success: true,
+      transferGroupId: result.transferGroupId,
+      debit: result.debit,
+      credit: result.credit,
+    };
+  }
+}
+```
+
+**Commit**
+
+```bash
+git add src/modules/bank-accounts/bank-transfers.controller.ts
+git commit -m "feat(bank): expose transfer endpoint with guards"
+```
+
+---
+
+#### Paso 2.3.5: Backend - Registrar Servicios en el Módulo (10 min)
+
+**Archivo**: `food-inventory-saas/src/modules/bank-accounts/bank-accounts.module.ts`
+
+```typescript
+import { BankTransfersService } from './bank-transfers.service';
+import { BankTransfersController } from './bank-transfers.controller';
+import { BankAlertsService } from './bank-alerts.service';
+
+@Module({
+  imports: [
+    MongooseModule.forFeature([
+      { name: BankAccount.name, schema: BankAccountSchema },
+      { name: BankTransaction.name, schema: BankTransactionSchema },
+    ]),
+    AuthModule,
+    PermissionsModule,
+  ],
+  controllers: [
+    BankAccountsController,
+    BankTransactionsController,
+    BankTransfersController, // ← nuevo
+  ],
+  providers: [
+    BankAccountsService,
+    BankTransactionsService,
+    BankTransfersService, // ← nuevo
+    BankAlertsService, // ← alertas centralizadas
+  ],
+  exports: [
+    BankAccountsService,
+    BankTransactionsService,
+    BankTransfersService,
+    BankAlertsService,
+  ],
+})
+export class BankAccountsModule {}
+```
+
+**Commit**
+
+```bash
+git add src/modules/bank-accounts/bank-accounts.module.ts
+git commit -m "feat(bank): wire transfer and alert services into module"
+```
+
+---
+
+#### Paso 2.3.6: Backend - Servicio de Alertas (40 min)
+
+**Archivo**: `food-inventory-saas/src/modules/bank-accounts/bank-alerts.service.ts`
+
+```typescript
+@Injectable()
+export class BankAlertsService {
+  private readonly logger = new Logger(BankAlertsService.name);
+  private static readonly ALERT_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+  constructor(
+    @InjectModel(BankAccount.name)
+    private readonly bankAccountModel: Model<BankAccountDocument>,
+    private readonly eventsService: EventsService,
+  ) {}
+
+  async evaluateBalance(
+    account: BankAccountDocument,
+    tenantId: string,
+    options: { userId?: string } = {},
+  ): Promise<void> {
+    if (!account.alertEnabled || account.minimumBalance == null) {
+      return;
+    }
+
+    const currentBalance = Number(account.currentBalance);
+    const minimumBalance = Number(account.minimumBalance);
+
+    if (currentBalance > minimumBalance) {
+      if (account.lastAlertSentAt) {
+        await this.bankAccountModel.updateOne(
+          { _id: account._id },
+          { $unset: { lastAlertSentAt: '' } },
+        );
+      }
+      return;
+    }
+
+    const now = new Date();
+    if (
+      account.lastAlertSentAt &&
+      now.getTime() - account.lastAlertSentAt.getTime() <
+        BankAlertsService.ALERT_INTERVAL_MS
+    ) {
+      return;
+    }
+
+    await this.eventsService.create(
+      {
+        title: `⚠️ Saldo bajo: ${account.bankName}`,
+        description: `La cuenta ${account.accountNumber} tiene ${currentBalance.toFixed(2)} ${account.currency}. Umbral configurado: ${minimumBalance.toFixed(2)}.`,
+        start: now.toISOString(),
+        allDay: true,
+        color: '#f59e0b',
+      },
+      {
+        id: options.userId ?? `system-bank-alert-${tenantId}`,
+        tenantId,
+      },
+      undefined,
+      { syncTodo: false },
+    );
+
+    await this.bankAccountModel.updateOne(
+      { _id: account._id },
+      { $set: { lastAlertSentAt: now } },
+    );
+
+    this.logger.warn(
+      `Low balance alert triggered for bank account ${account._id}: balance ${currentBalance} ${account.currency}`,
+    );
+  }
+}
+```
+
+> ⚠️ No envíes múltiples alertas en la misma hora. El `ALERT_INTERVAL_MS` evita spam.
+
+**Commit**
+
+```bash
+git add src/modules/bank-accounts/bank-alerts.service.ts
+git commit -m "feat(bank): evaluate low balance alerts with rate limiting"
+```
+
+---
+
+#### Paso 2.3.7: Backend - Invocar Alertas tras cambios de saldo (20 min)
+
+**Archivo**: `food-inventory-saas/src/modules/bank-accounts/bank-accounts.service.ts`
+
+```typescript
+async updateBalance(
+  id: string,
+  amount: number,
+  tenantId: string,
+  session?: ClientSession,
+  options: { userId?: string } = {},
+): Promise<BankAccount> {
+  const updated = await this.bankAccountModel
+    .findOneAndUpdate(
+      { _id: this.toObjectIdIfValid(id) ?? id, tenantId: this.buildTenantFilter(tenantId) },
+      { $inc: { currentBalance: amount } },
+      { new: true },
+    )
+    .session(session ?? null)
+    .exec();
+
+  if (!updated) {
+    throw new NotFoundException(`Bank account with ID ${id} not found`);
+  }
+
+  await this.bankAlertsService.evaluateBalance(updated, tenantId, options);
+  return updated;
+}
+```
+
+**Commit**
+
+```bash
+git add src/modules/bank-accounts/bank-accounts.service.ts
+git commit -m "feat(bank): trigger low balance evaluation on balance updates"
+```
+
+---
+
+#### Paso 2.3.8: Frontend - Hook para transferencias (25 min)
+
+**Archivo**: `food-inventory-admin/src/hooks/use-bank-transfers.js`
+
+```javascript
+import { useState } from 'react';
+import { fetchApi } from '@/lib/api';
+import { toast } from 'sonner';
+
+export function useBankTransfers(accountId) {
+  const [isSubmitting, setSubmitting] = useState(false);
+
+  const createTransfer = async (payload) => {
+    setSubmitting(true);
+    try {
+      const response = await fetchApi(`/bank-accounts/${accountId}/transfers`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      toast.success('Transferencia creada correctamente');
+      return response.data;
+    } catch (error) {
+      toast.error('No se pudo crear la transferencia', { description: error.message });
+      throw error;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return { createTransfer, isSubmitting };
+}
+```
+
+**Commit**
+
+```bash
+git add src/hooks/use-bank-transfers.js
+git commit -m "feat(bank): add hook to perform bank transfers"
+```
+
+---
+
+#### Paso 2.3.9: Frontend - Diálogo de Transferencia (60 min)
+
+**Archivo**: `food-inventory-admin/src/components/BankTransferDialog.jsx`
+
+```jsx
+import { useState } from 'react';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useBankTransfers } from '@/hooks/use-bank-transfers';
+import { useBankAccounts } from '@/hooks/use-bank-accounts';
+
+export function BankTransferDialog({ open, onOpenChange, accountId }) {
+  const { accounts } = useBankAccounts();
+  const { createTransfer, isSubmitting } = useBankTransfers(accountId);
+
+  const [form, setForm] = useState({
+    destinationAccountId: '',
+    amount: '',
+    description: '',
+    reference: '',
+  });
+
+  const handleSubmit = async () => {
+    await createTransfer({
+      ...form,
+      amount: Number(form.amount),
+    });
+    onOpenChange(false);
+  };
+
+  const accountsOptions = accounts.filter((acc) => acc._id !== accountId);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Nueva transferencia</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Mueve fondos entre tus cuentas bancarias con validaciones de saldo automático.
+          </p>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Cuenta destino</label>
+            <Select
+              value={form.destinationAccountId}
+              onValueChange={(value) => setForm((prev) => ({ ...prev, destinationAccountId: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona la cuenta destino" />
+              </SelectTrigger>
+              <SelectContent>
+                {accountsOptions.map((account) => (
+                  <SelectItem key={account._id} value={account._id}>
+                    {account.bankName} • {account.accountNumber} ({account.currentBalance.toLocaleString('es-VE', { style: 'currency', currency: account.currency })})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Monto</label>
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              value={form.amount}
+              onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Descripción</label>
+            <Input
+              value={form.description}
+              onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+              placeholder="Ej: Transferencia interna caja principal"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Referencia (opcional)</label>
+            <Input
+              value={form.reference}
+              onChange={(event) => setForm((prev) => ({ ...prev, reference: event.target.value }))}
+              placeholder="Número de confirmación"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSubmit} disabled={isSubmitting || !form.destinationAccountId || !form.amount}>
+            Confirmar transferencia
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+**Commit**
+
+```bash
+git add src/components/BankTransferDialog.jsx
+git commit -m "feat(bank): add transfer dialog component"
+```
+
+---
+
+#### Paso 2.3.10: Frontend - Integración en la vista de Cuentas (30 min)
+
+**Archivo**: `food-inventory-admin/src/components/BankAccountsManagement.jsx`
+
+```jsx
+const [isTransferOpen, setTransferOpen] = useState(false);
+const [selectedAccount, setSelectedAccount] = useState(null);
+
+<Button
+  variant="secondary"
+  onClick={() => {
+    setSelectedAccount(account);
+    setTransferOpen(true);
+  }}
+>
+  Transferir
+</Button>
+
+{selectedAccount && (
+  <BankTransferDialog
+    open={isTransferOpen}
+    onOpenChange={setTransferOpen}
+    accountId={selectedAccount._id}
+  />
+)}
+```
+
+**Commit**
+
+```bash
+git add src/components/BankAccountsManagement.jsx
+git commit -m "feat(bank): add transfer action to accounts table"
+```
+
+---
+
+#### Paso 2.3.11: Frontend - Alertas visuales (30 min)
+
+**Archivo**: `food-inventory-admin/src/components/BankAccountsManagement.jsx`
+
+```jsx
+{account.alertEnabled && account.minimumBalance != null && account.currentBalance <= account.minimumBalance && (
+  <Badge variant="destructive">Saldo bajo</Badge>
+)}
+```
+
+**Archivo**: `food-inventory-admin/src/components/DashboardCards.jsx`
+
+```jsx
+{lowBalanceAccounts.length > 0 && (
+  <Alert variant="warning">
+    <AlertTitle>Cuentas con saldo bajo</AlertTitle>
+    <AlertDescription>
+      {lowBalanceAccounts.map((account) => (
+        <div key={account._id}>
+          {account.bankName} • {account.accountNumber} → {account.currentBalance.toLocaleString('es-VE', { style: 'currency', currency: account.currency })}
+        </div>
+      ))}
+    </AlertDescription>
+  </Alert>
+)}
+```
+
+**Commit**
+
+```bash
+git add src/components/BankAccountsManagement.jsx src/components/DashboardCards.jsx
+git commit -m "feat(bank): surface low balance alerts in UI"
+```
+
+---
+
+#### Paso 2.3.12: Testing (45 min)
+
+Crear checklist manual en `food-inventory-saas/test/checklists/fase-2.3-bank-transfers-alerts.md`:
+
+```markdown
+# CHECKLIST FASE 2.3: Transferencias y Alertas
+
+## Prerequisitos
+- [ ] Feature flag activo: `ENABLE_BANK_TRANSFERS=true`
+- [ ] Dos cuentas bancarias con saldos configurados
+- [ ] Alertas habilitadas en al menos una cuenta (minimumBalance)
+
+## Escenario 1: Transferencia exitosa
+- [ ] Abrir BankAccounts → Transferir
+- [ ] Seleccionar cuenta destino distinta
+- [ ] Monto válido (ej: 150)
+- [ ] Confirmar transferencia
+- [ ] Verificar transacciones debit/credit creadas
+- [ ] Verificar saldos actualizados en ambas cuentas
+
+## Escenario 2: Validaciones
+- [ ] Intentar transferir monto 0 → error
+- [ ] Intentar transferir saldo > balance → error
+- [ ] Intentar transferir a misma cuenta → error
+
+## Escenario 3: Alertas
+- [ ] Configurar minimumBalance superior al saldo post-transferencia
+- [ ] Ejecutar transferencia que baje del umbral
+- [ ] Verificar badge "Saldo bajo" en la UI
+- [ ] Verificar evento generado en calendario / logs
+- [ ] Verificar no se repite alerta antes de 6 horas
+
+## Escenario 4: Rollback
+- [ ] Hacer transferencia fallida (fuerza error en segunda cuenta)
+- [ ] Verificar que ninguna transacción ni saldo parcial se guardó
+```
+
+**Commit**
+
+```bash
+git add test/checklists/fase-2.3-bank-transfers-alerts.md
+git commit -m "docs(test): add checklist for bank transfers and alerts"
+```
+
+---
+
+### Validación Fase 2.3:
+
+- [ ] Backend compila (`npm run build` en `food-inventory-saas`)
+- [ ] Frontend compila (`npm run build` en `food-inventory-admin`)
+- [ ] Tests unitarios/integ pasan (`npm test`)
+- [ ] Checklist manual 100% completado
+- [ ] Transferencias registran dos movimientos y saldo consistente
+- [ ] Alertas solo se disparan cuando toca y respetan el cooldown
+- [ ] Logs sin errores críticos durante las pruebas
+
+### Merge y Tag:
+
+```bash
+git checkout development/mejoras-2025
+git merge fase-2.3/bank-transfers-alerts
+git tag -a v2.2.0-fase2.3 -m "Phase 2.3: Bank Transfers & Alerts"
+git push origin v2.2.0-fase2.3
+```
+
+### Resultado Esperado:
+
+```
+✅ Transferencias internas entre cuentas con transacciones espejo
+✅ Validaciones de saldo y bloqueos ante errores
+✅ Alertas automáticas cuando el saldo cae por debajo del umbral
+✅ Badges y avisos visibles en el panel administrativo
+✅ Operaciones reversibles gracias a transacciones Mongo y feature flag
+```
+
 ---
 
 ## 📊 FASE 3: DASHBOARD Y REPORTES CON GRÁFICAS
@@ -2806,69 +3551,201 @@ FASE 3.1: Setup de Recharts y Componentes Base (1-2 horas)
 
 **Duración**: 1-2 horas
 
-#### Paso 3.1.1: Componente de Gráfica Base (30 min)
+#### Paso 3.1.1: Theme y utilidades (20 min)
+
+**Archivo**: `food-inventory-admin/src/components/charts/chart-theme.js`
+
+```javascript
+export const chartPalette = [
+  '#2563eb',
+  '#16a34a',
+  '#f97316',
+  '#ec4899',
+  '#0ea5e9',
+  '#a855f7',
+  '#14b8a6',
+];
+
+export const defaultTooltipProps = {
+  cursor: { fill: 'rgba(148, 163, 184, 0.12)' },
+  contentStyle: {
+    borderRadius: 8,
+    border: 'none',
+    boxShadow: '0 12px 30px rgba(15, 23, 42, 0.12)',
+  },
+};
+```
+
+**Commit**
+
+```bash
+git add src/components/charts/chart-theme.js
+git commit -m "chore(charts): define shared palette and tooltip defaults"
+```
+
+#### Paso 3.1.2: Contenedor, skeleton y vacío (30 min)
 
 **Archivo**: `food-inventory-admin/src/components/charts/BaseChart.jsx`
 
 ```jsx
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 
-export function ChartCard({ title, description, children, actions }) {
+export function ChartCard({ title, description, actions, children }) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle>{title}</CardTitle>
             {description && (
               <p className="text-sm text-muted-foreground mt-1">{description}</p>
             )}
           </div>
-          {actions && <div className="flex gap-2">{actions}</div>}
+          {actions ? <div className="flex gap-2">{actions}</div> : null}
         </div>
       </CardHeader>
       <CardContent>{children}</CardContent>
     </Card>
   );
 }
+
+export function ChartSkeleton() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-6 w-32" />
+      <Skeleton className="h-52 w-full" />
+    </div>
+  );
+}
+
+export function ChartEmptyState({ message }) {
+  return (
+    <div className="flex min-h-[200px] flex-col items-center justify-center text-center text-sm text-muted-foreground">
+      <p>{message ?? 'No hay datos suficientes para mostrar la gráfica aún.'}</p>
+    </div>
+  );
+}
 ```
 
-#### Paso 3.1.2: Hook para Datos de Dashboard (45 min)
+**Commit**
+
+```bash
+git add src/components/charts/BaseChart.jsx
+git commit -m "feat(charts): add base card, skeleton and empty state"
+```
+
+#### Paso 3.1.3: Hook centralizado (45 min)
 
 **Archivo**: `food-inventory-admin/src/hooks/use-dashboard-charts.js`
 
 ```javascript
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { fetchApi } from '@/lib/api';
+import { FEATURES } from '@/config/features';
+
+const EMPTY_DATA = {
+  sales: { trend: [], categories: [], comparison: null },
+  inventory: { status: [], movement: [], rotation: [] },
+  advanced: { pnl: { revenues: [], expenses: [] }, rfm: [], employees: [] },
+};
 
 export function useDashboardCharts(period = '7d') {
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(EMPTY_DATA);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchChartData = async () => {
+    if (!FEATURES.DASHBOARD_CHARTS) {
+      setData(EMPTY_DATA);
+      setLoading(false);
+      return;
+    }
+
+    const load = async () => {
       setLoading(true);
       try {
-        const [sales, topProducts, inventory] = await Promise.all([
+        const [sales, inventory, performance] = await Promise.all([
           fetchApi(`/analytics/sales-trend?period=${period}`),
-          fetchApi(`/analytics/top-products?period=${period}`),
-          fetchApi(`/analytics/inventory-status`),
+          fetchApi(`/analytics/inventory-status?period=${period}`),
+          fetchApi(`/analytics/performance?period=${period}`),
         ]);
 
-        setData({ sales, topProducts, inventory });
+        const pnl = FEATURES.ADVANCED_REPORTS
+          ? await fetchApi(`/analytics/profit-and-loss?period=${period}`)
+          : { data: { revenues: [], expenses: [] } };
+        const rfm = FEATURES.ADVANCED_REPORTS
+          ? await fetchApi('/analytics/customer-segmentation')
+          : { data: [] };
+
+        setData({
+          sales: sales.data,
+          inventory: inventory.data,
+          advanced: {
+            pnl: pnl.data,
+            rfm: rfm.data,
+            employees: performance.data,
+          },
+        });
+        setError(null);
       } catch (err) {
-        setError(err.message);
+        setError(err.message ?? 'No fue posible cargar las gráficas.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchChartData();
+    load();
   }, [period]);
 
   return { data, loading, error };
 }
+```
+
+**Commit**
+
+```bash
+git add src/hooks/use-dashboard-charts.js
+git commit -m "feat(charts): centralize dashboard data fetch with feature flags"
+```
+
+#### Paso 3.1.4: Fallbacks en Dashboard (25 min)
+
+**Archivo**: `food-inventory-admin/src/components/DashboardView.jsx`
+
+```jsx
+import { FEATURES } from '@/config/features';
+import { useDashboardCharts } from '@/hooks/use-dashboard-charts';
+import { ChartSkeleton } from '@/components/charts/BaseChart';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
+const [period, setPeriod] = useState('7d');
+const { data: chartData, loading: chartsLoading, error: chartsError } = useDashboardCharts(period);
+
+{FEATURES.DASHBOARD_CHARTS ? (
+  chartsLoading ? (
+    <ChartSkeleton />
+  ) : chartsError ? (
+    <Alert variant="destructive">
+      <AlertTitle>Error al cargar gráficas</AlertTitle>
+      <AlertDescription>{chartsError}</AlertDescription>
+    </Alert>
+  ) : null
+) : (
+  <Alert>
+    <AlertTitle>Visualizaciones desactivadas</AlertTitle>
+    <AlertDescription>
+      Activa `VITE_ENABLE_DASHBOARD_CHARTS` en tu `.env` para habilitar las gráficas.
+    </AlertDescription>
+  </Alert>
+)}
+```
+
+**Commit**
+
+```bash
+git add src/components/DashboardView.jsx
+git commit -m "feat(dashboard): add graceful fallbacks for chart feature flag"
 ```
 
 ---
@@ -2877,11 +3754,220 @@ export function useDashboardCharts(period = '7d') {
 
 **Duración**: 2-3 horas
 
-#### Componentes a Crear:
+#### Paso 3.2.1: Servicio de analytics (45 min)
 
-1. **SalesLineChart** - Tendencia de ventas últimos N días
-2. **SalesByCategory** - Pie chart de categorías
-3. **SalesComparison** - Bar chart comparativo (mes actual vs anterior)
+**Archivo**: `food-inventory-saas/src/modules/analytics/analytics.service.ts`
+
+```typescript
+async getSalesTrend(tenantId: string, period: string) {
+  const { from, to, groupBy } = this.buildDateRange(period);
+
+  const trend = await this.orderModel.aggregate([
+    {
+      $match: {
+        tenantId: new Types.ObjectId(tenantId),
+        status: 'delivered',
+        confirmedAt: { $gte: from, $lte: to },
+      },
+    },
+    {
+      $group: {
+        _id:
+          groupBy === 'day'
+            ? { $dateToString: { date: '$confirmedAt', format: '%Y-%m-%d' } }
+            : { $dateToString: { date: '$confirmedAt', format: '%Y-%m' } },
+        totalAmount: { $sum: '$totalAmount' },
+        orderCount: { $sum: 1 },
+      },
+    },
+    { $sort: { _id: 1 } },
+  ]).exec();
+
+  const categories = await this.orderModel.aggregate([
+    {
+      $match: {
+        tenantId: new Types.ObjectId(tenantId),
+        status: 'delivered',
+        confirmedAt: { $gte: from, $lte: to },
+      },
+    },
+    { $unwind: '$lines' },
+    {
+      $group: {
+        _id: '$lines.category',
+        totalAmount: {
+          $sum: { $multiply: ['$lines.quantity', '$lines.unitPrice'] },
+        },
+      },
+    },
+    { $sort: { totalAmount: -1 } },
+    { $limit: 6 },
+  ]).exec();
+
+  const previousRange = this.shiftRange(from, to);
+
+  const [currentTotal] = await this.orderModel.aggregate([
+    {
+      $match: {
+        tenantId: new Types.ObjectId(tenantId),
+        status: 'delivered',
+        confirmedAt: { $gte: from, $lte: to },
+      },
+    },
+    { $group: { _id: null, total: { $sum: '$totalAmount' } } },
+  ]).exec();
+
+  const [previousTotal] = await this.orderModel.aggregate([
+    {
+      $match: {
+        tenantId: new Types.ObjectId(tenantId),
+        status: 'delivered',
+        confirmedAt: { $gte: previousRange.from, $lte: previousRange.to },
+      },
+    },
+    { $group: { _id: null, total: { $sum: '$totalAmount' } } },
+  ]).exec();
+
+  return {
+    trend,
+    categories,
+    comparison: {
+      current: currentTotal?.total ?? 0,
+      previous: previousTotal?.total ?? 0,
+      delta: (currentTotal?.total ?? 0) - (previousTotal?.total ?? 0),
+    },
+  };
+}
+```
+
+> Agrega helpers `buildDateRange` y `shiftRange` en el servicio si aún no existen: devuelven `{ from, to, groupBy }` y calculan el período anterior.
+
+**Commit**
+
+```bash
+git add src/modules/analytics/analytics.service.ts
+git commit -m "feat(analytics): aggregate sales trend, categories and comparison"
+```
+
+#### Paso 3.2.2: Endpoint REST (20 min)
+
+**Archivo**: `food-inventory-saas/src/modules/analytics/analytics.controller.ts`
+
+```typescript
+@Get('sales-trend')
+@Permissions('reports_read')
+async getSalesTrend(@Req() req, @Query('period') period = '7d') {
+  const data = await this.analyticsService.getSalesTrend(req.user.tenantId, period);
+  return { success: true, data };
+}
+```
+
+**Commit**
+
+```bash
+git add src/modules/analytics/analytics.controller.ts
+git commit -m "feat(analytics): expose sales trend endpoint"
+```
+
+#### Paso 3.2.3: Test unitario (30 min)
+
+**Archivo**: `food-inventory-saas/src/modules/analytics/analytics.service.spec.ts`
+
+```typescript
+describe('getSalesTrend', () => {
+  it('returns aggregated sales with comparison delta', async () => {
+    orderModel.aggregate
+      .mockResolvedValueOnce([{ _id: '2025-01-01', totalAmount: 500, orderCount: 9 }])
+      .mockResolvedValueOnce([{ _id: 'Bebidas', totalAmount: 300 }])
+      .mockResolvedValueOnce([{ _id: null, total: 500 }])
+      .mockResolvedValueOnce([{ _id: null, total: 450 }]);
+
+    const result = await service.getSalesTrend('tenant123', '7d');
+
+    expect(result.trend).toHaveLength(1);
+    expect(result.comparison.delta).toBe(50);
+  });
+});
+```
+
+**Commit**
+
+```bash
+git add src/modules/analytics/analytics.service.spec.ts
+git commit -m "test(analytics): cover sales trend aggregation"
+```
+
+#### Paso 3.2.4: Componentes de ventas (60 min)
+
+**Archivos**: `food-inventory-admin/src/components/charts/`
+
+- `SalesTrendChart.jsx`
+- `SalesByCategoryChart.jsx`
+- `SalesComparisonCard.jsx`
+
+Código sugerido:
+
+```jsx
+// SalesTrendChart.jsx
+import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { ChartCard, ChartEmptyState } from './BaseChart';
+import { chartPalette, defaultTooltipProps } from './chart-theme';
+
+export function SalesTrendChart({ data }) {
+  if (!data?.length) {
+    return <ChartEmptyState message="Aún no hay ventas confirmadas en el período seleccionado." />;
+  }
+
+  return (
+    <ChartCard title="Tendencia de Ventas" description="Monto total por día">
+      <ResponsiveContainer width="100%" height={300}>
+        <LineChart data={data}>
+          <XAxis dataKey="_id" stroke="#64748b" tickLine={false} axisLine={false} />
+          <YAxis stroke="#64748b" tickLine={false} width={60} />
+          <Tooltip {...defaultTooltipProps} />
+          <Line type="monotone" dataKey="totalAmount" stroke={chartPalette[0]} strokeWidth={3} dot={false} />
+        </LineChart>
+      </ResponsiveContainer>
+    </ChartCard>
+  );
+}
+```
+
+Incluye también los archivos para categorías (pie chart) y comparación (tarjeta con delta).
+
+**Commit**
+
+```bash
+git add src/components/charts/SalesTrendChart.jsx src/components/charts/SalesByCategoryChart.jsx src/components/charts/SalesComparisonCard.jsx
+git commit -m "feat(charts): add sales trend, category and comparison widgets"
+```
+
+#### Paso 3.2.5: Integración en Dashboard (20 min)
+
+**Archivo**: `food-inventory-admin/src/components/DashboardView.jsx`
+
+```jsx
+import { SalesTrendChart } from '@/components/charts/SalesTrendChart';
+import { SalesByCategoryChart } from '@/components/charts/SalesByCategoryChart';
+import { SalesComparisonCard } from '@/components/charts/SalesComparisonCard';
+
+{FEATURES.DASHBOARD_CHARTS && !chartsLoading && !chartsError ? (
+  <div className="grid gap-6 lg:grid-cols-3">
+    <div className="lg:col-span-2 space-y-6">
+      <SalesTrendChart data={chartData.sales.trend} />
+      <SalesByCategoryChart data={chartData.sales.categories} />
+    </div>
+    <SalesComparisonCard comparison={chartData.sales.comparison} />
+  </div>
+) : null}
+```
+
+**Commit**
+
+```bash
+git add src/components/DashboardView.jsx
+git commit -m "feat(dashboard): render sales chart widgets"
+```
 
 ---
 
@@ -2889,11 +3975,170 @@ export function useDashboardCharts(period = '7d') {
 
 **Duración**: 2-3 horas
 
-#### Componentes a Crear:
+#### Paso 3.3.1: Datos de inventario (40 min)
 
-1. **StockLevelsChart** - Estado de inventario (bajo/medio/alto)
-2. **InventoryMovement** - Entradas vs Salidas
-3. **ProductRotation** - Velocidad de rotación
+**Archivo**: `food-inventory-saas/src/modules/analytics/analytics.service.ts`
+
+```typescript
+async getInventoryStatus(tenantId: string, period: string) {
+  const { from, to } = this.buildDateRange(period);
+
+  const status = await this.productModel.aggregate([
+    { $match: { tenantId: new Types.ObjectId(tenantId) } },
+    {
+      $group: {
+        _id: {
+          $switch: {
+            branches: [
+              { case: { $lte: ['$stockQuantity', '$reorderPoint'] }, then: 'Bajo' },
+              { case: { $lte: ['$stockQuantity', { $multiply: ['$reorderPoint', 1.5] }] }, then: 'Medio' },
+            ],
+            default: 'Saludable',
+          },
+        },
+        count: { $sum: 1 },
+      },
+    },
+  ]).exec();
+
+  const movement = await this.inventoryMovementModel.aggregate([
+    {
+      $match: {
+        tenantId: new Types.ObjectId(tenantId),
+        movementDate: { $gte: from, $lte: to },
+      },
+    },
+    {
+      $group: {
+        _id: '$movementType',
+        total: { $sum: '$quantity' },
+      },
+    },
+  ]).exec();
+
+  const rotation = await this.orderModel.aggregate([
+    {
+      $match: {
+        tenantId: new Types.ObjectId(tenantId),
+        confirmedAt: { $gte: from, $lte: to },
+      },
+    },
+    { $unwind: '$lines' },
+    {
+      $group: {
+        _id: '$lines.productId',
+        unitsSold: { $sum: '$lines.quantity' },
+        totalRevenue: {
+          $sum: { $multiply: ['$lines.quantity', '$lines.unitPrice'] },
+        },
+      },
+    },
+    { $sort: { unitsSold: -1 } },
+    { $limit: 10 },
+  ]).exec();
+
+  return { status, movement, rotation };
+}
+```
+
+**Commit**
+
+```bash
+git add src/modules/analytics/analytics.service.ts
+git commit -m "feat(analytics): aggregate inventory status, movement and rotation"
+```
+
+#### Paso 3.3.2: Endpoint (15 min)
+
+**Archivo**: `food-inventory-saas/src/modules/analytics/analytics.controller.ts`
+
+```typescript
+@Get('inventory-status')
+@Permissions('reports_read')
+async getInventoryStatus(@Req() req, @Query('period') period = '30d') {
+  const data = await this.analyticsService.getInventoryStatus(req.user.tenantId, period);
+  return { success: true, data };
+}
+```
+
+**Commit**
+
+```bash
+git add src/modules/analytics/analytics.controller.ts
+git commit -m "feat(analytics): expose inventory status endpoint"
+```
+
+#### Paso 3.3.3: Componentes (60 min)
+
+Archivos nuevos en `food-inventory-admin/src/components/charts/`:
+
+- `StockLevelsChart.jsx`
+- `InventoryMovementChart.jsx`
+- `ProductRotationTable.jsx`
+
+```jsx
+// StockLevelsChart.jsx
+import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { ChartCard, ChartEmptyState } from './BaseChart';
+import { chartPalette, defaultTooltipProps } from './chart-theme';
+
+export function StockLevelsChart({ data }) {
+  if (!data?.length) {
+    return <ChartEmptyState message="Aún no se registran productos con stock controlado." />;
+  }
+
+  return (
+    <ChartCard title="Distribución de Stock" description="Productos agrupados por nivel">
+      <ResponsiveContainer width="100%" height={280}>
+        <BarChart data={data}>
+          <XAxis dataKey="_id" stroke="#64748b" tickLine={false} axisLine={false} />
+          <YAxis stroke="#64748b" allowDecimals={false} />
+          <Tooltip {...defaultTooltipProps} />
+          <Bar dataKey="count" radius={[8, 8, 0, 0]}>
+            {data.map((_, index) => (
+              <Cell key={index} fill={chartPalette[index % chartPalette.length]} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </ChartCard>
+  );
+}
+```
+
+Agrega implementaciones similares para movimientos (área chart) y rotación (tarjeta/tabla). Usa `ChartEmptyState` cuando falten datos.
+
+**Commit**
+
+```bash
+git add src/components/charts/StockLevelsChart.jsx src/components/charts/InventoryMovementChart.jsx src/components/charts/ProductRotationTable.jsx
+git commit -m "feat(charts): add inventory level, movement and rotation components"
+```
+
+#### Paso 3.3.4: Integración (20 min)
+
+**Archivo**: `food-inventory-admin/src/components/DashboardView.jsx`
+
+```jsx
+import { StockLevelsChart } from '@/components/charts/StockLevelsChart';
+import { InventoryMovementChart } from '@/components/charts/InventoryMovementChart';
+import { ProductRotationTable } from '@/components/charts/ProductRotationTable';
+
+{FEATURES.DASHBOARD_CHARTS && !chartsLoading && !chartsError ? (
+  <div className="grid gap-6 lg:grid-cols-3">
+    <StockLevelsChart data={chartData.inventory.status} />
+    <InventoryMovementChart data={chartData.inventory.movement} />
+    <ProductRotationTable data={chartData.inventory.rotation} />
+  </div>
+) : null}
+```
+
+**Commit**
+
+```bash
+git add src/components/DashboardView.jsx
+git commit -m "feat(dashboard): render inventory chart widgets"
+```
 
 ---
 
@@ -2901,11 +4146,221 @@ export function useDashboardCharts(period = '7d') {
 
 **Duración**: 3-4 horas
 
-#### Implementar:
+#### Paso 3.4.1: Profit & Loss (45 min)
 
-1. **Profit & Loss** - Estado de resultados con gráfica de evolución
-2. **Customer Segmentation** - RFM Analysis con scatter plot
-3. **Employee Performance** - Bar chart comparativo
+**Archivo**: `food-inventory-saas/src/modules/analytics/analytics.service.ts`
+
+```typescript
+async getProfitAndLoss(tenantId: string, period: string) {
+  const { from, to, groupBy } = this.buildDateRange(period);
+
+  const revenues = await this.orderModel.aggregate([
+    {
+      $match: {
+        tenantId: new Types.ObjectId(tenantId),
+        status: 'delivered',
+        confirmedAt: { $gte: from, $lte: to },
+      },
+    },
+    {
+      $group: {
+        _id:
+          groupBy === 'month'
+            ? { $dateToString: { date: '$confirmedAt', format: '%Y-%m' } }
+            : { $dateToString: { date: '$confirmedAt', format: '%Y-%m-%d' } },
+        total: { $sum: '$totalAmount' },
+      },
+    },
+    { $sort: { _id: 1 } },
+  ]).exec();
+
+  const expenses = await this.payableModel.aggregate([
+    {
+      $match: {
+        tenantId: new Types.ObjectId(tenantId),
+        issueDate: { $gte: from, $lte: to },
+        status: { $in: ['open', 'partially_paid', 'paid'] },
+      },
+    },
+    {
+      $group: {
+        _id:
+          groupBy === 'month'
+            ? { $dateToString: { date: '$issueDate', format: '%Y-%m' } }
+            : { $dateToString: { date: '$issueDate', format: '%Y-%m-%d' } },
+        total: { $sum: '$totalAmount' },
+      },
+    },
+    { $sort: { _id: 1 } },
+  ]).exec();
+
+  return { revenues, expenses };
+}
+```
+
+**Commit**
+
+```bash
+git add src/modules/analytics/analytics.service.ts
+git commit -m "feat(analytics): compute profit and loss dataset"
+```
+
+#### Paso 3.4.2: Segmentación y desempeño (60 min)
+
+- Completa métodos `getCustomerSegmentation` y `getEmployeePerformanceScores` en `analytics.service.ts` (usa órdenes entregadas y colección `performance-kpi`).
+- Ajusta `analytics.controller.ts` para que `GET /analytics/performance` acepte `?period=` (default `7d`) y delegue en `getEmployeePerformanceScores`.
+
+**Commit**
+
+```bash
+git add src/modules/analytics/analytics.service.ts src/modules/analytics/analytics.controller.ts
+git commit -m "feat(analytics): add RFM and employee performance providers with period filter"
+```
+
+#### Paso 3.4.3: Endpoints (20 min)
+
+**Archivo**: `food-inventory-saas/src/modules/analytics/analytics.controller.ts`
+
+```typescript
+@Get('profit-and-loss')
+@Permissions('reports_read')
+async getProfitAndLoss(@Req() req, @Query('period') period = '90d') {
+  const data = await this.analyticsService.getProfitAndLoss(req.user.tenantId, period);
+  return { success: true, data };
+}
+
+@Get('customer-segmentation')
+@Permissions('reports_read')
+async getCustomerSegmentation(@Req() req) {
+  const data = await this.analyticsService.getCustomerSegmentation(req.user.tenantId);
+  return { success: true, data };
+}
+```
+
+**Commit**
+
+```bash
+git add src/modules/analytics/analytics.controller.ts
+git commit -m "feat(analytics): expose advanced reporting endpoints"
+```
+
+#### Paso 3.4.4: Widgets avanzados (75 min)
+
+Crear en `food-inventory-admin/src/components/charts/`:
+
+- `ProfitAndLossChart.jsx` (área doble ingresos/egresos con toggle de período)
+- `CustomerSegmentationChart.jsx` (scatter plot RFM)
+- `EmployeePerformanceChart.jsx` (barras con ventas por hora)
+
+Incluye acciones en el header (`ChartCard.actions`) para seleccionar período (`7d`, `30d`, `90d`).
+
+**Commit**
+
+```bash
+git add src/components/charts/ProfitAndLossChart.jsx src/components/charts/CustomerSegmentationChart.jsx src/components/charts/EmployeePerformanceChart.jsx
+git commit -m "feat(charts): add advanced profitability, segmentation and performance widgets"
+```
+
+#### Paso 3.4.5: Integración en Dashboard (25 min)
+
+**Archivo**: `food-inventory-admin/src/components/DashboardView.jsx`
+
+```jsx
+import { ProfitAndLossChart } from '@/components/charts/ProfitAndLossChart';
+import { CustomerSegmentationChart } from '@/components/charts/CustomerSegmentationChart';
+import { EmployeePerformanceChart } from '@/components/charts/EmployeePerformanceChart';
+
+{FEATURES.ADVANCED_REPORTS && !chartsLoading && !chartsError ? (
+  <div className="space-y-6">
+    <ProfitAndLossChart data={chartData.advanced.pnl} onPeriodChange={setPeriod} />
+    <div className="grid gap-6 lg:grid-cols-2">
+      <CustomerSegmentationChart data={chartData.advanced.rfm} />
+      <EmployeePerformanceChart data={chartData.advanced.employees} />
+    </div>
+  </div>
+) : null}
+```
+
+**Commit**
+
+```bash
+git add src/components/DashboardView.jsx
+git commit -m "feat(dashboard): surface advanced analytics widgets"
+```
+
+#### Paso 3.4.6: QA manual (30 min)
+
+**Archivo**: `food-inventory-admin/test/checklists/fase-3-dashboard-charts.md`
+
+```markdown
+# CHECKLIST FASE 3: Dashboard con Gráficas
+
+## Prerequisitos
+- [ ] Flags activas: `VITE_ENABLE_DASHBOARD_CHARTS=true` y, para reportes premium, `VITE_ENABLE_ADVANCED_REPORTS=true`
+- [ ] Backend/Frontend corriendo con datos de prueba (órdenes, pagos, inventario)
+
+## Escenario 1: Ventas
+- [ ] Gráfica de tendencia muestra puntos al menos para 7 días
+- [ ] Pie de categorías refleja top categorías
+- [ ] Card de comparación calcula delta correcto
+- [ ] Cambio de período (7d → 30d → 90d) actualiza datos sin recargar la página
+
+## Escenario 2: Inventario
+- [ ] Distribución de stock agrupa productos en Bajo/Medio/Saludable
+- [ ] Gráfica de movimiento muestra entradas/salidas tras registrar compra/ajuste
+- [ ] Tabla de rotación lista top 10 productos con unidades y revenue
+
+## Escenario 3: Reportes avanzados
+- [ ] Estado de resultados (ingresos vs egresos) coincide con órdenes/pagos recientes
+- [ ] Scatter de RFM posiciona clientes con coordenadas (recency, frequency, monetary)
+- [ ] Barras de desempeño de empleados muestran ventas/hora y órdenes
+
+## Escenario 4: Fallbacks
+- [ ] Desactivar `VITE_ENABLE_DASHBOARD_CHARTS` elimina widgets y muestra alerta
+- [ ] Desactivar `VITE_ENABLE_ADVANCED_REPORTS` oculta solo la sección premium
+- [ ] Fallback (ChartEmptyState) aparece cuando no hay datos
+
+## Escenario 5: Resiliencia
+- [ ] Simular error API (apagar backend) → alerta roja sin romper la vista
+- [ ] Revisar consola → sin errores no controlados
+```
+
+**Commit**
+
+```bash
+git add test/checklists/fase-3-dashboard-charts.md
+git commit -m "docs(test): add manual checklist for dashboard charts"
+```
+
+---
+
+### ✅ Testing y QA Fase 3
+
+- [ ] `npm test` (backend) con nuevas specs de analytics
+- [ ] `npm run test` (frontend) + lint sin errores
+- [ ] `npm run build` en ambos proyectos
+- [ ] Checklist manual `fase-3-dashboard-charts.md` completado
+- [ ] Capturas del dashboard con cada sección habilitada
+- [ ] Verificar que desactivar flags elimina gráficas sin romper layout
+
+### Merge y Tag
+
+```bash
+git checkout development/mejoras-2025
+git merge fase-3/dashboard-charts
+git tag -a v2.3.0-fase3 -m "Phase 3: Dashboard charts & advanced analytics"
+git push origin v2.3.0-fase3
+```
+
+### Resultado Esperado
+
+```
+✅ Dashboard muestra gráficas de ventas, inventario y KPIs sin afectar la vista clásica
+✅ Endpoints de analytics documentados y cubiertos por tests
+✅ Feature flags controlan visualizaciones por ambiente/cliente
+✅ Reportes avanzados listos para habilitar clientes premium
+✅ Equipo cuenta con checklist de QA y plan de rollout/rollback
+```
 
 ---
 
@@ -2937,6 +4392,483 @@ FASE 4.1: Pronóstico de Ventas (4-5 horas)
 
 ---
 
+### 🔮 FASE 4.1: PRONÓSTICO DE VENTAS
+
+**Duración**: 4-5 horas  
+**Feature flag**: `ENABLE_PREDICTIVE_ANALYTICS`
+
+#### Checklist previo
+
+```bash
+./scripts/backup-before-phase.sh
+git checkout -b fase-4.1/sales-forecast
+echo "ENABLE_PREDICTIVE_ANALYTICS=true" >> food-inventory-saas/.env.local
+echo "VITE_ENABLE_PREDICTIVE_ANALYTICS=true" >> food-inventory-admin/.env.local
+```
+
+#### Paso 4.1.1: Servicio de predicciones (60 min)
+
+**Archivo**: `food-inventory-saas/src/modules/analytics/analytics.service.ts`
+
+- Añade método `getSalesForecast(tenantId: string, period = '30d')` que:
+  1. Obtiene ventas confirmadas (como en fase 3) para los últimos 90 días.
+  2. Calcula promedio móvil y estacionalidad simple (`Math.round(totalAmount / window)`).
+  3. Genera una lista `forecast` con 14 días futuros (`date`, `predictedAmount`, `confidenceInterval`).
+  4. Devuelve `{ history, forecast, accuracy }`, donde `accuracy` compara pronóstico corto vs realidad (MAPE).
+
+```typescript
+async getSalesForecast(tenantId: string, period = '90d') {
+  if (!FEATURES.PREDICTIVE_ANALYTICS) {
+    throw new ForbiddenException('Sales forecast feature disabled');
+  }
+
+  const { from, to } = this.buildDateRange(period);
+  const history = await this.orderModel.aggregate([...]).exec(); // reutiliza pipeline de tendencia
+
+  const movingAverage = computeMovingAverage(history, 7);
+  const forecast = buildForecastSeries(history, movingAverage, 14);
+  const accuracy = calculateMape(history.slice(-14), movingAverage.slice(-14));
+
+  return { history, forecast, accuracy };
+}
+```
+
+Define helpers `computeMovingAverage`, `buildForecastSeries`, `calculateMape` en un util nuevo (`src/utils/analytics-forecast.util.ts`) y escribe tests unitarios.
+
+**Commit sugerido**
+
+```bash
+git add src/modules/analytics/analytics.service.ts src/utils/analytics-forecast.util.ts
+git commit -m "feat(analytics): add moving-average sales forecast service"
+```
+
+#### Paso 4.1.2: Endpoint protegido (20 min)
+
+**Archivo**: `food-inventory-saas/src/modules/analytics/analytics.controller.ts`
+
+```typescript
+@Get('sales-forecast')
+@Permissions('reports_read')
+async getSalesForecast(@Req() req, @Query('period') period = '90d') {
+  const data = await this.analyticsService.getSalesForecast(req.user.tenantId, period);
+  return { success: true, data };
+}
+```
+
+**Commit**
+
+```bash
+git add src/modules/analytics/analytics.controller.ts
+git commit -m "feat(analytics): expose sales forecast endpoint"
+```
+
+#### Paso 4.1.3: Tests de pronóstico (40 min)
+
+**Archivo**: `food-inventory-saas/src/modules/analytics/analytics.service.spec.ts`
+
+- Cubre casos: historial insuficiente (devuelve forecast vacío), exactitud < 100% y error manejado si flag desactivada.
+- Mockea `computeMovingAverage` y verifica `calculateMape`.
+
+**Commit**
+
+```bash
+git add src/modules/analytics/analytics.service.spec.ts
+git commit -m "test(analytics): cover sales forecast scenarios"
+```
+
+#### Paso 4.1.4: Componente frontend (70 min)
+
+**Archivo nuevo**: `food-inventory-admin/src/components/analytics/SalesForecastCard.jsx`
+
+```jsx
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { ChartCard, ChartEmptyState } from '@/components/charts/BaseChart';
+import { chartPalette, defaultTooltipProps } from '@/components/charts/chart-theme';
+
+export function SalesForecastCard({ data }) {
+  if (!data?.forecast?.length) {
+    return <ChartEmptyState message="Se necesitan al menos 30 días de ventas para generar pronósticos." />;
+  }
+
+  const merged = [
+    ...data.history.map((point) => ({ ...point, kind: 'real' })),
+    ...data.forecast.map((point) => ({ ...point, kind: 'forecast' })),
+  ];
+
+  return (
+    <ChartCard
+      title="Pronóstico de Ventas"
+      description="Predicción para los próximos 14 días (intervalo de confianza 80%)"
+      actions={<span className="text-xs text-muted-foreground">MAPE {(data.accuracy * 100).toFixed(1)}%</span>}
+    >
+      <ResponsiveContainer width="100%" height={320}>
+        <AreaChart data={merged}>
+          <defs>
+            <linearGradient id="forecastGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={chartPalette[3]} stopOpacity={0.3} />
+              <stop offset="95%" stopColor={chartPalette[3]} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="date" />
+          <YAxis />
+          <Tooltip {...defaultTooltipProps} />
+          <Area type="monotone" dataKey="totalAmount" stroke={chartPalette[0]} fill="rgba(37, 99, 235, 0.25)" />
+          <Area type="monotone" dataKey="predictedAmount" stroke={chartPalette[3]} fill="url(#forecastGradient)" strokeDasharray="6 4" />
+        </AreaChart>
+      </ResponsiveContainer>
+    </ChartCard>
+  );
+}
+```
+
+**Commit**
+
+```bash
+git add src/components/analytics/SalesForecastCard.jsx
+git commit -m "feat(analytics): add sales forecast visualization"
+```
+
+#### Paso 4.1.5: Hook y consumo (25 min)
+
+**Archivo**: `food-inventory-admin/src/hooks/use-dashboard-charts.js`
+
+- Cuando `FEATURES.PREDICTIVE_ANALYTICS` sea true, agrega `fetchApi('/analytics/sales-forecast?period=90d')`.
+- Devuelve `data.predictive.salesForecast`.
+
+**Archivo**: `food-inventory-admin/src/components/DashboardView.jsx`
+
+```jsx
+import { SalesForecastCard } from '@/components/analytics/SalesForecastCard';
+
+{FEATURES.PREDICTIVE_ANALYTICS && chartData.predictive?.salesForecast && (
+  <SalesForecastCard data={chartData.predictive.salesForecast} />
+)}
+```
+
+**Commit**
+
+```bash
+git add src/hooks/use-dashboard-charts.js src/components/DashboardView.jsx
+git commit -m "feat(dashboard): surface sales forecast with feature flag"
+```
+
+---
+
+### 🤝 FASE 4.2: RECOMENDACIONES DE COMPRA
+
+**Duración**: 4-5 horas  
+**Feature flag**: `ENABLE_PREDICTIVE_ANALYTICS`
+
+#### Paso 4.2.1: Motor de recomendaciones (70 min)
+
+**Archivo**: `food-inventory-saas/src/modules/analytics/analytics.service.ts`
+
+- Implementa `getPurchaseRecommendations(tenantId: string)`:
+  - Consulta consumo promedio de cada producto (`inventory_movements` tipo `out`).
+  - Combina con `stockQuantity`, `reorderPoint` y lead time configurado (usa `products.service` o `products` schema).
+  - Calcula `daysOfStock = stockQuantity / dailyConsumption`.
+  - Produce recomendaciones `{ productId, productName, daysOfStock, suggestedQty, priority }` (priority en `['urgent','soon','monitor']`).
+
+**Commit**
+
+```bash
+git add src/modules/analytics/analytics.service.ts
+git commit -m "feat(analytics): add purchase recommendation engine"
+```
+
+#### Paso 4.2.2: Endpoint y permisos (15 min)
+
+**Archivo**: `food-inventory-saas/src/modules/analytics/analytics.controller.ts`
+
+```typescript
+@Get('purchase-recommendations')
+@Permissions('inventory_read')
+async getPurchaseRecommendations(@Req() req) {
+  const data = await this.analyticsService.getPurchaseRecommendations(req.user.tenantId);
+  return { success: true, data };
+}
+```
+
+**Commit**
+
+```bash
+git add src/modules/analytics/analytics.controller.ts
+git commit -m "feat(analytics): expose purchase recommendations endpoint"
+```
+
+#### Paso 4.2.3: Tests (30 min)
+
+- Mockea inventario y movimientos para casos:
+  - Producto sin consumo → `priority: 'monitor'`.
+  - Stock < lead time * consumo → `priority: 'urgent'`.
+  - Feature flag off → lanza `ForbiddenException`.
+
+**Commit**
+
+```bash
+git add src/modules/analytics/analytics.service.spec.ts
+git commit -m "test(analytics): cover purchase recommendation logic"
+```
+
+#### Paso 4.2.4: UI de recomendaciones (60 min)
+
+**Archivo nuevo**: `food-inventory-admin/src/components/analytics/PurchaseRecommendations.jsx`
+
+```jsx
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChartEmptyState } from '@/components/charts/BaseChart';
+import { cn } from '@/lib/utils';
+
+const priorityMap = {
+  urgent: { label: 'Comprar hoy', className: 'bg-destructive text-destructive-foreground' },
+  soon: { label: 'Planificar', className: 'bg-amber-500/15 text-amber-600' },
+  monitor: { label: 'Observar', className: 'bg-slate-200 text-slate-700' },
+};
+
+export function PurchaseRecommendations({ items, onCreatePurchaseOrder }) {
+  if (!items?.length) {
+    return <ChartEmptyState message="No hay recomendaciones activas. Buen trabajo manteniendo el inventario." />;
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <CardTitle>Recomendaciones de Compra</CardTitle>
+        <Button size="sm" onClick={() => onCreatePurchaseOrder(items)}>Generar Orden de Compra</Button>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {items.map((item) => (
+          <div key={item.productId} className="rounded-lg border p-3 flex items-center justify-between">
+            <div>
+              <p className="font-medium">{item.productName}</p>
+              <p className="text-xs text-muted-foreground">
+                Stock para {item.daysOfStock.toFixed(1)} días • Sugerido pedir {item.suggestedQty} unidades
+              </p>
+            </div>
+            <Badge className={cn('text-xs', priorityMap[item.priority].className)}>
+              {priorityMap[item.priority].label}
+            </Badge>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+```
+
+**Commit**
+
+```bash
+git add src/components/analytics/PurchaseRecommendations.jsx
+git commit -m "feat(analytics): add purchase recommendation widget"
+```
+
+#### Paso 4.2.5: Integración y actions (25 min)
+
+- Actualiza `useDashboardCharts` para incluir `purchaseRecommendations`.
+- En `DashboardView.jsx` muestra `PurchaseRecommendations` y conecta con `navigate('/purchases/new')` pasando `state` con productos sugeridos.
+
+**Commit**
+
+```bash
+git add src/hooks/use-dashboard-charts.js src/components/DashboardView.jsx
+git commit -m "feat(dashboard): integrate purchase recommendation widget"
+```
+
+---
+
+### 🧮 FASE 4.3: CUSTOMER LIFETIME VALUE (CLV)
+
+**Duración**: 3-4 horas  
+**Feature flag**: `ENABLE_CUSTOMER_SEGMENTATION`
+
+#### Paso 4.3.1: Cálculo de CLV (60 min)
+
+**Archivo**: `food-inventory-saas/src/modules/analytics/analytics.service.ts`
+
+- Implementa `getCustomerLifetimeValue(tenantId: string)` que:
+  - Reutiliza agregación RFM de fase 3.
+  - Calcula `avgOrderValue`, `purchaseFrequency`, `retentionRate` (quizá `(frequency - 1)/frequency`).
+  - Estima `CLV = (avgOrderValue * purchaseFrequency / churnRate)` con pauta `churnRate = 1 - retentionRate`.
+  - Clasifica `segment` en `['diamante','oro','plata','bronce']`.
+
+**Commit**
+
+```bash
+git add src/modules/analytics/analytics.service.ts
+git commit -m "feat(analytics): compute customer lifetime value segments"
+```
+
+#### Paso 4.3.2: Endpoint y guard (15 min)
+
+**Archivo**: `food-inventory-saas/src/modules/analytics/analytics.controller.ts`
+
+```typescript
+@Get('customer-ltv')
+@Permissions('reports_read')
+async getCustomerLifetimeValue(@Req() req) {
+  const data = await this.analyticsService.getCustomerLifetimeValue(req.user.tenantId);
+  return { success: true, data };
+}
+```
+
+**Commit**
+
+```bash
+git add src/modules/analytics/analytics.controller.ts
+git commit -m "feat(analytics): expose customer lifetime value endpoint"
+```
+
+#### Paso 4.3.3: Tests (25 min)
+
+- Mockea órdenes para un cliente con alto CLV y otro con bajo.
+- Verifica que segments se asignan correctamente.
+
+**Commit**
+
+```bash
+git add src/modules/analytics/analytics.service.spec.ts
+git commit -m "test(analytics): verify customer lifetime value segmentation"
+```
+
+#### Paso 4.3.4: Visualización de CLV (45 min)
+
+**Archivo nuevo**: `food-inventory-admin/src/components/analytics/CustomerValueChart.jsx`
+
+```jsx
+import { ResponsiveContainer, Tooltip, Treemap } from 'recharts';
+import { ChartCard, ChartEmptyState } from '@/components/charts/BaseChart';
+
+const colors = {
+  diamante: '#1e40af',
+  oro: '#d97706',
+  plata: '#64748b',
+  bronce: '#92400e',
+};
+
+export function CustomerValueChart({ data }) {
+  if (!data?.length) {
+    return <ChartEmptyState message="Necesitas clientes con compras repetidas para calcular CLV." />;
+  }
+
+  return (
+    <ChartCard title="Valor de Vida del Cliente" description="Treemap ponderado por CLV estimado">
+      <ResponsiveContainer width="100%" height={320}>
+        <Treemap
+          data={data.map((item) => ({
+            name: item.customerName ?? item.customerId.slice(-6),
+            size: item.clv,
+            fill: colors[item.segment] ?? colors.bronce,
+          }))}
+          dataKey="size"
+          stroke="#f1f5f9"
+        >
+          <Tooltip content={({ payload }) => {
+            if (!payload?.length) return null;
+            const { name, size } = payload[0].payload;
+            return (
+              <div className="rounded-md bg-slate-900 px-3 py-2 text-xs text-slate-100 shadow-lg">
+                <p className="font-semibold">{name}</p>
+                <p>CLV estimado: ${size.toFixed(2)}</p>
+              </div>
+            );
+          }} />
+        </Treemap>
+      </ResponsiveContainer>
+    </ChartCard>
+  );
+}
+```
+
+**Commit**
+
+```bash
+git add src/components/analytics/CustomerValueChart.jsx
+git commit -m "feat(analytics): add customer lifetime value visualization"
+```
+
+#### Paso 4.3.5: Integración y filtros (20 min)
+
+- Actualiza `useDashboardCharts` para incluir `customerLifetimeValue` cuando `FEATURES.CUSTOMER_SEGMENTATION` esté activo.
+- Muestra `CustomerValueChart` dentro de una sección "Clientes" en `DashboardView.jsx`.
+
+**Commit**
+
+```bash
+git add src/hooks/use-dashboard-charts.js src/components/DashboardView.jsx
+git commit -m "feat(dashboard): add customer lifetime value chart"
+```
+
+---
+
+### ✅ TESTING Y QA FASE 4
+
+- [ ] `npm test` (backend) ejecuta nuevas specs de analytics/predictive.
+- [ ] `npm run test` (frontend) para asegurar componentes sin warnings.
+- [ ] `npm run build` en backend y frontend con flags activadas.
+- [ ] Ejecutar script de seed/migración para generar datos históricos si es necesario.
+- [ ] Checklist manual `fase-4-predictive-analytics.md` completado.
+
+**Checklist manual** → `food-inventory-admin/test/checklists/fase-4-predictive-analytics.md`
+
+```markdown
+# CHECKLIST FASE 4: Analytics Predictivo
+
+## Prerequisitos
+- [ ] Feature flags activas: `ENABLE_PREDICTIVE_ANALYTICS=true`, `ENABLE_CUSTOMER_SEGMENTATION=true`
+- [ ] Historial de ventas >= 60 días y movimientos de inventario en la BD
+
+## Escenario 1: Pronóstico
+- [ ] Dashboard muestra card de pronóstico sin errores
+- [ ] MAPE < 20% para período de prueba
+- [ ] Al desactivar flag se oculta la sección
+
+## Escenario 2: Recomendaciones
+- [ ] Widgets listan productos con prioridad “Comprar hoy” cuando stock < consumo
+- [ ] Botón "Generar Orden de Compra" lleva a formulario con productos precargados
+
+## Escenario 3: CLV
+- [ ] Treemap de clientes se renderiza con colores por segmento
+- [ ] Clientes con más compras aparecen como “diamante/oro”
+- [ ] Exportación/descarga (si aplica) funciona
+
+## Escenario 4: Resiliencia
+- [ ] API responde 403 cuando flag apagada
+- [ ] Logs sin errores no controlados
+- [ ] UI muestra `ChartEmptyState` con datasets vacíos
+```
+
+**Commit**
+
+```bash
+git add test/checklists/fase-4-predictive-analytics.md
+git commit -m "docs(test): add predictive analytics QA checklist"
+```
+
+### Merge y Tag
+
+```bash
+git checkout development/mejoras-2025
+git merge fase-4/predictive-suite
+git tag -a v2.4.0-fase4 -m "Phase 4: Predictive analytics & customer value"
+git push origin v2.4.0-fase4
+```
+
+### Resultado Esperado
+
+```
+✅ Pronóstico de ventas a 14 días con precisión < 20% de error
+✅ Motor de recomendación anticipa compras antes de caer en ruptura de stock
+✅ CLV segmenta clientes y prioriza estrategias comerciales
+✅ Feature flags controlan el rollout por tenant/ambiente
+✅ Documentación y checklist aseguran calidad y rollback seguro
+```
+
+---
+
 ## 🔧 FASE 5: OPTIMIZACIÓN Y PULIDO
 
 **Objetivo**: Performance, UX y estabilidad
@@ -2948,30 +4880,320 @@ FASE 4.1: Pronóstico de Ventas (4-5 horas)
 - No hay commits relacionados con optimizaciones de rendimiento, skeletons ni auditorías de seguridad recientes.  
 - Queda como fase posterior una vez que las funcionalidades principales estén listas.
 
-### Tareas:
+### Sub-fases
 
-1. **Performance Optimization** (2-3 horas)
-   - Lazy loading de módulos pesados
-   - Memoización de cálculos costosos
-   - Optimización de queries de DB
-   - Índices adicionales
+```
+FASE 5.1: Performance & Observabilidad (2-3 horas)
+   └─> FASE 5.2: UX & Accesibilidad (2-3 horas)
+          └─> FASE 5.3: Documentación y Operación (1-2 horas)
+                 └─> FASE 5.4: Auditoría de Seguridad (1-2 horas)
+```
 
-2. **UX Improvements** (2-3 horas)
-   - Loading skeletons
-   - Empty states
-   - Error boundaries
-   - Toasts informativos
+---
 
-3. **Documentation** (1-2 horas)
-   - Actualizar README
-   - Documentar APIs nuevas
-   - Guías de usuario
+### 🚀 FASE 5.1: PERFORMANCE & OBSERVABILIDAD
 
-4. **Security Audit** (1-2 horas)
-   - Revisar permisos
-   - Validaciones de entrada
-   - Rate limiting
-   - SQL injection prevention
+**Objetivo**: reducir tiempos de carga y obtener métricas de rendimiento.  
+**Feature flag**: `ENABLE_PERF_OPTIMIZATIONS` (opcional).
+
+#### Paso 5.1.1: Lazy loading en frontend (45 min)
+
+**Archivos**: `food-inventory-admin/src/App.jsx`, `src/routes/*.jsx`
+
+- Cambia imports directos por `React.lazy` y `Suspense` para módulos pesados (`OrdersManagementV2`, `AccountingManagement`, etc.).
+- Crea `src/components/ui/route-loader.jsx` con skeleton simple.
+
+```jsx
+const OrdersManagementV2 = lazy(() => import('@/components/orders/v2/OrdersManagementV2.jsx'));
+
+<Suspense fallback={<RouteLoader />}>
+  <OrdersManagementV2 />
+</Suspense>
+```
+
+**Commit**
+
+```bash
+git add src/App.jsx src/components/ui/route-loader.jsx
+git commit -m "perf(frontend): add lazy loading for heavy routes"
+```
+
+#### Paso 5.1.2: Memoización en hooks críticos (30 min)
+
+**Archivo**: `food-inventory-admin/src/hooks/use-orders.js`
+
+- Usa `useMemo` y `useCallback` para listas largas.
+- Asegura dependencias correctas.
+
+**Commit**
+
+```bash
+git add src/hooks/use-orders.js
+git commit -m "perf(orders): memoize derived values to reduce re-renders"
+```
+
+#### Paso 5.1.3: Índices en Mongo y query tuning (40 min)
+
+**Archivo**: `food-inventory-saas/src/schemas/order.schema.ts`, `payable.schema.ts`, `bank-transaction.schema.ts`
+
+- Añade índices compuestos necesarios detectados en logs:
+  - `OrderSchema.index({ tenantId: 1, status: 1, confirmedAt: -1 })`
+  - `PayableSchema.index({ tenantId: 1, status: 1, dueDate: 1 })`
+- Revisa servicios correspondientes para usar `lean()` donde aplique.
+
+**Commit**
+
+```bash
+git add src/schemas/order.schema.ts src/schemas/payable.schema.ts src/modules/orders/orders.service.ts
+git commit -m "perf(api): add compound indexes and lean queries for high-volume endpoints"
+```
+
+#### Paso 5.1.4: Monitorización (25 min)
+
+**Archivo**: `food-inventory-saas/src/main.ts`
+
+- Integra `@nestjs/terminus` o `prom-client` para exponer `/health` y métricas básicas.
+- Añade logs de tiempo de respuesta (`app.use(morgan('combined'))`).
+
+**Commit**
+
+```bash
+git add src/main.ts package.json
+git commit -m "chore(api): expose health/metrics endpoints and request logging"
+```
+
+---
+
+### ✨ FASE 5.2: UX & ACCESIBILIDAD
+
+**Objetivo**: mejorar percepción de velocidad y usabilidad.
+
+#### Paso 5.2.1: Skeletons coherentes (40 min)
+
+**Archivo**: `food-inventory-admin/src/components/ui/skeleton.jsx`
+
+- Define variantes (`TableSkeleton`, `CardSkeleton`).
+- Reutiliza skeletons en dashboards, tablas de productos, etc.
+
+**Commit**
+
+```bash
+git add src/components/ui/skeleton.jsx src/components/*/*.jsx
+git commit -m "feat(ui): add reusable skeletons for loading states"
+```
+
+#### Paso 5.2.2: Empty states & tooltips (30 min)
+
+- Revisar `OrdersManagementV2`, `CRMManagement`, `PayablesManagement` para mostrar `EmptyState` component cuando no hay datos.
+- Añadir `aria-label`s y tooltips (`shadcn/ui tooltip`) en icon buttons.
+
+**Commit**
+
+```bash
+git add src/components/orders/v2/OrdersManagementV2.jsx src/components/CRMManagement.jsx
+git commit -m "feat(ui): improve empty states and accessibility labels"
+```
+
+#### Paso 5.2.3: Error boundaries (20 min)
+
+**Archivo**: `food-inventory-admin/src/components/ErrorBoundary.jsx`
+
+- Implementa boundary simple con fallback y botón de recarga.
+- Envuelve árbol principal en `App.jsx`.
+
+**Commit**
+
+```bash
+git add src/components/ErrorBoundary.jsx src/App.jsx
+git commit -m "feat(ui): add global error boundary with fallback"
+```
+
+#### Paso 5.2.4: Toasts informativos (15 min)
+
+- Normaliza mensajes usando `sonner` para operaciones CRUD (`useOrders`, `useBankAccounts`).
+- Evita duplicados y aporta contexto.
+
+**Commit**
+
+```bash
+git add src/hooks/use-orders.js src/hooks/use-bank-accounts.js
+git commit -m "feat(ui): standardize success/error toasts across modules"
+```
+
+---
+
+### 📚 FASE 5.3: DOCUMENTACIÓN Y OPERACIÓN
+
+**Objetivo**: dejar constancia clara y guías para el equipo.
+
+#### Paso 5.3.1: Documentar APIs nuevas (30 min)
+
+**Archivo**: `FOOD-INVENTORY-SAAS-COMPLETO/PROYECTO_COMPLETO_README.md`
+
+- Añade secciones para endpoints: `/analytics/sales-forecast`, `/analytics/purchase-recommendations`, `/analytics/customer-ltv`.
+- Describe flags y uso.
+
+**Commit**
+
+```bash
+git add PROYECTO_COMPLETO_README.md
+git commit -m "docs(api): document analytics predictive endpoints"
+```
+
+#### Paso 5.3.2: Guía rápida para soporte (20 min)
+
+**Archivo**: `docs/support/playbook.md` (nuevo)
+
+- Incluye troubleshooting de performance, activar flags, revisar métricas.
+
+**Commit**
+
+```bash
+git add docs/support/playbook.md
+git commit -m "docs(support): add playbook for performance and predictive features"
+```
+
+#### Paso 5.3.3: Changelog y release notes (15 min)
+
+- Actualiza `RELEASE-NOTES-v2.0.0-SECURITY.md` o crea `RELEASE-NOTES-v2.5.0.md`.
+
+**Commit**
+
+```bash
+git add RELEASE-NOTES-v2.5.0.md
+git commit -m "docs(release): summarize improvements for phase 5"
+```
+
+---
+
+### 🔐 FASE 5.4: AUDITORÍA DE SEGURIDAD
+
+**Objetivo**: asegurar que optimizaciones no introducen riesgos.
+
+#### Paso 5.4.1: Permisos y guards (30 min)
+
+- Revisa endpoints nuevos (`analytics.controller.ts`) para confirmar `@Permissions` correctos.
+- Añade tests e2e rápidos para `403`.
+
+**Commit**
+
+```bash
+git add src/modules/analytics/analytics.controller.ts test/analytics.e2e-spec.ts
+git commit -m "security(analytics): enforce permissions with regression tests"
+```
+
+#### Paso 5.4.2: Validaciones de entrada (20 min)
+
+- Usa DTOs con `class-validator` para periodos, límites, etc. en endpoints de fase 4/5.
+- Añade `ValidationPipe` global si aún no existe.
+
+**Commit**
+
+```bash
+git add src/dto/analytics.dto.ts src/main.ts
+git commit -m "security(api): strengthen validation for analytics endpoints"
+```
+
+#### Paso 5.4.3: Rate limiting / throttle (15 min)
+
+- Configura `@nestjs/throttler` para rutas críticas (`/auth`, `/analytics/*`).
+- Documenta valores en `.env.example`.
+
+**Commit**
+
+```bash
+git add src/app.module.ts .env.example
+git commit -m "security(api): add throttle to critical endpoints"
+```
+
+#### Paso 5.4.4: Revisión de dependencias (10 min)
+
+- Ejecuta `npm audit --production` en backend/frontend.
+- Documenta resultados en `docs/security/audit-2025-01.md`.
+
+**Commit**
+
+```bash
+git add docs/security/audit-2025-01.md
+git commit -m "security(audit): record dependency audit for January 2025"
+```
+
+---
+
+### ✅ TESTING Y QA FASE 5
+
+- [ ] `npm run build:all` sin errores
+- [ ] `npm run test` backend + frontend
+- [ ] Lighthouse (desktop) > 85 en dashboard
+- [ ] Tiempo promedio respuesta `/orders` < 800 ms (medido con `scripts/debug-api.js`)
+- [ ] Logs sin errores tras 30 minutos de smoke test
+- [ ] Checklist manual completado
+
+**Checklist manual** → `food-inventory-admin/test/checklists/fase-5-optimization.md`
+
+```markdown
+# CHECKLIST FASE 5: Optimización y Pulido
+
+## Prerequisitos
+- [ ] Rama activa: `fase-5/perf-polish`
+- [ ] Flags necesarias activadas (`ENABLE_PERF_OPTIMIZATIONS`, `ENABLE_PREDICTIVE_ANALYTICS`)
+- [ ] npm install ejecutado en backend y frontend
+
+## Escenario 1: Performance
+- [ ] Navegar entre módulos -> sin pantalla en blanco ni saltos
+- [ ] DevTools Coverage muestra bundle inicial reducido (>15% ahorro)
+- [ ] Endpoints `/orders` y `/analytics/sales-forecast` responden < 900 ms promedio (medido con colección Thunder Client / Postman)
+
+## Escenario 2: UX
+- [ ] Skeletons visibles mientras cargan dashboard y órdenes
+- [ ] Empty state correcto en CRM cuando no hay clientes
+- [ ] Error boundary muestra mensaje amigable al forzar un throw en componente
+
+## Escenario 3: Documentación/Soporte
+- [ ] README refleja endpoints y flags nuevos
+- [ ] Playbook en `docs/support/playbook.md` accesible y actualizado
+- [ ] Release notes enumeran optimizaciones y pasos de despliegue
+
+## Escenario 4: Seguridad
+- [ ] Petición sin permisos a `/analytics/purchase-recommendations` devuelve 403
+- [ ] DTO rechaza `period=abc` con 400
+- [ ] Throttle bloquea 20 requests seguidos a `/auth/login` (retorna 429)
+
+## Escenario 5: Observabilidad
+- [ ] `/health` responde 200 con detalles de base de datos
+- [ ] Logs muestran duración (ms) de peticiones
+- [ ] Métricas expuestas (Prometheus) accesibles en `/metrics`
+```
+
+**Commit**
+
+```bash
+git add test/checklists/fase-5-optimization.md
+git commit -m "docs(test): add QA checklist for optimization phase"
+```
+
+### Merge y Tag
+
+```bash
+git checkout development/mejoras-2025
+git merge fase-5/perf-polish
+git tag -a v2.5.0-fase5 -m "Phase 5: Optimization and polish"
+git push origin v2.5.0-fase5
+```
+
+### Resultado Esperado
+
+```
+✅ Bundle inicial reducido y navegación fluida
+✅ Experiencia consistente con skeletons, empty states y errores controlados
+✅ Documentación y playbooks listos para soporte/operaciones
+✅ Auditoría de seguridad pasada y endpoints protegidos
+✅ Observabilidad disponible para monitorear en producción
+```
+
+---
+
+---
 
 ---
 
@@ -3196,4 +5418,4 @@ Este roadmap es tu guía maestra. Cada vez que:
 
 **Última actualización**: 2025-01-03
 **Versión del documento**: 1.0
-**Próxima revisión**: Después de completar Fase 3
+**Próxima revisión**: Después de completar Fase 4

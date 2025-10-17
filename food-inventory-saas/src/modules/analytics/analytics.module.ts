@@ -8,6 +8,9 @@ import { Order, OrderSchema } from '../../schemas/order.schema';
 import { Shift, ShiftSchema } from '../../schemas/shift.schema';
 import { Tenant, TenantSchema } from '../../schemas/tenant.schema';
 import { User, UserSchema } from '../../schemas/user.schema';
+import { Product, ProductSchema } from '../../schemas/product.schema';
+import { Inventory, InventorySchema, InventoryMovement, InventoryMovementSchema } from '../../schemas/inventory.schema';
+import { Payable, PayableSchema } from '../../schemas/payable.schema';
 
 @Module({
   imports: [
@@ -18,6 +21,10 @@ import { User, UserSchema } from '../../schemas/user.schema';
       { name: Shift.name, schema: ShiftSchema },
       { name: Tenant.name, schema: TenantSchema },
       { name: User.name, schema: UserSchema },
+      { name: Product.name, schema: ProductSchema },
+      { name: Inventory.name, schema: InventorySchema },
+      { name: InventoryMovement.name, schema: InventoryMovementSchema },
+      { name: Payable.name, schema: PayableSchema },
     ]),
   ],
   controllers: [AnalyticsController],

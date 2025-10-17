@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button.jsx';
 import {
@@ -28,6 +28,20 @@ import {
 } from "lucide-react";
 import { fetchApi } from '../lib/api';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert.jsx';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
+import { ChartSkeleton } from '@/components/charts/BaseChart.jsx';
+import { FEATURES } from '@/config/features.js';
+import { useDashboardCharts } from '@/hooks/use-dashboard-charts.js';
+import { SalesTrendChart } from '@/components/charts/SalesTrendChart.jsx';
+import { SalesByCategoryChart } from '@/components/charts/SalesByCategoryChart.jsx';
+import { SalesComparisonCard } from '@/components/charts/SalesComparisonCard.jsx';
+import { StockLevelsChart } from '@/components/charts/StockLevelsChart.jsx';
+import { InventoryMovementChart } from '@/components/charts/InventoryMovementChart.jsx';
+import { ProductRotationTable } from '@/components/charts/ProductRotationTable.jsx';
+import { ProfitAndLossChart } from '@/components/charts/ProfitAndLossChart.jsx';
+import { CustomerSegmentationChart } from '@/components/charts/CustomerSegmentationChart.jsx';
+import { EmployeePerformanceChart } from '@/components/charts/EmployeePerformanceChart.jsx';
 
 const statusMap = {
   draft: { label: 'Borrador', colorClassName: 'bg-gray-200 text-gray-800' },
@@ -49,7 +63,20 @@ function DashboardView() {
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [period, setPeriod] = useState('30d');
+  const {
+    data: chartData,
+    loading: chartsLoading,
+    error: chartsError,
+  } = useDashboardCharts(period);
   const navigate = useNavigate();
+  const periodOptions = [
+    { value: '7d', label: 'Últimos 7 días' },
+    { value: '14d', label: 'Últimos 14 días' },
+    { value: '30d', label: 'Últimos 30 días' },
+    { value: '60d', label: 'Últimos 60 días' },
+    { value: '90d', label: 'Últimos 90 días' },
+  ];
 
   useEffect(() => {
     const fetchSummary = async () => {
@@ -136,6 +163,74 @@ function DashboardView() {
           </CardContent>
         </Card>
       </div>
+
+      {FEATURES.DASHBOARD_CHARTS ? (
+        <div className="space-y-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold">Insights del negocio</h3>
+              <p className="text-sm text-muted-foreground">
+                Analiza ventas, inventario y rendimiento del equipo en el período seleccionado.
+              </p>
+            </div>
+            <Select value={period} onValueChange={setPeriod}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Selecciona período" />
+              </SelectTrigger>
+              <SelectContent>
+                {periodOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {chartsLoading ? (
+            <ChartSkeleton />
+          ) : chartsError ? (
+            <Alert variant="destructive">
+              <AlertTitle>No se pudieron cargar las gráficas</AlertTitle>
+              <AlertDescription>{chartsError}</AlertDescription>
+            </Alert>
+          ) : (
+            <>
+              <div className="grid gap-6 lg:grid-cols-3">
+                <div className="space-y-6 lg:col-span-2">
+                  <SalesTrendChart data={chartData.sales.trend} />
+                  <SalesByCategoryChart data={chartData.sales.categories} />
+                </div>
+                <SalesComparisonCard comparison={chartData.sales.comparison} />
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-3">
+                <StockLevelsChart data={chartData.inventory.status} />
+                <InventoryMovementChart data={chartData.inventory.movement} />
+                <ProductRotationTable data={chartData.inventory.rotation} />
+              </div>
+
+              {FEATURES.ADVANCED_REPORTS ? (
+                <div className="space-y-6">
+                  <ProfitAndLossChart data={chartData.advanced.pnl} />
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    <CustomerSegmentationChart data={chartData.advanced.rfm} />
+                    <EmployeePerformanceChart data={chartData.advanced.employees} />
+                  </div>
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
+      ) : (
+        <Alert>
+          <AlertTitle>Gráficas desactivadas</AlertTitle>
+          <AlertDescription>
+            Activa la variable <code>VITE_ENABLE_DASHBOARD_CHARTS</code> para habilitar las visualizaciones
+            avanzadas del dashboard.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Main Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

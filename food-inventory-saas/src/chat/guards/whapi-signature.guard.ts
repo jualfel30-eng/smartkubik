@@ -1,39 +1,48 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException, RawBodyRequest } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as crypto from 'crypto';
 
+/**
+ * Guard to validate Whapi webhook requests
+ *
+ * Whapi uses custom headers for authentication, not HMAC signatures.
+ * You can configure a custom header like "X-Webhook-Secret" in Whapi dashboard.
+ *
+ * For development/testing, you can disable this by setting WHAPI_WEBHOOK_VALIDATION=false
+ */
 @Injectable()
 export class WhapiSignatureGuard implements CanActivate {
+  private readonly logger = new Logger(WhapiSignatureGuard.name);
+
   constructor(private readonly configService: ConfigService) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest<RawBodyRequest<Request>>();
-    const signature = request.headers['x-hub-signature-256'];
+    const request = context.switchToHttp().getRequest();
 
-    if (!signature) {
-      throw new ForbiddenException('Missing signature');
+    // Allow disabling validation for development/testing
+    const validationEnabled = this.configService.get<string>('WHAPI_WEBHOOK_VALIDATION') !== 'false';
+
+    if (!validationEnabled) {
+      this.logger.warn('Whapi webhook validation is DISABLED. Enable it in production!');
+      return true;
     }
 
-    if (!request.rawBody) {
-        throw new ForbiddenException('Missing raw body');
-    }
+    // Check for custom webhook secret header
+    const webhookSecret = request.headers['x-webhook-secret'];
+    const expectedSecret = this.configService.get<string>('WHAPI_WEBHOOK_SECRET');
 
-    const appSecret = this.configService.get<string>('WHAPI_APP_SECRET');
-    if (!appSecret) {
-      // In a real app, you might want to handle this more gracefully
-      // For example, log the error and return false
-      console.error('WHAPI_APP_SECRET is not configured');
+    if (!expectedSecret) {
+      this.logger.error('WHAPI_WEBHOOK_SECRET is not configured');
       throw new ForbiddenException('Server configuration error');
     }
 
-    const hmac = crypto.createHmac('sha256', appSecret);
-    hmac.update(request.rawBody);
-    const calculatedSignature = `sha256=${hmac.digest('hex')}`;
+    if (!webhookSecret) {
+      this.logger.warn('Missing X-Webhook-Secret header from Whapi webhook');
+      throw new ForbiddenException('Missing webhook secret');
+    }
 
-    const isValid = crypto.timingSafeEqual(Buffer.from(calculatedSignature), Buffer.from(signature as string));
-
-    if (!isValid) {
-      throw new ForbiddenException('Invalid signature');
+    if (webhookSecret !== expectedSecret) {
+      this.logger.warn('Invalid webhook secret received');
+      throw new ForbiddenException('Invalid webhook secret');
     }
 
     return true;

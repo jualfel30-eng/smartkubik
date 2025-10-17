@@ -225,7 +225,7 @@ const SettingsPage = () => {
       <h1 className="text-3xl font-bold">Configuración</h1>
       
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="delivery">Delivery</TabsTrigger>
           {tenant?.enabledModules?.chat && hasPermission('chat_read') && <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>}
@@ -234,8 +234,8 @@ const SettingsPage = () => {
           {hasPermission('roles_read') && <TabsTrigger value="roles">Roles y Permisos</TabsTrigger>}
           {hasPermission('billing_read') && <TabsTrigger value="billing">Uso y Facturación</TabsTrigger>}
         </TabsList>
-        <TabsContent value="general">
-          <div className="grid gap-6 lg:grid-cols-3 mt-4">
+        <TabsContent value="general" className="mt-10">
+          <div className="grid gap-6 lg:grid-cols-3">
             {/* General Info & Logo Column */}
             <div className="lg:col-span-1 space-y-6">
                 <Card>
@@ -422,26 +422,26 @@ const SettingsPage = () => {
             </Button>
           </div>
         </TabsContent>
-        <TabsContent value="delivery">
+        <TabsContent value="delivery" className="mt-10">
           <DeliverySettings />
         </TabsContent>
-        <TabsContent value="whatsapp">
+        <TabsContent value="whatsapp" className="mt-10">
           <WhatsAppConnection />
         </TabsContent>
-        <TabsContent value="security">
-          <div className="grid gap-6 mt-4">
+        <TabsContent value="security" className="mt-10">
+          <div className="grid gap-6">
             <div className="lg:col-span-2">
               <ChangePasswordForm />
             </div>
           </div>
         </TabsContent>
-        <TabsContent value="users">
+        <TabsContent value="users" className="mt-10">
             <UserManagement />
         </TabsContent>
-        <TabsContent value="roles">
+        <TabsContent value="roles" className="mt-10">
             <RolesManagement />
         </TabsContent>
-        <TabsContent value="billing">
+        <TabsContent value="billing" className="mt-10">
             <UsageAndBilling />
         </TabsContent>
       </Tabs>

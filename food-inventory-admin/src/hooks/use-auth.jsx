@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import {
   fetchApi,
-  getProfile,
   switchTenant as switchTenantApi,
 } from '../lib/api';
 import { isFeatureEnabled } from '../config/features';
@@ -99,28 +98,6 @@ export const AuthProvider = ({ children }) => {
     setMemberships([]);
     setActiveMembershipId(null);
     setIsAuthenticated(false);
-  };
-
-  const normalizeTenant = (rawTenant) => {
-    if (!rawTenant) return null;
-    const aiAssistant = rawTenant.aiAssistant || {};
-    return {
-      id: rawTenant.id || rawTenant._id,
-      code: rawTenant.code,
-      name: rawTenant.name,
-      businessType: rawTenant.businessType,
-      vertical: rawTenant.vertical,
-      enabledModules: rawTenant.enabledModules,
-      subscriptionPlan: rawTenant.subscriptionPlan,
-      isConfirmed:
-        typeof rawTenant.isConfirmed === 'boolean'
-          ? rawTenant.isConfirmed
-          : Boolean(rawTenant.tenantConfirmed),
-      aiAssistant: {
-        autoReplyEnabled: Boolean(aiAssistant.autoReplyEnabled),
-        knowledgeBaseTenantId: aiAssistant.knowledgeBaseTenantId || '',
-      },
-    };
   };
 
   const clearStoredSession = () => {
