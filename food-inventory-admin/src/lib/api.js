@@ -165,12 +165,6 @@ export const updatePayable = (id, payableData) => {
   });
 };
 
-export const migratePayablesDraftToOpen = () => {
-  return fetchApi('/payables/migrate-draft-to-open', {
-    method: 'POST',
-  });
-};
-
 export const switchTenant = (membershipId, options = {}) => {
   return fetchApi('/auth/switch-tenant', {
     method: 'POST',

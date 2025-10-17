@@ -10,7 +10,6 @@ import {
   fetchChartOfAccounts,
   getPayments,
   createPayment,
-  migratePayablesDraftToOpen,
   deletePayable
 } from '../lib/api';
 import { Button } from './ui/button';
@@ -979,22 +978,6 @@ const PayablesManagement = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleMigration = async () => {
-    try {
-      const result = await migratePayablesDraftToOpen();
-      if (result.success) {
-        toast.success(`Migración exitosa! ${result.data.updated} payables actualizados de "draft" a "open".`);
-        await fetchPayables(); // Refresh the list
-      } else {
-        toast.error('Error en la migración');
-      }
-    } catch (error) {
-      toast.error('Error al ejecutar la migración', {
-        description: error.message
-      });
-    }
-  };
-
   useEffect(() => {
     fetchInitialData();
   }, [fetchInitialData]);
@@ -1004,22 +987,10 @@ const PayablesManagement = () => {
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-center">
-          <div>
-            <CardTitle>Módulo de Pagos</CardTitle>
-            <CardDescription>
-              Gestiona tus cuentas por pagar, pagos recurrentes y consulta el historial de pagos.
-            </CardDescription>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleMigration}
-            className="text-xs"
-          >
-            🔄 Migrar Payables (Draft → Open)
-          </Button>
-        </div>
+        <CardTitle>Módulo de Pagos</CardTitle>
+        <CardDescription>
+          Gestiona tus cuentas por pagar, pagos recurrentes y consulta el historial de pagos.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="monthly" className="w-full">
