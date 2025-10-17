@@ -1,12 +1,9 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { getConversations, getMessagesForConversation } from '../lib/chatApi';
-// import { AuthContext } from '../context/AuthContext'; // Assuming this context exists
+import { useAuth } from '../hooks/use-auth';
 
-// Placeholder for AuthContext if it doesn't exist
-const AuthContext = React.createContext({ tenantId: 'some-hardcoded-tenant-id', token: 'some-token' });
-
-const SOCKET_URL = 'http://localhost:3000/chat';
+const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'https://api.smartkubik.com';
 
 const WhatsAppInbox = () => {
   const [conversations, setConversations] = useState([]);
@@ -14,7 +11,8 @@ const WhatsAppInbox = () => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const { tenantId } = useContext(AuthContext);
+  const { tenant } = useAuth();
+  const tenantId = tenant?.id;
   const socket = useRef(null);
 
   useEffect(() => {
