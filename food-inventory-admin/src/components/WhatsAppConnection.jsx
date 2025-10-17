@@ -49,7 +49,7 @@ const WhatsAppConnection = () => {
       <CardHeader>
         <CardTitle>Conexión de WhatsApp</CardTitle>
         <CardDescription>
-          Paso 1: Genera un código QR y escanéalo con tu teléfono (Ajustes &gt; Dispositivos Vinculados). Paso 2: Activa la conexión para empezar a recibir mensajes.
+          Paso 1: Genera un código QR y escanéalo con tu teléfono (Ajustes {'>'} Dispositivos Vinculados). Paso 2: Activa la conexión para empezar a recibir mensajes.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col items-center justify-center space-y-4">

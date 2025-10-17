@@ -202,7 +202,7 @@ log_info "Verificando que dist/index.html existe..."
 if ! remote_exec "test -f $FRONTEND_DIR/dist/index.html"; then
     log_error "dist/index.html no existe después de compilar"
     rollback
-}
+fi
 
 log_info "Arreglando permisos del frontend..."
 remote_exec "sudo chmod -R 755 $FRONTEND_DIR/dist"
