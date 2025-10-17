@@ -26,11 +26,25 @@ const WhatsAppInbox = () => {
         transports: ['websocket', 'polling'],
       });
 
-      socket.current.on('connect', () => console.log('Connected to chat server'));
-      socket.current.on('disconnect', () => console.log('Disconnected from chat server'));
+      socket.current.on('connect', () => {
+        console.log('✅ Connected to chat server');
+        console.log('Socket ID:', socket.current.id);
+      });
+
+      socket.current.on('disconnect', (reason) => {
+        console.log('❌ Disconnected from chat server. Reason:', reason);
+      });
+
+      socket.current.on('connect_error', (error) => {
+        console.error('❌ Connection error:', error.message);
+      });
+
+      socket.current.on('error', (error) => {
+        console.error('❌ Socket error:', error);
+      });
 
       socket.current.on('newMessage', (message) => {
-        console.log('New message received:', message);
+        console.log('📩 New message received:', message);
         // If the message belongs to the active conversation, update the state
         if (activeConversation && message.conversationId === activeConversation._id) {
           setMessages(prevMessages => [...prevMessages, message]);
@@ -60,14 +74,43 @@ const WhatsAppInbox = () => {
 
   const handleSendMessage = (e) => {
     e.preventDefault();
-    if (newMessage.trim() && activeConversation) {
-      const messagePayload = {
-        conversationId: activeConversation._id,
-        content: newMessage,
-      };
-      socket.current.emit('sendMessage', messagePayload);
-      setNewMessage('');
+
+    if (!socket.current) {
+      console.error('❌ Socket is not initialized');
+      return;
     }
+
+    if (!socket.current.connected) {
+      console.error('❌ Socket is not connected. Status:', socket.current.connected);
+      return;
+    }
+
+    if (!newMessage.trim()) {
+      console.warn('⚠️ Message is empty');
+      return;
+    }
+
+    if (!activeConversation) {
+      console.error('❌ No active conversation selected');
+      return;
+    }
+
+    const messagePayload = {
+      conversationId: activeConversation._id,
+      content: newMessage.trim(),
+    };
+
+    console.log('📤 Sending message:', messagePayload);
+    socket.current.emit('sendMessage', messagePayload);
+
+    // Optimistically add message to UI
+    const optimisticMessage = {
+      content: newMessage.trim(),
+      sender: 'user',
+      createdAt: new Date().toISOString(),
+    };
+    setMessages(prevMessages => [...prevMessages, optimisticMessage]);
+    setNewMessage('');
   };
 
   return (
