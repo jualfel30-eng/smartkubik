@@ -1,13 +1,13 @@
-import { Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Role, RoleDocument } from '../schemas/role.schema';
-import { UserDocument } from '../schemas/user.schema';
-import { TenantDocument } from '../schemas/tenant.schema';
-import { PermissionsService } from '../modules/permissions/permissions.service';
-import { getEffectiveModulesForTenant } from '../config/vertical-features.config';
-import { isTenantConfirmationEnforced } from '../config/tenant-confirmation';
+import { Injectable } from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { Role, RoleDocument } from "../schemas/role.schema";
+import { UserDocument } from "../schemas/user.schema";
+import { TenantDocument } from "../schemas/tenant.schema";
+import { PermissionsService } from "../modules/permissions/permissions.service";
+import { getEffectiveModulesForTenant } from "../config/vertical-features.config";
+import { isTenantConfirmationEnforced } from "../config/tenant-confirmation";
 
 export interface TokenGenerationOptions {
   impersonation?: boolean;
@@ -30,15 +30,15 @@ export class TokenService {
     options: TokenGenerationOptions = {},
   ) {
     const rawRole =
-      (options.roleOverride ??
-        (user.role as RoleDocument | Types.ObjectId | string | null | undefined));
+      options.roleOverride ??
+      (user.role as RoleDocument | Types.ObjectId | string | null | undefined);
 
     let permissionNames: string[] = [];
     let roleId: Types.ObjectId | string | undefined;
     let roleName: string | undefined;
     let resolvedRoleDoc: RoleDocument | null | undefined;
 
-    if (rawRole && typeof rawRole === 'object' && '_id' in rawRole) {
+    if (rawRole && typeof rawRole === "object" && "_id" in rawRole) {
       resolvedRoleDoc = rawRole as RoleDocument;
       roleId = resolvedRoleDoc._id;
       roleName = (resolvedRoleDoc as any).name;
@@ -46,7 +46,7 @@ export class TokenService {
       if (Array.isArray(rolePermissions) && rolePermissions.length > 0) {
         permissionNames = rolePermissions
           .map((permission: any) =>
-            permission && typeof permission === 'object' && 'name' in permission
+            permission && typeof permission === "object" && "name" in permission
               ? (permission as any).name
               : null,
           )
@@ -54,13 +54,13 @@ export class TokenService {
       }
     } else if (rawRole) {
       roleId = rawRole as Types.ObjectId | string;
-      if (typeof rawRole === 'string') {
+      if (typeof rawRole === "string") {
         roleName = rawRole;
       }
     }
 
     if (!roleId) {
-      throw new Error('User role is not properly populated');
+      throw new Error("User role is not properly populated");
     }
 
     if (permissionNames.length === 0) {
@@ -68,11 +68,11 @@ export class TokenService {
         resolvedRoleDoc ??
         (await this.roleModel
           .findById(roleId)
-          .populate({ path: 'permissions', select: 'name' })
+          .populate({ path: "permissions", select: "name" })
           .exec());
 
       if (!resolvedRoleDoc) {
-        throw new Error('Role associated to user not found');
+        throw new Error("Role associated to user not found");
       }
 
       permissionNames = Array.isArray(resolvedRoleDoc.permissions)
@@ -85,16 +85,16 @@ export class TokenService {
 
     if (
       !roleName &&
-      typeof rawRole === 'object' &&
+      typeof rawRole === "object" &&
       rawRole &&
-      'name' in rawRole
+      "name" in rawRole
     ) {
       roleName = (rawRole as any).name;
     }
 
     if (permissionNames.length === 0 && tenant) {
       const effectiveModules = getEffectiveModulesForTenant(
-        tenant.vertical || 'FOOD_SERVICE',
+        tenant.vertical || "FOOD_SERVICE",
         tenant.enabledModules,
       );
       const enabledModuleNames = Object.entries(effectiveModules)
@@ -102,7 +102,8 @@ export class TokenService {
         .map(([moduleName]) => moduleName);
 
       if (enabledModuleNames.length > 0) {
-        permissionNames = this.permissionsService.findByModules(enabledModuleNames);
+        permissionNames =
+          this.permissionsService.findByModules(enabledModuleNames);
       }
     }
 
@@ -134,18 +135,21 @@ export class TokenService {
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
-        expiresIn: process.env.JWT_EXPIRES_IN || '15m',
+        expiresIn: process.env.JWT_EXPIRES_IN || "15m",
       }),
-      this.jwtService.signAsync({ sub: user._id }, {
-        secret: process.env.JWT_REFRESH_SECRET,
-        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
-      }),
+      this.jwtService.signAsync(
+        { sub: user._id },
+        {
+          secret: process.env.JWT_REFRESH_SECRET,
+          expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
+        },
+      ),
     ]);
 
     return {
       accessToken,
       refreshToken,
-      expiresIn: process.env.JWT_EXPIRES_IN || '15m',
+      expiresIn: process.env.JWT_EXPIRES_IN || "15m",
     };
   }
 }

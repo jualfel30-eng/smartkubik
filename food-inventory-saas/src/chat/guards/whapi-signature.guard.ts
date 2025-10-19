@@ -1,5 +1,11 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Logger,
+} from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 
 /**
  * Guard to validate Whapi webhook requests
@@ -19,30 +25,35 @@ export class WhapiSignatureGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
 
     // Allow disabling validation for development/testing
-    const validationEnabled = this.configService.get<string>('WHAPI_WEBHOOK_VALIDATION') !== 'false';
+    const validationEnabled =
+      this.configService.get<string>("WHAPI_WEBHOOK_VALIDATION") !== "false";
 
     if (!validationEnabled) {
-      this.logger.warn('Whapi webhook validation is DISABLED. Enable it in production!');
+      this.logger.warn(
+        "Whapi webhook validation is DISABLED. Enable it in production!",
+      );
       return true;
     }
 
     // Check for custom webhook secret header
-    const webhookSecret = request.headers['x-webhook-secret'];
-    const expectedSecret = this.configService.get<string>('WHAPI_WEBHOOK_SECRET');
+    const webhookSecret = request.headers["x-webhook-secret"];
+    const expectedSecret = this.configService.get<string>(
+      "WHAPI_WEBHOOK_SECRET",
+    );
 
     if (!expectedSecret) {
-      this.logger.error('WHAPI_WEBHOOK_SECRET is not configured');
-      throw new ForbiddenException('Server configuration error');
+      this.logger.error("WHAPI_WEBHOOK_SECRET is not configured");
+      throw new ForbiddenException("Server configuration error");
     }
 
     if (!webhookSecret) {
-      this.logger.warn('Missing X-Webhook-Secret header from Whapi webhook');
-      throw new ForbiddenException('Missing webhook secret');
+      this.logger.warn("Missing X-Webhook-Secret header from Whapi webhook");
+      throw new ForbiddenException("Missing webhook secret");
     }
 
     if (webhookSecret !== expectedSecret) {
-      this.logger.warn('Invalid webhook secret received');
-      throw new ForbiddenException('Invalid webhook secret');
+      this.logger.warn("Invalid webhook secret received");
+      throw new ForbiddenException("Invalid webhook secret");
     }
 
     return true;

@@ -9,12 +9,12 @@ import { JwtStrategy } from "./jwt.strategy";
 import { User, UserSchema } from "../schemas/user.schema";
 import { Tenant, TenantSchema } from "../schemas/tenant.schema";
 import { Role, RoleSchema } from "../schemas/role.schema";
-import { RolesModule } from '../modules/roles/roles.module';
-import { GoogleStrategy } from './google.strategy';
-import { MailModule } from '../modules/mail/mail.module';
-import { PermissionsModule } from '../modules/permissions/permissions.module';
-import { TokenService } from './token.service';
-import { MembershipsModule } from '../modules/memberships/memberships.module';
+import { RolesModule } from "../modules/roles/roles.module";
+import { GoogleStrategy } from "./google.strategy";
+import { MailModule } from "../modules/mail/mail.module";
+import { PermissionsModule } from "../modules/permissions/permissions.module";
+import { TokenService } from "./token.service";
+import { MembershipsModule } from "../modules/memberships/memberships.module";
 
 @Module({
   imports: [

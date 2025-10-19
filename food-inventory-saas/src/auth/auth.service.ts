@@ -22,12 +22,15 @@ import {
   ResetPasswordDto,
 } from "../dto/auth.dto";
 import { RolesService } from "../modules/roles/roles.service";
-import { Role, RoleDocument } from '../schemas/role.schema';
-import { MailService } from '../modules/mail/mail.service';
-import { TokenService } from './token.service';
-import { isFeatureEnabled } from '../config/features.config';
-import { MembershipsService, MembershipSummary } from '../modules/memberships/memberships.service';
-import { getEffectiveModulesForTenant } from '../config/vertical-features.config';
+import { Role, RoleDocument } from "../schemas/role.schema";
+import { MailService } from "../modules/mail/mail.service";
+import { TokenService } from "./token.service";
+import { isFeatureEnabled } from "../config/features.config";
+import {
+  MembershipsService,
+  MembershipSummary,
+} from "../modules/memberships/memberships.service";
+import { getEffectiveModulesForTenant } from "../config/vertical-features.config";
 
 @Injectable()
 export class AuthService {
@@ -43,22 +46,34 @@ export class AuthService {
     private membershipsService: MembershipsService,
   ) {}
 
-  async login(loginDto: LoginDto | UserDocument | string, isImpersonation: boolean = false, impersonatorId?: string) {
+  async login(
+    loginDto: LoginDto | UserDocument | string,
+    isImpersonation: boolean = false,
+    impersonatorId?: string,
+  ) {
     this.logger.log(`Received login DTO: ${JSON.stringify(loginDto)}`);
     if (isImpersonation) {
       this.logger.log(`Initiating impersonation flow for user ID: ${loginDto}`);
-      const userId = typeof loginDto === 'string' ? loginDto : (loginDto as any)._id || (loginDto as any).id;
-      
-      const user = await this.userModel.findById(userId).populate({
-        path: 'role',
-        populate: { path: 'permissions', select: 'name' }
-      }).exec();
+      const userId =
+        typeof loginDto === "string"
+          ? loginDto
+          : (loginDto as any)._id || (loginDto as any).id;
+
+      const user = await this.userModel
+        .findById(userId)
+        .populate({
+          path: "role",
+          populate: { path: "permissions", select: "name" },
+        })
+        .exec();
 
       if (!user) {
-        this.logger.warn(`Impersonation failed: User not found for ID ${userId}`);
-        throw new NotFoundException('Usuario a impersonar no encontrado');
+        this.logger.warn(
+          `Impersonation failed: User not found for ID ${userId}`,
+        );
+        throw new NotFoundException("Usuario a impersonar no encontrado");
       }
-      
+
       this.logger.log(`User to impersonate found: ${user.email}`);
 
       // Align with multi-tenant flow: find all memberships
@@ -67,7 +82,7 @@ export class AuthService {
 
       if (!memberships.length) {
         this.logger.warn(
-          `User ${user.email} has no active memberships. Impersonation cannot proceed to tenant selection.`
+          `User ${user.email} has no active memberships. Impersonation cannot proceed to tenant selection.`,
         );
       }
 
@@ -103,7 +118,6 @@ export class AuthService {
     );
   }
 
-
   private async loginMultiTenantFlow(
     emailCandidates: string[],
     rawEmail: string,
@@ -118,8 +132,8 @@ export class AuthService {
     const user = await this.userModel
       .findOne({ email: { $in: emailCandidates } })
       .populate({
-        path: 'role',
-        populate: { path: 'permissions', select: 'name' },
+        path: "role",
+        populate: { path: "permissions", select: "name" },
       })
       .exec();
 
@@ -195,7 +209,7 @@ export class AuthService {
         $unset: { loginAttempts: 1, lockUntil: 1 },
         $set: {
           lastLoginAt: new Date(),
-          lastLoginIP: ip || 'unknown',
+          lastLoginIP: ip || "unknown",
         },
       },
     );
@@ -218,7 +232,7 @@ export class AuthService {
 
   private buildTenantPayload(tenant: TenantDocument) {
     const effectiveModules = getEffectiveModulesForTenant(
-      tenant.vertical || 'FOOD_SERVICE',
+      tenant.vertical || "FOOD_SERVICE",
       tenant.enabledModules,
     );
 
@@ -232,7 +246,7 @@ export class AuthService {
       isConfirmed: tenant.isConfirmed,
       aiAssistant: tenant.aiAssistant ?? {
         autoReplyEnabled: false,
-        knowledgeBaseTenantId: '',
+        knowledgeBaseTenantId: "",
       },
     };
   }
@@ -251,16 +265,16 @@ export class AuthService {
       userId,
     );
 
-    if (membership.status !== 'active') {
-      throw new UnauthorizedException('La membresía no está activa');
+    if (membership.status !== "active") {
+      throw new UnauthorizedException("La membresía no está activa");
     }
 
     const [user, tenant, membershipRole] = await Promise.all([
       this.userModel
         .findById(userId)
         .populate({
-          path: 'role',
-          populate: { path: 'permissions', select: 'name' },
+          path: "role",
+          populate: { path: "permissions", select: "name" },
         })
         .exec(),
       this.membershipsService.resolveTenantById(membership.tenantId),
@@ -268,21 +282,21 @@ export class AuthService {
     ]);
 
     if (!user || !user.isActive) {
-      throw new UnauthorizedException('Usuario inválido o inactivo');
+      throw new UnauthorizedException("Usuario inválido o inactivo");
     }
 
     if (!tenant) {
       throw new NotFoundException(
-        'Tenant de la membresía no encontrado o inactivo',
+        "Tenant de la membresía no encontrado o inactivo",
       );
     }
 
-    if (tenant.status !== 'active') {
-      throw new UnauthorizedException('El tenant está inactivo');
+    if (tenant.status !== "active") {
+      throw new UnauthorizedException("El tenant está inactivo");
     }
 
     if (!membershipRole) {
-      throw new UnauthorizedException('Rol de la membresía inválido');
+      throw new UnauthorizedException("Rol de la membresía inválido");
     }
 
     const tokens = await this.tokenService.generateTokens(user, tenant, {
@@ -291,10 +305,7 @@ export class AuthService {
     });
 
     // Mantener compatibilidad con código existente que lee user.tenantId
-    if (
-      !user.tenantId ||
-      user.tenantId.toString() !== tenant._id.toString()
-    ) {
+    if (!user.tenantId || user.tenantId.toString() !== tenant._id.toString()) {
       await this.userModel.updateOne(
         { _id: user._id },
         { $set: { tenantId: tenant._id } },
@@ -322,39 +333,60 @@ export class AuthService {
       user: this.buildUserPayload(user, tenant._id),
       tenant: this.buildTenantPayload(tenant),
       membership: membershipSummary,
-       memberships: membershipsSnapshot,
+      memberships: membershipsSnapshot,
       ...tokens,
     };
   }
 
   async register(registerDto: RegisterDto) {
     // Public registration is disabled as the new flow is invite-based.
-    this.logger.warn(`Blocked public registration attempt for email: ${registerDto.email}`);
-    throw new BadRequestException("El registro público está deshabilitado. Los usuarios deben ser creados por un administrador.");
+    this.logger.warn(
+      `Blocked public registration attempt for email: ${registerDto.email}`,
+    );
+    throw new BadRequestException(
+      "El registro público está deshabilitado. Los usuarios deben ser creados por un administrador.",
+    );
   }
 
-  async validateOAuthLogin(email: string, provider: string, profile: any): Promise<UserDocument> {
-    this.logger.log(`OAuth login validation for email: ${email} via ${provider}`);
+  async validateOAuthLogin(
+    email: string,
+    provider: string,
+    profile: any,
+  ): Promise<UserDocument> {
+    this.logger.log(
+      `OAuth login validation for email: ${email} via ${provider}`,
+    );
 
-    const user = await this.userModel.findOne({ email }).populate('role').exec();
+    const user = await this.userModel
+      .findOne({ email })
+      .populate("role")
+      .exec();
 
     if (user) {
-      this.logger.log(`User found for email ${email}. Returning existing user.`);
+      this.logger.log(
+        `User found for email ${email}. Returning existing user.`,
+      );
       // Ensure the user has a valid role populated before returning
       if (!user.role) {
-        this.logger.error(`OAuth login failed: User ${email} has no role assigned.`);
-        throw new UnauthorizedException('El usuario no tiene un rol asignado. Contacte al administrador.');
+        this.logger.error(
+          `OAuth login failed: User ${email} has no role assigned.`,
+        );
+        throw new UnauthorizedException(
+          "El usuario no tiene un rol asignado. Contacte al administrador.",
+        );
       }
       return user;
     }
 
     this.logger.warn(`OAuth login failed: No user found for email ${email}.`);
-    throw new UnauthorizedException('Usuario no registrado. Por favor, regístrese o contacte a un administrador.');
+    throw new UnauthorizedException(
+      "Usuario no registrado. Por favor, regístrese o contacte a un administrador.",
+    );
   }
 
   async googleLogin(user: UserDocument) {
     if (!user) {
-      throw new BadRequestException('Unauthenticated');
+      throw new BadRequestException("Unauthenticated");
     }
 
     let tenant: TenantDocument | null = null;
@@ -362,11 +394,15 @@ export class AuthService {
     if (user.tenantId) {
       tenant = await this.tenantModel.findById(user.tenantId).exec();
       if (!tenant) {
-        this.logger.error(`CRITICAL: User ${user.email} has an invalid tenantId: ${user.tenantId}`);
-        throw new UnauthorizedException("Error de configuración de la cuenta: Tenant asociado no encontrado.");
+        this.logger.error(
+          `CRITICAL: User ${user.email} has an invalid tenantId: ${user.tenantId}`,
+        );
+        throw new UnauthorizedException(
+          "Error de configuración de la cuenta: Tenant asociado no encontrado.",
+        );
       }
     }
-    
+
     // If tenant is null here, it's a super_admin. TokenService handles a null tenant.
     const tokens = await this.tokenService.generateTokens(user, tenant);
 
@@ -407,7 +443,9 @@ export class AuthService {
     }
 
     if (tenant.usage.currentUsers >= tenant.limits.maxUsers) {
-      throw new BadRequestException("Límite de usuarios alcanzado para su plan de suscripción.");
+      throw new BadRequestException(
+        "Límite de usuarios alcanzado para su plan de suscripción.",
+      );
     }
 
     const existingUser = await this.userModel.findOne({
@@ -419,9 +457,14 @@ export class AuthService {
       throw new BadRequestException("El email ya está registrado");
     }
 
-    const role: RoleDocument | null = await this.rolesService.findOneByName(createUserDto.role, currentUser.tenantId);
+    const role: RoleDocument | null = await this.rolesService.findOneByName(
+      createUserDto.role,
+      currentUser.tenantId,
+    );
     if (!role) {
-        throw new BadRequestException(`Rol '${createUserDto.role}' no encontrado.`);
+      throw new BadRequestException(
+        `Rol '${createUserDto.role}' no encontrado.`,
+      );
     }
 
     const hashedPassword = await bcrypt.hash(createUserDto.password, 12);
@@ -439,11 +482,13 @@ export class AuthService {
     const savedUser = await user.save();
 
     // Incrementar el contador de usuarios
-    await this.tenantModel.findByIdAndUpdate(currentUser.tenantId, { $inc: { 'usage.currentUsers': 1 } });
+    await this.tenantModel.findByIdAndUpdate(currentUser.tenantId, {
+      $inc: { "usage.currentUsers": 1 },
+    });
 
     this.logger.log(`User created successfully: ${savedUser.email}`);
 
-    const userWithRole = await savedUser.populate('role');
+    const userWithRole = await savedUser.populate("role");
 
     return {
       id: userWithRole._id,
@@ -461,7 +506,7 @@ export class AuthService {
         secret: process.env.JWT_REFRESH_SECRET,
       });
 
-      const user = await this.userModel.findById(payload.sub).populate('role');
+      const user = await this.userModel.findById(payload.sub).populate("role");
       if (!user || !user.isActive) {
         throw new UnauthorizedException("Usuario inválido");
       }
@@ -495,7 +540,9 @@ export class AuthService {
     }
 
     if (changePasswordDto.newPassword !== changePasswordDto.confirmPassword) {
-      throw new BadRequestException("La nueva contraseña y la confirmación no coinciden");
+      throw new BadRequestException(
+        "La nueva contraseña y la confirmación no coinciden",
+      );
     }
 
     const hashedNewPassword = await bcrypt.hash(
@@ -516,7 +563,9 @@ export class AuthService {
       `Password reset request for email: ${forgotPasswordDto.email}`,
     );
 
-    const user = await this.userModel.findOne({ email: forgotPasswordDto.email });
+    const user = await this.userModel.findOne({
+      email: forgotPasswordDto.email,
+    });
 
     if (user) {
       const resetToken = uuidv4();
@@ -537,11 +586,15 @@ export class AuthService {
         await this.mailService.sendPasswordResetEmail(user.email, resetToken);
         this.logger.log(`Password reset email sent to: ${user.email}`);
       } catch (error) {
-        this.logger.error(`Failed to send password reset email: ${error.message}`);
+        this.logger.error(
+          `Failed to send password reset email: ${error.message}`,
+        );
         // No lanzamos error para no revelar si el usuario existe
       }
     } else {
-      this.logger.warn(`Password reset requested for non-existent user: ${forgotPasswordDto.email}`);
+      this.logger.warn(
+        `Password reset requested for non-existent user: ${forgotPasswordDto.email}`,
+      );
       // No revelamos que el usuario no existe por seguridad
     }
   }
@@ -582,8 +635,11 @@ export class AuthService {
     const user = await this.userModel
       .findById(userId)
       .select("-password -passwordResetToken -emailVerificationToken")
-      .populate("tenantId", "code name businessType subscriptionPlan isConfirmed")
-      .populate('role')
+      .populate(
+        "tenantId",
+        "code name businessType subscriptionPlan isConfirmed",
+      )
+      .populate("role")
       .exec();
 
     if (!user) {

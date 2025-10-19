@@ -47,7 +47,10 @@ export class AuthController {
   @ApiOperation({ summary: "Iniciar sesión" })
   @ApiResponse({ status: 200, description: "Login exitoso" })
   @ApiResponse({ status: 401, description: "Credenciales inválidas" })
-  @ApiResponse({ status: 429, description: "Demasiados intentos. Intente más tarde" })
+  @ApiResponse({
+    status: 429,
+    description: "Demasiados intentos. Intente más tarde",
+  })
   async login(@Body() loginDto: LoginDto) {
     try {
       const result = await this.authService.login(loginDto);
@@ -69,10 +72,7 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: "Cambiar el tenant activo del usuario autenticado" })
   @ApiResponse({ status: 200, description: "Tenant cambiado exitosamente" })
-  async switchTenant(
-    @Body() switchTenantDto: SwitchTenantDto,
-    @Request() req,
-  ) {
+  async switchTenant(@Body() switchTenantDto: SwitchTenantDto, @Request() req) {
     try {
       const result = await this.authService.switchTenant(
         req.user.id,
@@ -99,7 +99,10 @@ export class AuthController {
   @ApiOperation({ summary: "Registrar nuevo usuario" })
   @ApiResponse({ status: 201, description: "Usuario registrado exitosamente" })
   @ApiResponse({ status: 400, description: "Datos inválidos" })
-  @ApiResponse({ status: 429, description: "Demasiados intentos. Intente más tarde" })
+  @ApiResponse({
+    status: 429,
+    description: "Demasiados intentos. Intente más tarde",
+  })
   async register(@Body() registerDto: RegisterDto) {
     try {
       const result = await this.authService.register(registerDto);
@@ -116,25 +119,27 @@ export class AuthController {
     }
   }
 
-  @Get('google')
+  @Get("google")
   @Public()
-  @UseGuards(AuthGuard('google'))
-  @ApiOperation({ summary: 'Iniciar sesión con Google' })
+  @UseGuards(AuthGuard("google"))
+  @ApiOperation({ summary: "Iniciar sesión con Google" })
   async googleAuth(@Request() req) {
     // Initiates the Google OAuth2 login flow
   }
 
-  @Get('google/callback')
+  @Get("google/callback")
   @Public()
-  @UseGuards(AuthGuard('google'))
-  @ApiOperation({ summary: 'Callback de Google para OAuth' })
+  @UseGuards(AuthGuard("google"))
+  @ApiOperation({ summary: "Callback de Google para OAuth" })
   async googleAuthRedirect(@Request() req, @Res() res) {
     const result = await this.authService.googleLogin(req.user);
     // Redirect to frontend with tokens
     // In a real app, you might want to use a more secure way to pass tokens,
     // like setting a httpOnly cookie.
-    const frontendUrl = process.env.FRONTEND_URL || 'https://smartkubik.com';
-    res.redirect(`${frontendUrl}/auth/callback?accessToken=${result.accessToken}&refreshToken=${result.refreshToken}`);
+    const frontendUrl = process.env.FRONTEND_URL || "https://smartkubik.com";
+    res.redirect(
+      `${frontendUrl}/auth/callback?accessToken=${result.accessToken}&refreshToken=${result.refreshToken}`,
+    );
   }
 
   @Post("create-user")
@@ -211,7 +216,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Solicitar reseteo de contraseña" })
   @ApiResponse({ status: 200, description: "Email de reseteo enviado" })
-  @ApiResponse({ status: 429, description: "Demasiados intentos. Intente más tarde" })
+  @ApiResponse({
+    status: 429,
+    description: "Demasiados intentos. Intente más tarde",
+  })
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     try {
       await this.authService.forgotPassword(forgotPasswordDto);
@@ -239,7 +247,10 @@ export class AuthController {
     status: 200,
     description: "Contraseña reseteada exitosamente",
   })
-  @ApiResponse({ status: 429, description: "Demasiados intentos. Intente más tarde" })
+  @ApiResponse({
+    status: 429,
+    description: "Demasiados intentos. Intente más tarde",
+  })
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     try {
       await this.authService.resetPassword(resetPasswordDto);

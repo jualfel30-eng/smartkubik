@@ -1,5 +1,5 @@
-import { Transform } from 'class-transformer';
-import * as sanitizeHtml from 'sanitize-html';
+import { Transform } from "class-transformer";
+import * as sanitizeHtml from "sanitize-html";
 
 /**
  * Decorator para sanitizar strings y prevenir XSS
@@ -18,7 +18,7 @@ import * as sanitizeHtml from 'sanitize-html';
  */
 export function SanitizeString() {
   return Transform(({ value }) => {
-    if (typeof value !== 'string') {
+    if (typeof value !== "string") {
       return value;
     }
 
@@ -26,7 +26,7 @@ export function SanitizeString() {
     const sanitized = sanitizeHtml(value, {
       allowedTags: [], // No permitir ningún tag HTML
       allowedAttributes: {}, // No permitir ningún atributo
-      disallowedTagsMode: 'discard', // Eliminar tags no permitidos completamente
+      disallowedTagsMode: "discard", // Eliminar tags no permitidos completamente
     });
 
     // Trim whitespace
@@ -50,7 +50,7 @@ export function SanitizeString() {
  */
 export function SanitizeText() {
   return Transform(({ value }) => {
-    if (typeof value !== 'string') {
+    if (typeof value !== "string") {
       return value;
     }
 
@@ -58,11 +58,11 @@ export function SanitizeText() {
     const sanitized = sanitizeHtml(value, {
       allowedTags: [], // No permitir ningún tag HTML
       allowedAttributes: {},
-      disallowedTagsMode: 'discard',
+      disallowedTagsMode: "discard",
     });
 
     // Trim solo espacios al inicio/final, preservar \n
-    return sanitized.replace(/^\s+|\s+$/g, '');
+    return sanitized.replace(/^\s+|\s+$/g, "");
   });
 }
 
@@ -86,14 +86,14 @@ export function SanitizeStringArray() {
     }
 
     return value.map((item) => {
-      if (typeof item !== 'string') {
+      if (typeof item !== "string") {
         return item;
       }
 
       const sanitized = sanitizeHtml(item, {
         allowedTags: [],
         allowedAttributes: {},
-        disallowedTagsMode: 'discard',
+        disallowedTagsMode: "discard",
       });
 
       return sanitized.trim();
