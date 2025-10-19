@@ -14,6 +14,8 @@ import UsageAndBilling from './UsageAndBilling'; // Importar UsageAndBilling
 import { DeliverySettings } from './DeliverySettings'; // Importar DeliverySettings
 import WhatsAppConnection from './WhatsAppConnection'; // Importar WhatsAppConnection
 import { useAuth } from '@/hooks/use-auth.jsx'; // Importar useAuth
+import TenantKnowledgeBaseManager from './TenantKnowledgeBaseManager';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const initialSettings = {
   name: '',
@@ -22,6 +24,13 @@ const initialSettings = {
   aiAssistant: {
     autoReplyEnabled: false,
     knowledgeBaseTenantId: '',
+    model: 'gpt-4o-mini',
+    capabilities: {
+      knowledgeBaseEnabled: true,
+      inventoryLookup: false,
+      schedulingLookup: false,
+      orderLookup: false,
+    },
   },
   contactInfo: {
     email: '',
@@ -70,56 +79,71 @@ const SettingsPage = () => {
   const fileInputRef = useRef(null);
   const { hasPermission, tenant, updateTenantContext } = useAuth(); // Obtener hasPermission y tenant
 
+  const applySettingsData = (settingsData = {}) => {
+    const mergedSettings = {
+      ...initialSettings,
+      ...settingsData,
+      aiAssistant: {
+        ...initialSettings.aiAssistant,
+        ...(settingsData.aiAssistant || {}),
+        capabilities: {
+          ...initialSettings.aiAssistant.capabilities,
+          ...(settingsData.aiAssistant?.capabilities || {}),
+        },
+      },
+      contactInfo: {
+        ...initialSettings.contactInfo,
+        ...(settingsData.contactInfo || {}),
+        address: {
+          ...initialSettings.contactInfo.address,
+          ...(settingsData.contactInfo?.address || {}),
+        },
+      },
+      taxInfo: {
+        ...initialSettings.taxInfo,
+        ...(settingsData.taxInfo || {}),
+      },
+      settings: {
+        ...initialSettings.settings,
+        ...(settingsData.settings || {}),
+        currency: {
+          ...initialSettings.settings.currency,
+          ...(settingsData.settings?.currency || {}),
+        },
+        inventory: {
+          ...initialSettings.settings.inventory,
+          ...(settingsData.settings?.inventory || {}),
+        },
+        documentTemplates: {
+          ...initialSettings.settings.documentTemplates,
+          ...(settingsData.settings?.documentTemplates || {}),
+          invoice: {
+            ...initialSettings.settings.documentTemplates.invoice,
+            ...(settingsData.settings?.documentTemplates?.invoice || {}),
+          },
+          quote: {
+            ...initialSettings.settings.documentTemplates.quote,
+            ...(settingsData.settings?.documentTemplates?.quote || {}),
+          },
+        },
+      },
+    };
+    setSettings(mergedSettings);
+
+    if (settingsData.logo) {
+      setLogoPreviewUrl(settingsData.logo);
+    }
+  };
+
   useEffect(() => {
     const fetchSettings = async () => {
       try {
         setLoading(true);
-        const { data, error } = await getTenantSettings();
-        if (error) {
-          toast.error('Error al cargar la configuración', { description: error });
-        } else {
-          const settingsData = data.data || {};
-          // Deep merge fetched settings with initial settings to avoid undefined errors
-          setSettings(prev => {
-            const newSettings = {
-              ...initialSettings,
-              ...settingsData,
-              aiAssistant: {
-                ...initialSettings.aiAssistant,
-                ...(settingsData.aiAssistant || {}),
-              },
-              contactInfo: { ...initialSettings.contactInfo, ...(settingsData.contactInfo || {}) },
-              taxInfo: { ...initialSettings.taxInfo, ...(settingsData.taxInfo || {}) },
-              settings: {
-                ...initialSettings.settings,
-                ...(settingsData.settings || {}),
-                currency: {
-                  ...initialSettings.settings.currency,
-                  ...(settingsData.settings?.currency || {}),
-                },
-                inventory: {
-                  ...initialSettings.settings.inventory,
-                  ...(settingsData.settings?.inventory || {}),
-                },
-                documentTemplates: {
-                  ...initialSettings.settings.documentTemplates,
-                  ...(settingsData.settings?.documentTemplates || {}),
-                  invoice: {
-                    ...initialSettings.settings.documentTemplates.invoice,
-                    ...(settingsData.settings?.documentTemplates?.invoice || {}),
-                  },
-                  quote: {
-                    ...initialSettings.settings.documentTemplates.quote,
-                    ...(settingsData.settings?.documentTemplates?.quote || {}),
-                  },
-                },
-              },
-            };
-            return newSettings;
-          });
-          if (settingsData.logo) {
-            setLogoPreviewUrl(settingsData.logo);
-          }
+        const response = await getTenantSettings();
+        if (response?.error) {
+          toast.error('Error al cargar la configuración', { description: response.error });
+        } else if (response?.data) {
+          applySettingsData(response.data);
         }
       } catch (error) {
         toast.error('Error de red', { description: 'No se pudo conectar con el servidor.' });
@@ -131,36 +155,39 @@ const SettingsPage = () => {
     fetchSettings();
   }, []);
 
+  const setNestedValue = (path, value) => {
+    const keys = path.split('.');
+    setSettings(prev => {
+      const newState = JSON.parse(JSON.stringify(prev)); // Deep copy
+      let current = newState;
+      for (let i = 0; i < keys.length - 1; i++) {
+        if (current[keys[i]] === undefined || current[keys[i]] === null) {
+          current[keys[i]] = {};
+        }
+        current = current[keys[i]];
+      }
+      current[keys[keys.length - 1]] = value;
+      return newState;
+    });
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     const keys = name.split('.');
     
     if (keys.length > 1) {
-        setSettings(prev => {
-            const newState = JSON.parse(JSON.stringify(prev)); // Deep copy
-            let current = newState;
-            for (let i = 0; i < keys.length - 1; i++) {
-                current = current[keys[i]];
-            }
-            current[keys[keys.length - 1]] = value;
-            return newState;
-        });
+        setNestedValue(name, value);
     } else {
         setSettings(prev => ({ ...prev, [name]: value }));
     }
   };
 
   const handleSwitchChange = (name, checked) => {
-    const keys = name.split('.');
-    setSettings(prev => {
-        const newState = JSON.parse(JSON.stringify(prev)); // Deep copy
-        let current = newState;
-        for (let i = 0; i < keys.length - 1; i++) {
-            current = current[keys[i]];
-        }
-        current[keys[keys.length - 1]] = checked;
-        return newState;
-    });
+    setNestedValue(name, checked);
+  };
+
+  const handleSelectChange = (name) => (value) => {
+    setNestedValue(name, value);
   };
 
   const handleFileChange = (e) => {
@@ -197,17 +224,28 @@ const SettingsPage = () => {
   const handleSaveSettings = async () => {
     setIsSaving(true);
     try {
-      const { error } = await updateTenantSettings(settings);
-      if (error) {
-        toast.error('Error al guardar la configuración', { description: error });
+      const response = await updateTenantSettings(settings);
+      if (response?.error) {
+        toast.error('Error al guardar la configuración', { description: response.error });
       } else {
         toast.success('Configuración guardada correctamente');
-        updateTenantContext?.({
-          aiAssistant: {
-            autoReplyEnabled: Boolean(settings.aiAssistant?.autoReplyEnabled),
-            knowledgeBaseTenantId: settings.aiAssistant?.knowledgeBaseTenantId || '',
-          },
-        });
+        if (response?.data) {
+          applySettingsData(response.data);
+          updateTenantContext?.({
+            name: response.data.name,
+            contactInfo: response.data.contactInfo,
+            taxInfo: response.data.taxInfo,
+            aiAssistant: {
+              autoReplyEnabled: Boolean(response.data.aiAssistant?.autoReplyEnabled),
+              knowledgeBaseTenantId: response.data.aiAssistant?.knowledgeBaseTenantId || '',
+              model: response.data.aiAssistant?.model || initialSettings.aiAssistant.model,
+              capabilities: {
+                ...initialSettings.aiAssistant.capabilities,
+                ...(response.data.aiAssistant?.capabilities || {}),
+              },
+            },
+          });
+        }
       }
     } catch (error) {
       toast.error('Error de red', { description: `No se pudo guardar: ${error.message}` });
@@ -387,7 +425,7 @@ const SettingsPage = () => {
                     <CardTitle>Asistente Inteligente</CardTitle>
                     <CardDescription>Controla cómo responde el asistente dentro de tu organización.</CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-5">
                     <div className="flex items-center justify-between gap-4 rounded-md border border-border/60 bg-muted/40 p-3">
                       <div>
                         <Label className="font-medium">Auto-respuesta en WhatsApp</Label>
@@ -403,16 +441,100 @@ const SettingsPage = () => {
                       />
                     </div>
 
-                    <div className="rounded-md border border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground space-y-1">
+                    <div className="space-y-2">
+                      <Label className="font-medium">Modelo preferido</Label>
+                      <Select
+                        value={settings.aiAssistant?.model || initialSettings.aiAssistant.model}
+                        onValueChange={handleSelectChange('aiAssistant.model')}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona un modelo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="gpt-4o-mini">GPT-4o mini (recomendado)</SelectItem>
+                          <SelectItem value="gpt-4.1-mini">GPT-4.1 mini</SelectItem>
+                          <SelectItem value="gpt-4.1">GPT-4.1</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Usa <span className="font-semibold">GPT-4o mini</span> para un equilibrio entre precisión y costos.
+                        Cambia a modelos más potentes solo si necesitas razonamiento extendido.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      <Label className="font-medium">Capacidades habilitadas</Label>
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between gap-4 rounded-md border border-border/60 bg-muted/30 p-3">
+                          <div>
+                            <Label>Usar base de conocimiento personalizada</Label>
+                            <p className="text-xs text-muted-foreground">
+                              Permite que el asistente cite documentos cargados por tu equipo para respuestas más precisas.
+                            </p>
+                          </div>
+                          <Switch
+                            checked={Boolean(settings.aiAssistant?.capabilities?.knowledgeBaseEnabled)}
+                            onCheckedChange={(checked) =>
+                              handleSwitchChange('aiAssistant.capabilities.knowledgeBaseEnabled', checked)
+                            }
+                          />
+                        </div>
+
+                        <div className="flex items-start justify-between gap-4 rounded-md border border-border/60 bg-muted/30 p-3">
+                          <div>
+                            <Label>Verificar inventario en tiempo real</Label>
+                            <p className="text-xs text-muted-foreground">
+                              Autoriza que la IA consulte stock, costos y alertas directamente en el sistema.
+                            </p>
+                          </div>
+                          <Switch
+                            checked={Boolean(settings.aiAssistant?.capabilities?.inventoryLookup)}
+                            onCheckedChange={(checked) =>
+                              handleSwitchChange('aiAssistant.capabilities.inventoryLookup', checked)
+                            }
+                          />
+                        </div>
+
+                        <div className="flex items-start justify-between gap-4 rounded-md border border-border/60 bg-muted/30 p-3">
+                          <div>
+                            <Label>Verificar disponibilidad de servicios</Label>
+                            <p className="text-xs text-muted-foreground">
+                              Permite que la IA consulte horarios y recursos antes de ofrecer citas.
+                            </p>
+                          </div>
+                          <Switch
+                            checked={Boolean(settings.aiAssistant?.capabilities?.schedulingLookup)}
+                            onCheckedChange={(checked) =>
+                              handleSwitchChange('aiAssistant.capabilities.schedulingLookup', checked)
+                            }
+                          />
+                        </div>
+
+                        <div className="flex items-start justify-between gap-4 rounded-md border border-border/60 bg-muted/20 p-3 opacity-60">
+                          <div>
+                            <Label>Consultar estados de pedidos</Label>
+                            <p className="text-xs text-muted-foreground">
+                              Próximamente: seguimiento de órdenes y cuentas por cobrar desde el asistente.
+                            </p>
+                          </div>
+                          <Switch disabled checked={Boolean(settings.aiAssistant?.capabilities?.orderLookup)} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-md border border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground space-y-2">
                       <p>
-                        El asistente de soporte siempre usa la documentación global de SmartKubik <span className="font-semibold">(smartkubik_docs)</span>.
+                        El asistente siempre tendrá acceso a la documentación global de SmartKubik{' '}
+                        <span className="font-semibold">(smartkubik_docs)</span>. Los documentos del tenant se usan cuando
+                        las capacidades correspondientes están activas.
                       </p>
                       <p>
-                        La base de conocimiento personalizada solo se usa para auto-respuestas en WhatsApp cuando el interruptor está activado.
+                        Todas las respuestas verifican la información antes de confirmar precios o disponibilidad.
                       </p>
                     </div>
                   </CardContent>
                 </Card>
+                <TenantKnowledgeBaseManager />
             </div>
           </div>
 

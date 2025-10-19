@@ -42,11 +42,18 @@ export class TenantService {
 
     const fileSizeInMB = file.size / (1024 * 1024);
     if (tenant.usage.currentStorage + fileSizeInMB > tenant.limits.maxStorage) {
-      throw new BadRequestException("Límite de almacenamiento alcanzado para su plan de suscripción.");
+      throw new BadRequestException(
+        "Límite de almacenamiento alcanzado para su plan de suscripción.",
+      );
     }
 
     // Validar tipo de archivo (opcional, pero recomendado)
-    const allowedMimeTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    const allowedMimeTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+    ];
     if (!allowedMimeTypes.includes(file.mimetype)) {
       throw new UnsupportedMediaTypeException(
         "Tipo de archivo no soportado. Solo se permiten imágenes (JPEG, PNG, GIF, WEBP).",
@@ -68,7 +75,9 @@ export class TenantService {
         },
         { new: true, runValidators: true },
       )
-      .select("name contactInfo taxInfo logo website timezone settings aiAssistant")
+      .select(
+        "name contactInfo taxInfo logo website timezone settings aiAssistant",
+      )
       .exec();
 
     if (!updatedTenant) {
@@ -81,7 +90,9 @@ export class TenantService {
   async getSettings(tenantId: string): Promise<Tenant> {
     const tenant = await this.tenantModel
       .findById(tenantId)
-      .select("name contactInfo taxInfo logo website timezone settings aiAssistant limits usage subscriptionPlan")
+      .select(
+        "name contactInfo taxInfo logo website timezone settings aiAssistant limits usage subscriptionPlan",
+      )
       .exec();
 
     if (!tenant) {
@@ -131,25 +142,56 @@ export class TenantService {
         const { invoice, quote } = documentTemplates;
         if (invoice) {
           Object.keys(invoice).forEach((key) => {
-            updatePayload[`settings.documentTemplates.invoice.${key}`] = invoice[key];
+            updatePayload[`settings.documentTemplates.invoice.${key}`] =
+              invoice[key];
           });
         }
         if (quote) {
           Object.keys(quote).forEach((key) => {
-            updatePayload[`settings.documentTemplates.quote.${key}`] = quote[key];
+            updatePayload[`settings.documentTemplates.quote.${key}`] =
+              quote[key];
           });
         }
       }
     }
 
     if (updateDto.aiAssistant) {
-      const { autoReplyEnabled, knowledgeBaseTenantId } = updateDto.aiAssistant;
-      if (typeof autoReplyEnabled === 'boolean') {
-        updatePayload['aiAssistant.autoReplyEnabled'] = autoReplyEnabled;
+      const { autoReplyEnabled, knowledgeBaseTenantId, model, capabilities } =
+        updateDto.aiAssistant;
+      if (typeof autoReplyEnabled === "boolean") {
+        updatePayload["aiAssistant.autoReplyEnabled"] = autoReplyEnabled;
       }
       if (knowledgeBaseTenantId !== undefined) {
-        updatePayload['aiAssistant.knowledgeBaseTenantId'] =
-          (knowledgeBaseTenantId || '').trim();
+        updatePayload["aiAssistant.knowledgeBaseTenantId"] = (
+          knowledgeBaseTenantId || ""
+        ).trim();
+      }
+      if (model !== undefined) {
+        updatePayload["aiAssistant.model"] =
+          (model || "").trim() || "gpt-4o-mini";
+      }
+      if (capabilities) {
+        const {
+          knowledgeBaseEnabled,
+          inventoryLookup,
+          schedulingLookup,
+          orderLookup,
+        } = capabilities;
+        if (typeof knowledgeBaseEnabled === "boolean") {
+          updatePayload["aiAssistant.capabilities.knowledgeBaseEnabled"] =
+            knowledgeBaseEnabled;
+        }
+        if (typeof inventoryLookup === "boolean") {
+          updatePayload["aiAssistant.capabilities.inventoryLookup"] =
+            inventoryLookup;
+        }
+        if (typeof schedulingLookup === "boolean") {
+          updatePayload["aiAssistant.capabilities.schedulingLookup"] =
+            schedulingLookup;
+        }
+        if (typeof orderLookup === "boolean") {
+          updatePayload["aiAssistant.capabilities.orderLookup"] = orderLookup;
+        }
       }
     }
 
@@ -159,7 +201,7 @@ export class TenantService {
         { $set: updatePayload },
         { new: true, runValidators: true },
       )
-      .select("name contactInfo taxInfo logo website timezone settings")
+      .select("name contactInfo taxInfo logo website timezone settings aiAssistant")
       .exec();
 
     if (!updatedTenant) {
@@ -172,7 +214,11 @@ export class TenantService {
   }
 
   async getUsers(tenantId: string): Promise<User[]> {
-    return this.userModel.find({ tenantId: new Types.ObjectId(tenantId) }).populate('role').select("-password").exec();
+    return this.userModel
+      .find({ tenantId: new Types.ObjectId(tenantId) })
+      .populate("role")
+      .select("-password")
+      .exec();
   }
 
   async inviteUser(
@@ -185,7 +231,9 @@ export class TenantService {
     }
 
     if (tenant.usage.currentUsers >= tenant.limits.maxUsers) {
-      throw new ConflictException("Límite de usuarios alcanzado para su plan de suscripción.");
+      throw new ConflictException(
+        "Límite de usuarios alcanzado para su plan de suscripción.",
+      );
     }
 
     const existingUser = await this.userModel
@@ -214,7 +262,9 @@ export class TenantService {
 
     const savedUser = await newUser.save();
 
-    await this.tenantModel.findByIdAndUpdate(tenantId, { $inc: { 'usage.currentUsers': 1 } });
+    await this.tenantModel.findByIdAndUpdate(tenantId, {
+      $inc: { "usage.currentUsers": 1 },
+    });
 
     // Crear el registro de Customer correspondiente
     const customerNumber = `EMP-${Date.now()}`;
@@ -222,15 +272,17 @@ export class TenantService {
       customerNumber,
       name: savedUser.firstName,
       lastName: savedUser.lastName,
-      customerType: 'employee', // ¡Clave!
-      contacts: [{
-        type: 'email',
-        value: savedUser.email,
-        isPrimary: true,
-      }],
+      customerType: "employee", // ¡Clave!
+      contacts: [
+        {
+          type: "email",
+          value: savedUser.email,
+          isPrimary: true,
+        },
+      ],
       tenantId: savedUser.tenantId,
       createdBy: savedUser._id, // Auto-referencia o el admin que lo crea
-      status: 'active',
+      status: "active",
     });
     await newCustomer.save();
 
@@ -243,7 +295,10 @@ export class TenantService {
     } catch (error) {
       // Si el email falla, no queremos que la creación del usuario falle.
       // Simplemente lo logueamos. En un ambiente de producción, usaríamos un logger más robusto.
-      console.error(`Failed to send welcome email to ${savedUser.email}`, error);
+      console.error(
+        `Failed to send welcome email to ${savedUser.email}`,
+        error,
+      );
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -286,13 +341,17 @@ export class TenantService {
     }
 
     // Decrement the user count
-    await this.tenantModel.findByIdAndUpdate(tenantId, { $inc: { 'usage.currentUsers': -1 } });
+    await this.tenantModel.findByIdAndUpdate(tenantId, {
+      $inc: { "usage.currentUsers": -1 },
+    });
 
     // Adicionalmente, desactivar el registro de Customer correspondiente
-    await this.customerModel.findOneAndUpdate(
-      { createdBy: userId, tenantId }, // Asumiendo que `createdBy` linkea al usuario
-      { $set: { status: 'inactive' } }
-    ).exec();
+    await this.customerModel
+      .findOneAndUpdate(
+        { createdBy: userId, tenantId }, // Asumiendo que `createdBy` linkea al usuario
+        { $set: { status: "inactive" } },
+      )
+      .exec();
 
     return { success: true, message: "Usuario eliminado exitosamente" };
   }

@@ -53,8 +53,9 @@ class ContactInfoDto {
   email: string;
 
   @ApiProperty({ example: "+584121234567" })
-  @IsPhoneNumber(undefined)
+  @IsString()
   @IsOptional()
+  @SanitizeString()
   phone: string;
 
   @ApiProperty()
@@ -79,10 +80,10 @@ class TaxInfoDto {
 }
 
 class CurrencySettingsDto {
-    @ApiProperty({ example: "VES" })
-    @IsString()
-    @IsOptional()
-    primary?: string;
+  @ApiProperty({ example: "VES" })
+  @IsString()
+  @IsOptional()
+  primary?: string;
 }
 
 class InventorySettingsDto {
@@ -91,6 +92,11 @@ class InventorySettingsDto {
     @IsOptional()
     @Min(0)
     lowStockAlertThreshold?: number;
+
+    @ApiProperty({ example: true })
+    @IsOptional()
+    @IsBoolean()
+    fefoEnabled?: boolean;
 }
 
 class InvoiceSettingsDto {
@@ -147,6 +153,28 @@ class DocumentTemplatesSettingsDto {
   quote?: QuoteSettingsDto;
 }
 
+class AiAssistantCapabilitiesSettingsDto {
+  @ApiProperty({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  knowledgeBaseEnabled?: boolean;
+
+  @ApiProperty({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  inventoryLookup?: boolean;
+
+  @ApiProperty({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  schedulingLookup?: boolean;
+
+  @ApiProperty({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  orderLookup?: boolean;
+}
+
 class AiAssistantSettingsDto {
   @ApiProperty({ example: false })
   @IsOptional()
@@ -158,26 +186,41 @@ class AiAssistantSettingsDto {
   @IsOptional()
   @SanitizeString()
   knowledgeBaseTenantId?: string;
+
+  @ApiProperty({ example: "gpt-4o-mini" })
+  @IsString()
+  @IsOptional()
+  @SanitizeString()
+  model?: string;
+
+  @ApiProperty({
+    type: () => AiAssistantCapabilitiesSettingsDto,
+    required: false,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AiAssistantCapabilitiesSettingsDto)
+  capabilities?: AiAssistantCapabilitiesSettingsDto;
 }
 
 class OperationalSettingsDto {
-    @ApiProperty({ type: CurrencySettingsDto })
-    @IsOptional()
-    @ValidateNested()
-    @Type(() => CurrencySettingsDto)
-    currency?: CurrencySettingsDto;
+  @ApiProperty({ type: CurrencySettingsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CurrencySettingsDto)
+  currency?: CurrencySettingsDto;
 
-    @ApiProperty({ type: InventorySettingsDto })
-    @IsOptional()
-    @ValidateNested()
-    @Type(() => InventorySettingsDto)
-    inventory?: InventorySettingsDto;
+  @ApiProperty({ type: InventorySettingsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => InventorySettingsDto)
+  inventory?: InventorySettingsDto;
 
-    @ApiProperty({ type: DocumentTemplatesSettingsDto })
-    @IsOptional()
-    @ValidateNested()
-    @Type(() => DocumentTemplatesSettingsDto)
-    documentTemplates?: DocumentTemplatesSettingsDto;
+  @ApiProperty({ type: DocumentTemplatesSettingsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => DocumentTemplatesSettingsDto)
+  documentTemplates?: DocumentTemplatesSettingsDto;
 }
 
 export class UpdateTenantSettingsDto {

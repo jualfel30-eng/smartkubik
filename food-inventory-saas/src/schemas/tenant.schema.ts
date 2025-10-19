@@ -88,8 +88,7 @@ export class TenantSettings {
   };
 }
 
-const TenantSettingsSchema =
-  SchemaFactory.createForClass(TenantSettings);
+const TenantSettingsSchema = SchemaFactory.createForClass(TenantSettings);
 
 @Schema({ timestamps: true })
 export class Tenant {
@@ -104,9 +103,9 @@ export class Tenant {
 
   @Prop({
     type: String,
-    enum: ['FOOD_SERVICE', 'RETAIL', 'SERVICES', 'LOGISTICS', 'HYBRID'],
-    default: 'FOOD_SERVICE',
-    required: true
+    enum: ["FOOD_SERVICE", "RETAIL", "SERVICES", "LOGISTICS", "HYBRID"],
+    default: "FOOD_SERVICE",
+    required: true,
   })
   vertical: string;
 
@@ -201,13 +200,45 @@ export class Tenant {
   @Prop({
     type: {
       autoReplyEnabled: { type: Boolean, default: false },
-      knowledgeBaseTenantId: { type: String, default: '' },
+      knowledgeBaseTenantId: { type: String, default: "" },
+      model: { type: String, default: "gpt-4o-mini" },
+      capabilities: {
+        type: {
+          knowledgeBaseEnabled: { type: Boolean, default: true },
+          inventoryLookup: { type: Boolean, default: false },
+          schedulingLookup: { type: Boolean, default: false },
+          orderLookup: { type: Boolean, default: false },
+        },
+        default: {
+          knowledgeBaseEnabled: true,
+          inventoryLookup: false,
+          schedulingLookup: false,
+          orderLookup: false,
+        },
+      },
     },
-    default: { autoReplyEnabled: false, knowledgeBaseTenantId: '' },
+    default: {
+      autoReplyEnabled: false,
+      knowledgeBaseTenantId: "",
+      model: "gpt-4o-mini",
+      capabilities: {
+        knowledgeBaseEnabled: true,
+        inventoryLookup: false,
+        schedulingLookup: false,
+        orderLookup: false,
+      },
+    },
   })
   aiAssistant?: {
     autoReplyEnabled: boolean;
     knowledgeBaseTenantId?: string;
+    model?: string;
+    capabilities?: {
+      knowledgeBaseEnabled: boolean;
+      inventoryLookup: boolean;
+      schedulingLookup: boolean;
+      orderLookup: boolean;
+    };
   };
 
   @Prop({ type: Object })
