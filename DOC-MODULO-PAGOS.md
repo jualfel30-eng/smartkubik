@@ -14,74 +14,74 @@ Centraliza la gestion de gastos y obligaciones: registrar cuentas por pagar, cre
 ## 2. Estructura principal
 
 ### 2.1 Tabs superiores (`Tabs` component)
-- **Cuentas por Pagar:** listado principal de payables, creacion manual, registro de pagos e inspeccion detallada.  
-- **Pagos Registrados:** historial de pagos aplicados a ordenes o payables (fuente `getPayments`).  
-- **Plantillas Recurrentes:** gestiona plantillas para gastos periodicos y generacion automatica (`createRecurringPayable`).  
-- **Configuracion auxiliar:** acceso a plan de cuentas para mapear lineas.
+- **Cuentas por Pagar:** Listado principal de gastos y facturas pendientes de pago. Permite la creación manual y el registro de pagos.
+- **Pagos Recurrentes:** Permite definir plantillas para gastos periódicos (ej. alquiler, servicios) y generarlos automáticamente.
+- **Historial de Pagos Pendientes:** Un historial completo de todas las cuentas por pagar registradas, ideal para búsquedas y auditorías.
+- **Historial de Pagos (General):** Debajo de las pestañas, se encuentra una tabla con el historial de **todos** los pagos realizados en el sistema (tanto de ventas como de cuentas por pagar).
 
 ### 2.2 Listado de Cuentas por Pagar
-- Tabla con columnas: proveedor, tipo, fecha de emision/vencimiento, monto total, pagado, saldo, estado.  
-- Acciones por fila: `Ver` (dialogo detallado), `Pagar` (abre `PaymentDialog` especifico para payables).  
-- Filtros basicos por estado (pendiente, parcial, pagado) y busqueda (implementado con `filteredPayables`).  
-- Boton `Registrar Cuenta por Pagar`: abre formulario en dialogo.
+- Tabla con columnas: proveedor, fecha, monto total, monto pagado y estado.
+- Acciones por fila: `Ver` (abre un diálogo con todos los detalles) y `Pagar` (abre el `PaymentDialog`).
+- Botón `Registrar Cuenta por Pagar`: abre un formulario en diálogo para crear un nuevo gasto.
 
 ### 2.3 Formulario de nueva cuenta (`Registrar Cuenta por Pagar`)
-- **Datos del proveedor:** selector `SearchableSelect` para elegir existente o crear nuevo (crea registro en CRM con `customerType = supplier`).  
-- **Detalles del gasto:** tipo (`purchase_order`, `service_payment`, `utility_bill`, `payroll`, `other`), fechas, notas.  
-- **Lineas contables:** descripcion, monto, cuenta contable (plan de cuentas). Permite multiples lineas, validando montos > 0.  
-- **Guardado:** envia `POST /payables` y refresca listado.
+- **Datos del proveedor:** Selector `SearchableSelect` para elegir un proveedor existente o crear uno nuevo sobre la marcha.
+- **Detalles del gasto:** Tipo (`Factura de Compra`, `Pago de Servicio`, `Nómina`, etc.), fecha de emisión y vencimiento.
+- **Líneas contables:** Permite añadir múltiples líneas, cada una con su descripción, monto y cuenta de gasto asociada del Plan de Cuentas.
+- **Guardado:** Envía `POST /payables` y refresca el listado.
 
-### 2.4 Dialogo de pagos (para payables)
-- Permite registrar uno o varios pagos contra la cuenta seleccionada.  
-- Calcula saldo pendiente y exige metodo/monto.  
-- Crea movimientos via `createPayment` (`POST /payables/:id/payments` o endpoint equivalente).  
-- Tras registrar, refresca payables y pagos para mantener consistencia.
+### 2.4 Diálogo de pagos (`PaymentDialog`)
+- Permite registrar un pago (parcial o total) contra la cuenta por pagar seleccionada.
+- **Campo Clave: `Cuenta Bancaria`:** Un selector para elegir la cuenta bancaria desde la cual se está realizando el pago.
+- **Automatización:** Si se selecciona una cuenta bancaria, el sistema crea automáticamente un movimiento de `retiro` en el historial de esa cuenta, dejándolo listo para la conciliación.
+- Otros campos: método de pago, monto, fecha y número de referencia.
+- Crea el movimiento vía `createPayment` y actualiza el estado de la cuenta por pagar.
 
-### 2.5 Dialogo de detalles
-- Muestra informacion completa del payable: proveedor, tipo, estado, fechas, lineas con cuentas y montos, notas, resumen (total, pagado, saldo).  
-- Util para auditorias o seguimiento antes de registrar pago.
+### 2.5 Diálogo de detalles
+- Muestra un resumen completo de la cuenta por pagar: proveedor, fechas, estado, líneas de gasto, y un resumen de montos (total, pagado, pendiente).
 
-### 2.6 Pagos Registrados
-- Tabla alimentada por `getPayments()` con filtros por metodo, rango de fechas y estado (segun implementacion).  
-- Cada registro incluye referencia, monto, metodo, fecha y documento asociado (orden o payable).  
-- Opcion de exportar para conciliaciones.
+### 2.6 Historial de Pagos (General)
+- Una tabla que consolida todos los pagos, tanto de ventas como de cuentas por pagar.
+- Columnas: Fecha, Concepto, Monto, Método y Referencia.
+- Útil para una visión global de todos los egresos e ingresos.
 
-### 2.7 Plantillas recurrentes
-- Dialogo `CreateRecurringPayableDialog`: define nombre, proveedor, frecuencia (mensual/trimestral/anual), fecha de inicio, tipo de gasto y lineas.  
-- Soporta creacion de nuevo proveedor.  
-- Se guardan via `createRecurringPayable`; luego se pueden generar payables individuales con `generatePayableFromTemplate`.  
-- Ideal para alquileres, servicios publicos, suscripciones.
+### 2.7 Plantillas recurrentes (`RecurringPayables`)
+- Diálogo para definir plantillas con nombre, proveedor, frecuencia (mensual, trimestral, etc.), fecha de inicio y líneas de gasto.
+- Un botón `Generar Pago` permite crear la cuenta por pagar a partir de la plantilla cuando llegue el momento.
 
 ## 3. Flujos habituales
 
 ### 3.1 Registrar factura y pago parcial
-1. Abrir `Registrar Cuenta por Pagar`.  
-2. Seleccionar proveedor o crearlo (nombre, RIF, contactos).  
-3. Cargar lineas contables con cuentas de gasto.  
-4. Guardar.  
-5. En la tabla, usar `Pagar`. Registrar monto parcial con metodo (transferencia, pago movil, etc.).  
-6. Revisar saldo pendiente; repetir pagos hasta cerrar (estado `paid`).  
-7. Verificar en Contabilidad que los asientos se generaron y en Reportes `Accounts Payable`.
+1. Abrir `Registrar Cuenta por Pagar`.
+2. Seleccionar un proveedor o crearlo.
+3. Cargar las líneas de gasto con sus cuentas contables.
+4. Guardar. La nueva cuenta por pagar aparecerá en el listado.
+5. En la tabla, usar la acción `Pagar`.
+6. En el diálogo de pago, **seleccionar la cuenta bancaria** desde la que se pagó, el método y el monto.
+7. Guardar el pago. El saldo de la cuenta por pagar se actualizará y se creará un movimiento en el módulo de Cuentas Bancarias.
+8. Verificar en Contabilidad que los asientos se generaron y en Reportes `Accounts Payable`.
 
 ### 3.2 Configurar gasto recurrente
-1. Ir a pestaña `Plantillas`.  
-2. Crear plantilla con proveedor, frecuencia y lineas.  
-3. Cada periodo, usar `Generar desde plantilla` para crear payable automaticamente (soporta autopoblado de lineas).  
-4. Registrar pago cuando corresponda; el sistema mantiene historial por plantilla.
+1. Ir a la pestaña `Pagos Recurrentes`.
+2. Crear una plantilla con proveedor, frecuencia y líneas de gasto.
+3. Cada período, usar `Generar Pago` para crear la cuenta por pagar automáticamente.
+4. Registrar el pago siguiendo el flujo del punto 3.1.
 
-### 3.3 Conciliacion con Pagos realizados
-1. Revisar tab `Pagos Registrados` para listar todos los pagos (ordenes y payables).  
-2. Filtrar por metodo/fecha para cuadrar con estados bancarios.  
-3. Exportar si se requiere cargar en Excel o subir a sistema externo.  
-4. Si falta un pago, ubicar la orden/ payables y registrar desde su dialogo correspondiente.
+### 3.3 Conciliación Bancaria
+1. El antiguo método de exportar a Excel ha sido reemplazado por una integración directa.
+2. Cada pago registrado desde este módulo (siempre que se seleccione una cuenta bancaria) genera una transacción de `retiro` en el módulo de **Cuentas Bancarias**.
+3. La conciliación real se realiza ahora en `Finanzas` -> `Cuentas Bancarias`.
+4. Para más detalles, consultar la documentación `DOC-MODULO-CUENTAS-BANCARIAS.md` y `DOC-FLUJO-CUENTAS-BANCARIAS.md`.
 
 ## 4. Integraciones y automatizaciones
-- **CRM:** creacion de proveedores escribe en coleccion `customers` con tipo `supplier`.  
-- **Contabilidad:** cada payable y pago genera asientos (`ChartOfAccounts` y `JournalEntries`).  
-- **Compras:** ordenes de compra generan payables automaticamente, visibles aqui para seguimiento.  
-- **Pagos de ordenes:** los movimientos registrados en `OrdersManagement` aparecen en el tab de pagos para conciliacion general.  
-- **Reportes:** Accounts Payable y Cash Flow utilizan datos de payables/pagos para analitica financiera.  
-- **Notificaciones:** se puede integrar con alertas para vencimientos (via `payables` service en backend).
+- **CRM:** La creación de proveedores alimenta la base de datos de `customers` con el tipo `supplier`.
+- **Contabilidad:** Cada cuenta por pagar y su pago correspondiente generan asientos automáticos en el Libro Diario.
+- **Compras:** Las órdenes de compra pueden generar cuentas por pagar automáticamente, que luego se gestionan y pagan desde este módulo.
+- **Cuentas Bancarias (NUEVO):** Al registrar un pago y seleccionar una cuenta bancaria, se crea automáticamente una transacción de `retiro` en dicha cuenta, lista para ser conciliada.
+- **Pagos de Órdenes:** El historial de pagos general también muestra los cobros de ventas para una visión consolidada.
+- **Reportes:** Los datos de este módulo alimentan los reportes de Cuentas por Pagar (Accounts Payable) y Flujo de Caja (Cash Flow).
+- **Notificaciones:** El backend puede configurarse para enviar alertas de vencimiento.
+
 
 ## 5. Buenas practicas de soporte
 - Asegurarse de que el plan de cuentas tenga cuentas de gasto activas antes de registrar lineas.  

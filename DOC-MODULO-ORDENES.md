@@ -35,41 +35,44 @@ Gestion integral del ciclo de venta: captura de pedidos, calculo fiscal venezola
 - **Estados de pago:** `pending`, `partial`, `paid`, `overpaid`, `refunded`.
 
 ### 2.4 Dialogos secundarios
-- **`PaymentDialogV2`:** registrar pagos unicos o mixtos para ordenes existentes. Calcula balance pendiente, valida montos y llama `POST /orders/:id/payments`.  
-- **`OrderDetailsDialog`:** muestra resumen, productos, totales, entregas, notas, historial de pagos; permite generar PDF (presupuesto/factura) y abrir `SplitBillModal` para cuentas divididas.  
-- **`OrderStatusSelector`:** listado de estados (draft, pending, confirmed, processing, delivered, cancelled, refunded). Actualiza orden via API y refresca la tabla.  
-- **`SplitBillModal` (restaurante):** dividir cuentas por personas o montos, integracion con `bill-splits`.
+- **`PaymentDialogV2`:** Permite registrar pagos únicos o mixtos para órdenes existentes. 
+  - **Campo Clave: `Cuenta Bancaria`:** Un selector para elegir la cuenta bancaria donde se recibió el pago. 
+  - **Automatización:** Si se selecciona una cuenta, el sistema crea automáticamente un movimiento de `depósito` en el historial de esa cuenta, preparándolo para la conciliación.
+- **`OrderDetailsDialog`:** Muestra el resumen completo de la orden, incluyendo productos, pagos, historial y notas. Permite generar un PDF y abrir el modal para dividir la cuenta.
+- **`OrderStatusSelector`:** Un menú para cambiar el estado comercial de la orden (confirmado, procesando, entregado, etc.).
+- **`SplitBillModal` (restaurante):** Permite dividir la cuenta por personas o montos.
 
 ## 3. Flujos operativos
 
 ### 3.1 Crear y cobrar una orden
-1. Completar datos del cliente y entrega.  
-2. Agregar productos; ajustar cantidades, unidades, modificadores.  
-3. Seleccionar metodo de pago (unico o mixto).  
-4. Revisar totales (IVA, IGTF, envio).  
-5. `Crear Orden`. Se genera numero correlativo, reserva inventario y actualiza CRM.  
-6. Si queda balance pendiente, usar `Registrar Pago` desde la tabla o `PaymentDialogV2` para saldar en uno o varios pasos.  
-7. Cambiar estado a `confirmed` o `delivered` segun avance. Esto dispara asientos contables (ventas, costo, impuestos) y libera inventario.
+1. Completar datos del cliente y entrega.
+2. Agregar productos, ajustando cantidades y modificadores.
+3. Seleccionar método de pago (único o mixto).
+4. Revisar totales (IVA, IGTF, envío).
+5. `Crear Orden`. Esto reserva el inventario y actualiza el CRM.
+6. Si queda un saldo pendiente, usar la acción `Registrar Pago` desde la tabla.
+7. En el diálogo de pago, **seleccionar la cuenta bancaria** donde se recibió el dinero, el método y el monto.
+8. Guardar el pago. El saldo de la orden se actualizará y se creará un movimiento de `depósito` en el módulo de Cuentas Bancarias.
+9. Cambiar estado a `confirmed` o `delivered` para disparar los asientos contables y la descarga final de inventario.
 
 ### 3.2 Ordenes con entrega y seguimiento
-1. Seleccionar `delivery` o `envio_nacional`; capturar direccion o ubicacion mapa.  
-2. El componente calcula costo de envio y muestra distancia/duracion (si aplica).  
-3. Guardar orden. El backend registra `shipping` con metodo, costo, direccion y metricas; la informacion aparece en `OrderDetailsDialog`.  
-4. Cambiar estado a `processing` cuando salga a reparto y `delivered` al completar.
+1. Seleccionar `delivery` o `envio_nacional` y capturar la dirección.
+2. El sistema calcula el costo de envío y lo añade al total.
+3. Al guardar, la información de envío queda registrada y visible en los detalles de la orden.
+4. Cambiar el estado (`processing`, `delivered`) para seguir el progreso.
 
 ### 3.3 Integracion con cocina (vertical restaurante)
-1. Habilitar modulos `restaurant`, `tables` o `kitchenDisplay`.  
-2. Crear orden y dejarla en estado `confirmed`.  
-3. En la tabla, usar `Enviar a Cocina`. El sistema envia payload a `/kitchen-display/create` (ticket, prioridad, notas).  
-4. Cocina administra tickets en `KitchenDisplay` hasta completar; los estados se reflejan en la orden y en inventario.
+1. Con los módulos de restaurante activos, crear una orden y ponerla en estado `confirmed`.
+2. Usar la acción `Enviar a Cocina` desde la tabla de órdenes.
+3. El sistema envía un ticket al `KitchenDisplay` para que el personal de cocina lo prepare.
 
 ## 4. Automatizaciones posteriores a la orden
-- **Inventario:** reserva y descuento de stock (manejo de lotes FEFO y multi-unidad).  
-- **CRM:** actualiza historico del cliente, clasificaciones y actividades.  
-- **Contabilidad:** genera asientos de venta e IGTF, registra COGS (ver `AccountingService`).  
-- **Pagos:** cada registro en `PaymentDialogV2` crea movimiento en `payments` y actualiza `payables` de cuentas por cobrar.  
-- **Kitchen / Mesas:** integra con modulos de restaurante cuando estan habilitados.  
-- **Storefront:** ordenes creadas desde storefront llegan por la misma API y se gestionan aqui.
+- **Inventario:** Reserva y posterior descargo de stock, manejando lotes (FEFO) y múltiples unidades.
+- **CRM:** Actualiza el historial de compras del cliente y su clasificación.
+- **Contabilidad:** Genera asientos automáticos de venta, impuestos (IGTF) y costo de la mercancía vendida (COGS).
+- **Cuentas Bancarias (NUEVO):** Al registrar un pago y seleccionar una cuenta bancaria, se crea automáticamente una transacción de `depósito` en dicha cuenta, lista para ser conciliada en el módulo de Cuentas Bancarias.
+- **Kitchen / Mesas:** Se integra con los módulos de restaurante cuando están habilitados.
+- **Storefront:** Las órdenes creadas desde la tienda online llegan por la misma API y se gestionan en este módulo.
 
 ## 5. API y datos relevantes
 - `GET /orders?page&limit&search` -> listado paginado.  

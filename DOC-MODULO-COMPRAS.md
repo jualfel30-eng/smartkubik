@@ -59,33 +59,30 @@ Compras conecta el analisis de necesidades (stock critico, proximos a vencer) co
 
 ## 5. Integraciones y efectos colaterales
 - **Inventario:**  
-  - Cada orden aprobada genera movimientos de entrada, actualiza costo promedio y lotes.  
-  - Las alertas se recalculan tras crear la compra.
+  - Cada orden aprobada genera movimientos de entrada, actualiza el costo promedio y registra los lotes.
 - **Productos:**  
-  - Usa catalogo existente para sugerir costos y propiedades; al crear producto+compra inicial se sincroniza con modulo Productos automaticamente.
-- **Cuentas por pagar:**  
-  - El backend crea registros de `Payable` con el total, estado inicial y condiciones de pago.  
-  - Los pagos posteriores (desde Payables Management) liquidan el saldo de la compra.
+  - Utiliza el catálogo existente para sugerir costos y propiedades.
+- **Cuentas por Pagar (Integración Clave):**  
+  - Al guardar una Orden de Compra, el sistema **automáticamente genera una Cuenta por Pagar (Payable)** en el módulo de `Pagos`.
+  - La gestión del pago (parcial o total) y su posterior conciliación bancaria **no se realizan en Compras**, sino directamente en el módulo de `Pagos`.
+  - Para más detalles sobre el flujo de pago y conciliación, consulte `DOC-MODULO-PAGOS.md`.
 - **Contabilidad:**  
-  - Movimientos de compra alimentan asientos de inventario y cuentas por pagar, y se reflejan en reportes (Accounts Payable, Cash Flow).
+  - Los movimientos de compra alimentan los asientos de inventario y cuentas por pagar.
 - **Alertas automatizadas:**  
-  - APIs `/inventory/alerts/low-stock` y `/inventory/alerts/near-expiration` se consumen al entrar al modulo; se recomienda revisar diariamente.
+  - El módulo consume las APIs de `low-stock` y `near-expiration` para sugerir reórdenes.
 
 ## 6. Buenas practicas operativas
-- Después de registrar una compra revisar el historial para confirmar estado y montos.  
-- Si el proveedor no existe, validar RIF y datos de contacto para evitar duplicados; considerar completar la ficha en CRM si se requiere informacion adicional.  
-- Definir costos unitarios reales (incluyendo impuestos, fletes) para que el costo promedio refleje la realidad y se calculen correctamente los margenes.  
-- Para anticipos, registrar porcentaje exacto acordado; luego crear el pago desde Cuentas por Pagar usando el mismo metodo de pago para mantener conciliacion.  
-- Ante discrepancias de stock tras una compra, revisar si la orden genero lotes y confirmar que no exista un ajuste manual posterior que haya modificado la cantidad.
+- Después de registrar una compra, es una buena práctica ir al módulo de `Pagos` para verificar la Cuenta por Pagar generada.
+- Al crear un proveedor, validar el RIF y datos de contacto para evitar duplicados.
+- Definir los costos unitarios reales para que el sistema calcule los márgenes de ganancia correctamente.
+- Al momento de realizar el pago en el módulo de `Pagos`, **es crucial seleccionar la cuenta bancaria correcta** desde la cual se emitió el pago. Esto es lo que permite que el sistema genere el movimiento de `retiro` y lo prepare para una conciliación fácil y automática.
 
 ## 7. Soporte y diagnostico
-- Revisar `PurchaseHistory` y el backend (`/purchases/:id`) para verificar el estado (`draft`, `received`, etc.).  
-- Usar `debug-api.js` (frontend) para depurar llamadas si el formulario arroja error de validacion.  
-- Consultar `food-inventory-saas/src/modules/purchases/` para revisar DTOs y reglas de negocio (por ejemplo, validaciones de anticipo).  
-- En caso de fallas recurrentes, validar que el tenant tenga habilitado el modulo de compras en `tenant.enabledModules`.
+- Si una Orden de Compra no genera su respectiva Cuenta por Pagar, revisar los logs del backend (`POST /purchases`) para verificar que la creación del `Payable` asociado fue exitosa.
+- Consultar `food-inventory-saas/src/modules/purchases/` para revisar las reglas de negocio.
 
 ## 8. Recursos vinculados
 - UI: `food-inventory-admin/src/components/ComprasManagement.jsx`, `PurchaseHistory.jsx`  
 - API/Servicios: `food-inventory-saas/src/modules/purchases/`, `payables`, `inventory`  
-- Documentos relacionados: `DOC-MODULO-PRODUCTOS.md`, `DOC-MODULO-INVENTARIO.md`, `DOC-FLUJO-INVENTARIOS.md`
+- Documentos relacionados: `DOC-MODULO-PRODUCTOS.md`, `DOC-MODULO-INVENTARIO.md`, `DOC-FLUJO-INVENTARIOS.md`, `DOC-MODULO-PAGOS.md`
 
