@@ -16,7 +16,10 @@ import { CreateCustomerDto } from "../../dto/customer.dto";
 import { CustomersService } from "../customers/customers.service";
 import { InventoryService } from "../inventory/inventory.service";
 import { AccountingService } from "../accounting/accounting.service";
-import { PayablesService, CreatePayableDto } from "../payables/payables.service"; // Import PayablesService and DTO
+import {
+  PayablesService,
+  CreatePayableDto,
+} from "../payables/payables.service"; // Import PayablesService and DTO
 import { EventsService } from "../events/events.service"; // Import EventsService
 
 @Injectable()
@@ -104,6 +107,7 @@ export class PurchasesService {
 
     const poNumber = await this.generatePoNumber(user.tenantId);
 
+    const { Types } = require("mongoose");
     const poData = {
       poNumber,
       supplierId,
@@ -131,7 +135,9 @@ export class PurchasesService {
       },
       notes: dto.notes,
       createdBy: user.id,
-      tenantId: user.tenantId,
+      tenantId: Types.ObjectId.isValid(user.tenantId)
+        ? new Types.ObjectId(user.tenantId)
+        : user.tenantId,
     };
 
     const newPurchaseOrder = new this.poModel(poData);
@@ -150,9 +156,13 @@ export class PurchasesService {
           },
           user,
         );
-        this.logger.log(`Created event and task for purchase order: ${poNumber}`);
+        this.logger.log(
+          `Created event and task for purchase order: ${poNumber}`,
+        );
       } catch (error) {
-        this.logger.error(`Error creating event for purchase order: ${error.message}`);
+        this.logger.error(
+          `Error creating event for purchase order: ${error.message}`,
+        );
         // No fallar la creación de la compra si falla el evento
       }
     }
@@ -163,9 +173,12 @@ export class PurchasesService {
 
   async findAll(tenantId: string) {
     // Convert tenantId to ObjectId to handle both string and ObjectId types in database
-    const { Types } = require('mongoose');
+    const { Types } = require("mongoose");
     const tenantObjectId = new Types.ObjectId(tenantId);
-    return this.poModel.find({ tenantId: tenantObjectId }).sort({ purchaseDate: -1 }).exec();
+    return this.poModel
+      .find({ tenantId: tenantObjectId })
+      .sort({ purchaseDate: -1 })
+      .exec();
   }
 
   async receivePurchaseOrder(
@@ -173,8 +186,13 @@ export class PurchasesService {
     user: any,
     session?: ClientSession,
   ): Promise<PurchaseOrderDocument> {
+    const { Types } = require("mongoose");
+    const tenantObjectId = Types.ObjectId.isValid(user.tenantId)
+      ? new Types.ObjectId(user.tenantId)
+      : user.tenantId;
+
     const purchaseOrder = await this.poModel
-      .findOne({ _id: id, tenantId: user.tenantId })
+      .findOne({ _id: id, tenantId: tenantObjectId })
       .session(session ?? null);
 
     if (!purchaseOrder) {
@@ -226,7 +244,9 @@ export class PurchasesService {
       );
 
       // The payable lines will reference the inventory account
-      const inventoryAccount = await (this.accountingService as any).findOrCreateAccount(
+      const inventoryAccount = await (
+        this.accountingService as any
+      ).findOrCreateAccount(
         { code: "1103", name: "Inventario", type: "Activo" },
         user.tenantId,
       );
@@ -242,13 +262,13 @@ export class PurchasesService {
         paymentTerms.advancePaymentPercentage
       ) {
         this.logger.log(
-          `Creating split payables: Advance $${paymentTerms.advancePaymentAmount}, Balance $${paymentTerms.remainingBalance}`
+          `Creating split payables: Advance $${paymentTerms.advancePaymentAmount}, Balance $${paymentTerms.remainingBalance}`,
         );
 
         // 1. Create payable for ADVANCE PAYMENT (due immediately)
         const advancePayableDto: CreatePayableDto = {
-          type: 'purchase_order',
-          payeeType: 'supplier',
+          type: "purchase_order",
+          payeeType: "supplier",
           payeeId: savedPurchaseOrder.supplierId.toString(),
           payeeName: savedPurchaseOrder.supplierName,
           issueDate: savedPurchaseOrder.purchaseDate,
@@ -264,17 +284,24 @@ export class PurchasesService {
           relatedPurchaseOrderId: savedPurchaseOrder._id.toString(),
         };
 
-        await this.payablesService.create(advancePayableDto, user.tenantId, user.id);
-        this.logger.log(`Created advance payment payable: $${paymentTerms.advancePaymentAmount}`);
+        await this.payablesService.create(
+          advancePayableDto,
+          user.tenantId,
+          user.id,
+        );
+        this.logger.log(
+          `Created advance payment payable: $${paymentTerms.advancePaymentAmount}`,
+        );
 
         // 2. Create payable for REMAINING BALANCE (due on payment due date)
         const balancePayableDto: CreatePayableDto = {
-          type: 'purchase_order',
-          payeeType: 'supplier',
+          type: "purchase_order",
+          payeeType: "supplier",
           payeeId: savedPurchaseOrder.supplierId.toString(),
           payeeName: savedPurchaseOrder.supplierName,
           issueDate: savedPurchaseOrder.purchaseDate,
-          dueDate: paymentTerms.paymentDueDate || savedPurchaseOrder.purchaseDate,
+          dueDate:
+            paymentTerms.paymentDueDate || savedPurchaseOrder.purchaseDate,
           description: `Saldo restante - OC #${savedPurchaseOrder.poNumber}`,
           lines: [
             {
@@ -286,18 +313,24 @@ export class PurchasesService {
           relatedPurchaseOrderId: savedPurchaseOrder._id.toString(),
         };
 
-        await this.payablesService.create(balancePayableDto, user.tenantId, user.id);
-        this.logger.log(`Created balance payable: $${paymentTerms.remainingBalance}`);
-
+        await this.payablesService.create(
+          balancePayableDto,
+          user.tenantId,
+          user.id,
+        );
+        this.logger.log(
+          `Created balance payable: $${paymentTerms.remainingBalance}`,
+        );
       } else {
         // No advance payment - create SINGLE payable
         const createPayableDto: CreatePayableDto = {
-          type: 'purchase_order',
-          payeeType: 'supplier',
+          type: "purchase_order",
+          payeeType: "supplier",
           payeeId: savedPurchaseOrder.supplierId.toString(),
           payeeName: savedPurchaseOrder.supplierName,
           issueDate: savedPurchaseOrder.purchaseDate,
-          dueDate: paymentTerms?.paymentDueDate || savedPurchaseOrder.purchaseDate,
+          dueDate:
+            paymentTerms?.paymentDueDate || savedPurchaseOrder.purchaseDate,
           description: `Factura por orden de compra #${savedPurchaseOrder.poNumber}`,
           lines: [
             {
@@ -309,12 +342,15 @@ export class PurchasesService {
           relatedPurchaseOrderId: savedPurchaseOrder._id.toString(),
         };
 
-        await this.payablesService.create(createPayableDto, user.tenantId, user.id);
+        await this.payablesService.create(
+          createPayableDto,
+          user.tenantId,
+          user.id,
+        );
         this.logger.log(
-          `Successfully created single payable for PO ${savedPurchaseOrder.poNumber}`
+          `Successfully created single payable for PO ${savedPurchaseOrder.poNumber}`,
         );
       }
-
     } catch (payableError) {
       this.logger.error(
         `Failed to create payable for purchase order ${savedPurchaseOrder.poNumber}. The purchase was processed correctly, but accounting needs review.`,
