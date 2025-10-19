@@ -230,12 +230,82 @@ export function OrderDetailsDialog({ isOpen, onClose, order, tenantSettings, onU
               <div className="flex justify-between"><p>Costo de Envío:</p> <p className="font-medium">{formatCurrency(order.shippingCost)}</p></div>
               <div className="flex justify-between"><p>IVA (16%):</p> <p className="font-medium">{formatCurrency(order.ivaTotal)}</p></div>
               <div className="flex justify-between"><p>IGTF (3%):</p> <p className="font-medium">{formatCurrency(order.igtfTotal)}</p></div>
-              <div className="flex justify-between text-base font-bold"><p>Monto Total:</p> <p>{formatCurrency(order.totalAmount)}</p></div>
-              <div className="flex justify-between text-red-500 dark:text-red-400">
-                <p>Balance Pendiente:</p> <p>{formatCurrency((order.totalAmount || 0) - (order.paidAmount || 0))}</p>
+              <div className="flex justify-between text-base font-bold border-t pt-2"><p>Monto Total:</p> <p>{formatCurrency(order.totalAmount)}</p></div>
+              {order.totalAmountVes > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <p>Total en Bolívares:</p>
+                  <p>Bs {order.totalAmountVes.toFixed(2)}</p>
+                </div>
+              )}
+              <div className="flex justify-between text-red-500 dark:text-red-400 border-t pt-2">
+                <p>Balance Pendiente:</p>
+                <p>{formatCurrency((order.totalAmount || 0) - (order.paidAmount || 0))}</p>
               </div>
             </div>
           </div>
+
+          {order.paymentRecords && order.paymentRecords.length > 0 && (
+            <div>
+              <h4 className="font-semibold mb-2">Historial de Pagos</h4>
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Método</TableHead>
+                      <TableHead className="text-right">Monto USD</TableHead>
+                      <TableHead className="text-right">Monto VES</TableHead>
+                      <TableHead>Referencia</TableHead>
+                      <TableHead className="text-center">Estado</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {order.paymentRecords.map((payment, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="text-sm">
+                          {payment.date ? new Date(payment.date).toLocaleDateString('es-VE', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) : 'N/A'}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          <Badge variant="outline">{payment.method || 'N/A'}</Badge>
+                          {payment.currency && (
+                            <span className="ml-1 text-xs text-muted-foreground">({payment.currency})</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {formatCurrency(payment.amount || 0)}
+                        </TableCell>
+                        <TableCell className="text-right font-medium text-green-600">
+                          {payment.amountVes > 0 ? `Bs ${payment.amountVes.toFixed(2)}` : '-'}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {payment.reference || '-'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant={payment.isConfirmed ? 'success' : 'secondary'}>
+                            {payment.isConfirmed ? 'Confirmado' : 'Pendiente'}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="bg-muted/50 font-semibold">
+                      <TableCell colSpan={2} className="text-right">Total Pagado:</TableCell>
+                      <TableCell className="text-right">{formatCurrency(order.paidAmount || 0)}</TableCell>
+                      <TableCell className="text-right text-green-600">
+                        {order.paidAmountVes > 0 ? `Bs ${order.paidAmountVes.toFixed(2)}` : '-'}
+                      </TableCell>
+                      <TableCell colSpan={2}></TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
 
           {restaurantEnabled && billSplit && (
             <div className="mt-4 p-4 rounded-lg border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-900/30">

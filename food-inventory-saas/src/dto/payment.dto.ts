@@ -6,7 +6,7 @@ import {
   IsOptional,
   IsMongoId,
   IsEnum,
-} from 'class-validator';
+} from "class-validator";
 
 // Individual payment object as received from the frontend
 export class PaymentDetailDto {
@@ -27,12 +27,11 @@ export class PaymentDetailDto {
   date?: string; // Date can be optional here, service will default to now()
 }
 
-
 // DTO for creating a single payment, used by the centralized PaymentsService
 export class CreatePaymentDto {
-  @IsEnum(['sale', 'payable'])
+  @IsEnum(["sale", "payable"])
   @IsNotEmpty()
-  paymentType: 'sale' | 'payable';
+  paymentType: "sale" | "payable";
 
   @IsMongoId()
   @IsOptional() // One of orderId or payableId must be present
@@ -50,6 +49,14 @@ export class CreatePaymentDto {
   @IsNotEmpty()
   amount: number;
 
+  @IsNumber()
+  @IsOptional()
+  amountVes?: number;
+
+  @IsNumber()
+  @IsOptional()
+  exchangeRate?: number;
+
   @IsString()
   @IsNotEmpty()
   method: string;
@@ -61,4 +68,8 @@ export class CreatePaymentDto {
   @IsString()
   @IsOptional()
   reference?: string;
+
+  @IsMongoId()
+  @IsOptional()
+  bankAccountId?: string;
 }

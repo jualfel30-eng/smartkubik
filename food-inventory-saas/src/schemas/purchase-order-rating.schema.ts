@@ -27,7 +27,8 @@ export class PurchaseOrderRating {
   createdBy: Types.ObjectId;
 }
 
-export const PurchaseOrderRatingSchema = SchemaFactory.createForClass(PurchaseOrderRating);
+export const PurchaseOrderRatingSchema =
+  SchemaFactory.createForClass(PurchaseOrderRating);
 
 PurchaseOrderRatingSchema.index({ purchaseOrderId: 1 }, { unique: true });
 PurchaseOrderRatingSchema.index({ supplierId: 1, tenantId: 1 });

@@ -8,8 +8,8 @@ import {
   IsMongoId,
   Min,
   ValidateNested,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+} from "class-validator";
+import { Type } from "class-transformer";
 
 /**
  * DTO para crear una orden de cocina desde una Order
@@ -23,8 +23,8 @@ export class CreateKitchenOrderDto {
   station?: string; // Estación específica: "grill", "fryer", etc.
 
   @IsOptional()
-  @IsEnum(['normal', 'urgent', 'asap'])
-  priority?: 'normal' | 'urgent' | 'asap';
+  @IsEnum(["normal", "urgent", "asap"])
+  priority?: "normal" | "urgent" | "asap";
 
   @IsOptional()
   @IsString()
@@ -47,8 +47,8 @@ export class UpdateItemStatusDto {
   @IsString()
   itemId: string; // ID del item dentro de la kitchen order
 
-  @IsEnum(['pending', 'preparing', 'ready', 'served'])
-  status: 'pending' | 'preparing' | 'ready' | 'served';
+  @IsEnum(["pending", "preparing", "ready", "served"])
+  status: "pending" | "preparing" | "ready" | "served";
 }
 
 /**
@@ -90,7 +90,7 @@ export class AssignCookDto {
  */
 export class FilterKitchenOrdersDto {
   @IsOptional()
-  @IsEnum(['new', 'preparing', 'ready', 'completed', 'cancelled'])
+  @IsEnum(["new", "preparing", "ready", "completed", "cancelled"])
   status?: string;
 
   @IsOptional()
@@ -98,7 +98,7 @@ export class FilterKitchenOrdersDto {
   station?: string;
 
   @IsOptional()
-  @IsEnum(['normal', 'urgent', 'asap'])
+  @IsEnum(["normal", "urgent", "asap"])
   priority?: string;
 
   @IsOptional()

@@ -12,7 +12,6 @@ import { fetchApi } from '@/lib/api.js';
 import { useCrmContext } from '@/context/CrmContext.jsx';
 import { venezuelaData } from '@/lib/venezuela-data.js';
 import { SearchableSelect } from './custom/SearchableSelect';
-import { MixedPaymentDialog } from './MixedPaymentDialog';
 import { LocationPicker } from '@/components/ui/LocationPicker.jsx';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
 import ModifierSelector from '@/components/restaurant/ModifierSelector.jsx';
@@ -24,7 +23,6 @@ const initialOrderState = {
   customerRif: '',
   taxType: 'V',
   items: [],
-  paymentMethod: '',
   deliveryMethod: 'pickup',
   notes: '',
   customerLocation: null,
@@ -37,14 +35,12 @@ const initialOrderState = {
 };
 
 export function NewOrderFormV2({ onOrderCreated }) {
-  const { crmData: customers, paymentMethods, loading: contextLoading } = useCrmContext();
+  const { crmData: customers, loading: contextLoading } = useCrmContext();
   const { rate: bcvRate, loading: loadingRate, error: rateError } = useExchangeRate();
   const { tenant } = useAuth();
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [newOrder, setNewOrder] = useState(initialOrderState);
-  const [isMixedPaymentModalOpen, setIsMixedPaymentModalOpen] = useState(false);
-  const [mixedPaymentData, setMixedPaymentData] = useState(null);
   const [municipios, setMunicipios] = useState([]);
   const [showModifierSelector, setShowModifierSelector] = useState(false);
   const [pendingProductConfig, setPendingProductConfig] = useState(null);
@@ -82,11 +78,9 @@ export function NewOrderFormV2({ onOrderCreated }) {
     console.log('🔄 Exchange Rate Debug:', {
       bcvRate,
       loadingRate,
-      rateError,
-      paymentMethod: newOrder.paymentMethod,
-      isVES: newOrder.paymentMethod?.toLowerCase().includes('_ves')
+      rateError
     });
-  }, [bcvRate, loadingRate, rateError, newOrder.paymentMethod]);
+  }, [bcvRate, loadingRate, rateError]);
 
   // Calculate shipping cost when delivery method, location, or order amount changes
   useEffect(() => {
@@ -204,15 +198,6 @@ export function NewOrderFormV2({ onOrderCreated }) {
     }
     loadAvailableTables();
   }, [restaurantEnabled, loadAvailableTables]);
-
-  useEffect(() => {
-    if (paymentMethods.length > 0 && !newOrder.paymentMethod) {
-      const defaultMethod = paymentMethods.find(pm => pm.id !== 'pago_mixto');
-      if (defaultMethod) {
-        setNewOrder(prev => ({ ...prev, paymentMethod: defaultMethod.id }));
-      }
-    }
-  }, [paymentMethods, newOrder.paymentMethod]);
 
   // --- NUEVOS MANEJADORES DE ESTADO --- 
 
@@ -504,35 +489,6 @@ export function NewOrderFormV2({ onOrderCreated }) {
     setNewOrder(prev => ({ ...prev, items: prev.items.filter(item => item.productId !== productId) }));
   };
 
-  const handlePaymentMethodChange = (value) => {
-    if (value === 'pago_mixto') {
-      const subtotal = newOrder.items.reduce((sum, item) => {
-        const quantity = getItemQuantityValue(item);
-        return sum + (getItemFinalUnitPrice(item) * quantity);
-      }, 0);
-      const iva = newOrder.items.reduce((sum, item) => {
-        if (!item.ivaApplicable) return sum;
-        const quantity = getItemQuantityValue(item);
-        return sum + (getItemFinalUnitPrice(item) * quantity * 0.16);
-      }, 0);
-      const totalForModal = subtotal + iva;
-      if (totalForModal <= 0) {
-        alert("Añada productos a la orden antes de definir un pago mixto.");
-        return;
-      }
-      setIsMixedPaymentModalOpen(true);
-    } else {
-      setNewOrder(prev => ({ ...prev, paymentMethod: value }));
-      setMixedPaymentData(null);
-    }
-  };
-
-  const handleSaveMixedPayment = (data) => {
-    setMixedPaymentData(data);
-    setNewOrder(prev => ({ ...prev, paymentMethod: 'pago_mixto' }));
-    setIsMixedPaymentModalOpen(false);
-  };
-
   const handleCreateOrder = async () => {
     if (newOrder.items.length === 0) {
       alert('Agrega al menos un producto a la orden.');
@@ -541,20 +497,6 @@ export function NewOrderFormV2({ onOrderCreated }) {
     if (!newOrder.customerName || !newOrder.customerRif) {
       alert('Debes proporcionar el nombre y RIF del cliente.');
       return;
-    }
-    if (!newOrder.paymentMethod) {
-        alert('Debes seleccionar un método de pago.');
-        return;
-    }
-
-    let paymentsPayload = [];
-    if (mixedPaymentData) {
-      paymentsPayload = mixedPaymentData.payments.map(p => ({
-        amount: Number(p.amount),
-        method: p.method,
-        date: new Date().toISOString(),
-        reference: p.reference,
-      }));
     }
 
     const payload = {
@@ -573,7 +515,6 @@ export function NewOrderFormV2({ onOrderCreated }) {
         unitPrice: item.unitPrice,
         finalPrice: getItemFinalUnitPrice(item),
       })),
-      ...(paymentsPayload.length > 0 && { payments: paymentsPayload }),
       notes: newOrder.notes,
       deliveryMethod: newOrder.deliveryMethod,
       shippingAddress: (newOrder.deliveryMethod === 'delivery' || newOrder.deliveryMethod === 'envio_nacional') && newOrder.shippingAddress.street ? newOrder.shippingAddress : undefined,
@@ -588,7 +529,6 @@ export function NewOrderFormV2({ onOrderCreated }) {
       await fetchApi('/orders', { method: 'POST', body: JSON.stringify(payload) });
       alert('¡Orden creada con éxito!');
       setNewOrder(initialOrderState);
-      setMixedPaymentData(null);
       setCustomerNameInput('');
       setCustomerRifInput('');
       setProductSearchInput('');
@@ -632,28 +572,15 @@ export function NewOrderFormV2({ onOrderCreated }) {
       const quantity = getItemQuantityValue(item);
       return sum + (getItemFinalUnitPrice(item) * quantity * 0.16);
     }, 0);
-    
-    let igtf = 0;
-    if (mixedPaymentData) {
-      igtf = mixedPaymentData.igtf;
-    } else {
-      const selectedPayMethod = paymentMethods.find(m => m.id === newOrder.paymentMethod);
-      const appliesIgtf = selectedPayMethod?.igtfApplicable || false;
-      if (appliesIgtf) {
-        const igtfBase = newOrder.items.reduce((sum, item) => {
-          if (item.igtfExempt) return sum;
-          const quantity = getItemQuantityValue(item);
-          return sum + (getItemFinalUnitPrice(item) * quantity);
-        }, 0);
-        igtf = igtfBase * 0.03;
-      }
-    }
+
+    // IGTF will be calculated at payment confirmation time based on selected method
+    const igtf = 0;
 
     const total = subtotal + iva + igtf + shippingCost;
     return { subtotal, iva, igtf, shipping: shippingCost, total };
-  }, [newOrder.items, newOrder.paymentMethod, paymentMethods, mixedPaymentData, shippingCost]);
+  }, [newOrder.items, shippingCost]);
 
-  const isCreateDisabled = newOrder.items.length === 0 || !newOrder.customerName || !newOrder.customerRif || !newOrder.paymentMethod;
+  const isCreateDisabled = newOrder.items.length === 0 || !newOrder.customerName || !newOrder.customerRif;
 
   return (
     <>
@@ -669,12 +596,6 @@ export function NewOrderFormV2({ onOrderCreated }) {
         />
       )}
       <Card className="mb-8">
-      <MixedPaymentDialog 
-        isOpen={isMixedPaymentModalOpen}
-        onClose={() => setIsMixedPaymentModalOpen(false)}
-        totalAmount={totals.subtotal + totals.iva}
-        onSave={handleSaveMixedPayment}
-      />
       <CardContent className="space-y-6">
         <div className="p-4 border rounded-lg space-y-4">
           <Label className="text-base font-semibold">Datos del Cliente</Label>
@@ -988,7 +909,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
                   </div>
                 )}
                 <div className="flex justify-between font-bold text-base border-t pt-2 mt-2"><span>Total:</span><span>${totals.total.toFixed(2)}</span></div>
-                {bcvRate && newOrder.paymentMethod && newOrder.paymentMethod.toLowerCase().includes('_ves') && (
+                {bcvRate && (
                   <div className="flex flex-col gap-1 border-t pt-2 mt-2">
                     <div className="flex justify-between text-xs text-muted-foreground">
                       <span>Tasa BCV:</span>
@@ -1000,7 +921,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
                     </div>
                   </div>
                 )}
-                {loadingRate && !bcvRate && newOrder.paymentMethod && newOrder.paymentMethod.toLowerCase().includes('_ves') && (
+                {loadingRate && !bcvRate && (
                   <div className="text-xs text-muted-foreground text-center mt-2">
                     Cargando tasa de cambio...
                   </div>
@@ -1013,13 +934,6 @@ export function NewOrderFormV2({ onOrderCreated }) {
       <CardFooter className="flex flex-col sm:flex-row justify-end items-center pt-6 gap-4">
         {/* Mobile layout */}
         <div className="sm:hidden w-full space-y-2">
-            <div className="space-y-2">
-                <Label>Forma de Pago</Label>
-                <Select value={newOrder.paymentMethod} onValueChange={handlePaymentMethodChange} disabled={contextLoading}>
-                    <SelectTrigger><SelectValue placeholder="Forma de Pago" /></SelectTrigger>
-                    <SelectContent>{paymentMethods.map(method => (<SelectItem key={method.id} value={method.id}>{method.name}</SelectItem>))}</SelectContent>
-                </Select>
-            </div>
             <Button onClick={handleCreateOrder} disabled={isCreateDisabled} size="lg" className="bg-[#FB923C] text-white hover:bg-[#F97316] w-full">Crear Orden</Button>
             <Button
               variant="outline"
@@ -1045,10 +959,6 @@ export function NewOrderFormV2({ onOrderCreated }) {
           >
             Limpiar Formulario
           </Button>
-          <Select value={newOrder.paymentMethod} onValueChange={handlePaymentMethodChange} disabled={contextLoading}>
-              <SelectTrigger className="w-48"><SelectValue placeholder="Forma de Pago" /></SelectTrigger>
-              <SelectContent>{paymentMethods.map(method => (<SelectItem key={method.id} value={method.id}>{method.name}</SelectItem>))}</SelectContent>
-          </Select>
           <Button id="create-order-button" onClick={handleCreateOrder} disabled={isCreateDisabled} size="lg" className="bg-[#FB923C] text-white hover:bg-[#F97316] w-48">Crear Orden</Button>
         </div>
       </CardFooter>

@@ -114,7 +114,11 @@ const OrderItemSchema = SchemaFactory.createForClass(OrderItem);
 
 @Schema()
 export class OrderShipping {
-  @Prop({ type: String, required: true, enum: ['pickup', 'delivery', 'envio_nacional'] })
+  @Prop({
+    type: String,
+    required: true,
+    enum: ["pickup", "delivery", "envio_nacional"],
+  })
   method: string;
 
   @Prop({ type: Object })
@@ -194,8 +198,49 @@ export class Order {
   @Prop({ type: Number, required: true })
   totalAmount: number;
 
-  @Prop({ type: [{ type: Types.ObjectId, ref: 'Payment' }] })
+  @Prop({ type: Number, default: 0 })
+  totalAmountVes: number;
+
+  @Prop({ type: Number, default: 0 })
+  paidAmount: number;
+
+  @Prop({ type: Number, default: 0 })
+  paidAmountVes: number;
+
+  @Prop({ type: [{ type: Types.ObjectId, ref: "Payment" }] })
   payments: Types.ObjectId[];
+
+  @Prop({
+    type: [
+      {
+        method: String,
+        amount: Number,
+        amountVes: Number,
+        exchangeRate: Number,
+        currency: String,
+        reference: String,
+        date: Date,
+        isConfirmed: { type: Boolean, default: false },
+        bankAccountId: { type: Types.ObjectId, ref: "BankAccount" },
+        confirmedAt: Date,
+        confirmedMethod: String, // El método final usado (puede cambiar del inicial)
+      },
+    ],
+    default: [],
+  })
+  paymentRecords: Array<{
+    method: string;
+    amount: number;
+    amountVes?: number;
+    exchangeRate?: number;
+    currency?: string;
+    reference?: string;
+    date: Date;
+    isConfirmed: boolean;
+    bankAccountId?: Types.ObjectId;
+    confirmedAt?: Date;
+    confirmedMethod?: string;
+  }>;
 
   @Prop({ type: String, required: true, default: "pending" })
   paymentStatus: string;
@@ -207,13 +252,13 @@ export class Order {
   @Prop({ type: Boolean, default: false })
   isSplit: boolean; // Si la cuenta está dividida
 
-  @Prop({ type: Types.ObjectId, ref: 'BillSplit' })
+  @Prop({ type: Types.ObjectId, ref: "BillSplit" })
   activeSplitId?: Types.ObjectId; // Split activo (si hay uno)
 
   @Prop({ type: Number, default: 0 })
   totalTipsAmount: number; // Total de propinas agregadas
 
-  @Prop({ type: Types.ObjectId, ref: 'Table' })
+  @Prop({ type: Types.ObjectId, ref: "Table" })
   tableId?: Types.ObjectId; // Mesa asociada (para restaurantes)
 
   @Prop({ type: OrderShippingSchema })

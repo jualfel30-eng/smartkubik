@@ -17,7 +17,9 @@ export class PurchaseOrderStatusHistory {
   @Prop({ type: String })
   notes?: string;
 }
-const PurchaseOrderStatusHistorySchema = SchemaFactory.createForClass(PurchaseOrderStatusHistory);
+const PurchaseOrderStatusHistorySchema = SchemaFactory.createForClass(
+  PurchaseOrderStatusHistory,
+);
 
 @Schema()
 export class PurchaseOrderItem {
@@ -111,6 +113,6 @@ PurchaseOrderSchema.index({ createdBy: 1, tenantId: 1 });
 
 // Índice de texto para búsqueda
 PurchaseOrderSchema.index({
-  poNumber: 'text',
-  supplierName: 'text',
+  poNumber: "text",
+  supplierName: "text",
 });

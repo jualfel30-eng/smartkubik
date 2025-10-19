@@ -1,14 +1,5 @@
-import {
-  Controller,
-  Post,
-  Body,
-  BadRequestException,
-} from "@nestjs/common";
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-} from "@nestjs/swagger";
+import { Controller, Post, Body, BadRequestException } from "@nestjs/common";
+import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { OrdersService } from "./orders.service";
 import { Public } from "../../decorators/public.decorator";
 
@@ -25,7 +16,7 @@ export class CreatePublicOrderDto {
   customerEmail: string;
   customerPhone: string;
   items: CreatePublicOrderItemDto[];
-  shippingMethod?: 'pickup' | 'delivery';
+  shippingMethod?: "pickup" | "delivery";
   shippingAddress?: {
     street: string;
     city: string;
@@ -89,9 +80,7 @@ export class OrdersPublicController {
     }
 
     if (!createDto.items || createDto.items.length === 0) {
-      throw new BadRequestException(
-        "La orden debe tener al menos un producto",
-      );
+      throw new BadRequestException("La orden debe tener al menos un producto");
     }
 
     // Generar número de orden único

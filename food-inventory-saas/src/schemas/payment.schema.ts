@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 export type PaymentDocument = Payment & Document;
 
@@ -11,15 +11,15 @@ export class Payment {
   @Prop({
     type: String,
     required: true,
-    enum: ['sale', 'payable'],
+    enum: ["sale", "payable"],
     index: true,
   })
   paymentType: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'Order', required: false })
+  @Prop({ type: Types.ObjectId, ref: "Order", required: false })
   orderId?: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Payable', required: false })
+  @Prop({ type: Types.ObjectId, ref: "Payable", required: false })
   payableId?: Types.ObjectId;
 
   @Prop({ type: Date, required: true })
@@ -37,19 +37,19 @@ export class Payment {
   @Prop({ type: String })
   reference?: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'BankAccount', required: false })
+  @Prop({ type: Types.ObjectId, ref: "BankAccount", required: false })
   bankAccountId?: Types.ObjectId;
 
-  @Prop({ type: String, required: true, default: 'confirmed' })
+  @Prop({ type: String, required: true, default: "confirmed" })
   status: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;
 
   @Prop({ type: Date })
   confirmedAt?: Date;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   confirmedBy?: Types.ObjectId;
 
   // ========================================
@@ -62,7 +62,7 @@ export class Payment {
   @Prop({ type: Number })
   tipPercentage?: number; // Porcentaje de propina aplicado
 
-  @Prop({ type: Types.ObjectId, ref: 'BillSplit' })
+  @Prop({ type: Types.ObjectId, ref: "BillSplit" })
   splitId?: Types.ObjectId; // Si es parte de una cuenta dividida
 
   @Prop({ type: String })

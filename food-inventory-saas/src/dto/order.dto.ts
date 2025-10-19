@@ -53,22 +53,43 @@ export class CreateOrderItemDto {
   @Min(0.01)
   quantity: number;
 
-  @ApiPropertyOptional({ description: "Unidad de venta seleccionada (si aplica)" })
+  @ApiPropertyOptional({
+    description: "Unidad de venta seleccionada (si aplica)",
+  })
   @IsOptional()
   @IsString()
   selectedUnit?: string; // Abbreviation de la unidad (ej: "kg", "g", "lb")
 
-  @ApiPropertyOptional({ description: "Factor de conversión usado (calculado automáticamente)" })
+  @ApiPropertyOptional({
+    description: "Factor de conversión usado (calculado automáticamente)",
+  })
   @IsOptional()
   @IsNumber()
   conversionFactor?: number;
 }
 
 export class RegisterPaymentDto {
-  @ApiProperty({ description: "Monto del pago" })
+  @ApiProperty({ description: "Monto del pago en USD" })
   @IsNumber()
   @Min(0.01)
   amount: number;
+
+  @ApiPropertyOptional({ description: "Monto del pago en VES" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  amountVes?: number;
+
+  @ApiPropertyOptional({ description: "Tasa de cambio usada" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  exchangeRate?: number;
+
+  @ApiPropertyOptional({ description: "Moneda del pago (USD o VES)" })
+  @IsOptional()
+  @IsString()
+  currency?: string;
 
   @ApiProperty({ description: "Método de pago" })
   @IsString()
@@ -84,6 +105,18 @@ export class RegisterPaymentDto {
   @IsOptional()
   @IsString()
   reference?: string;
+
+  @ApiPropertyOptional({
+    description: "ID de la cuenta bancaria (para pagos confirmados)",
+  })
+  @IsOptional()
+  @IsMongoId()
+  bankAccountId?: string;
+
+  @ApiPropertyOptional({ description: "Indica si el pago está confirmado" })
+  @IsOptional()
+  @IsBoolean()
+  isConfirmed?: boolean;
 }
 
 export class CreateOrderDto {
@@ -117,9 +150,11 @@ export class CreateOrderDto {
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
 
-  @ApiPropertyOptional({ description: "Método de entrega (pickup, delivery, envio_nacional)" })
+  @ApiPropertyOptional({
+    description: "Método de entrega (pickup, delivery, envio_nacional)",
+  })
   @IsOptional()
-  @IsEnum(['pickup', 'delivery', 'envio_nacional'])
+  @IsEnum(["pickup", "delivery", "envio_nacional"])
   deliveryMethod?: string;
 
   @ApiPropertyOptional({ description: "Dirección de envío para la orden" })
@@ -128,7 +163,10 @@ export class CreateOrderDto {
   @Type(() => ShippingAddressDto)
   shippingAddress?: ShippingAddressDto;
 
-  @ApiPropertyOptional({ description: "Ubicación del cliente para delivery (se guardará en el perfil)" })
+  @ApiPropertyOptional({
+    description:
+      "Ubicación del cliente para delivery (se guardará en el perfil)",
+  })
   @IsOptional()
   @IsObject()
   customerLocation?: {
@@ -203,7 +241,10 @@ export class CreateOrderDto {
   @IsBoolean()
   autoReserve?: boolean = true;
 
-  @ApiPropertyOptional({ description: "Pagos de la orden", type: [RegisterPaymentDto] })
+  @ApiPropertyOptional({
+    description: "Pagos de la orden",
+    type: [RegisterPaymentDto],
+  })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
@@ -394,7 +435,10 @@ export class OrderCalculationDto {
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
 
-  @ApiPropertyOptional({ description: "Pagos para calcular IGTF", type: [RegisterPaymentDto] })
+  @ApiPropertyOptional({
+    description: "Pagos para calcular IGTF",
+    type: [RegisterPaymentDto],
+  })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })

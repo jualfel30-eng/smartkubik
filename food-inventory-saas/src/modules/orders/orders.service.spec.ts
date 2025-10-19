@@ -1,8 +1,8 @@
-import { Types } from 'mongoose';
-import { OrdersService } from './orders.service';
-import { FEATURES } from '../../config/features.config';
+import { Types } from "mongoose";
+import { OrdersService } from "./orders.service";
+import { FEATURES } from "../../config/features.config";
 
-describe('OrdersService - Employee Assignment', () => {
+describe("OrdersService - Employee Assignment", () => {
   let service: OrdersService;
 
   const tenantId = new Types.ObjectId().toString();
@@ -15,7 +15,7 @@ describe('OrdersService - Employee Assignment', () => {
 
   const customerDoc = {
     _id: new Types.ObjectId(),
-    name: 'Test Customer',
+    name: "Test Customer",
     primaryLocation: null,
   } as any;
 
@@ -30,12 +30,12 @@ describe('OrdersService - Employee Assignment', () => {
 
   const productDoc = {
     _id: new Types.ObjectId(),
-    sku: 'SKU-1',
-    name: 'Test Product',
+    sku: "SKU-1",
+    name: "Test Product",
     variants: [{ basePrice: 10, costPrice: 5 }],
     hasMultipleSellingUnits: false,
     ivaApplicable: false,
-    unitOfMeasure: 'unidad',
+    unitOfMeasure: "unidad",
   } as any;
 
   const productModel = {
@@ -93,7 +93,9 @@ describe('OrdersService - Employee Assignment', () => {
         ...savedOrderPayload,
         _id: new Types.ObjectId(),
         items: savedOrderPayload.items ?? [],
-        inventoryReservation: savedOrderPayload.inventoryReservation ?? { isReserved: false },
+        inventoryReservation: savedOrderPayload.inventoryReservation ?? {
+          isReserved: false,
+        },
         toObject() {
           return { ...this };
         },
@@ -137,7 +139,7 @@ describe('OrdersService - Employee Assignment', () => {
     ],
     payments: [],
     discountAmount: 0,
-    deliveryMethod: 'pickup',
+    deliveryMethod: "pickup",
   } as any;
 
   const baseUser = {
@@ -145,20 +147,27 @@ describe('OrdersService - Employee Assignment', () => {
     tenantId,
   };
 
-  it('assigns the order to the authenticated user when an active shift exists', async () => {
-    shiftsService.findActiveShift.mockResolvedValue({ _id: new Types.ObjectId() });
+  it("assigns the order to the authenticated user when an active shift exists", async () => {
+    shiftsService.findActiveShift.mockResolvedValue({
+      _id: new Types.ObjectId(),
+    });
 
     await service.create(baseOrderDto, baseUser);
     jest.runAllTimers();
 
-    expect(shiftsService.findActiveShift).toHaveBeenCalledWith(userId, tenantId);
+    expect(shiftsService.findActiveShift).toHaveBeenCalledWith(
+      userId,
+      tenantId,
+    );
     expect(orderModelMock).toHaveBeenCalledTimes(1);
     const assignedPayload = orderModelMock.mock.calls[0][0];
     expect(assignedPayload.assignedTo).toBeInstanceOf(Types.ObjectId);
-    expect((assignedPayload.assignedTo as Types.ObjectId).toHexString()).toBe(userId);
+    expect((assignedPayload.assignedTo as Types.ObjectId).toHexString()).toBe(
+      userId,
+    );
   });
 
-  it('leaves the order unassigned when no active shift is found', async () => {
+  it("leaves the order unassigned when no active shift is found", async () => {
     shiftsService.findActiveShift.mockResolvedValue(null);
 
     await service.create(baseOrderDto, baseUser);

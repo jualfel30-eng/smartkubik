@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 /**
  * KitchenOrderItem Schema
@@ -25,8 +25,8 @@ export class KitchenOrderItem {
   @Prop({
     type: String,
     required: true,
-    enum: ['pending', 'preparing', 'ready', 'served'],
-    default: 'pending',
+    enum: ["pending", "preparing", "ready", "served"],
+    default: "pending",
   })
   status: string;
 
@@ -47,7 +47,7 @@ const KitchenOrderItemSchema = SchemaFactory.createForClass(KitchenOrderItem);
  */
 @Schema({ timestamps: true })
 export class KitchenOrder extends Document {
-  @Prop({ type: Types.ObjectId, ref: 'Order', required: true, index: true })
+  @Prop({ type: Types.ObjectId, ref: "Order", required: true, index: true })
   orderId: Types.ObjectId;
 
   @Prop({ type: String, required: true })
@@ -68,8 +68,8 @@ export class KitchenOrder extends Document {
   @Prop({
     type: String,
     required: true,
-    enum: ['new', 'preparing', 'ready', 'completed', 'cancelled'],
-    default: 'new',
+    enum: ["new", "preparing", "ready", "completed", "cancelled"],
+    default: "new",
     index: true,
   })
   status: string;
@@ -84,8 +84,8 @@ export class KitchenOrder extends Document {
 
   @Prop({
     type: String,
-    enum: ['normal', 'urgent', 'asap'],
-    default: 'normal',
+    enum: ["normal", "urgent", "asap"],
+    default: "normal",
     index: true,
   })
   priority: string; // Para resaltar en pantalla
@@ -108,7 +108,7 @@ export class KitchenOrder extends Document {
   @Prop({ type: Number })
   waitTime?: number; // Tiempo de espera antes de empezar (segundos)
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   assignedTo?: Types.ObjectId; // Cocinero asignado (opcional)
 
   @Prop({ type: String })
@@ -120,7 +120,7 @@ export class KitchenOrder extends Document {
   @Prop({ type: Number, default: 0 })
   estimatedPrepTime: number; // Tiempo estimado en minutos
 
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true, index: true })
+  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true, index: true })
   tenantId: Types.ObjectId;
 
   @Prop({ default: false })
@@ -138,7 +138,7 @@ KitchenOrderSchema.index({ orderNumber: 1 });
 
 // Índice de texto
 KitchenOrderSchema.index({
-  orderNumber: 'text',
-  tableNumber: 'text',
-  customerName: 'text',
+  orderNumber: "text",
+  tableNumber: "text",
+  customerName: "text",
 });

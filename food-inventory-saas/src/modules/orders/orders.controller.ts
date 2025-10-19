@@ -63,14 +63,14 @@ export class OrdersController {
     }
   }
 
-  @Get('__lookup/payment-methods')
-  @ApiOperation({ summary: 'Obtener lista de métodos de pago' })
+  @Get("__lookup/payment-methods")
+  @ApiOperation({ summary: "Obtener lista de métodos de pago" })
   async getPaymentMethods(@Request() req) {
     try {
       const methods = await this.ordersService.getPaymentMethods(req.user);
       return {
         success: true,
-        message: 'Métodos de pago obtenidos exitosamente',
+        message: "Métodos de pago obtenidos exitosamente",
         data: methods,
       };
     } catch (error) {
@@ -187,12 +187,12 @@ export class OrdersController {
     }
   }
 
-  @Post(':id/payments')
+  @Post(":id/payments")
   @Permissions("orders_update")
-  @ApiOperation({ summary: 'Registrar uno o más pagos para una orden' })
-  @ApiResponse({ status: 200, description: 'Pagos registrados exitosamente' })
+  @ApiOperation({ summary: "Registrar uno o más pagos para una orden" })
+  @ApiResponse({ status: 200, description: "Pagos registrados exitosamente" })
   async registerPayments(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() bulkRegisterPaymentsDto: BulkRegisterPaymentsDto,
     @Request() req,
   ) {
@@ -204,12 +204,47 @@ export class OrdersController {
       );
       return {
         success: true,
-        message: 'Pagos registrados exitosamente',
+        message: "Pagos registrados exitosamente",
         data: order,
       };
     } catch (error) {
       throw new HttpException(
-        error.message || 'Error al registrar los pagos',
+        error.message || "Error al registrar los pagos",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Post(":id/confirm-payment")
+  @Permissions("orders_update")
+  @ApiOperation({ summary: "Confirmar un pago y asignar cuenta bancaria" })
+  @ApiResponse({ status: 200, description: "Pago confirmado exitosamente" })
+  async confirmPayment(
+    @Param("id") id: string,
+    @Body()
+    confirmPaymentDto: {
+      paymentIndex: number;
+      bankAccountId: string;
+      confirmedMethod: string;
+    },
+    @Request() req,
+  ) {
+    try {
+      const order = await this.ordersService.confirmPayment(
+        id,
+        confirmPaymentDto.paymentIndex,
+        confirmPaymentDto.bankAccountId,
+        confirmPaymentDto.confirmedMethod,
+        req.user.tenantId,
+      );
+      return {
+        success: true,
+        message: "Pago confirmado exitosamente",
+        data: order,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al confirmar el pago",
         HttpStatus.BAD_REQUEST,
       );
     }
