@@ -1,8 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { BankAccount, BankAccountDocument } from '../../schemas/bank-account.schema';
-import { EventsService } from '../events/events.service';
+import { Injectable, Logger } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
+import {
+  BankAccount,
+  BankAccountDocument,
+} from "../../schemas/bank-account.schema";
+import { EventsService } from "../events/events.service";
 
 interface AlertOptions {
   userId?: string;
@@ -41,10 +44,7 @@ export class BankAlertsService {
     if (currentBalance > minimumBalance) {
       if (account.lastAlertSentAt) {
         await this.bankAccountModel
-          .updateOne(
-            { _id: account._id },
-            { $unset: { lastAlertSentAt: '' } },
-          )
+          .updateOne({ _id: account._id }, { $unset: { lastAlertSentAt: "" } })
           .exec();
       }
       return;
@@ -70,7 +70,7 @@ export class BankAlertsService {
           )}.`,
           start: now.toISOString(),
           allDay: true,
-          color: '#f59e0b',
+          color: "#f59e0b",
         },
         {
           id: options.userId ?? `system-bank-alert-${tenantId}`,
@@ -81,10 +81,7 @@ export class BankAlertsService {
       );
 
       await this.bankAccountModel
-        .updateOne(
-          { _id: account._id },
-          { $set: { lastAlertSentAt: now } },
-        )
+        .updateOne({ _id: account._id }, { $set: { lastAlertSentAt: now } })
         .exec();
 
       this.logger.warn(

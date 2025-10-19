@@ -9,8 +9,8 @@ import {
   IsObject,
   ValidateNested,
   IsIn,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+} from "class-validator";
+import { Type } from "class-transformer";
 
 export class BankTransactionCounterpartDto {
   @IsOptional()
@@ -47,18 +47,18 @@ export class BankTransactionCounterpartDto {
 }
 
 export class CreateBankTransactionDto {
-  @IsEnum(['credit', 'debit'])
-  type: 'credit' | 'debit';
+  @IsEnum(["credit", "debit"])
+  type: "credit" | "debit";
 
   @IsIn([
-    'pago_movil',
-    'transferencia',
-    'pos',
-    'deposito_cajero',
-    'fee',
-    'interest',
-    'ajuste_manual',
-    'otros',
+    "pago_movil",
+    "transferencia",
+    "pos",
+    "deposito_cajero",
+    "fee",
+    "interest",
+    "ajuste_manual",
+    "otros",
   ])
   channel: string;
 
@@ -101,8 +101,8 @@ export class BankTransactionQueryDto {
   to?: string;
 
   @IsOptional()
-  @IsEnum(['credit', 'debit'])
-  type?: 'credit' | 'debit';
+  @IsEnum(["credit", "debit"])
+  type?: "credit" | "debit";
 
   @IsOptional()
   @IsString()
@@ -113,7 +113,7 @@ export class BankTransactionQueryDto {
   search?: string;
 
   @IsOptional()
-  @IsEnum(['pending', 'matched', 'manually_matched', 'rejected', 'in_review'])
+  @IsEnum(["pending", "matched", "manually_matched", "rejected", "in_review"])
   reconciliationStatus?: string;
 
   @IsOptional()
@@ -121,8 +121,8 @@ export class BankTransactionQueryDto {
   sortField?: string;
 
   @IsOptional()
-  @IsEnum(['asc', 'desc'])
-  sortOrder?: 'asc' | 'desc';
+  @IsEnum(["asc", "desc"])
+  sortOrder?: "asc" | "desc";
 
   @IsOptional()
   @IsNumber()
@@ -142,8 +142,8 @@ export class RecordPaymentMovementDto {
   @IsMongoId()
   paymentId: string;
 
-  @IsEnum(['sale', 'payable'])
-  paymentType: 'sale' | 'payable';
+  @IsEnum(["sale", "payable"])
+  paymentType: "sale" | "payable";
 
   @IsNumber()
   amount: number;

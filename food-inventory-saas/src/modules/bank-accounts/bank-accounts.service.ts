@@ -1,9 +1,16 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { ClientSession, Model, Types } from 'mongoose';
-import { BankAccount, BankAccountDocument } from '../../schemas/bank-account.schema';
-import { CreateBankAccountDto, UpdateBankAccountDto, AdjustBalanceDto } from '../../dto/bank-account.dto';
-import { BankAlertsService } from './bank-alerts.service';
+import { Injectable, NotFoundException, Logger } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { ClientSession, Model, Types } from "mongoose";
+import {
+  BankAccount,
+  BankAccountDocument,
+} from "../../schemas/bank-account.schema";
+import {
+  CreateBankAccountDto,
+  UpdateBankAccountDto,
+  AdjustBalanceDto,
+} from "../../dto/bank-account.dto";
+import { BankAlertsService } from "./bank-alerts.service";
 
 @Injectable()
 export class BankAccountsService {
@@ -15,7 +22,10 @@ export class BankAccountsService {
     private readonly bankAlertsService: BankAlertsService,
   ) {}
 
-  async create(createBankAccountDto: CreateBankAccountDto, tenantId: string): Promise<BankAccount> {
+  async create(
+    createBankAccountDto: CreateBankAccountDto,
+    tenantId: string,
+  ): Promise<BankAccount> {
     const newBankAccount = new this.bankAccountModel({
       ...createBankAccountDto,
       tenantId: this.normalizeTenantValue(tenantId),
@@ -24,13 +34,18 @@ export class BankAccountsService {
       minimumBalance: createBankAccountDto.minimumBalance ?? null,
     });
 
-    this.logger.log(`Creating bank account for tenant ${tenantId}: ${createBankAccountDto.bankName} - ${createBankAccountDto.accountNumber}`);
+    this.logger.log(
+      `Creating bank account for tenant ${tenantId}: ${createBankAccountDto.bankName} - ${createBankAccountDto.accountNumber}`,
+    );
     const saved = await newBankAccount.save();
     await this.evaluateAlerts(saved, tenantId);
     return saved;
   }
 
-  async findAll(tenantId: string, includeInactive: boolean = false): Promise<BankAccount[]> {
+  async findAll(
+    tenantId: string,
+    includeInactive: boolean = false,
+  ): Promise<BankAccount[]> {
     const filter: any = { tenantId: this.buildTenantFilter(tenantId) };
 
     if (!includeInactive) {
@@ -63,13 +78,20 @@ export class BankAccountsService {
     return bankAccount;
   }
 
-  async update(id: string, updateBankAccountDto: UpdateBankAccountDto, tenantId: string): Promise<BankAccount> {
+  async update(
+    id: string,
+    updateBankAccountDto: UpdateBankAccountDto,
+    tenantId: string,
+  ): Promise<BankAccount> {
     const accountId = this.toObjectIdIfValid(id) ?? id;
     const tenantFilter = this.buildTenantFilter(tenantId);
 
     const updatePayload: Record<string, any> = { ...updateBankAccountDto };
 
-    if (typeof updateBankAccountDto.alertEnabled === 'boolean' && !updateBankAccountDto.alertEnabled) {
+    if (
+      typeof updateBankAccountDto.alertEnabled === "boolean" &&
+      !updateBankAccountDto.alertEnabled
+    ) {
       updatePayload.lastAlertSentAt = null;
     }
 
@@ -81,7 +103,7 @@ export class BankAccountsService {
       .findOneAndUpdate(
         { _id: accountId, tenantId: tenantFilter },
         updatePayload,
-        { new: true }
+        { new: true },
       )
       .exec();
 
@@ -118,9 +140,10 @@ export class BankAccountsService {
   ): Promise<BankAccount> {
     const bankAccount = await this.findOne(id, tenantId, session);
 
-    const adjustment = adjustBalanceDto.type === 'increase'
-      ? adjustBalanceDto.amount
-      : -adjustBalanceDto.amount;
+    const adjustment =
+      adjustBalanceDto.type === "increase"
+        ? adjustBalanceDto.amount
+        : -adjustBalanceDto.amount;
 
     const newBalance = bankAccount.currentBalance + adjustment;
 
@@ -140,7 +163,9 @@ export class BankAccountsService {
       throw new NotFoundException(`Bank account with ID ${id} not found`);
     }
 
-    this.logger.log(`Adjusting balance for bank account ${id}: ${adjustBalanceDto.type} ${adjustBalanceDto.amount}. Reason: ${adjustBalanceDto.reason}`);
+    this.logger.log(
+      `Adjusting balance for bank account ${id}: ${adjustBalanceDto.type} ${adjustBalanceDto.amount}. Reason: ${adjustBalanceDto.reason}`,
+    );
     await this.evaluateAlerts(updated, tenantId, options.userId);
     return updated;
   }
@@ -182,7 +207,7 @@ export class BankAccountsService {
     options: { userId?: string } = {},
   ): Promise<BankAccount> {
     if (!Number.isFinite(newBalance)) {
-      throw new Error('Invalid balance value provided');
+      throw new Error("Invalid balance value provided");
     }
 
     const updated = await this.bankAccountModel
@@ -201,7 +226,9 @@ export class BankAccountsService {
       throw new NotFoundException(`Bank account with ID ${id} not found`);
     }
 
-    this.logger.log(`Set current balance for bank account ${id} to ${newBalance}`);
+    this.logger.log(
+      `Set current balance for bank account ${id} to ${newBalance}`,
+    );
     await this.evaluateAlerts(updated, tenantId, options.userId);
     return updated;
   }
@@ -209,7 +236,7 @@ export class BankAccountsService {
   async getTotalBalance(tenantId: string, currency?: string): Promise<number> {
     const filter: any = {
       tenantId: this.buildTenantFilter(tenantId),
-      isActive: true
+      isActive: true,
     };
 
     if (currency) {
@@ -217,17 +244,22 @@ export class BankAccountsService {
     }
 
     const accounts = await this.bankAccountModel.find(filter).exec();
-    return accounts.reduce((total, account) => total + account.currentBalance, 0);
+    return accounts.reduce(
+      (total, account) => total + account.currentBalance,
+      0,
+    );
   }
 
-  async getBalancesByCurrency(tenantId: string): Promise<Record<string, number>> {
+  async getBalancesByCurrency(
+    tenantId: string,
+  ): Promise<Record<string, number>> {
     const accounts = await this.bankAccountModel
       .find({ tenantId: this.buildTenantFilter(tenantId), isActive: true })
       .exec();
 
     const balances: Record<string, number> = {};
 
-    accounts.forEach(account => {
+    accounts.forEach((account) => {
       if (!balances[account.currency]) {
         balances[account.currency] = 0;
       }
@@ -267,7 +299,9 @@ export class BankAccountsService {
     }
 
     try {
-      await this.bankAlertsService.evaluateBalance(account, tenantId, { userId });
+      await this.bankAlertsService.evaluateBalance(account, tenantId, {
+        userId,
+      });
     } catch (error) {
       this.logger.error(
         `Failed to evaluate alerts for bank account ${account._id}: ${error.message}`,
@@ -275,5 +309,4 @@ export class BankAccountsService {
       );
     }
   }
-
- }
+}

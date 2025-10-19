@@ -1,10 +1,10 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
-import { InjectConnection } from '@nestjs/mongoose';
-import { Connection } from 'mongoose';
-import { FEATURES } from '../../config/features.config';
-import { BankAccountsService } from './bank-accounts.service';
-import { BankTransactionsService } from './bank-transactions.service';
-import { CreateBankTransferDto } from '../../dto/bank-transaction.dto';
+import { Injectable, BadRequestException } from "@nestjs/common";
+import { InjectConnection } from "@nestjs/mongoose";
+import { Connection } from "mongoose";
+import { FEATURES } from "../../config/features.config";
+import { BankAccountsService } from "./bank-accounts.service";
+import { BankTransactionsService } from "./bank-transactions.service";
+import { CreateBankTransferDto } from "../../dto/bank-transaction.dto";
 
 @Injectable()
 export class BankTransfersService {
@@ -21,17 +21,19 @@ export class BankTransfersService {
     dto: CreateBankTransferDto,
   ) {
     if (!FEATURES.BANK_ACCOUNTS_TRANSFERS) {
-      throw new BadRequestException('La funcionalidad de transferencias está desactivada.');
+      throw new BadRequestException(
+        "La funcionalidad de transferencias está desactivada.",
+      );
     }
 
     if (sourceAccountId === dto.destinationAccountId) {
       throw new BadRequestException(
-        'La cuenta origen y destino no pueden ser iguales.',
+        "La cuenta origen y destino no pueden ser iguales.",
       );
     }
 
     if (dto.amount <= 0) {
-      throw new BadRequestException('El monto debe ser mayor a cero.');
+      throw new BadRequestException("El monto debe ser mayor a cero.");
     }
 
     const session = await this.connection.startSession();
@@ -51,7 +53,9 @@ export class BankTransfersService {
       );
 
       if (sourceAccount.currentBalance < dto.amount) {
-        throw new BadRequestException('Fondos insuficientes en la cuenta origen.');
+        throw new BadRequestException(
+          "Fondos insuficientes en la cuenta origen.",
+        );
       }
 
       const updatedSource = await this.bankAccountsService.updateBalance(

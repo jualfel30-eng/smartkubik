@@ -1,16 +1,16 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { ClientSession, Model, Types } from 'mongoose';
+import { Injectable, Logger } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { ClientSession, Model, Types } from "mongoose";
 import {
   BankTransaction,
   BankTransactionDocument,
-} from '../../schemas/bank-transaction.schema';
+} from "../../schemas/bank-transaction.schema";
 import {
   CreateBankTransactionDto,
   BankTransactionQueryDto,
   RecordPaymentMovementDto,
   CreateBankTransferDto,
-} from '../../dto/bank-transaction.dto';
+} from "../../dto/bank-transaction.dto";
 
 @Injectable()
 export class BankTransactionsService {
@@ -60,7 +60,7 @@ export class BankTransactionsService {
       transactionDate,
       bookingDate: extra.bookingDate ?? new Date(),
       metadata: dto.metadata ?? {},
-      reconciliationStatus: extra.reconciliationStatus ?? 'pending',
+      reconciliationStatus: extra.reconciliationStatus ?? "pending",
     };
 
     if (createdBy) {
@@ -85,7 +85,7 @@ export class BankTransactionsService {
     userId: string,
     payload: RecordPaymentMovementDto & { balanceAfter: number },
   ): Promise<BankTransactionDocument> {
-    const type = payload.paymentType === 'sale' ? 'credit' : 'debit';
+    const type = payload.paymentType === "sale" ? "credit" : "debit";
     const channel = this.mapPaymentMethodToChannel(payload.method);
 
     return this.createTransaction(
@@ -98,7 +98,7 @@ export class BankTransactionsService {
         amount: payload.amount,
         description:
           payload.description ??
-          (type === 'credit'
+          (type === "credit"
             ? `Pago recibido (${payload.method})`
             : `Pago a proveedor (${payload.method})`),
         reference: payload.reference,
@@ -109,7 +109,7 @@ export class BankTransactionsService {
       payload.balanceAfter,
       {
         paymentId: new Types.ObjectId(payload.paymentId),
-        reconciliationStatus: 'pending',
+        reconciliationStatus: "pending",
       },
     );
   }
@@ -120,34 +120,31 @@ export class BankTransactionsService {
     statementTransactionId: string,
     userId: string,
   ): Promise<void> {
-    await this.bankTransactionModel.findByIdAndUpdate(
-      transactionId,
-      {
-        $set: {
-          reconciliationStatus: 'matched',
-          reconciliationId: new Types.ObjectId(reconciliationId),
-          statementTransactionId: new Types.ObjectId(statementTransactionId),
-          'metadata.reconciledBy': userId,
-          'metadata.reconciledAt': new Date(),
-          reconciled: true,
-          reconciledAt: new Date(),
-          importedFrom: 'statement',
-        },
+    await this.bankTransactionModel.findByIdAndUpdate(transactionId, {
+      $set: {
+        reconciliationStatus: "matched",
+        reconciliationId: new Types.ObjectId(reconciliationId),
+        statementTransactionId: new Types.ObjectId(statementTransactionId),
+        "metadata.reconciledBy": userId,
+        "metadata.reconciledAt": new Date(),
+        reconciled: true,
+        reconciledAt: new Date(),
+        importedFrom: "statement",
       },
-    );
+    });
   }
 
   async markAsPending(transactionId: string): Promise<void> {
     await this.bankTransactionModel.findByIdAndUpdate(transactionId, {
       $set: {
-        reconciliationStatus: 'pending',
+        reconciliationStatus: "pending",
         reconciled: false,
       },
       $unset: {
         reconciliationId: 1,
         statementTransactionId: 1,
-        'metadata.reconciledBy': 1,
-        'metadata.reconciledAt': 1,
+        "metadata.reconciledBy": 1,
+        "metadata.reconciledAt": 1,
         reconciledAt: 1,
         importedFrom: 1,
       },
@@ -179,15 +176,15 @@ export class BankTransactionsService {
       tenantId,
       sourceAccountId,
       {
-        type: 'debit',
-        channel: 'transferencia',
+        type: "debit",
+        channel: "transferencia",
         amount: dto.amount,
         description:
           dto.description || `Transferencia a cuenta ${destinationAccountId}`,
         reference: dto.reference,
         metadata: {
           ...baseMetadata,
-          direction: 'out',
+          direction: "out",
         },
       },
       userId,
@@ -202,15 +199,15 @@ export class BankTransactionsService {
       tenantId,
       destinationAccountId,
       {
-        type: 'credit',
-        channel: 'transferencia',
+        type: "credit",
+        channel: "transferencia",
         amount: dto.amount,
         description:
           dto.description || `Transferencia desde cuenta ${sourceAccountId}`,
         reference: dto.reference,
         metadata: {
           ...baseMetadata,
-          direction: 'in',
+          direction: "in",
         },
       },
       userId,
@@ -227,7 +224,7 @@ export class BankTransactionsService {
         {
           $set: {
             transferGroupId,
-            'metadata.counterpartTransactionId': credit._id,
+            "metadata.counterpartTransactionId": credit._id,
           },
         },
         { session },
@@ -240,7 +237,7 @@ export class BankTransactionsService {
         {
           $set: {
             transferGroupId,
-            'metadata.counterpartTransactionId': debit._id,
+            "metadata.counterpartTransactionId": debit._id,
           },
         },
         { session },
@@ -280,9 +277,9 @@ export class BankTransactionsService {
     }
     if (query.search) {
       filter.$or = [
-        { description: { $regex: query.search, $options: 'i' } },
-        { reference: { $regex: query.search, $options: 'i' } },
-        { 'counterpart.name': { $regex: query.search, $options: 'i' } },
+        { description: { $regex: query.search, $options: "i" } },
+        { reference: { $regex: query.search, $options: "i" } },
+        { "counterpart.name": { $regex: query.search, $options: "i" } },
       ];
     }
 
@@ -290,10 +287,10 @@ export class BankTransactionsService {
     const limit = query.limit && query.limit > 0 ? query.limit : 25;
     const skip = (page - 1) * limit;
 
-    const sortField = query.sortField ?? 'transactionDate';
-    const sortOrder: 1 | -1 = query.sortOrder === 'asc' ? 1 : -1;
+    const sortField = query.sortField ?? "transactionDate";
+    const sortOrder: 1 | -1 = query.sortOrder === "asc" ? 1 : -1;
     const sort: Record<string, 1 | -1> = { [sortField]: sortOrder };
-    if (sortField !== 'createdAt') {
+    if (sortField !== "createdAt") {
       sort.createdAt = -1;
     }
 
@@ -321,21 +318,21 @@ export class BankTransactionsService {
 
   private mapPaymentMethodToChannel(method: string): string {
     if (!method) {
-      return 'otros';
+      return "otros";
     }
     const normalized = method.toLowerCase();
-    if (normalized.includes('pago_movil')) return 'pago_movil';
-    if (normalized.includes('transferencia')) return 'transferencia';
+    if (normalized.includes("pago_movil")) return "pago_movil";
+    if (normalized.includes("transferencia")) return "transferencia";
     if (
-      normalized.includes('pos') ||
-      normalized.includes('tarjeta') ||
-      normalized.includes('punto')
+      normalized.includes("pos") ||
+      normalized.includes("tarjeta") ||
+      normalized.includes("punto")
     )
-      return 'pos';
-    if (normalized.includes('cash') || normalized.includes('efectivo'))
-      return 'otros';
-    if (normalized.includes('zelle') || normalized.includes('paypal'))
-      return 'otros';
-    return 'otros';
+      return "pos";
+    if (normalized.includes("cash") || normalized.includes("efectivo"))
+      return "otros";
+    if (normalized.includes("zelle") || normalized.includes("paypal"))
+      return "otros";
+    return "otros";
   }
 }

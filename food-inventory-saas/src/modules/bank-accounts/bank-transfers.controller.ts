@@ -5,28 +5,26 @@ import {
   Post,
   Request,
   UseGuards,
-} from '@nestjs/common';
-import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
-import { TenantGuard } from '../../guards/tenant.guard';
-import { PermissionsGuard } from '../../guards/permissions.guard';
-import { ModuleAccessGuard } from '../../guards/module-access.guard';
-import { Permissions } from '../../decorators/permissions.decorator';
-import { RequireModule } from '../../decorators/require-module.decorator';
-import { CreateBankTransferDto } from '../../dto/bank-transaction.dto';
-import { BankTransfersService } from './bank-transfers.service';
+} from "@nestjs/common";
+import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
+import { TenantGuard } from "../../guards/tenant.guard";
+import { PermissionsGuard } from "../../guards/permissions.guard";
+import { ModuleAccessGuard } from "../../guards/module-access.guard";
+import { Permissions } from "../../decorators/permissions.decorator";
+import { RequireModule } from "../../decorators/require-module.decorator";
+import { CreateBankTransferDto } from "../../dto/bank-transaction.dto";
+import { BankTransfersService } from "./bank-transfers.service";
 
-@Controller('bank-accounts/:accountId/transfers')
+@Controller("bank-accounts/:accountId/transfers")
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard, ModuleAccessGuard)
-@RequireModule('bankAccounts')
+@RequireModule("bankAccounts")
 export class BankTransfersController {
-  constructor(
-    private readonly bankTransfersService: BankTransfersService,
-  ) {}
+  constructor(private readonly bankTransfersService: BankTransfersService) {}
 
   @Post()
-  @Permissions('accounting_write')
+  @Permissions("accounting_write")
   async createTransfer(
-    @Param('accountId') accountId: string,
+    @Param("accountId") accountId: string,
     @Body() dto: CreateBankTransferDto,
     @Request() req,
   ) {

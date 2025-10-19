@@ -8,23 +8,23 @@ import {
   UseGuards,
   Request,
   BadRequestException,
-} from '@nestjs/common';
-import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
-import { TenantGuard } from '../../guards/tenant.guard';
-  import { PermissionsGuard } from '../../guards/permissions.guard';
-import { ModuleAccessGuard } from '../../guards/module-access.guard';
-import { Permissions } from '../../decorators/permissions.decorator';
-import { RequireModule } from '../../decorators/require-module.decorator';
+} from "@nestjs/common";
+import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
+import { TenantGuard } from "../../guards/tenant.guard";
+import { PermissionsGuard } from "../../guards/permissions.guard";
+import { ModuleAccessGuard } from "../../guards/module-access.guard";
+import { Permissions } from "../../decorators/permissions.decorator";
+import { RequireModule } from "../../decorators/require-module.decorator";
 import {
   CreateBankTransactionDto,
   BankTransactionQueryDto,
-} from '../../dto/bank-transaction.dto';
-import { BankTransactionsService } from './bank-transactions.service';
-import { BankAccountsService } from './bank-accounts.service';
+} from "../../dto/bank-transaction.dto";
+import { BankTransactionsService } from "./bank-transactions.service";
+import { BankAccountsService } from "./bank-accounts.service";
 
-@Controller('bank-accounts/:accountId/movements')
+@Controller("bank-accounts/:accountId/movements")
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard, ModuleAccessGuard)
-@RequireModule('bankAccounts')
+@RequireModule("bankAccounts")
 export class BankTransactionsController {
   constructor(
     private readonly bankTransactionsService: BankTransactionsService,
@@ -32,9 +32,9 @@ export class BankTransactionsController {
   ) {}
 
   @Get()
-  @Permissions('accounting_read')
+  @Permissions("accounting_read")
   async findAll(
-    @Param('accountId') accountId: string,
+    @Param("accountId") accountId: string,
     @Query() query: BankTransactionQueryDto,
     @Request() req,
   ) {
@@ -51,19 +51,18 @@ export class BankTransactionsController {
   }
 
   @Post()
-  @Permissions('accounting_write')
+  @Permissions("accounting_write")
   async createManual(
-    @Param('accountId') accountId: string,
+    @Param("accountId") accountId: string,
     @Body() dto: CreateBankTransactionDto,
     @Request() req,
   ) {
     const tenantId = req.user.tenantId;
     const userId = req.user.id;
-    const adjustment =
-      dto.type === 'credit' ? dto.amount : -1 * dto.amount;
+    const adjustment = dto.type === "credit" ? dto.amount : -1 * dto.amount;
 
     if (!Number.isFinite(adjustment)) {
-      throw new BadRequestException('Monto inválido para el movimiento');
+      throw new BadRequestException("Monto inválido para el movimiento");
     }
 
     const updatedAccount = await this.bankAccountsService.updateBalance(
@@ -83,7 +82,7 @@ export class BankTransactionsController {
       {
         metadata: {
           ...(dto.metadata ?? {}),
-          createdFrom: 'manual_adjustment',
+          createdFrom: "manual_adjustment",
         },
       },
     );
@@ -93,5 +92,4 @@ export class BankTransactionsController {
       data: transaction,
     };
   }
-
 }

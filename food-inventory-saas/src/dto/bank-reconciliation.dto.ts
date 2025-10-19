@@ -8,8 +8,8 @@ import {
   IsString,
   ValidateNested,
   IsMongoId,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+} from "class-validator";
+import { Type } from "class-transformer";
 
 export class ImportBankStatementTransactionDto {
   @IsDateString()
@@ -23,8 +23,8 @@ export class ImportBankStatementTransactionDto {
   amount: number;
 
   @IsOptional()
-  @IsEnum(['credit', 'debit'])
-  type?: 'credit' | 'debit';
+  @IsEnum(["credit", "debit"])
+  type?: "credit" | "debit";
 
   @IsOptional()
   @IsString()

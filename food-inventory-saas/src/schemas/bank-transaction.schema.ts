@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 export type BankTransactionDocument = BankTransaction & Document;
 
@@ -30,40 +30,47 @@ export class BankTransactionCounterpart {
   voucher?: string;
 }
 
-const BankTransactionCounterpartSchema = SchemaFactory.createForClass(BankTransactionCounterpart);
+const BankTransactionCounterpartSchema = SchemaFactory.createForClass(
+  BankTransactionCounterpart,
+);
 
 @Schema({ timestamps: true })
 export class BankTransaction {
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true, index: true })
+  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true, index: true })
   tenantId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'BankAccount', required: true, index: true })
+  @Prop({
+    type: Types.ObjectId,
+    ref: "BankAccount",
+    required: true,
+    index: true,
+  })
   bankAccountId: Types.ObjectId;
 
   @Prop({
     type: String,
     required: true,
-    enum: ['credit', 'debit'],
+    enum: ["credit", "debit"],
   })
-  type: 'credit' | 'debit';
+  type: "credit" | "debit";
 
   @Prop({
     type: String,
     required: true,
     enum: [
-      'pago_movil',
-      'transferencia',
-      'pos',
-      'deposito_cajero',
-      'fee',
-      'interest',
-      'ajuste_manual',
-      'otros',
+      "pago_movil",
+      "transferencia",
+      "pos",
+      "deposito_cajero",
+      "fee",
+      "interest",
+      "ajuste_manual",
+      "otros",
     ],
   })
   channel: string;
 
-  @Prop({ type: String, default: 'VES' })
+  @Prop({ type: String, default: "VES" })
   method?: string;
 
   @Prop({ type: Number, required: true })
@@ -96,30 +103,30 @@ export class BankTransaction {
   @Prop({ type: String })
   importedFrom?: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'BankStatementImport' })
+  @Prop({ type: Types.ObjectId, ref: "BankStatementImport" })
   statementImportId?: Types.ObjectId;
 
   @Prop({
     type: String,
-    enum: ['pending', 'matched', 'manually_matched', 'rejected', 'in_review'],
-    default: 'pending',
+    enum: ["pending", "matched", "manually_matched", "rejected", "in_review"],
+    default: "pending",
     index: true,
   })
   reconciliationStatus: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'BankReconciliation' })
+  @Prop({ type: Types.ObjectId, ref: "BankReconciliation" })
   reconciliationId?: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId })
   statementTransactionId?: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Payment' })
+  @Prop({ type: Types.ObjectId, ref: "Payment" })
   paymentId?: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'BankTransaction' })
+  @Prop({ type: Types.ObjectId, ref: "BankTransaction" })
   linkedMovementId?: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'JournalEntry' })
+  @Prop({ type: Types.ObjectId, ref: "JournalEntry" })
   journalEntryId?: Types.ObjectId;
 
   @Prop({ type: Object, default: {} })
@@ -128,16 +135,35 @@ export class BankTransaction {
   @Prop({ type: String })
   transferGroupId?: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   createdBy?: Types.ObjectId;
 }
 
-export const BankTransactionSchema = SchemaFactory.createForClass(BankTransaction);
+export const BankTransactionSchema =
+  SchemaFactory.createForClass(BankTransaction);
 
-BankTransactionSchema.index({ tenantId: 1, bankAccountId: 1, transactionDate: -1 });
-BankTransactionSchema.index({ tenantId: 1, channel: 1, reference: 1 }, { sparse: true });
+BankTransactionSchema.index({
+  tenantId: 1,
+  bankAccountId: 1,
+  transactionDate: -1,
+});
+BankTransactionSchema.index(
+  { tenantId: 1, channel: 1, reference: 1 },
+  { sparse: true },
+);
 BankTransactionSchema.index({ paymentId: 1 }, { sparse: true });
-BankTransactionSchema.index({ reconciliationId: 1, statementTransactionId: 1 }, { sparse: true });
+BankTransactionSchema.index(
+  { reconciliationId: 1, statementTransactionId: 1 },
+  { sparse: true },
+);
 BankTransactionSchema.index({ transferGroupId: 1 });
-BankTransactionSchema.index({ bankAccountId: 1, reconciled: 1, transactionDate: -1 });
-BankTransactionSchema.index({ tenantId: 1, reconciled: 1, transactionDate: -1 });
+BankTransactionSchema.index({
+  bankAccountId: 1,
+  reconciled: 1,
+  transactionDate: -1,
+});
+BankTransactionSchema.index({
+  tenantId: 1,
+  reconciled: 1,
+  transactionDate: -1,
+});

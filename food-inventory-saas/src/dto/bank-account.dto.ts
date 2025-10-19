@@ -1,4 +1,14 @@
-import { IsString, IsNotEmpty, IsNumber, IsOptional, IsBoolean, IsEnum, IsDateString, Min } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsBoolean,
+  IsEnum,
+  IsDateString,
+  Min,
+  IsArray,
+} from "class-validator";
 
 export class CreateBankAccountDto {
   @IsString()
@@ -9,13 +19,13 @@ export class CreateBankAccountDto {
   @IsNotEmpty()
   accountNumber: string;
 
-  @IsEnum(['corriente', 'ahorro', 'nomina', 'otra'])
+  @IsEnum(["corriente", "ahorro", "nomina", "otra"])
   @IsNotEmpty()
-  accountType: 'corriente' | 'ahorro' | 'nomina' | 'otra';
+  accountType: "corriente" | "ahorro" | "nomina" | "otra";
 
   @IsString()
   @IsOptional()
-  currency?: string = 'VES';
+  currency?: string = "VES";
 
   @IsNumber()
   @IsNotEmpty()
@@ -50,6 +60,11 @@ export class CreateBankAccountDto {
   @IsOptional()
   @Min(0)
   minimumBalance?: number | null;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  acceptedPaymentMethods?: string[];
 }
 
 export class UpdateBankAccountDto {
@@ -61,9 +76,9 @@ export class UpdateBankAccountDto {
   @IsOptional()
   accountNumber?: string;
 
-  @IsEnum(['corriente', 'ahorro', 'nomina', 'otra'])
+  @IsEnum(["corriente", "ahorro", "nomina", "otra"])
   @IsOptional()
-  accountType?: 'corriente' | 'ahorro' | 'nomina' | 'otra';
+  accountType?: "corriente" | "ahorro" | "nomina" | "otra";
 
   @IsString()
   @IsOptional()
@@ -101,6 +116,11 @@ export class UpdateBankAccountDto {
   @IsOptional()
   @Min(0)
   minimumBalance?: number | null;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  acceptedPaymentMethods?: string[];
 }
 
 export class AdjustBalanceDto {
@@ -112,9 +132,9 @@ export class AdjustBalanceDto {
   @IsNotEmpty()
   reason: string;
 
-  @IsEnum(['increase', 'decrease'])
+  @IsEnum(["increase", "decrease"])
   @IsNotEmpty()
-  type: 'increase' | 'decrease';
+  type: "increase" | "decrease";
 
   @IsString()
   @IsOptional()

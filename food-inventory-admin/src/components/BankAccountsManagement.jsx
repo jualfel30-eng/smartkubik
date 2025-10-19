@@ -24,7 +24,19 @@ const initialFormState = {
   swiftCode: '',
   notes: '',
   isActive: true,
+  acceptedPaymentMethods: [],
 };
+
+const STANDARD_PAYMENT_METHODS = [
+  'Efectivo',
+  'Tarjeta de Débito',
+  'Tarjeta de Crédito',
+  'Transferencia',
+  'Pagomóvil',
+  'Zelle',
+  'POS',
+  'Otro'
+];
 
 export default function BankAccountsManagement() {
   const navigate = useNavigate();
@@ -46,6 +58,7 @@ export default function BankAccountsManagement() {
   const [movements, setMovements] = useState([]);
   const [movementsPagination, setMovementsPagination] = useState({ page: 1, totalPages: 0, limit: 20 });
   const [movementsLoading, setMovementsLoading] = useState(false);
+  const [customPaymentMethod, setCustomPaymentMethod] = useState('');
 
   const fetchAccounts = useCallback(async (page = 1, limit = 25) => {
     try {
@@ -131,6 +144,7 @@ export default function BankAccountsManagement() {
   const openCreateDialog = () => {
     setEditingAccount(null);
     setFormData(initialFormState);
+    setCustomPaymentMethod('');
     setIsDialogOpen(true);
   };
 
@@ -147,8 +161,50 @@ export default function BankAccountsManagement() {
       swiftCode: account.swiftCode || '',
       notes: account.notes || '',
       isActive: account.isActive,
+      acceptedPaymentMethods: account.acceptedPaymentMethods || [],
     });
+    setCustomPaymentMethod('');
     setIsDialogOpen(true);
+  };
+
+  const togglePaymentMethod = (method) => {
+    setFormData(prev => {
+      const current = prev.acceptedPaymentMethods || [];
+      const isSelected = current.includes(method);
+
+      if (isSelected) {
+        return {
+          ...prev,
+          acceptedPaymentMethods: current.filter(m => m !== method)
+        };
+      } else {
+        return {
+          ...prev,
+          acceptedPaymentMethods: [...current, method]
+        };
+      }
+    });
+  };
+
+  const handleAddCustomPaymentMethod = () => {
+    const trimmed = customPaymentMethod.trim();
+    if (!trimmed) {
+      toast.error('Ingrese un nombre para el método de pago');
+      return;
+    }
+
+    const current = formData.acceptedPaymentMethods || [];
+    if (current.includes(trimmed)) {
+      toast.error('Este método de pago ya está agregado');
+      return;
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      acceptedPaymentMethods: [...current, trimmed]
+    }));
+    setCustomPaymentMethod('');
+    toast.success(`Método de pago "${trimmed}" agregado`);
   };
 
   const openAdjustDialog = (account) => {
@@ -483,6 +539,62 @@ export default function BankAccountsManagement() {
                     placeholder="Información adicional"
                     rows={3}
                   />
+                </div>
+
+                <div className="space-y-3">
+                  <Label>Métodos de Pago Aceptados</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {STANDARD_PAYMENT_METHODS.filter(m => m !== 'Otro').map((method) => (
+                      <div key={method} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`payment-${method}`}
+                          checked={(formData.acceptedPaymentMethods || []).includes(method)}
+                          onChange={() => togglePaymentMethod(method)}
+                          className="rounded border-gray-300"
+                        />
+                        <Label htmlFor={`payment-${method}`} className="font-normal cursor-pointer">
+                          {method}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="customPaymentMethod">Agregar Método Personalizado</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="customPaymentMethod"
+                        value={customPaymentMethod}
+                        onChange={(e) => setCustomPaymentMethod(e.target.value)}
+                        placeholder="Ej: PayPal, Binance, etc."
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddCustomPaymentMethod();
+                          }
+                        }}
+                      />
+                      <Button type="button" onClick={handleAddCustomPaymentMethod} variant="outline">
+                        Agregar
+                      </Button>
+                    </div>
+                  </div>
+
+                  {formData.acceptedPaymentMethods && formData.acceptedPaymentMethods.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {formData.acceptedPaymentMethods.map((method) => (
+                        <Badge
+                          key={method}
+                          variant="secondary"
+                          className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                          onClick={() => togglePaymentMethod(method)}
+                        >
+                          {method} ✕
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <DialogFooter>
