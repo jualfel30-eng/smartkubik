@@ -181,8 +181,12 @@ export function getDefaultModulesForVertical(vertical: string) {
 /**
  * Verifica si un módulo está disponible para un vertical
  */
-export function isModuleAvailableForVertical(vertical: string, module: string): boolean {
-  const features = VERTICAL_FEATURES[vertical] || VERTICAL_FEATURES.FOOD_SERVICE;
+export function isModuleAvailableForVertical(
+  vertical: string,
+  module: string,
+): boolean {
+  const features =
+    VERTICAL_FEATURES[vertical] || VERTICAL_FEATURES.FOOD_SERVICE;
   return features[module] ?? false;
 }
 

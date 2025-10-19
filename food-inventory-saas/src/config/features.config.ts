@@ -1,8 +1,8 @@
-import { config as loadEnv } from 'dotenv';
-import { join } from 'path';
-import { existsSync } from 'fs';
+import { config as loadEnv } from "dotenv";
+import { join } from "path";
+import { existsSync } from "fs";
 
-const envPath = join(__dirname, '../../', '.env');
+const envPath = join(__dirname, "../../", ".env");
 if (existsSync(envPath)) {
   loadEnv({ path: envPath });
 }
@@ -42,35 +42,28 @@ export interface FeatureFlags {
 export const FEATURES: FeatureFlags = {
   // Fase 1
   EMPLOYEE_PERFORMANCE_TRACKING:
-    process.env.ENABLE_EMPLOYEE_PERFORMANCE === 'true',
+    process.env.ENABLE_EMPLOYEE_PERFORMANCE === "true",
 
   // Fase 2
-  BANK_ACCOUNTS_MOVEMENTS:
-    process.env.ENABLE_BANK_MOVEMENTS === 'true',
+  BANK_ACCOUNTS_MOVEMENTS: process.env.ENABLE_BANK_MOVEMENTS === "true",
 
   BANK_ACCOUNTS_RECONCILIATION:
-    process.env.ENABLE_BANK_RECONCILIATION === 'true',
+    process.env.ENABLE_BANK_RECONCILIATION === "true",
 
-  BANK_ACCOUNTS_TRANSFERS:
-    process.env.ENABLE_BANK_TRANSFERS === 'true',
+  BANK_ACCOUNTS_TRANSFERS: process.env.ENABLE_BANK_TRANSFERS === "true",
 
   // Fase 3
-  DASHBOARD_CHARTS:
-    process.env.ENABLE_DASHBOARD_CHARTS === 'true',
+  DASHBOARD_CHARTS: process.env.ENABLE_DASHBOARD_CHARTS === "true",
 
-  ADVANCED_REPORTS:
-    process.env.ENABLE_ADVANCED_REPORTS === 'true',
+  ADVANCED_REPORTS: process.env.ENABLE_ADVANCED_REPORTS === "true",
 
   // Fase 4
-  PREDICTIVE_ANALYTICS:
-    process.env.ENABLE_PREDICTIVE_ANALYTICS === 'true',
+  PREDICTIVE_ANALYTICS: process.env.ENABLE_PREDICTIVE_ANALYTICS === "true",
 
-  CUSTOMER_SEGMENTATION:
-    process.env.ENABLE_CUSTOMER_SEGMENTATION === 'true',
+  CUSTOMER_SEGMENTATION: process.env.ENABLE_CUSTOMER_SEGMENTATION === "true",
 
   // Fase 1B
-  MULTI_TENANT_LOGIN:
-    process.env.ENABLE_MULTI_TENANT_LOGIN === 'true',
+  MULTI_TENANT_LOGIN: process.env.ENABLE_MULTI_TENANT_LOGIN === "true",
 };
 
 /**
@@ -78,16 +71,16 @@ export const FEATURES: FeatureFlags = {
  * Útil para debugging y verificación
  */
 export function logFeatureStatus(): void {
-  console.log('🎛️  Feature Flags Status:');
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log("🎛️  Feature Flags Status:");
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
   Object.entries(FEATURES).forEach(([key, value]) => {
-    const icon = value ? '✅' : '❌';
-    const status = value ? 'ENABLED ' : 'DISABLED';
+    const icon = value ? "✅" : "❌";
+    const status = value ? "ENABLED " : "DISABLED";
     console.log(`  ${icon} ${status} - ${key}`);
   });
 
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 }
 
 /**

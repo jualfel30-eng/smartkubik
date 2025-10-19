@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectConnection } from '@nestjs/mongoose';
-import { Connection } from 'mongoose';
-import { PermissionsSeed } from './permissions.seed';
+import { Injectable, Logger } from "@nestjs/common";
+import { InjectConnection } from "@nestjs/mongoose";
+import { Connection } from "mongoose";
+import { PermissionsSeed } from "./permissions.seed";
 
 interface Role {
   name: string;
@@ -18,41 +18,53 @@ export class RolesSeed {
   // Roles básicos del sistema
   private readonly roles: Role[] = [
     {
-      name: 'admin',
-      displayName: 'Administrador',
-      description: 'Acceso completo al sistema',
+      name: "admin",
+      displayName: "Administrador",
+      description: "Acceso completo al sistema",
       isSystemRole: true,
       permissionNames: [], // Se llenará con todos los permisos
     },
     {
-      name: 'manager',
-      displayName: 'Gerente',
-      description: 'Acceso a gestión operativa',
+      name: "manager",
+      displayName: "Gerente",
+      description: "Acceso a gestión operativa",
       isSystemRole: true,
       permissionNames: [
-        'dashboard_read',
-        'customers_read', 'customers_create', 'customers_update',
-        'orders_read', 'orders_create', 'orders_update',
-        'products_read', 'products_create', 'products_update',
-        'inventory_read', 'inventory_update',
-        'reports_read',
-        'accounting_read',
-        'purchases_read', 'purchases_create', 'purchases_update',
-        'events_read', 'events_create', 'events_update',
+        "dashboard_read",
+        "customers_read",
+        "customers_create",
+        "customers_update",
+        "orders_read",
+        "orders_create",
+        "orders_update",
+        "products_read",
+        "products_create",
+        "products_update",
+        "inventory_read",
+        "inventory_update",
+        "reports_read",
+        "accounting_read",
+        "purchases_read",
+        "purchases_create",
+        "purchases_update",
+        "events_read",
+        "events_create",
+        "events_update",
       ],
     },
     {
-      name: 'employee',
-      displayName: 'Empleado',
-      description: 'Acceso básico operativo',
+      name: "employee",
+      displayName: "Empleado",
+      description: "Acceso básico operativo",
       isSystemRole: true,
       permissionNames: [
-        'dashboard_read',
-        'customers_read',
-        'orders_read', 'orders_create',
-        'products_read',
-        'inventory_read',
-        'events_read',
+        "dashboard_read",
+        "customers_read",
+        "orders_read",
+        "orders_create",
+        "products_read",
+        "inventory_read",
+        "events_read",
       ],
     },
   ];
@@ -65,13 +77,17 @@ export class RolesSeed {
   async seed(): Promise<void> {
     try {
       const db = this.connection.db;
-      const rolesCollection = db.collection('roles');
+      const rolesCollection = db.collection("roles");
 
       // Verificar si ya existen roles del sistema
-      const existingSystemRoles = await rolesCollection.countDocuments({ isSystemRole: true });
+      const existingSystemRoles = await rolesCollection.countDocuments({
+        isSystemRole: true,
+      });
 
       if (existingSystemRoles > 0) {
-        this.logger.log(`✅ System roles already seeded (${existingSystemRoles} found). Skipping...`);
+        this.logger.log(
+          `✅ System roles already seeded (${existingSystemRoles} found). Skipping...`,
+        );
         return;
       }
 
@@ -85,12 +101,14 @@ export class RolesSeed {
       for (const role of this.roles) {
         let permissionIds;
 
-        if (role.name === 'admin') {
+        if (role.name === "admin") {
           // Admin tiene todos los permisos
           permissionIds = allPermissionIds;
         } else {
           // Otros roles tienen permisos específicos
-          permissionIds = await this.permissionsSeed.getPermissionIds(role.permissionNames);
+          permissionIds = await this.permissionsSeed.getPermissionIds(
+            role.permissionNames,
+          );
         }
 
         rolesToInsert.push({
@@ -107,9 +125,11 @@ export class RolesSeed {
 
       await rolesCollection.insertMany(rolesToInsert);
 
-      this.logger.log(`✅ Successfully seeded ${this.roles.length} system roles`);
+      this.logger.log(
+        `✅ Successfully seeded ${this.roles.length} system roles`,
+      );
     } catch (error) {
-      this.logger.error('❌ Error seeding roles:', error.message);
+      this.logger.error("❌ Error seeding roles:", error.message);
       throw error;
     }
   }

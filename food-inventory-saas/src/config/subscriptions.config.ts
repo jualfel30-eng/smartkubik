@@ -10,7 +10,7 @@ export interface SubscriptionPlan {
 
 export const subscriptionPlans: Record<string, SubscriptionPlan> = {
   trial: {
-    name: 'Trial',
+    name: "Trial",
     limits: {
       maxUsers: 5,
       maxProducts: 50,
@@ -19,7 +19,7 @@ export const subscriptionPlans: Record<string, SubscriptionPlan> = {
     },
   },
   basic: {
-    name: 'Basic',
+    name: "Basic",
     limits: {
       maxUsers: 10,
       maxProducts: 500,
@@ -28,7 +28,7 @@ export const subscriptionPlans: Record<string, SubscriptionPlan> = {
     },
   },
   premium: {
-    name: 'Premium',
+    name: "Premium",
     limits: {
       maxUsers: 50,
       maxProducts: 5000,
@@ -37,7 +37,7 @@ export const subscriptionPlans: Record<string, SubscriptionPlan> = {
     },
   },
   enterprise: {
-    name: 'Enterprise',
+    name: "Enterprise",
     limits: {
       maxUsers: Infinity,
       maxProducts: Infinity,
@@ -47,6 +47,6 @@ export const subscriptionPlans: Record<string, SubscriptionPlan> = {
   },
 };
 
-export const getPlanLimits = (plan: string): SubscriptionPlan['limits'] => {
+export const getPlanLimits = (plan: string): SubscriptionPlan["limits"] => {
   return subscriptionPlans[plan]?.limits || subscriptionPlans.trial.limits;
 };
