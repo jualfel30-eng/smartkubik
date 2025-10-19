@@ -23,7 +23,7 @@ export class User {
   @Prop()
   avatar?: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'Role' })
+  @Prop({ type: Types.ObjectId, ref: "Role" })
   role: Types.ObjectId;
 
   @Prop({ required: true, default: true })

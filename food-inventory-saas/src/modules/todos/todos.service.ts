@@ -1,10 +1,9 @@
-
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { CreateTodoDto, UpdateTodoDto } from '../../dto/todo.dto';
-import { Todo, TodoDocument } from '../../schemas/todo.schema';
-import { Event, EventDocument } from '../../schemas/event.schema';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { CreateTodoDto, UpdateTodoDto } from "../../dto/todo.dto";
+import { Todo, TodoDocument } from "../../schemas/todo.schema";
+import { Event, EventDocument } from "../../schemas/event.schema";
 
 @Injectable()
 export class TodosService {
@@ -29,9 +28,16 @@ export class TodosService {
       .exec();
   }
 
-  async update(id: string, updateTodoDto: UpdateTodoDto, tenantId: string): Promise<Todo | null> {
+  async update(
+    id: string,
+    updateTodoDto: UpdateTodoDto,
+    tenantId: string,
+  ): Promise<Todo | null> {
     const tenantFilter = this.buildTenantFilter(tenantId);
-    const todo = await this.todoModel.findOne({ _id: this.toObjectIdOrValue(id), tenantId: tenantFilter });
+    const todo = await this.todoModel.findOne({
+      _id: this.toObjectIdOrValue(id),
+      tenantId: tenantFilter,
+    });
 
     if (!todo) {
       return null;
@@ -42,7 +48,7 @@ export class TodosService {
       try {
         await this.eventModel.findByIdAndDelete(todo.relatedEventId).exec();
       } catch (error) {
-        console.error('Error deleting related event:', error);
+        console.error("Error deleting related event:", error);
         // Continuar con la actualización del todo aunque falle la eliminación del evento
       }
     }
@@ -76,7 +82,7 @@ export class TodosService {
             eventUpdate,
           );
         } catch (error) {
-          console.error('Error syncing event from todo update:', error);
+          console.error("Error syncing event from todo update:", error);
         }
       }
     }
@@ -87,9 +93,14 @@ export class TodosService {
   async remove(id: string, tenantId: string): Promise<any> {
     // Validar que el todo existe y pertenece al tenant antes de eliminar
     const tenantFilter = this.buildTenantFilter(tenantId);
-    const todo = await this.todoModel.findOne({ _id: this.toObjectIdOrValue(id), tenantId: tenantFilter });
+    const todo = await this.todoModel.findOne({
+      _id: this.toObjectIdOrValue(id),
+      tenantId: tenantFilter,
+    });
     if (!todo) {
-      throw new NotFoundException(`Todo con ID "${id}" no encontrado o no tiene permisos para eliminarlo`);
+      throw new NotFoundException(
+        `Todo con ID "${id}" no encontrado o no tiene permisos para eliminarlo`,
+      );
     }
 
     if (todo.relatedEventId) {
@@ -99,12 +110,15 @@ export class TodosService {
           tenantId: tenantFilter,
         });
       } catch (error) {
-        console.error('Error deleting related event from todo removal:', error);
+        console.error("Error deleting related event from todo removal:", error);
       }
     }
 
     return this.todoModel
-      .findOneAndDelete({ _id: this.toObjectIdOrValue(id), tenantId: tenantFilter })
+      .findOneAndDelete({
+        _id: this.toObjectIdOrValue(id),
+        tenantId: tenantFilter,
+      })
       .exec();
   }
 

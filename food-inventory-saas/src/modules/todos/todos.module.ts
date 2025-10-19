@@ -1,11 +1,10 @@
-
-import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { TodosService } from './todos.service';
-import { TodosController } from './todos.controller';
-import { Todo, TodoSchema } from '../../schemas/todo.schema';
-import { Event, EventSchema } from '../../schemas/event.schema';
-import { AuthModule } from '../../auth/auth.module';
+import { Module } from "@nestjs/common";
+import { MongooseModule } from "@nestjs/mongoose";
+import { TodosService } from "./todos.service";
+import { TodosController } from "./todos.controller";
+import { Todo, TodoSchema } from "../../schemas/todo.schema";
+import { Event, EventSchema } from "../../schemas/event.schema";
+import { AuthModule } from "../../auth/auth.module";
 
 @Module({
   imports: [

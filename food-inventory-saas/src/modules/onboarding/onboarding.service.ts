@@ -1,20 +1,33 @@
-import { Injectable, Logger, ConflictException, InternalServerErrorException, BadRequestException, NotFoundException } from '@nestjs/common';
-import { InjectModel, InjectConnection } from '@nestjs/mongoose';
-import { Model, Connection } from 'mongoose';
-import * as bcrypt from 'bcrypt';
-import { Tenant, TenantDocument } from '../../schemas/tenant.schema';
-import { User, UserDocument } from '../../schemas/user.schema';
-import { UserTenantMembership, UserTenantMembershipDocument } from '../../schemas/user-tenant-membership.schema';
-import { RolesService } from '../roles/roles.service';
-import { SubscriptionPlan } from '../../schemas/subscription-plan.schema';
-import { SubscriptionPlansService } from '../subscription-plans/subscription-plans.service';
-import { CreateTenantWithAdminDto, ConfirmTenantDto } from './dto/onboarding.dto';
-import { SeedingService } from '../seeding/seeding.service';
-import { LoggerSanitizer } from '../../utils/logger-sanitizer.util';
-import { getDefaultModulesForVertical } from '../../config/vertical-features.config';
-import { TokenService } from '../../auth/token.service';
-import { MailService } from '../mail/mail.service';
-import { isTenantConfirmationEnforced } from '../../config/tenant-confirmation';
+import {
+  Injectable,
+  Logger,
+  ConflictException,
+  InternalServerErrorException,
+  BadRequestException,
+  NotFoundException,
+} from "@nestjs/common";
+import { InjectModel, InjectConnection } from "@nestjs/mongoose";
+import { Model, Connection } from "mongoose";
+import * as bcrypt from "bcrypt";
+import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
+import { User, UserDocument } from "../../schemas/user.schema";
+import {
+  UserTenantMembership,
+  UserTenantMembershipDocument,
+} from "../../schemas/user-tenant-membership.schema";
+import { RolesService } from "../roles/roles.service";
+import { SubscriptionPlan } from "../../schemas/subscription-plan.schema";
+import { SubscriptionPlansService } from "../subscription-plans/subscription-plans.service";
+import {
+  CreateTenantWithAdminDto,
+  ConfirmTenantDto,
+} from "./dto/onboarding.dto";
+import { SeedingService } from "../seeding/seeding.service";
+import { LoggerSanitizer } from "../../utils/logger-sanitizer.util";
+import { getDefaultModulesForVertical } from "../../config/vertical-features.config";
+import { TokenService } from "../../auth/token.service";
+import { MailService } from "../mail/mail.service";
+import { isTenantConfirmationEnforced } from "../../config/tenant-confirmation";
 
 @Injectable()
 export class OnboardingService {
@@ -23,7 +36,8 @@ export class OnboardingService {
   constructor(
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
-    @InjectModel(UserTenantMembership.name) private userTenantMembershipModel: Model<UserTenantMembershipDocument>,
+    @InjectModel(UserTenantMembership.name)
+    private userTenantMembershipModel: Model<UserTenantMembershipDocument>,
     private rolesService: RolesService,
     private subscriptionPlansService: SubscriptionPlansService,
     private seedingService: SeedingService,
@@ -33,11 +47,15 @@ export class OnboardingService {
   ) {}
 
   async createTenantAndAdmin(dto: CreateTenantWithAdminDto) {
-    this.logger.log(`Iniciando proceso de onboarding para el tenant: ${dto.businessName}`);
+    this.logger.log(
+      `Iniciando proceso de onboarding para el tenant: ${dto.businessName}`,
+    );
 
-    const existingUser = await this.userModel.findOne({ email: dto.email }).exec();
+    const existingUser = await this.userModel
+      .findOne({ email: dto.email })
+      .exec();
     if (existingUser) {
-      throw new ConflictException('El email ya está registrado.');
+      throw new ConflictException("El email ya está registrado.");
     }
 
     let savedTenant: TenantDocument | undefined;
@@ -47,25 +65,37 @@ export class OnboardingService {
 
     try {
       await session.withTransaction(async () => {
-        const requestedPlanName = dto.subscriptionPlan || 'Trial';
+        const requestedPlanName = dto.subscriptionPlan || "Trial";
         let selectedPlan: SubscriptionPlan | null = null;
         try {
-          selectedPlan = await this.subscriptionPlansService.findOneByName(requestedPlanName);
+          selectedPlan =
+            await this.subscriptionPlansService.findOneByName(
+              requestedPlanName,
+            );
         } catch (error) {
-          this.logger.warn(`Plan "${requestedPlanName}" no encontrado. Se utilizará el Trial.`);
-          selectedPlan = await this.subscriptionPlansService.findOneByName('Trial');
+          this.logger.warn(
+            `Plan "${requestedPlanName}" no encontrado. Se utilizará el Trial.`,
+          );
+          selectedPlan =
+            await this.subscriptionPlansService.findOneByName("Trial");
         }
 
         if (!selectedPlan) {
-          throw new InternalServerErrorException('No se pudo determinar un plan de suscripción.');
+          throw new InternalServerErrorException(
+            "No se pudo determinar un plan de suscripción.",
+          );
         }
 
-        const vertical = dto.vertical || 'FOOD_SERVICE';
+        const vertical = dto.vertical || "FOOD_SERVICE";
         const enabledModules = getDefaultModulesForVertical(vertical);
-        const enabledModuleNames = Object.keys(enabledModules).filter(key => enabledModules[key]);
+        const enabledModuleNames = Object.keys(enabledModules).filter(
+          (key) => enabledModules[key],
+        );
 
         this.logger.log(`Creating tenant with vertical: ${vertical}`);
-        this.logger.log(`Enabled modules: ${JSON.stringify(enabledModuleNames)}`);
+        this.logger.log(
+          `Enabled modules: ${JSON.stringify(enabledModuleNames)}`,
+        );
 
         const confirmationEnforced = isTenantConfirmationEnforced();
         const confirmationCode = confirmationEnforced
@@ -81,25 +111,44 @@ export class OnboardingService {
           vertical: vertical,
           enabledModules: enabledModules,
           contactInfo: { email: dto.email, phone: dto.phone },
-          status: 'active',
+          status: "active",
           subscriptionPlan: selectedPlan.name,
           isConfirmed: !confirmationEnforced,
           confirmationCode,
           confirmationCodeExpiresAt,
           limits: selectedPlan.limits,
-          usage: { currentUsers: 1, currentProducts: 0, currentOrders: 0, currentStorage: 0 },
+          usage: {
+            currentUsers: 1,
+            currentProducts: 0,
+            currentOrders: 0,
+            currentStorage: 0,
+          },
         });
         savedTenant = await newTenant.save({ session });
         this.logger.log(`Paso 1/5: Tenant creado con ID: ${savedTenant._id}`);
 
-        await this.seedingService.seedChartOfAccounts(savedTenant._id.toString(), session);
-        this.logger.log(`Paso 2/5: Plan de cuentas creado para el tenant: ${savedTenant._id}`);
+        await this.seedingService.seedChartOfAccounts(
+          savedTenant._id.toString(),
+          session,
+        );
+        this.logger.log(
+          `Paso 2/5: Plan de cuentas creado para el tenant: ${savedTenant._id}`,
+        );
 
-        const adminRole = await this.rolesService.findOrCreateAdminRoleForTenant(savedTenant._id, enabledModuleNames, session);
+        const adminRole =
+          await this.rolesService.findOrCreateAdminRoleForTenant(
+            savedTenant._id,
+            enabledModuleNames,
+            session,
+          );
         if (!adminRole) {
-          throw new InternalServerErrorException('No se pudo crear el rol de administrador.');
+          throw new InternalServerErrorException(
+            "No se pudo crear el rol de administrador.",
+          );
         }
-        this.logger.log(`Paso 3/5: Rol de administrador asignado para el tenant: ${savedTenant._id}`);
+        this.logger.log(
+          `Paso 3/5: Rol de administrador asignado para el tenant: ${savedTenant._id}`,
+        );
 
         const hashedPassword = await bcrypt.hash(dto.password, 12);
         const newUser = new this.userModel({
@@ -112,51 +161,92 @@ export class OnboardingService {
           isEmailVerified: false,
         });
         savedUser = await newUser.save({ session });
-        this.logger.log(`Paso 4/5: Usuario administrador creado con ID: ${savedUser._id}`);
+        this.logger.log(
+          `Paso 4/5: Usuario administrador creado con ID: ${savedUser._id}`,
+        );
 
         const newMembership = new this.userTenantMembershipModel({
           userId: savedUser._id,
           tenantId: savedTenant._id,
           roleId: adminRole._id,
-          status: 'active',
+          status: "active",
           isDefault: true,
         });
         await newMembership.save({ session });
-        this.logger.log(`Paso 5/5: Membresía creada para el usuario en el tenant.`);
+        this.logger.log(
+          `Paso 5/5: Membresía creada para el usuario en el tenant.`,
+        );
       });
 
       if (!savedTenant || !savedUser) {
-        this.logger.error('FATAL: Transacción completada sin referencias a tenant o usuario.');
-        throw new InternalServerErrorException('No se pudo completar el proceso de registro.');
+        this.logger.error(
+          "FATAL: Transacción completada sin referencias a tenant o usuario.",
+        );
+        throw new InternalServerErrorException(
+          "No se pudo completar el proceso de registro.",
+        );
       }
 
-      this.logger.log(`Onboarding completado exitosamente para ${dto.businessName}`);
+      this.logger.log(
+        `Onboarding completado exitosamente para ${dto.businessName}`,
+      );
 
       const tenantDoc = savedTenant as TenantDocument;
       const userDoc = savedUser as UserDocument;
 
-      const userWithRole = await this.userModel.findById(userDoc._id).populate({ path: 'role', populate: { path: 'permissions', select: 'name' } }).exec();
+      const userWithRole = await this.userModel
+        .findById(userDoc._id)
+        .populate({
+          path: "role",
+          populate: { path: "permissions", select: "name" },
+        })
+        .exec();
 
       if (!userWithRole) {
-        this.logger.error(`FATAL: User ${userDoc._id} not found immediately after creation.`);
-        throw new InternalServerErrorException('No se pudo recuperar el usuario recién creado.');
+        this.logger.error(
+          `FATAL: User ${userDoc._id} not found immediately after creation.`,
+        );
+        throw new InternalServerErrorException(
+          "No se pudo recuperar el usuario recién creado.",
+        );
       }
 
-      this.logger.log('[DEBUG] User and tenant created. Generating tokens...');
-      const tokens = await this.tokenService.generateTokens(userWithRole, tenantDoc);
-      this.logger.log('[DEBUG] Tokens generated. Preparing final response object.');
+      this.logger.log("[DEBUG] User and tenant created. Generating tokens...");
+      const tokens = await this.tokenService.generateTokens(
+        userWithRole,
+        tenantDoc,
+      );
+      this.logger.log(
+        "[DEBUG] Tokens generated. Preparing final response object.",
+      );
 
       const finalResponse = {
-        user: { id: userWithRole._id, email: userWithRole.email, firstName: userWithRole.firstName, lastName: userWithRole.lastName, role: userWithRole.role },
-        tenant: { id: tenantDoc._id, name: tenantDoc.name, isConfirmed: tenantDoc.isConfirmed },
+        user: {
+          id: userWithRole._id,
+          email: userWithRole.email,
+          firstName: userWithRole.firstName,
+          lastName: userWithRole.lastName,
+          role: userWithRole.role,
+        },
+        tenant: {
+          id: tenantDoc._id,
+          name: tenantDoc.name,
+          isConfirmed: tenantDoc.isConfirmed,
+        },
         ...tokens,
       };
 
       const safeLogResponse = {
-        user: { id: finalResponse.user.id, email: finalResponse.user.email, roleId: (finalResponse.user.role as any)?._id },
+        user: {
+          id: finalResponse.user.id,
+          email: finalResponse.user.email,
+          roleId: (finalResponse.user.role as any)?._id,
+        },
         tenant: finalResponse.tenant,
       };
-      this.logger.log(`[DEBUG] Returning response: ${JSON.stringify(LoggerSanitizer.sanitize(safeLogResponse))}`);
+      this.logger.log(
+        `[DEBUG] Returning response: ${JSON.stringify(LoggerSanitizer.sanitize(safeLogResponse))}`,
+      );
 
       try {
         if (isTenantConfirmationEnforced() && tenantDoc.confirmationCode) {
@@ -166,27 +256,37 @@ export class OnboardingService {
             confirmationCode: tenantDoc.confirmationCode,
           });
         } else {
-          this.logger.warn(`No se envió correo de bienvenida para ${dto.email} porque no se encontró código de confirmación.`);
+          this.logger.warn(
+            `No se envió correo de bienvenida para ${dto.email} porque no se encontró código de confirmación.`,
+          );
         }
       } catch (error) {
-        this.logger.error(`No se pudo enviar el correo de bienvenida: ${error.message}`);
+        this.logger.error(
+          `No se pudo enviar el correo de bienvenida: ${error.message}`,
+        );
       }
 
       return finalResponse;
     } catch (error) {
-      this.logger.error('Error durante el proceso de onboarding, revirtiendo transacción.', error instanceof Error ? error.stack : undefined);
+      this.logger.error(
+        "Error durante el proceso de onboarding, revirtiendo transacción.",
+        error instanceof Error ? error.stack : undefined,
+      );
       if (error instanceof ConflictException) {
         throw error;
       }
-      throw new InternalServerErrorException('Ocurrió un error inesperado durante el registro.');
+      throw new InternalServerErrorException(
+        "Ocurrió un error inesperado durante el registro.",
+      );
     } finally {
       await session.endSession();
     }
   }
 
-
   async confirmTenant(dto: ConfirmTenantDto) {
-    this.logger.error('Attempted to use deprecated confirmTenant function.');
-    throw new InternalServerErrorException('This function is deprecated due to the removal of tenantCode and needs to be refactored.');
+    this.logger.error("Attempted to use deprecated confirmTenant function.");
+    throw new InternalServerErrorException(
+      "This function is deprecated due to the removal of tenantCode and needs to be refactored.",
+    );
   }
 }

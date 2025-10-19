@@ -20,7 +20,8 @@ export class UpdateThemeConfigDto {
   @IsOptional()
   @IsString()
   @Matches(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, {
-    message: "El color primario debe ser un código hexadecimal válido (ej: #3B82F6)",
+    message:
+      "El color primario debe ser un código hexadecimal válido (ej: #3B82F6)",
   })
   primaryColor?: string;
 
@@ -31,7 +32,8 @@ export class UpdateThemeConfigDto {
   @IsOptional()
   @IsString()
   @Matches(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/, {
-    message: "El color secundario debe ser un código hexadecimal válido (ej: #10B981)",
+    message:
+      "El color secundario debe ser un código hexadecimal válido (ej: #10B981)",
   })
   secondaryColor?: string;
 
@@ -103,7 +105,8 @@ export class UpdateSocialMediaConfigDto {
   @IsOptional()
   @IsString()
   @Matches(/^\+?[1-9]\d{1,14}$/, {
-    message: "El número de WhatsApp debe estar en formato internacional (ej: +584121234567)",
+    message:
+      "El número de WhatsApp debe estar en formato internacional (ej: +584121234567)",
   })
   whatsapp?: string;
 
@@ -182,7 +185,8 @@ export class UpdateContactInfoConfigDto {
   @IsOptional()
   @IsString()
   @Matches(/^\+?[1-9]\d{1,14}$/, {
-    message: "El teléfono debe estar en formato internacional (ej: +584121234567)",
+    message:
+      "El teléfono debe estar en formato internacional (ej: +584121234567)",
   })
   phone?: string;
 
@@ -204,7 +208,8 @@ export class UpdateStorefrontConfigDto {
   @IsOptional()
   @IsString()
   @Matches(/^[a-z0-9]+([a-z0-9-]*[a-z0-9])?$/, {
-    message: "El dominio debe contener solo letras minúsculas, números y guiones (ej: mitienda, mi-tienda-01)",
+    message:
+      "El dominio debe contener solo letras minúsculas, números y guiones (ej: mitienda, mi-tienda-01)",
   })
   domain?: string;
 

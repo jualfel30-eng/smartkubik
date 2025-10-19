@@ -2,7 +2,11 @@ import { Injectable, Logger, ConflictException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { Supplier, SupplierDocument } from "../../schemas/supplier.schema";
-import { Customer, CustomerDocument, CustomerContact } from "../../schemas/customer.schema";
+import {
+  Customer,
+  CustomerDocument,
+  CustomerContact,
+} from "../../schemas/customer.schema";
 import { CreateSupplierDto } from "../../dto/supplier.dto";
 
 @Injectable()
@@ -14,20 +18,30 @@ export class SuppliersService {
     @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>,
   ) {}
 
-  async create(createSupplierDto: CreateSupplierDto, user: any): Promise<SupplierDocument> {
-    this.logger.log(`Initiating creation for supplier with RIF: ${createSupplierDto.rif}`);
+  async create(
+    createSupplierDto: CreateSupplierDto,
+    user: any,
+  ): Promise<SupplierDocument> {
+    this.logger.log(
+      `Initiating creation for supplier with RIF: ${createSupplierDto.rif}`,
+    );
 
     // Step 1: Find or Create the corresponding Customer entity
-    let customer = await this.customerModel.findOne({ "taxInfo.taxId": createSupplierDto.rif, tenantId: user.tenantId });
+    let customer = await this.customerModel.findOne({
+      "taxInfo.taxId": createSupplierDto.rif,
+      tenantId: user.tenantId,
+    });
 
     if (!customer) {
-      this.logger.log(`Customer with RIF ${createSupplierDto.rif} not found. Creating new customer entry.`);
-      
+      this.logger.log(
+        `Customer with RIF ${createSupplierDto.rif} not found. Creating new customer entry.`,
+      );
+
       const contacts: CustomerContact[] = [];
       if (createSupplierDto.contactEmail) {
         contacts.push({
           name: createSupplierDto.contactName,
-          type: 'email',
+          type: "email",
           value: createSupplierDto.contactEmail,
           isPrimary: true,
         } as CustomerContact);
@@ -35,7 +49,7 @@ export class SuppliersService {
       if (createSupplierDto.contactPhone) {
         contacts.push({
           name: createSupplierDto.contactName,
-          type: 'phone',
+          type: "phone",
           value: createSupplierDto.contactPhone,
           isPrimary: contacts.length === 0, // Make primary if email doesn't exist
         } as CustomerContact);
@@ -53,7 +67,17 @@ export class SuppliersService {
         contacts,
         createdBy: user.id,
         tenantId: user.tenantId,
-        metrics: { totalOrders: 0, totalSpent: 0, totalSpentUSD: 0, averageOrderValue: 0, orderFrequency: 0, lifetimeValue: 0, returnRate: 0, cancellationRate: 0, paymentDelayDays: 0 },
+        metrics: {
+          totalOrders: 0,
+          totalSpent: 0,
+          totalSpentUSD: 0,
+          averageOrderValue: 0,
+          orderFrequency: 0,
+          lifetimeValue: 0,
+          returnRate: 0,
+          cancellationRate: 0,
+          paymentDelayDays: 0,
+        },
       };
 
       const newCustomer = new this.customerModel(newCustomerData);
@@ -65,9 +89,14 @@ export class SuppliersService {
     }
 
     // Step 2: Check if a Supplier with this RIF already exists to prevent duplicates
-    const existingSupplier = await this.supplierModel.findOne({ "taxInfo.rif": createSupplierDto.rif, tenantId: user.tenantId });
+    const existingSupplier = await this.supplierModel.findOne({
+      "taxInfo.rif": createSupplierDto.rif,
+      tenantId: user.tenantId,
+    });
     if (existingSupplier) {
-      throw new ConflictException(`Un proveedor con el RIF ${createSupplierDto.rif} ya existe.`);
+      throw new ConflictException(
+        `Un proveedor con el RIF ${createSupplierDto.rif} ya existe.`,
+      );
     }
 
     // Step 3: Manually construct and create the new Supplier entity
@@ -75,19 +104,21 @@ export class SuppliersService {
     const supplierData = {
       supplierNumber,
       name: createSupplierDto.name,
-      supplierType: 'distributor',
+      supplierType: "distributor",
       taxInfo: {
         rif: createSupplierDto.rif,
         businessName: createSupplierDto.name,
         isRetentionAgent: false,
       },
-      contacts: [{
-        name: createSupplierDto.contactName,
-        email: createSupplierDto.contactEmail,
-        phone: createSupplierDto.contactPhone,
-        position: "Principal",
-        isPrimary: true,
-      }],
+      contacts: [
+        {
+          name: createSupplierDto.contactName,
+          email: createSupplierDto.contactEmail,
+          phone: createSupplierDto.contactPhone,
+          position: "Principal",
+          isPrimary: true,
+        },
+      ],
       address: { street: "", city: "", state: "", country: "Venezuela" },
       createdBy: user.id,
       tenantId: user.tenantId,
@@ -95,12 +126,17 @@ export class SuppliersService {
 
     const newSupplier = new this.supplierModel(supplierData);
     const savedSupplier = await newSupplier.save();
-    this.logger.log(`New supplier created successfully with ID: ${savedSupplier._id}`);
-    
+    this.logger.log(
+      `New supplier created successfully with ID: ${savedSupplier._id}`,
+    );
+
     return savedSupplier;
   }
 
-  async findAll(tenantId: string, search?: string): Promise<SupplierDocument[]> {
+  async findAll(
+    tenantId: string,
+    search?: string,
+  ): Promise<SupplierDocument[]> {
     const query: any = { tenantId };
     if (search) {
       query["$or"] = [
@@ -112,7 +148,10 @@ export class SuppliersService {
     return this.supplierModel.find(query).exec();
   }
 
-  async findOne(id: string, tenantId: string): Promise<SupplierDocument | null> {
+  async findOne(
+    id: string,
+    tenantId: string,
+  ): Promise<SupplierDocument | null> {
     return this.supplierModel.findOne({ _id: id, tenantId }).exec();
   }
 

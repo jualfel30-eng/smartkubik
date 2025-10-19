@@ -33,9 +33,7 @@ export class StorefrontService {
     createDto: CreateStorefrontConfigDto,
     user: any,
   ): Promise<StorefrontConfigDocument> {
-    this.logger.log(
-      `Creating storefront config for tenant: ${user.tenantId}`,
-    );
+    this.logger.log(`Creating storefront config for tenant: ${user.tenantId}`);
 
     // Verificar que el tenant existe
     const tenant = await this.tenantModel.findById(user.tenantId);
@@ -132,9 +130,7 @@ export class StorefrontService {
   async findByTenantIdPublic(
     tenantId: string,
   ): Promise<StorefrontConfigDocument> {
-    this.logger.log(
-      `Finding public storefront config for tenant: ${tenantId}`,
-    );
+    this.logger.log(`Finding public storefront config for tenant: ${tenantId}`);
 
     if (!Types.ObjectId.isValid(tenantId)) {
       throw new BadRequestException("ID de tenant inválido");
@@ -175,10 +171,7 @@ export class StorefrontService {
     }
 
     // Si se está cambiando el dominio, verificar que no esté en uso
-    if (
-      updateDto.domain &&
-      updateDto.domain !== existingConfig.domain
-    ) {
+    if (updateDto.domain && updateDto.domain !== existingConfig.domain) {
       const domainInUse = await this.storefrontConfigModel.findOne({
         domain: updateDto.domain,
         _id: { $ne: existingConfig._id },
@@ -231,10 +224,7 @@ export class StorefrontService {
     }
 
     // Si se está cambiando el dominio, verificar que no esté en uso
-    if (
-      updateDto.domain &&
-      updateDto.domain !== existingConfig.domain
-    ) {
+    if (updateDto.domain && updateDto.domain !== existingConfig.domain) {
       const domainInUse = await this.storefrontConfigModel.findOne({
         domain: updateDto.domain,
         _id: { $ne: existingConfig._id },
@@ -311,9 +301,7 @@ export class StorefrontService {
    * Resetear configuración a valores por defecto
    */
   async reset(user: any): Promise<StorefrontConfigDocument> {
-    this.logger.log(
-      `Resetting storefront config for tenant: ${user.tenantId}`,
-    );
+    this.logger.log(`Resetting storefront config for tenant: ${user.tenantId}`);
 
     const existingConfig = await this.storefrontConfigModel.findOne({
       tenantId: user.tenantId,
@@ -376,9 +364,7 @@ export class StorefrontService {
    * Eliminar configuración de storefront
    */
   async remove(user: any): Promise<{ success: boolean; message: string }> {
-    this.logger.log(
-      `Removing storefront config for tenant: ${user.tenantId}`,
-    );
+    this.logger.log(`Removing storefront config for tenant: ${user.tenantId}`);
 
     const result = await this.storefrontConfigModel
       .deleteOne({ tenantId: user.tenantId })

@@ -42,7 +42,8 @@ export class SupplierPaymentTerm {
   @Prop({ type: Boolean, default: false })
   isPreferred: boolean;
 }
-const SupplierPaymentTermSchema = SchemaFactory.createForClass(SupplierPaymentTerm);
+const SupplierPaymentTermSchema =
+  SchemaFactory.createForClass(SupplierPaymentTerm);
 
 @Schema()
 export class SupplierPaymentSettings {
@@ -73,7 +74,9 @@ export class SupplierPaymentSettings {
   @Prop({ type: String })
   paymentNotes?: string; // Notas sobre condiciones de pago
 }
-const SupplierPaymentSettingsSchema = SchemaFactory.createForClass(SupplierPaymentSettings);
+const SupplierPaymentSettingsSchema = SchemaFactory.createForClass(
+  SupplierPaymentSettings,
+);
 
 @Schema({ timestamps: true })
 export class Supplier {

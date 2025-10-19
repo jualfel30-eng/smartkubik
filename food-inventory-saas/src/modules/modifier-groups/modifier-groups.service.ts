@@ -3,20 +3,17 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
-} from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { ModifierGroup } from '../../schemas/modifier-group.schema';
-import { Modifier } from '../../schemas/modifier.schema';
+} from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { ModifierGroup } from "../../schemas/modifier-group.schema";
+import { Modifier } from "../../schemas/modifier.schema";
 import {
   CreateModifierGroupDto,
   UpdateModifierGroupDto,
   AssignGroupToProductsDto,
-} from '../../dto/modifier-group.dto';
-import {
-  CreateModifierDto,
-  UpdateModifierDto,
-} from '../../dto/modifier.dto';
+} from "../../dto/modifier-group.dto";
+import { CreateModifierDto, UpdateModifierDto } from "../../dto/modifier.dto";
 
 @Injectable()
 export class ModifierGroupsService {
@@ -41,9 +38,13 @@ export class ModifierGroupsService {
     );
 
     // Validar que minSelections <= maxSelections
-    if (dto.maxSelections && dto.minSelections && dto.minSelections > dto.maxSelections) {
+    if (
+      dto.maxSelections &&
+      dto.minSelections &&
+      dto.minSelections > dto.maxSelections
+    ) {
       throw new BadRequestException(
-        'minSelections cannot be greater than maxSelections',
+        "minSelections cannot be greater than maxSelections",
       );
     }
 
@@ -62,7 +63,7 @@ export class ModifierGroupsService {
   async findAllGroups(tenantId: string): Promise<ModifierGroup[]> {
     return this.modifierGroupModel
       .find({ tenantId, isDeleted: false })
-      .populate('applicableProducts')
+      .populate("applicableProducts")
       .sort({ sortOrder: 1, createdAt: 1 })
       .exec();
   }
@@ -70,13 +71,10 @@ export class ModifierGroupsService {
   /**
    * Obtener un grupo por ID
    */
-  async findGroupById(
-    id: string,
-    tenantId: string,
-  ): Promise<ModifierGroup> {
+  async findGroupById(id: string, tenantId: string): Promise<ModifierGroup> {
     const group = await this.modifierGroupModel
       .findOne({ _id: id, tenantId, isDeleted: false })
-      .populate('applicableProducts')
+      .populate("applicableProducts")
       .exec();
 
     if (!group) {
@@ -137,9 +135,13 @@ export class ModifierGroupsService {
     tenantId: string,
   ): Promise<ModifierGroup> {
     // Validar minSelections vs maxSelections
-    if (dto.maxSelections && dto.minSelections && dto.minSelections > dto.maxSelections) {
+    if (
+      dto.maxSelections &&
+      dto.minSelections &&
+      dto.minSelections > dto.maxSelections
+    ) {
       throw new BadRequestException(
-        'minSelections cannot be greater than maxSelections',
+        "minSelections cannot be greater than maxSelections",
       );
     }
 

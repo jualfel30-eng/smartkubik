@@ -1,6 +1,6 @@
-import { BadRequestException } from '@nestjs/common';
-import Decimal from 'decimal.js';
-import { SellingUnit } from '../schemas/product.schema';
+import { BadRequestException } from "@nestjs/common";
+import Decimal from "decimal.js";
+import { SellingUnit } from "../schemas/product.schema";
 
 /**
  * Utilidades para conversión de unidades con precisión decimal
@@ -17,10 +17,7 @@ export class UnitConversionUtil {
    * @param sellingUnit - Unidad de venta seleccionada
    * @returns Cantidad en unidad base (con precisión decimal)
    */
-  static convertToBaseUnit(
-    quantity: number,
-    sellingUnit: SellingUnit,
-  ): number {
+  static convertToBaseUnit(quantity: number, sellingUnit: SellingUnit): number {
     const quantityDecimal = new Decimal(quantity);
     const factorDecimal = new Decimal(sellingUnit.conversionFactor);
 
@@ -36,10 +33,7 @@ export class UnitConversionUtil {
    * @param pricePerUnit - Precio por unidad
    * @returns Precio total con 2 decimales
    */
-  static calculateTotalPrice(
-    quantity: number,
-    pricePerUnit: number,
-  ): number {
+  static calculateTotalPrice(quantity: number, pricePerUnit: number): number {
     const quantityDecimal = new Decimal(quantity);
     const priceDecimal = new Decimal(pricePerUnit);
 
@@ -61,7 +55,7 @@ export class UnitConversionUtil {
     sellingUnits: SellingUnit[],
   ): SellingUnit {
     const unit = sellingUnits.find(
-      u => u.abbreviation === abbreviation && u.isActive,
+      (u) => u.abbreviation === abbreviation && u.isActive,
     );
 
     if (!unit) {
@@ -129,7 +123,10 @@ export class UnitConversionUtil {
     sellingUnits: SellingUnit[],
   ): SellingUnit {
     // 1. Validar que la unidad existe y está activa
-    const sellingUnit = this.validateSellingUnit(unitAbbreviation, sellingUnits);
+    const sellingUnit = this.validateSellingUnit(
+      unitAbbreviation,
+      sellingUnits,
+    );
 
     // 2. Validar cantidad mínima
     this.validateMinimumQuantity(quantity, sellingUnit);
@@ -148,20 +145,20 @@ export class UnitConversionUtil {
    */
   static getDefaultUnit(
     sellingUnits: SellingUnit[],
-    customerType?: 'retail' | 'wholesale',
+    customerType?: "retail" | "wholesale",
   ): SellingUnit | null {
     if (!sellingUnits || sellingUnits.length === 0) {
       return null;
     }
 
     // Buscar unidad marcada como default
-    const defaultUnit = sellingUnits.find(u => u.isDefault && u.isActive);
+    const defaultUnit = sellingUnits.find((u) => u.isDefault && u.isActive);
     if (defaultUnit) {
       return defaultUnit;
     }
 
     // Retornar primera unidad activa
-    return sellingUnits.find(u => u.isActive) || null;
+    return sellingUnits.find((u) => u.isActive) || null;
   }
 
   /**

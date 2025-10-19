@@ -15,7 +15,11 @@ import {
 } from "class-validator";
 import { Type, Transform } from "class-transformer";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { SanitizeString, SanitizeText, SanitizeStringArray } from "../decorators/sanitize.decorator";
+import {
+  SanitizeString,
+  SanitizeText,
+  SanitizeStringArray,
+} from "../decorators/sanitize.decorator";
 
 export class CreateProductVariantDto {
   @ApiProperty({ description: "Nombre de la variante" })
@@ -80,7 +84,10 @@ export class CreateProductVariantDto {
 }
 
 export class CreateSellingUnitDto {
-  @ApiProperty({ description: "Nombre de la unidad de venta", example: "Kilogramos" })
+  @ApiProperty({
+    description: "Nombre de la unidad de venta",
+    example: "Kilogramos",
+  })
   @IsString()
   @IsNotEmpty()
   name: string;
@@ -93,7 +100,7 @@ export class CreateSellingUnitDto {
   @ApiProperty({
     description: "Factor de conversión a unidad base",
     example: 1000,
-    minimum: 0.001
+    minimum: 0.001,
   })
   @IsNumber()
   @Min(0.001)
@@ -114,7 +121,10 @@ export class CreateSellingUnitDto {
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiPropertyOptional({ description: "Unidad por defecto al vender", default: false })
+  @ApiPropertyOptional({
+    description: "Unidad por defecto al vender",
+    default: false,
+  })
   @IsOptional()
   @IsBoolean()
   isDefault?: boolean;
@@ -212,7 +222,10 @@ export class CreateProductDto {
   @IsBoolean()
   isSoldByWeight?: boolean;
 
-  @ApiPropertyOptional({ description: "Tiene múltiples unidades de venta", default: false })
+  @ApiPropertyOptional({
+    description: "Tiene múltiples unidades de venta",
+    default: false,
+  })
   @IsOptional()
   @IsBoolean()
   hasMultipleSellingUnits?: boolean;
@@ -542,7 +555,10 @@ export class ProductQueryDto {
   @IsEnum(["asc", "desc"])
   sortOrder?: string = "desc";
 
-  @ApiPropertyOptional({ description: "Incluir productos inactivos en el resultado", default: false })
+  @ApiPropertyOptional({
+    description: "Incluir productos inactivos en el resultado",
+    default: false,
+  })
   @IsOptional()
   @Transform(({ value }) => value === "true" || value === true)
   @IsBoolean()

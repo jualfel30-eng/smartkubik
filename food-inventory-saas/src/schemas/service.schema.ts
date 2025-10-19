@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Schema as MongooseSchema } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Schema as MongooseSchema } from "mongoose";
 
 export type ServiceDocument = Service & Document;
 
@@ -35,7 +35,7 @@ export class Service {
   @Prop({ type: Number, default: 0 })
   cost: number; // Costo del servicio (opcional, para calcular margen)
 
-  @Prop({ type: String, enum: ['active', 'inactive'], default: 'active' })
+  @Prop({ type: String, enum: ["active", "inactive"], default: "active" })
   status: string;
 
   @Prop({ type: String })
@@ -65,4 +65,4 @@ export const ServiceSchema = SchemaFactory.createForClass(Service);
 // Índices compuestos para búsquedas eficientes
 ServiceSchema.index({ tenantId: 1, status: 1 });
 ServiceSchema.index({ tenantId: 1, category: 1 });
-ServiceSchema.index({ tenantId: 1, name: 'text' });
+ServiceSchema.index({ tenantId: 1, name: "text" });

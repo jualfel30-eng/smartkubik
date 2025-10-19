@@ -1,16 +1,24 @@
-import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { ScheduleModule } from '@nestjs/schedule';
-import { AnalyticsController } from './analytics.controller';
-import { AnalyticsService } from './analytics.service';
-import { PerformanceKpi, PerformanceKpiSchema } from '../../schemas/performance-kpi.schema';
-import { Order, OrderSchema } from '../../schemas/order.schema';
-import { Shift, ShiftSchema } from '../../schemas/shift.schema';
-import { Tenant, TenantSchema } from '../../schemas/tenant.schema';
-import { User, UserSchema } from '../../schemas/user.schema';
-import { Product, ProductSchema } from '../../schemas/product.schema';
-import { Inventory, InventorySchema, InventoryMovement, InventoryMovementSchema } from '../../schemas/inventory.schema';
-import { Payable, PayableSchema } from '../../schemas/payable.schema';
+import { Module } from "@nestjs/common";
+import { MongooseModule } from "@nestjs/mongoose";
+import { ScheduleModule } from "@nestjs/schedule";
+import { AnalyticsController } from "./analytics.controller";
+import { AnalyticsService } from "./analytics.service";
+import {
+  PerformanceKpi,
+  PerformanceKpiSchema,
+} from "../../schemas/performance-kpi.schema";
+import { Order, OrderSchema } from "../../schemas/order.schema";
+import { Shift, ShiftSchema } from "../../schemas/shift.schema";
+import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
+import { User, UserSchema } from "../../schemas/user.schema";
+import { Product, ProductSchema } from "../../schemas/product.schema";
+import {
+  Inventory,
+  InventorySchema,
+  InventoryMovement,
+  InventoryMovementSchema,
+} from "../../schemas/inventory.schema";
+import { Payable, PayableSchema } from "../../schemas/payable.schema";
 
 @Module({
   imports: [

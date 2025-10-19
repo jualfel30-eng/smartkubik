@@ -1,10 +1,16 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException, Logger } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Tenant, TenantDocument } from '../schemas/tenant.schema';
-import { getEffectiveModulesForTenant } from '../config/vertical-features.config';
-import { REQUIRED_MODULE_KEY } from '../decorators/require-module.decorator';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Logger,
+} from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
+import { Tenant, TenantDocument } from "../schemas/tenant.schema";
+import { getEffectiveModulesForTenant } from "../config/vertical-features.config";
+import { REQUIRED_MODULE_KEY } from "../decorators/require-module.decorator";
 
 /**
  * Guard to check if a tenant has a specific module enabled
@@ -21,10 +27,10 @@ export class ModuleAccessGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Get required module from decorator metadata
-    const requiredModule = this.reflector.getAllAndOverride<string>(REQUIRED_MODULE_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredModule = this.reflector.getAllAndOverride<string>(
+      REQUIRED_MODULE_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     // If no module is required, allow access
     if (!requiredModule) {
@@ -36,19 +42,21 @@ export class ModuleAccessGuard implements CanActivate {
 
     // Super-admin always has access to all modules
     if (user?.isSuperAdmin) {
-      this.logger.log(`Super-admin access granted for module: ${requiredModule}`);
+      this.logger.log(
+        `Super-admin access granted for module: ${requiredModule}`,
+      );
       return true;
     }
 
     if (!user || !user.tenantId) {
-      throw new ForbiddenException('Usuario o tenant no encontrado');
+      throw new ForbiddenException("Usuario o tenant no encontrado");
     }
 
     // Fetch tenant and check if module is enabled
     const tenant = await this.tenantModel.findById(user.tenantId).exec();
 
     if (!tenant) {
-      throw new ForbiddenException('Tenant no encontrado');
+      throw new ForbiddenException("Tenant no encontrado");
     }
 
     const explicitState = tenant.enabledModules?.[requiredModule];
@@ -62,7 +70,7 @@ export class ModuleAccessGuard implements CanActivate {
     }
 
     const effectiveModules = getEffectiveModulesForTenant(
-      tenant.vertical || 'FOOD_SERVICE',
+      tenant.vertical || "FOOD_SERVICE",
       tenant.enabledModules,
     );
 
@@ -75,7 +83,10 @@ export class ModuleAccessGuard implements CanActivate {
       );
     }
 
-    const accessSource = explicitState === true ? 'explicitly enabled' : 'enabled by vertical configuration';
+    const accessSource =
+      explicitState === true
+        ? "explicitly enabled"
+        : "enabled by vertical configuration";
     this.logger.log(
       `Access granted for tenant ${tenant.name}: module '${requiredModule}' ${accessSource}`,
     );

@@ -1,10 +1,10 @@
-import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { BillSplitsController } from './bill-splits.controller';
-import { BillSplitsService } from './bill-splits.service';
-import { BillSplit, BillSplitSchema } from '../../schemas/bill-split.schema';
-import { Order, OrderSchema } from '../../schemas/order.schema';
-import { Payment, PaymentSchema } from '../../schemas/payment.schema';
+import { Module } from "@nestjs/common";
+import { MongooseModule } from "@nestjs/mongoose";
+import { BillSplitsController } from "./bill-splits.controller";
+import { BillSplitsService } from "./bill-splits.service";
+import { BillSplit, BillSplitSchema } from "../../schemas/bill-split.schema";
+import { Order, OrderSchema } from "../../schemas/order.schema";
+import { Payment, PaymentSchema } from "../../schemas/payment.schema";
 
 @Module({
   imports: [

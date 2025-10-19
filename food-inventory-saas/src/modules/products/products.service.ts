@@ -14,7 +14,10 @@ import {
   ProductQueryDto,
 } from "../../dto/product.dto";
 import { CreateProductWithPurchaseDto } from "../../dto/composite.dto";
-import { BulkCreateProductsDto, BulkProductDto } from './dto/bulk-create-products.dto';
+import {
+  BulkCreateProductsDto,
+  BulkProductDto,
+} from "./dto/bulk-create-products.dto";
 import { CustomersService } from "../customers/customers.service"; // CHANGED
 import { InventoryService } from "../inventory/inventory.service";
 import { PurchasesService } from "../purchases/purchases.service";
@@ -43,12 +46,19 @@ export class ProductsService {
     }
 
     if (tenant.usage.currentProducts >= tenant.limits.maxProducts) {
-      throw new BadRequestException("Límite de productos alcanzado para su plan de suscripción.");
+      throw new BadRequestException(
+        "Límite de productos alcanzado para su plan de suscripción.",
+      );
     }
 
     const newImagesSize = this.calculateImagesSize(dto.product.variants);
-    if (tenant.usage.currentStorage + newImagesSize > tenant.limits.maxStorage) {
-      throw new BadRequestException("Límite de almacenamiento alcanzado para su plan de suscripción.");
+    if (
+      tenant.usage.currentStorage + newImagesSize >
+      tenant.limits.maxStorage
+    ) {
+      throw new BadRequestException(
+        "Límite de almacenamiento alcanzado para su plan de suscripción.",
+      );
     }
 
     const existingProduct = await this.productModel.findOne({
@@ -127,12 +137,12 @@ export class ProductsService {
       };
       const createdProduct = new this.productModel(productData);
       const savedProduct = await createdProduct.save();
-      
-      await this.tenantModel.findByIdAndUpdate(user.tenantId, { 
-        $inc: { 
-          'usage.currentProducts': 1,
-          'usage.currentStorage': newImagesSize,
-        }
+
+      await this.tenantModel.findByIdAndUpdate(user.tenantId, {
+        $inc: {
+          "usage.currentProducts": 1,
+          "usage.currentStorage": newImagesSize,
+        },
       });
 
       // 3. Inventory
@@ -200,12 +210,19 @@ export class ProductsService {
     }
 
     if (tenant.usage.currentProducts >= tenant.limits.maxProducts) {
-      throw new BadRequestException("Límite de productos alcanzado para su plan de suscripción.");
+      throw new BadRequestException(
+        "Límite de productos alcanzado para su plan de suscripción.",
+      );
     }
 
     const newImagesSize = this.calculateImagesSize(createProductDto.variants);
-    if (tenant.usage.currentStorage + newImagesSize > tenant.limits.maxStorage) {
-      throw new BadRequestException("Límite de almacenamiento alcanzado para su plan de suscripción.");
+    if (
+      tenant.usage.currentStorage + newImagesSize >
+      tenant.limits.maxStorage
+    ) {
+      throw new BadRequestException(
+        "Límite de almacenamiento alcanzado para su plan de suscripción.",
+      );
     }
 
     const existingProduct = await this.productModel.findOne({
@@ -224,11 +241,11 @@ export class ProductsService {
     const createdProduct = new this.productModel(productData);
     const savedProduct = await createdProduct.save();
 
-    await this.tenantModel.findByIdAndUpdate(user.tenantId, { 
-      $inc: { 
-        'usage.currentProducts': 1,
-        'usage.currentStorage': newImagesSize,
-      }
+    await this.tenantModel.findByIdAndUpdate(user.tenantId, {
+      $inc: {
+        "usage.currentProducts": 1,
+        "usage.currentStorage": newImagesSize,
+      },
     });
 
     return savedProduct;
@@ -244,9 +261,9 @@ export class ProductsService {
           sku: productDto.sku,
           name: productDto.name,
           category: productDto.category,
-          subcategory: productDto.subcategory || '',
-          brand: productDto.brand || '',
-          unitOfMeasure: productDto.unitOfMeasure || 'unidad',
+          subcategory: productDto.subcategory || "",
+          brand: productDto.brand || "",
+          unitOfMeasure: productDto.unitOfMeasure || "unidad",
           isSoldByWeight: productDto.isSoldByWeight || false,
           description: productDto.description,
           ingredients: productDto.ingredients,
@@ -254,7 +271,7 @@ export class ProductsService {
           shelfLifeDays: productDto.shelfLifeDays,
           storageTemperature: productDto.storageTemperature,
           ivaApplicable: productDto.ivaApplicable,
-          taxCategory: productDto.taxCategory || 'general',
+          taxCategory: productDto.taxCategory || "general",
           pricingRules: {
             cashDiscount: 0,
             cardSurcharge: 0,
@@ -270,16 +287,22 @@ export class ProductsService {
             trackExpiration: true,
             fefoEnabled: true,
           },
-          variants: [{
-            name: productDto.variantName,
-            sku: productDto.variantSku || `${productDto.sku}-VAR1`,
-            barcode: productDto.variantBarcode || '',
-            unit: productDto.variantUnit,
-            unitSize: productDto.variantUnitSize,
-            basePrice: productDto.variantBasePrice,
-            costPrice: productDto.variantCostPrice,
-            images: [productDto.image1, productDto.image2, productDto.image3].filter(Boolean) as string[],
-          }],
+          variants: [
+            {
+              name: productDto.variantName,
+              sku: productDto.variantSku || `${productDto.sku}-VAR1`,
+              barcode: productDto.variantBarcode || "",
+              unit: productDto.variantUnit,
+              unitSize: productDto.variantUnitSize,
+              basePrice: productDto.variantBasePrice,
+              costPrice: productDto.variantCostPrice,
+              images: [
+                productDto.image1,
+                productDto.image2,
+                productDto.image3,
+              ].filter(Boolean) as string[],
+            },
+          ],
         };
 
         const createdProduct = await this.create(createProductDto, user);
@@ -287,11 +310,17 @@ export class ProductsService {
       }
 
       await session.commitTransaction();
-      return { success: true, message: `${createdProducts.length} productos creados exitosamente.` };
+      return {
+        success: true,
+        message: `${createdProducts.length} productos creados exitosamente.`,
+      };
     } catch (error) {
       await session.abortTransaction();
-      this.logger.error(`Error durante la creación masiva de productos: ${error.message}`, error.stack);
-      throw new Error('Error al crear productos masivamente.');
+      this.logger.error(
+        `Error durante la creación masiva de productos: ${error.message}`,
+        error.stack,
+      );
+      throw new Error("Error al crear productos masivamente.");
     } finally {
       session.endSession();
     }
@@ -327,7 +356,7 @@ export class ProductsService {
     const [products, total] = await Promise.all([
       this.productModel
         .find(filter)
-        .select('+isSoldByWeight +unitOfMeasure') // Explicitly include the fields
+        .select("+isSoldByWeight +unitOfMeasure") // Explicitly include the fields
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -344,7 +373,9 @@ export class ProductsService {
   }
 
   async findOne(id: string, tenantId: string): Promise<ProductDocument | null> {
-    return this.productModel.findOne({ _id: id, tenantId: new Types.ObjectId(tenantId) }).exec();
+    return this.productModel
+      .findOne({ _id: id, tenantId: new Types.ObjectId(tenantId) })
+      .exec();
   }
 
   async update(
@@ -362,15 +393,22 @@ export class ProductsService {
       throw new NotFoundException("Producto no encontrado");
     }
 
-    const oldImagesSize = this.calculateImagesSize(productBeforeUpdate.variants);
+    const oldImagesSize = this.calculateImagesSize(
+      productBeforeUpdate.variants,
+    );
     let newImagesSize = oldImagesSize;
-    if ('variants' in updateProductDto) {
+    if ("variants" in updateProductDto) {
       newImagesSize = this.calculateImagesSize(updateProductDto.variants);
     }
     const storageDifference = newImagesSize - oldImagesSize;
 
-    if (tenant.usage.currentStorage + storageDifference > tenant.limits.maxStorage) {
-      throw new BadRequestException("Límite de almacenamiento alcanzado para su plan de suscripción.");
+    if (
+      tenant.usage.currentStorage + storageDifference >
+      tenant.limits.maxStorage
+    ) {
+      throw new BadRequestException(
+        "Límite de almacenamiento alcanzado para su plan de suscripción.",
+      );
     }
 
     const updateData = { ...updateProductDto, updatedBy: user.id };
@@ -379,31 +417,35 @@ export class ProductsService {
       .exec();
 
     if (storageDifference !== 0) {
-        await this.tenantModel.findByIdAndUpdate(user.tenantId, { 
-            $inc: { 'usage.currentStorage': storageDifference }
-        });
+      await this.tenantModel.findByIdAndUpdate(user.tenantId, {
+        $inc: { "usage.currentStorage": storageDifference },
+      });
     }
 
     return updatedProduct;
   }
 
   async remove(id: string, tenantId: string): Promise<any> {
-    const productToRemove = await this.productModel.findOne({ _id: id, tenantId: new Types.ObjectId(tenantId) }).lean();
+    const productToRemove = await this.productModel
+      .findOne({ _id: id, tenantId: new Types.ObjectId(tenantId) })
+      .lean();
     if (!productToRemove) {
-        throw new NotFoundException("Producto no encontrado");
+      throw new NotFoundException("Producto no encontrado");
     }
 
     const imagesSize = this.calculateImagesSize(productToRemove.variants);
 
-    const result = await this.productModel.deleteOne({ _id: id, tenantId: new Types.ObjectId(tenantId) }).exec();
+    const result = await this.productModel
+      .deleteOne({ _id: id, tenantId: new Types.ObjectId(tenantId) })
+      .exec();
 
     if (result.deletedCount > 0) {
-      await this.tenantModel.findByIdAndUpdate(tenantId, { 
-          $inc: { 
-              'usage.currentProducts': -1,
-              'usage.currentStorage': -imagesSize
-            }
-        });
+      await this.tenantModel.findByIdAndUpdate(tenantId, {
+        $inc: {
+          "usage.currentProducts": -1,
+          "usage.currentStorage": -imagesSize,
+        },
+      });
     }
     return result;
   }
@@ -429,7 +471,11 @@ export class ProductsService {
     for (const variant of variants) {
       if (variant.images && variant.images.length > 0) {
         for (const image of variant.images) {
-          const padding = image.endsWith('==') ? 2 : image.endsWith('=') ? 1 : 0;
+          const padding = image.endsWith("==")
+            ? 2
+            : image.endsWith("=")
+              ? 1
+              : 0;
           const sizeInBytes = (image.length * 3) / 4 - padding;
           totalSize += sizeInBytes;
         }

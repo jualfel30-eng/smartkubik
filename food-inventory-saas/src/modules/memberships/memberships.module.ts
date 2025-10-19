@@ -1,12 +1,12 @@
-import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
+import { Module } from "@nestjs/common";
+import { MongooseModule } from "@nestjs/mongoose";
 import {
   UserTenantMembership,
   UserTenantMembershipSchema,
-} from '../../schemas/user-tenant-membership.schema';
-import { Tenant, TenantSchema } from '../../schemas/tenant.schema';
-import { Role, RoleSchema } from '../../schemas/role.schema';
-import { MembershipsService } from './memberships.service';
+} from "../../schemas/user-tenant-membership.schema";
+import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
+import { Role, RoleSchema } from "../../schemas/role.schema";
+import { MembershipsService } from "./memberships.service";
 
 @Module({
   imports: [

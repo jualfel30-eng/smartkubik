@@ -9,62 +9,68 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
-} from '@nestjs/common';
-import type { Express } from 'express';
+} from "@nestjs/common";
+import type { Express } from "express";
 import {
   ImportBankStatementDto,
   ManualReconcileDto,
   MatchStatementTransactionDto,
   ReconciliationSummaryDto,
   UnmatchStatementTransactionDto,
-} from '../../dto/bank-reconciliation.dto';
-import { BankReconciliationService } from './bank-reconciliation.service';
-import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
-import { TenantGuard } from '../../guards/tenant.guard';
-import { PermissionsGuard } from '../../guards/permissions.guard';
-import { ModuleAccessGuard } from '../../guards/module-access.guard';
-import { Permissions } from '../../decorators/permissions.decorator';
-import { RequireModule } from '../../decorators/require-module.decorator';
-import { FileInterceptor } from '@nestjs/platform-express';
+} from "../../dto/bank-reconciliation.dto";
+import { BankReconciliationService } from "./bank-reconciliation.service";
+import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
+import { TenantGuard } from "../../guards/tenant.guard";
+import { PermissionsGuard } from "../../guards/permissions.guard";
+import { ModuleAccessGuard } from "../../guards/module-access.guard";
+import { Permissions } from "../../decorators/permissions.decorator";
+import { RequireModule } from "../../decorators/require-module.decorator";
+import { FileInterceptor } from "@nestjs/platform-express";
 
 @Controller()
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard, ModuleAccessGuard)
-@RequireModule('bankAccounts')
+@RequireModule("bankAccounts")
 export class BankReconciliationController {
-  constructor(private readonly bankReconciliationService: BankReconciliationService) {}
+  constructor(
+    private readonly bankReconciliationService: BankReconciliationService,
+  ) {}
 
-  @Post('bank-reconciliation/import')
-  @Permissions('accounting_write')
-  @UseInterceptors(FileInterceptor('file'))
+  @Post("bank-reconciliation/import")
+  @Permissions("accounting_write")
+  @UseInterceptors(FileInterceptor("file"))
   async importStatementFile(
     @Body() dto: ImportBankStatementDto,
     @UploadedFile() file: Express.Multer.File,
     @Request() req,
   ) {
-    const result = await this.bankReconciliationService.importStatement(dto, file, req.user.tenantId);
+    const result = await this.bankReconciliationService.importStatement(
+      dto,
+      file,
+      req.user.tenantId,
+    );
     return {
       success: true,
       data: result,
     };
   }
 
-  @Post('bank-reconciliation/manual')
-  @Permissions('accounting_write')
-  async manualReconcile(
-    @Body() dto: ManualReconcileDto,
-    @Request() req,
-  ) {
-    const transaction = await this.bankReconciliationService.manualReconcile(dto, req.user.tenantId);
+  @Post("bank-reconciliation/manual")
+  @Permissions("accounting_write")
+  async manualReconcile(@Body() dto: ManualReconcileDto, @Request() req) {
+    const transaction = await this.bankReconciliationService.manualReconcile(
+      dto,
+      req.user.tenantId,
+    );
     return {
       success: true,
       data: transaction,
     };
   }
 
-  @Get('bank-reconciliation/statement/:statementId')
-  @Permissions('accounting_read')
+  @Get("bank-reconciliation/statement/:statementId")
+  @Permissions("accounting_read")
   async getImportedStatement(
-    @Param('statementId') statementId: string,
+    @Param("statementId") statementId: string,
     @Request() req,
   ) {
     const result = await this.bankReconciliationService.findStatementDetails(
@@ -77,10 +83,10 @@ export class BankReconciliationController {
     };
   }
 
-  @Post('bank-accounts/:accountId/statements/import')
-  @Permissions('accounting_write')
+  @Post("bank-accounts/:accountId/statements/import")
+  @Permissions("accounting_write")
   async importStatement(
-    @Param('accountId') accountId: string,
+    @Param("accountId") accountId: string,
     @Body() dto: ImportBankStatementDto,
     @Request() req,
   ) {
@@ -92,17 +98,17 @@ export class BankReconciliationController {
     );
     return {
       success: true,
-      message: 'Bank statement imported',
+      message: "Bank statement imported",
       data: statement,
     };
   }
 
-  @Get('bank-accounts/:accountId/statements')
-  @Permissions('accounting_read')
+  @Get("bank-accounts/:accountId/statements")
+  @Permissions("accounting_read")
   async listStatements(
-    @Param('accountId') accountId: string,
-    @Query('page') page = '1',
-    @Query('limit') limit = '20',
+    @Param("accountId") accountId: string,
+    @Query("page") page = "1",
+    @Query("limit") limit = "20",
     @Request() req,
   ) {
     const result = await this.bankReconciliationService.listBankStatements(
@@ -118,10 +124,10 @@ export class BankReconciliationController {
     };
   }
 
-  @Get('bank-accounts/:accountId/statements/:statementId')
-  @Permissions('accounting_read')
+  @Get("bank-accounts/:accountId/statements/:statementId")
+  @Permissions("accounting_read")
   async getStatement(
-    @Param('statementId') statementId: string,
+    @Param("statementId") statementId: string,
     @Request() req,
   ) {
     const statement = await this.bankReconciliationService.getBankStatement(
@@ -134,10 +140,10 @@ export class BankReconciliationController {
     };
   }
 
-  @Post('bank-reconciliation/:statementId/start')
-  @Permissions('accounting_write')
+  @Post("bank-reconciliation/:statementId/start")
+  @Permissions("accounting_write")
   async startReconciliation(
-    @Param('statementId') statementId: string,
+    @Param("statementId") statementId: string,
     @Request() req,
   ) {
     const reconciliation =
@@ -152,26 +158,27 @@ export class BankReconciliationController {
     };
   }
 
-  @Get('bank-reconciliation/:reconciliationId')
-  @Permissions('accounting_read')
+  @Get("bank-reconciliation/:reconciliationId")
+  @Permissions("accounting_read")
   async getReconciliation(
-    @Param('reconciliationId') reconciliationId: string,
+    @Param("reconciliationId") reconciliationId: string,
     @Request() req,
   ) {
-    const reconciliation = await this.bankReconciliationService.getReconciliation(
-      req.user.tenantId,
-      reconciliationId,
-    );
+    const reconciliation =
+      await this.bankReconciliationService.getReconciliation(
+        req.user.tenantId,
+        reconciliationId,
+      );
     return {
       success: true,
       data: reconciliation,
     };
   }
 
-  @Post('bank-reconciliation/:reconciliationId/match')
-  @Permissions('accounting_write')
+  @Post("bank-reconciliation/:reconciliationId/match")
+  @Permissions("accounting_write")
   async matchTransaction(
-    @Param('reconciliationId') reconciliationId: string,
+    @Param("reconciliationId") reconciliationId: string,
     @Body() dto: MatchStatementTransactionDto,
     @Request() req,
   ) {
@@ -184,10 +191,10 @@ export class BankReconciliationController {
     return { success: true };
   }
 
-  @Post('bank-reconciliation/:reconciliationId/unmatch')
-  @Permissions('accounting_write')
+  @Post("bank-reconciliation/:reconciliationId/unmatch")
+  @Permissions("accounting_write")
   async unmatchTransaction(
-    @Param('reconciliationId') reconciliationId: string,
+    @Param("reconciliationId") reconciliationId: string,
     @Body() dto: UnmatchStatementTransactionDto,
     @Request() req,
   ) {
@@ -199,10 +206,10 @@ export class BankReconciliationController {
     return { success: true };
   }
 
-  @Post('bank-reconciliation/:reconciliationId/complete')
-  @Permissions('accounting_write')
+  @Post("bank-reconciliation/:reconciliationId/complete")
+  @Permissions("accounting_write")
   async completeReconciliation(
-    @Param('reconciliationId') reconciliationId: string,
+    @Param("reconciliationId") reconciliationId: string,
     @Body() summary: ReconciliationSummaryDto,
     @Request() req,
   ) {

@@ -4,26 +4,30 @@ import {
   BadRequestException,
   Logger,
   ConflictException,
-} from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Appointment, AppointmentDocument } from '../../schemas/appointment.schema';
-import { Customer, CustomerDocument } from '../../schemas/customer.schema';
-import { Service, ServiceDocument } from '../../schemas/service.schema';
-import { Resource, ResourceDocument } from '../../schemas/resource.schema';
+} from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
+import {
+  Appointment,
+  AppointmentDocument,
+} from "../../schemas/appointment.schema";
+import { Customer, CustomerDocument } from "../../schemas/customer.schema";
+import { Service, ServiceDocument } from "../../schemas/service.schema";
+import { Resource, ResourceDocument } from "../../schemas/resource.schema";
 import {
   CreateAppointmentDto,
   UpdateAppointmentDto,
   AppointmentFilterDto,
   CheckAvailabilityDto,
-} from './dto/appointment.dto';
+} from "./dto/appointment.dto";
 
 @Injectable()
 export class AppointmentsService {
   private readonly logger = new Logger(AppointmentsService.name);
 
   constructor(
-    @InjectModel(Appointment.name) private appointmentModel: Model<AppointmentDocument>,
+    @InjectModel(Appointment.name)
+    private appointmentModel: Model<AppointmentDocument>,
     @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>,
     @InjectModel(Service.name) private serviceModel: Model<ServiceDocument>,
     @InjectModel(Resource.name) private resourceModel: Model<ResourceDocument>,
@@ -42,7 +46,7 @@ export class AppointmentsService {
       .exec();
 
     if (!customer) {
-      throw new NotFoundException('Cliente no encontrado');
+      throw new NotFoundException("Cliente no encontrado");
     }
 
     // Validate service
@@ -51,11 +55,11 @@ export class AppointmentsService {
       .exec();
 
     if (!service) {
-      throw new NotFoundException('Servicio no encontrado');
+      throw new NotFoundException("Servicio no encontrado");
     }
 
-    if (service.status !== 'active') {
-      throw new BadRequestException('El servicio no está activo');
+    if (service.status !== "active") {
+      throw new BadRequestException("El servicio no está activo");
     }
 
     // Validate resource (if provided)
@@ -66,11 +70,11 @@ export class AppointmentsService {
         .exec();
 
       if (!resource) {
-        throw new NotFoundException('Recurso no encontrado');
+        throw new NotFoundException("Recurso no encontrado");
       }
 
-      if (resource.status !== 'active') {
-        throw new BadRequestException('El recurso no está activo');
+      if (resource.status !== "active") {
+        throw new BadRequestException("El recurso no está activo");
       }
     }
 
@@ -84,14 +88,15 @@ export class AppointmentsService {
 
     if (hasConflict) {
       throw new ConflictException(
-        'Ya existe una cita en ese horario para el recurso seleccionado',
+        "Ya existe una cita en ese horario para el recurso seleccionado",
       );
     }
 
     // Get primary phone from customer contacts
-    const primaryPhone = customer.contacts?.find(
-      (c: any) => c.type === 'phone' && c.isPrimary,
-    )?.value || customer.contacts?.find((c: any) => c.type === 'phone')?.value;
+    const primaryPhone =
+      customer.contacts?.find((c: any) => c.type === "phone" && c.isPrimary)
+        ?.value ||
+      customer.contacts?.find((c: any) => c.type === "phone")?.value;
 
     // Create appointment with denormalized data
     const newAppointment = new this.appointmentModel({
@@ -103,7 +108,7 @@ export class AppointmentsService {
       serviceDuration: service.duration,
       servicePrice: service.price,
       resourceName: resource?.name,
-      status: createAppointmentDto.status || 'pending',
+      status: createAppointmentDto.status || "pending",
     });
 
     const saved = await newAppointment.save();
@@ -111,7 +116,10 @@ export class AppointmentsService {
     return saved;
   }
 
-  async findAll(tenantId: string, filters?: AppointmentFilterDto): Promise<Appointment[]> {
+  async findAll(
+    tenantId: string,
+    filters?: AppointmentFilterDto,
+  ): Promise<Appointment[]> {
     const query: any = { tenantId };
 
     // Date range filter
@@ -147,27 +155,27 @@ export class AppointmentsService {
     // Text search
     if (filters?.search) {
       query.$or = [
-        { customerName: { $regex: filters.search, $options: 'i' } },
-        { serviceName: { $regex: filters.search, $options: 'i' } },
-        { resourceName: { $regex: filters.search, $options: 'i' } },
+        { customerName: { $regex: filters.search, $options: "i" } },
+        { serviceName: { $regex: filters.search, $options: "i" } },
+        { resourceName: { $regex: filters.search, $options: "i" } },
       ];
     }
 
     return this.appointmentModel
       .find(query)
       .sort({ startTime: 1 })
-      .populate('customerId', 'name phone email')
-      .populate('serviceId', 'name duration price')
-      .populate('resourceId', 'name type')
+      .populate("customerId", "name phone email")
+      .populate("serviceId", "name duration price")
+      .populate("resourceId", "name type")
       .exec();
   }
 
   async findOne(tenantId: string, id: string): Promise<Appointment> {
     const appointment = await this.appointmentModel
       .findOne({ _id: id, tenantId })
-      .populate('customerId', 'name phone email')
-      .populate('serviceId', 'name duration price category')
-      .populate('resourceId', 'name type email phone')
+      .populate("customerId", "name phone email")
+      .populate("serviceId", "name duration price category")
+      .populate("resourceId", "name type email phone")
       .exec();
 
     if (!appointment) {
@@ -199,13 +207,20 @@ export class AppointmentsService {
       const endTime = updateAppointmentDto.endTime
         ? new Date(updateAppointmentDto.endTime)
         : existing.endTime;
-      const resourceId = updateAppointmentDto.resourceId || existing.resourceId?.toString();
+      const resourceId =
+        updateAppointmentDto.resourceId || existing.resourceId?.toString();
 
-      const hasConflict = await this.checkConflict(tenantId, startTime, endTime, resourceId, id);
+      const hasConflict = await this.checkConflict(
+        tenantId,
+        startTime,
+        endTime,
+        resourceId,
+        id,
+      );
 
       if (hasConflict) {
         throw new ConflictException(
-          'Ya existe una cita en ese horario para el recurso seleccionado',
+          "Ya existe una cita en ese horario para el recurso seleccionado",
         );
       }
     }
@@ -213,27 +228,31 @@ export class AppointmentsService {
     // Handle status changes
     const updateData: any = { ...updateAppointmentDto };
 
-    if (updateAppointmentDto.status === 'confirmed' && !existing.confirmed) {
+    if (updateAppointmentDto.status === "confirmed" && !existing.confirmed) {
       updateData.confirmed = true;
       updateData.confirmedAt = new Date();
       updateData.confirmedBy = userId;
     }
 
-    if (updateAppointmentDto.status === 'completed' && !existing.completedAt) {
+    if (updateAppointmentDto.status === "completed" && !existing.completedAt) {
       updateData.completedAt = new Date();
       updateData.completedBy = userId;
     }
 
-    if (updateAppointmentDto.status === 'cancelled' && !existing.cancelledAt) {
+    if (updateAppointmentDto.status === "cancelled" && !existing.cancelledAt) {
       updateData.cancelledAt = new Date();
       updateData.cancelledBy = userId;
     }
 
     const updated = await this.appointmentModel
-      .findOneAndUpdate({ _id: id, tenantId }, { $set: updateData }, { new: true })
-      .populate('customerId', 'name contacts email')
-      .populate('serviceId', 'name duration price')
-      .populate('resourceId', 'name type')
+      .findOneAndUpdate(
+        { _id: id, tenantId },
+        { $set: updateData },
+        { new: true },
+      )
+      .populate("customerId", "name contacts email")
+      .populate("serviceId", "name duration price")
+      .populate("resourceId", "name type")
       .exec();
 
     if (!updated) {
@@ -247,7 +266,9 @@ export class AppointmentsService {
   async remove(tenantId: string, id: string): Promise<void> {
     this.logger.log(`Deleting appointment ${id} for tenant: ${tenantId}`);
 
-    const result = await this.appointmentModel.deleteOne({ _id: id, tenantId }).exec();
+    const result = await this.appointmentModel
+      .deleteOne({ _id: id, tenantId })
+      .exec();
 
     if (result.deletedCount === 0) {
       throw new NotFoundException(`Cita con ID ${id} no encontrada`);
@@ -268,7 +289,7 @@ export class AppointmentsService {
   ): Promise<boolean> {
     const query: any = {
       tenantId,
-      status: { $in: ['pending', 'confirmed', 'in_progress'] }, // Only check active appointments
+      status: { $in: ["pending", "confirmed", "in_progress"] }, // Only check active appointments
       $or: [
         // New appointment starts during existing appointment
         { startTime: { $lte: startTime }, endTime: { $gt: startTime } },
@@ -301,30 +322,34 @@ export class AppointmentsService {
     const { serviceId, resourceId, date } = checkAvailabilityDto;
 
     // Get service details
-    const service = await this.serviceModel.findOne({ _id: serviceId, tenantId }).exec();
+    const service = await this.serviceModel
+      .findOne({ _id: serviceId, tenantId })
+      .exec();
     if (!service) {
-      throw new NotFoundException('Servicio no encontrado');
+      throw new NotFoundException("Servicio no encontrado");
     }
 
     const targetDate = new Date(date);
     const dayOfWeek = [
-      'sunday',
-      'monday',
-      'tuesday',
-      'wednesday',
-      'thursday',
-      'friday',
-      'saturday',
+      "sunday",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
     ][targetDate.getDay()];
 
     // Get resource schedule (if resource specified)
-    let workStart = '09:00';
-    let workEnd = '18:00';
+    let workStart = "09:00";
+    let workEnd = "18:00";
 
     if (resourceId) {
-      const resource = await this.resourceModel.findOne({ _id: resourceId, tenantId }).exec();
+      const resource = await this.resourceModel
+        .findOne({ _id: resourceId, tenantId })
+        .exec();
       if (!resource) {
-        throw new NotFoundException('Recurso no encontrado');
+        throw new NotFoundException("Recurso no encontrado");
       }
 
       const daySchedule = resource.schedule?.[dayOfWeek];
@@ -345,7 +370,7 @@ export class AppointmentsService {
 
     const query: any = {
       tenantId,
-      status: { $in: ['pending', 'confirmed', 'in_progress'] },
+      status: { $in: ["pending", "confirmed", "in_progress"] },
       startTime: { $gte: startOfDay, $lte: endOfDay },
     };
 
@@ -353,12 +378,15 @@ export class AppointmentsService {
       query.resourceId = resourceId;
     }
 
-    const existingAppointments = await this.appointmentModel.find(query).sort({ startTime: 1 }).exec();
+    const existingAppointments = await this.appointmentModel
+      .find(query)
+      .sort({ startTime: 1 })
+      .exec();
 
     // Generate available slots
     const slots: { start: string; end: string }[] = [];
-    const [workHour, workMin] = workStart.split(':').map(Number);
-    const [endHour, endMin] = workEnd.split(':').map(Number);
+    const [workHour, workMin] = workStart.split(":").map(Number);
+    const [endHour, endMin] = workEnd.split(":").map(Number);
 
     let currentTime = new Date(targetDate);
     currentTime.setHours(workHour, workMin, 0, 0);
@@ -366,9 +394,15 @@ export class AppointmentsService {
     const workEndTime = new Date(targetDate);
     workEndTime.setHours(endHour, endMin, 0, 0);
 
-    const slotDuration = service.duration + (service.bufferTimeBefore || 0) + (service.bufferTimeAfter || 0);
+    const slotDuration =
+      service.duration +
+      (service.bufferTimeBefore || 0) +
+      (service.bufferTimeAfter || 0);
 
-    while (currentTime.getTime() + slotDuration * 60000 <= workEndTime.getTime()) {
+    while (
+      currentTime.getTime() + slotDuration * 60000 <=
+      workEndTime.getTime()
+    ) {
       const slotEnd = new Date(currentTime.getTime() + slotDuration * 60000);
 
       // Check if slot conflicts with existing appointments
@@ -444,7 +478,9 @@ export class AppointmentsService {
     );
 
     const revenue = appointments
-      .filter((apt) => apt.status === 'completed' && apt.paymentStatus === 'paid')
+      .filter(
+        (apt) => apt.status === "completed" && apt.paymentStatus === "paid",
+      )
       .reduce((sum, apt) => sum + (apt.paidAmount || 0), 0);
 
     const serviceCount = appointments.reduce(

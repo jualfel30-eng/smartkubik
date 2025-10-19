@@ -12,41 +12,41 @@ export class LoggerSanitizer {
    */
   private static readonly SENSITIVE_FIELDS = [
     // Autenticación y tokens
-    'password',
-    'currentPassword',
-    'newPassword',
-    'oldPassword',
-    'passwordHash',
-    'token',
-    'accessToken',
-    'refreshToken',
-    'resetToken',
-    'verificationToken',
-    'jwt',
-    'bearer',
-    'authorization',
+    "password",
+    "currentPassword",
+    "newPassword",
+    "oldPassword",
+    "passwordHash",
+    "token",
+    "accessToken",
+    "refreshToken",
+    "resetToken",
+    "verificationToken",
+    "jwt",
+    "bearer",
+    "authorization",
 
     // Datos de pago
-    'creditCard',
-    'cardNumber',
-    'cvv',
-    'cvc',
-    'pin',
-    'accountNumber',
-    'routingNumber',
+    "creditCard",
+    "cardNumber",
+    "cvv",
+    "cvc",
+    "pin",
+    "accountNumber",
+    "routingNumber",
 
     // Secretos y claves
-    'secret',
-    'apiKey',
-    'apiSecret',
-    'privateKey',
-    'secretKey',
-    'encryptionKey',
+    "secret",
+    "apiKey",
+    "apiSecret",
+    "privateKey",
+    "secretKey",
+    "encryptionKey",
 
     // Sesión y cookies
-    'cookie',
-    'session',
-    'sessionId',
+    "cookie",
+    "session",
+    "sessionId",
 
     // Datos personales sensibles (opcional, depende de regulaciones)
     // 'ssn', // Social Security Number
@@ -66,7 +66,7 @@ export class LoggerSanitizer {
     }
 
     // Tipos primitivos (string, number, boolean)
-    if (typeof data !== 'object') {
+    if (typeof data !== "object") {
       return data;
     }
 
@@ -85,8 +85,8 @@ export class LoggerSanitizer {
 
       // Verificar si el campo es sensible
       if (this.isSensitiveField(key)) {
-        sanitized[key] = '***REDACTED***';
-      } else if (typeof data[key] === 'object') {
+        sanitized[key] = "***REDACTED***";
+      } else if (typeof data[key] === "object") {
         // Recursivamente sanitizar objetos anidados
         sanitized[key] = this.sanitize(data[key]);
       } else {
@@ -120,7 +120,7 @@ export class LoggerSanitizer {
    * @returns Texto sanitizado
    */
   static sanitizeText(text: string): string {
-    if (!text || typeof text !== 'string') {
+    if (!text || typeof text !== "string") {
       return text;
     }
 
@@ -136,19 +136,19 @@ export class LoggerSanitizer {
       // Redactar patterns comunes de tokens
       sanitizedText = sanitizedText.replace(
         /Bearer\s+[A-Za-z0-9\-._~+\/]+=*/gi,
-        'Bearer ***REDACTED***'
+        "Bearer ***REDACTED***",
       );
 
       // Redactar patterns de passwords en URLs
       sanitizedText = sanitizedText.replace(
         /password=[^&\s]*/gi,
-        'password=***REDACTED***'
+        "password=***REDACTED***",
       );
 
       // Redactar patterns de tokens en URLs
       sanitizedText = sanitizedText.replace(
         /token=[^&\s]*/gi,
-        'token=***REDACTED***'
+        "token=***REDACTED***",
       );
 
       return sanitizedText;
@@ -162,7 +162,7 @@ export class LoggerSanitizer {
    * @returns Headers sanitizados
    */
   static sanitizeHeaders(headers: any): any {
-    if (!headers || typeof headers !== 'object') {
+    if (!headers || typeof headers !== "object") {
       return headers;
     }
 
@@ -170,22 +170,22 @@ export class LoggerSanitizer {
 
     // Headers sensibles comunes
     const sensitiveHeaders = [
-      'authorization',
-      'cookie',
-      'set-cookie',
-      'x-api-key',
-      'x-auth-token',
+      "authorization",
+      "cookie",
+      "set-cookie",
+      "x-api-key",
+      "x-auth-token",
     ];
 
     for (const header of sensitiveHeaders) {
       if (sanitized[header]) {
-        sanitized[header] = '***REDACTED***';
+        sanitized[header] = "***REDACTED***";
       }
       // También buscar case-insensitive
       const lowerHeader = header.toLowerCase();
       for (const key in sanitized) {
         if (key.toLowerCase() === lowerHeader) {
-          sanitized[key] = '***REDACTED***';
+          sanitized[key] = "***REDACTED***";
         }
       }
     }

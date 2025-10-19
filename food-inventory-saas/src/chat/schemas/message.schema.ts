@@ -1,12 +1,12 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Schema as MongooseSchema } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Schema as MongooseSchema } from "mongoose";
 
 export type MessageDocument = Message & Document;
 
 export enum SenderType {
-  USER = 'user',
-  CUSTOMER = 'customer',
-  ASSISTANT = 'assistant',
+  USER = "user",
+  CUSTOMER = "customer",
+  ASSISTANT = "assistant",
 }
 
 @Schema({ timestamps: true })
@@ -14,7 +14,12 @@ export class Message {
   @Prop({ required: true, index: true })
   tenantId: string;
 
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Conversation', required: true, index: true })
+  @Prop({
+    type: MongooseSchema.Types.ObjectId,
+    ref: "Conversation",
+    required: true,
+    index: true,
+  })
   conversationId: MongooseSchema.Types.ObjectId;
 
   @Prop({ required: true, enum: SenderType })

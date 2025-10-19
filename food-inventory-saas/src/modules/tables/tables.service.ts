@@ -3,10 +3,10 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
-} from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Table } from '../../schemas/table.schema';
+} from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { Table } from "../../schemas/table.schema";
 
 @Injectable()
 export class TablesService {
@@ -28,15 +28,13 @@ export class TablesService {
       .exec();
 
     if (existing) {
-      throw new BadRequestException(
-        `Table ${dto.tableNumber} already exists`,
-      );
+      throw new BadRequestException(`Table ${dto.tableNumber} already exists`);
     }
 
     const table = new this.tableModel({
       ...dto,
       tenantId,
-      status: 'available',
+      status: "available",
       isDeleted: false,
     });
 
@@ -47,8 +45,8 @@ export class TablesService {
   async findAll(tenantId: string): Promise<Table[]> {
     return this.tableModel
       .find({ tenantId, isDeleted: false })
-      .populate('assignedServerId')
-      .populate('currentOrderId')
+      .populate("assignedServerId")
+      .populate("currentOrderId")
       .sort({ section: 1, tableNumber: 1 })
       .exec();
   }
@@ -56,14 +54,14 @@ export class TablesService {
   async findBySection(section: string, tenantId: string): Promise<Table[]> {
     return this.tableModel
       .find({ tenantId, section, isDeleted: false })
-      .populate('assignedServerId')
+      .populate("assignedServerId")
       .sort({ tableNumber: 1 })
       .exec();
   }
 
   async findAvailable(tenantId: string): Promise<Table[]> {
     return this.tableModel
-      .find({ tenantId, status: 'available', isDeleted: false })
+      .find({ tenantId, status: "available", isDeleted: false })
       .sort({ section: 1, tableNumber: 1 })
       .exec();
   }
@@ -77,7 +75,7 @@ export class TablesService {
       throw new NotFoundException(`Table not found`);
     }
 
-    if (table.status !== 'available') {
+    if (table.status !== "available") {
       throw new BadRequestException(`Table is not available`);
     }
 
@@ -93,7 +91,7 @@ export class TablesService {
       );
     }
 
-    table.status = 'occupied';
+    table.status = "occupied";
     table.guestCount = dto.guestCount;
     table.seatedAt = new Date();
 
@@ -103,7 +101,9 @@ export class TablesService {
 
     await table.save();
 
-    this.logger.log(`Seated ${dto.guestCount} guests at table ${table.tableNumber}`);
+    this.logger.log(
+      `Seated ${dto.guestCount} guests at table ${table.tableNumber}`,
+    );
     return table;
   }
 
@@ -116,7 +116,7 @@ export class TablesService {
       throw new NotFoundException(`Table not found`);
     }
 
-    table.status = 'cleaning';
+    table.status = "cleaning";
     table.guestCount = 0;
     table.currentOrderId = undefined;
     table.seatedAt = undefined;
@@ -124,17 +124,20 @@ export class TablesService {
     await table.save();
 
     // Auto-set to available after 5 minutes
-    setTimeout(async () => {
-      const stillCleaning = await this.tableModel
-        .findOne({ _id: id, status: 'cleaning' })
-        .exec();
+    setTimeout(
+      async () => {
+        const stillCleaning = await this.tableModel
+          .findOne({ _id: id, status: "cleaning" })
+          .exec();
 
-      if (stillCleaning) {
-        stillCleaning.status = 'available';
-        await stillCleaning.save();
-        this.logger.log(`Auto-set table ${table.tableNumber} to available`);
-      }
-    }, 5 * 60 * 1000);
+        if (stillCleaning) {
+          stillCleaning.status = "available";
+          await stillCleaning.save();
+          this.logger.log(`Auto-set table ${table.tableNumber} to available`);
+        }
+      },
+      5 * 60 * 1000,
+    );
 
     this.logger.log(`Cleared table ${table.tableNumber}`);
     return table;
@@ -153,23 +156,23 @@ export class TablesService {
       throw new NotFoundException(`One or both tables not found`);
     }
 
-    if (fromTable.status !== 'occupied') {
+    if (fromTable.status !== "occupied") {
       throw new BadRequestException(`Source table is not occupied`);
     }
 
-    if (toTable.status !== 'available') {
+    if (toTable.status !== "available") {
       throw new BadRequestException(`Destination table is not available`);
     }
 
     // Transfer data
-    toTable.status = 'occupied';
+    toTable.status = "occupied";
     toTable.guestCount = fromTable.guestCount;
     toTable.currentOrderId = fromTable.currentOrderId;
     toTable.seatedAt = fromTable.seatedAt;
     toTable.assignedServerId = fromTable.assignedServerId;
 
     // Clear source table
-    fromTable.status = 'available';
+    fromTable.status = "available";
     fromTable.guestCount = 0;
     fromTable.currentOrderId = undefined;
     fromTable.seatedAt = undefined;
@@ -197,7 +200,7 @@ export class TablesService {
     }
 
     // Validate all tables are available
-    const notAvailable = tables.filter((t) => t.status !== 'available');
+    const notAvailable = tables.filter((t) => t.status !== "available");
     if (notAvailable.length > 0) {
       throw new BadRequestException(`All tables must be available to combine`);
     }
@@ -219,7 +222,7 @@ export class TablesService {
     for (const table of tables) {
       if (table._id.toString() !== dto.parentTableId) {
         table.combinedWithParent = parentTable._id;
-        table.status = 'occupied'; // Mark as occupied
+        table.status = "occupied"; // Mark as occupied
         await table.save();
       }
     }
@@ -234,20 +237,23 @@ export class TablesService {
     const tables = await this.findAll(tenantId);
 
     // Group by section
-    const sections = tables.reduce((acc, table) => {
-      if (!acc[table.section]) {
-        acc[table.section] = [];
-      }
-      acc[table.section].push(table);
-      return acc;
-    }, {} as Record<string, Table[]>);
+    const sections = tables.reduce(
+      (acc, table) => {
+        if (!acc[table.section]) {
+          acc[table.section] = [];
+        }
+        acc[table.section].push(table);
+        return acc;
+      },
+      {} as Record<string, Table[]>,
+    );
 
     // Calculate statistics
     const totalTables = tables.length;
     const availableTables = tables.filter(
-      (t) => t.status === 'available',
+      (t) => t.status === "available",
     ).length;
-    const occupiedTables = tables.filter((t) => t.status === 'occupied').length;
+    const occupiedTables = tables.filter((t) => t.status === "occupied").length;
     const occupancyRate =
       totalTables > 0 ? (occupiedTables / totalTables) * 100 : 0;
 

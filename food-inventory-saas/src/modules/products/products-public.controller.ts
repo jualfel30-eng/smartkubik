@@ -193,10 +193,7 @@ export class ProductsPublicController {
     status: 404,
     description: "Producto no encontrado",
   })
-  async findOne(
-    @Param("id") id: string,
-    @Query("tenantId") tenantId: string,
-  ) {
+  async findOne(@Param("id") id: string, @Query("tenantId") tenantId: string) {
     // Validar tenantId
     if (!tenantId) {
       throw new BadRequestException("El parámetro tenantId es requerido");

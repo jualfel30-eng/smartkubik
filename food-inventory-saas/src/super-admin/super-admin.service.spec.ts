@@ -1,14 +1,14 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { SuperAdminService } from './super-admin.service';
-import { getModelToken } from '@nestjs/mongoose';
-import { Tenant } from '../schemas/tenant.schema';
-import { User } from '../schemas/user.schema';
-import { Event } from '../schemas/event.schema';
-import { Role } from '../schemas/role.schema';
-import { Permission } from '../schemas/permission.schema';
-import { UserTenantMembership } from '../schemas/user-tenant-membership.schema';
-import { AuthService } from '../auth/auth.service';
-import { AuditLogService } from '../modules/audit-log/audit-log.service';
+import { Test, TestingModule } from "@nestjs/testing";
+import { SuperAdminService } from "./super-admin.service";
+import { getModelToken } from "@nestjs/mongoose";
+import { Tenant } from "../schemas/tenant.schema";
+import { User } from "../schemas/user.schema";
+import { Event } from "../schemas/event.schema";
+import { Role } from "../schemas/role.schema";
+import { Permission } from "../schemas/permission.schema";
+import { UserTenantMembership } from "../schemas/user-tenant-membership.schema";
+import { AuthService } from "../auth/auth.service";
+import { AuditLogService } from "../modules/audit-log/audit-log.service";
 
 const createMockModel = () => ({
   find: jest.fn().mockReturnThis(),
@@ -30,7 +30,7 @@ const mockAuditLogService = {
   findLogs: jest.fn(),
 };
 
-describe('SuperAdminService', () => {
+describe("SuperAdminService", () => {
   let service: SuperAdminService;
 
   beforeEach(async () => {
@@ -75,7 +75,7 @@ describe('SuperAdminService', () => {
     service = module.get<SuperAdminService>(SuperAdminService);
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 });

@@ -1,8 +1,8 @@
-import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { SecurityMonitoringService } from './security-monitoring.service';
-import { SecurityMonitoringController } from './security-monitoring.controller';
-import { AuditLog, AuditLogSchema } from '../../schemas/audit-log.schema';
+import { Module } from "@nestjs/common";
+import { MongooseModule } from "@nestjs/mongoose";
+import { SecurityMonitoringService } from "./security-monitoring.service";
+import { SecurityMonitoringController } from "./security-monitoring.controller";
+import { AuditLog, AuditLogSchema } from "../../schemas/audit-log.schema";
 
 @Module({
   imports: [

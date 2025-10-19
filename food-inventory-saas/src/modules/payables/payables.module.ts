@@ -1,12 +1,13 @@
-import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { PayablesController } from './payables.controller';
-import { PayablesService } from './payables.service';
-import { Payable, PayableSchema } from '../../schemas/payable.schema';
-import { Tenant, TenantSchema } from '../../schemas/tenant.schema';
-import { User, UserSchema } from '../../schemas/user.schema';
-import { AccountingModule } from '../accounting/accounting.module'; // Import AccountingModule
-import { EventsModule } from '../events/events.module'; // Import EventsModule
+import { Module } from "@nestjs/common";
+import { MongooseModule } from "@nestjs/mongoose";
+import { PayablesController } from "./payables.controller";
+import { PayablesService } from "./payables.service";
+import { Payable, PayableSchema } from "../../schemas/payable.schema";
+import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
+import { User, UserSchema } from "../../schemas/user.schema";
+import { AccountingModule } from "../accounting/accounting.module"; // Import AccountingModule
+import { EventsModule } from "../events/events.module"; // Import EventsModule
+import { ExchangeRateModule } from "../exchange-rate/exchange-rate.module"; // Import ExchangeRateModule
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { EventsModule } from '../events/events.module'; // Import EventsModule
     ]),
     AccountingModule, // Add AccountingModule here
     EventsModule, // Add EventsModule here
+    ExchangeRateModule, // Add ExchangeRateModule here
   ],
   controllers: [PayablesController],
   providers: [PayablesService],

@@ -462,7 +462,10 @@ export class FoodRetailInventoryService implements IInventoryService {
       {
         $match: {
           $expr: {
-            $lte: ["$availableQuantity", "$productInfo.inventoryConfig.minimumStock"],
+            $lte: [
+              "$availableQuantity",
+              "$productInfo.inventoryConfig.minimumStock",
+            ],
           },
         },
       },

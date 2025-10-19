@@ -1,4 +1,14 @@
-import { IsString, IsOptional, IsEmail, IsBoolean, IsNumber, IsArray, ValidateNested, Min, Max } from "class-validator";
+import {
+  IsString,
+  IsOptional,
+  IsEmail,
+  IsBoolean,
+  IsNumber,
+  IsArray,
+  ValidateNested,
+  Min,
+  Max,
+} from "class-validator";
 import { Type } from "class-transformer";
 import { SanitizeString } from "../decorators/sanitize.decorator";
 

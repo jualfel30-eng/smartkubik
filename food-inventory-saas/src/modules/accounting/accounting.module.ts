@@ -11,8 +11,8 @@ import {
   JournalEntry,
   JournalEntrySchema,
 } from "../../schemas/journal-entry.schema";
-import { Order, OrderSchema } from '../../schemas/order.schema';
-import { Payable, PayableSchema } from '../../schemas/payable.schema';
+import { Order, OrderSchema } from "../../schemas/order.schema";
+import { Payable, PayableSchema } from "../../schemas/payable.schema";
 
 @Module({
   imports: [

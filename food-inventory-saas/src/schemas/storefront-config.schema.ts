@@ -105,7 +105,8 @@ export class StorefrontConfig {
   contactInfo: ContactInfoConfig;
 }
 
-export const StorefrontConfigSchema = SchemaFactory.createForClass(StorefrontConfig);
+export const StorefrontConfigSchema =
+  SchemaFactory.createForClass(StorefrontConfig);
 
 // Índices para optimizar consultas
 StorefrontConfigSchema.index({ tenantId: 1, domain: 1 }, { unique: true });
@@ -114,7 +115,9 @@ StorefrontConfigSchema.index({ domain: 1 });
 StorefrontConfigSchema.index({ isActive: 1, tenantId: 1 });
 
 // Métodos estáticos
-StorefrontConfigSchema.statics.findByTenant = function (tenantId: Types.ObjectId) {
+StorefrontConfigSchema.statics.findByTenant = function (
+  tenantId: Types.ObjectId,
+) {
   return this.findOne({ tenantId }).exec();
 };
 

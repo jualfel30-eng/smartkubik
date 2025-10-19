@@ -1,23 +1,44 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { Model, Types } from 'mongoose';
-import { FEATURES, FeatureFlags } from '../../config/features.config';
-import { PerformanceKpi, PerformanceKpiDocument } from '../../schemas/performance-kpi.schema';
-import { Order, OrderDocument } from '../../schemas/order.schema';
-import { Shift, ShiftDocument } from '../../schemas/shift.schema';
-import { Tenant, TenantDocument } from '../../schemas/tenant.schema';
-import { User, UserDocument } from '../../schemas/user.schema';
-import { Product, ProductDocument } from '../../schemas/product.schema';
-import { Inventory, InventoryDocument, InventoryMovement, InventoryMovementDocument } from '../../schemas/inventory.schema';
-import { Payable, PayableDocument } from '../../schemas/payable.schema';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+} from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Cron, CronExpression } from "@nestjs/schedule";
+import { Model, Types } from "mongoose";
+import { FEATURES, FeatureFlags } from "../../config/features.config";
+import {
+  PerformanceKpi,
+  PerformanceKpiDocument,
+} from "../../schemas/performance-kpi.schema";
+import { Order, OrderDocument } from "../../schemas/order.schema";
+import { Shift, ShiftDocument } from "../../schemas/shift.schema";
+import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
+import { User, UserDocument } from "../../schemas/user.schema";
+import { Product, ProductDocument } from "../../schemas/product.schema";
+import {
+  Inventory,
+  InventoryDocument,
+  InventoryMovement,
+  InventoryMovementDocument,
+} from "../../schemas/inventory.schema";
+import { Payable, PayableDocument } from "../../schemas/payable.schema";
 
-const SUPPORTED_PERIODS = new Set(['7d', '14d', '30d', '60d', '90d', '180d', '365d']);
+const SUPPORTED_PERIODS = new Set([
+  "7d",
+  "14d",
+  "30d",
+  "60d",
+  "90d",
+  "180d",
+  "365d",
+]);
 
 interface DateRange {
   from: Date;
   to: Date;
-  groupBy: 'day' | 'month';
+  groupBy: "day" | "month";
   period: string;
 }
 
@@ -26,34 +47,51 @@ export class AnalyticsService {
   private readonly logger = new Logger(AnalyticsService.name);
 
   constructor(
-    @InjectModel(PerformanceKpi.name) private readonly kpiModel: Model<PerformanceKpiDocument>,
+    @InjectModel(PerformanceKpi.name)
+    private readonly kpiModel: Model<PerformanceKpiDocument>,
     @InjectModel(Order.name) private readonly orderModel: Model<OrderDocument>,
     @InjectModel(Shift.name) private readonly shiftModel: Model<ShiftDocument>,
-    @InjectModel(Tenant.name) private readonly tenantModel: Model<TenantDocument>,
+    @InjectModel(Tenant.name)
+    private readonly tenantModel: Model<TenantDocument>,
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-    @InjectModel(Product.name) private readonly productModel: Model<ProductDocument>,
-    @InjectModel(Inventory.name) private readonly inventoryModel: Model<InventoryDocument>,
-    @InjectModel(InventoryMovement.name) private readonly inventoryMovementModel: Model<InventoryMovementDocument>,
-    @InjectModel(Payable.name) private readonly payableModel: Model<PayableDocument>,
+    @InjectModel(Product.name)
+    private readonly productModel: Model<ProductDocument>,
+    @InjectModel(Inventory.name)
+    private readonly inventoryModel: Model<InventoryDocument>,
+    @InjectModel(InventoryMovement.name)
+    private readonly inventoryMovementModel: Model<InventoryMovementDocument>,
+    @InjectModel(Payable.name)
+    private readonly payableModel: Model<PayableDocument>,
   ) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_3AM, { name: 'dailyPerformanceKPIs', timeZone: 'America/Caracas' })
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, {
+    name: "dailyPerformanceKPIs",
+    timeZone: "America/Caracas",
+  })
   async handleCron(): Promise<void> {
-    this.logger.log('Running daily performance KPI calculation job...');
+    this.logger.log("Running daily performance KPI calculation job...");
 
-    const tenants = await this.tenantModel.find({ status: 'active' }).select('_id').lean();
+    const tenants = await this.tenantModel
+      .find({ status: "active" })
+      .select("_id")
+      .lean();
     this.logger.log(`Found ${tenants.length} active tenants to process.`);
 
     for (const tenant of tenants) {
       await this.calculateAndSaveKpisForTenant(tenant._id);
     }
 
-    this.logger.log('Daily performance KPI calculation job finished.');
+    this.logger.log("Daily performance KPI calculation job finished.");
   }
 
-  async calculateAndSaveKpisForTenant(tenantId: string | Types.ObjectId): Promise<void> {
-    const { objectId: tenantObjectId } = this.normalizeTenantIdentifiers(tenantId);
-    this.logger.log(`Calculating KPIs for tenant: ${tenantObjectId.toHexString()}`);
+  async calculateAndSaveKpisForTenant(
+    tenantId: string | Types.ObjectId,
+  ): Promise<void> {
+    const { objectId: tenantObjectId } =
+      this.normalizeTenantIdentifiers(tenantId);
+    this.logger.log(
+      `Calculating KPIs for tenant: ${tenantObjectId.toHexString()}`,
+    );
 
     const today = new Date();
     const yesterday = new Date(today);
@@ -69,7 +107,9 @@ export class AnalyticsService {
       .lean();
 
     if (!shifts.length) {
-      this.logger.log(`No shifts found for tenant ${tenantObjectId} for yesterday. Skipping.`);
+      this.logger.log(
+        `No shifts found for tenant ${tenantObjectId} for yesterday. Skipping.`,
+      );
       return;
     }
 
@@ -83,30 +123,32 @@ export class AnalyticsService {
     const orders = await this.orderModel
       .find({
         tenantId: tenantObjectId,
-        status: 'delivered',
+        status: "delivered",
         confirmedAt: { $gte: startOfYesterday, $lte: endOfYesterday },
         assignedTo: { $in: userIds },
       })
       .lean();
 
-    const userSales = orders.reduce<Record<string, { totalSales: number; numberOfOrders: number }>>(
-      (acc, order) => {
-        if (order.assignedTo) {
-          const userKey = order.assignedTo.toString();
-          if (!acc[userKey]) {
-            acc[userKey] = { totalSales: 0, numberOfOrders: 0 };
-          }
-          acc[userKey].totalSales += order.totalAmount ?? 0;
-          acc[userKey].numberOfOrders += 1;
+    const userSales = orders.reduce<
+      Record<string, { totalSales: number; numberOfOrders: number }>
+    >((acc, order) => {
+      if (order.assignedTo) {
+        const userKey = order.assignedTo.toString();
+        if (!acc[userKey]) {
+          acc[userKey] = { totalSales: 0, numberOfOrders: 0 };
         }
-        return acc;
-      },
-      {},
-    );
+        acc[userKey].totalSales += order.totalAmount ?? 0;
+        acc[userKey].numberOfOrders += 1;
+      }
+      return acc;
+    }, {});
 
     for (const userId of Object.keys(userHours)) {
       const hours = userHours[userId] || 0;
-      const salesData = userSales[userId] || { totalSales: 0, numberOfOrders: 0 };
+      const salesData = userSales[userId] || {
+        totalSales: 0,
+        numberOfOrders: 0,
+      };
 
       const kpiData = {
         userId: new Types.ObjectId(userId),
@@ -120,18 +162,25 @@ export class AnalyticsService {
 
       await this.kpiModel
         .findOneAndUpdate(
-          { userId: kpiData.userId, tenantId: tenantObjectId, date: startOfYesterday },
+          {
+            userId: kpiData.userId,
+            tenantId: tenantObjectId,
+            date: startOfYesterday,
+          },
           kpiData,
           { upsert: true, new: true },
         )
         .exec();
     }
 
-    this.logger.log(`Finished calculating KPIs for tenant: ${tenantObjectId.toHexString()}`);
+    this.logger.log(
+      `Finished calculating KPIs for tenant: ${tenantObjectId.toHexString()}`,
+    );
   }
 
   async getPerformanceKpis(tenantId: string, date: Date) {
-    const { objectId: tenantObjectId } = this.normalizeTenantIdentifiers(tenantId);
+    const { objectId: tenantObjectId } =
+      this.normalizeTenantIdentifiers(tenantId);
     this.logger.log(
       `Getting REAL-TIME performance KPIs for tenant ${tenantObjectId.toHexString()} for date ${date.toISOString()}`,
     );
@@ -149,7 +198,9 @@ export class AnalyticsService {
       .lean();
 
     if (!shifts.length) {
-      this.logger.log(`No shifts found for tenant ${tenantObjectId} for the date. Returning empty.`);
+      this.logger.log(
+        `No shifts found for tenant ${tenantObjectId} for the date. Returning empty.`,
+      );
       return [];
     }
 
@@ -164,39 +215,46 @@ export class AnalyticsService {
     const orders = await this.orderModel
       .find({
         tenantId: tenantObjectId,
-        status: 'delivered',
+        status: "delivered",
         confirmedAt: { $gte: startOfDay, $lte: endOfDay },
         assignedTo: { $in: userIds },
       })
       .lean();
 
-    const userSales = orders.reduce<Record<string, { totalSales: number; numberOfOrders: number }>>(
-      (acc, order) => {
-        if (order.assignedTo) {
-          const userId = order.assignedTo.toString();
-          if (!acc[userId]) {
-            acc[userId] = { totalSales: 0, numberOfOrders: 0 };
-          }
-          acc[userId].totalSales += order.totalAmount ?? 0;
-          acc[userId].numberOfOrders += 1;
+    const userSales = orders.reduce<
+      Record<string, { totalSales: number; numberOfOrders: number }>
+    >((acc, order) => {
+      if (order.assignedTo) {
+        const userId = order.assignedTo.toString();
+        if (!acc[userId]) {
+          acc[userId] = { totalSales: 0, numberOfOrders: 0 };
         }
-        return acc;
-      },
-      {},
-    );
+        acc[userId].totalSales += order.totalAmount ?? 0;
+        acc[userId].numberOfOrders += 1;
+      }
+      return acc;
+    }, {});
 
     const users = await this.userModel
       .find({ _id: { $in: userIds } })
-      .select('firstName lastName')
+      .select("firstName lastName")
       .lean();
-    const userMap = new Map(users.map((u) => [u._id.toString(), `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim()]));
+    const userMap = new Map(
+      users.map((u) => [
+        u._id.toString(),
+        `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim(),
+      ]),
+    );
 
     return Object.keys(userHours).map((userId) => {
       const hours = userHours[userId] || 0;
-      const salesData = userSales[userId] || { totalSales: 0, numberOfOrders: 0 };
+      const salesData = userSales[userId] || {
+        totalSales: 0,
+        numberOfOrders: 0,
+      };
       return {
         userId,
-        userName: userMap.get(userId) || 'Usuario Desconocido',
+        userName: userMap.get(userId) || "Usuario Desconocido",
         totalSales: salesData.totalSales,
         numberOfOrders: salesData.numberOfOrders,
         totalHoursWorked: hours,
@@ -206,8 +264,12 @@ export class AnalyticsService {
   }
 
   async getPerformanceSummary(tenantId: string, period?: string) {
-    this.ensureFeature('DASHBOARD_CHARTS', 'Performance summary feature disabled');
-    const { objectId: tenantObjectId } = this.normalizeTenantIdentifiers(tenantId);
+    this.ensureFeature(
+      "DASHBOARD_CHARTS",
+      "Performance summary feature disabled",
+    );
+    const { objectId: tenantObjectId } =
+      this.normalizeTenantIdentifiers(tenantId);
     const { from, to } = this.buildDateRange(period);
 
     const summary = await this.kpiModel
@@ -220,10 +282,10 @@ export class AnalyticsService {
         },
         {
           $group: {
-            _id: '$userId',
-            totalSales: { $sum: '$totalSales' },
-            numberOfOrders: { $sum: '$numberOfOrders' },
-            totalHoursWorked: { $sum: '$totalHoursWorked' },
+            _id: "$userId",
+            totalSales: { $sum: "$totalSales" },
+            numberOfOrders: { $sum: "$numberOfOrders" },
+            totalHoursWorked: { $sum: "$totalHoursWorked" },
           },
         },
         { $sort: { totalSales: -1 } },
@@ -238,16 +300,21 @@ export class AnalyticsService {
     const userIds = summary.map((row) => row._id).filter((id) => !!id);
     const users = await this.userModel
       .find({ _id: { $in: userIds } })
-      .select('firstName lastName')
+      .select("firstName lastName")
       .lean();
-    const userMap = new Map(users.map((u) => [u._id.toString(), `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim()]));
+    const userMap = new Map(
+      users.map((u) => [
+        u._id.toString(),
+        `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim(),
+      ]),
+    );
 
     return summary.map((row) => {
       const totalHours = row.totalHoursWorked ?? 0;
       const totalSales = row.totalSales ?? 0;
       return {
-        userId: row._id?.toString() ?? 'unknown',
-        userName: userMap.get(row._id?.toString() ?? '') || 'Usuario',
+        userId: row._id?.toString() ?? "unknown",
+        userName: userMap.get(row._id?.toString() ?? "") || "Usuario",
         totalSales,
         numberOfOrders: row.numberOfOrders ?? 0,
         totalHoursWorked: totalHours,
@@ -257,18 +324,30 @@ export class AnalyticsService {
   }
 
   async getSalesTrend(tenantId: string, period?: string) {
-    this.ensureFeature('DASHBOARD_CHARTS', 'Dashboard charts feature disabled');
+    this.ensureFeature("DASHBOARD_CHARTS", "Dashboard charts feature disabled");
     const { key: tenantKey } = this.normalizeTenantIdentifiers(tenantId);
     const { from, to, groupBy } = this.buildDateRange(period);
 
     const dateProjection =
-      groupBy === 'day'
-        ? { $dateToString: { format: '%Y-%m-%d', date: '$confirmedAt', timezone: 'UTC' } }
-        : { $dateToString: { format: '%Y-%m', date: '$confirmedAt', timezone: 'UTC' } };
+      groupBy === "day"
+        ? {
+            $dateToString: {
+              format: "%Y-%m-%d",
+              date: "$confirmedAt",
+              timezone: "UTC",
+            },
+          }
+        : {
+            $dateToString: {
+              format: "%Y-%m",
+              date: "$confirmedAt",
+              timezone: "UTC",
+            },
+          };
 
     const matchStage = {
       tenantId: tenantKey,
-      status: 'delivered',
+      status: "delivered",
       confirmedAt: { $gte: from, $lte: to },
     };
 
@@ -278,7 +357,7 @@ export class AnalyticsService {
         {
           $group: {
             _id: dateProjection,
-            totalAmount: { $sum: '$totalAmount' },
+            totalAmount: { $sum: "$totalAmount" },
             orderCount: { $sum: 1 },
           },
         },
@@ -289,24 +368,24 @@ export class AnalyticsService {
     const categories = await this.orderModel
       .aggregate([
         { $match: matchStage },
-        { $unwind: '$items' },
+        { $unwind: "$items" },
         {
           $lookup: {
             from: this.productModel.collection.name,
-            localField: 'items.productId',
-            foreignField: '_id',
-            as: 'productInfo',
+            localField: "items.productId",
+            foreignField: "_id",
+            as: "productInfo",
           },
         },
-        { $unwind: { path: '$productInfo', preserveNullAndEmptyArrays: true } },
+        { $unwind: { path: "$productInfo", preserveNullAndEmptyArrays: true } },
         {
           $group: {
             _id: {
-              $ifNull: ['$productInfo.category', '$items.productName'],
+              $ifNull: ["$productInfo.category", "$items.productName"],
             },
             totalAmount: {
               $sum: {
-                $ifNull: ['$items.finalPrice', '$items.totalPrice'],
+                $ifNull: ["$items.finalPrice", "$items.totalPrice"],
               },
             },
           },
@@ -319,7 +398,7 @@ export class AnalyticsService {
     const [currentTotals] = await this.orderModel
       .aggregate([
         { $match: matchStage },
-        { $group: { _id: null, total: { $sum: '$totalAmount' } } },
+        { $group: { _id: null, total: { $sum: "$totalAmount" } } },
       ])
       .exec();
 
@@ -329,11 +408,11 @@ export class AnalyticsService {
         {
           $match: {
             tenantId: tenantKey,
-            status: 'delivered',
+            status: "delivered",
             confirmedAt: { $gte: previousRange.from, $lte: previousRange.to },
           },
         },
-        { $group: { _id: null, total: { $sum: '$totalAmount' } } },
+        { $group: { _id: null, total: { $sum: "$totalAmount" } } },
       ])
       .exec();
 
@@ -344,7 +423,7 @@ export class AnalyticsService {
         orderCount: item.orderCount ?? 0,
       })),
       categories: categories.map((item) => ({
-        name: item._id ?? 'Sin categoría',
+        name: item._id ?? "Sin categoría",
         totalAmount: item.totalAmount ?? 0,
       })),
       comparison: {
@@ -356,8 +435,9 @@ export class AnalyticsService {
   }
 
   async getInventoryStatus(tenantId: string, period?: string) {
-    this.ensureFeature('DASHBOARD_CHARTS', 'Dashboard charts feature disabled');
-    const { objectId: tenantObjectId, key: tenantKey } = this.normalizeTenantIdentifiers(tenantId);
+    this.ensureFeature("DASHBOARD_CHARTS", "Dashboard charts feature disabled");
+    const { objectId: tenantObjectId, key: tenantKey } =
+      this.normalizeTenantIdentifiers(tenantId);
     const { from, to } = this.buildDateRange(period);
 
     const stockLevels = await this.inventoryModel
@@ -368,10 +448,10 @@ export class AnalyticsService {
             _id: {
               $switch: {
                 branches: [
-                  { case: { $eq: ['$alerts.lowStock', true] }, then: 'Bajo' },
-                  { case: { $eq: ['$alerts.overstock', true] }, then: 'Alto' },
+                  { case: { $eq: ["$alerts.lowStock", true] }, then: "Bajo" },
+                  { case: { $eq: ["$alerts.overstock", true] }, then: "Alto" },
                 ],
-                default: 'Saludable',
+                default: "Saludable",
               },
             },
             count: { $sum: 1 },
@@ -386,13 +466,13 @@ export class AnalyticsService {
           $match: {
             tenantId: tenantObjectId,
             createdAt: { $gte: from, $lte: to },
-            movementType: { $in: ['in', 'out'] },
+            movementType: { $in: ["in", "out"] },
           },
         },
         {
           $group: {
-            _id: '$movementType',
-            total: { $sum: '$quantity' },
+            _id: "$movementType",
+            total: { $sum: "$quantity" },
           },
         },
       ])
@@ -403,19 +483,19 @@ export class AnalyticsService {
         {
           $match: {
             tenantId: tenantKey,
-            status: 'delivered',
+            status: "delivered",
             confirmedAt: { $gte: from, $lte: to },
           },
         },
-        { $unwind: '$items' },
+        { $unwind: "$items" },
         {
           $group: {
-            _id: '$items.productId',
-            productName: { $last: '$items.productName' },
-            unitsSold: { $sum: '$items.quantity' },
+            _id: "$items.productId",
+            productName: { $last: "$items.productName" },
+            unitsSold: { $sum: "$items.quantity" },
             totalRevenue: {
               $sum: {
-                $ifNull: ['$items.finalPrice', '$items.totalPrice'],
+                $ifNull: ["$items.finalPrice", "$items.totalPrice"],
               },
             },
           },
@@ -427,7 +507,7 @@ export class AnalyticsService {
 
     return {
       status: stockLevels.map((item) => ({
-        label: item._id ?? 'Sin datos',
+        label: item._id ?? "Sin datos",
         count: item.count ?? 0,
       })),
       movement: movement.map((item) => ({
@@ -435,8 +515,8 @@ export class AnalyticsService {
         total: item.total ?? 0,
       })),
       rotation: rotation.map((item) => ({
-        productId: item._id?.toString() ?? 'unknown',
-        productName: item.productName ?? 'Producto',
+        productId: item._id?.toString() ?? "unknown",
+        productName: item.productName ?? "Producto",
         unitsSold: item.unitsSold ?? 0,
         totalRevenue: item.totalRevenue ?? 0,
       })),
@@ -444,25 +524,28 @@ export class AnalyticsService {
   }
 
   async getProfitAndLoss(tenantId: string, period?: string) {
-    this.ensureFeature('ADVANCED_REPORTS', 'Advanced reports feature disabled');
-    const { objectId: tenantObjectId, key: tenantKey } = this.normalizeTenantIdentifiers(tenantId);
+    this.ensureFeature("ADVANCED_REPORTS", "Advanced reports feature disabled");
+    const { objectId: tenantObjectId, key: tenantKey } =
+      this.normalizeTenantIdentifiers(tenantId);
     const { from, to, groupBy } = this.buildDateRange(period);
 
-    const format = groupBy === 'day' ? '%Y-%m-%d' : '%Y-%m';
+    const format = groupBy === "day" ? "%Y-%m-%d" : "%Y-%m";
 
     const revenues = await this.orderModel
       .aggregate([
         {
           $match: {
             tenantId: tenantKey,
-            status: 'delivered',
+            status: "delivered",
             confirmedAt: { $gte: from, $lte: to },
           },
         },
         {
           $group: {
-            _id: { $dateToString: { format, date: '$confirmedAt', timezone: 'UTC' } },
-            total: { $sum: '$totalAmount' },
+            _id: {
+              $dateToString: { format, date: "$confirmedAt", timezone: "UTC" },
+            },
+            total: { $sum: "$totalAmount" },
           },
         },
         { $sort: { _id: 1 } },
@@ -474,26 +557,40 @@ export class AnalyticsService {
         {
           $match: {
             tenantId: tenantKey,
-            status: { $in: ['open', 'partially_paid', 'paid'] },
+            status: { $in: ["open", "partially_paid", "paid"] },
             issueDate: { $gte: from, $lte: to },
           },
         },
         {
           $group: {
-            _id: { $dateToString: { format, date: '$issueDate', timezone: 'UTC' } },
-            total: { $sum: '$totalAmount' },
+            _id: {
+              $dateToString: { format, date: "$issueDate", timezone: "UTC" },
+            },
+            total: { $sum: "$totalAmount" },
           },
         },
         { $sort: { _id: 1 } },
       ])
       .exec();
 
-    const revenueTotal = revenues.reduce((acc, item) => acc + (item.total ?? 0), 0);
-    const expenseTotal = expenses.reduce((acc, item) => acc + (item.total ?? 0), 0);
+    const revenueTotal = revenues.reduce(
+      (acc, item) => acc + (item.total ?? 0),
+      0,
+    );
+    const expenseTotal = expenses.reduce(
+      (acc, item) => acc + (item.total ?? 0),
+      0,
+    );
 
     return {
-      revenues: revenues.map((item) => ({ period: item._id, total: item.total ?? 0 })),
-      expenses: expenses.map((item) => ({ period: item._id, total: item.total ?? 0 })),
+      revenues: revenues.map((item) => ({
+        period: item._id,
+        total: item.total ?? 0,
+      })),
+      expenses: expenses.map((item) => ({
+        period: item._id,
+        total: item.total ?? 0,
+      })),
       summary: {
         revenueTotal,
         expenseTotal,
@@ -503,7 +600,7 @@ export class AnalyticsService {
   }
 
   async getCustomerSegmentation(tenantId: string, limit = 100) {
-    this.ensureFeature('ADVANCED_REPORTS', 'Advanced reports feature disabled');
+    this.ensureFeature("ADVANCED_REPORTS", "Advanced reports feature disabled");
     const { key: tenantKey } = this.normalizeTenantIdentifiers(tenantId);
 
     const now = new Date();
@@ -512,16 +609,16 @@ export class AnalyticsService {
         {
           $match: {
             tenantId: tenantKey,
-            status: 'delivered',
+            status: "delivered",
           },
         },
         {
           $group: {
-            _id: '$customerId',
-            customerName: { $last: '$customerName' },
-            lastPurchase: { $max: '$confirmedAt' },
+            _id: "$customerId",
+            customerName: { $last: "$customerName" },
+            lastPurchase: { $max: "$confirmedAt" },
             frequency: { $sum: 1 },
-            monetary: { $sum: '$totalAmount' },
+            monetary: { $sum: "$totalAmount" },
           },
         },
         { $sort: { monetary: -1 } },
@@ -530,10 +627,12 @@ export class AnalyticsService {
       .exec();
 
     return segmentation.map((item) => {
-      const recencyDays = item.lastPurchase ? Math.ceil((now.getTime() - item.lastPurchase.getTime()) / 86400000) : null;
+      const recencyDays = item.lastPurchase
+        ? Math.ceil((now.getTime() - item.lastPurchase.getTime()) / 86400000)
+        : null;
       return {
-        customerId: item._id?.toString() ?? 'unknown',
-        customerName: item.customerName ?? 'Cliente',
+        customerId: item._id?.toString() ?? "unknown",
+        customerName: item.customerName ?? "Cliente",
         recencyDays: recencyDays ?? 999,
         frequency: item.frequency ?? 0,
         monetary: item.monetary ?? 0,
@@ -541,12 +640,15 @@ export class AnalyticsService {
     });
   }
 
-  private ensureObjectId(id: string | Types.ObjectId, resource: string = 'tenant'): Types.ObjectId {
+  private ensureObjectId(
+    id: string | Types.ObjectId,
+    resource: string = "tenant",
+  ): Types.ObjectId {
     if (id instanceof Types.ObjectId) {
       return id;
     }
 
-    if (typeof id === 'string' && Types.ObjectId.isValid(id)) {
+    if (typeof id === "string" && Types.ObjectId.isValid(id)) {
       return new Types.ObjectId(id);
     }
 
@@ -560,8 +662,8 @@ export class AnalyticsService {
   }
 
   private buildDateRange(period?: string): DateRange {
-    const selected = period && SUPPORTED_PERIODS.has(period) ? period : '30d';
-    const amount = parseInt(selected.replace('d', ''), 10);
+    const selected = period && SUPPORTED_PERIODS.has(period) ? period : "30d";
+    const amount = parseInt(selected.replace("d", ""), 10);
 
     const to = new Date();
     to.setMilliseconds(999);
@@ -573,7 +675,7 @@ export class AnalyticsService {
     from.setDate(from.getDate() - (amount - 1));
     from.setHours(0, 0, 0, 0);
 
-    const groupBy: 'day' | 'month' = amount > 90 ? 'month' : 'day';
+    const groupBy: "day" | "month" = amount > 90 ? "month" : "day";
 
     return { from, to, groupBy, period: selected };
   }
@@ -585,7 +687,10 @@ export class AnalyticsService {
     return { from: previousFrom, to: previousTo };
   }
 
-  private normalizeTenantIdentifiers(id: string | Types.ObjectId): { objectId: Types.ObjectId; key: string } {
+  private normalizeTenantIdentifiers(id: string | Types.ObjectId): {
+    objectId: Types.ObjectId;
+    key: string;
+  } {
     const objectId = this.ensureObjectId(id);
     return { objectId, key: objectId.toHexString() };
   }

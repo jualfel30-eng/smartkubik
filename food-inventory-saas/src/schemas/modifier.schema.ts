@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 /**
  * Modifier Schema
@@ -23,10 +23,15 @@ export class Modifier extends Document {
   @Prop({ default: 0 })
   sortOrder: number; // Orden de visualización
 
-  @Prop({ type: Types.ObjectId, ref: 'ModifierGroup', required: true, index: true })
+  @Prop({
+    type: Types.ObjectId,
+    ref: "ModifierGroup",
+    required: true,
+    index: true,
+  })
   groupId: Types.ObjectId; // Grupo al que pertenece
 
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true, index: true })
+  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true, index: true })
   tenantId: Types.ObjectId;
 
   @Prop({ default: false })

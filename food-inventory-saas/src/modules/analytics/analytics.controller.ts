@@ -1,18 +1,18 @@
-import { Controller, Get, Query, UseGuards, Req } from '@nestjs/common';
-import { AnalyticsService } from './analytics.service';
-import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
-import { TenantGuard } from '../../guards/tenant.guard';
-import { PermissionsGuard } from '../../guards/permissions.guard';
-import { Permissions } from '../../decorators/permissions.decorator';
-import { AnalyticsPeriodQueryDto } from '../../dto/analytics.dto';
+import { Controller, Get, Query, UseGuards, Req } from "@nestjs/common";
+import { AnalyticsService } from "./analytics.service";
+import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
+import { TenantGuard } from "../../guards/tenant.guard";
+import { PermissionsGuard } from "../../guards/permissions.guard";
+import { Permissions } from "../../decorators/permissions.decorator";
+import { AnalyticsPeriodQueryDto } from "../../dto/analytics.dto";
 
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
-@Controller('analytics')
+@Controller("analytics")
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
-  @Get('performance')
-  @Permissions('reports_read')
+  @Get("performance")
+  @Permissions("reports_read")
   async getPerformanceReport(
     @Req() req,
     @Query() query: AnalyticsPeriodQueryDto & { date?: string },
@@ -33,8 +33,8 @@ export class AnalyticsController {
     return { success: true, data };
   }
 
-  @Get('sales-trend')
-  @Permissions('reports_read')
+  @Get("sales-trend")
+  @Permissions("reports_read")
   async getSalesTrend(@Req() req, @Query() query: AnalyticsPeriodQueryDto) {
     const data = await this.analyticsService.getSalesTrend(
       req.user.tenantId,
@@ -43,9 +43,12 @@ export class AnalyticsController {
     return { success: true, data };
   }
 
-  @Get('inventory-status')
-  @Permissions('reports_read')
-  async getInventoryStatus(@Req() req, @Query() query: AnalyticsPeriodQueryDto) {
+  @Get("inventory-status")
+  @Permissions("reports_read")
+  async getInventoryStatus(
+    @Req() req,
+    @Query() query: AnalyticsPeriodQueryDto,
+  ) {
     const data = await this.analyticsService.getInventoryStatus(
       req.user.tenantId,
       query.period,
@@ -53,8 +56,8 @@ export class AnalyticsController {
     return { success: true, data };
   }
 
-  @Get('profit-and-loss')
-  @Permissions('reports_read')
+  @Get("profit-and-loss")
+  @Permissions("reports_read")
   async getProfitAndLoss(@Req() req, @Query() query: AnalyticsPeriodQueryDto) {
     const data = await this.analyticsService.getProfitAndLoss(
       req.user.tenantId,
@@ -63,8 +66,8 @@ export class AnalyticsController {
     return { success: true, data };
   }
 
-  @Get('customer-segmentation')
-  @Permissions('reports_read')
+  @Get("customer-segmentation")
+  @Permissions("reports_read")
   async getCustomerSegmentation(@Req() req) {
     const data = await this.analyticsService.getCustomerSegmentation(
       req.user.tenantId,
@@ -72,11 +75,16 @@ export class AnalyticsController {
     return { success: true, data };
   }
 
-  @Get('trigger-kpi-calculation')
-  @Permissions('tenant_settings_read') // Protect this admin-only endpoint
+  @Get("trigger-kpi-calculation")
+  @Permissions("tenant_settings_read") // Protect this admin-only endpoint
   async triggerCalculation(@Req() req) {
     // This is for testing purposes and should be removed or properly secured in production.
-    await this.analyticsService.calculateAndSaveKpisForTenant(req.user.tenantId);
-    return { success: true, message: 'Cálculo de KPIs para el día de ayer disparado manualmente.' };
+    await this.analyticsService.calculateAndSaveKpisForTenant(
+      req.user.tenantId,
+    );
+    return {
+      success: true,
+      message: "Cálculo de KPIs para el día de ayer disparado manualmente.",
+    };
   }
 }

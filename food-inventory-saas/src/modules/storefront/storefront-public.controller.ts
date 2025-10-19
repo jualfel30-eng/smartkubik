@@ -1,10 +1,5 @@
 import { Controller, Get, Param } from "@nestjs/common";
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiParam,
-} from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiResponse, ApiParam } from "@nestjs/swagger";
 import { StorefrontService } from "./storefront.service";
 import { Public } from "../../decorators/public.decorator";
 
@@ -101,9 +96,7 @@ export class StorefrontPublicController {
     description: "No se encontró un storefront activo para este tenant",
   })
   async getConfigByTenantId(@Param("tenantId") tenantId: string) {
-    const config = await this.storefrontService.findByTenantIdPublic(
-      tenantId,
-    );
+    const config = await this.storefrontService.findByTenantIdPublic(tenantId);
     return {
       success: true,
       data: config,
@@ -234,5 +227,4 @@ export class StorefrontPublicController {
       data: domains,
     };
   }
-
 }

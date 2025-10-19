@@ -1,8 +1,14 @@
-
-import { IsString, IsOptional, IsEnum, IsDateString, ValidateNested, IsObject } from 'class-validator';
-import { Type } from 'class-transformer';
-import { ContactInfoDto } from './contact-info.dto';
-import { TaxInfoDto } from './tax-info.dto';
+import {
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsDateString,
+  ValidateNested,
+  IsObject,
+} from "class-validator";
+import { Type } from "class-transformer";
+import { ContactInfoDto } from "./contact-info.dto";
+import { TaxInfoDto } from "./tax-info.dto";
 
 export class UpdateTenantDto {
   @IsString()
@@ -11,7 +17,7 @@ export class UpdateTenantDto {
 
   @IsString()
   @IsOptional()
-  @IsEnum(['active', 'suspended', 'pending'])
+  @IsEnum(["active", "suspended", "pending"])
   status?: string;
 
   @IsString()
@@ -26,7 +32,7 @@ export class UpdateTenantDto {
   @IsOptional()
   businessType?: string;
 
-  @IsEnum(['FOOD_SERVICE', 'RETAIL', 'SERVICES', 'LOGISTICS', 'HYBRID'])
+  @IsEnum(["FOOD_SERVICE", "RETAIL", "SERVICES", "LOGISTICS", "HYBRID"])
   @IsOptional()
   vertical?: string;
 

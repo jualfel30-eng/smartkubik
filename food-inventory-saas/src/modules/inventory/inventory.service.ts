@@ -393,14 +393,16 @@ export class InventoryService {
           })
           .session(session);
         if (!inventory) {
-          this.logger.warn(`Inventario no encontrado para SKU: ${item.SKU} durante ajuste masivo. Omitiendo.`);
+          this.logger.warn(
+            `Inventario no encontrado para SKU: ${item.SKU} durante ajuste masivo. Omitiendo.`,
+          );
           continue;
         }
 
         const difference = item.NuevaCantidad - inventory.totalQuantity;
         inventory.totalQuantity = item.NuevaCantidad;
         inventory.availableQuantity += difference;
-        
+
         await inventory.save({ session });
 
         await this.createMovementRecord(
@@ -408,7 +410,7 @@ export class InventoryService {
             inventoryId: inventory._id.toString(),
             productId: inventory.productId.toString(),
             productSku: inventory.productSku,
-            movementType: 'adjustment',
+            movementType: "adjustment",
             quantity: Math.abs(difference),
             unitCost: inventory.averageCostPrice,
             totalCost: Math.abs(difference) * inventory.averageCostPrice,
@@ -429,11 +431,17 @@ export class InventoryService {
       }
 
       await session.commitTransaction();
-      return { success: true, message: `${results.length} registros de inventario ajustados exitosamente.` };
+      return {
+        success: true,
+        message: `${results.length} registros de inventario ajustados exitosamente.`,
+      };
     } catch (error) {
       await session.abortTransaction();
-      this.logger.error(`Error durante el ajuste masivo de inventario: ${error.message}`, error.stack);
-      throw new Error('Error al ajustar el inventario masivamente.');
+      this.logger.error(
+        `Error durante el ajuste masivo de inventario: ${error.message}`,
+        error.stack,
+      );
+      throw new Error("Error al ajustar el inventario masivamente.");
     } finally {
       session.endSession();
     }
@@ -471,7 +479,7 @@ export class InventoryService {
       await this.eventsService.createFromInventoryAlert(
         {
           productName: product.name,
-          alertType: 'low_stock',
+          alertType: "low_stock",
           currentStock: inventory.availableQuantity,
           minimumStock: minStock,
         },
@@ -479,7 +487,9 @@ export class InventoryService {
       );
 
       inventory.alerts.lastAlertSent = today;
-      this.logger.log(`Low stock alert and task created for product: ${product.sku}`);
+      this.logger.log(
+        `Low stock alert and task created for product: ${product.sku}`,
+      );
     } else {
       inventory.alerts.lowStock = false;
     }
@@ -505,7 +515,7 @@ export class InventoryService {
           await this.eventsService.createFromInventoryAlert(
             {
               productName: `${product.name} (Lote: ${lot.lotNumber})`,
-              alertType: 'expiring_soon',
+              alertType: "expiring_soon",
               expirationDate: lot.expirationDate,
             },
             user,
@@ -591,7 +601,10 @@ export class InventoryService {
       {
         $match: {
           $expr: {
-            $lte: ["$availableQuantity", "$productInfo.inventoryConfig.minimumStock"],
+            $lte: [
+              "$availableQuantity",
+              "$productInfo.inventoryConfig.minimumStock",
+            ],
           },
         },
       },

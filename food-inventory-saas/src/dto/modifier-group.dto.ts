@@ -9,8 +9,8 @@ import {
   Min,
   MaxLength,
   ValidateIf,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+} from "class-validator";
+import { Type } from "class-transformer";
 
 /**
  * DTO para crear un Grupo de Modificadores
@@ -25,8 +25,8 @@ export class CreateModifierGroupDto {
   @MaxLength(500)
   description?: string;
 
-  @IsEnum(['single', 'multiple'])
-  selectionType: 'single' | 'multiple';
+  @IsEnum(["single", "multiple"])
+  selectionType: "single" | "multiple";
 
   @IsOptional()
   @IsNumber()
@@ -81,8 +81,8 @@ export class UpdateModifierGroupDto {
   description?: string;
 
   @IsOptional()
-  @IsEnum(['single', 'multiple'])
-  selectionType?: 'single' | 'multiple';
+  @IsEnum(["single", "multiple"])
+  selectionType?: "single" | "multiple";
 
   @IsOptional()
   @IsNumber()

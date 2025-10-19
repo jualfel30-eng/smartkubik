@@ -9,8 +9,8 @@ import {
   Min,
   ValidateNested,
   ArrayMinSize,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+} from "class-validator";
+import { Type } from "class-transformer";
 
 /**
  * DTO para una parte individual del split
@@ -48,8 +48,8 @@ export class CreateBillSplitDto {
   @IsMongoId()
   orderId: string;
 
-  @IsEnum(['by_person', 'by_items', 'custom'])
-  splitType: 'by_person' | 'by_items' | 'custom';
+  @IsEnum(["by_person", "by_items", "custom"])
+  splitType: "by_person" | "by_items" | "custom";
 
   @IsNumber()
   @Min(1)

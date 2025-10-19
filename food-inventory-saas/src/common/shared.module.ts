@@ -1,9 +1,8 @@
-
-import { Module, Global } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { Tenant, TenantSchema } from '../schemas/tenant.schema';
-import { User, UserSchema } from '../schemas/user.schema';
-import { Customer, CustomerSchema } from '../schemas/customer.schema';
+import { Module, Global } from "@nestjs/common";
+import { MongooseModule } from "@nestjs/mongoose";
+import { Tenant, TenantSchema } from "../schemas/tenant.schema";
+import { User, UserSchema } from "../schemas/user.schema";
+import { Customer, CustomerSchema } from "../schemas/customer.schema";
 
 @Global()
 @Module({

@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Schema as MongooseSchema } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Schema as MongooseSchema } from "mongoose";
 
 export type AppointmentDocument = Appointment & Document;
 
@@ -15,7 +15,11 @@ export class Appointment {
   tenantId: string;
 
   // Cliente
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Customer', required: true })
+  @Prop({
+    type: MongooseSchema.Types.ObjectId,
+    ref: "Customer",
+    required: true,
+  })
   customerId: MongooseSchema.Types.ObjectId;
 
   @Prop({ trim: true })
@@ -25,7 +29,7 @@ export class Appointment {
   customerPhone: string; // Denormalizado para contacto rápido
 
   // Servicio
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Service', required: true })
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Service", required: true })
   serviceId: MongooseSchema.Types.ObjectId;
 
   @Prop({ trim: true })
@@ -38,7 +42,7 @@ export class Appointment {
   servicePrice: number; // Precio al momento de la cita (denormalizado)
 
   // Recurso (opcional)
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Resource' })
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Resource" })
   resourceId: MongooseSchema.Types.ObjectId;
 
   @Prop({ trim: true })
@@ -54,8 +58,15 @@ export class Appointment {
   // Estado de la cita
   @Prop({
     type: String,
-    enum: ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'],
-    default: 'pending',
+    enum: [
+      "pending",
+      "confirmed",
+      "in_progress",
+      "completed",
+      "cancelled",
+      "no_show",
+    ],
+    default: "pending",
     index: true,
   })
   status: string;
@@ -99,7 +110,7 @@ export class Appointment {
   cancelledBy: string; // Usuario que canceló
 
   // Orden de venta (si se generó al completar)
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Order' })
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Order" })
   orderId: MongooseSchema.Types.ObjectId;
 
   // Color personalizado (sobrescribe el del servicio)
@@ -114,7 +125,11 @@ export class Appointment {
   @Prop({ type: Boolean, default: false })
   isPaid: boolean;
 
-  @Prop({ type: String, enum: ['pending', 'paid', 'partial', 'refunded'], default: 'pending' })
+  @Prop({
+    type: String,
+    enum: ["pending", "paid", "partial", "refunded"],
+    default: "pending",
+  })
   paymentStatus: string;
 
   @Prop({ type: Number, default: 0 })
@@ -124,7 +139,7 @@ export class Appointment {
   @Prop({ type: Boolean, default: false })
   isRecurring: boolean;
 
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Appointment' })
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Appointment" })
   recurringParentId: MongooseSchema.Types.ObjectId;
 }
 
@@ -139,4 +154,8 @@ AppointmentSchema.index({ tenantId: 1, serviceId: 1 });
 AppointmentSchema.index({ tenantId: 1, startTime: 1, endTime: 1 }); // Para búsqueda de conflictos
 
 // Índice de texto para búsqueda
-AppointmentSchema.index({ customerName: 'text', serviceName: 'text', resourceName: 'text' });
+AppointmentSchema.index({
+  customerName: "text",
+  serviceName: "text",
+  resourceName: "text",
+});

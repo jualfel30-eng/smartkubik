@@ -1,14 +1,14 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 export type PerformanceKpiDocument = PerformanceKpi & Document;
 
 @Schema({ timestamps: true })
 export class PerformanceKpi {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: "User", required: true })
   userId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })
   tenantId: Types.ObjectId;
 
   @Prop({ type: Date, required: true, index: true })
@@ -30,7 +30,11 @@ export class PerformanceKpi {
   salesByChannel?: Record<string, number>;
 }
 
-export const PerformanceKpiSchema = SchemaFactory.createForClass(PerformanceKpi);
+export const PerformanceKpiSchema =
+  SchemaFactory.createForClass(PerformanceKpi);
 
 // Compound index to ensure one KPI entry per user per day for a tenant
-PerformanceKpiSchema.index({ userId: 1, date: 1, tenantId: 1 }, { unique: true });
+PerformanceKpiSchema.index(
+  { userId: 1, date: 1, tenantId: 1 },
+  { unique: true },
+);

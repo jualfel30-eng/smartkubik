@@ -1,6 +1,13 @@
-
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsDateString, IsArray, IsEnum } from 'class-validator';
-import { SanitizeString } from '../decorators/sanitize.decorator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsBoolean,
+  IsDateString,
+  IsArray,
+  IsEnum,
+} from "class-validator";
+import { SanitizeString } from "../decorators/sanitize.decorator";
 
 export class CreateTodoDto {
   @IsString()
@@ -18,7 +25,7 @@ export class CreateTodoDto {
   tags?: string[];
 
   @IsOptional()
-  @IsEnum(['low', 'medium', 'high'])
+  @IsEnum(["low", "medium", "high"])
   priority?: string;
 }
 
@@ -43,7 +50,7 @@ export class UpdateTodoDto {
   tags?: string[];
 
   @IsOptional()
-  @IsEnum(['low', 'medium', 'high'])
+  @IsEnum(["low", "medium", "high"])
   priority?: string;
 
   @IsOptional()

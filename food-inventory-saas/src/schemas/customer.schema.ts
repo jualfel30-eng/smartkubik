@@ -24,7 +24,7 @@ export class CustomerAddress {
   country: string;
 
   @Prop({ type: Object })
-  coordinates?: { lat: number; lng: number; };
+  coordinates?: { lat: number; lng: number };
 
   @Prop({ type: Boolean, default: false })
   isDefault: boolean;
@@ -76,7 +76,9 @@ export class CustomerPaymentMethod {
   @Prop({ type: Boolean, default: true })
   isActive: boolean;
 }
-const CustomerPaymentMethodSchema = SchemaFactory.createForClass(CustomerPaymentMethod);
+const CustomerPaymentMethodSchema = SchemaFactory.createForClass(
+  CustomerPaymentMethod,
+);
 
 @Schema()
 export class CustomerSegment {
@@ -123,7 +125,8 @@ export class CustomerInteraction {
   @Prop({ type: Date, required: true, default: Date.now })
   createdAt: Date;
 }
-const CustomerInteractionSchema = SchemaFactory.createForClass(CustomerInteraction);
+const CustomerInteractionSchema =
+  SchemaFactory.createForClass(CustomerInteraction);
 
 @Schema({ timestamps: true })
 export class Customer {
@@ -265,20 +268,20 @@ export const CustomerSchema = SchemaFactory.createForClass(Customer);
 // Índices para optimizar consultas de clientes
 CustomerSchema.index({ customerNumber: 1, tenantId: 1 }, { unique: true });
 CustomerSchema.index({ email: 1, tenantId: 1 });
-CustomerSchema.index({ 'taxInfo.taxId': 1, tenantId: 1 });
+CustomerSchema.index({ "taxInfo.taxId": 1, tenantId: 1 });
 CustomerSchema.index({ customerType: 1, tenantId: 1 });
 CustomerSchema.index({ status: 1, tenantId: 1 });
 CustomerSchema.index({ tier: 1, tenantId: 1 });
 CustomerSchema.index({ createdAt: -1, tenantId: 1 });
-CustomerSchema.index({ 'metrics.lastOrderDate': -1, tenantId: 1 });
-CustomerSchema.index({ 'metrics.totalSpent': -1, tenantId: 1 });
+CustomerSchema.index({ "metrics.lastOrderDate": -1, tenantId: 1 });
+CustomerSchema.index({ "metrics.totalSpent": -1, tenantId: 1 });
 CustomerSchema.index({ assignedTo: 1, tenantId: 1 });
 CustomerSchema.index({ nextFollowUpDate: 1, tenantId: 1 });
 
 // Índice de texto para búsqueda
 CustomerSchema.index({
-  name: 'text',
-  lastName: 'text',
-  companyName: 'text',
-  customerNumber: 'text',
+  name: "text",
+  lastName: "text",
+  companyName: "text",
+  customerNumber: "text",
 });

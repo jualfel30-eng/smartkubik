@@ -1,13 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
 import {
   UserTenantMembership,
   UserTenantMembershipDocument,
   MembershipStatus,
-} from '../../schemas/user-tenant-membership.schema';
-import { Tenant, TenantDocument } from '../../schemas/tenant.schema';
-import { Role, RoleDocument } from '../../schemas/role.schema';
+} from "../../schemas/user-tenant-membership.schema";
+import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
+import { Role, RoleDocument } from "../../schemas/role.schema";
 
 export interface MembershipSummary {
   id: string;
@@ -42,13 +42,15 @@ export class MembershipsService {
     const userObjectId = this.toObjectId(userId);
 
     const memberships = await this.membershipModel
-      .find({ userId: userObjectId, status: 'active' })
-      .populate('tenantId')
-      .populate('roleId')
+      .find({ userId: userObjectId, status: "active" })
+      .populate("tenantId")
+      .populate("roleId")
       .sort({ isDefault: -1, createdAt: 1 })
       .exec();
 
-    return Promise.all(memberships.map((membership) => this.toMembershipSummary(membership)));
+    return Promise.all(
+      memberships.map((membership) => this.toMembershipSummary(membership)),
+    );
   }
 
   async getMembershipForUserOrFail(
@@ -63,7 +65,7 @@ export class MembershipsService {
       .exec();
 
     if (!membership) {
-      throw new NotFoundException('Membresía no encontrada para el usuario');
+      throw new NotFoundException("Membresía no encontrada para el usuario");
     }
 
     return membership;
@@ -104,21 +106,25 @@ export class MembershipsService {
   ): Promise<RoleDocument | null> {
     return this.roleModel
       .findById(this.toObjectId(roleId))
-      .populate({ path: 'permissions', select: 'name' })
+      .populate({ path: "permissions", select: "name" })
       .exec();
   }
 
   private async toMembershipSummary(
     membership: UserTenantMembershipDocument,
   ): Promise<MembershipSummary> {
-    let tenantDoc =
-      membership.tenantId as unknown as TenantDocument | null | undefined;
+    let tenantDoc = membership.tenantId as unknown as
+      | TenantDocument
+      | null
+      | undefined;
     if (!tenantDoc || !tenantDoc.name) {
       tenantDoc = await this.resolveTenantById(membership.tenantId);
     }
 
-    let roleDoc =
-      membership.roleId as unknown as RoleDocument | null | undefined;
+    let roleDoc = membership.roleId as unknown as
+      | RoleDocument
+      | null
+      | undefined;
     if (!roleDoc || !roleDoc.name) {
       roleDoc = await this.resolveRoleById(membership.roleId);
     }
@@ -139,9 +145,9 @@ export class MembershipsService {
             status: tenantDoc.status,
           }
         : {
-            id: '',
-            name: '',
-            status: 'inactive',
+            id: "",
+            name: "",
+            status: "inactive",
           },
       role: roleDoc
         ? {
@@ -149,8 +155,8 @@ export class MembershipsService {
             name: roleDoc.name,
           }
         : {
-            id: '',
-            name: 'unknown',
+            id: "",
+            name: "unknown",
           },
       permissions,
     };
@@ -171,7 +177,7 @@ export class MembershipsService {
 
     const populatedRole = await this.roleModel
       .findById(roleDoc._id)
-      .populate({ path: 'permissions', select: 'name' })
+      .populate({ path: "permissions", select: "name" })
       .exec();
 
     if (!populatedRole) {
@@ -183,9 +189,7 @@ export class MembershipsService {
       .filter((name: string | undefined): name is string => Boolean(name));
   }
 
-  private toObjectId(
-    id: Types.ObjectId | string,
-  ): Types.ObjectId {
-    return typeof id === 'string' ? new Types.ObjectId(id) : id;
+  private toObjectId(id: Types.ObjectId | string): Types.ObjectId {
+    return typeof id === "string" ? new Types.ObjectId(id) : id;
   }
 }

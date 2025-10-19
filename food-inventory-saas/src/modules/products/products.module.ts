@@ -9,7 +9,7 @@ import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
 import { CustomersModule } from "../customers/customers.module"; // Reemplazo
 import { InventoryModule } from "../inventory/inventory.module";
 import { PurchasesModule } from "../purchases/purchases.module";
-import { RolesModule } from '../roles/roles.module';
+import { RolesModule } from "../roles/roles.module";
 
 @Module({
   imports: [

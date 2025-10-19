@@ -245,22 +245,36 @@ export class AccountingService {
     );
 
     // 1. Get all necessary accounts
-    const accountsReceivableAcc = await this.findAccountByCode("1102", tenantId);
+    const accountsReceivableAcc = await this.findAccountByCode(
+      "1102",
+      tenantId,
+    );
     const salesRevenueAcc = await this.findAccountByCode("4101", tenantId);
     const taxPayableAcc = await this.findAccountByCode("2102", tenantId);
-    
-    const shippingIncomeAcc = order.shippingCost > 0 ? await this.findOrCreateAccount(
-      { code: "4102", name: "Ingresos por Envío", type: "Ingreso" },
-      tenantId,
-    ) : null;
 
-    const salesDiscountAcc = order.discountAmount > 0 ? await this.findOrCreateAccount(
-      { code: "4103", name: "Descuentos sobre Venta", type: "Ingreso" }, // Contra-revenue
-      tenantId,
-    ) : null;
+    const shippingIncomeAcc =
+      order.shippingCost > 0
+        ? await this.findOrCreateAccount(
+            { code: "4102", name: "Ingresos por Envío", type: "Ingreso" },
+            tenantId,
+          )
+        : null;
+
+    const salesDiscountAcc =
+      order.discountAmount > 0
+        ? await this.findOrCreateAccount(
+            { code: "4103", name: "Descuentos sobre Venta", type: "Ingreso" }, // Contra-revenue
+            tenantId,
+          )
+        : null;
 
     // 2. Build the journal entry lines
-    const lines: { accountId: string; debit: number; credit: number; description: string; }[] = [];
+    const lines: {
+      accountId: string;
+      debit: number;
+      credit: number;
+      description: string;
+    }[] = [];
 
     // Debit side
     lines.push({
@@ -367,7 +381,12 @@ export class AccountingService {
       tenantId,
     );
 
-    const lines: { accountId: string; debit: number; credit: number, description: string }[] = [
+    const lines: {
+      accountId: string;
+      debit: number;
+      credit: number;
+      description: string;
+    }[] = [
       {
         accountId: cogsAcc._id.toString(),
         debit: totalCost,
@@ -492,14 +511,21 @@ export class AccountingService {
       tenantId,
     );
 
-    const lines: { accountId: string; debit: number; credit: number; description: string }[] = [];
+    const lines: {
+      accountId: string;
+      debit: number;
+      credit: number;
+      description: string;
+    }[] = [];
 
     // Debit each expense account from the payable lines, verifying it exists first
     for (const line of payable.lines) {
-      const expenseAccount = await this.chartOfAccountsModel.findById(line.accountId).exec();
+      const expenseAccount = await this.chartOfAccountsModel
+        .findById(line.accountId)
+        .exec();
       if (!expenseAccount) {
         throw new BadRequestException(
-          `La cuenta de gasto con ID "${line.accountId}" para la línea "${line.description}" no fue encontrada.`
+          `La cuenta de gasto con ID "${line.accountId}" para la línea "${line.description}" no fue encontrada.`,
         );
       }
       lines.push({
@@ -521,7 +547,9 @@ export class AccountingService {
     const totalDebits = lines.reduce((sum, l) => sum + l.debit, 0);
     const totalCredits = lines.reduce((sum, l) => sum + l.credit, 0);
     if (Math.abs(totalDebits - totalCredits) > 0.01) {
-        throw new InternalServerErrorException("El asiento para la cuenta por pagar está desbalanceado.");
+      throw new InternalServerErrorException(
+        "El asiento para la cuenta por pagar está desbalanceado.",
+      );
     }
 
     const entryDto: CreateJournalEntryDto = {
@@ -788,24 +816,31 @@ export class AccountingService {
   async getAccountsReceivable(tenantId: string): Promise<any> {
     const tenantObjectId = tenantId;
 
-    const unpaidOrders = await this.orderModel.find({
+    const unpaidOrders = await this.orderModel
+      .find({
         tenantId: tenantObjectId,
-        paymentStatus: { $in: ['pending', 'partial'] },
-    }).populate('customerId', 'name').populate('payments').exec(); // <-- FIXED
+        paymentStatus: { $in: ["pending", "partial"] },
+      })
+      .populate("customerId", "name")
+      .populate("payments")
+      .exec(); // <-- FIXED
 
-    const report = unpaidOrders.map(order => {
-        const totalPaid = (order.payments as unknown as PaymentDocument[]).reduce((acc, p) => acc + p.amount, 0); // <-- FIXED
-        const balance = order.totalAmount - totalPaid;
-        return {
-            orderNumber: order.orderNumber,
-            customerName: order.customerName,
-            orderDate: (order as any).createdAt,
-            dueDate: (order as any).createdAt, // This should be improved
-            totalAmount: order.totalAmount,
-            paidAmount: totalPaid,
-            balance: balance,
-            status: order.paymentStatus,
-        };
+    const report = unpaidOrders.map((order) => {
+      const totalPaid = (order.payments as unknown as PaymentDocument[]).reduce(
+        (acc, p) => acc + p.amount,
+        0,
+      ); // <-- FIXED
+      const balance = order.totalAmount - totalPaid;
+      return {
+        orderNumber: order.orderNumber,
+        customerName: order.customerName,
+        orderDate: (order as any).createdAt,
+        dueDate: (order as any).createdAt, // This should be improved
+        totalAmount: order.totalAmount,
+        paidAmount: totalPaid,
+        balance: balance,
+        status: order.paymentStatus,
+      };
     });
 
     return report;
@@ -814,108 +849,125 @@ export class AccountingService {
   async getAccountsPayable(tenantId: string): Promise<any> {
     const tenantObjectId = tenantId;
 
-    const unpaidPayables = await this.payableModel.find({
+    const unpaidPayables = await this.payableModel
+      .find({
         tenantId: tenantObjectId,
-        status: { $in: ['open', 'partially_paid'] },
-    }).exec();
+        status: { $in: ["open", "partially_paid"] },
+      })
+      .exec();
 
-    const report = unpaidPayables.map(payable => {
-        const balance = payable.totalAmount - payable.paidAmount;
-        return {
-            payableNumber: payable.payableNumber,
-            payeeName: payable.payeeName,
-            issueDate: payable.issueDate,
-            dueDate: payable.dueDate,
-            totalAmount: payable.totalAmount,
-            paidAmount: payable.paidAmount,
-            balance: balance,
-            status: payable.status,
-        };
+    const report = unpaidPayables.map((payable) => {
+      const balance = payable.totalAmount - payable.paidAmount;
+      return {
+        payableNumber: payable.payableNumber,
+        payeeName: payable.payeeName,
+        issueDate: payable.issueDate,
+        dueDate: payable.dueDate,
+        totalAmount: payable.totalAmount,
+        paidAmount: payable.paidAmount,
+        balance: balance,
+        status: payable.status,
+      };
     });
 
     return report;
   }
 
-  async getCashFlowStatement(tenantId: string, from: Date, to: Date): Promise<any> {
+  async getCashFlowStatement(
+    tenantId: string,
+    from: Date,
+    to: Date,
+  ): Promise<any> {
     // CRUCIAL FIX: Ensure dates are in the correct format before querying
     await this.fixJournalEntryDates(tenantId);
 
     const tenantObjectId = tenantId;
 
     // FINAL, PRECISE FIX: Find the cash account by its hardcoded code used for payments.
-    const cashAccount = await this.chartOfAccountsModel.findOne({
+    const cashAccount = await this.chartOfAccountsModel
+      .findOne({
         tenantId: tenantObjectId,
-        code: '1101' 
-    }).exec();
+        code: "1101",
+      })
+      .exec();
 
     // Add a log to be 100% certain what account is being used.
-    this.logger.log(`[CASH FLOW] Using cash account found for code 1101: ${cashAccount ? cashAccount.name : 'NONE FOUND'}`);
+    this.logger.log(
+      `[CASH FLOW] Using cash account found for code 1101: ${cashAccount ? cashAccount.name : "NONE FOUND"}`,
+    );
 
     if (!cashAccount) {
-        this.logger.warn(`No cash account found for code '1101' for tenant ${tenantId}. Cash flow will be zero.`);
-        return {
-            period: { from, to },
-            cashInflows: { total: 0, details: [] },
-            cashOutflows: { total: 0, details: [] },
-            netCashFlow: 0,
-        };
+      this.logger.warn(
+        `No cash account found for code '1101' for tenant ${tenantId}. Cash flow will be zero.`,
+      );
+      return {
+        period: { from, to },
+        cashInflows: { total: 0, details: [] },
+        cashOutflows: { total: 0, details: [] },
+        netCashFlow: 0,
+      };
     }
 
     const cashAccountIds = [cashAccount._id]; // Now an array with one ID
 
     // Step 2: Fetch all journal entries in the period that involve the cash account
-    const journalEntries = await this.journalEntryModel.find({
+    const journalEntries = await this.journalEntryModel
+      .find({
         tenantId: tenantObjectId,
         date: { $gte: from, $lte: to },
-        'lines.account': { $in: cashAccountIds }
-    }).populate('lines.account').exec();
+        "lines.account": { $in: cashAccountIds },
+      })
+      .populate("lines.account")
+      .exec();
 
     let totalCashInflow = 0;
-    const cashInflows: { date: Date; description: string; amount: number }[] = [];
+    const cashInflows: { date: Date; description: string; amount: number }[] =
+      [];
     let totalCashOutflow = 0;
-    const cashOutflows: { date: Date; description: string; amount: number }[] = [];
+    const cashOutflows: { date: Date; description: string; amount: number }[] =
+      [];
 
     // Step 3: Process each journal entry
     for (const entry of journalEntries) {
-        for (const line of entry.lines) {
-            // Check if the line's account is our cash account
-            if (cashAccount._id.equals((line.account as any)._id)) {
-                // Debit to a cash account is an INFLOW
-                if (line.debit > 0) {
-                    totalCashInflow += line.debit;
-                    cashInflows.push({
-                        date: entry.date,
-                        description: entry.description,
-                        amount: line.debit,
-                    });
-                }
-                // Credit to a cash account is an OUTFLOW
-                if (line.credit > 0) {
-                    totalCashOutflow += line.credit;
-                    cashOutflows.push({
-                        date: entry.date,
-                        description: entry.description,
-                        amount: line.credit,
-                    });
-                }
-            }
+      for (const line of entry.lines) {
+        // Check if the line's account is our cash account
+        if (cashAccount._id.equals((line.account as any)._id)) {
+          // Debit to a cash account is an INFLOW
+          if (line.debit > 0) {
+            totalCashInflow += line.debit;
+            cashInflows.push({
+              date: entry.date,
+              description: entry.description,
+              amount: line.debit,
+            });
+          }
+          // Credit to a cash account is an OUTFLOW
+          if (line.credit > 0) {
+            totalCashOutflow += line.credit;
+            cashOutflows.push({
+              date: entry.date,
+              description: entry.description,
+              amount: line.credit,
+            });
+          }
         }
+      }
     }
 
     // Step 4: Calculate totals and return
     const netCashFlow = totalCashInflow - totalCashOutflow;
 
     return {
-        period: { from, to },
-        cashInflows: {
-            total: totalCashInflow,
-            details: cashInflows,
-        },
-        cashOutflows: {
-            total: totalCashOutflow,
-            details: cashOutflows,
-        },
-        netCashFlow,
+      period: { from, to },
+      cashInflows: {
+        total: totalCashInflow,
+        details: cashInflows,
+      },
+      cashOutflows: {
+        total: totalCashOutflow,
+        details: cashOutflows,
+      },
+      netCashFlow,
     };
   }
 
@@ -931,7 +983,12 @@ export class AccountingService {
     const accountsPayableAcc = await this.findAccountByCode("2101", tenantId);
     const cashOrBankAcc = await this.findAccountByCode("1101", tenantId);
 
-    const lines: { accountId: string; debit: number; credit: number; description: string; }[] = [
+    const lines: {
+      accountId: string;
+      debit: number;
+      credit: number;
+      description: string;
+    }[] = [
       {
         accountId: accountsPayableAcc._id.toString(),
         debit: payment.amount,

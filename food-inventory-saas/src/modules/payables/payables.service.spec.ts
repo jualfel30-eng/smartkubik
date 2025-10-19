@@ -1,9 +1,9 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { PayablesService } from './payables.service';
-import { getModelToken } from '@nestjs/mongoose';
-import { Payable } from '../../schemas/payable.schema';
-import { AccountingService } from '../accounting/accounting.service';
-import { EventsService } from '../events/events.service';
+import { Test, TestingModule } from "@nestjs/testing";
+import { PayablesService } from "./payables.service";
+import { getModelToken } from "@nestjs/mongoose";
+import { Payable } from "../../schemas/payable.schema";
+import { AccountingService } from "../accounting/accounting.service";
+import { EventsService } from "../events/events.service";
 
 const mockPayableModel = {
   new: jest.fn(),
@@ -22,7 +22,7 @@ const mockEventsService = {
   create: jest.fn(),
 };
 
-describe('PayablesService', () => {
+describe("PayablesService", () => {
   let service: PayablesService;
 
   beforeEach(async () => {
@@ -47,7 +47,7 @@ describe('PayablesService', () => {
     service = module.get<PayablesService>(PayablesService);
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 });

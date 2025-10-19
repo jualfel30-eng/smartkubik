@@ -11,7 +11,7 @@ import {
   InventoryMovementSchema,
 } from "../../schemas/inventory.schema";
 import { Product, ProductSchema } from "../../schemas/product.schema"; // Import Product schema
-import { RolesModule } from '../roles/roles.module';
+import { RolesModule } from "../roles/roles.module";
 
 @Module({
   imports: [

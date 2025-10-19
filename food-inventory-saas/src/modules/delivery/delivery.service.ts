@@ -1,11 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { DeliveryRates, DeliveryRatesDocument } from '../../schemas/delivery-rates.schema';
+import { Injectable, Logger } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import {
+  DeliveryRates,
+  DeliveryRatesDocument,
+} from "../../schemas/delivery-rates.schema";
 
 interface CalculateDeliveryDto {
   tenantId: string;
-  method: 'pickup' | 'delivery' | 'envio_nacional';
+  method: "pickup" | "delivery" | "envio_nacional";
   customerLocation?: {
     lat: number;
     lng: number;
@@ -28,41 +31,56 @@ export class DeliveryService {
   private readonly logger = new Logger(DeliveryService.name);
 
   constructor(
-    @InjectModel(DeliveryRates.name) private deliveryRatesModel: Model<DeliveryRatesDocument>,
+    @InjectModel(DeliveryRates.name)
+    private deliveryRatesModel: Model<DeliveryRatesDocument>,
   ) {}
 
-  async calculateDeliveryCost(dto: CalculateDeliveryDto): Promise<DeliveryCostResult> {
+  async calculateDeliveryCost(
+    dto: CalculateDeliveryDto,
+  ): Promise<DeliveryCostResult> {
     const tenantId = new Types.ObjectId(dto.tenantId);
     const rates = await this.deliveryRatesModel.findOne({ tenantId });
 
     if (!rates) {
-      this.logger.warn(`No delivery rates configured for tenant ${dto.tenantId}`);
+      this.logger.warn(
+        `No delivery rates configured for tenant ${dto.tenantId}`,
+      );
       return { cost: 0 };
     }
 
     // Pickup is always free
-    if (dto.method === 'pickup') {
+    if (dto.method === "pickup") {
       return { cost: 0 };
     }
 
     // Delivery within local zones
-    if (dto.method === 'delivery') {
+    if (dto.method === "delivery") {
       if (!dto.customerLocation) {
-        this.logger.warn('No customer location provided for delivery calculation');
+        this.logger.warn(
+          "No customer location provided for delivery calculation",
+        );
         return { cost: 0 };
       }
 
-      return this.calculateLocalDelivery(rates, dto.customerLocation, dto.orderAmount);
+      return this.calculateLocalDelivery(
+        rates,
+        dto.customerLocation,
+        dto.orderAmount,
+      );
     }
 
     // National shipping
-    if (dto.method === 'envio_nacional') {
+    if (dto.method === "envio_nacional") {
       if (!dto.destinationState) {
-        this.logger.warn('No destination state provided for national shipping');
+        this.logger.warn("No destination state provided for national shipping");
         return { cost: 0 };
       }
 
-      return this.calculateNationalShipping(rates, dto.destinationState, dto.destinationCity);
+      return this.calculateNationalShipping(
+        rates,
+        dto.destinationState,
+        dto.destinationCity,
+      );
     }
 
     return { cost: 0 };
@@ -74,7 +92,7 @@ export class DeliveryService {
     orderAmount?: number,
   ): Promise<DeliveryCostResult> {
     if (!rates.businessLocation?.coordinates) {
-      this.logger.warn('Business location not configured');
+      this.logger.warn("Business location not configured");
       return { cost: 0 };
     }
 
@@ -95,8 +113,13 @@ export class DeliveryService {
       );
 
       // Check if distance exceeds maximum allowed
-      if (rates.settings?.maxDeliveryDistance && distanceKm > rates.settings.maxDeliveryDistance) {
-        this.logger.warn(`Distance ${distanceKm} km exceeds maximum ${rates.settings.maxDeliveryDistance} km`);
+      if (
+        rates.settings?.maxDeliveryDistance &&
+        distanceKm > rates.settings.maxDeliveryDistance
+      ) {
+        this.logger.warn(
+          `Distance ${distanceKm} km exceeds maximum ${rates.settings.maxDeliveryDistance} km`,
+        );
         return { cost: 0, distance: distanceKm };
       }
 
@@ -181,21 +204,33 @@ export class DeliveryService {
     }
 
     if (!shippingRate) {
-      this.logger.warn(`No shipping rate found for ${state}${city ? `, ${city}` : ''}`);
+      this.logger.warn(
+        `No shipping rate found for ${state}${city ? `, ${city}` : ""}`,
+      );
       return { cost: 0 };
     }
 
     return {
       cost: shippingRate.rate,
-      duration: shippingRate.estimatedDays ? shippingRate.estimatedDays * 24 * 60 : undefined,
+      duration: shippingRate.estimatedDays
+        ? shippingRate.estimatedDays * 24 * 60
+        : undefined,
     };
   }
 
-  async getDeliveryRates(tenantId: string): Promise<DeliveryRatesDocument | null> {
-    return this.deliveryRatesModel.findOne({ tenantId: new Types.ObjectId(tenantId) });
+  async getDeliveryRates(
+    tenantId: string,
+  ): Promise<DeliveryRatesDocument | null> {
+    return this.deliveryRatesModel.findOne({
+      tenantId: new Types.ObjectId(tenantId),
+    });
   }
 
-  async upsertDeliveryRates(tenantId: string, data: any, userId: string): Promise<DeliveryRatesDocument> {
+  async upsertDeliveryRates(
+    tenantId: string,
+    data: any,
+    userId: string,
+  ): Promise<DeliveryRatesDocument> {
     const rates = await this.deliveryRatesModel.findOneAndUpdate(
       { tenantId: new Types.ObjectId(tenantId) },
       {

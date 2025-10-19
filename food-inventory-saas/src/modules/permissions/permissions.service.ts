@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { ALL_PERMISSIONS } from './constants';
+import { Injectable } from "@nestjs/common";
+import { ALL_PERMISSIONS } from "./constants";
 
 @Injectable()
 export class PermissionsService {
@@ -12,13 +12,26 @@ export class PermissionsService {
       return [];
     }
 
-    const lowercasedModules = modules.map(m => m.toLowerCase());
-    const coreModules = ['dashboard', 'users', 'roles', 'tenant_settings', 'events', 'crm', 'products', 'payables', 'storefront', 'accounting'];
+    const lowercasedModules = modules.map((m) => m.toLowerCase());
+    const coreModules = [
+      "dashboard",
+      "users",
+      "roles",
+      "tenant_settings",
+      "events",
+      "crm",
+      "products",
+      "payables",
+      "storefront",
+      "accounting",
+    ];
 
-    const allRequiredModules = [...new Set([...lowercasedModules, ...coreModules])];
+    const allRequiredModules = [
+      ...new Set([...lowercasedModules, ...coreModules]),
+    ];
 
-    return ALL_PERMISSIONS.filter(permission => {
-      const moduleName = permission.split('_')[0];
+    return ALL_PERMISSIONS.filter((permission) => {
+      const moduleName = permission.split("_")[0];
       return allRequiredModules.includes(moduleName.toLowerCase());
     });
   }

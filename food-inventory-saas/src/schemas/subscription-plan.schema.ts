@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document } from "mongoose";
 
 export type SubscriptionPlanDocument = SubscriptionPlan & Document;
 
@@ -18,7 +18,9 @@ export class SubscriptionPlanLimits {
   maxStorage: number; // in MB
 }
 
-const SubscriptionPlanLimitsSchema = SchemaFactory.createForClass(SubscriptionPlanLimits);
+const SubscriptionPlanLimitsSchema = SchemaFactory.createForClass(
+  SubscriptionPlanLimits,
+);
 
 @Schema({ timestamps: true })
 export class SubscriptionPlan {
@@ -44,7 +46,8 @@ export class SubscriptionPlan {
   isArchived: boolean; // To soft-delete plans
 }
 
-export const SubscriptionPlanSchema = SchemaFactory.createForClass(SubscriptionPlan);
+export const SubscriptionPlanSchema =
+  SchemaFactory.createForClass(SubscriptionPlan);
 
 SubscriptionPlanSchema.index({ name: 1 });
 SubscriptionPlanSchema.index({ isPublic: 1, isArchived: -1 });

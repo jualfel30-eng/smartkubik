@@ -5,7 +5,7 @@ import { EventsController } from "./events.controller";
 import { Event, EventSchema } from "../../schemas/event.schema";
 import { Todo, TodoSchema } from "../../schemas/todo.schema";
 import { AuthModule } from "../../auth/auth.module";
-import { RolesModule } from '../roles/roles.module';
+import { RolesModule } from "../roles/roles.module";
 
 @Module({
   imports: [

@@ -1,11 +1,20 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
 import {
   StorefrontConfig,
   StorefrontConfigDocument,
-} from '../../schemas/storefront-config.schema';
-import { CreateStorefrontConfigDto, UpdateStorefrontConfigDto, UpdateThemeDto } from './dto/create-storefront-config.dto';
+} from "../../schemas/storefront-config.schema";
+import {
+  CreateStorefrontConfigDto,
+  UpdateStorefrontConfigDto,
+  UpdateThemeDto,
+} from "./dto/create-storefront-config.dto";
 
 @Injectable()
 export class StorefrontConfigService {
@@ -19,7 +28,7 @@ export class StorefrontConfigService {
    */
   async getConfig(tenantId: string): Promise<StorefrontConfigDocument | null> {
     const config = await this.storefrontConfigModel.findOne({
-      tenantId: new Types.ObjectId(tenantId)
+      tenantId: new Types.ObjectId(tenantId),
     });
 
     return config;
@@ -35,8 +44,8 @@ export class StorefrontConfigService {
     const tenantObjectId = new Types.ObjectId(tenantId);
 
     // Verificar si ya existe una configuración para este tenant
-    const existingConfig = await this.storefrontConfigModel.findOne({ 
-      tenantId: tenantObjectId 
+    const existingConfig = await this.storefrontConfigModel.findOne({
+      tenantId: tenantObjectId,
     });
 
     // Verificar si el dominio ya está en uso por otro tenant
@@ -47,7 +56,9 @@ export class StorefrontConfigService {
       });
 
       if (domainInUse) {
-        throw new ConflictException('Este dominio ya está en uso por otro tenant');
+        throw new ConflictException(
+          "Este dominio ya está en uso por otro tenant",
+        );
       }
     }
 
@@ -75,7 +86,9 @@ export class StorefrontConfigService {
     const config = await this.getConfig(tenantId);
 
     if (!config) {
-      throw new NotFoundException('No se encontró configuración del storefront para este tenant');
+      throw new NotFoundException(
+        "No se encontró configuración del storefront para este tenant",
+      );
     }
 
     if (!config.theme) {
@@ -89,11 +102,16 @@ export class StorefrontConfigService {
   /**
    * Activar o desactivar el storefront
    */
-  async toggleActive(tenantId: string, isActive: boolean): Promise<StorefrontConfigDocument> {
+  async toggleActive(
+    tenantId: string,
+    isActive: boolean,
+  ): Promise<StorefrontConfigDocument> {
     const config = await this.getConfig(tenantId);
 
     if (!config) {
-      throw new NotFoundException('No se encontró configuración del storefront para este tenant');
+      throw new NotFoundException(
+        "No se encontró configuración del storefront para este tenant",
+      );
     }
 
     config.isActive = isActive;
@@ -103,11 +121,16 @@ export class StorefrontConfigService {
   /**
    * Actualizar solo el CSS personalizado
    */
-  async updateCustomCSS(tenantId: string, customCSS: string): Promise<StorefrontConfigDocument> {
+  async updateCustomCSS(
+    tenantId: string,
+    customCSS: string,
+  ): Promise<StorefrontConfigDocument> {
     const config = await this.getConfig(tenantId);
 
     if (!config) {
-      throw new NotFoundException('No se encontró configuración del storefront para este tenant');
+      throw new NotFoundException(
+        "No se encontró configuración del storefront para este tenant",
+      );
     }
 
     config.customCSS = customCSS;
@@ -118,13 +141,13 @@ export class StorefrontConfigService {
    * Obtener configuración por dominio (para el storefront público)
    */
   async getConfigByDomain(domain: string): Promise<StorefrontConfigDocument> {
-    const config = await this.storefrontConfigModel.findOne({ 
+    const config = await this.storefrontConfigModel.findOne({
       domain,
-      isActive: true 
+      isActive: true,
     });
 
     if (!config) {
-      throw new NotFoundException('Storefront no encontrado o no está activo');
+      throw new NotFoundException("Storefront no encontrado o no está activo");
     }
 
     return config;
@@ -133,11 +156,16 @@ export class StorefrontConfigService {
   /**
    * Subir logo del storefront
    */
-  async uploadLogo(tenantId: string, logoUrl: string): Promise<StorefrontConfigDocument> {
+  async uploadLogo(
+    tenantId: string,
+    logoUrl: string,
+  ): Promise<StorefrontConfigDocument> {
     const config = await this.getConfig(tenantId);
 
     if (!config) {
-      throw new NotFoundException('No se encontró configuración del storefront para este tenant');
+      throw new NotFoundException(
+        "No se encontró configuración del storefront para este tenant",
+      );
     }
 
     if (!config.theme) {
@@ -151,11 +179,16 @@ export class StorefrontConfigService {
   /**
    * Subir favicon del storefront
    */
-  async uploadFavicon(tenantId: string, faviconUrl: string): Promise<StorefrontConfigDocument> {
+  async uploadFavicon(
+    tenantId: string,
+    faviconUrl: string,
+  ): Promise<StorefrontConfigDocument> {
     const config = await this.getConfig(tenantId);
 
     if (!config) {
-      throw new NotFoundException('No se encontró configuración del storefront para este tenant');
+      throw new NotFoundException(
+        "No se encontró configuración del storefront para este tenant",
+      );
     }
 
     if (!config.theme) {
@@ -170,21 +203,26 @@ export class StorefrontConfigService {
    * Eliminar configuración del storefront
    */
   async deleteConfig(tenantId: string): Promise<void> {
-    const result = await this.storefrontConfigModel.deleteOne({ 
-      tenantId: new Types.ObjectId(tenantId) 
+    const result = await this.storefrontConfigModel.deleteOne({
+      tenantId: new Types.ObjectId(tenantId),
     });
 
     if (result.deletedCount === 0) {
-      throw new NotFoundException('No se encontró configuración del storefront para eliminar');
+      throw new NotFoundException(
+        "No se encontró configuración del storefront para eliminar",
+      );
     }
   }
 
   /**
    * Verificar si un dominio está disponible
    */
-  async isDomainAvailable(domain: string, excludeTenantId?: string): Promise<boolean> {
+  async isDomainAvailable(
+    domain: string,
+    excludeTenantId?: string,
+  ): Promise<boolean> {
     const query: any = { domain };
-    
+
     if (excludeTenantId) {
       query.tenantId = { $ne: new Types.ObjectId(excludeTenantId) };
     }

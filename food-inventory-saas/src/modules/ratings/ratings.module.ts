@@ -1,13 +1,18 @@
-import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { RatingsController } from './ratings.controller';
-import { RatingsService } from './ratings.service';
-import { PurchaseOrderRating, PurchaseOrderRatingSchema } from '../../schemas/purchase-order-rating.schema';
-import { AuthModule } from '../../auth/auth.module';
+import { Module } from "@nestjs/common";
+import { MongooseModule } from "@nestjs/mongoose";
+import { RatingsController } from "./ratings.controller";
+import { RatingsService } from "./ratings.service";
+import {
+  PurchaseOrderRating,
+  PurchaseOrderRatingSchema,
+} from "../../schemas/purchase-order-rating.schema";
+import { AuthModule } from "../../auth/auth.module";
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: PurchaseOrderRating.name, schema: PurchaseOrderRatingSchema }]),
+    MongooseModule.forFeature([
+      { name: PurchaseOrderRating.name, schema: PurchaseOrderRatingSchema },
+    ]),
     AuthModule,
   ],
   controllers: [RatingsController],

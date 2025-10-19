@@ -1,9 +1,8 @@
+import { Controller, Get } from "@nestjs/common";
+import { PermissionsService } from "./permissions.service";
+import { Public } from "../../decorators/public.decorator";
 
-import { Controller, Get } from '@nestjs/common';
-import { PermissionsService } from './permissions.service';
-import { Public } from '../../decorators/public.decorator';
-
-@Controller('permissions')
+@Controller("permissions")
 export class PermissionsController {
   constructor(private readonly permissionsService: PermissionsService) {}
 

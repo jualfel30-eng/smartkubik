@@ -1,8 +1,8 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { SuperAdminController } from './super-admin.controller';
-import { SuperAdminService } from './super-admin.service';
-import { JwtAuthGuard } from '../guards/jwt-auth.guard';
-import { SuperAdminGuard } from '../guards/super-admin.guard';
+import { Test, TestingModule } from "@nestjs/testing";
+import { SuperAdminController } from "./super-admin.controller";
+import { SuperAdminService } from "./super-admin.service";
+import { JwtAuthGuard } from "../guards/jwt-auth.guard";
+import { SuperAdminGuard } from "../guards/super-admin.guard";
 
 const mockSuperAdminService = {
   findAll: jest.fn(),
@@ -24,7 +24,7 @@ const mockGuard = {
   canActivate: jest.fn(() => true),
 };
 
-describe('SuperAdminController', () => {
+describe("SuperAdminController", () => {
   let controller: SuperAdminController;
 
   beforeEach(async () => {
@@ -49,7 +49,7 @@ describe('SuperAdminController', () => {
     controller = module.get<SuperAdminController>(SuperAdminController);
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(controller).toBeDefined();
   });
 });

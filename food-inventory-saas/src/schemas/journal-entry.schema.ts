@@ -48,4 +48,4 @@ export const JournalEntrySchema = SchemaFactory.createForClass(JournalEntry);
 JournalEntrySchema.index({ date: -1, tenantId: 1 });
 JournalEntrySchema.index({ tenantId: 1, createdAt: -1 });
 JournalEntrySchema.index({ isAutomatic: 1, tenantId: 1 });
-JournalEntrySchema.index({ 'lines.account': 1, tenantId: 1 });
+JournalEntrySchema.index({ "lines.account": 1, tenantId: 1 });

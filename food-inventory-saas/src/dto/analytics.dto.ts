@@ -1,4 +1,4 @@
-import { IsOptional, Matches } from 'class-validator';
+import { IsOptional, Matches } from "class-validator";
 
 export class AnalyticsPeriodQueryDto {
   @IsOptional()

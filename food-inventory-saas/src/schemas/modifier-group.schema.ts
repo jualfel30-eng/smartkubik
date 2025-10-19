@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 /**
  * ModifierGroup Schema
@@ -15,9 +15,9 @@ export class ModifierGroup extends Document {
   description?: string;
 
   @Prop({
-    enum: ['single', 'multiple'],
-    default: 'single',
-    required: true
+    enum: ["single", "multiple"],
+    default: "single",
+    required: true,
   })
   selectionType: string; // 'single' = radio buttons, 'multiple' = checkboxes
 
@@ -36,13 +36,13 @@ export class ModifierGroup extends Document {
   @Prop({ default: 0 })
   sortOrder: number; // Orden de visualización del grupo
 
-  @Prop({ type: [Types.ObjectId], ref: 'Product', default: [] })
+  @Prop({ type: [Types.ObjectId], ref: "Product", default: [] })
   applicableProducts: Types.ObjectId[]; // Productos a los que aplica este grupo
 
   @Prop({ type: [String], default: [] })
   applicableCategories: string[]; // O categorías (más flexible)
 
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true, index: true })
+  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true, index: true })
   tenantId: Types.ObjectId;
 
   @Prop({ default: false })

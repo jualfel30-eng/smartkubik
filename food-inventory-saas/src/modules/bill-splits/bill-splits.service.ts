@@ -3,19 +3,19 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
-} from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { BillSplit } from '../../schemas/bill-split.schema';
-import { Order } from '../../schemas/order.schema';
-import { Payment } from '../../schemas/payment.schema';
+} from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { BillSplit } from "../../schemas/bill-split.schema";
+import { Order } from "../../schemas/order.schema";
+import { Payment } from "../../schemas/payment.schema";
 import {
   CreateBillSplitDto,
   SplitEquallyDto,
   SplitByItemsDto,
   PaySplitPartDto,
   UpdateSplitPartTipDto,
-} from '../../dto/bill-split.dto';
+} from "../../dto/bill-split.dto";
 
 @Injectable()
 export class BillSplitsService {
@@ -54,15 +54,13 @@ export class BillSplitsService {
     // Validar que la orden no esté ya dividida
     if (order.isSplit && order.activeSplitId) {
       throw new BadRequestException(
-        'Order is already split. Cancel the existing split first.',
+        "Order is already split. Cancel the existing split first.",
       );
     }
 
     // Validar que la orden esté confirmada
-    if (order.status === 'draft' || order.status === 'cancelled') {
-      throw new BadRequestException(
-        'Cannot split a draft or cancelled order',
-      );
+    if (order.status === "draft" || order.status === "cancelled") {
+      throw new BadRequestException("Cannot split a draft or cancelled order");
     }
 
     const { numberOfPeople, tipPercentage = 0, personNames } = dto;
@@ -78,9 +76,7 @@ export class BillSplitsService {
     const parts: any[] = [];
     for (let i = 0; i < numberOfPeople; i++) {
       const personName =
-        personNames && personNames[i]
-          ? personNames[i]
-          : `Persona ${i + 1}`;
+        personNames && personNames[i] ? personNames[i] : `Persona ${i + 1}`;
 
       parts.push({
         personName,
@@ -88,7 +84,7 @@ export class BillSplitsService {
         tipAmount: tipPerPerson,
         totalAmount: amountPerPerson,
         itemIds: [], // En split equally no se asignan items específicos
-        paymentStatus: 'pending',
+        paymentStatus: "pending",
       });
     }
 
@@ -96,13 +92,13 @@ export class BillSplitsService {
     const split = new this.billSplitModel({
       orderId: order._id,
       orderNumber: order.orderNumber,
-      splitType: 'by_person',
+      splitType: "by_person",
       numberOfPeople,
       originalAmount: baseAmount,
       totalTips: tipTotal,
       totalAmount: grandTotal,
       parts,
-      status: 'active',
+      status: "active",
       createdBy: new Types.ObjectId(userId),
       tableId: order.tableId,
       tenantId,
@@ -122,7 +118,9 @@ export class BillSplitsService {
       })
       .exec();
 
-    this.logger.log(`Created split ${split._id} for order ${order.orderNumber}`);
+    this.logger.log(
+      `Created split ${split._id} for order ${order.orderNumber}`,
+    );
     return split;
   }
 
@@ -146,7 +144,7 @@ export class BillSplitsService {
 
     if (order.isSplit && order.activeSplitId) {
       throw new BadRequestException(
-        'Order is already split. Cancel the existing split first.',
+        "Order is already split. Cancel the existing split first.",
       );
     }
 
@@ -163,7 +161,7 @@ export class BillSplitsService {
     const unassignedItems = allItemIds.filter((id) => !assignedItemIds.has(id));
     if (unassignedItems.length > 0) {
       throw new BadRequestException(
-        `The following items are not assigned: ${unassignedItems.join(', ')}`,
+        `The following items are not assigned: ${unassignedItems.join(", ")}`,
       );
     }
 
@@ -183,8 +181,8 @@ export class BillSplitsService {
         assignment.tipAmount !== undefined
           ? assignment.tipAmount
           : tipPercentage > 0
-          ? (personTotal * tipPercentage) / 100
-          : 0;
+            ? (personTotal * tipPercentage) / 100
+            : 0;
 
       return {
         personName: assignment.personName,
@@ -192,7 +190,7 @@ export class BillSplitsService {
         tipAmount,
         totalAmount: personTotal + tipAmount,
         itemIds: assignment.itemIds,
-        paymentStatus: 'pending',
+        paymentStatus: "pending",
       };
     });
 
@@ -203,13 +201,13 @@ export class BillSplitsService {
     const split = new this.billSplitModel({
       orderId: order._id,
       orderNumber: order.orderNumber,
-      splitType: 'by_items',
+      splitType: "by_items",
       numberOfPeople: assignments.length,
       originalAmount: order.totalAmount,
       totalTips,
       totalAmount: grandTotal,
       parts,
-      status: 'active',
+      status: "active",
       createdBy: new Types.ObjectId(userId),
       tableId: order.tableId,
       tenantId,
@@ -229,7 +227,9 @@ export class BillSplitsService {
       })
       .exec();
 
-    this.logger.log(`Created item-based split ${split._id} for order ${order.orderNumber}`);
+    this.logger.log(
+      `Created item-based split ${split._id} for order ${order.orderNumber}`,
+    );
     return split;
   }
 
@@ -251,7 +251,7 @@ export class BillSplitsService {
 
     if (order.isSplit && order.activeSplitId) {
       throw new BadRequestException(
-        'Order is already split. Cancel the existing split first.',
+        "Order is already split. Cancel the existing split first.",
       );
     }
 
@@ -260,7 +260,10 @@ export class BillSplitsService {
       (sum, part) => sum + part.totalAmount,
       0,
     );
-    const totalTips = dto.parts.reduce((sum, part) => sum + (part.tipAmount || 0), 0);
+    const totalTips = dto.parts.reduce(
+      (sum, part) => sum + (part.tipAmount || 0),
+      0,
+    );
 
     const split = new this.billSplitModel({
       orderId: order._id,
@@ -272,9 +275,9 @@ export class BillSplitsService {
       totalAmount: totalFromParts,
       parts: dto.parts.map((part) => ({
         ...part,
-        paymentStatus: 'pending',
+        paymentStatus: "pending",
       })),
-      status: 'active',
+      status: "active",
       createdBy: new Types.ObjectId(userId),
       tableId: order.tableId,
       notes: dto.notes,
@@ -294,7 +297,9 @@ export class BillSplitsService {
       })
       .exec();
 
-    this.logger.log(`Created custom split ${split._id} for order ${order.orderNumber}`);
+    this.logger.log(
+      `Created custom split ${split._id} for order ${order.orderNumber}`,
+    );
     return split;
   }
 
@@ -311,11 +316,13 @@ export class BillSplitsService {
       .exec();
 
     if (!split) {
-      throw new NotFoundException(`Bill split with ID ${dto.splitId} not found`);
+      throw new NotFoundException(
+        `Bill split with ID ${dto.splitId} not found`,
+      );
     }
 
-    if (split.status !== 'active') {
-      throw new BadRequestException('Bill split is not active');
+    if (split.status !== "active") {
+      throw new BadRequestException("Bill split is not active");
     }
 
     // Encontrar la parte
@@ -331,21 +338,21 @@ export class BillSplitsService {
 
     const part = split.parts[partIndex];
 
-    if (part.paymentStatus === 'paid') {
-      throw new BadRequestException('This part has already been paid');
+    if (part.paymentStatus === "paid") {
+      throw new BadRequestException("This part has already been paid");
     }
 
     // Crear el pago
     const payment = new this.paymentModel({
       tenantId,
-      paymentType: 'sale',
+      paymentType: "sale",
       orderId: split.orderId,
       date: new Date(),
       amount: dto.amount,
       method: dto.paymentMethod,
-      currency: dto.currency || 'VES',
+      currency: dto.currency || "VES",
       reference: dto.reference,
-      status: 'confirmed',
+      status: "confirmed",
       createdBy: new Types.ObjectId(userId),
       confirmedAt: new Date(),
       confirmedBy: new Types.ObjectId(userId),
@@ -358,22 +365,22 @@ export class BillSplitsService {
     await payment.save();
 
     // Actualizar la parte del split
-    split.parts[partIndex].paymentStatus = 'paid';
+    split.parts[partIndex].paymentStatus = "paid";
     split.parts[partIndex].paymentId = payment._id;
     split.parts[partIndex].paidAt = new Date();
 
     // Verificar si todas las partes están pagadas
-    const allPaid = split.parts.every((p) => p.paymentStatus === 'paid');
+    const allPaid = split.parts.every((p) => p.paymentStatus === "paid");
 
     if (allPaid) {
-      split.status = 'completed';
+      split.status = "completed";
       split.completedAt = new Date();
 
       // Actualizar la orden
       await this.orderModel
         .findByIdAndUpdate(split.orderId, {
           $set: {
-            paymentStatus: 'paid',
+            paymentStatus: "paid",
           },
           $push: {
             payments: payment._id,
@@ -411,11 +418,13 @@ export class BillSplitsService {
       .exec();
 
     if (!split) {
-      throw new NotFoundException(`Bill split with ID ${dto.splitId} not found`);
+      throw new NotFoundException(
+        `Bill split with ID ${dto.splitId} not found`,
+      );
     }
 
-    if (split.status !== 'active') {
-      throw new BadRequestException('Can only update tips on active splits');
+    if (split.status !== "active") {
+      throw new BadRequestException("Can only update tips on active splits");
     }
 
     const partIndex = split.parts.findIndex(
@@ -432,8 +441,7 @@ export class BillSplitsService {
     const newTip = dto.tipAmount;
 
     split.parts[partIndex].tipAmount = newTip;
-    split.parts[partIndex].totalAmount =
-      split.parts[partIndex].amount + newTip;
+    split.parts[partIndex].totalAmount = split.parts[partIndex].amount + newTip;
 
     // Recalcular totales
     split.totalTips = split.parts.reduce((sum, p) => sum + p.tipAmount, 0);
@@ -462,8 +470,8 @@ export class BillSplitsService {
   async findById(id: string, tenantId: string): Promise<BillSplit> {
     const split = await this.billSplitModel
       .findOne({ _id: id, tenantId, isDeleted: false })
-      .populate('orderId')
-      .populate('parts.paymentId')
+      .populate("orderId")
+      .populate("parts.paymentId")
       .exec();
 
     if (!split) {
@@ -481,10 +489,10 @@ export class BillSplitsService {
       .findOne({
         orderId,
         tenantId,
-        status: 'active',
+        status: "active",
         isDeleted: false,
       })
-      .populate('parts.paymentId')
+      .populate("parts.paymentId")
       .exec();
 
     if (!split) {
@@ -509,15 +517,15 @@ export class BillSplitsService {
     }
 
     // Validar que no haya pagos confirmados
-    const hasPaidParts = split.parts.some((p) => p.paymentStatus === 'paid');
+    const hasPaidParts = split.parts.some((p) => p.paymentStatus === "paid");
 
     if (hasPaidParts) {
       throw new BadRequestException(
-        'Cannot cancel a split with confirmed payments',
+        "Cannot cancel a split with confirmed payments",
       );
     }
 
-    split.status = 'cancelled';
+    split.status = "cancelled";
     await split.save();
 
     // Actualizar la orden
@@ -540,7 +548,7 @@ export class BillSplitsService {
   async findAll(tenantId: string): Promise<BillSplit[]> {
     return this.billSplitModel
       .find({ tenantId, isDeleted: false })
-      .populate('orderId')
+      .populate("orderId")
       .sort({ createdAt: -1 })
       .exec();
   }

@@ -1,5 +1,13 @@
-import { IsString, IsOptional, IsMongoId, IsEnum, IsNotEmpty, IsEmail, IsBoolean } from 'class-validator';
-import { SanitizeString, SanitizeText } from '../decorators/sanitize.decorator';
+import {
+  IsString,
+  IsOptional,
+  IsMongoId,
+  IsEnum,
+  IsNotEmpty,
+  IsEmail,
+  IsBoolean,
+} from "class-validator";
+import { SanitizeString, SanitizeText } from "../decorators/sanitize.decorator";
 
 export class CreateOrganizationDto {
   @IsString()
@@ -26,11 +34,11 @@ export class CreateOrganizationDto {
   @IsOptional()
   email?: string;
 
-  @IsEnum(['new-business', 'new-location'])
+  @IsEnum(["new-business", "new-location"])
   @IsOptional()
-  type?: 'new-business' | 'new-location';
+  type?: "new-business" | "new-location";
 
-  @IsEnum(['FOOD_SERVICE', 'RETAIL', 'SERVICES', 'LOGISTICS', 'HYBRID'])
+  @IsEnum(["FOOD_SERVICE", "RETAIL", "SERVICES", "LOGISTICS", "HYBRID"])
   @IsOptional()
   vertical?: string;
 
@@ -65,9 +73,9 @@ export class AddMemberDto {
   @IsNotEmpty()
   userId: string;
 
-  @IsEnum(['admin', 'member'])
+  @IsEnum(["admin", "member"])
   @IsOptional()
-  role?: 'admin' | 'member' = 'member';
+  role?: "admin" | "member" = "member";
 }
 
 export class RemoveMemberDto {

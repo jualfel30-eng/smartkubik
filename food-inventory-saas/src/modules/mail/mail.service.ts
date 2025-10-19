@@ -1,7 +1,6 @@
-
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
+import { Injectable } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import * as nodemailer from "nodemailer";
 
 @Injectable()
 export class MailService {
@@ -9,21 +8,21 @@ export class MailService {
 
   constructor(private configService: ConfigService) {
     this.transporter = nodemailer.createTransport({
-      host: this.configService.get<string>('SMTP_HOST'),
-      port: this.configService.get<number>('SMTP_PORT'),
-      secure: this.configService.get<number>('SMTP_PORT') === 465, // true for 465, false for other ports
+      host: this.configService.get<string>("SMTP_HOST"),
+      port: this.configService.get<number>("SMTP_PORT"),
+      secure: this.configService.get<number>("SMTP_PORT") === 465, // true for 465, false for other ports
       auth: {
-        user: this.configService.get<string>('SMTP_USER'),
-        pass: this.configService.get<string>('SMTP_PASS'),
+        user: this.configService.get<string>("SMTP_USER"),
+        pass: this.configService.get<string>("SMTP_PASS"),
       },
     });
   }
 
   async sendUserWelcomeEmail(email: string, tempPassword: string) {
     const mailOptions = {
-      from: this.configService.get<string>('SMTP_FROM'),
+      from: this.configService.get<string>("SMTP_FROM"),
       to: email,
-      subject: '¡Bienvenido! Credenciales de Acceso',
+      subject: "¡Bienvenido! Credenciales de Acceso",
       html: `
         <h1>¡Bienvenido a la plataforma!</h1>
         <p>Hola,</p>
@@ -42,13 +41,15 @@ export class MailService {
   }
 
   async sendPasswordResetEmail(email: string, resetToken: string) {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://smartkubik.com';
+    const frontendUrl =
+      this.configService.get<string>("FRONTEND_URL") ||
+      "https://smartkubik.com";
     const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
 
     const mailOptions = {
-      from: this.configService.get<string>('SMTP_FROM'),
+      from: this.configService.get<string>("SMTP_FROM"),
       to: email,
-      subject: 'Recuperación de Contraseña',
+      subject: "Recuperación de Contraseña",
       html: `
         <h1>Recuperación de Contraseña</h1>
         <p>Hola,</p>
@@ -71,14 +72,23 @@ export class MailService {
     await this.transporter.sendMail(mailOptions);
   }
 
-  async sendTenantWelcomeEmail(email: string, options: { businessName: string; planName: string; confirmationCode: string }) {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL') || 'https://smartkubik.com';
+  async sendTenantWelcomeEmail(
+    email: string,
+    options: {
+      businessName: string;
+      planName: string;
+      confirmationCode: string;
+    },
+  ) {
+    const frontendUrl =
+      this.configService.get<string>("FRONTEND_URL") ||
+      "https://smartkubik.com";
     const confirmationUrl = `${frontendUrl}/confirm-account`;
 
     const mailOptions = {
-      from: this.configService.get<string>('SMTP_FROM'),
+      from: this.configService.get<string>("SMTP_FROM"),
       to: email,
-      subject: '¡Bienvenido a SmartKubik! Confirma tu cuenta',
+      subject: "¡Bienvenido a SmartKubik! Confirma tu cuenta",
       html: `
         <table style="width:100%;max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;border-collapse:collapse;">
           <tr>

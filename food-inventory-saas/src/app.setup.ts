@@ -1,4 +1,8 @@
-import { INestApplication, ValidationPipe, BadRequestException } from "@nestjs/common";
+import {
+  INestApplication,
+  ValidationPipe,
+  BadRequestException,
+} from "@nestjs/common";
 import helmet from "helmet";
 import * as compression from "compression";
 import { ValidationError } from "class-validator";

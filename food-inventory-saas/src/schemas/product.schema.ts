@@ -121,7 +121,7 @@ export class Product {
   @Prop({ type: String, required: true })
   brand: string;
 
-  @Prop({ type: String, default: 'unidad' })
+  @Prop({ type: String, default: "unidad" })
   unitOfMeasure: string; // Unidad base para inventario
 
   @Prop({ type: Boolean, default: false })

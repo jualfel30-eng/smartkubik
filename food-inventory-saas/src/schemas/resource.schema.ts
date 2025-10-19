@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document } from "mongoose";
 
 export type ResourceDocument = Resource & Document;
 
@@ -23,8 +23,8 @@ export class Resource {
   @Prop({
     type: String,
     required: true,
-    enum: ['person', 'room', 'equipment', 'vehicle', 'other'],
-    default: 'person',
+    enum: ["person", "room", "equipment", "vehicle", "other"],
+    default: "person",
   })
   type: string;
 
@@ -37,7 +37,11 @@ export class Resource {
   @Prop({ trim: true })
   phone: string;
 
-  @Prop({ type: String, enum: ['active', 'inactive', 'on_vacation'], default: 'active' })
+  @Prop({
+    type: String,
+    enum: ["active", "inactive", "on_vacation"],
+    default: "active",
+  })
   status: string;
 
   @Prop({ type: String })
@@ -47,13 +51,13 @@ export class Resource {
   @Prop({
     type: Object,
     default: {
-      monday: { available: true, start: '09:00', end: '18:00' },
-      tuesday: { available: true, start: '09:00', end: '18:00' },
-      wednesday: { available: true, start: '09:00', end: '18:00' },
-      thursday: { available: true, start: '09:00', end: '18:00' },
-      friday: { available: true, start: '09:00', end: '18:00' },
-      saturday: { available: false, start: '09:00', end: '13:00' },
-      sunday: { available: false, start: '09:00', end: '13:00' },
+      monday: { available: true, start: "09:00", end: "18:00" },
+      tuesday: { available: true, start: "09:00", end: "18:00" },
+      wednesday: { available: true, start: "09:00", end: "18:00" },
+      thursday: { available: true, start: "09:00", end: "18:00" },
+      friday: { available: true, start: "09:00", end: "18:00" },
+      saturday: { available: false, start: "09:00", end: "13:00" },
+      sunday: { available: false, start: "09:00", end: "13:00" },
     },
   })
   schedule: {
@@ -102,4 +106,4 @@ export const ResourceSchema = SchemaFactory.createForClass(Resource);
 // Índices compuestos
 ResourceSchema.index({ tenantId: 1, status: 1 });
 ResourceSchema.index({ tenantId: 1, type: 1 });
-ResourceSchema.index({ tenantId: 1, name: 'text' });
+ResourceSchema.index({ tenantId: 1, name: "text" });

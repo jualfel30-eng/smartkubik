@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 export type TodoDocument = Todo & Document;
 
@@ -17,16 +17,16 @@ export class Todo {
   @Prop({ type: [String], default: [] })
   tags: string[];
 
-  @Prop({ type: String, enum: ['low', 'medium', 'high'], default: 'medium' })
+  @Prop({ type: String, enum: ["low", "medium", "high"], default: "medium" })
   priority: string;
 
   @Prop({ type: String, required: false })
   relatedEventId?: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true })
+  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })
   tenantId: Types.ObjectId;
 }
 

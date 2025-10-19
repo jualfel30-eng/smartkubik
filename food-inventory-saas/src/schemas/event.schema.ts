@@ -23,7 +23,11 @@ export class Event {
   @Prop({ type: String, trim: true })
   color?: string;
 
-  @Prop({ type: String, enum: ['manual', 'purchase', 'payment', 'inventory'], default: 'manual' })
+  @Prop({
+    type: String,
+    enum: ["manual", "purchase", "payment", "inventory"],
+    default: "manual",
+  })
   type: string;
 
   @Prop({ type: String })

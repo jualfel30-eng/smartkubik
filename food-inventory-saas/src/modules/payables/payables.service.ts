@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Payable, PayableDocument } from '../../schemas/payable.schema';
-import { AccountingService } from '../accounting/accounting.service';
-import { EventsService } from '../events/events.service';
+import { Injectable, NotFoundException, Logger } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { Payable, PayableDocument } from "../../schemas/payable.schema";
+import { AccountingService } from "../accounting/accounting.service";
+import { EventsService } from "../events/events.service";
+import { ExchangeRateService } from "../exchange-rate/exchange-rate.service";
 import {
   IsString,
   IsNumber,
@@ -13,9 +14,9 @@ import {
   IsMongoId,
   IsEnum,
   IsOptional,
-} from 'class-validator';
-import { Type } from 'class-transformer';
-import { PaginationDto, PaginationHelper } from '../../dto/pagination.dto';
+} from "class-validator";
+import { Type } from "class-transformer";
+import { PaginationDto, PaginationHelper } from "../../dto/pagination.dto";
 
 // --- DTOs (definidos aquí temporalmente) ---
 
@@ -43,10 +44,16 @@ class CreatePayableLineDto {
 }
 
 export class CreatePayableDto {
-  @IsEnum(['purchase_order', 'payroll', 'service_payment', 'utility_bill', 'other'])
+  @IsEnum([
+    "purchase_order",
+    "payroll",
+    "service_payment",
+    "utility_bill",
+    "other",
+  ])
   type: string;
 
-  @IsEnum(['supplier', 'employee', 'custom'])
+  @IsEnum(["supplier", "employee", "custom"])
   payeeType: string;
 
   @IsOptional()
@@ -83,11 +90,17 @@ export class CreatePayableDto {
 
 export class UpdatePayableDto {
   @IsOptional()
-  @IsEnum(['purchase_order', 'payroll', 'service_payment', 'utility_bill', 'other'])
+  @IsEnum([
+    "purchase_order",
+    "payroll",
+    "service_payment",
+    "utility_bill",
+    "other",
+  ])
   type?: string;
 
   @IsOptional()
-  @IsEnum(['supplier', 'employee', 'custom'])
+  @IsEnum(["supplier", "employee", "custom"])
   payeeType?: string;
 
   @IsOptional()
@@ -121,7 +134,7 @@ export class UpdatePayableDto {
   notes?: string;
 
   @IsOptional()
-  @IsEnum(['draft', 'open', 'partially_paid', 'paid', 'void'])
+  @IsEnum(["draft", "open", "partially_paid", "paid", "void"])
   status?: string;
 }
 
@@ -133,21 +146,49 @@ export class PayablesService {
     @InjectModel(Payable.name) private payableModel: Model<PayableDocument>,
     private readonly accountingService: AccountingService,
     private readonly eventsService: EventsService,
+    private readonly exchangeRateService: ExchangeRateService,
   ) {}
 
-  async create(createPayableDto: CreatePayableDto, tenantId: string, userId: string): Promise<Payable> {
-    const totalAmount = createPayableDto.lines.reduce((sum, line) => sum + line.amount, 0);
+  async create(
+    createPayableDto: CreatePayableDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<Payable> {
+    const totalAmount = createPayableDto.lines.reduce(
+      (sum, line) => sum + line.amount,
+      0,
+    );
+
+    // Calcular totalAmountVes usando la tasa de cambio actual
+    let totalAmountVes = 0;
+    try {
+      const rateData = await this.exchangeRateService.getBCVRate();
+      totalAmountVes = totalAmount * rateData.rate;
+      this.logger.log(
+        `Calculated totalAmountVes for payable: ${totalAmountVes} (rate: ${rateData.rate})`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        "Failed to get exchange rate for payable, totalAmountVes will be 0",
+      );
+    }
 
     const payableNumber = `PAY-${Date.now()}`;
 
+    const tenantObjectId = Types.ObjectId.isValid(tenantId)
+      ? new Types.ObjectId(tenantId)
+      : tenantId;
+
     const newPayable = new this.payableModel({
       ...createPayableDto,
-      tenantId,
+      tenantId: tenantObjectId,
       createdBy: userId,
       totalAmount,
+      totalAmountVes,
       payableNumber,
       paidAmount: 0,
-      status: 'open', // FIXED: Changed from 'draft' to 'open' so payables appear as pending immediately
+      paidAmountVes: 0,
+      status: "open", // FIXED: Changed from 'draft' to 'open' so payables appear as pending immediately
     });
 
     const savedPayable = await newPayable.save();
@@ -184,10 +225,12 @@ export class PayablesService {
         await this.eventsService.create(
           {
             title: `💳 Pago: ${savedPayable.payeeName} - $${savedPayable.totalAmount}`,
-            description: savedPayable.description || `Pago pendiente por $${savedPayable.totalAmount} - ${savedPayable.payableNumber}`,
+            description:
+              savedPayable.description ||
+              `Pago pendiente por $${savedPayable.totalAmount} - ${savedPayable.payableNumber}`,
             start: new Date(savedPayable.dueDate).toISOString(),
             allDay: true,
-            color: '#ef4444', // Red color for payables
+            color: "#ef4444", // Red color for payables
           },
           { id: userId, tenantId },
         );
@@ -223,15 +266,19 @@ export class PayablesService {
     // Calcular skip para paginación
     const skip = PaginationHelper.getSkip(page, limit);
 
+    const tenantObjectId = Types.ObjectId.isValid(tenantId)
+      ? new Types.ObjectId(tenantId)
+      : tenantId;
+
     // Ejecutar query con paginación
     const [payables, total] = await Promise.all([
       this.payableModel
-        .find({ tenantId })
+        .find({ tenantId: tenantObjectId })
         .sort({ issueDate: -1 })
         .skip(skip)
         .limit(limit)
         .exec(),
-      this.payableModel.countDocuments({ tenantId }).exec(),
+      this.payableModel.countDocuments({ tenantId: tenantObjectId }).exec(),
     ]);
 
     return {
@@ -241,25 +288,44 @@ export class PayablesService {
   }
 
   async findOne(id: string, tenantId: string): Promise<Payable> {
-    const payable = await this.payableModel.findOne({ _id: id, tenantId }).exec();
+    const tenantObjectId = Types.ObjectId.isValid(tenantId)
+      ? new Types.ObjectId(tenantId)
+      : tenantId;
+
+    const payable = await this.payableModel
+      .findOne({ _id: id, tenantId: tenantObjectId })
+      .exec();
     if (!payable) {
       throw new NotFoundException(`Payable con ID "${id}" no encontrado`);
     }
     return payable;
   }
 
-  async update(id: string, tenantId: string, updatePayableDto: UpdatePayableDto): Promise<Payable> {
+  async update(
+    id: string,
+    tenantId: string,
+    updatePayableDto: UpdatePayableDto,
+  ): Promise<Payable> {
     const updatePayload: any = { ...updatePayableDto };
 
     if (updatePayableDto.lines) {
-      updatePayload.totalAmount = updatePayableDto.lines.reduce((sum, line) => sum + line.amount, 0);
+      updatePayload.totalAmount = updatePayableDto.lines.reduce(
+        (sum, line) => sum + line.amount,
+        0,
+      );
     }
 
-    const updatedPayable = await this.payableModel.findOneAndUpdate(
-      { _id: id, tenantId },
-      { $set: updatePayload },
-      { new: true },
-    ).exec();
+    const tenantObjectId = Types.ObjectId.isValid(tenantId)
+      ? new Types.ObjectId(tenantId)
+      : tenantId;
+
+    const updatedPayable = await this.payableModel
+      .findOneAndUpdate(
+        { _id: id, tenantId: tenantObjectId },
+        { $set: updatePayload },
+        { new: true },
+      )
+      .exec();
 
     if (!updatedPayable) {
       throw new NotFoundException(`Payable con ID "${id}" no encontrado`);
@@ -268,53 +334,81 @@ export class PayablesService {
     return updatedPayable;
   }
 
-  async remove(id: string, tenantId: string): Promise<{ success: boolean; message: string }> {
+  async remove(
+    id: string,
+    tenantId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const tenantObjectId = Types.ObjectId.isValid(tenantId)
+      ? new Types.ObjectId(tenantId)
+      : tenantId;
+
     // Validar que el payable existe y pertenece al tenant antes de anular
-    const payable = await this.payableModel.findOne({ _id: id, tenantId });
+    const payable = await this.payableModel.findOne({
+      _id: id,
+      tenantId: tenantObjectId,
+    });
     if (!payable) {
-      throw new NotFoundException(`Payable con ID "${id}" no encontrado o no tiene permisos para anularlo`);
+      throw new NotFoundException(
+        `Payable con ID "${id}" no encontrado o no tiene permisos para anularlo`,
+      );
     }
 
     const result = await this.payableModel.updateOne(
-      { _id: id, tenantId },
-      { $set: { status: 'void' } },
+      { _id: id, tenantId: tenantObjectId },
+      { $set: { status: "void" } },
     );
 
     if (result.modifiedCount === 0) {
-      throw new NotFoundException(`Payable con ID "${id}" no encontrado o ya estaba anulado`);
+      throw new NotFoundException(
+        `Payable con ID "${id}" no encontrado o ya estaba anulado`,
+      );
     }
 
-    return { success: true, message: 'Payable anulado exitosamente' };
+    return { success: true, message: "Payable anulado exitosamente" };
   }
 
-  async migrateDraftToOpen(tenantId: string): Promise<{ updated: number; payables: any[] }> {
-    this.logger.log(`[Migration] Starting migration of draft payables to open for tenant ${tenantId}`);
+  async migrateDraftToOpen(
+    tenantId: string,
+  ): Promise<{ updated: number; payables: any[] }> {
+    this.logger.log(
+      `[Migration] Starting migration of draft payables to open for tenant ${tenantId}`,
+    );
+
+    const tenantObjectId = Types.ObjectId.isValid(tenantId)
+      ? new Types.ObjectId(tenantId)
+      : tenantId;
 
     // Find all payables with status 'draft' and paidAmount = 0
-    const draftPayables = await this.payableModel.find({
-      tenantId,
-      status: 'draft',
-      paidAmount: 0,
-    }).exec();
+    const draftPayables = await this.payableModel
+      .find({
+        tenantId: tenantObjectId,
+        status: "draft",
+        paidAmount: 0,
+      })
+      .exec();
 
-    this.logger.log(`[Migration] Found ${draftPayables.length} draft payables to migrate`);
+    this.logger.log(
+      `[Migration] Found ${draftPayables.length} draft payables to migrate`,
+    );
 
     // Update all draft payables to open
     const result = await this.payableModel.updateMany(
-      { tenantId, status: 'draft', paidAmount: 0 },
-      { $set: { status: 'open' } },
+      { tenantId: tenantObjectId, status: "draft", paidAmount: 0 },
+      { $set: { status: "open" } },
     );
 
-    this.logger.log(`[Migration] Updated ${result.modifiedCount} payables from draft to open`);
+    this.logger.log(
+      `[Migration] Updated ${result.modifiedCount} payables from draft to open`,
+    );
 
     return {
       updated: result.modifiedCount,
-      payables: draftPayables.map(p => ({
+      payables: draftPayables.map((p) => ({
         id: p._id,
         payeeName: p.payeeName,
         totalAmount: p.totalAmount,
-        oldStatus: 'draft',
-        newStatus: 'open',
+        oldStatus: "draft",
+        newStatus: "open",
       })),
     };
   }

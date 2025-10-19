@@ -1,12 +1,15 @@
-import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { RecurringPayablesController } from './recurring-payables.controller';
-import { RecurringPayablesService } from './recurring-payables.service';
-import { RecurringPayable, RecurringPayableSchema } from '../../schemas/recurring-payable.schema';
-import { Payable, PayableSchema } from '../../schemas/payable.schema';
-import { PayablesModule } from '../payables/payables.module';
-import { CustomersModule } from '../customers/customers.module';
-import { Tenant, TenantSchema } from '../../schemas/tenant.schema';
+import { Module } from "@nestjs/common";
+import { MongooseModule } from "@nestjs/mongoose";
+import { RecurringPayablesController } from "./recurring-payables.controller";
+import { RecurringPayablesService } from "./recurring-payables.service";
+import {
+  RecurringPayable,
+  RecurringPayableSchema,
+} from "../../schemas/recurring-payable.schema";
+import { Payable, PayableSchema } from "../../schemas/payable.schema";
+import { PayablesModule } from "../payables/payables.module";
+import { CustomersModule } from "../customers/customers.module";
+import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
 
 @Module({
   imports: [

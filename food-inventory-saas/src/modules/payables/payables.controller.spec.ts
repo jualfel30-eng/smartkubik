@@ -1,9 +1,9 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { PayablesController } from './payables.controller';
-import { PayablesService } from './payables.service';
-import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
-import { TenantGuard } from '../../guards/tenant.guard';
-import { PermissionsGuard } from '../../guards/permissions.guard';
+import { Test, TestingModule } from "@nestjs/testing";
+import { PayablesController } from "./payables.controller";
+import { PayablesService } from "./payables.service";
+import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
+import { TenantGuard } from "../../guards/tenant.guard";
+import { PermissionsGuard } from "../../guards/permissions.guard";
 
 const mockPayablesService = {
   create: jest.fn(),
@@ -13,7 +13,7 @@ const mockPayablesService = {
   remove: jest.fn(),
 };
 
-describe('PayablesController', () => {
+describe("PayablesController", () => {
   let controller: PayablesController;
 
   beforeEach(async () => {
@@ -37,7 +37,7 @@ describe('PayablesController', () => {
     controller = module.get<PayablesController>(PayablesController);
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(controller).toBeDefined();
   });
 });

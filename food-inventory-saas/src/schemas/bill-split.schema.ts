@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 /**
  * BillSplitPart Schema
@@ -25,12 +25,12 @@ export class BillSplitPart {
   @Prop({
     type: String,
     required: true,
-    enum: ['pending', 'paid', 'cancelled'],
-    default: 'pending',
+    enum: ["pending", "paid", "cancelled"],
+    default: "pending",
   })
   paymentStatus: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'Payment' })
+  @Prop({ type: Types.ObjectId, ref: "Payment" })
   paymentId?: Types.ObjectId; // Pago asociado cuando se completa
 
   @Prop({ type: Date })
@@ -45,7 +45,7 @@ const BillSplitPartSchema = SchemaFactory.createForClass(BillSplitPart);
  */
 @Schema({ timestamps: true })
 export class BillSplit extends Document {
-  @Prop({ type: Types.ObjectId, ref: 'Order', required: true, index: true })
+  @Prop({ type: Types.ObjectId, ref: "Order", required: true, index: true })
   orderId: Types.ObjectId;
 
   @Prop({ type: String, required: true })
@@ -54,7 +54,7 @@ export class BillSplit extends Document {
   @Prop({
     type: String,
     required: true,
-    enum: ['by_person', 'by_items', 'custom'],
+    enum: ["by_person", "by_items", "custom"],
     index: true,
   })
   splitType: string;
@@ -83,8 +83,8 @@ export class BillSplit extends Document {
   @Prop({
     type: String,
     required: true,
-    enum: ['active', 'completed', 'cancelled'],
-    default: 'active',
+    enum: ["active", "completed", "cancelled"],
+    default: "active",
     index: true,
   })
   status: string;
@@ -95,13 +95,13 @@ export class BillSplit extends Document {
   @Prop({ type: String })
   notes?: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId; // Mesero/cajero que creó el split
 
-  @Prop({ type: Types.ObjectId, ref: 'Table' })
+  @Prop({ type: Types.ObjectId, ref: "Table" })
   tableId?: Types.ObjectId; // Mesa relacionada (si aplica)
 
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true, index: true })
+  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true, index: true })
   tenantId: Types.ObjectId;
 
   @Prop({ default: false })

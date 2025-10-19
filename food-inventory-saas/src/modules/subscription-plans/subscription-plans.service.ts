@@ -1,8 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { SubscriptionPlan, SubscriptionPlanDocument } from '../../schemas/subscription-plan.schema';
-import { CreateSubscriptionPlanDto, UpdateSubscriptionPlanDto } from '../../dto/subscription-plan.dto';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
+import {
+  SubscriptionPlan,
+  SubscriptionPlanDocument,
+} from "../../schemas/subscription-plan.schema";
+import {
+  CreateSubscriptionPlanDto,
+  UpdateSubscriptionPlanDto,
+} from "../../dto/subscription-plan.dto";
 
 @Injectable()
 export class SubscriptionPlansService {
@@ -11,7 +17,9 @@ export class SubscriptionPlansService {
     private planModel: Model<SubscriptionPlanDocument>,
   ) {}
 
-  async create(createPlanDto: CreateSubscriptionPlanDto): Promise<SubscriptionPlan> {
+  async create(
+    createPlanDto: CreateSubscriptionPlanDto,
+  ): Promise<SubscriptionPlan> {
     const newPlan = new this.planModel(createPlanDto);
     return newPlan.save();
   }
@@ -21,9 +29,13 @@ export class SubscriptionPlansService {
   }
 
   async findOneByName(name: string): Promise<SubscriptionPlan> {
-    const plan = await this.planModel.findOne({ name, isArchived: false }).exec();
+    const plan = await this.planModel
+      .findOne({ name, isArchived: false })
+      .exec();
     if (!plan) {
-      throw new NotFoundException(`Subscription plan with name "${name}" not found`);
+      throw new NotFoundException(
+        `Subscription plan with name "${name}" not found`,
+      );
     }
     return plan;
   }
@@ -31,15 +43,24 @@ export class SubscriptionPlansService {
   async findOne(id: string): Promise<SubscriptionPlan> {
     const plan = await this.planModel.findById(id).exec();
     if (!plan || plan.isArchived) {
-      throw new NotFoundException(`Subscription plan with ID "${id}" not found`);
+      throw new NotFoundException(
+        `Subscription plan with ID "${id}" not found`,
+      );
     }
     return plan;
   }
 
-  async update(id: string, updatePlanDto: UpdateSubscriptionPlanDto): Promise<SubscriptionPlan> {
-    const existingPlan = await this.planModel.findByIdAndUpdate(id, updatePlanDto, { new: true }).exec();
+  async update(
+    id: string,
+    updatePlanDto: UpdateSubscriptionPlanDto,
+  ): Promise<SubscriptionPlan> {
+    const existingPlan = await this.planModel
+      .findByIdAndUpdate(id, updatePlanDto, { new: true })
+      .exec();
     if (!existingPlan) {
-      throw new NotFoundException(`Subscription plan with ID "${id}" not found`);
+      throw new NotFoundException(
+        `Subscription plan with ID "${id}" not found`,
+      );
     }
     return existingPlan;
   }
@@ -48,12 +69,19 @@ export class SubscriptionPlansService {
     // Validar que el plan existe antes de archivar (super-admin no usa tenantId)
     const plan = await this.planModel.findById(id);
     if (!plan) {
-      throw new NotFoundException(`Subscription plan with ID "${id}" not found`);
+      throw new NotFoundException(
+        `Subscription plan with ID "${id}" not found`,
+      );
     }
 
-    const result = await this.planModel.updateOne({ _id: id }, { isArchived: true });
+    const result = await this.planModel.updateOne(
+      { _id: id },
+      { isArchived: true },
+    );
     if (result.matchedCount === 0) {
-      throw new NotFoundException(`Subscription plan with ID "${id}" not found`);
+      throw new NotFoundException(
+        `Subscription plan with ID "${id}" not found`,
+      );
     }
     return { message: `Subscription plan with ID "${id}" has been archived.` };
   }

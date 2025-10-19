@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 export type OrganizationDocument = Organization & Document;
 
@@ -20,18 +20,22 @@ export class Organization {
   @Prop({ type: String, required: false })
   email?: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: "User", required: true })
   owner: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Organization', required: false })
+  @Prop({ type: Types.ObjectId, ref: "Organization", required: false })
   parentOrganization?: Types.ObjectId;
 
-  @Prop({ type: String, enum: ['new-business', 'new-location'], default: 'new-business' })
+  @Prop({
+    type: String,
+    enum: ["new-business", "new-location"],
+    default: "new-business",
+  })
   type?: string;
 
   @Prop({
     type: String,
-    enum: ['FOOD_SERVICE', 'RETAIL', 'SERVICES', 'LOGISTICS', 'HYBRID'],
+    enum: ["FOOD_SERVICE", "RETAIL", "SERVICES", "LOGISTICS", "HYBRID"],
     required: false,
   })
   vertical?: string;
@@ -42,8 +46,8 @@ export class Organization {
   @Prop({
     type: [
       {
-        userId: { type: Types.ObjectId, ref: 'User', required: true },
-        role: { type: String, enum: ['admin', 'member'], default: 'member' },
+        userId: { type: Types.ObjectId, ref: "User", required: true },
+        role: { type: String, enum: ["admin", "member"], default: "member" },
         joinedAt: { type: Date, default: Date.now },
       },
     ],
@@ -51,7 +55,7 @@ export class Organization {
   })
   members: Array<{
     userId: Types.ObjectId;
-    role: 'admin' | 'member';
+    role: "admin" | "member";
     joinedAt: Date;
   }>;
 

@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Resource, ResourceDocument } from '../../schemas/resource.schema';
-import { CreateResourceDto, UpdateResourceDto } from './dto/resource.dto';
+import { Injectable, NotFoundException, Logger } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
+import { Resource, ResourceDocument } from "../../schemas/resource.schema";
+import { CreateResourceDto, UpdateResourceDto } from "./dto/resource.dto";
 
 @Injectable()
 export class ResourcesService {
@@ -12,7 +12,10 @@ export class ResourcesService {
     @InjectModel(Resource.name) private resourceModel: Model<ResourceDocument>,
   ) {}
 
-  async create(tenantId: string, createResourceDto: CreateResourceDto): Promise<Resource> {
+  async create(
+    tenantId: string,
+    createResourceDto: CreateResourceDto,
+  ): Promise<Resource> {
     this.logger.log(`Creating resource for tenant: ${tenantId}`);
 
     const newResource = new this.resourceModel({
@@ -43,7 +46,9 @@ export class ResourcesService {
   }
 
   async findOne(tenantId: string, id: string): Promise<Resource> {
-    const resource = await this.resourceModel.findOne({ _id: id, tenantId }).exec();
+    const resource = await this.resourceModel
+      .findOne({ _id: id, tenantId })
+      .exec();
 
     if (!resource) {
       throw new NotFoundException(`Recurso con ID ${id} no encontrado`);
@@ -60,7 +65,11 @@ export class ResourcesService {
     this.logger.log(`Updating resource ${id} for tenant: ${tenantId}`);
 
     const updated = await this.resourceModel
-      .findOneAndUpdate({ _id: id, tenantId }, { $set: updateResourceDto }, { new: true })
+      .findOneAndUpdate(
+        { _id: id, tenantId },
+        { $set: updateResourceDto },
+        { new: true },
+      )
       .exec();
 
     if (!updated) {
@@ -74,7 +83,9 @@ export class ResourcesService {
   async remove(tenantId: string, id: string): Promise<void> {
     this.logger.log(`Deleting resource ${id} for tenant: ${tenantId}`);
 
-    const result = await this.resourceModel.deleteOne({ _id: id, tenantId }).exec();
+    const result = await this.resourceModel
+      .deleteOne({ _id: id, tenantId })
+      .exec();
 
     if (result.deletedCount === 0) {
       throw new NotFoundException(`Recurso con ID ${id} no encontrado`);
@@ -85,23 +96,29 @@ export class ResourcesService {
 
   async getActiveResources(tenantId: string): Promise<Resource[]> {
     return this.resourceModel
-      .find({ tenantId, status: 'active' })
+      .find({ tenantId, status: "active" })
       .sort({ type: 1, name: 1 })
       .exec();
   }
 
-  async getResourcesByType(tenantId: string, type: string): Promise<Resource[]> {
+  async getResourcesByType(
+    tenantId: string,
+    type: string,
+  ): Promise<Resource[]> {
     return this.resourceModel
-      .find({ tenantId, type, status: 'active' })
+      .find({ tenantId, type, status: "active" })
       .sort({ name: 1 })
       .exec();
   }
 
-  async getResourcesByService(tenantId: string, serviceId: string): Promise<Resource[]> {
+  async getResourcesByService(
+    tenantId: string,
+    serviceId: string,
+  ): Promise<Resource[]> {
     return this.resourceModel
       .find({
         tenantId,
-        status: 'active',
+        status: "active",
         allowedServiceIds: serviceId,
       })
       .sort({ name: 1 })
@@ -113,9 +130,9 @@ export class ResourcesService {
       .find({
         tenantId,
         $or: [
-          { name: { $regex: searchTerm, $options: 'i' } },
-          { description: { $regex: searchTerm, $options: 'i' } },
-          { specializations: { $regex: searchTerm, $options: 'i' } },
+          { name: { $regex: searchTerm, $options: "i" } },
+          { description: { $regex: searchTerm, $options: "i" } },
+          { specializations: { $regex: searchTerm, $options: "i" } },
         ],
       })
       .sort({ name: 1 })
@@ -125,13 +142,23 @@ export class ResourcesService {
   /**
    * Check if resource is available on a specific date
    */
-  async isAvailableOn(tenantId: string, resourceId: string, date: Date): Promise<boolean> {
+  async isAvailableOn(
+    tenantId: string,
+    resourceId: string,
+    date: Date,
+  ): Promise<boolean> {
     const resource = await this.findOne(tenantId, resourceId);
 
     // Check day of week
-    const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][
-      date.getDay()
-    ];
+    const dayOfWeek = [
+      "sunday",
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+    ][date.getDay()];
     const daySchedule = resource.schedule?.[dayOfWeek];
 
     if (!daySchedule || !daySchedule.available) {

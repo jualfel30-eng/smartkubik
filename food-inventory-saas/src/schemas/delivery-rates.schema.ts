@@ -54,7 +54,8 @@ export class NationalShippingRate {
   @Prop({ type: Boolean, default: true })
   isActive: boolean;
 }
-const NationalShippingRateSchema = SchemaFactory.createForClass(NationalShippingRate);
+const NationalShippingRateSchema =
+  SchemaFactory.createForClass(NationalShippingRate);
 
 @Schema({ timestamps: true })
 export class DeliveryRates {

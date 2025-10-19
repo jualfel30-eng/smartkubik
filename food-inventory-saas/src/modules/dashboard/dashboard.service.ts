@@ -50,7 +50,7 @@ export class DashboardService {
         {
           $match: {
             tenantId,
-            paymentStatus: { $in: ['paid', 'overpaid', 'partial'] },
+            paymentStatus: { $in: ["paid", "overpaid", "partial"] },
             createdAt: { $gte: today, $lt: tomorrow },
           },
         },
@@ -70,14 +70,14 @@ export class DashboardService {
 
     const inventoryAlertsMap = new Map();
 
-    lowStockAlerts.forEach(alert => {
+    lowStockAlerts.forEach((alert) => {
       inventoryAlertsMap.set(alert.productSku, {
         productName: alert.productName,
         alerts: { lowStock: true },
       });
     });
 
-    nearExpirationAlerts.forEach(alert => {
+    nearExpirationAlerts.forEach((alert) => {
       const existing = inventoryAlertsMap.get(alert.productSku);
       if (existing) {
         existing.alerts.nearExpiration = true;

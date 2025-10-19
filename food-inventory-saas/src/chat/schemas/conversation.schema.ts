@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Schema as MongooseSchema } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Schema as MongooseSchema } from "mongoose";
 
 export type ConversationDocument = Conversation & Document;
 
@@ -14,7 +14,7 @@ export class Conversation {
   @Prop()
   customerName?: string;
 
-  @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: 'Message' }] })
+  @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: "Message" }] })
   messages: MongooseSchema.Types.ObjectId[];
 }
 

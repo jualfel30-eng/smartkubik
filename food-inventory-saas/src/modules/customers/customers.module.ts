@@ -5,9 +5,15 @@ import { CustomersService } from "./customers.service";
 import { AuthModule } from "../../auth/auth.module";
 import { Customer, CustomerSchema } from "../../schemas/customer.schema";
 import { Order, OrderSchema } from "../../schemas/order.schema";
-import { PurchaseOrder, PurchaseOrderSchema } from "../../schemas/purchase-order.schema";
-import { PurchaseOrderRating, PurchaseOrderRatingSchema } from "../../schemas/purchase-order-rating.schema";
-import { RolesModule } from '../roles/roles.module';
+import {
+  PurchaseOrder,
+  PurchaseOrderSchema,
+} from "../../schemas/purchase-order.schema";
+import {
+  PurchaseOrderRating,
+  PurchaseOrderRatingSchema,
+} from "../../schemas/purchase-order-rating.schema";
+import { RolesModule } from "../roles/roles.module";
 
 @Module({
   imports: [

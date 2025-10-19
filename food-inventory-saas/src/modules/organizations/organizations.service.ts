@@ -3,16 +3,19 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
-} from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Organization, OrganizationDocument } from '../../schemas/organization.schema';
-import { Product, ProductDocument } from '../../schemas/product.schema';
+} from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import {
+  Organization,
+  OrganizationDocument,
+} from "../../schemas/organization.schema";
+import { Product, ProductDocument } from "../../schemas/product.schema";
 import {
   CreateOrganizationDto,
   UpdateOrganizationDto,
   AddMemberDto,
-} from '../../dto/organization.dto';
+} from "../../dto/organization.dto";
 
 @Injectable()
 export class OrganizationsService {
@@ -40,7 +43,7 @@ export class OrganizationsService {
     const organization = new this.organizationModel({
       ...organizationData,
       owner: new Types.ObjectId(ownerId),
-      type: type || 'new-business',
+      type: type || "new-business",
       vertical,
       businessType,
       parentOrganization: parentOrganizationId
@@ -49,7 +52,7 @@ export class OrganizationsService {
       members: [
         {
           userId: new Types.ObjectId(ownerId),
-          role: 'admin',
+          role: "admin",
           joinedAt: new Date(),
         },
       ],
@@ -58,7 +61,7 @@ export class OrganizationsService {
     const savedOrganization = await organization.save();
 
     // Si es una nueva sede y se debe clonar datos
-    if (type === 'new-location' && parentOrganizationId && cloneData) {
+    if (type === "new-location" && parentOrganizationId && cloneData) {
       await this.cloneOrganizationData(
         parentOrganizationId,
         savedOrganization._id.toString(),
@@ -77,9 +80,11 @@ export class OrganizationsService {
   ): Promise<void> {
     try {
       // Verificar que la organización fuente existe
-      const sourceOrg = await this.organizationModel.findById(sourceOrgId).exec();
+      const sourceOrg = await this.organizationModel
+        .findById(sourceOrgId)
+        .exec();
       if (!sourceOrg) {
-        throw new NotFoundException('Source organization not found');
+        throw new NotFoundException("Source organization not found");
       }
 
       const sourceOrgObjectId = new Types.ObjectId(sourceOrgId);
@@ -88,9 +93,11 @@ export class OrganizationsService {
       // Clonar productos
       await this.cloneProducts(sourceOrgObjectId, targetOrgObjectId);
 
-      console.log(`Successfully cloned data from ${sourceOrgId} to ${targetOrgId}`);
+      console.log(
+        `Successfully cloned data from ${sourceOrgId} to ${targetOrgId}`,
+      );
     } catch (error) {
-      console.error('Error cloning organization data:', error);
+      console.error("Error cloning organization data:", error);
       // No lanzamos el error para no bloquear la creación de la organización
       // La organización se crea aunque falle el clonado
     }
@@ -126,11 +133,12 @@ export class OrganizationsService {
         // Generar nuevo SKU único agregando sufijo
         sku: `${product.sku}-CLONED-${Date.now()}`,
         // Actualizar SKUs de variantes
-        variants: product.variants?.map((variant) => ({
-          ...variant,
-          sku: `${variant.sku}-CLONED-${Date.now()}`,
-          barcode: `${variant.barcode}-CLONED`,
-        })) || [],
+        variants:
+          product.variants?.map((variant) => ({
+            ...variant,
+            sku: `${variant.sku}-CLONED-${Date.now()}`,
+            barcode: `${variant.barcode}-CLONED`,
+          })) || [],
         // Resetear información de inventario
         inventoryConfig: {
           ...product.inventoryConfig,
@@ -147,7 +155,9 @@ export class OrganizationsService {
     // Insertar productos clonados en la nueva organización
     if (clonedProducts.length > 0) {
       await this.productModel.insertMany(clonedProducts);
-      console.log(`Cloned ${clonedProducts.length} products to organization ${targetOrgId}`);
+      console.log(
+        `Cloned ${clonedProducts.length} products to organization ${targetOrgId}`,
+      );
     }
   }
 
@@ -156,31 +166,28 @@ export class OrganizationsService {
 
     return this.organizationModel
       .find({
-        $or: [
-          { owner: userObjectId },
-          { 'members.userId': userObjectId },
-        ],
+        $or: [{ owner: userObjectId }, { "members.userId": userObjectId }],
         isActive: true,
       })
-      .populate('owner', 'firstName lastName email')
-      .populate('members.userId', 'firstName lastName email')
+      .populate("owner", "firstName lastName email")
+      .populate("members.userId", "firstName lastName email")
       .sort({ createdAt: -1 })
       .exec();
   }
 
   async findOne(id: string, userId: string): Promise<Organization> {
     if (!Types.ObjectId.isValid(id)) {
-      throw new BadRequestException('Invalid organization ID');
+      throw new BadRequestException("Invalid organization ID");
     }
 
     const organization = await this.organizationModel
       .findById(id)
-      .populate('owner', 'firstName lastName email')
-      .populate('members.userId', 'firstName lastName email')
+      .populate("owner", "firstName lastName email")
+      .populate("members.userId", "firstName lastName email")
       .exec();
 
     if (!organization) {
-      throw new NotFoundException('Organization not found');
+      throw new NotFoundException("Organization not found");
     }
 
     // Verificar que el usuario tiene acceso
@@ -195,13 +202,13 @@ export class OrganizationsService {
     userId: string,
   ): Promise<Organization> {
     if (!Types.ObjectId.isValid(id)) {
-      throw new BadRequestException('Invalid organization ID');
+      throw new BadRequestException("Invalid organization ID");
     }
 
     const organization = await this.organizationModel.findById(id).exec();
 
     if (!organization) {
-      throw new NotFoundException('Organization not found');
+      throw new NotFoundException("Organization not found");
     }
 
     // Solo el owner o admins pueden actualizar
@@ -215,19 +222,19 @@ export class OrganizationsService {
 
   async remove(id: string, userId: string): Promise<void> {
     if (!Types.ObjectId.isValid(id)) {
-      throw new BadRequestException('Invalid organization ID');
+      throw new BadRequestException("Invalid organization ID");
     }
 
     const organization = await this.organizationModel.findById(id).exec();
 
     if (!organization) {
-      throw new NotFoundException('Organization not found');
+      throw new NotFoundException("Organization not found");
     }
 
     // Solo el owner puede eliminar
     if (organization.owner.toString() !== userId) {
       throw new ForbiddenException(
-        'Only the organization owner can delete the organization',
+        "Only the organization owner can delete the organization",
       );
     }
 
@@ -240,7 +247,7 @@ export class OrganizationsService {
     requestingUserId: string,
   ): Promise<Organization> {
     if (!Types.ObjectId.isValid(organizationId)) {
-      throw new BadRequestException('Invalid organization ID');
+      throw new BadRequestException("Invalid organization ID");
     }
 
     const organization = await this.organizationModel
@@ -248,7 +255,7 @@ export class OrganizationsService {
       .exec();
 
     if (!organization) {
-      throw new NotFoundException('Organization not found');
+      throw new NotFoundException("Organization not found");
     }
 
     // Solo admins pueden agregar miembros
@@ -260,12 +267,14 @@ export class OrganizationsService {
     );
 
     if (isMember) {
-      throw new BadRequestException('User is already a member of this organization');
+      throw new BadRequestException(
+        "User is already a member of this organization",
+      );
     }
 
     organization.members.push({
       userId: new Types.ObjectId(addMemberDto.userId),
-      role: addMemberDto.role || 'member',
+      role: addMemberDto.role || "member",
       joinedAt: new Date(),
     });
 
@@ -280,7 +289,7 @@ export class OrganizationsService {
     requestingUserId: string,
   ): Promise<Organization> {
     if (!Types.ObjectId.isValid(organizationId)) {
-      throw new BadRequestException('Invalid organization ID');
+      throw new BadRequestException("Invalid organization ID");
     }
 
     const organization = await this.organizationModel
@@ -288,7 +297,7 @@ export class OrganizationsService {
       .exec();
 
     if (!organization) {
-      throw new NotFoundException('Organization not found');
+      throw new NotFoundException("Organization not found");
     }
 
     // Solo admins pueden remover miembros (o uno mismo)
@@ -298,7 +307,7 @@ export class OrganizationsService {
 
     // No se puede remover al owner
     if (organization.owner.toString() === memberUserId) {
-      throw new BadRequestException('Cannot remove the organization owner');
+      throw new BadRequestException("Cannot remove the organization owner");
     }
 
     organization.members = organization.members.filter(
@@ -317,19 +326,21 @@ export class OrganizationsService {
     );
 
     if (!isOwner && !isMember) {
-      throw new ForbiddenException('You do not have access to this organization');
+      throw new ForbiddenException(
+        "You do not have access to this organization",
+      );
     }
   }
 
   private verifyAdminAccess(organization: Organization, userId: string): void {
     const isOwner = organization.owner.toString() === userId;
     const isAdmin = organization.members.some(
-      (m) => m.userId.toString() === userId && m.role === 'admin',
+      (m) => m.userId.toString() === userId && m.role === "admin",
     );
 
     if (!isOwner && !isAdmin) {
       throw new ForbiddenException(
-        'Only organization owner or admins can perform this action',
+        "Only organization owner or admins can perform this action",
       );
     }
   }

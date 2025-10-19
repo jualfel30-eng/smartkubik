@@ -8,6 +8,6 @@ import { MailModule } from "./modules/mail/mail.module";
   imports: [SharedModule, MailModule],
   controllers: [TenantController],
   providers: [TenantService],
-  exports: []
+  exports: [],
 })
 export class TenantModule {}

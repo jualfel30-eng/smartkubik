@@ -6,7 +6,7 @@ import { AuthModule } from "../../auth/auth.module";
 import { Order, OrderSchema } from "../../schemas/order.schema";
 import { Customer, CustomerSchema } from "../../schemas/customer.schema";
 import { Inventory, InventorySchema } from "../../schemas/inventory.schema";
-import { RolesModule } from '../roles/roles.module';
+import { RolesModule } from "../roles/roles.module";
 import { InventoryModule } from "../inventory/inventory.module";
 
 @Module({

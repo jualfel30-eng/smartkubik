@@ -1,10 +1,10 @@
-import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
-import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
-import { RatingsService } from './ratings.service';
-import { CreateRatingDto } from '../../dto/rating.dto';
+import { Controller, Post, Body, UseGuards, Req } from "@nestjs/common";
+import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
+import { RatingsService } from "./ratings.service";
+import { CreateRatingDto } from "../../dto/rating.dto";
 
 @UseGuards(JwtAuthGuard)
-@Controller('ratings')
+@Controller("ratings")
 export class RatingsController {
   constructor(private readonly ratingsService: RatingsService) {}
 

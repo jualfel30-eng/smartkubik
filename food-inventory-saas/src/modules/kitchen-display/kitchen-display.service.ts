@@ -3,11 +3,11 @@ import {
   NotFoundException,
   BadRequestException,
   Logger,
-} from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { KitchenOrder } from '../../schemas/kitchen-order.schema';
-import { Order } from '../../schemas/order.schema';
+} from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { KitchenOrder } from "../../schemas/kitchen-order.schema";
+import { Order } from "../../schemas/order.schema";
 import {
   CreateKitchenOrderDto,
   UpdateItemStatusDto,
@@ -17,7 +17,7 @@ import {
   FilterKitchenOrdersDto,
   CancelKitchenOrderDto,
   ReopenKitchenOrderDto,
-} from '../../dto/kitchen-order.dto';
+} from "../../dto/kitchen-order.dto";
 
 @Injectable()
 export class KitchenDisplayService {
@@ -52,7 +52,7 @@ export class KitchenDisplayService {
 
     if (existing) {
       throw new BadRequestException(
-        'Kitchen order already exists for this order',
+        "Kitchen order already exists for this order",
       );
     }
 
@@ -67,7 +67,7 @@ export class KitchenDisplayService {
         quantity: item.quantity,
         modifiers,
         specialInstructions: item.specialInstructions,
-        status: 'pending',
+        status: "pending",
       };
     });
 
@@ -80,11 +80,12 @@ export class KitchenDisplayService {
         : undefined,
       customerName: order.customerName,
       items: kitchenItems,
-      status: 'new',
-      priority: dto.priority || 'normal',
+      status: "new",
+      priority: dto.priority || "normal",
       notes: dto.notes,
       receivedAt: new Date(),
-      estimatedPrepTime: dto.estimatedPrepTime || this.estimatePrepTime(kitchenItems.length),
+      estimatedPrepTime:
+        dto.estimatedPrepTime || this.estimatePrepTime(kitchenItems.length),
       station: dto.station,
       tenantId,
       isDeleted: false,
@@ -108,7 +109,7 @@ export class KitchenDisplayService {
     const query: any = {
       tenantId,
       isDeleted: false,
-      status: { $in: ['new', 'preparing', 'ready'] }, // Solo activas
+      status: { $in: ["new", "preparing", "ready"] }, // Solo activas
     };
 
     if (filters.status) {
@@ -129,7 +130,7 @@ export class KitchenDisplayService {
 
     return this.kitchenOrderModel
       .find(query)
-      .populate('assignedTo')
+      .populate("assignedTo")
       .sort({ isUrgent: -1, priority: -1, createdAt: 1 }) // Urgentes primero, luego por orden de llegada
       .exec();
   }
@@ -146,7 +147,7 @@ export class KitchenDisplayService {
       .exec();
 
     if (!kitchenOrder) {
-      throw new NotFoundException('Kitchen order not found');
+      throw new NotFoundException("Kitchen order not found");
     }
 
     const itemIndex = kitchenOrder.items.findIndex(
@@ -154,7 +155,7 @@ export class KitchenDisplayService {
     );
 
     if (itemIndex === -1) {
-      throw new NotFoundException('Item not found in kitchen order');
+      throw new NotFoundException("Item not found in kitchen order");
     }
 
     const item = kitchenOrder.items[itemIndex];
@@ -162,11 +163,11 @@ export class KitchenDisplayService {
     item.status = dto.status;
 
     // Tracking de tiempos
-    if (dto.status === 'preparing' && !item.startedAt) {
+    if (dto.status === "preparing" && !item.startedAt) {
       item.startedAt = new Date();
     }
 
-    if (dto.status === 'ready' && !item.readyAt) {
+    if (dto.status === "ready" && !item.readyAt) {
       item.readyAt = new Date();
       if (item.startedAt) {
         item.prepTime = Math.floor(
@@ -189,23 +190,20 @@ export class KitchenDisplayService {
   /**
    * Bump order (marcar como completada y lista para servir)
    */
-  async bumpOrder(
-    dto: BumpOrderDto,
-    tenantId: string,
-  ): Promise<KitchenOrder> {
+  async bumpOrder(dto: BumpOrderDto, tenantId: string): Promise<KitchenOrder> {
     const kitchenOrder = await this.kitchenOrderModel
       .findOne({ _id: dto.kitchenOrderId, tenantId, isDeleted: false })
       .exec();
 
     if (!kitchenOrder) {
-      throw new NotFoundException('Kitchen order not found');
+      throw new NotFoundException("Kitchen order not found");
     }
 
-    if (kitchenOrder.status === 'completed') {
-      throw new BadRequestException('Order is already completed');
+    if (kitchenOrder.status === "completed") {
+      throw new BadRequestException("Order is already completed");
     }
 
-    kitchenOrder.status = 'completed';
+    kitchenOrder.status = "completed";
     kitchenOrder.completedAt = new Date();
 
     // Calcular tiempo total
@@ -240,7 +238,7 @@ export class KitchenDisplayService {
         {
           $set: {
             isUrgent: dto.isUrgent,
-            priority: dto.isUrgent ? 'asap' : 'normal',
+            priority: dto.isUrgent ? "asap" : "normal",
           },
         },
         { new: true },
@@ -248,11 +246,11 @@ export class KitchenDisplayService {
       .exec();
 
     if (!kitchenOrder) {
-      throw new NotFoundException('Kitchen order not found');
+      throw new NotFoundException("Kitchen order not found");
     }
 
     this.logger.log(
-      `Marked order ${kitchenOrder.orderNumber} as ${dto.isUrgent ? 'URGENT' : 'normal'}`,
+      `Marked order ${kitchenOrder.orderNumber} as ${dto.isUrgent ? "URGENT" : "normal"}`,
     );
     return kitchenOrder;
   }
@@ -270,11 +268,11 @@ export class KitchenDisplayService {
         { $set: { assignedTo: new Types.ObjectId(dto.cookId) } },
         { new: true },
       )
-      .populate('assignedTo')
+      .populate("assignedTo")
       .exec();
 
     if (!kitchenOrder) {
-      throw new NotFoundException('Kitchen order not found');
+      throw new NotFoundException("Kitchen order not found");
     }
 
     this.logger.log(
@@ -295,7 +293,7 @@ export class KitchenDisplayService {
         { _id: dto.kitchenOrderId, tenantId, isDeleted: false },
         {
           $set: {
-            status: 'cancelled',
+            status: "cancelled",
             notes: dto.reason,
           },
         },
@@ -304,7 +302,7 @@ export class KitchenDisplayService {
       .exec();
 
     if (!kitchenOrder) {
-      throw new NotFoundException('Kitchen order not found');
+      throw new NotFoundException("Kitchen order not found");
     }
 
     this.logger.log(
@@ -325,18 +323,18 @@ export class KitchenDisplayService {
       .exec();
 
     if (!kitchenOrder) {
-      throw new NotFoundException('Kitchen order not found');
+      throw new NotFoundException("Kitchen order not found");
     }
 
-    if (kitchenOrder.status !== 'completed') {
-      throw new BadRequestException('Only completed orders can be reopened');
+    if (kitchenOrder.status !== "completed") {
+      throw new BadRequestException("Only completed orders can be reopened");
     }
 
     // Volver al estado anterior basado en items
     const allReady = kitchenOrder.items.every(
-      (item) => item.status === 'ready',
+      (item) => item.status === "ready",
     );
-    kitchenOrder.status = allReady ? 'ready' : 'preparing';
+    kitchenOrder.status = allReady ? "ready" : "preparing";
     kitchenOrder.completedAt = undefined;
 
     await kitchenOrder.save();
@@ -362,9 +360,9 @@ export class KitchenDisplayService {
       },
       {
         $group: {
-          _id: '$status',
+          _id: "$status",
           count: { $sum: 1 },
-          avgPrepTime: { $avg: '$totalPrepTime' },
+          avgPrepTime: { $avg: "$totalPrepTime" },
         },
       },
     ]);
@@ -379,14 +377,17 @@ export class KitchenDisplayService {
       })
       .exec();
 
-    const avgWaitTime = waitTimes.length > 0
-      ? waitTimes.reduce((sum, order) => {
-          const wait = order.startedAt && order.receivedAt
-            ? (order.startedAt.getTime() - order.receivedAt.getTime()) / 1000
-            : 0;
-          return sum + wait;
-        }, 0) / waitTimes.length
-      : 0;
+    const avgWaitTime =
+      waitTimes.length > 0
+        ? waitTimes.reduce((sum, order) => {
+            const wait =
+              order.startedAt && order.receivedAt
+                ? (order.startedAt.getTime() - order.receivedAt.getTime()) /
+                  1000
+                : 0;
+            return sum + wait;
+          }, 0) / waitTimes.length
+        : 0;
 
     return {
       statusBreakdown: stats,
@@ -403,35 +404,36 @@ export class KitchenDisplayService {
     const statuses = kitchenOrder.items.map((item: any) => item.status);
 
     // Si todos están en pending → order status = new
-    if (statuses.every((s: string) => s === 'pending')) {
-      kitchenOrder.status = 'new';
+    if (statuses.every((s: string) => s === "pending")) {
+      kitchenOrder.status = "new";
       return;
     }
 
     // Si al menos uno está preparing → order status = preparing
-    if (statuses.some((s: string) => s === 'preparing')) {
-      kitchenOrder.status = 'preparing';
+    if (statuses.some((s: string) => s === "preparing")) {
+      kitchenOrder.status = "preparing";
       if (!kitchenOrder.startedAt) {
         kitchenOrder.startedAt = new Date();
         kitchenOrder.waitTime = Math.floor(
           (kitchenOrder.startedAt.getTime() -
-            kitchenOrder.receivedAt.getTime()) / 1000,
+            kitchenOrder.receivedAt.getTime()) /
+            1000,
         );
       }
       return;
     }
 
     // Si todos están ready → order status = ready
-    if (statuses.every((s: string) => s === 'ready' || s === 'served')) {
-      kitchenOrder.status = 'ready';
+    if (statuses.every((s: string) => s === "ready" || s === "served")) {
+      kitchenOrder.status = "ready";
       return;
     }
   }
 
   private determineOrderType(order: any): string {
-    if (order.tableId) return 'dine-in';
-    if (order.shipping?.method === 'delivery') return 'delivery';
-    return 'takeout';
+    if (order.tableId) return "dine-in";
+    if (order.shipping?.method === "delivery") return "delivery";
+    return "takeout";
   }
 
   private async getTableNumber(

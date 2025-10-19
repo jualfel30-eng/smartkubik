@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, FilterQuery } from 'mongoose';
-import { AuditLog, AuditLogDocument } from '../../schemas/audit-log.schema';
+import { Injectable } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, FilterQuery } from "mongoose";
+import { AuditLog, AuditLogDocument } from "../../schemas/audit-log.schema";
 
 @Injectable()
 export class AuditLogService {
@@ -31,7 +31,7 @@ export class AuditLogService {
   async findLogs(filter: FilterQuery<AuditLogDocument>): Promise<AuditLog[]> {
     return this.auditLogModel
       .find(filter)
-      .populate('performedBy', 'email name') // Populate user's email and name
+      .populate("performedBy", "email name") // Populate user's email and name
       .sort({ createdAt: -1 })
       .exec();
   }

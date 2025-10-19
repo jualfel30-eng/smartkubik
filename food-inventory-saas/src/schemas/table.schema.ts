@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 @Schema({ timestamps: true })
 export class Table extends Document {
@@ -13,8 +13,8 @@ export class Table extends Document {
   position: { x: number; y: number };
 
   @Prop({
-    enum: ['square', 'round', 'rectangle', 'booth'],
-    default: 'square',
+    enum: ["square", "round", "rectangle", "booth"],
+    default: "square",
   })
   shape: string;
 
@@ -25,13 +25,13 @@ export class Table extends Document {
   maxCapacity: number;
 
   @Prop({
-    enum: ['available', 'occupied', 'reserved', 'cleaning', 'out-of-service'],
-    default: 'available',
+    enum: ["available", "occupied", "reserved", "cleaning", "out-of-service"],
+    default: "available",
     index: true,
   })
   status: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'Order' })
+  @Prop({ type: Types.ObjectId, ref: "Order" })
   currentOrderId?: Types.ObjectId;
 
   @Prop()
@@ -40,16 +40,16 @@ export class Table extends Document {
   @Prop({ min: 0 })
   guestCount?: number;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', index: true })
+  @Prop({ type: Types.ObjectId, ref: "User", index: true })
   assignedServerId?: Types.ObjectId;
 
-  @Prop({ type: [Types.ObjectId], ref: 'Table' })
+  @Prop({ type: [Types.ObjectId], ref: "Table" })
   combinesWith?: Types.ObjectId[];
 
   @Prop({ type: Types.ObjectId })
   combinedWithParent?: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true, index: true })
+  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true, index: true })
   tenantId: Types.ObjectId;
 
   @Prop({ default: false })

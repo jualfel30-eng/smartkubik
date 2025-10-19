@@ -33,7 +33,7 @@ export class TenantGuard implements CanActivate {
     const user = request.user;
 
     // Bypass TenantGuard for Super Admins
-    if (user && user.role?.name === 'super_admin') {
+    if (user && user.role?.name === "super_admin") {
       this.logger.debug(`TenantGuard bypassed for Super Admin: ${user.email}`);
       return true;
     }

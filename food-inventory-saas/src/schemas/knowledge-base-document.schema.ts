@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Schema as MongooseSchema } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Schema as MongooseSchema } from "mongoose";
 
 export type KnowledgeBaseDocumentDocument = KnowledgeBaseDocument & Document;
 
@@ -21,7 +21,9 @@ export class KnowledgeBaseDocument {
   fileSize: number; // in bytes
 }
 
-export const KnowledgeBaseDocumentSchema = SchemaFactory.createForClass(KnowledgeBaseDocument);
+export const KnowledgeBaseDocumentSchema = SchemaFactory.createForClass(
+  KnowledgeBaseDocument,
+);
 
 // Compound index to ensure a document source is unique per tenant
 KnowledgeBaseDocumentSchema.index({ tenantId: 1, source: 1 }, { unique: true });

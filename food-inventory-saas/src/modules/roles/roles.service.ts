@@ -1,26 +1,37 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { ClientSession, Model, Types } from 'mongoose';
-import { Role, RoleDocument } from '../../schemas/role.schema';
-import { CreateRoleDto, UpdateRoleDto } from '../../dto/role.dto';
-import { PermissionsService } from '../permissions/permissions.service';
-import { Permission, PermissionDocument } from '../../schemas/permission.schema';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { ClientSession, Model, Types } from "mongoose";
+import { Role, RoleDocument } from "../../schemas/role.schema";
+import { CreateRoleDto, UpdateRoleDto } from "../../dto/role.dto";
+import { PermissionsService } from "../permissions/permissions.service";
+import {
+  Permission,
+  PermissionDocument,
+} from "../../schemas/permission.schema";
 
 @Injectable()
 export class RolesService {
   constructor(
     @InjectModel(Role.name) private roleModel: Model<RoleDocument>,
-    @InjectModel(Permission.name) private permissionModel: Model<PermissionDocument>,
+    @InjectModel(Permission.name)
+    private permissionModel: Model<PermissionDocument>,
     private permissionsService: PermissionsService,
   ) {}
 
-  async create(createRoleDto: CreateRoleDto, tenantId: string): Promise<RoleDocument> {
+  async create(
+    createRoleDto: CreateRoleDto,
+    tenantId: string,
+  ): Promise<RoleDocument> {
     try {
       const newRole = new this.roleModel({ ...createRoleDto, tenantId });
       return await newRole.save();
     } catch (error) {
       if (error.code === 11000) {
-        throw new ConflictException('Ya existe un rol con este nombre.');
+        throw new ConflictException("Ya existe un rol con este nombre.");
       }
       throw error;
     }
@@ -38,7 +49,10 @@ export class RolesService {
     return role;
   }
 
-  async findOneByName(name: string, tenantId: string): Promise<RoleDocument | null> {
+  async findOneByName(
+    name: string,
+    tenantId: string,
+  ): Promise<RoleDocument | null> {
     const role = await this.roleModel.findOne({ name, tenantId }).exec();
     if (!role) {
       // This is a valid case for the seeder, so we don't throw.
@@ -48,8 +62,16 @@ export class RolesService {
     return role;
   }
 
-  async update(id: string, updateRoleDto: UpdateRoleDto, tenantId: string): Promise<RoleDocument> {
-    const existingRole = await this.roleModel.findOneAndUpdate({ _id: id, tenantId }, updateRoleDto, { new: true });
+  async update(
+    id: string,
+    updateRoleDto: UpdateRoleDto,
+    tenantId: string,
+  ): Promise<RoleDocument> {
+    const existingRole = await this.roleModel.findOneAndUpdate(
+      { _id: id, tenantId },
+      updateRoleDto,
+      { new: true },
+    );
     if (!existingRole) {
       throw new NotFoundException(`Role with ID "${id}" not found`);
     }
@@ -60,7 +82,9 @@ export class RolesService {
     // Validar que el rol existe y pertenece al tenant antes de eliminar
     const role = await this.roleModel.findOne({ _id: id, tenantId });
     if (!role) {
-      throw new NotFoundException(`Role with ID "${id}" not found or you don't have permission to delete it`);
+      throw new NotFoundException(
+        `Role with ID "${id}" not found or you don't have permission to delete it`,
+      );
     }
 
     const result = await this.roleModel.deleteOne({ _id: id, tenantId });
@@ -70,8 +94,12 @@ export class RolesService {
     return result;
   }
 
-  async findOrCreateAdminRoleForTenant(tenantId: Types.ObjectId, enabledModules: string[], session?: ClientSession): Promise<RoleDocument> {
-    const adminRoleName = 'admin';
+  async findOrCreateAdminRoleForTenant(
+    tenantId: Types.ObjectId,
+    enabledModules: string[],
+    session?: ClientSession,
+  ): Promise<RoleDocument> {
+    const adminRoleName = "admin";
     const roleQuery = this.roleModel.findOne({ name: adminRoleName, tenantId });
     if (session) {
       roleQuery.session(session);
@@ -82,13 +110,16 @@ export class RolesService {
       return adminRole;
     }
 
-    const permissionNames = this.permissionsService.findByModules(enabledModules);
-    const permissionsQuery = this.permissionModel.find({ name: { $in: permissionNames } }).select('_id');
+    const permissionNames =
+      this.permissionsService.findByModules(enabledModules);
+    const permissionsQuery = this.permissionModel
+      .find({ name: { $in: permissionNames } })
+      .select("_id");
     if (session) {
       permissionsQuery.session(session);
     }
     const permissions = await permissionsQuery.exec();
-    const permissionIds = permissions.map(p => p._id);
+    const permissionIds = permissions.map((p) => p._id);
 
     adminRole = new this.roleModel({
       name: adminRoleName,

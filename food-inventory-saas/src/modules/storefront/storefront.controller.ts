@@ -53,10 +53,7 @@ export class StorefrontController {
     status: 409,
     description: "Ya existe una configuración o el dominio está en uso",
   })
-  async create(
-    @Body() createDto: CreateStorefrontConfigDto,
-    @Request() req,
-  ) {
+  async create(@Body() createDto: CreateStorefrontConfigDto, @Request() req) {
     const config = await this.storefrontService.create(createDto, req.user);
     return {
       success: true,
@@ -81,9 +78,7 @@ export class StorefrontController {
     description: "No se encontró configuración de storefront",
   })
   async findByTenant(@Request() req) {
-    const config = await this.storefrontService.findByTenant(
-      req.user.tenantId,
-    );
+    const config = await this.storefrontService.findByTenant(req.user.tenantId);
     return {
       success: true,
       data: config,
@@ -110,10 +105,7 @@ export class StorefrontController {
     status: 409,
     description: "El dominio ya está en uso",
   })
-  async update(
-    @Body() updateDto: CreateStorefrontConfigDto,
-    @Request() req,
-  ) {
+  async update(@Body() updateDto: CreateStorefrontConfigDto, @Request() req) {
     const config = await this.storefrontService.update(updateDto, req.user);
     return {
       success: true,

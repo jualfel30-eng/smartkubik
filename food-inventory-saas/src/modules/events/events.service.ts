@@ -149,12 +149,14 @@ export class EventsService {
         })
         .exec();
     } catch (error) {
-      console.error('Error deleting related todos:', error);
+      console.error("Error deleting related todos:", error);
       // Continuar con la eliminación del evento aunque falle la eliminación de todos
     }
 
     // findOne ya valida tenantId, pero aseguramos la eliminación también lo haga
-    await this.eventModel.deleteOne({ _id: id, tenantId: event.tenantId }).exec();
+    await this.eventModel
+      .deleteOne({ _id: id, tenantId: event.tenantId })
+      .exec();
     return { deleted: true, id };
   }
 
@@ -177,9 +179,9 @@ export class EventsService {
       description: `Pago pendiente para orden de compra ${purchaseData.purchaseOrderNumber}. Monto: $${purchaseData.totalAmount}`,
       start: purchaseData.paymentDueDate,
       allDay: true,
-      type: 'purchase',
+      type: "purchase",
       relatedPurchaseId: purchaseData._id,
-      color: '#3b82f6', // Azul para compras
+      color: "#3b82f6", // Azul para compras
     };
 
     const event = await this.create(eventData as any, user, undefined, {
@@ -190,7 +192,7 @@ export class EventsService {
     const todoData = {
       title: `Pagar a ${purchaseData.supplierName} - OC ${purchaseData.purchaseOrderNumber}`,
       dueDate: purchaseData.paymentDueDate,
-      tags: ['compras', 'pagos'],
+      tags: ["compras", "pagos"],
       priority: this.calculatePriority(purchaseData.paymentDueDate),
       relatedEventId: event._id.toString(),
       createdBy: this.toObjectIdOrValue(user.id),
@@ -208,14 +210,14 @@ export class EventsService {
   async createFromInventoryAlert(
     alertData: {
       productName: string;
-      alertType: 'low_stock' | 'expiring_soon';
+      alertType: "low_stock" | "expiring_soon";
       expirationDate?: Date;
       currentStock?: number;
       minimumStock?: number;
     },
     user: any,
   ): Promise<{ event: EventDocument; todo: any }> {
-    const isExpiring = alertData.alertType === 'expiring_soon';
+    const isExpiring = alertData.alertType === "expiring_soon";
     const title = isExpiring
       ? `⚠️ ${alertData.productName} - Por vencer`
       : `📦 ${alertData.productName} - Stock bajo`;
@@ -233,8 +235,8 @@ export class EventsService {
       description,
       start: dueDate,
       allDay: true,
-      type: 'inventory',
-      color: isExpiring ? '#f59e0b' : '#22c55e', // Ámbar para vencimiento, verde para stock
+      type: "inventory",
+      color: isExpiring ? "#f59e0b" : "#22c55e", // Ámbar para vencimiento, verde para stock
     };
 
     const event = await this.create(eventData as any, user, undefined, {
@@ -244,8 +246,8 @@ export class EventsService {
     const todoData = {
       title,
       dueDate,
-      tags: ['produccion'],
-      priority: isExpiring ? 'high' : 'medium',
+      tags: ["produccion"],
+      priority: isExpiring ? "high" : "medium",
       relatedEventId: event._id.toString(),
       createdBy: this.toObjectIdOrValue(user.id),
       tenantId: this.normalizeTenantValue(user.tenantId),
@@ -282,10 +284,12 @@ export class EventsService {
   private calculatePriority(dueDate: Date): string {
     const now = new Date();
     const due = new Date(dueDate);
-    const daysUntilDue = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    const daysUntilDue = Math.ceil(
+      (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+    );
 
-    if (daysUntilDue <= 3) return 'high';
-    if (daysUntilDue <= 7) return 'medium';
-    return 'low';
+    if (daysUntilDue <= 3) return "high";
+    if (daysUntilDue <= 7) return "medium";
+    return "low";
   }
 }

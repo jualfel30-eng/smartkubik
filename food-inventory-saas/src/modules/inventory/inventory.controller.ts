@@ -31,7 +31,7 @@ import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
 import { Permissions } from "../../decorators/permissions.decorator";
-import { BulkAdjustInventoryDto } from './dto/bulk-adjust-inventory.dto';
+import { BulkAdjustInventoryDto } from "./dto/bulk-adjust-inventory.dto";
 
 @ApiTags("inventory")
 @Controller("inventory")
@@ -72,9 +72,16 @@ export class InventoryController {
   })
   async remove(@Param("id") id: string, @Request() req) {
     try {
-      const removed = await this.inventoryService.remove(id, req.user.tenantId, req.user);
+      const removed = await this.inventoryService.remove(
+        id,
+        req.user.tenantId,
+        req.user,
+      );
       if (!removed) {
-        throw new HttpException("Inventario no encontrado", HttpStatus.NOT_FOUND);
+        throw new HttpException(
+          "Inventario no encontrado",
+          HttpStatus.NOT_FOUND,
+        );
       }
       return {
         success: true,
@@ -330,7 +337,10 @@ export class InventoryController {
   @Permissions("inventory_update")
   @ApiOperation({ summary: "Ajustar inventario masivamente desde archivo" })
   @ApiResponse({ status: 200, description: "Inventario ajustado exitosamente" })
-  async bulkAdjustInventory(@Body() bulkAdjustDto: BulkAdjustInventoryDto, @Request() req) {
+  async bulkAdjustInventory(
+    @Body() bulkAdjustDto: BulkAdjustInventoryDto,
+    @Request() req,
+  ) {
     try {
       const result = await this.inventoryService.bulkAdjustInventory(
         bulkAdjustDto,
