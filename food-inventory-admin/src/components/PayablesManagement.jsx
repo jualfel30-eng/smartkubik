@@ -919,7 +919,9 @@ const PaymentHistory = () => {
 
     const concept = payment.paymentType === 'sale'
       ? `pago de orden #${payment.orderId?.orderNumber}`
-      : payment.payableId?.description || '';
+      : payment.payableId?.description
+        ? `${payment.payableId.description} - ${payment.payableId.payeeName || ''}`
+        : payment.payableId?.payeeName || '';
 
     const method = payment.method?.toLowerCase() || '';
     const reference = payment.reference?.toLowerCase() || '';
@@ -963,9 +965,11 @@ const PaymentHistory = () => {
             ) : (
               paginatedPayments.map((payment) => {
                 const isSale = payment.paymentType === 'sale';
-                const concept = isSale 
-                  ? `Pago de Orden #${payment.orderId?.orderNumber || 'N/A'}` 
-                  : payment.payableId?.description || 'N/A';
+                const concept = isSale
+                  ? `Pago de Orden #${payment.orderId?.orderNumber || 'N/A'}`
+                  : payment.payableId?.description
+                    ? `${payment.payableId.description} - ${payment.payableId.payeeName || ''}`
+                    : payment.payableId?.payeeName || 'N/A';
                 
                 return (
                   <TableRow key={payment._id}>
@@ -1054,7 +1058,9 @@ const PaymentHistory = () => {
               <p className="text-sm">
                 {selectedPayment.paymentType === 'sale'
                   ? `Pago de Orden #${selectedPayment.orderId?.orderNumber || 'N/A'}`
-                  : selectedPayment.payableId?.description || 'N/A'}
+                  : selectedPayment.payableId?.description
+                    ? `${selectedPayment.payableId.description} - ${selectedPayment.payableId.payeeName || ''}`
+                    : selectedPayment.payableId?.payeeName || 'N/A'}
               </p>
             </div>
 

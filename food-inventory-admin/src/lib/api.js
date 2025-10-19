@@ -114,6 +114,29 @@ export const uploadTenantLogo = (file) => {
   });
 };
 
+export const listKnowledgeBaseDocuments = () => {
+  return fetchApi('/knowledge-base/documents');
+};
+
+export const uploadKnowledgeBaseDocument = (file, source) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (source) {
+    formData.append('source', source);
+  }
+
+  return fetchApi('/knowledge-base/upload', {
+    method: 'POST',
+    body: formData,
+  });
+};
+
+export const deleteKnowledgeBaseDocument = (source) => {
+  return fetchApi(`/knowledge-base/documents/${encodeURIComponent(source)}`, {
+    method: 'DELETE',
+  });
+};
+
 export const getTenantUsers = () => {
   return fetchApi('/tenant/users');
 };

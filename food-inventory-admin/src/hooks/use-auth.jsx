@@ -34,6 +34,14 @@ function normalizeTenant(rawTenant) {
     aiAssistant: {
       autoReplyEnabled: Boolean(aiAssistant.autoReplyEnabled),
       knowledgeBaseTenantId: aiAssistant.knowledgeBaseTenantId || '',
+      model: aiAssistant.model || 'gpt-4o-mini',
+      capabilities: {
+        knowledgeBaseEnabled:
+          aiAssistant.capabilities?.knowledgeBaseEnabled !== false,
+        inventoryLookup: Boolean(aiAssistant.capabilities?.inventoryLookup),
+        schedulingLookup: Boolean(aiAssistant.capabilities?.schedulingLookup),
+        orderLookup: Boolean(aiAssistant.capabilities?.orderLookup),
+      },
     },
   };
 }
