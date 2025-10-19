@@ -1,49 +1,66 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Query, Get, Req, Param } from '@nestjs/common';
-import { ChatService } from './chat.service';
-import { WhapiSignatureGuard } from './guards/whapi-signature.guard';
-import { JwtAuthGuard } from '../guards/jwt-auth.guard';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+  Query,
+  Get,
+  Req,
+  Param,
+} from "@nestjs/common";
+import { ChatService } from "./chat.service";
+import { WhapiSignatureGuard } from "./guards/whapi-signature.guard";
+import { JwtAuthGuard } from "../guards/jwt-auth.guard";
 
-@Controller('chat')
+@Controller("chat")
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
-  @Get('qr-code')
+  @Get("qr-code")
   @UseGuards(JwtAuthGuard)
   async generateQrCode(@Req() req) {
     const tenantId = req.user.tenantId;
     return this.chatService.generateQrCode(tenantId);
   }
 
-  @Post('configure-webhook')
+  @Post("configure-webhook")
   @UseGuards(JwtAuthGuard)
   async configureWebhook(@Req() req) {
     const tenantId = req.user.tenantId;
     return this.chatService.configureWebhook(tenantId);
   }
 
-  @Get('conversations')
+  @Get("conversations")
   @UseGuards(JwtAuthGuard)
   async getConversations(@Req() req) {
     const tenantId = req.user.tenantId; // Extracted from JWT payload by the guard
     return this.chatService.getConversations(tenantId);
   }
 
-  @Get('conversations/:conversationId/messages')
+  @Get("conversations/:conversationId/messages")
   @UseGuards(JwtAuthGuard)
   async getMessages(
-    @Param('conversationId') conversationId: string,
+    @Param("conversationId") conversationId: string,
     @Req() req,
   ) {
     const tenantId = req.user.tenantId;
-    return this.chatService.getMessagesForConversation(conversationId, tenantId);
+    return this.chatService.getMessagesForConversation(
+      conversationId,
+      tenantId,
+    );
   }
 
-  @Post('whapi-webhook')
+  @Post("whapi-webhook")
   @HttpCode(HttpStatus.OK)
   @UseGuards(WhapiSignatureGuard)
-  handleWhapiWebhook(@Body() payload: any, @Query('tenantId') tenantId: string) {
+  handleWhapiWebhook(
+    @Body() payload: any,
+    @Query("tenantId") tenantId: string,
+  ) {
     // The guard has already validated the request
     this.chatService.handleIncomingMessage(payload, tenantId);
-    return { status: 'received' };
+    return { status: "received" };
   }
 }
