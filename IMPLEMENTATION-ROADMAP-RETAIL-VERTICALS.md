@@ -36,14 +36,14 @@ FASE 0: Descubrimiento y diseño de configuración (8-12 h)
                   └─> FASE 4: QA cruzado + documentación + enablement (12-16 h)
 ```
 
-### Estados iniciales (oct 2025)
+### Estado actual (oct 2025)
 | Fase | Estado | Notas |
 |------|--------|-------|
-| Fase 0 | ⏳ Pendiente | Necesario consolidar requisitos por vertical y definir matriz de atributos. |
-| Fase 1 | ⏳ Pendiente | Esquema `product.attributes` y `inventory.attributeMatrix` aún no creados. |
-| Fase 2 | ⏳ Pendiente | Falta selector de vertical en UI y hooks para personalizar formularios/listados. |
-| Fase 3 | ⏳ Pendiente | IA aún no expone detalles específicos (p.ej. tallas, SKU de tecnología). |
-| Fase 4 | ⏳ Pendiente | Sin manuales ni planes de activación por tenant. |
+| Fase 0 | ✅ Completada | Documentados los perfiles verticales iniciales y matriz de atributos (`docs/verticals/F0-vertical-profiles-discovery.md`). |
+| Fase 1 | ✅ Completada | Backend soporta `verticalProfile`, atributos dinámicos y órdenes con variantes/atributos. |
+| Fase 2 | ✅ Completada | Selector de vertical, formularios/listados condicionales y plantillas de importación/exportación adaptadas. |
+| Fase 3 | ✅ Completada | Dashboards, analytics e IA consumen atributos dinámicos; filtros/exports por atributo desplegados. |
+| Fase 4 | 🚧 En preparación | QA cruzado, documentación de enablement y plan de rollout pendiente. |
 
 ---
 
@@ -95,6 +95,17 @@ FASE 0: Descubrimiento y diseño de configuración (8-12 h)
    - Endpoints para listar verticales disponibles y permitir override por tenant.
 
 ### FASE 2 · Frontend (20-24 h)
+
+**Estado**: ✅ Completada (oct 2025)  
+**Entregables**:
+- `useVerticalConfig` y contexts consumiendo `verticalProfile` para condicionar UI.
+- Formularios/listados (Products, Inventory, Orders) renderizan atributos dinámicos y soportan import/export multi-vertical.
+- Dashboard muestra tablas de atributos y paneles condicionados por vertical.
+
+**Seguimiento**:
+- Monitorear UX feedback (especialmente matrices de atributos grandes).
+- Preparar guías breves para usuarios finales (se traslada a Fase 4).
+
 1. **Selector de vertical**
    - Mostrar en dashboard/config el perfil actual y permitir cambio (siempre con confirmación).
    - Cargar `verticalProfile` en context (`use-auth`/`TenantContext`).
@@ -111,6 +122,17 @@ FASE 0: Descubrimiento y diseño de configuración (8-12 h)
    - Wizard inicial para elegir vertical y cargar presets.
 
 ### FASE 3 · Integraciones y IA (16-20 h)
+
+**Estado**: ✅ Completada (oct 2025)  
+**Entregables**:
+- Analytics/reportes exponen métricas filtrables por atributos (inventario, ventas, rotación).
+- IA del asistente interpreta atributos verticales en consultas de stock.
+- Exportaciones CSV y vistas de órdenes incluyen atributos dinámicos para filtros/agrupaciones.
+
+**Seguimiento**:
+- Ajustar scripts de datos históricos si se detectan inconsistencias.
+- Documentar capacidades IA-vertical para equipos de soporte (parte de Fase 4).
+
 - IA: ampliar herramientas para consultar stock por atributo (p.ej. “talla 38”).
 - Reportes: vistas filtradas por vertical (ventas por talla, rotación por categoría).
 - Import/export: plantillas CSV diferentes por vertical (moda vs. tecnología).
@@ -128,14 +150,14 @@ FASE 0: Descubrimiento y diseño de configuración (8-12 h)
 
 | Ítem | Descripción | Fase | Estado |
 |------|-------------|------|--------|
-| `verticalProfiles` definidos | JSON/TypeScript con presets (alimentación, moda, etc.) | F0 | ⏳ |
-| Ampliar `tenant.schema` | Campo `verticalProfile` + seeds | F1 | ⏳ |
-| DTO condicionales | `product.dto.ts`, `inventory.dto.ts`, `order.dto.ts` | F1 | ⏳ |
-| Refactor services | Procesar atributos dinámicos | F1 | ⏳ |
-| UI adaptable productos | Form + listado condicionales | F2 | ⏳ |
-| UI adaptable inventario | Matriz atributos + alertas | F2 | ⏳ |
-| UI adaptable órdenes | Selección y resumen atributos | F2 | ⏳ |
-| Scripts de migración | Normalizar datos existentes | F3 | ⏳ |
+| `verticalProfiles` definidos | JSON/TypeScript con presets (alimentación, moda, etc.) | F0 | ✅ |
+| Ampliar `tenant.schema` | Campo `verticalProfile` + seeds | F1 | ✅ |
+| DTO condicionales | `product.dto.ts`, `inventory.dto.ts`, `order.dto.ts` | F1 | ✅ |
+| Refactor services | Procesar atributos dinámicos | F1 | ✅ |
+| UI adaptable productos | Form + listado condicionales | F2 | ✅ |
+| UI adaptable inventario | Matriz atributos + alertas | F2 | ✅ |
+| UI adaptable órdenes | Selección y resumen atributos | F2 | ✅ |
+| Scripts de migración | Normalizar datos existentes | F3 | 🚧 (definir alcance para datos legacy durante Fase 4) |
 | Tests y documentación | Cobertura + manuales | F4 | ⏳ |
 
 ---
@@ -192,4 +214,4 @@ FASE 0: Descubrimiento y diseño de configuración (8-12 h)
 
 ---
 
-> **Siguiente paso**: Completar Fase 0 recolectando requisitos detallados de cada vertical y definiendo `verticalProfiles` en código. A partir de esa definición se pueden crear issues/tickets por fase.
+> **Siguiente paso**: Iniciar Fase 4 – preparar plan de QA cruzado, documentación de enablement y estrategia de rollout por vertical (tickets vinculados a pruebas, manuales y scripts de migración opcionales).
