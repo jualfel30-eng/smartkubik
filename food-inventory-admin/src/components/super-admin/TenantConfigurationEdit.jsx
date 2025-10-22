@@ -6,8 +6,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, Settings, Shield, Sparkles } from 'lucide-react';
+import { ArrowLeft, Save, Settings, Shield, Sparkles, Building2 } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
@@ -17,6 +18,39 @@ const api = {
   patch: (url, data) => fetchApi(url, { method: 'PATCH', body: JSON.stringify(data) }),
   put: (url, data) => fetchApi(url, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (url) => fetchApi(url, { method: 'DELETE' }),
+};
+
+const BUSINESS_VERTICALS = {
+  FOOD_SERVICE: {
+    label: 'Restaurantes y Servicios de Comida',
+    description: 'Restaurantes, cafeterías, catering, food trucks',
+    icon: '🍽️',
+    recommendedModules: ['restaurant', 'tables', 'kitchenDisplay', 'menuEngineering', 'orders', 'inventory', 'customers']
+  },
+  RETAIL: {
+    label: 'Retail / Tiendas',
+    description: 'Tiendas minoristas, supermercados, comercios',
+    icon: '🏪',
+    recommendedModules: ['pos', 'variants', 'ecommerce', 'inventory', 'orders', 'customers']
+  },
+  SERVICES: {
+    label: 'Servicios Profesionales',
+    description: 'Salones de belleza, spas, consultorios, talleres',
+    icon: '💼',
+    recommendedModules: ['appointments', 'resources', 'booking', 'servicePackages', 'customers']
+  },
+  LOGISTICS: {
+    label: 'Logística y Distribución',
+    description: 'Empresas de transporte, distribuidoras, almacenes',
+    icon: '🚚',
+    recommendedModules: ['shipments', 'tracking', 'routes', 'fleet', 'warehousing', 'dispatch', 'inventory']
+  },
+  MIXED: {
+    label: 'Mixto / Personalizado',
+    description: 'Combinación de múltiples verticales',
+    icon: '🔧',
+    recommendedModules: []
+  }
 };
 
 const MODULE_GROUPS = {
@@ -116,6 +150,7 @@ export default function TenantConfigurationEdit() {
   const [rolePermissions, setRolePermissions] = useState({});
   const [presetDialogOpen, setPresetDialogOpen] = useState(false);
   const [selectedPresetRoles, setSelectedPresetRoles] = useState([]);
+  const [businessVertical, setBusinessVertical] = useState('MIXED');
 
   useEffect(() => {
     loadTenantConfiguration();
@@ -137,6 +172,7 @@ export default function TenantConfigurationEdit() {
       setSelectedPresetRoles(roles.map((role) => role._id));
       setAllPermissions(allPermissions);
       setEnabledModules(tenant.enabledModules || {});
+      setBusinessVertical(tenant.vertical || 'MIXED');
 
       // Initialize role permissions state
       const rolePerms = {};
@@ -177,6 +213,11 @@ export default function TenantConfigurationEdit() {
   const handleSave = async () => {
     try {
       setSaving(true);
+
+      // Update business vertical
+      await api.patch(`/super-admin/tenants/${tenantId}`, {
+        vertical: businessVertical
+      });
 
       // Update enabled modules
       await api.patch(`/super-admin/tenants/${tenantId}/modules`, {
@@ -297,6 +338,63 @@ export default function TenantConfigurationEdit() {
           {saving ? 'Guardando...' : 'Guardar Cambios'}
         </Button>
       </div>
+
+      {/* Business Vertical Selector */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Building2 className="h-5 w-5" />
+            <CardTitle>Vertical de Negocio</CardTitle>
+          </div>
+          <CardDescription>
+            Define el tipo de negocio para adaptar la experiencia y las características disponibles.
+            Solo el Super Admin puede modificar esto.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="business-vertical">Tipo de Negocio</Label>
+              <Select value={businessVertical} onValueChange={setBusinessVertical}>
+                <SelectTrigger id="business-vertical" className="w-full">
+                  <SelectValue placeholder="Seleccionar vertical" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(BUSINESS_VERTICALS).map(([key, vertical]) => (
+                    <SelectItem key={key} value={key}>
+                      <div className="flex items-center gap-2">
+                        <span>{vertical.icon}</span>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{vertical.label}</span>
+                          <span className="text-xs text-muted-foreground">{vertical.description}</span>
+                        </div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {businessVertical && BUSINESS_VERTICALS[businessVertical] && (
+              <div className="rounded-lg bg-muted p-4 space-y-2">
+                <p className="text-sm font-medium">Módulos recomendados para esta vertical:</p>
+                <div className="flex flex-wrap gap-2">
+                  {BUSINESS_VERTICALS[businessVertical].recommendedModules.map((module) => (
+                    <Badge key={module} variant={enabledModules[module] ? "default" : "outline"}>
+                      {MODULE_LABELS[module] || module}
+                    </Badge>
+                  ))}
+                </div>
+                {BUSINESS_VERTICALS[businessVertical].recommendedModules.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Los módulos resaltados están habilitados. Puedes activar/desactivar módulos individualmente abajo.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Quick Presets */}
       <Card>

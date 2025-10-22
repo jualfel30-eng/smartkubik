@@ -6,12 +6,20 @@ const EMPTY_SALES = {
   trend: [],
   categories: [],
   comparison: null,
+  attributes: {
+    schema: [],
+    combinations: [],
+  },
 };
 
 const EMPTY_INVENTORY = {
   status: [],
   movement: [],
   rotation: [],
+  attributes: {
+    schema: [],
+    combinations: [],
+  },
 };
 
 const EMPTY_ADVANCED = {
@@ -86,9 +94,29 @@ export function useDashboardCharts(period = '30d') {
           throw salesRes.reason || inventoryRes.reason;
         }
 
-        const salesData = salesRes.status === 'fulfilled' ? salesRes.value?.data : EMPTY_SALES;
-        const inventoryData =
-          inventoryRes.status === 'fulfilled' ? inventoryRes.value?.data : EMPTY_INVENTORY;
+        const salesPayload = salesRes.status === 'fulfilled' ? salesRes.value?.data : null;
+        const salesData = salesPayload
+          ? {
+              ...EMPTY_SALES,
+              ...salesPayload,
+              attributes: {
+                schema: salesPayload?.attributes?.schema ?? [],
+                combinations: salesPayload?.attributes?.combinations ?? [],
+              },
+            }
+          : EMPTY_SALES;
+        const inventoryPayload =
+          inventoryRes.status === 'fulfilled' ? inventoryRes.value?.data : null;
+        const inventoryData = inventoryPayload
+          ? {
+              ...EMPTY_INVENTORY,
+              ...inventoryPayload,
+              attributes: {
+                schema: inventoryPayload?.attributes?.schema ?? [],
+                combinations: inventoryPayload?.attributes?.combinations ?? [],
+              },
+            }
+          : EMPTY_INVENTORY;
         const performanceData =
           performanceRes.status === 'fulfilled' ? performanceRes.value?.data : [];
 
@@ -102,8 +130,8 @@ export function useDashboardCharts(period = '30d') {
             : [];
 
         setData({
-          sales: salesData ?? EMPTY_SALES,
-          inventory: inventoryData ?? EMPTY_INVENTORY,
+          sales: salesData,
+          inventory: inventoryData,
           advanced: {
             ...EMPTY_ADVANCED,
             employees: performanceData ?? [],

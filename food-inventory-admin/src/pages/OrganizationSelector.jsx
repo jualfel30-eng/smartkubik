@@ -53,7 +53,7 @@ const businessVerticals = [
 export default function OrganizationSelector() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, memberships, selectTenant, logout, activeMembershipId, tenant, getLastLocation } = useAuth();
+  const { user, memberships, selectTenant, logout, activeMembershipId, tenant, getLastLocation, token } = useAuth();
   const { theme } = useTheme();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [creationType, setCreationType] = useState('new-business'); // 'new-business' or 'new-location'
@@ -180,7 +180,10 @@ export default function OrganizationSelector() {
   const handleCreateOrganization = async () => {
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const tokenFromAuth = token || localStorage.getItem('accessToken');
+      if (!tokenFromAuth) {
+        throw new Error('No se encontró un token de autenticación. Inicia sesión nuevamente.');
+      }
 
       const payload = {
         name: formData.name,
@@ -202,7 +205,7 @@ export default function OrganizationSelector() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${tokenFromAuth}`,
         },
         body: JSON.stringify(payload),
       });

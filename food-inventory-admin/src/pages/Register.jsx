@@ -494,7 +494,7 @@ function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [completed, setCompleted] = useState(false);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loginWithTokens } = useAuth();
   const navigate = useNavigate();
 
   const handleNext = () => setStep((prev) => Math.min(prev + 1, stepConfig.length));
@@ -520,14 +520,22 @@ function Register() {
         body: JSON.stringify(payload),
         isPublic: true,
       });
+      await loginWithTokens(response);
+
       setCompleted(true);
-      navigate('/confirm-account', {
-        state: {
-          email: formData.email,
-          plan: formData.plan,
-          tenant: response?.tenant,
-        },
-      });
+
+      if (response?.tenant?.isConfirmed === false) {
+        navigate('/confirm-account', {
+          state: {
+            email: formData.email,
+            plan: formData.plan,
+            tenant: response?.tenant,
+          },
+        });
+        return;
+      }
+
+      navigate('/organizations');
     } catch (err) {
       setError(err.message || 'Ocurrió un error inesperado.');
     } finally {

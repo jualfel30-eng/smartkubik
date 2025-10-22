@@ -11,21 +11,59 @@ import { CheckCircle2, ShieldAlert } from 'lucide-react';
 function ConfirmAccount() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { tenant, user } = useAuth();
+  const { loginWithTokens, getLastLocation } = useAuth();
 
-  const initialEmail = location.state?.email || user?.email || '';
-  const initialPlan = location.state?.plan || tenant?.subscriptionPlan || '';
-  const tenantCode = location.state?.tenant?.code || tenant?.code || '';
+  // IMPORTANTE: NO usar el tenant/user del auth context, ya que podría ser de otra sesión
+  // Solo usar los datos que vienen del estado de navegación (del registro)
+  const tenantFromState = location.state?.tenant;
+  const emailFromState = location.state?.email;
+  const planFromState = location.state?.plan;
 
-  const [email] = useState(initialEmail);
+  const [email] = useState(emailFromState || '');
+  const [plan] = useState(planFromState || '');
   const [code, setCode] = useState('');
   const [isSubmitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
+  // Validar que tengamos los datos necesarios del registro
+  if (!emailFromState || !tenantFromState) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-muted/30 px-4 py-10">
+        <Card className="w-full max-w-md shadow-lg border border-destructive/30">
+          <CardHeader className="space-y-2 text-center">
+            <CardTitle className="text-2xl text-destructive">Error de Navegación</CardTitle>
+            <CardDescription>
+              No se pudo cargar la información del registro. Por favor, intenta registrarte nuevamente.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              onClick={() => navigate('/register')}
+              className="w-full"
+            >
+              Volver al registro
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const tenantId = tenantFromState.id || tenantFromState._id;
+  const tenantCode = tenantFromState.code;
+
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!code || !email || !tenantCode) {
+
+    console.log('🔐 [ConfirmAccount] Iniciando confirmación...');
+    console.log('🔐 [ConfirmAccount] Email:', email);
+    console.log('🔐 [ConfirmAccount] TenantId:', tenantId);
+    console.log('🔐 [ConfirmAccount] TenantCode:', tenantCode);
+    console.log('🔐 [ConfirmAccount] Code:', code);
+
+    if (!code || !email || (!tenantId && !tenantCode)) {
+      console.error('❌ [ConfirmAccount] Información incompleta');
       setError('Información incompleta para confirmar la cuenta.');
       return;
     }
@@ -33,18 +71,39 @@ function ConfirmAccount() {
     setError('');
 
     try {
-      await fetchApi('/onboarding/confirm', {
+      const payload = {
+        email,
+        confirmationCode: code,
+      };
+
+      if (tenantId) {
+        payload.tenantId = tenantId;
+      }
+
+      if (tenantCode) {
+        payload.tenantCode = tenantCode;
+      }
+
+      console.log('📤 [ConfirmAccount] Enviando payload:', payload);
+
+      const response = await fetchApi('/onboarding/confirm', {
         method: 'POST',
-        body: JSON.stringify({
-          email,
-          tenantCode,
-          confirmationCode: code,
-        }),
+        body: JSON.stringify(payload),
         isPublic: true,
       });
+
+      console.log('✅ [ConfirmAccount] Respuesta del servidor:', response);
+
       setSuccess(true);
-      setTimeout(() => navigate('/dashboard'), 1200);
+      await loginWithTokens(response);
+      const destination = typeof getLastLocation === 'function'
+        ? getLastLocation() || '/dashboard'
+        : '/dashboard';
+
+      console.log('🔄 [ConfirmAccount] Redirigiendo a:', destination);
+      setTimeout(() => navigate(destination), 1200);
     } catch (err) {
+      console.error('❌ [ConfirmAccount] Error:', err);
       setError(err.message || 'No fue posible confirmar la cuenta.');
     } finally {
       setSubmitting(false);
@@ -64,7 +123,7 @@ function ConfirmAccount() {
         <CardContent className="space-y-6">
           <div className="rounded-md border border-muted-foreground/20 bg-muted/20 p-3 text-sm text-muted-foreground">
             <p className="font-medium text-foreground">
-              Plan seleccionado: <span className="text-primary">{initialPlan || 'Sin plan'}</span>
+              Plan seleccionado: <span className="text-primary">{plan || 'Sin plan'}</span>
             </p>
             <p className="mt-1">
               Una vez confirmada la cuenta, podrás activar todos los módulos de tu plan y empezar a

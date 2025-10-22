@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -12,7 +12,10 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Checkbox } from '@/components/ui/checkbox.jsx';
+import { Switch } from '@/components/ui/switch.jsx';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip.jsx';
 import { fetchApi } from '../lib/api';
+import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
 import { 
   Plus, 
   Search, 
@@ -24,6 +27,23 @@ import {
   Download,
   Upload
 } from 'lucide-react';
+
+const UNASSIGNED_SELECT_VALUE = '__UNASSIGNED__';
+
+const createVariantTemplate = (options = {}) => {
+  const { name = '', unit = 'unidad' } = options;
+  return {
+    name,
+    sku: '',
+    barcode: '',
+    unit,
+    unitSize: 1,
+    basePrice: 0,
+    costPrice: 0,
+    images: [],
+    attributes: {},
+  };
+};
 
 const initialNewProductState = {
   sku: '',
@@ -42,6 +62,7 @@ const initialNewProductState = {
   unitOfMeasure: 'unidad',
   hasMultipleSellingUnits: false,
   sellingUnits: [],
+  attributes: {},
   inventoryConfig: {
     minimumStock: 10,
     maximumStock: 100,
@@ -52,15 +73,8 @@ const initialNewProductState = {
     fefoEnabled: true,
   },
   variant: {
-    name: 'Estándar',
-    sku: '',
-    barcode: '',
-    unit: 'unidad',
-    unitSize: 1,
-    basePrice: 0,
-    costPrice: 0,
-    images: []
-  }
+    ...createVariantTemplate({ name: 'Estándar' }),
+  },
 };
 
 function ProductsManagement() {
@@ -79,6 +93,7 @@ function ProductsManagement() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newProduct, setNewProduct] = useState(initialNewProductState);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [additionalVariants, setAdditionalVariants] = useState([]);
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -88,6 +103,67 @@ function ProductsManagement() {
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewData, setPreviewData] = useState([]);
   const [previewHeaders, setPreviewHeaders] = useState([]);
+  const verticalConfig = useVerticalConfig();
+  const productAttributes = useMemo(
+    () => (verticalConfig?.attributeSchema || []).filter((attr) => attr.scope === 'product'),
+    [verticalConfig],
+  );
+  const variantAttributes = useMemo(
+    () => (verticalConfig?.attributeSchema || []).filter((attr) => attr.scope === 'variant'),
+    [verticalConfig],
+  );
+  const unitOptions = useMemo(() => {
+    const defaults = Array.isArray(verticalConfig?.defaultUnits)
+      ? verticalConfig.defaultUnits
+      : [];
+    const fallback = ['unidad', 'kg', 'gramos', 'lb', 'litros', 'ml'];
+    const combined = [...defaults, ...fallback.filter((unit) => !defaults.includes(unit))];
+    return combined;
+  }, [verticalConfig]);
+
+  const placeholders = verticalConfig?.placeholders || {};
+  const getPlaceholder = useCallback(
+    (key, fallback) => (placeholders[key] && placeholders[key].trim() !== '' ? placeholders[key] : fallback),
+    [placeholders],
+  );
+
+  const productAttributeColumns = useMemo(
+    () =>
+      productAttributes.map((descriptor) => ({
+        descriptor,
+        header: `productAttr_${descriptor.key}`,
+      })),
+    [productAttributes],
+  );
+
+  const variantAttributeColumns = useMemo(
+    () =>
+      variantAttributes.map((descriptor) => ({
+        descriptor,
+        header: `variantAttr_${descriptor.key}`,
+      })),
+    [variantAttributes],
+  );
+
+  const dynamicAttributeLabels = useMemo(
+    () =>
+      [...productAttributeColumns, ...variantAttributeColumns].map(
+        ({ descriptor }) => descriptor.label || descriptor.key,
+      ),
+    [productAttributeColumns, variantAttributeColumns],
+  );
+  const hasDynamicTemplateColumns = dynamicAttributeLabels.length > 0;
+
+  const isNonFoodRetailVertical = useMemo(() => {
+    if (!verticalConfig) {
+      return false;
+    }
+    const baseVertical = verticalConfig.baseVertical;
+    const allowsWeight = verticalConfig.allowsWeight;
+    return baseVertical === 'RETAIL' && allowsWeight === false;
+  }, [verticalConfig]);
+
+  const ingredientLabel = isNonFoodRetailVertical ? 'Composición' : 'Ingredientes';
 
   const handleDragStart = (index) => {
     dragImageIndex.current = index;
@@ -124,12 +200,25 @@ function ProductsManagement() {
     dragImageIndex.current = null;
   };
 
-  useEffect(() => {
-    if (isAddDialogOpen) {
-      setNewProduct(initialNewProductState);
-      setSelectedImageIndex(0);
+useEffect(() => {
+  if (isAddDialogOpen) {
+    const baseProduct = JSON.parse(JSON.stringify(initialNewProductState));
+    const defaultUnit = unitOptions[0] || baseProduct.unitOfMeasure;
+    baseProduct.unitOfMeasure = defaultUnit;
+    baseProduct.variant.unit = defaultUnit;
+    baseProduct.attributes = {};
+    baseProduct.variant.attributes = {};
+    if (isNonFoodRetailVertical) {
+      baseProduct.isPerishable = false;
+      baseProduct.ivaApplicable = true;
+      baseProduct.hasMultipleSellingUnits = false;
+      baseProduct.isSoldByWeight = false;
     }
-  }, [isAddDialogOpen]);
+    setNewProduct(baseProduct);
+    setSelectedImageIndex(0);
+    setAdditionalVariants([]);
+  }
+}, [isAddDialogOpen, unitOptions, isNonFoodRetailVertical]);
 
   const loadProducts = useCallback(async (page = 1, limit = 25, status = 'all', search = '', category = 'all') => {
     try {
@@ -201,36 +290,432 @@ function ProductsManagement() {
 
   const categories = [...new Set(products.map(p => p.category))];
 
+  const normalizeAttributeValue = (attr, rawValue) => {
+    if (rawValue === UNASSIGNED_SELECT_VALUE) {
+      return null;
+    }
+    if (attr.type === 'boolean') {
+      if (rawValue === null || rawValue === undefined) {
+        return null;
+      }
+      return Boolean(rawValue);
+    }
+    if (attr.type === 'number') {
+      if (rawValue === '' || rawValue === null || rawValue === undefined) {
+        return null;
+      }
+      const parsed = Number(rawValue);
+      return Number.isNaN(parsed) ? null : parsed;
+    }
+    if (rawValue === '' || rawValue === null || rawValue === undefined) {
+      return null;
+    }
+    if (typeof rawValue === 'string') {
+      const trimmed = rawValue.trim();
+      return trimmed === '' ? null : trimmed;
+    }
+    return rawValue;
+  };
+
+  const formatAttributeValueForInput = (attr, value) => {
+    if (value === undefined || value === null) {
+      return attr.type === 'boolean' ? false : '';
+    }
+    if (attr.type === 'boolean') {
+      return Boolean(value);
+    }
+    return String(value);
+  };
+
+  const renderAttributeControl = (attr, storedValue, onValueChange) => {
+    if (attr.type === 'boolean') {
+      const boolValue = formatAttributeValueForInput(attr, storedValue);
+      return (
+        <div className="flex items-center space-x-2 rounded-md border px-3 py-2">
+          <Switch checked={boolValue} onCheckedChange={(checked) => onValueChange(checked)} />
+          <span className="text-xs text-muted-foreground">{boolValue ? 'Sí' : 'No'}</span>
+        </div>
+      );
+    }
+
+    if (attr.type === 'enum' && Array.isArray(attr.options) && attr.options.length > 0) {
+      const stringValue = formatAttributeValueForInput(attr, storedValue);
+      const selectValue = stringValue && stringValue !== '' ? stringValue : undefined;
+      const sanitizedOptions = attr.options
+        .filter((option) => option !== null && option !== undefined)
+        .map((option) => (typeof option === 'string' ? option : String(option)))
+        .filter((option) => option.trim() !== '');
+      return (
+        <Select
+          value={selectValue}
+          onValueChange={(val) =>
+            onValueChange(val === UNASSIGNED_SELECT_VALUE ? null : val)
+          }
+        >
+          <SelectTrigger>
+            <SelectValue placeholder={`Selecciona ${attr.label.toLowerCase()}`} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={UNASSIGNED_SELECT_VALUE}>Sin asignar</SelectItem>
+            {sanitizedOptions.map((option) => (
+              <SelectItem key={option} value={option}>
+                {option}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    if (attr.ui?.widget === 'textarea') {
+      const textValue = formatAttributeValueForInput(attr, storedValue);
+      return (
+        <Textarea
+          value={textValue}
+          onChange={(event) => onValueChange(event.target.value)}
+          placeholder={attr.ui?.helperText || ''}
+        />
+      );
+    }
+
+    const inputType = attr.type === 'number' ? 'number' : 'text';
+    const inputValue = formatAttributeValueForInput(attr, storedValue);
+    return (
+      <Input
+        type={inputType}
+        value={inputValue}
+        onChange={(event) => onValueChange(event.target.value)}
+        placeholder={attr.ui?.helperText || ''}
+      />
+    );
+  };
+
+  const handleProductAttributeChange = (attr, rawValue) => {
+    const normalized = normalizeAttributeValue(attr, rawValue);
+    setNewProduct((prev) => {
+      const nextAttributes = { ...(prev.attributes || {}) };
+      if (normalized === null) {
+        delete nextAttributes[attr.key];
+      } else {
+        nextAttributes[attr.key] = normalized;
+      }
+      return { ...prev, attributes: nextAttributes };
+    });
+  };
+
+  const handleVariantAttributeChange = (attr, rawValue) => {
+    const normalized = normalizeAttributeValue(attr, rawValue);
+    setNewProduct((prev) => {
+      const nextVariant = {
+        ...(prev.variant || {}),
+        attributes: { ...(prev.variant?.attributes || {}) },
+      };
+      if (normalized === null) {
+        delete nextVariant.attributes[attr.key];
+      } else {
+        nextVariant.attributes[attr.key] = normalized;
+      }
+      return { ...prev, variant: nextVariant };
+    });
+  };
+
+  const addAdditionalVariant = () => {
+    setAdditionalVariants((prev) => {
+      const nextIndex = prev.length + 2;
+      const defaultSkuPrefix = newProduct.sku ? `${newProduct.sku}-VAR${nextIndex}` : '';
+      const defaultUnit = newProduct.unitOfMeasure || 'unidad';
+      return [
+        ...prev,
+        {
+          ...createVariantTemplate({ name: '', unit: defaultUnit }),
+          sku: defaultSkuPrefix,
+        },
+      ];
+    });
+  };
+
+  const updateAdditionalVariantField = (index, field, value) => {
+    setAdditionalVariants((prev) => {
+      const next = [...prev];
+      if (!next[index]) {
+        return prev;
+      }
+      let nextValue = value;
+      if (field === 'unitSize') {
+        const parsed = parseFloat(value);
+        nextValue = Number.isNaN(parsed) ? 0 : parsed;
+      }
+      if (field === 'costPrice' || field === 'basePrice') {
+        const parsed = parseFloat(value);
+        nextValue = Number.isNaN(parsed) ? 0 : parsed;
+      }
+      next[index] = { ...next[index], [field]: nextValue };
+      return next;
+    });
+  };
+
+  const handleAdditionalVariantAttributeChange = (variantIndex, attr, rawValue) => {
+    const normalized = normalizeAttributeValue(attr, rawValue);
+    setAdditionalVariants((prev) => {
+      const next = [...prev];
+      const current = next[variantIndex];
+      if (!current) {
+        return prev;
+      }
+      const attributes = { ...(current.attributes || {}) };
+      if (normalized === null) {
+        delete attributes[attr.key];
+      } else {
+        attributes[attr.key] = normalized;
+      }
+      next[variantIndex] = { ...current, attributes };
+      return next;
+    });
+  };
+
+  const removeAdditionalVariant = (index) => {
+    setAdditionalVariants((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const updateEditingVariant = useCallback((index, updater) => {
+    setEditingProduct((prev) => {
+      if (!prev || !Array.isArray(prev.variants) || !prev.variants[index]) {
+        return prev;
+      }
+      const nextVariants = prev.variants.map((variant, idx) =>
+        idx === index ? updater({ ...variant }) : variant,
+      );
+      return { ...prev, variants: nextVariants };
+    });
+  }, []);
+
+  const addEditingVariant = () => {
+    setEditingProduct((prev) => {
+      if (!prev) return prev;
+      const nextVariant = {
+        ...createVariantTemplate({
+          name: `Variante ${prev.variants.length + 1}`,
+          unit: prev.unitOfMeasure || 'unidad',
+        }),
+      };
+      return {
+        ...prev,
+        variants: [...(prev.variants || []), nextVariant],
+      };
+    });
+  };
+
+  const removeEditingVariant = (index) => {
+    setEditingProduct((prev) => {
+      if (!prev || !Array.isArray(prev.variants) || prev.variants.length <= 1) {
+        return prev;
+      }
+      const nextVariants = prev.variants.filter((_, idx) => idx !== index);
+      return { ...prev, variants: nextVariants };
+    });
+  };
+
+  const handleEditVariantFieldChange = (index, field, value) => {
+    updateEditingVariant(index, (variant) => {
+      let nextValue = value;
+      if (field === 'unitSize') {
+        const parsed = parseFloat(value);
+        nextValue = Number.isNaN(parsed) ? 0 : parsed;
+      }
+      if (field === 'basePrice' || field === 'costPrice') {
+        const parsed = parseFloat(value);
+        nextValue = Number.isNaN(parsed) ? 0 : parsed;
+      }
+      if (field === 'name' || field === 'sku' || field === 'barcode' || field === 'unit') {
+        nextValue = typeof value === 'string' ? value : '';
+      }
+      return {
+        ...variant,
+        [field]: nextValue,
+      };
+    });
+  };
+
+  const handleEditProductAttributeChange = (attr, rawValue) => {
+    const normalized = normalizeAttributeValue(attr, rawValue);
+    setEditingProduct((prev) => {
+      if (!prev) return prev;
+      const nextAttributes = { ...(prev.attributes || {}) };
+      if (normalized === null) {
+        delete nextAttributes[attr.key];
+      } else {
+        nextAttributes[attr.key] = normalized;
+      }
+      return { ...prev, attributes: nextAttributes };
+    });
+  };
+
+  const handleEditVariantAttributeChange = (variantIndex, attr, rawValue) => {
+    const normalized = normalizeAttributeValue(attr, rawValue);
+    updateEditingVariant(variantIndex, (variant) => {
+      const nextAttributes = { ...(variant.attributes || {}) };
+      if (normalized === null) {
+        delete nextAttributes[attr.key];
+      } else {
+        nextAttributes[attr.key] = normalized;
+      }
+      return { ...variant, attributes: nextAttributes };
+    });
+  };
+
+  const serializeAttributes = (attributes, schema) => {
+    if (!attributes || !schema || schema.length === 0) {
+      return undefined;
+    }
+
+    const result = {};
+    schema.forEach((attr) => {
+      if (!Object.prototype.hasOwnProperty.call(attributes, attr.key)) {
+        return;
+      }
+      const value = attributes[attr.key];
+      if (value === null || value === undefined || value === '') {
+        return;
+      }
+      if (attr.type === 'number') {
+        const parsed = typeof value === 'number' ? value : Number(value);
+        if (!Number.isNaN(parsed)) {
+          result[attr.key] = parsed;
+        }
+        return;
+      }
+      if (attr.type === 'boolean') {
+        result[attr.key] = Boolean(value);
+        return;
+      }
+      result[attr.key] = value;
+    });
+
+    return Object.keys(result).length > 0 ? result : undefined;
+  };
+
   const handleAddProduct = async () => {
+    const productAttributesPayload = serializeAttributes(
+      newProduct.attributes,
+      productAttributes,
+    );
+
+    const buildVariantPayload = (variant, position) => {
+      if (!variant) {
+        return null;
+      }
+      const attributesPayload = serializeAttributes(
+        variant.attributes,
+        variantAttributes,
+      );
+
+      const trimmedSku =
+        variant.sku && typeof variant.sku === 'string' && variant.sku.trim().length > 0
+          ? variant.sku.trim()
+          : `${newProduct.sku}-VAR${position}`;
+
+      const normalizedVariant = {
+        ...variant,
+        sku: trimmedSku,
+        unit: variant.unit || newProduct.unitOfMeasure || 'unidad',
+        unitSize: Number(variant.unitSize) || 1,
+        costPrice: Number(variant.costPrice) || 0,
+        basePrice: Number(variant.basePrice) || 0,
+        images: Array.isArray(variant.images) ? variant.images : [],
+      };
+
+      if (attributesPayload) {
+        normalizedVariant.attributes = attributesPayload;
+      } else {
+        delete normalizedVariant.attributes;
+      }
+
+      return normalizedVariant;
+    };
+
+    const primaryVariantPayload = buildVariantPayload(newProduct.variant, 1);
+
+    const extraVariantsPayload = additionalVariants
+      .map((variant, index) => buildVariantPayload(variant, index + 2))
+      .filter(Boolean);
+
     const payload = {
       ...newProduct,
-      variants: [{
-        ...newProduct.variant,
-        sku: `${newProduct.sku}-VAR1`,
-      }],
-      pricingRules: { cashDiscount: 0, cardSurcharge: 0, minimumMargin: 0.2, maximumDiscount: 0.5 },
+      attributes: productAttributesPayload,
+      variants: [
+        primaryVariantPayload,
+        ...extraVariantsPayload,
+      ].filter(Boolean),
+      pricingRules: {
+        cashDiscount: 0,
+        cardSurcharge: 0,
+        minimumMargin: 0.2,
+        maximumDiscount: 0.5,
+      },
       igtfExempt: false,
       hasMultipleSellingUnits: newProduct.hasMultipleSellingUnits,
       sellingUnits: newProduct.hasMultipleSellingUnits ? newProduct.sellingUnits : [],
     };
+
     if (!payload.isPerishable) {
       delete payload.shelfLifeDays;
       delete payload.storageTemperature;
     }
+
+    if (!productAttributesPayload) {
+      delete payload.attributes;
+    }
+
     delete payload.variant;
+
+    if (!payload.hasMultipleSellingUnits) {
+      payload.sellingUnits = [];
+    }
 
     try {
       await fetchApi('/products', { method: 'POST', body: JSON.stringify(payload) });
       document.dispatchEvent(new CustomEvent('product-form-success'));
       setIsAddDialogOpen(false);
+      setAdditionalVariants([]);
       loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory);
     } catch (err) {
-      alert(`Error: ${err.message}`);
+      const errorMessage =
+        typeof err?.message === 'string' && err.message.includes('duplicate key')
+          ? 'Ya existe un producto con este SKU. Por favor utiliza un SKU diferente.'
+          : err?.message || 'Ocurrió un error inesperado al crear el producto.';
+      alert(`Error: ${errorMessage}`);
     }
   };
 
   const handleUpdateProduct = async () => {
     if (!editingProduct) return;
+
+    const productAttributesPayload = serializeAttributes(
+      editingProduct.attributes,
+      productAttributes,
+    );
+    const sanitizedVariants = (editingProduct.variants || []).map((variant) => {
+      const sanitizedAttributes = serializeAttributes(variant.attributes, variantAttributes);
+      const trimmedSku =
+        variant.sku && typeof variant.sku === 'string' ? variant.sku.trim() : variant.sku;
+      const nextVariant = {
+        ...variant,
+        sku: trimmedSku,
+        unit: variant.unit || editingProduct.unitOfMeasure || 'unidad',
+        unitSize: Number(variant.unitSize) || 1,
+        costPrice: Number(variant.costPrice) || 0,
+        basePrice: Number(variant.basePrice) || 0,
+        images: Array.isArray(variant.images) ? variant.images : [],
+      };
+      if (sanitizedAttributes !== undefined) {
+        nextVariant.attributes = sanitizedAttributes;
+      } else if (variant.attributes && Object.keys(variant.attributes).length === 0) {
+        nextVariant.attributes = {};
+      } else {
+        delete nextVariant.attributes;
+      }
+      return nextVariant;
+    });
 
     const payload = {
       name: editingProduct.name,
@@ -245,8 +730,14 @@ function ProductsManagement() {
       hasMultipleSellingUnits: editingProduct.hasMultipleSellingUnits,
       sellingUnits: editingProduct.hasMultipleSellingUnits ? editingProduct.sellingUnits : [],
       ivaApplicable: editingProduct.ivaApplicable,
-      variants: editingProduct.variants,
+      variants: sanitizedVariants,
     };
+
+    if (productAttributesPayload !== undefined) {
+      payload.attributes = productAttributesPayload;
+    } else if (editingProduct.attributes && Object.keys(editingProduct.attributes).length === 0) {
+      payload.attributes = {};
+    }
 
     try {
       await fetchApi(`/products/${editingProduct._id}`, {
@@ -308,51 +799,157 @@ function ProductsManagement() {
     });
   };
 
-  const handleEditImageUpload = (e) => {
-    const files = Array.from(e.target.files);
-    const currentImages = editingProduct.variants[0].images || [];
-    if (currentImages.length + files.length > 3) {
-      alert("Puedes subir un máximo de 3 imágenes.");
+  const handleEditImageUpload = (variantIndex, e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) {
       return;
     }
-    const newImages = files.map(file => URL.createObjectURL(file));
-    setEditingProduct({
-      ...editingProduct,
-      variants: [
-        {
-          ...editingProduct.variants[0],
-          images: [...currentImages, ...newImages]
-        },
-        ...editingProduct.variants.slice(1)
-      ]
+
+    updateEditingVariant(variantIndex, (variant) => {
+      const currentImages = Array.isArray(variant.images) ? variant.images : [];
+      if (currentImages.length + files.length > 3) {
+        alert("Puedes subir un máximo de 3 imágenes.");
+        return variant;
+      }
+      const newImages = files.map((file) => URL.createObjectURL(file));
+      return {
+        ...variant,
+        images: [...currentImages, ...newImages],
+      };
     });
   };
 
-  const handleEditRemoveImage = (index) => {
-    const updatedImages = [...editingProduct.variants[0].images];
-    updatedImages.splice(index, 1);
-    setEditingProduct({
-      ...editingProduct,
-      variants: [
-        {
-          ...editingProduct.variants[0],
-          images: updatedImages
-        },
-        ...editingProduct.variants.slice(1)
-      ]
+  const handleEditRemoveImage = (variantIndex, imageIndex) => {
+    updateEditingVariant(variantIndex, (variant) => {
+      const currentImages = Array.isArray(variant.images) ? [...variant.images] : [];
+      if (imageIndex < 0 || imageIndex >= currentImages.length) {
+        return variant;
+      }
+      currentImages.splice(imageIndex, 1);
+      return {
+        ...variant,
+        images: currentImages,
+      };
     });
   };
 
   const handleDownloadTemplate = () => {
-    const headers = ["sku", "name", "category", "subcategory", "brand", "unitOfMeasure", "isSoldByWeight", "description", "ingredients", "isPerishable", "shelfLifeDays", "storageTemperature", "ivaApplicable", "taxCategory", "minimumStock", "maximumStock", "reorderPoint", "reorderQuantity", "variantName", "variantSku", "variantBarcode", "variantUnit", "variantUnitSize", "variantBasePrice", "variantCostPrice", "image1", "image2", "image3"];
-    const exampleData = [
-      ["SKU-001", "Arroz Blanco 1kg", "Granos", "Arroz", "MarcaA", "unidad", false, "Arroz de grano largo", "Arroz", false, 365, "ambiente", true, "general", 10, 100, 20, 50, "Bolsa 1kg", "SKU-001-1KG", "7591234567890", "kg", 1, 1.50, 0.80, "https://example.com/arroz.jpg", "", ""],
-      ["SKU-002", "Leche Entera 1L", "Lácteos", "Leche", "MarcaB", "unidad", false, "Leche pasteurizada", "Leche de vaca", true, 15, "refrigerado", true, "general", 20, 200, 30, 100, "Caja 1L", "SKU-002-1L", "7591234567891", "litro", 1, 2.20, 1.50, "https://example.com/leche.jpg", "", ""],
-      ["SKU-003", "Pan de Molde", "Panadería", "Pan", "MarcaC", "unidad", false, "Pan blanco tajado", "Harina, agua, levadura, sal", true, 7, "ambiente", true, "general", 15, 150, 25, 75, "Paquete 500g", "SKU-003-500G", "7591234567892", "g", 500, 3.00, 1.80, "https://example.com/pan.jpg", "", ""],
-      ["SKU-004", "Pollo Congelado", "Carnes", "Aves", "MarcaD", "kg", true, "Pollo entero congelado", "Pollo", true, 180, "congelado", false, "general", 5, 50, 10, 25, "Pollo Entero", "SKU-004-UN", "7591234567893", "kg", 1, 5.50, 3.50, "https://example.com/pollo.jpg", "", ""]
+    const baseHeaders = [
+      "sku",
+      "name",
+      "category",
+      "subcategory",
+      "brand",
+      "unitOfMeasure",
+      "isSoldByWeight",
+      "description",
+      "ingredients",
+      "isPerishable",
+      "shelfLifeDays",
+      "storageTemperature",
+      "ivaApplicable",
+      "taxCategory",
+      "minimumStock",
+      "maximumStock",
+      "reorderPoint",
+      "reorderQuantity",
+      "variantName",
+      "variantSku",
+      "variantBarcode",
+      "variantUnit",
+      "variantUnitSize",
+      "variantBasePrice",
+      "variantCostPrice",
+      "image1",
+      "image2",
+      "image3",
     ];
-    const data = [headers, ...exampleData];
-    const ws = XLSX.utils.aoa_to_sheet(data);
+    const attributeHeaders = [
+      ...productAttributeColumns.map((column) => column.header),
+      ...variantAttributeColumns.map((column) => column.header),
+    ];
+    const headers = [...baseHeaders, ...attributeHeaders];
+
+    const fillAttributes = (row, samples = {}) => {
+      productAttributeColumns.forEach(({ header, descriptor }) => {
+        row[header] =
+          samples.product?.[descriptor.key] ??
+          "";
+      });
+      variantAttributeColumns.forEach(({ header, descriptor }) => {
+        row[header] =
+          samples.variant?.[descriptor.key] ??
+          "";
+      });
+      return row;
+    };
+
+    const exampleRows = [
+      fillAttributes(
+        {
+          sku: "SKU-001",
+          name: "Arroz Blanco 1kg",
+          category: "Granos",
+          subcategory: "Arroz",
+          brand: "MarcaA",
+          unitOfMeasure: "unidad",
+          isSoldByWeight: false,
+          description: "Arroz de grano largo",
+          ingredients: "Arroz",
+          isPerishable: false,
+          shelfLifeDays: 365,
+          storageTemperature: "ambiente",
+          ivaApplicable: true,
+          taxCategory: "general",
+          minimumStock: 10,
+          maximumStock: 100,
+          reorderPoint: 20,
+          reorderQuantity: 50,
+          variantName: "Bolsa 1kg",
+          variantSku: "SKU-001-1KG",
+          variantBarcode: "7591234567890",
+          variantUnit: "kg",
+          variantUnitSize: 1,
+          variantBasePrice: 1.5,
+          variantCostPrice: 0.8,
+          image1: "https://example.com/arroz.jpg",
+        },
+      ),
+      fillAttributes({
+        sku: "SKU-002",
+        name: "Leche Entera 1L",
+        category: "Lácteos",
+        subcategory: "Leche",
+        brand: "MarcaB",
+        unitOfMeasure: "unidad",
+        isSoldByWeight: false,
+        description: "Leche pasteurizada",
+        ingredients: "Leche de vaca",
+        isPerishable: true,
+        shelfLifeDays: 15,
+        storageTemperature: "refrigerado",
+        ivaApplicable: true,
+        taxCategory: "general",
+        minimumStock: 20,
+        maximumStock: 200,
+        reorderPoint: 30,
+        reorderQuantity: 100,
+        variantName: "Caja 1L",
+        variantSku: "SKU-002-1L",
+        variantBarcode: "7591234567891",
+        variantUnit: "litro",
+        variantUnitSize: 1,
+        variantBasePrice: 2.2,
+        variantCostPrice: 1.5,
+        image1: "https://example.com/leche.jpg",
+      }),
+    ];
+
+    const sheetData = [
+      headers,
+      ...exampleRows.map((row) => headers.map((header) => row[header] ?? "")),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Plantilla de Productos");
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
@@ -379,7 +976,18 @@ function ProductsManagement() {
         // Validar que las cabeceras existan
         const headers = Object.keys(json[0]);
         const requiredHeaders = ["sku", "name", "category", "variantName", "variantUnit", "variantUnitSize", "variantBasePrice", "variantCostPrice"];
-        const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+        const requiredAttributeHeaders = [
+          ...productAttributeColumns
+            .filter(({ descriptor }) => descriptor.required)
+            .map(({ header }) => header),
+          ...variantAttributeColumns
+            .filter(({ descriptor }) => descriptor.required)
+            .map(({ header }) => header),
+        ];
+
+        const missingHeaders = [...requiredHeaders, ...requiredAttributeHeaders].filter(
+          (h) => !headers.includes(h),
+        );
 
         if (missingHeaders.length > 0) {
           throw new Error(`El archivo no contiene las siguientes columnas obligatorias: ${missingHeaders.join(', ')}`);
@@ -392,14 +1000,47 @@ function ProductsManagement() {
       } catch (err) {
         alert(`Error al procesar el archivo: ${err.message}`);
       }
-    };
+  };
     reader.readAsBinaryString(file);
     e.target.value = null; // Reset file input
   };
 
   const handleConfirmImport = async () => {
+    const normalizedProducts = previewData.map((row) => {
+      const productAttributesPayload = {};
+      const variantAttributesPayload = {};
+      const normalizedRow = { ...row };
+
+      Object.entries(row).forEach(([key, value]) => {
+        if (key.startsWith('productAttr_')) {
+          const attrKey = key.replace('productAttr_', '').trim();
+          delete normalizedRow[key];
+          if (attrKey && value !== undefined && value !== null && String(value).trim() !== '') {
+            productAttributesPayload[attrKey] =
+              typeof value === 'string' ? value.trim() : value;
+          }
+        } else if (key.startsWith('variantAttr_')) {
+          const attrKey = key.replace('variantAttr_', '').trim();
+          delete normalizedRow[key];
+          if (attrKey && value !== undefined && value !== null && String(value).trim() !== '') {
+            variantAttributesPayload[attrKey] =
+              typeof value === 'string' ? value.trim() : value;
+          }
+        }
+      });
+
+      if (Object.keys(productAttributesPayload).length > 0) {
+        normalizedRow.productAttributes = productAttributesPayload;
+      }
+      if (Object.keys(variantAttributesPayload).length > 0) {
+        normalizedRow.variantAttributes = variantAttributesPayload;
+      }
+
+      return normalizedRow;
+    });
+
     const payload = {
-      products: previewData,
+      products: normalizedProducts,
     };
 
     try {
@@ -418,19 +1059,41 @@ function ProductsManagement() {
   };
 
   const handleExportExcel = () => {
-    const dataToExport = filteredProducts.map(p => ({
-      SKU: p.sku,
-      Nombre: p.name,
-      Categoría: p.category,
-      Subcategoría: p.subcategory,
-      Marca: p.brand,
-      Descripción: p.description,
-      'Vendible por Peso': p.isSoldByWeight ? 'Sí' : 'No',
-      'Unidad de Medida': p.unitOfMeasure,
-      'Variante Nombre': p.variants[0]?.name,
-      'Variante Precio Costo': p.variants[0]?.costPrice,
-      'Variante Precio Venta': p.variants[0]?.basePrice,
-    }));
+    const dataToExport = filteredProducts.map((p) => {
+      const variant = p.variants?.[0] || {};
+      const row = {
+        SKU: p.sku,
+        Nombre: p.name,
+        Categoría: p.category,
+        Subcategoría: p.subcategory,
+        Marca: p.brand,
+        Descripción: p.description,
+        'Vendible por Peso': p.isSoldByWeight ? 'Sí' : 'No',
+        'Unidad de Medida': p.unitOfMeasure,
+        'Variante Nombre': variant?.name,
+        'Variante SKU': variant?.sku,
+        'Variante Precio Costo': variant?.costPrice,
+        'Variante Precio Venta': variant?.basePrice,
+      };
+
+      productAttributeColumns.forEach(({ descriptor }) => {
+        const headerLabel = descriptor.label
+          ? `Atributo Producto (${descriptor.key}) - ${descriptor.label}`
+          : `Atributo Producto (${descriptor.key})`;
+        row[headerLabel] = (p.attributes && p.attributes[descriptor.key]) ?? '';
+      });
+
+      variantAttributeColumns.forEach(({ descriptor }) => {
+        const headerLabel = descriptor.label
+          ? `Atributo Variante (${descriptor.key}) - ${descriptor.label}`
+          : `Atributo Variante (${descriptor.key})`;
+        const variantAttrs =
+          (variant && variant.attributes) || {};
+        row[headerLabel] = variantAttrs[descriptor.key] ?? '';
+      });
+
+      return row;
+    });
 
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const wb = XLSX.utils.book_new();
@@ -440,19 +1103,41 @@ function ProductsManagement() {
   };
 
   const handleExportCsv = () => {
-    const dataToExport = filteredProducts.map(p => ({
-      SKU: p.sku,
-      Nombre: p.name,
-      Categoría: p.category,
-      Subcategoría: p.subcategory,
-      Marca: p.brand,
-      Descripción: p.description,
-      'Vendible por Peso': p.isSoldByWeight ? 'Sí' : 'No',
-      'Unidad de Medida': p.unitOfMeasure,
-      'Variante Nombre': p.variants[0]?.name,
-      'Variante Precio Costo': p.variants[0]?.costPrice,
-      'Variante Precio Venta': p.variants[0]?.basePrice,
-    }));
+    const dataToExport = filteredProducts.map((p) => {
+      const variant = p.variants?.[0] || {};
+      const row = {
+        SKU: p.sku,
+        Nombre: p.name,
+        Categoría: p.category,
+        Subcategoría: p.subcategory,
+        Marca: p.brand,
+        Descripción: p.description,
+        'Vendible por Peso': p.isSoldByWeight ? 'Sí' : 'No',
+        'Unidad de Medida': p.unitOfMeasure,
+        'Variante Nombre': variant?.name,
+        'Variante SKU': variant?.sku,
+        'Variante Precio Costo': variant?.costPrice,
+        'Variante Precio Venta': variant?.basePrice,
+      };
+
+      productAttributeColumns.forEach(({ descriptor }) => {
+        const headerLabel = descriptor.label
+          ? `Atributo Producto (${descriptor.key}) - ${descriptor.label}`
+          : `Atributo Producto (${descriptor.key})`;
+        row[headerLabel] = (p.attributes && p.attributes[descriptor.key]) ?? '';
+      });
+
+      variantAttributeColumns.forEach(({ descriptor }) => {
+        const headerLabel = descriptor.label
+          ? `Atributo Variante (${descriptor.key}) - ${descriptor.label}`
+          : `Atributo Variante (${descriptor.key})`;
+        const variantAttrs =
+          (variant && variant.attributes) || {};
+        row[headerLabel] = variantAttrs[descriptor.key] ?? '';
+      });
+
+      return row;
+    });
 
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const csv = XLSX.utils.sheet_to_csv(ws);
@@ -471,9 +1156,25 @@ function ProductsManagement() {
                 <Button variant="outline">Acciones en Lote</Button>
               </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem onSelect={handleDownloadTemplate}>
-                Descargar Plantilla
-              </DropdownMenuItem>
+              {hasDynamicTemplateColumns ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuItem onSelect={handleDownloadTemplate}>
+                      Descargar Plantilla
+                    </DropdownMenuItem>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" align="start" className="max-w-xs text-left space-y-1">
+                    <p className="font-semibold">Plantilla adaptada a la vertical</p>
+                    <p>
+                      Incluye columnas <code>VariantSKU</code> y <code>{'productAttr_{clave}'}</code> / <code>{'variantAttr_{clave}'}</code> para los atributos configurados: {dynamicAttributeLabels.join(', ')}. Los nombres deben coincidir con la configuración del producto/variante.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <DropdownMenuItem onSelect={handleDownloadTemplate}>
+                  Descargar Plantilla
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onSelect={() => document.getElementById('bulk-upload-input').click()}>
                 Importar
               </DropdownMenuItem>
@@ -572,19 +1273,44 @@ function ProductsManagement() {
                   <div className="md:col-span-2 space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="name">Nombre del Producto</Label>
-                      <Input id="name" value={newProduct.name} onChange={(e) => setNewProduct({...newProduct, name: e.target.value})} placeholder="Ej: Arroz Blanco" />
+                    <Input
+                      id="name"
+                      value={newProduct.name}
+                      onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                      placeholder={getPlaceholder('productName', 'Ej: Arroz Blanco')}
+                    />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="brand">Marca</Label>
-                      <Input id="brand" value={newProduct.brand} onChange={(e) => setNewProduct({...newProduct, brand: e.target.value})} placeholder="Ej: Diana" />
+                    <Input
+                      id="brand"
+                      value={newProduct.brand}
+                      onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })}
+                      placeholder={getPlaceholder('brand', 'Ej: Diana')}
+                    />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="sku">SKU Principal</Label>
-                      <Input id="sku" value={newProduct.sku} onChange={(e) => setNewProduct({...newProduct, sku: e.target.value})} placeholder="EJ: ARR-BLANCO" />
+                    <Input
+                      id="sku"
+                      value={newProduct.sku}
+                      onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })}
+                      placeholder={getPlaceholder('sku', 'Ej: ARR-BLANCO')}
+                    />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="barcode">Código de Barras (UPC) (Opcional)</Label>
-                      <Input id="barcode" value={newProduct.variant.barcode} onChange={(e) => setNewProduct({...newProduct, variant: {...newProduct.variant, barcode: e.target.value}})} placeholder="Ej: 7591234567890" />
+                    <Input
+                      id="barcode"
+                      value={newProduct.variant.barcode}
+                      onChange={(e) =>
+                        setNewProduct({
+                          ...newProduct,
+                          variant: { ...newProduct.variant, barcode: e.target.value },
+                        })
+                      }
+                      placeholder={getPlaceholder('barcode', 'Ej: 7591234567890')}
+                    />
                     </div>
                   </div>
                 </div>
@@ -592,51 +1318,125 @@ function ProductsManagement() {
                 <div className="grid grid-cols-2 gap-x-6 gap-y-4 pt-6 border-t">
                   <div className="space-y-2">
                     <Label htmlFor="category">Categoría</Label>
-                    <Input id="category" value={newProduct.category} onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })} placeholder="Ej: Bebidas" />
+                    <Input
+                      id="category"
+                      value={newProduct.category}
+                      onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                      placeholder={getPlaceholder('category', 'Ej: Bebidas')}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="subcategory">Sub-categoría</Label>
-                    <Input id="subcategory" value={newProduct.subcategory} onChange={(e) => setNewProduct({ ...newProduct, subcategory: e.target.value })} placeholder="Ej: Gaseosas" />
+                    <Input
+                      id="subcategory"
+                      value={newProduct.subcategory}
+                      onChange={(e) => setNewProduct({ ...newProduct, subcategory: e.target.value })}
+                      placeholder={getPlaceholder('subcategory', 'Ej: Gaseosas')}
+                    />
                   </div>
                   
                   <div className="col-span-2 space-y-2">
                     <Label htmlFor="description">Descripción</Label>
-                    <Textarea id="description" value={newProduct.description} onChange={(e) => setNewProduct({...newProduct, description: e.target.value})} placeholder="Descripción detallada del producto" />
+                    <Textarea
+                      id="description"
+                      value={newProduct.description}
+                      onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                      placeholder={getPlaceholder('description', 'Descripción detallada del producto')}
+                    />
                   </div>
                   <div className="col-span-2 space-y-2">
-                    <Label htmlFor="ingredients">Ingredientes</Label>
-                    <Textarea id="ingredients" value={newProduct.ingredients} onChange={(e) => setNewProduct({...newProduct, ingredients: e.target.value})} placeholder="Lista de ingredientes" />
+                    <Label htmlFor="ingredients">{ingredientLabel}</Label>
+                    <Textarea
+                      id="ingredients"
+                      value={newProduct.ingredients}
+                      onChange={(e) => setNewProduct({ ...newProduct, ingredients: e.target.value })}
+                      placeholder={isNonFoodRetailVertical ? 'Describe la composición del producto' : 'Lista de ingredientes'}
+                    />
                   </div>
-                  <div className="flex items-center space-x-2 pt-2">
-                    <Checkbox id="isPerishable" checked={newProduct.isPerishable} onCheckedChange={(checked) => setNewProduct({...newProduct, isPerishable: checked})} />
-                    <Label htmlFor="isPerishable">Es Perecedero</Label>
-                  </div>
-                  <div className="flex items-center space-x-2 pt-2">
-                    <Checkbox id="isSoldByWeight" checked={newProduct.isSoldByWeight} onCheckedChange={(checked) => setNewProduct({...newProduct, isSoldByWeight: checked})} />
-                    <Label htmlFor="isSoldByWeight">Vendido por Peso</Label>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="unitOfMeasure">Unidad de Medida Base (Inventario)</Label>
-                    <Select value={newProduct.unitOfMeasure} onValueChange={(value) => setNewProduct({...newProduct, unitOfMeasure: value})}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="unidad">Unidad</SelectItem>
-                        <SelectItem value="kg">Kilogramo (kg)</SelectItem>
-                        <SelectItem value="gramos">Gramos (g)</SelectItem>
-                        <SelectItem value="lb">Libra (lb)</SelectItem>
-                        <SelectItem value="litros">Litros (L)</SelectItem>
-                        <SelectItem value="ml">Mililitros (ml)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">Esta es la unidad en la que se guardará el inventario</p>
-                  </div>
-                  <div className="flex items-center space-x-2 pt-2">
-                    <Checkbox id="ivaApplicable" checked={!newProduct.ivaApplicable} onCheckedChange={(checked) => setNewProduct({...newProduct, ivaApplicable: !checked})} />
-                    <Label htmlFor="ivaApplicable">Exento de IVA</Label>
-                  </div>
-                  {newProduct.isPerishable && (
+                  {productAttributes.length > 0 && (
+                    <div className="col-span-2 border-t pt-4 mt-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-lg font-medium">Atributos del Producto</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Personaliza campos específicos de la vertical activa.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {productAttributes.map((attr) => (
+                          <div key={attr.key} className="space-y-2">
+                            <Label>
+                              {attr.label}
+                              {attr.required ? <span className="text-red-500"> *</span> : null}
+                            </Label>
+                            {renderAttributeControl(
+                              attr,
+                              newProduct.attributes?.[attr.key],
+                              (rawValue) => handleProductAttributeChange(attr, rawValue),
+                            )}
+                            {attr.ui?.helperText && (
+                              <p className="text-xs text-muted-foreground">{attr.ui.helperText}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {!isNonFoodRetailVertical && (
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Checkbox
+                        id="isPerishable"
+                        checked={newProduct.isPerishable}
+                        onCheckedChange={(checked) =>
+                          setNewProduct({ ...newProduct, isPerishable: checked })
+                        }
+                      />
+                      <Label htmlFor="isPerishable">Es Perecedero</Label>
+                    </div>
+                  )}
+                  {verticalConfig?.allowsWeight && (
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Checkbox id="isSoldByWeight" checked={newProduct.isSoldByWeight} onCheckedChange={(checked) => setNewProduct({...newProduct, isSoldByWeight: checked})} />
+                      <Label htmlFor="isSoldByWeight">Vendido por Peso</Label>
+                    </div>
+                  )}
+                  {!isNonFoodRetailVertical && (
+                    <div className="space-y-2">
+                      <Label htmlFor="unitOfMeasure">Unidad de Medida Base (Inventario)</Label>
+                      <Select
+                        value={newProduct.unitOfMeasure}
+                        onValueChange={(value) =>
+                          setNewProduct({ ...newProduct, unitOfMeasure: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {unitOptions.map((unit) => (
+                            <SelectItem key={unit} value={unit}>
+                              {unit}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Esta es la unidad en la que se guardará el inventario
+                      </p>
+                    </div>
+                  )}
+                  {!isNonFoodRetailVertical && (
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Checkbox
+                        id="ivaApplicable"
+                        checked={!newProduct.ivaApplicable}
+                        onCheckedChange={(checked) =>
+                          setNewProduct({ ...newProduct, ivaApplicable: !checked })
+                        }
+                      />
+                      <Label htmlFor="ivaApplicable">Exento de IVA</Label>
+                    </div>
+                  )}
+                  {!isNonFoodRetailVertical && newProduct.isPerishable && (
                     <>
                       <div className="space-y-2">
                         <Label htmlFor="shelfLifeDays">Vida Útil (días)</Label>
@@ -683,6 +1483,7 @@ function ProductsManagement() {
                   </div>
                 )}
 
+                {!isNonFoodRetailVertical && (
                 <div className="col-span-2 border-t pt-4 mt-4">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex-1">
@@ -738,7 +1539,7 @@ function ProductsManagement() {
                             <div className="space-y-2">
                               <Label>Nombre</Label>
                               <Input
-                                placeholder="Ej: Kilogramos"
+                                placeholder={getPlaceholder('sellingUnitName', 'Ej: Kilogramos')}
                                 value={unit.name || ''}
                                 onChange={(e) => {
                                   const units = [...newProduct.sellingUnits];
@@ -750,7 +1551,7 @@ function ProductsManagement() {
                             <div className="space-y-2">
                               <Label>Abreviación</Label>
                               <Input
-                                placeholder="Ej: kg"
+                                placeholder={getPlaceholder('sellingUnitAbbreviation', 'Ej: kg')}
                                 value={unit.abbreviation || ''}
                                 onChange={(e) => {
                                   const units = [...newProduct.sellingUnits];
@@ -767,7 +1568,7 @@ function ProductsManagement() {
                               <Input
                                 type="number"
                                 step="0.001"
-                                placeholder="Ej: 1000"
+                                placeholder={getPlaceholder('sellingUnitConversion', 'Ej: 1000')}
                                 value={unit.conversionFactor || ''}
                                 onChange={(e) => {
                                   const units = [...newProduct.sellingUnits];
@@ -784,7 +1585,7 @@ function ProductsManagement() {
                               <Input
                                 type="number"
                                 step="0.01"
-                                placeholder="Ej: 20.00"
+                                placeholder={getPlaceholder('sellingUnitPrice', 'Ej: 20.00')}
                                 value={unit.pricePerUnit || ''}
                                 onChange={(e) => {
                                   const units = [...newProduct.sellingUnits];
@@ -798,7 +1599,7 @@ function ProductsManagement() {
                               <Input
                                 type="number"
                                 step="0.01"
-                                placeholder="Ej: 12.00"
+                                placeholder={getPlaceholder('sellingUnitCost', 'Ej: 12.00')}
                                 value={unit.costPerUnit || ''}
                                 onChange={(e) => {
                                   const units = [...newProduct.sellingUnits];
@@ -812,7 +1613,7 @@ function ProductsManagement() {
                               <Input
                                 type="number"
                                 step="0.01"
-                                placeholder="Ej: 0.5"
+                                placeholder={getPlaceholder('sellingUnitMinQty', 'Ej: 0.5')}
                                 value={unit.minimumQuantity || ''}
                                 onChange={(e) => {
                                   const units = [...newProduct.sellingUnits];
@@ -826,7 +1627,7 @@ function ProductsManagement() {
                               <Input
                                 type="number"
                                 step="0.01"
-                                placeholder="Ej: 0.5"
+                                placeholder={getPlaceholder('sellingUnitIncrement', 'Ej: 0.5')}
                                 value={unit.incrementStep || ''}
                                 onChange={(e) => {
                                   const units = [...newProduct.sellingUnits];
@@ -894,22 +1695,74 @@ function ProductsManagement() {
                     </div>
                   )}
                 </div>
+                )}
 
                 <div className="col-span-2 border-t pt-4 mt-4">
                   <h4 className="text-lg font-medium mb-4">Variante Inicial (Requerida)</h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="variantName">Nombre Variante</Label>
-                      <Input id="variantName" value={newProduct.variant.name} onChange={(e) => setNewProduct({...newProduct, variant: {...newProduct.variant, name: e.target.value}})} placeholder="Ej: 1kg" />
+                      <Input
+                        id="variantName"
+                        value={newProduct.variant.name}
+                        onChange={(e) =>
+                          setNewProduct({
+                            ...newProduct,
+                            variant: { ...newProduct.variant, name: e.target.value },
+                          })
+                        }
+                        placeholder={getPlaceholder('variantName', 'Ej: 1kg')}
+                      />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="variantUnit">Unidad</Label>
-                      <Input id="variantUnit" value={newProduct.variant.unit} onChange={(e) => setNewProduct({...newProduct, variant: {...newProduct.variant, unit: e.target.value}})} placeholder="Ej: kg, unidad" />
+                      <Label htmlFor="variantSku">SKU Variante</Label>
+                      <Input
+                        id="variantSku"
+                        value={newProduct.variant.sku}
+                        onChange={(e) =>
+                          setNewProduct({
+                            ...newProduct,
+                            variant: { ...newProduct.variant, sku: e.target.value },
+                          })
+                        }
+                        placeholder={getPlaceholder('variantSku', 'Ej: ARR-BLANCO-1KG')}
+                      />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="variantUnitSize">Tamaño Unidad</Label>
-                      <Input id="variantUnitSize" type="number" value={newProduct.variant.unitSize} onChange={(e) => setNewProduct({...newProduct, variant: {...newProduct.variant, unitSize: parseFloat(e.target.value) || 0}})} />
-                    </div>
+                    {!isNonFoodRetailVertical && (
+                      <div className="space-y-2">
+                        <Label htmlFor="variantUnit">Unidad</Label>
+                        <Input
+                          id="variantUnit"
+                          value={newProduct.variant.unit}
+                          onChange={(e) =>
+                            setNewProduct({
+                              ...newProduct,
+                              variant: { ...newProduct.variant, unit: e.target.value },
+                            })
+                          }
+                          placeholder={getPlaceholder('variantUnit', 'Ej: kg, unidad')}
+                        />
+                      </div>
+                    )}
+                    {!isNonFoodRetailVertical && (
+                      <div className="space-y-2">
+                        <Label htmlFor="variantUnitSize">Tamaño Unidad</Label>
+                        <Input
+                          id="variantUnitSize"
+                          type="number"
+                          value={newProduct.variant.unitSize}
+                          onChange={(e) =>
+                            setNewProduct({
+                              ...newProduct,
+                              variant: {
+                                ...newProduct.variant,
+                                unitSize: parseFloat(e.target.value) || 0,
+                              },
+                            })
+                          }
+                        />
+                      </div>
+                    )}
                     <div className="space-y-2">
                       <Label htmlFor="variantCostPrice">Precio Costo ($)</Label>
                       <Input
@@ -959,6 +1812,137 @@ function ProductsManagement() {
                       />
                     </div>
                   </div>
+                  {variantAttributes.length > 0 && (
+                    <div className="border-t pt-4 mt-4">
+                      <h5 className="text-base font-medium mb-4">Atributos de la Variante</h5>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {variantAttributes.map((attr) => (
+                          <div key={attr.key} className="space-y-2">
+                            <Label>
+                              {attr.label}
+                              {attr.required ? <span className="text-red-500"> *</span> : null}
+                            </Label>
+                            {renderAttributeControl(
+                              attr,
+                              newProduct.variant?.attributes?.[attr.key],
+                              (rawValue) => handleVariantAttributeChange(attr, rawValue),
+                            )}
+                            {attr.ui?.helperText && (
+                              <p className="text-xs text-muted-foreground">{attr.ui.helperText}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {isNonFoodRetailVertical && (
+                    <div className="border-t pt-4 mt-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h5 className="text-base font-medium">Variantes adicionales</h5>
+                          <p className="text-sm text-muted-foreground">
+                            Crea combinaciones adicionales (talla, color, etc.) para este producto.
+                          </p>
+                        </div>
+                        <Button type="button" variant="outline" size="sm" onClick={addAdditionalVariant}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Agregar variante
+                        </Button>
+                      </div>
+                      {additionalVariants.length === 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          El producto usará únicamente la variante inicial hasta que agregues más opciones.
+                        </p>
+                      )}
+                      {additionalVariants.map((variant, index) => (
+                        <div key={index} className="border rounded-lg p-4 space-y-4 bg-muted/20">
+                          <div className="flex items-center justify-between">
+                            <h6 className="font-medium">Variante {index + 2}</h6>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeAdditionalVariant(index)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span className="sr-only">Eliminar variante</span>
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                              <Label>Nombre</Label>
+                              <Input
+                                value={variant.name}
+                                onChange={(e) => updateAdditionalVariantField(index, 'name', e.target.value)}
+                                placeholder={getPlaceholder('variantAdditionalName', 'Ej: Talla M / Color Azul')}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>SKU</Label>
+                              <Input
+                                value={variant.sku}
+                                onChange={(e) => updateAdditionalVariantField(index, 'sku', e.target.value)}
+                                placeholder={
+                                  getPlaceholder(
+                                    'variantAdditionalSku',
+                                    `Ej: ${newProduct.sku || 'SKU'}-VAR${index + 2}`,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Código de barras</Label>
+                              <Input
+                                value={variant.barcode}
+                                onChange={(e) => updateAdditionalVariantField(index, 'barcode', e.target.value)}
+                                placeholder="Opcional"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>Precio costo ($)</Label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={variant.costPrice ?? 0}
+                                onChange={(e) => updateAdditionalVariantField(index, 'costPrice', e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Precio venta ($)</Label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={variant.basePrice ?? 0}
+                                onChange={(e) => updateAdditionalVariantField(index, 'basePrice', e.target.value)}
+                              />
+                            </div>
+                          </div>
+                          {variantAttributes.length > 0 && (
+                            <div className="border-t pt-4 mt-4">
+                              <h6 className="text-sm font-medium mb-3">Atributos específicos</h6>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {variantAttributes.map((attr) => (
+                                  <div key={attr.key} className="space-y-2">
+                                    <Label>
+                                      {attr.label}
+                                      {attr.required ? <span className="text-red-500"> *</span> : null}
+                                    </Label>
+                                    {renderAttributeControl(
+                                      attr,
+                                      variant.attributes?.[attr.key],
+                                      (rawValue) => handleAdditionalVariantAttributeChange(index, attr, rawValue),
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
               <DialogFooter className="px-6 pb-6 pt-4 border-t">
@@ -974,7 +1958,12 @@ function ProductsManagement() {
           <div className="flex space-x-4 mb-4">
             <div className="flex-1 relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Buscar por nombre, SKU o marca..." className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+              <Input
+                placeholder={getPlaceholder('search', 'Buscar por nombre, SKU o marca...')}
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
             <Select value={filterCategory} onValueChange={setFilterCategory}>
               <SelectTrigger className="w-[200px]">
@@ -1028,7 +2017,20 @@ function ProductsManagement() {
                         <Button variant="outline" size="sm" onClick={() => {
                           const productToEdit = JSON.parse(JSON.stringify(product));
                           if (!productToEdit.variants || productToEdit.variants.length === 0) {
-                            productToEdit.variants = [{ name: 'Estándar', basePrice: 0, costPrice: 0 }];
+                            productToEdit.variants = [{
+                              name: 'Estándar',
+                              basePrice: 0,
+                              costPrice: 0,
+                              attributes: {},
+                            }];
+                          } else {
+                            productToEdit.variants = productToEdit.variants.map((variant) => ({
+                              ...variant,
+                              attributes: variant.attributes || {},
+                            }));
+                          }
+                          if (!productToEdit.attributes) {
+                            productToEdit.attributes = {};
                           }
                           if (!productToEdit.inventoryConfig) { // Defensive check
                             productToEdit.inventoryConfig = { minimumStock: 10, maximumStock: 100, reorderPoint: 20, reorderQuantity: 50, trackLots: true, trackExpiration: true, fefoEnabled: true };
@@ -1152,37 +2154,88 @@ function ProductsManagement() {
                 <Textarea id="edit-description" value={editingProduct.description} onChange={(e) => setEditingProduct({...editingProduct, description: e.target.value})} />
               </div>
               <div className="col-span-2 space-y-2">
-                <Label htmlFor="edit-ingredients">Ingredientes</Label>
-                <Textarea id="edit-ingredients" value={editingProduct.ingredients} onChange={(e) => setEditingProduct({...editingProduct, ingredients: e.target.value})} />
+                <Label htmlFor="edit-ingredients">{ingredientLabel}</Label>
+                <Textarea
+                  id="edit-ingredients"
+                  value={editingProduct.ingredients}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, ingredients: e.target.value })}
+                  placeholder={isNonFoodRetailVertical ? 'Describe la composición del producto' : 'Lista de ingredientes'}
+                />
               </div>
+              {productAttributes.length > 0 && (
+                <div className="col-span-2 border-t pt-4 mt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-medium">Atributos del Producto</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Se guardarán en la ficha del producto.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {productAttributes.map((attr) => (
+                      <div key={attr.key} className="space-y-2">
+                        <Label>
+                          {attr.label}
+                          {attr.required ? <span className="text-red-500"> *</span> : null}
+                        </Label>
+                        {renderAttributeControl(
+                          attr,
+                          editingProduct.attributes?.[attr.key],
+                          (rawValue) => handleEditProductAttributeChange(attr, rawValue),
+                        )}
+                        {attr.ui?.helperText && (
+                          <p className="text-xs text-muted-foreground">{attr.ui.helperText}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-              <div className="flex items-center space-x-2 pt-2">
-                <Checkbox id="edit-isSoldByWeight" checked={editingProduct.isSoldByWeight} onCheckedChange={(checked) => setEditingProduct({...editingProduct, isSoldByWeight: checked})} />
-                <Label htmlFor="edit-isSoldByWeight">Vendido por Peso</Label>
-              </div>
+              {verticalConfig?.allowsWeight && (
+                <div className="flex items-center space-x-2 pt-2">
+                  <Checkbox id="edit-isSoldByWeight" checked={editingProduct.isSoldByWeight} onCheckedChange={(checked) => setEditingProduct({...editingProduct, isSoldByWeight: checked})} />
+                  <Label htmlFor="edit-isSoldByWeight">Vendido por Peso</Label>
+                </div>
+              )}
 
-              <div className="flex items-center space-x-2 pt-2">
-                <Checkbox id="edit-ivaApplicable" checked={!editingProduct.ivaApplicable} onCheckedChange={(checked) => setEditingProduct({...editingProduct, ivaApplicable: !checked})} />
-                <Label htmlFor="edit-ivaApplicable">Exento de IVA</Label>
-              </div>
+              {!isNonFoodRetailVertical && (
+                <div className="flex items-center space-x-2 pt-2">
+                  <Checkbox
+                    id="edit-ivaApplicable"
+                    checked={!editingProduct.ivaApplicable}
+                    onCheckedChange={(checked) =>
+                      setEditingProduct({ ...editingProduct, ivaApplicable: !checked })
+                    }
+                  />
+                  <Label htmlFor="edit-ivaApplicable">Exento de IVA</Label>
+                </div>
+              )}
 
-              <div className="space-y-2">
-                <Label htmlFor="edit-unitOfMeasure">Unidad de Medida Base (Inventario)</Label>
-                <Select value={editingProduct.unitOfMeasure} onValueChange={(value) => setEditingProduct({...editingProduct, unitOfMeasure: value})}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unidad">Unidad</SelectItem>
-                    <SelectItem value="kg">Kilogramo (kg)</SelectItem>
-                    <SelectItem value="gramos">Gramos (g)</SelectItem>
-                    <SelectItem value="lb">Libra (lb)</SelectItem>
-                    <SelectItem value="litros">Litros (L)</SelectItem>
-                    <SelectItem value="ml">Mililitros (ml)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">Esta es la unidad en la que se guardará el inventario</p>
-              </div>
+              {!isNonFoodRetailVertical && (
+                <div className="space-y-2">
+                  <Label htmlFor="edit-unitOfMeasure">Unidad de Medida Base (Inventario)</Label>
+                  <Select
+                    value={editingProduct.unitOfMeasure}
+                    onValueChange={(value) =>
+                      setEditingProduct({ ...editingProduct, unitOfMeasure: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {unitOptions.map((unit) => (
+                        <SelectItem key={unit} value={unit}>
+                          {unit}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Esta es la unidad en la que se guardará el inventario
+                  </p>
+                </div>
+              )}
 
               {editingProduct.inventoryConfig && (
                 <div className="col-span-2 border-t pt-4 mt-4">
@@ -1208,6 +2261,7 @@ function ProductsManagement() {
                 </div>
               )}
 
+              {!isNonFoodRetailVertical && (
               <div className="col-span-2 border-t pt-4 mt-4">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex-1">
@@ -1268,8 +2322,8 @@ function ProductsManagement() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                           <div className="space-y-2">
                             <Label>Nombre</Label>
-                            <Input
-                              placeholder="Ej: Kilogramos"
+                              <Input
+                                placeholder={getPlaceholder('sellingUnitName', 'Ej: Kilogramos')}
                               value={unit.name || ''}
                               onChange={(e) => {
                                 const units = [...editingProduct.sellingUnits];
@@ -1280,8 +2334,8 @@ function ProductsManagement() {
                           </div>
                           <div className="space-y-2">
                             <Label>Abreviación</Label>
-                            <Input
-                              placeholder="Ej: kg"
+                              <Input
+                                placeholder={getPlaceholder('sellingUnitAbbreviation', 'Ej: kg')}
                               value={unit.abbreviation || ''}
                               onChange={(e) => {
                                 const units = [...editingProduct.sellingUnits];
@@ -1295,10 +2349,10 @@ function ProductsManagement() {
                               Factor Conversión
                               <span className="text-xs text-muted-foreground">(Cuántos {editingProduct.unitOfMeasure} = 1 {unit.abbreviation || 'unidad'})</span>
                             </Label>
-                            <Input
-                              type="number"
-                              step="0.001"
-                              placeholder="Ej: 1000"
+                              <Input
+                                type="number"
+                                step="0.001"
+                                placeholder={getPlaceholder('sellingUnitConversion', 'Ej: 1000')}
                               value={unit.conversionFactor || ''}
                               onChange={(e) => {
                                 const units = [...editingProduct.sellingUnits];
@@ -1312,10 +2366,10 @@ function ProductsManagement() {
                           </div>
                           <div className="space-y-2">
                             <Label>Precio/Unidad ($)</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="Ej: 20.00"
+                              <Input
+                                type="number"
+                                step="0.01"
+                                placeholder={getPlaceholder('sellingUnitPrice', 'Ej: 20.00')}
                               value={unit.pricePerUnit || ''}
                               onChange={(e) => {
                                 const units = [...editingProduct.sellingUnits];
@@ -1326,10 +2380,10 @@ function ProductsManagement() {
                           </div>
                           <div className="space-y-2">
                             <Label>Costo/Unidad ($)</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="Ej: 12.00"
+                              <Input
+                                type="number"
+                                step="0.01"
+                                placeholder={getPlaceholder('sellingUnitCost', 'Ej: 12.00')}
                               value={unit.costPerUnit || ''}
                               onChange={(e) => {
                                 const units = [...editingProduct.sellingUnits];
@@ -1340,10 +2394,10 @@ function ProductsManagement() {
                           </div>
                           <div className="space-y-2">
                             <Label>Cant. Mínima</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="Ej: 0.5"
+                              <Input
+                                type="number"
+                                step="0.01"
+                                placeholder={getPlaceholder('sellingUnitMinQty', 'Ej: 0.5')}
                               value={unit.minimumQuantity || ''}
                               onChange={(e) => {
                                 const units = [...editingProduct.sellingUnits];
@@ -1354,10 +2408,10 @@ function ProductsManagement() {
                           </div>
                           <div className="space-y-2">
                             <Label>Incremento</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="Ej: 0.5"
+                              <Input
+                                type="number"
+                                step="0.01"
+                                placeholder={getPlaceholder('sellingUnitIncrement', 'Ej: 0.5')}
                               value={unit.incrementStep || ''}
                               onChange={(e) => {
                                 const units = [...editingProduct.sellingUnits];
@@ -1425,49 +2479,156 @@ function ProductsManagement() {
                   </div>
                 )}
               </div>
+              )}
               
-              <div className="col-span-2 border-t pt-4 mt-4">
-                <h4 className="text-lg font-medium mb-4">Editar Precios de Variante Principal</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-costPrice">Precio Costo ($)</Label>
-                    <Input id="edit-costPrice" type="number" value={editingProduct.variants[0].costPrice} onChange={(e) => {
-                      const newPrice = parseFloat(e.target.value) || 0;
-                      setEditingProduct(prev => ({
-                        ...prev,
-                        variants: [
-                          { ...prev.variants[0], costPrice: newPrice },
-                          ...prev.variants.slice(1)
-                        ]
-                      }));
-                    }} />
+              <div className="col-span-2 border-t pt-4 mt-4 space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-lg font-medium">Variantes</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Edita los datos de cada variante. Los cambios se guardarán al confirmar.
+                    </p>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-basePrice">Precio de Venta ($)</Label>
-                    <Input id="edit-basePrice" type="number" value={editingProduct.variants[0].basePrice} onChange={(e) => {
-                      const newPrice = parseFloat(e.target.value) || 0;
-                      setEditingProduct(prev => ({
-                        ...prev,
-                        variants: [
-                          { ...prev.variants[0], basePrice: newPrice },
-                          ...prev.variants.slice(1)
-                        ]
-                      }));
-                    }} />
-                  </div>
+                  <Button type="button" variant="outline" size="sm" onClick={addEditingVariant}>
+                    <Plus className="h-4 w-4 mr-2" /> Agregar variante
+                  </Button>
                 </div>
-              </div>
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="edit-images">Imágenes (máx. 3)</Label>
-                <Input id="edit-images" type="file" multiple accept="image/*" onChange={handleEditImageUpload} />
-                <div className="flex space-x-2 mt-2">
-                  {editingProduct.variants[0].images && editingProduct.variants[0].images.map((image, index) => (
-                    <div key={index} className="relative">
-                      <img src={image} alt={`product-image-${index}`} className="w-20 h-20 object-cover rounded" />
-                      <Button variant="destructive" size="sm" className="absolute top-0 right-0" onClick={() => handleEditRemoveImage(index)}><XCircle className="h-4 w-4" /></Button>
+
+                {editingProduct.variants.map((variant, index) => (
+                  <div key={variant._id || index} className="border rounded-lg bg-muted/15 p-4 space-y-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h5 className="text-base font-medium">Variante {index + 1}</h5>
+                        <p className="text-xs text-muted-foreground">
+                          SKU actual: {variant.sku || 'Sin SKU definido'}
+                        </p>
+                      </div>
+                      {editingProduct.variants.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeEditingVariant(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Eliminar variante</span>
+                        </Button>
+                      )}
                     </div>
-                  ))}
-                </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>Nombre</Label>
+                        <Input
+                          value={variant.name}
+                          onChange={(e) => handleEditVariantFieldChange(index, 'name', e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>SKU</Label>
+                        <Input
+                          value={variant.sku}
+                          onChange={(e) => handleEditVariantFieldChange(index, 'sku', e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Código de barras</Label>
+                        <Input
+                          value={variant.barcode || ''}
+                          onChange={(e) => handleEditVariantFieldChange(index, 'barcode', e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {!isNonFoodRetailVertical && (
+                        <div className="space-y-2">
+                          <Label>Unidad</Label>
+                          <Input
+                            value={variant.unit || ''}
+                            onChange={(e) => handleEditVariantFieldChange(index, 'unit', e.target.value)}
+                          />
+                        </div>
+                      )}
+                      {!isNonFoodRetailVertical && (
+                        <div className="space-y-2">
+                          <Label>Tamaño de unidad</Label>
+                          <Input
+                            type="number"
+                            value={variant.unitSize ?? 0}
+                            onChange={(e) => handleEditVariantFieldChange(index, 'unitSize', e.target.value)}
+                          />
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        <Label>Precio costo ($)</Label>
+                        <Input
+                          type="number"
+                          value={variant.costPrice ?? 0}
+                          onChange={(e) => handleEditVariantFieldChange(index, 'costPrice', e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Precio venta ($)</Label>
+                        <Input
+                          type="number"
+                          value={variant.basePrice ?? 0}
+                          onChange={(e) => handleEditVariantFieldChange(index, 'basePrice', e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    {variantAttributes.length > 0 && (
+                      <div className="border-t pt-4 mt-4">
+                        <h6 className="text-sm font-medium mb-3">Atributos específicos</h6>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {variantAttributes.map((attr) => (
+                            <div key={`${index}-${attr.key}`} className="space-y-2">
+                              <Label>
+                                {attr.label}
+                                {attr.required ? <span className="text-red-500"> *</span> : null}
+                              </Label>
+                              {renderAttributeControl(
+                                attr,
+                                variant.attributes?.[attr.key],
+                                (rawValue) => handleEditVariantAttributeChange(index, attr, rawValue),
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-2 border-t pt-4 mt-4">
+                      <Label>Imágenes (máx. 3)</Label>
+                      <Input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={(e) => handleEditImageUpload(index, e)}
+                      />
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {(variant.images || []).map((image, imageIdx) => (
+                          <div key={imageIdx} className="relative">
+                            <img
+                              src={image}
+                              alt={`variant-${index}-image-${imageIdx}`}
+                              className="w-20 h-20 object-cover rounded"
+                            />
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="absolute top-0 right-0"
+                              onClick={() => handleEditRemoveImage(index, imageIdx)}
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
             <DialogFooter>

@@ -42,6 +42,8 @@ import { ProductRotationTable } from '@/components/charts/ProductRotationTable.j
 import { ProfitAndLossChart } from '@/components/charts/ProfitAndLossChart.jsx';
 import { CustomerSegmentationChart } from '@/components/charts/CustomerSegmentationChart.jsx';
 import { EmployeePerformanceChart } from '@/components/charts/EmployeePerformanceChart.jsx';
+import { InventoryAttributeTable } from '@/components/tables/InventoryAttributeTable.jsx';
+import { SalesAttributeTable } from '@/components/tables/SalesAttributeTable.jsx';
 
 const statusMap = {
   draft: { label: 'Borrador', colorClassName: 'bg-gray-200 text-gray-800' },
@@ -200,6 +202,13 @@ function DashboardView() {
                 <div className="space-y-6 lg:col-span-2">
                   <SalesTrendChart data={chartData.sales.trend} />
                   <SalesByCategoryChart data={chartData.sales.categories} />
+                  {((chartData.sales.attributes?.schema?.length ?? 0) > 0 &&
+                    (chartData.sales.attributes?.combinations?.length ?? 0) > 0) ? (
+                      <SalesAttributeTable
+                        schema={chartData.sales.attributes.schema}
+                        combinations={chartData.sales.attributes.combinations}
+                      />
+                    ) : null}
                 </div>
                 <SalesComparisonCard comparison={chartData.sales.comparison} />
               </div>
@@ -209,6 +218,14 @@ function DashboardView() {
                 <InventoryMovementChart data={chartData.inventory.movement} />
                 <ProductRotationTable data={chartData.inventory.rotation} />
               </div>
+
+              {((chartData.inventory.attributes?.schema?.length ?? 0) > 0 &&
+                (chartData.inventory.attributes?.combinations?.length ?? 0) > 0) ? (
+                <InventoryAttributeTable
+                  schema={chartData.inventory.attributes.schema}
+                  combinations={chartData.inventory.attributes.combinations}
+                />
+              ) : null}
 
               {FEATURES.ADVANCED_REPORTS ? (
                 <div className="space-y-6">

@@ -127,6 +127,8 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
     );
   }, [bankAccounts, singlePayment.method]);
 
+  const singleMethodHasBankAccounts = filteredBankAccounts.length > 0;
+
   const handleAddPaymentLine = () => {
     const defaultMethod = paymentMethods.find(pm => pm.id !== 'pago_mixto')?.id || '';
     setMixedPayments(prev => [...prev, {
@@ -198,15 +200,10 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
         toast.error('Debe seleccionar un método de pago.');
         return;
       }
-      if (!singlePayment.bankAccountId) {
-        toast.error('Debe seleccionar una cuenta bancaria.');
-        return;
-      }
-
       const isVes = isVesMethod(singlePayment.method);
       const rate = exchangeRate || (order?.totalAmountVes / order?.totalAmount) || 0;
 
-      paymentsPayload.push({
+      const singlePaymentPayload = {
         amount: remainingAmount,
         amountVes: remainingAmountVes,
         exchangeRate: rate,
@@ -214,9 +211,14 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
         method: singlePayment.method,
         date: paymentDate,
         reference: singlePayment.reference,
-        bankAccountId: singlePayment.bankAccountId,
-        isConfirmed: true
-      });
+        isConfirmed: true,
+      };
+
+      if (singlePayment.bankAccountId) {
+        singlePaymentPayload.bankAccountId = singlePayment.bankAccountId;
+      }
+
+      paymentsPayload.push(singlePaymentPayload);
     } else {
       if (mixedPayments.length === 0) {
         toast.error('Añada al menos una línea de pago.');
@@ -242,7 +244,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
           method: p.method,
           date: paymentDate,
           reference: p.reference,
-          isConfirmed: p.bankAccountId ? true : false
+          isConfirmed: true,
         };
 
         // Solo agregar bankAccountId si existe
@@ -303,30 +305,38 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
                     <SelectContent>{paymentMethods.map(m => m.id !== 'pago_mixto' && <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="single-bank-account" className="text-right">Cuenta Bancaria</Label>
-                <Select
-                  value={singlePayment.bankAccountId}
-                  onValueChange={(v) => setSinglePayment(p => ({...p, bankAccountId: v}))}
-                  disabled={loadingAccounts || !singlePayment.method || filteredBankAccounts.length === 0}
-                >
-                  <SelectTrigger id="single-bank-account" className="col-span-3">
-                    <SelectValue placeholder={
-                      loadingAccounts ? "Cargando..." :
-                      !singlePayment.method ? "Seleccione un método primero" :
-                      filteredBankAccounts.length === 0 ? "No hay cuentas para este método" :
-                      "Seleccione una cuenta"
-                    } />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredBankAccounts.map(account => (
-                      <SelectItem key={account._id} value={account._id}>
-                        {account.accountName} - {account.bankName} ({account.currency})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {singleMethodHasBankAccounts ? (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="single-bank-account" className="text-right">Cuenta Bancaria</Label>
+                  <Select
+                    value={singlePayment.bankAccountId}
+                    onValueChange={(v) => setSinglePayment(p => ({...p, bankAccountId: v}))}
+                    disabled={loadingAccounts || !singlePayment.method}
+                  >
+                    <SelectTrigger id="single-bank-account" className="col-span-3">
+                      <SelectValue placeholder={
+                        loadingAccounts
+                          ? "Cargando..."
+                          : "Seleccione una cuenta (opcional)"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredBankAccounts.map(account => (
+                        <SelectItem key={account._id} value={account._id}>
+                          {account.accountName} - {account.bankName} ({account.currency})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">Cuenta Bancaria</Label>
+                  <div className="col-span-3 text-sm text-muted-foreground">
+                    No hay cuentas registradas para este método. El pago se registrará sin cuenta.
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right">
                   Monto a Pagar

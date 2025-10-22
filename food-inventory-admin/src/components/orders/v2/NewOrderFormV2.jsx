@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card.jsx';
 import { Input } from '@/components/ui/input.jsx';
@@ -156,14 +156,117 @@ export function NewOrderFormV2({ onOrderCreated }) {
     }
   }, [newOrder.shippingAddress.state]);
 
+  // Ref to prevent duplicate loading in React Strict Mode
+  const hasLoadedProducts = useRef(false);
+
   useEffect(() => {
     const loadProducts = async () => {
+      // Prevent duplicate calls in React Strict Mode
+      if (hasLoadedProducts.current) {
+        console.log('⏭️ [NewOrderForm] Products already loading/loaded, skipping');
+        return;
+      }
+      hasLoadedProducts.current = true;
+
       try {
         setLoadingProducts(true);
-        const data = await fetchApi('/products');
-        setProducts(data.data || []);
+
+        // Load ALL inventories with pagination (max 100 per request)
+        let allInventories = [];
+        let currentPage = 1;
+        let hasMore = true;
+
+        while (hasMore) {
+          const inventoryResponse = await fetchApi(`/inventory?page=${currentPage}&limit=100`);
+          const inventories = inventoryResponse.data || [];
+          allInventories = [...allInventories, ...inventories];
+
+          const pagination = inventoryResponse.pagination;
+          if (pagination && currentPage < pagination.totalPages) {
+            currentPage++;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        console.log('📦 [NewOrderForm] Total inventories loaded:', allInventories.length);
+
+        // Filter only active inventories with available quantity > 0
+        const availableInventories = allInventories.filter(inv =>
+          inv.isActive && inv.availableQuantity > 0
+        );
+
+        console.log('✅ [NewOrderForm] Available inventories:', availableInventories.length);
+
+        // DEBUG: Log first inventory to see structure
+        if (availableInventories.length > 0) {
+          console.log('🔍 [NewOrderForm] First inventory sample:', availableInventories[0]);
+          console.log('🔍 [NewOrderForm] First productId type:', typeof availableInventories[0].productId);
+          console.log('🔍 [NewOrderForm] First productId value:', availableInventories[0].productId);
+        }
+
+        // Get unique product IDs from inventories (handle populated objects)
+        const productIds = [...new Set(availableInventories.map(inv => {
+          // Backend populates productId with full product object
+          if (typeof inv.productId === 'object' && inv.productId !== null) {
+            // Check if it's a populated product with _id
+            if (inv.productId._id) {
+              return String(inv.productId._id);
+            }
+            // Check if it's an ObjectId {$oid: "..."}
+            if (inv.productId.$oid) {
+              return inv.productId.$oid;
+            }
+          }
+          // Fallback to string conversion
+          return String(inv.productId);
+        }))];
+
+        console.log('🔑 [NewOrderForm] Unique product IDs from inventory:', productIds.length);
+        console.log('🔑 [NewOrderForm] Sample product IDs:', productIds.slice(0, 5));
+
+        // Load ALL products with pagination and rate limiting delay
+        if (productIds.length > 0) {
+          // Add initial delay before first products request to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 300));
+
+          let allProducts = [];
+          let productPage = 1;
+          let hasMoreProducts = true;
+
+          while (hasMoreProducts) {
+            const productsResponse = await fetchApi(`/products?page=${productPage}&limit=100`);
+            const products = productsResponse.data || [];
+            allProducts = [...allProducts, ...products];
+
+            const productPagination = productsResponse.pagination;
+            if (productPagination && productPage < productPagination.totalPages) {
+              productPage++;
+              // Add delay to avoid rate limiting (increased to 300ms)
+              await new Promise(resolve => setTimeout(resolve, 300));
+            } else {
+              hasMoreProducts = false;
+            }
+          }
+
+          console.log('📋 [NewOrderForm] Total products loaded:', allProducts.length);
+          console.log('📋 [NewOrderForm] Sample product._id:', allProducts.slice(0, 5).map(p => p._id));
+
+          // Filter only products that have inventory (convert both to strings for comparison)
+          const productsWithStock = allProducts.filter(p => {
+            const productIdStr = String(p._id);
+            return productIds.includes(productIdStr);
+          });
+
+          console.log('🎯 [NewOrderForm] Products with stock:', productsWithStock.length);
+
+          setProducts(productsWithStock);
+        } else {
+          console.log('⚠️ [NewOrderForm] No product IDs found, setting empty products');
+          setProducts([]);
+        }
       } catch (err) {
-        console.error("Failed to fetch products:", err);
+        console.error("❌ [NewOrderForm] Failed to fetch products with inventory:", err);
         setProducts([]);
       } finally {
         setLoadingProducts(false);
@@ -346,6 +449,8 @@ export function NewOrderFormV2({ onOrderCreated }) {
         productId: product._id,
         name: product.name,
         sku: variant.sku,
+        variantId: variant._id,
+        variantSku: variant.sku,
         quantity: initialQuantity,
         unitPrice: baseUnitPrice,
         finalPrice: finalUnitPrice,
@@ -364,6 +469,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
       const matchIndex = items.findIndex(item =>
         item.productId === newItem.productId &&
         (item.selectedUnit || null) === (newItem.selectedUnit || null) &&
+        item.variantId === newItem.variantId &&
         JSON.stringify(item.modifiers || []) === JSON.stringify(newItem.modifiers || []) &&
         (item.specialInstructions || '') === (newItem.specialInstructions || '')
       );
@@ -425,7 +531,14 @@ export function NewOrderFormV2({ onOrderCreated }) {
         setPendingProductConfig(null);
       }
     } catch (error) {
-      console.error('Error loading modifiers:', error);
+      // Modifier groups are optional (used mainly in restaurant vertical)
+      // If user doesn't have permissions or feature is not enabled, just add product without modifiers
+      if (error.message?.includes('permissions') || error.message?.includes('Forbidden')) {
+        console.log('ℹ️ [NewOrderForm] Modifier groups not available for this tenant (expected for non-restaurant verticals)');
+      } else {
+        console.warn('⚠️ [NewOrderForm] Could not load modifier groups:', error.message);
+      }
+      // Continue normal flow - add product without modifiers
       addConfiguredProductToOrder(config, { modifiers: [], specialInstructions: undefined, priceAdjustment: 0 });
       setProductSearchInput('');
       setPendingProductConfig(null);
@@ -506,6 +619,8 @@ export function NewOrderFormV2({ onOrderCreated }) {
       taxType: newOrder.taxType,
       items: newOrder.items.map(item => ({
         productId: item.productId,
+        variantId: item.variantId,
+        variantSku: item.variantSku,
         quantity: item.isSoldByWeight
           ? parseFloat(item.quantity) || 0
           : parseInt(item.quantity, 10) || 0,

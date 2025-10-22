@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,11 +16,16 @@ import WhatsAppConnection from './WhatsAppConnection'; // Importar WhatsAppConne
 import { useAuth } from '@/hooks/use-auth.jsx'; // Importar useAuth
 import TenantKnowledgeBaseManager from './TenantKnowledgeBaseManager';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DEFAULT_VERTICAL_KEY, getVerticalProfile, listVerticalProfiles } from '@/config/verticalProfiles.js';
 
 const initialSettings = {
   name: '',
   website: '',
   logo: '',
+  verticalProfile: {
+    key: DEFAULT_VERTICAL_KEY,
+    overrides: {},
+  },
   aiAssistant: {
     autoReplyEnabled: false,
     knowledgeBaseTenantId: '',
@@ -69,6 +74,13 @@ const initialSettings = {
   }
 };
 
+const BASE_VERTICAL_LABELS = {
+  FOOD_SERVICE: 'Alimentación',
+  RETAIL: 'Retail',
+  SERVICES: 'Servicios',
+  LOGISTICS: 'Logística',
+};
+
 const SettingsPage = () => {
   const [settings, setSettings] = useState(initialSettings);
   const [loading, setLoading] = useState(true);
@@ -78,11 +90,22 @@ const SettingsPage = () => {
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const fileInputRef = useRef(null);
   const { hasPermission, tenant, updateTenantContext } = useAuth(); // Obtener hasPermission y tenant
+  const tenantVerticalKey = tenant?.verticalProfile?.key || DEFAULT_VERTICAL_KEY;
+  const verticalOptions = useMemo(() => listVerticalProfiles(), []);
+  const selectedVerticalProfile = useMemo(
+    () => getVerticalProfile(settings.verticalProfile?.key, settings.verticalProfile?.overrides),
+    [settings.verticalProfile?.key, settings.verticalProfile?.overrides],
+  );
+  const isVerticalDirty = settings.verticalProfile?.key !== tenantVerticalKey;
 
   const applySettingsData = (settingsData = {}) => {
     const mergedSettings = {
       ...initialSettings,
       ...settingsData,
+      verticalProfile: {
+        key: settingsData.verticalProfile?.key || initialSettings.verticalProfile.key,
+        overrides: { ...(settingsData.verticalProfile?.overrides || {}) },
+      },
       aiAssistant: {
         ...initialSettings.aiAssistant,
         ...(settingsData.aiAssistant || {}),
@@ -130,9 +153,7 @@ const SettingsPage = () => {
     };
     setSettings(mergedSettings);
 
-    if (settingsData.logo) {
-      setLogoPreviewUrl(settingsData.logo);
-    }
+    setLogoPreviewUrl(mergedSettings.logo || '');
   };
 
   useEffect(() => {
@@ -190,6 +211,29 @@ const SettingsPage = () => {
     setNestedValue(name, value);
   };
 
+  const handleVerticalChange = (value) => {
+    if (!value || value === settings.verticalProfile?.key) {
+      return;
+    }
+
+    const selectedOption = verticalOptions.find((option) => option.key === value);
+    const confirmationMessage = selectedOption
+      ? `¿Confirmas que deseas cambiar el perfil vertical a "${selectedOption.label}"?`
+      : '¿Confirmas que deseas cambiar el perfil vertical?';
+
+    if (!window.confirm(`${confirmationMessage} Esto puede afectar los formularios y validaciones del sistema.`)) {
+      return;
+    }
+
+    setSettings((prev) => ({
+      ...prev,
+      verticalProfile: {
+        key: value,
+        overrides: {},
+      },
+    }));
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -235,6 +279,10 @@ const SettingsPage = () => {
             name: response.data.name,
             contactInfo: response.data.contactInfo,
             taxInfo: response.data.taxInfo,
+            verticalProfile: {
+              key: response.data.verticalProfile?.key || settings.verticalProfile.key,
+              overrides: { ...(response.data.verticalProfile?.overrides || {}) },
+            },
             aiAssistant: {
               autoReplyEnabled: Boolean(response.data.aiAssistant?.autoReplyEnabled),
               knowledgeBaseTenantId: response.data.aiAssistant?.knowledgeBaseTenantId || '',
@@ -303,6 +351,73 @@ const SettingsPage = () => {
 
             {/* Settings Column */}
             <div className="lg:col-span-2 space-y-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Perfil Vertical</CardTitle>
+                        <CardDescription>
+                          Adapta los módulos de productos, inventario y órdenes según tu tipo de negocio.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                            <Label className="font-semibold">Vertical activa</Label>
+                            <Select value={settings.verticalProfile?.key} onValueChange={handleVerticalChange}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecciona un perfil" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {verticalOptions.map((option) => (
+                                      <SelectItem key={option.key} value={option.key}>
+                                        {option.label}
+                                      </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {isVerticalDirty && (
+                              <p className="text-sm text-amber-600">
+                                Cambios pendientes por guardar.
+                              </p>
+                            )}
+                        </div>
+                        <div className="rounded-md border border-dashed p-4">
+                            <p className="text-sm text-muted-foreground">
+                              Base: <span className="font-medium text-foreground">
+                                {BASE_VERTICAL_LABELS[selectedVerticalProfile.baseVertical] || selectedVerticalProfile.baseVertical}
+                              </span>
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Unidades sugeridas:{' '}
+                              {Array.isArray(selectedVerticalProfile.defaultUnits) && selectedVerticalProfile.defaultUnits.length > 0
+                                ? selectedVerticalProfile.defaultUnits.join(', ')
+                                : '—'}
+                            </p>
+                            <ul className="mt-3 space-y-1 text-sm text-muted-foreground list-disc pl-4">
+                              <li>
+                                {selectedVerticalProfile.supportsVariants ? 'Variantes habilitadas' : 'Variantes deshabilitadas'}
+                              </li>
+                              <li>
+                                {selectedVerticalProfile.hasSizeMatrix
+                                  ? 'Inventario por matriz de atributos'
+                                  : 'Inventario lineal'}
+                              </li>
+                              <li>
+                                {selectedVerticalProfile.inventory?.requiresSerialTracking
+                                  ? 'Seguimiento de seriales obligatorio'
+                                  : 'Seriales opcionales'}
+                              </li>
+                              <li>
+                                {selectedVerticalProfile.allowsWeight
+                                  ? 'Permite productos por peso'
+                                  : 'Productos por unidad'}
+                              </li>
+                            </ul>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Guarda la configuración para aplicar cambios en los formularios y validaciones.
+                        </p>
+                    </CardContent>
+                </Card>
+
                 <Card>
                     <CardHeader>
                         <CardTitle>Información General y de Contacto</CardTitle>

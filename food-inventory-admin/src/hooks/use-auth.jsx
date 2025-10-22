@@ -31,6 +31,10 @@ function normalizeTenant(rawTenant) {
     enabledModules: rawTenant.enabledModules,
     subscriptionPlan: rawTenant.subscriptionPlan,
     isConfirmed: !isExplicitlyUnconfirmed,
+    verticalProfile: {
+      key: rawTenant.verticalProfile?.key || 'food-service',
+      overrides: rawTenant.verticalProfile?.overrides || {},
+    },
     aiAssistant: {
       autoReplyEnabled: Boolean(aiAssistant.autoReplyEnabled),
       knowledgeBaseTenantId: aiAssistant.knowledgeBaseTenantId || '',
