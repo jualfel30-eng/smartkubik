@@ -504,51 +504,54 @@ function TenantLayout() {
 
 function AppContent() {
   return (
-    <Suspense fallback={<LoadingFallback />}>
-      <Routes>
-        <Route path="/" element={<SmartKubikLanding />} />
-        <Route path="/blog" element={<BlogIndex />} />
-        <Route path="/blog/:slug" element={<BlogPost />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/confirm-account" element={<ConfirmAccount />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route
-          path="/organizations"
-          element={
-            <ProtectedRoute>
-              <OrganizationSelector />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/super-admin/*"
-          element={
-            <ProtectedRoute>
-              <SuperAdminLayout />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/*"
-          element={
-            <ProtectedRoute requireOrganization>
-                <FormStateProvider>
-                  <CrmProvider>
-                    <ShiftProvider>
-                      <AccountingProvider>
-                        <TenantLayout />
-                      </AccountingProvider>
-                    </ShiftProvider>
-                  </CrmProvider>
-                </FormStateProvider>
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
-    </Suspense>
+    <>
+      <Toaster richColors />
+      <Suspense fallback={<LoadingFallback />}>
+        <Routes>
+          <Route path="/" element={<SmartKubikLanding />} />
+          <Route path="/blog" element={<BlogIndex />} />
+          <Route path="/blog/:slug" element={<BlogPost />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/confirm-account" element={<ConfirmAccount />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route
+            path="/organizations"
+            element={
+              <ProtectedRoute>
+                <OrganizationSelector />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/super-admin/*"
+            element={
+              <ProtectedRoute>
+                <SuperAdminLayout />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/*"
+            element={
+              <ProtectedRoute requireOrganization>
+                  <FormStateProvider>
+                    <CrmProvider>
+                      <ShiftProvider>
+                        <AccountingProvider>
+                          <TenantLayout />
+                        </AccountingProvider>
+                      </ShiftProvider>
+                    </CrmProvider>
+                  </FormStateProvider>
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </Suspense>
+    </>
   );
 }
 

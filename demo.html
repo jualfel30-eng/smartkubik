@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Smartkubik – Inventario Retail</title>
+  <!--
+    Esta página es un ejemplo de cómo podría estructurarse un artículo pilar
+    para un blog B2B de un ERP como Smartkubik. Está construido con React
+    (versión UMD) y JavaScript puro, de modo que pueda ejecutarse en
+    cualquier entorno y servir de referencia para integrarlo en un proyecto
+    existente basado en Nest.js + MongoDB (backend) y React + Vite (frontend).
+    El objetivo es ilustrar la disposición de los elementos clave que
+    fomentan la conversión de leads: barra de búsqueda, índice (TOC) sticky,
+    barra de progreso de lectura, CTAs contextuales, formulario de
+    newsletter, calculadora interactiva, secciones bien definidas y un
+    footer con captación de contactos. Esta demo utiliza estilos sencillos
+    para resaltar la funcionalidad; puedes adaptarla con Tailwind, CSS
+    modules o cualquier framework de estilo que utilices en tu stack.
+  -->
+  <style>
+    /* Estilos básicos para layout y legibilidad */
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.6;
+      color: #222;
+      background-color: #fafafa;
+    }
+    a {
+      color: #0070f3;
+      text-decoration: none;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 2rem;
+      background: #ffffff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+    header nav a {
+      margin-right: 1rem;
+    }
+    .search-bar input {
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      min-width: 220px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1rem 2rem;
+      display: grid;
+      grid-template-columns: 1fr;
+      grid-gap: 2rem;
+    }
+    @media (min-width: 960px) {
+      .container {
+        grid-template-columns: 250px 1fr 300px;
+      }
+    }
+    .toc {
+      position: sticky;
+      top: 100px;
+      max-height: calc(100vh - 100px);
+      overflow-y: auto;
+      padding-right: 1rem;
+    }
+    .toc h3 {
+      margin-top: 0;
+    }
+    .toc ul {
+      list-style: none;
+      padding-left: 0;
+      font-size: 0.9rem;
+    }
+    .toc li {
+      margin-bottom: 0.5rem;
+    }
+    .toc a {
+      color: #333;
+    }
+    .content {
+      overflow: hidden;
+    }
+    .article h2 {
+      margin-top: 2rem;
+    }
+    .article p {
+      margin-bottom: 1.2rem;
+    }
+    .progress-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 5px;
+      background-color: #eee;
+      z-index: 999;
+    }
+    .progress-bar {
+      height: 5px;
+      width: 0;
+      background-color: #0070f3;
+    }
+    .cta-box {
+      margin: 2rem 0;
+      padding: 1rem;
+      background-color: #f2f8ff;
+      border: 1px solid #cce0ff;
+      border-radius: 8px;
+    }
+    .cta-box h4 {
+      margin-top: 0;
+    }
+    .cta-button {
+      display: inline-block;
+      margin-top: 0.5rem;
+      padding: 0.6rem 1rem;
+      background-color: #0070f3;
+      color: #fff;
+      border-radius: 4px;
+    }
+    .sidebar {
+      position: sticky;
+      top: 100px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    .newsletter, .calculator, .related-posts {
+      padding: 1rem;
+      background-color: #ffffff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+    .newsletter form input,
+    .newsletter form button,
+    .calculator input {
+      width: 100%;
+      padding: 0.5rem;
+      margin-bottom: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    footer {
+      padding: 2rem;
+      background: #f4f4f4;
+      text-align: center;
+      margin-top: 2rem;
+    }
+    /* Simple button style for form */
+    .newsletter button {
+      background-color: #0070f3;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+  <!-- Cargar React y ReactDOM desde CDN UMD -->
+  <script crossorigin src="https://unpkg.com/react@17/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+  <!-- Babel para procesar JSX -->
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <!-- Barra de progreso -->
+  <div class="progress-container">
+    <div id="progress-bar" class="progress-bar"></div>
+  </div>
+  <header>
+    <div class="logo">Smartkubik</div>
+    <nav>
+      <a href="#">Retail</a>
+      <a href="#">Restaurantes</a>
+      <a href="#">Servicios</a>
+      <a href="#">Logística</a>
+    </nav>
+    <div class="search-bar">
+      <input type="text" placeholder="Buscar en el blog…" />
+    </div>
+  </header>
+  <div id="root"></div>
+  <footer>
+    <p>© 2025 Smartkubik ERP – Todos los derechos reservados.</p>
+    <p>
+      ¿Deseas más información? <a href="#">Contacta con nosotros</a>
+      o prueba Smartkubik gratis durante 14 días.
+    </p>
+  </footer>
+  <!-- Código React -->
+  <script type="text/babel">
+    // Componente CTA reutilizable
+    function CtaBox({ title, description, buttonText, href }) {
+      return (
+        <div className="cta-box">
+          <h4>{title}</h4>
+          <p>{description}</p>
+          <a className="cta-button" href={href}>{buttonText}</a>
+        </div>
+      );
+    }
+
+    // Calculadora ROI simple
+    function ROICalculator() {
+      const [capital, setCapital] = React.useState('');
+      const [merma, setMerma] = React.useState('');
+      const [ahorro, setAhorro] = React.useState(null);
+      const calcular = () => {
+        const cap = parseFloat(capital);
+        const m = parseFloat(merma);
+        if (!isNaN(cap) && !isNaN(m)) {
+          // Suponemos que se puede reducir un 25% de la merma actual
+          const ahorroProyectado = cap * (m / 100) * 0.25;
+          setAhorro(ahorroProyectado.toFixed(2));
+        }
+      };
+      return (
+        <div className="calculator">
+          <h4>Calculadora de Ahorro de Inventario</h4>
+          <label>Capital inmovilizado (USD)</label>
+          <input type="number" value={capital} onChange={e => setCapital(e.target.value)} placeholder="Ej. 50000" />
+          <label>Merma actual (%)</label>
+          <input type="number" value={merma} onChange={e => setMerma(e.target.value)} placeholder="Ej. 5" />
+          <button className="cta-button" onClick={calcular}>Calcular Ahorro</button>
+          {ahorro !== null && (
+            <p>Podrías ahorrar aproximadamente <strong>${ahorro}</strong> al año reduciendo un 25% de tu merma.</p>
+          )}
+        </div>
+      );
+    }
+
+    // Formulario de Newsletter
+    function Newsletter() {
+      const [email, setEmail] = React.useState('');
+      const handleSubmit = e => {
+        e.preventDefault();
+        alert(`¡Gracias por suscribirte, ${email}!`);
+        setEmail('');
+      };
+      return (
+        <div className="newsletter">
+          <h4>Suscríbete a nuestro boletín</h4>
+          <p>Recibe consejos, guías y novedades sobre gestión retail en tu correo.</p>
+          <form onSubmit={handleSubmit}>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="Tu email"
+              required
+            />
+            <button type="submit">Suscribirse</button>
+          </form>
+        </div>
+      );
+    }
+
+    // Sidebar con newsletter, calculadora y posts relacionados
+    function Sidebar() {
+      return (
+        <div className="sidebar">
+          <Newsletter />
+          <ROICalculator />
+          <div className="related-posts">
+            <h4>Artículos relacionados</h4>
+            <ul>
+              <li><a href="#">Compras inteligentes en retail</a></li>
+              <li><a href="#">Cómo leer tus KPIs de inventario</a></li>
+              <li><a href="#">Reduciendo la merma al 2%</a></li>
+            </ul>
+          </div>
+        </div>
+      );
+    }
+
+    // Componente principal de la página
+    function BlogPage() {
+      // Calcular tiempo de lectura aproximado (palabras / 200)
+      const articleRef = React.useRef(null);
+      const [readingTime, setReadingTime] = React.useState(0);
+      React.useEffect(() => {
+        if (articleRef.current) {
+          const text = articleRef.current.textContent || '';
+          const words = text.trim().split(/\s+/).length;
+          setReadingTime(Math.max(1, Math.round(words / 200)));
+        }
+        // Escucha scroll para la barra de progreso
+        const handleScroll = () => {
+          const article = articleRef.current;
+          if (!article) return;
+          const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+          const articleTop = article.offsetTop;
+          const articleHeight = article.offsetHeight;
+          const windowHeight = window.innerHeight;
+          const maxScroll = articleTop + articleHeight - windowHeight;
+          const percent = Math.min(1, Math.max(0, (scrollTop - articleTop) / maxScroll));
+          const bar = document.getElementById('progress-bar');
+          bar.style.width = (percent * 100) + '%';
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+      }, []);
+      return (
+        <main className="container">
+          {/* TOC solo se muestra en desktop */}
+          <aside className="toc">
+            <h3>Contenido</h3>
+            <ul>
+              <li><a href="#sec1">Costes invisibles de quiebres y sobrestock</a></li>
+              <li><a href="#sec2">Fundamentos que sí funcionan</a></li>
+              <li><a href="#sec3">Cómo un ERP lo soluciona</a></li>
+              <li><a href="#sec4">Plan de 30 días</a></li>
+              <li><a href="#sec5">Caso práctico</a></li>
+              <li><a href="#sec6">Métricas clave</a></li>
+              <li><a href="#sec7">FAQ</a></li>
+            </ul>
+            <p><em>Tiempo de lectura: {readingTime} min</em></p>
+          </aside>
+          <div className="content">
+            <article className="article" ref={articleRef}>
+              <h1>Inventario retail sin quiebres: cómo recuperar capital inmovilizado</h1>
+              <p>
+                El inventario es el corazón de cualquier tienda minorista. Sin embargo, los
+                quiebres de stock y el sobrestock se llevan una tajada silenciosa de tu margen.
+                En este artículo descubrirás por qué ocurren estos problemas y, lo más importante,
+                cómo revertirlos de forma pragmática usando un ERP modular como Smartkubik.
+              </p>
+              {/* Sección 1 */}
+              <h2 id="sec1">El costo invisible de los quiebres y del sobrestock</h2>
+              <p>
+                Un producto faltante no es solo una venta perdida; es un cliente que probablemente
+                no vuelva. Por otro lado, el sobrestock inmoviliza capital y aumenta tus costos de
+                almacenamiento. En minoristas de moda, un estudio reveló que los quiebres
+                reducen la repetición de compra en un 40%. La merma por caducidad o mal manejo
+                en tiendas de abarrotes puede representar hasta un 5% de la facturación【146142240589250†screenshot】.
+              </p>
+              {/* CTA lead magnet a 25% del contenido */}
+              <CtaBox
+                title="Checklist: Organiza tu inventario en 30 días"
+                description="Descarga gratis nuestra checklist para auditar, clasificar y reordenar tus SKUs como un profesional."
+                buttonText="Descargar ahora"
+                href="#"
+              />
+              <h2 id="sec2">Fundamentos que sí funcionan en retail (sin Excel eterno)</h2>
+              <p>
+                Clasifica tus productos con la matriz ABC para enfocar tu atención en lo que genera el 80% de
+                tus ingresos. Calcula tu punto de reorden (ROP) usando la demanda diaria y el tiempo de
+                reabastecimiento. Ajusta tu stock de seguridad de acuerdo a la variabilidad de demanda y
+                proveedores. Deja de gestionar inventario en hojas de cálculo infinitas; automatiza.
+              </p>
+              {/* CTA a demo en mitad del artículo */}
+              <CtaBox
+                title="Mira Smartkubik en acción"
+                description="Explora el módulo de inventario con un recorrido de 3 minutos y descubre cómo automatizar tu reposición."
+                buttonText="Ver demo"
+                href="#"
+              />
+              <h2 id="sec3">Cómo un ERP modular resuelve el cuello de botella</h2>
+              <p>
+                El módulo de Inventario de Smartkubik centraliza todas tus existencias en tiempo real,
+                genera alertas cuando te acercas al ROP y recomienda pedidos a proveedores basados en
+                pronósticos. Vinculado al POS, obtiene ventas por hora y temporada, permitiendo proyecciones
+                precisas. El módulo de Compras usa un scorecard de proveedores para optimizar tiempos de
+                entrega y precios. Los reportes te muestran cobertura, rotación y valor de la merma en un
+                dashboard intuitivo.
+              </p>
+              <h2 id="sec4">Implementación en 30 días (roadmap)</h2>
+              <p>
+                Semana 1: limpia tu catálogo y clasifica SKUs por importancia (ABC). Semana 2: define
+                puntos de reorden y ajusta el stock de seguridad. Semana 3: crea reglas de compra y activa
+                alertas. Semana 4: revisa tu merma con auditorías y configura un tablero semanal. Durante
+                este proceso, involucra a tu equipo para asegurar que todos adoptan la nueva forma de
+                trabajo y para registrar aprendizajes que mejoren los parámetros.
+              </p>
+              <h2 id="sec5">Caso práctico (mini story)</h2>
+              <p>
+                Vistabella Moda, con dos sucursales, sufría quiebres del 18% en prendas clave. Tras
+                implementar Smartkubik, clasificaron su inventario, calcularon ROP y comenzaron a
+                transferir stock entre tiendas. Ocho semanas después, sus quiebres bajaron al 4% y liberaron
+                $12,000 de capital que estaba inmovilizado en producto lento. Además, su equipo de ventas
+                ganó confianza al saber qué reponer y cuándo.
+              </p>
+              <h2 id="sec6">Métricas que importan (y cómo leerlas)</h2>
+              <p>
+                La cobertura de inventario (días de stock) te indica cuántos días puedes operar sin
+                reabastecerte. La rotación revela cuántas veces en un periodo (mes o año) vendes y repones
+                tus existencias. El fill rate mide el porcentaje de pedidos atendidos sin quiebres. La
+                merma te muestra el valor de producto que pierdes por caducidad o daños. Aprende a leer
+                estas métricas semanalmente para decisiones rápidas y mensualmente para estrategias más
+                profundas.
+              </p>
+              <h2 id="sec7">Preguntas frecuentes (FAQ)</h2>
+              <p><strong>¿Cómo calcular mi punto de reorden si mi demanda es estacional?</strong><br />
+                Debes estimar la demanda promedio durante la temporada alta y baja, calcular el lead
+                time de tu proveedor y ajustar el stock de seguridad según la variabilidad de cada
+                periodo. Un ERP con pronósticos por temporada simplifica este proceso.</p>
+              <p><strong>¿Qué cobertura de inventario es sana por categoría?</strong><br />
+                Depende de la rotación de la categoría. Para productos de alta demanda, una cobertura de
+                15–20 días puede ser adecuada; para productos de baja rotación, 30–45 días. Lo importante
+                es equilibrar disponibilidad y capital inmovilizado.</p>
+              <p><strong>¿Cómo puedo reducir merma sin afectar niveles de servicio?</strong><br />
+                Implementando auditorías periódicas, capacitando a tu equipo en manipulación de
+                productos y utilizando alertas de expiración. Integrar módulos de Inventario y POS
+                permite identificar dónde se origina la merma.</p>
+              <p><strong>¿Puedo aplicar ABC si vendo por marketplaces y tienda física?</strong><br />
+                Sí. Debes considerar el total de ventas de cada SKU en todos los canales y asignar la
+                clasificación ABC en función de su contribución conjunta al margen. Así podrás priorizar
+                tu stock donde más impacto tiene.</p>
+              <p><strong>¿Qué datos mínimos necesito para empezar?</strong><br />
+                Necesitas tu lista de SKUs con existencias actuales, histórico de ventas por SKU (ideal
+                al menos 3 meses), tiempos de entrega de proveedores y tu margen por producto para
+                priorizar categorías.</p>
+              {/* CTA final del artículo */}
+              <CtaBox
+                title="Agenda tu demo de Smartkubik"
+                description="¿Listo para dejar de apagar incendios? Programa una demo personalizada o empieza tu prueba de 14 días."
+                buttonText="Solicitar demo"
+                href="#"
+              />
+            </article>
+          </div>
+          <Sidebar />
+        </main>
+      );
+    }
+    // Renderizar la página en el div root
+    ReactDOM.render(<BlogPage />, document.getElementById('root'));
+  </script>
+</body>
+</html>
