@@ -6,8 +6,11 @@ import { Public } from "../../decorators/public.decorator";
 // DTO simplificado para órdenes públicas del storefront
 export class CreatePublicOrderItemDto {
   productId: string;
+  variantId?: string;
+  variantSku?: string;
   quantity: number;
   unitPrice: number;
+  attributes?: Record<string, any>;
 }
 
 export class CreatePublicOrderDto {
@@ -105,6 +108,14 @@ export class OrdersPublicController {
       customerPhone: createDto.customerPhone || "",
       items: createDto.items.map((item) => ({
         productId: item.productId,
+        variantId: item.variantId,
+        variantSku: item.variantSku,
+        attributes: item.attributes,
+        attributeSummary: item.attributes
+          ? Object.entries(item.attributes)
+              .map(([key, value]) => `${key}: ${value}`)
+              .join(" | ")
+          : undefined,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         totalPrice: item.quantity * item.unitPrice,

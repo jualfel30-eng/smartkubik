@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsPhoneNumber,
   IsEnum,
+  IsMongoId,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 import { SanitizeString } from "../../../decorators/sanitize.decorator";
@@ -113,11 +114,25 @@ export class CreateTenantWithAdminDto {
 }
 
 export class ConfirmTenantDto {
-  @ApiProperty({ description: "Código del tenant", example: "EL-BUEN-SABOR" })
+  @ApiProperty({
+    description: "ID del tenant generado en la base de datos",
+    example: "68f59a4ec1010bdc5d62ab3a",
+    required: false,
+  })
+  @IsMongoId()
+  @IsOptional()
+  tenantId?: string;
+
+  @ApiProperty({
+    description:
+      "Código legible del tenant (compatibilidad con versiones anteriores)",
+    example: "EL-BUEN-SABOR",
+    required: false,
+  })
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   @SanitizeString()
-  tenantCode: string;
+  tenantCode?: string;
 
   @ApiProperty({
     description: "Email utilizado durante el registro",

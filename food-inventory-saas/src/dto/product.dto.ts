@@ -81,6 +81,11 @@ export class CreateProductVariantDto {
     height: number;
     weight: number;
   };
+
+  @ApiPropertyOptional({ description: "Atributos personalizados de la variante", type: Object })
+  @IsOptional()
+  @IsObject()
+  attributes?: Record<string, any>;
 }
 
 export class CreateSellingUnitDto {
@@ -258,6 +263,11 @@ export class CreateProductDto {
   @IsString({ each: true })
   @SanitizeStringArray()
   tags?: string[];
+
+  @ApiPropertyOptional({ description: "Atributos personalizados del producto", type: Object })
+  @IsOptional()
+  @IsObject()
+  attributes?: Record<string, any>;
 
   @ApiProperty({
     description: "Variantes del producto",

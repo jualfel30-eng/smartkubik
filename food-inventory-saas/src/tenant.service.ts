@@ -17,6 +17,7 @@ import {
   InviteUserDto,
   UpdateUserDto,
 } from "./dto/tenant.dto";
+import { verticalProfileKeys } from "./config/vertical-profiles";
 
 @Injectable()
 export class TenantService {
@@ -91,7 +92,7 @@ export class TenantService {
     const tenant = await this.tenantModel
       .findById(tenantId)
       .select(
-        "name contactInfo taxInfo logo website timezone settings aiAssistant limits usage subscriptionPlan",
+        "name contactInfo taxInfo logo website timezone settings aiAssistant verticalProfile limits usage subscriptionPlan",
       )
       .exec();
 
@@ -155,6 +156,19 @@ export class TenantService {
       }
     }
 
+    if (updateDto.verticalProfile) {
+      const { key, overrides } = updateDto.verticalProfile;
+      if (!verticalProfileKeys.includes(key)) {
+        throw new BadRequestException(
+          `Perfil vertical '${key}' no está soportado.`,
+        );
+      }
+      updatePayload["verticalProfile.key"] = key;
+      if (overrides !== undefined) {
+        updatePayload["verticalProfile.overrides"] = overrides || {};
+      }
+    }
+
     if (updateDto.aiAssistant) {
       const { autoReplyEnabled, knowledgeBaseTenantId, model, capabilities } =
         updateDto.aiAssistant;
@@ -201,7 +215,9 @@ export class TenantService {
         { $set: updatePayload },
         { new: true, runValidators: true },
       )
-      .select("name contactInfo taxInfo logo website timezone settings aiAssistant")
+      .select(
+        "name contactInfo taxInfo logo website timezone settings aiAssistant verticalProfile",
+      )
       .exec();
 
     if (!updatedTenant) {

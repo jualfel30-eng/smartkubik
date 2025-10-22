@@ -33,18 +33,39 @@ export class InventoryService {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     private readonly eventsService: EventsService,
     @InjectConnection() private connection: Connection,
-  ) {}
+  ) {
+    this.inventoryModel.collection
+      .dropIndex("productId_1_tenantId_1")
+      .catch((error: any) => {
+        if (error?.codeName !== "IndexNotFound" && error?.message) {
+          this.logger
+            .warn?.(`No se pudo eliminar el índice legacy productId_1_tenantId_1: ${error.message}`);
+        }
+      });
+  }
 
   async create(
     createInventoryDto: CreateInventoryDto,
     user: any,
     session?: ClientSession,
   ): Promise<InventoryDocument> {
+    const productObjectId = new Types.ObjectId(createInventoryDto.productId);
+    const inventoryFilter: Record<string, any> = {
+      productId: productObjectId,
+      tenantId: this.buildTenantFilter(user.tenantId),
+    };
+
+    if (createInventoryDto.variantId) {
+      inventoryFilter.variantId = new Types.ObjectId(createInventoryDto.variantId);
+    } else {
+      inventoryFilter.$or = [
+        { variantId: { $exists: false } },
+        { variantId: null },
+      ];
+    }
+
     const existingInventory = await this.inventoryModel
-      .findOne({
-        productSku: createInventoryDto.productSku,
-        tenantId: this.buildTenantFilter(user.tenantId),
-      })
+      .findOne(inventoryFilter)
       .session(session ?? null);
     if (existingInventory && existingInventory.isActive !== false) {
       throw new Error("Ya existe inventario para este producto/variante");
@@ -60,6 +81,10 @@ export class InventoryService {
 
     const inventoryData = {
       ...createInventoryDto,
+      productId: productObjectId,
+      ...(createInventoryDto.variantId && {
+        variantId: new Types.ObjectId(createInventoryDto.variantId),
+      }),
       lots: processedLots,
       availableQuantity: createInventoryDto.totalQuantity,
       reservedQuantity: 0,
@@ -199,44 +224,100 @@ export class InventoryService {
     session?: ClientSession,
   ) {
     for (const item of reserveDto.items) {
+      // BACKWARD COMPATIBILITY: Buscar por variantSku primero, luego por productSku
+      const inventoryQuery: any = {
+        tenantId: this.buildTenantFilter(user.tenantId),
+      };
+
+      // Si el item tiene variantSku, buscar por ese campo
+      if (item.productSku && item.productSku.includes('-VAR')) {
+        inventoryQuery.variantSku = item.productSku;
+      } else {
+        // Si no, buscar por productSku (productos antiguos sin variantes)
+        inventoryQuery.productSku = item.productSku;
+      }
+
       const inventory = await this.inventoryModel
-        .findOne({
-          productSku: item.productSku,
-          tenantId: this.buildTenantFilter(user.tenantId),
-        })
+        .findOne(inventoryQuery)
         .session(session ?? null);
-      if (!inventory)
-        throw new Error(
-          `Inventario no encontrado para SKU: ${item.productSku}`,
+
+      if (!inventory) {
+        // Intentar buscar de la otra manera si no se encontró
+        const alternativeQuery: any = {
+          tenantId: this.buildTenantFilter(user.tenantId),
+        };
+
+        if (item.productSku && item.productSku.includes('-VAR')) {
+          alternativeQuery.productSku = item.productSku;
+        } else {
+          alternativeQuery.variantSku = item.productSku;
+        }
+
+        const alternativeInventory = await this.inventoryModel
+          .findOne(alternativeQuery)
+          .session(session ?? null);
+
+        if (!alternativeInventory) {
+          throw new Error(
+            `Inventario no encontrado para SKU: ${item.productSku}`,
+          );
+        }
+
+        // Si encontramos con la búsqueda alternativa, continuar con ese inventario
+        await this.processInventoryReservation(
+          alternativeInventory,
+          item,
+          reserveDto.orderId,
+          session,
         );
-      if (inventory.availableQuantity < item.quantity)
-        throw new Error(`Stock insuficiente para SKU: ${item.productSku}`);
-      inventory.availableQuantity -= item.quantity;
-      inventory.reservedQuantity += item.quantity;
-      await inventory.save({ session });
-      await this.createMovementRecord(
-        {
-          inventoryId: inventory._id.toString(),
-          productId: inventory.productId.toString(),
-          productSku: item.productSku,
-          movementType: "reservation",
-          quantity: item.quantity,
-          unitCost: inventory.averageCostPrice,
-          totalCost: item.quantity * inventory.averageCostPrice,
-          reason: "Reserva para orden",
-          reference: reserveDto.orderId,
-          orderId: reserveDto.orderId,
-          balanceAfter: {
-            totalQuantity: inventory.totalQuantity,
-            availableQuantity: inventory.availableQuantity,
-            reservedQuantity: inventory.reservedQuantity,
-            averageCostPrice: inventory.averageCostPrice,
-          },
-        },
-        user,
-        session,
-      );
+      } else {
+        // Si encontramos con la búsqueda principal, continuar con ese inventario
+        await this.processInventoryReservation(
+          inventory,
+          item,
+          reserveDto.orderId,
+          session,
+        );
+      }
     }
+  }
+
+  private async processInventoryReservation(
+    inventory: any,
+    item: any,
+    orderId: string,
+    session?: ClientSession,
+  ) {
+    if (inventory.availableQuantity < item.quantity) {
+      throw new Error(`Stock insuficiente para SKU: ${item.productSku}`);
+    }
+
+    inventory.availableQuantity -= item.quantity;
+    inventory.reservedQuantity += item.quantity;
+    await inventory.save({ session });
+
+    await this.createMovementRecord(
+      {
+        inventoryId: inventory._id.toString(),
+        productId: inventory.productId.toString(),
+        productSku: item.productSku,
+        movementType: "reservation",
+        quantity: item.quantity,
+        unitCost: inventory.averageCostPrice,
+        totalCost: item.quantity * inventory.averageCostPrice,
+        reason: "Reserva para orden",
+        reference: orderId,
+        orderId: orderId,
+        balanceAfter: {
+          totalQuantity: inventory.totalQuantity,
+          availableQuantity: inventory.availableQuantity,
+          reservedQuantity: inventory.reservedQuantity,
+          averageCostPrice: inventory.averageCostPrice,
+        },
+      },
+      { id: inventory.createdBy, tenantId: inventory.tenantId } as any, // user context
+      session,
+    );
   }
 
   async releaseInventory(
@@ -294,21 +375,23 @@ export class InventoryService {
 
   async commitInventory(order: any, user: any, session?: ClientSession) {
     for (const item of order.items) {
+      const skuForInventory = item.variantSku || item.productSku;
+      const quantityToApply = item.quantityInBaseUnit ?? item.quantity;
       const inventory = await this.inventoryModel
         .findOne({
-          productSku: item.productSku,
+          productSku: skuForInventory,
           tenantId: this.buildTenantFilter(user.tenantId),
         })
         .session(session ?? null);
       if (!inventory) {
         this.logger.warn(
-          `Inventory not found for SKU: ${item.productSku} while committing order ${order.orderNumber}. Skipping.`,
+          `Inventory not found for SKU: ${skuForInventory} while committing order ${order.orderNumber}. Skipping.`,
         );
         continue;
       }
 
-      inventory.reservedQuantity -= item.quantity;
-      inventory.totalQuantity -= item.quantity;
+      inventory.reservedQuantity -= quantityToApply;
+      inventory.totalQuantity -= quantityToApply;
 
       await inventory.save({ session });
 
@@ -316,11 +399,11 @@ export class InventoryService {
         {
           inventoryId: inventory._id.toString(),
           productId: inventory.productId.toString(),
-          productSku: item.productSku,
+          productSku: skuForInventory,
           movementType: "out",
-          quantity: item.quantity,
+          quantity: quantityToApply,
           unitCost: item.costPrice,
-          totalCost: item.quantity * item.costPrice,
+          totalCost: quantityToApply * item.costPrice,
           reason: "Venta de producto",
           reference: order.orderNumber,
           orderId: order._id.toString(),
@@ -386,11 +469,17 @@ export class InventoryService {
     try {
       const results: InventoryDocument[] = [];
       for (const item of bulkAdjustDto.items) {
+        const inventoryQuery: any = {
+          productSku: item.SKU,
+          tenantId: this.buildTenantFilter(user.tenantId),
+        };
+
+        if (item.variantSku) {
+          inventoryQuery.variantSku = item.variantSku;
+        }
+
         const inventory = await this.inventoryModel
-          .findOne({
-            productSku: item.SKU,
-            tenantId: this.buildTenantFilter(user.tenantId),
-          })
+          .findOne(inventoryQuery)
           .session(session);
         if (!inventory) {
           this.logger.warn(
@@ -399,32 +488,148 @@ export class InventoryService {
           continue;
         }
 
-        const difference = item.NuevaCantidad - inventory.totalQuantity;
-        inventory.totalQuantity = item.NuevaCantidad;
-        inventory.availableQuantity += difference;
+        inventory.availableQuantity = inventory.availableQuantity ?? 0;
+        inventory.reservedQuantity = inventory.reservedQuantity ?? 0;
+        inventory.committedQuantity = inventory.committedQuantity ?? 0;
+
+        const previousTotals = {
+          totalQuantity: inventory.totalQuantity ?? 0,
+          availableQuantity: inventory.availableQuantity ?? 0,
+          reservedQuantity: inventory.reservedQuantity ?? 0,
+          committedQuantity: inventory.committedQuantity ?? 0,
+        };
+
+        const hasAttributeFilters =
+          (item.attributes && Object.keys(item.attributes).length > 0) ||
+          Boolean(item.variantSku);
+
+        if (hasAttributeFilters) {
+          inventory.attributeCombinations = Array.isArray(
+            inventory.attributeCombinations,
+          )
+            ? inventory.attributeCombinations
+            : [];
+
+          const normalizedFilters = this.normalizeAttributeRecord(
+            item.attributes ?? {},
+          );
+          if (item.variantSku) {
+            normalizedFilters.variantSku = this.normalizeString(item.variantSku);
+          }
+
+          let combination = inventory.attributeCombinations.find((combo: any) =>
+            this.attributesMatch(combo?.attributes, normalizedFilters),
+          );
+
+          const previousCombinationTotals = combination
+            ? {
+                total: combination.totalQuantity ?? 0,
+                reserved: combination.reservedQuantity ?? 0,
+                committed: combination.committedQuantity ?? 0,
+                available:
+                  combination.availableQuantity ??
+                  Math.max(
+                    0,
+                    (combination.totalQuantity ?? 0) -
+                      (combination.reservedQuantity ?? 0) -
+                      (combination.committedQuantity ?? 0),
+                  ),
+              }
+            : {
+                total: 0,
+                reserved: 0,
+                committed: 0,
+                available: 0,
+              };
+
+          if (!combination) {
+            combination = {
+              attributes: {
+                ...(item.attributes || {}),
+                ...(item.variantSku ? { variantSku: item.variantSku } : {}),
+              },
+              totalQuantity: 0,
+              availableQuantity: 0,
+              reservedQuantity: 0,
+              committedQuantity: 0,
+              averageCostPrice: inventory.averageCostPrice,
+            };
+            inventory.attributeCombinations.push(combination);
+          } else {
+            combination.attributes = {
+              ...combination.attributes,
+              ...(item.attributes || {}),
+              ...(item.variantSku ? { variantSku: item.variantSku } : {}),
+            };
+          }
+
+          combination.totalQuantity = item.NuevaCantidad;
+          const reserved = combination.reservedQuantity ?? 0;
+          const committed = combination.committedQuantity ?? 0;
+          combination.availableQuantity = Math.max(
+            0,
+            item.NuevaCantidad - reserved - committed,
+          );
+
+          const combinationAvailable =
+            combination.availableQuantity ??
+            Math.max(0, item.NuevaCantidad - reserved - committed);
+
+          const totalDifference = combination.totalQuantity - previousCombinationTotals.total;
+          const availableDifference =
+            combinationAvailable - previousCombinationTotals.available;
+          const reservedDifference = reserved - previousCombinationTotals.reserved;
+          const committedDifference =
+            committed - previousCombinationTotals.committed;
+
+          inventory.totalQuantity = previousTotals.totalQuantity + totalDifference;
+          inventory.availableQuantity = Math.max(
+            0,
+            previousTotals.availableQuantity + availableDifference,
+          );
+          inventory.reservedQuantity = Math.max(
+            0,
+            previousTotals.reservedQuantity + reservedDifference,
+          );
+          inventory.committedQuantity = Math.max(
+            0,
+            previousTotals.committedQuantity + committedDifference,
+          );
+        } else {
+          const difference = item.NuevaCantidad - inventory.totalQuantity;
+          inventory.totalQuantity = item.NuevaCantidad;
+          inventory.availableQuantity = Math.max(
+            0,
+            inventory.availableQuantity + difference,
+          );
+        }
 
         await inventory.save({ session });
 
-        await this.createMovementRecord(
-          {
-            inventoryId: inventory._id.toString(),
-            productId: inventory.productId.toString(),
-            productSku: inventory.productSku,
-            movementType: "adjustment",
-            quantity: Math.abs(difference),
-            unitCost: inventory.averageCostPrice,
-            totalCost: Math.abs(difference) * inventory.averageCostPrice,
-            reason: bulkAdjustDto.reason,
-            balanceAfter: {
-              totalQuantity: inventory.totalQuantity,
-              availableQuantity: inventory.availableQuantity,
-              reservedQuantity: inventory.reservedQuantity,
-              averageCostPrice: inventory.averageCostPrice,
+        const totalDifference =
+          inventory.totalQuantity - previousTotals.totalQuantity;
+        if (totalDifference !== 0) {
+          await this.createMovementRecord(
+            {
+              inventoryId: inventory._id.toString(),
+              productId: inventory.productId.toString(),
+              productSku: inventory.productSku,
+              movementType: "adjustment",
+              quantity: Math.abs(totalDifference),
+              unitCost: inventory.averageCostPrice,
+              totalCost: Math.abs(totalDifference) * inventory.averageCostPrice,
+              reason: bulkAdjustDto.reason,
+              balanceAfter: {
+                totalQuantity: inventory.totalQuantity,
+                availableQuantity: inventory.availableQuantity,
+                reservedQuantity: inventory.reservedQuantity,
+                averageCostPrice: inventory.averageCostPrice,
+              },
             },
-          },
-          user,
-          session,
-        );
+            user,
+            session,
+          );
+        }
 
         await this.checkAndCreateAlerts(inventory, user, session);
         results.push(inventory);
@@ -445,6 +650,82 @@ export class InventoryService {
     } finally {
       session.endSession();
     }
+  }
+
+  private normalizeString(value: any): string {
+    if (value === undefined || value === null) {
+      return "";
+    }
+    return value
+      .toString()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  }
+
+  private normalizeAttributeRecord(
+    attributes: Record<string, any>,
+  ): Record<string, string> {
+    const normalized: Record<string, string> = {};
+    if (!attributes) {
+      return normalized;
+    }
+
+    Object.entries(attributes).forEach(([key, value]) => {
+      if (value === undefined || value === null) {
+        return;
+      }
+      const normalizedKey = key?.toString().trim();
+      const normalizedValue = this.normalizeString(value);
+      if (normalizedKey && normalizedValue) {
+        normalized[normalizedKey] = normalizedValue;
+      }
+    });
+
+    return normalized;
+  }
+
+  private attributesMatch(
+    source: Record<string, any> | undefined,
+    filters: Record<string, string>,
+  ): boolean {
+    if (!source) {
+      return false;
+    }
+    const normalizedSource = this.normalizeAttributeRecord(source);
+    return Object.entries(filters).every(
+      ([key, value]) => normalizedSource[key] === value,
+    );
+  }
+
+  private calculateTotalsFromCombinations(combinations: any[]) {
+    if (!Array.isArray(combinations) || combinations.length === 0) {
+      return {
+        total: 0,
+        available: 0,
+        reserved: 0,
+        committed: 0,
+      };
+    }
+
+    return combinations.reduce(
+      (acc, combination) => {
+        const total = combination?.totalQuantity ?? 0;
+        const reserved = combination?.reservedQuantity ?? 0;
+        const committed = combination?.committedQuantity ?? 0;
+        const available =
+          combination?.availableQuantity ??
+          Math.max(0, total - reserved - committed);
+
+        acc.total += total;
+        acc.available += available;
+        acc.reserved += reserved;
+        acc.committed += committed;
+        return acc;
+      },
+      { total: 0, available: 0, reserved: 0, committed: 0 },
+    );
   }
 
   private async checkAndCreateAlerts(
@@ -793,21 +1074,29 @@ export class InventoryService {
       return;
     }
 
+    const sku = item.variantSku || item.productSku;
+    const resolvedVariantId =
+      item.variantId && Types.ObjectId.isValid(item.variantId)
+        ? new Types.ObjectId(item.variantId)
+        : undefined;
+
     let inventory = await this.inventoryModel
       .findOne({
-        productSku: item.productSku,
+        productSku: sku,
         tenantId: this.buildTenantFilter(user.tenantId),
       })
       .session(session ?? null);
 
     if (!inventory) {
       this.logger.log(
-        `Inventory not found for SKU: ${item.productSku}. Creating new inventory record.`,
+        `Inventory not found for SKU: ${sku}. Creating new inventory record.`,
       );
       const inventoryData = {
         productId: item.productId,
-        productSku: item.productSku,
+        productSku: sku,
         productName: product.name,
+        variantId: resolvedVariantId,
+        variantSku: item.variantSku || sku,
         tenantId: this.normalizeTenantValue(user.tenantId),
         totalQuantity: 0,
         availableQuantity: 0,
@@ -831,12 +1120,19 @@ export class InventoryService {
         createdBy: user.id,
       };
       inventory = new this.inventoryModel(inventoryData);
+    } else {
+      if (resolvedVariantId && !inventory.variantId) {
+        inventory.variantId = resolvedVariantId;
+      }
+      if (item.variantSku && !inventory.variantSku) {
+        inventory.variantSku = item.variantSku;
+      }
     }
 
     if (product.isPerishable) {
       if (!item.lotNumber || !item.expirationDate) {
         this.logger.warn(
-          `Lot number or expiration date missing for perishable product SKU: ${item.productSku}. Stock not updated.`,
+          `Lot number or expiration date missing for perishable product SKU: ${sku}. Stock not updated.`,
         );
         return; // Or throw a BadRequestException
       }
@@ -875,7 +1171,7 @@ export class InventoryService {
       {
         inventoryId: inventory._id.toString(),
         productId: inventory.productId.toString(),
-        productSku: item.productSku,
+        productSku: sku,
         lotNumber: item.lotNumber,
         movementType: "in",
         quantity: item.quantity,

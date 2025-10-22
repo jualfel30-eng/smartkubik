@@ -27,6 +27,20 @@ class PurchaseOrderItemDto {
   @SanitizeString()
   productSku: string;
 
+  @IsOptional()
+  @IsMongoId()
+  variantId?: string;
+
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  variantName?: string;
+
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  variantSku?: string;
+
   @IsNumber()
   @IsPositive()
   quantity: number;

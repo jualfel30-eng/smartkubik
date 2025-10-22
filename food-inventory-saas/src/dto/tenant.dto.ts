@@ -3,16 +3,20 @@ import {
   IsString,
   IsOptional,
   IsEmail,
-  IsPhoneNumber,
   ValidateNested,
   IsObject,
   IsNotEmptyObject,
   IsNumber,
   Min,
   IsBoolean,
+  IsIn,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { SanitizeString } from "../decorators/sanitize.decorator";
+import {
+  VerticalKey,
+  verticalProfileKeys,
+} from "../config/vertical-profiles";
 
 class AddressDto {
   @ApiProperty({ example: "Calle Principal 123" })
@@ -153,6 +157,18 @@ class DocumentTemplatesSettingsDto {
   quote?: QuoteSettingsDto;
 }
 
+class VerticalProfileSettingsDto {
+  @ApiProperty({ enum: verticalProfileKeys })
+  @IsString()
+  @IsIn(verticalProfileKeys)
+  key: VerticalKey;
+
+  @ApiProperty({ required: false, type: Object })
+  @IsOptional()
+  @IsObject()
+  overrides?: Record<string, any>;
+}
+
 class AiAssistantCapabilitiesSettingsDto {
   @ApiProperty({ example: true })
   @IsOptional()
@@ -269,6 +285,12 @@ export class UpdateTenantSettingsDto {
   @ValidateNested()
   @Type(() => OperationalSettingsDto)
   settings?: OperationalSettingsDto;
+
+  @ApiProperty({ type: VerticalProfileSettingsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => VerticalProfileSettingsDto)
+  verticalProfile?: VerticalProfileSettingsDto;
 
   @ApiProperty({ type: AiAssistantSettingsDto })
   @IsOptional()

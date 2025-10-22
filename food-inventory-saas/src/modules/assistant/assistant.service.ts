@@ -369,6 +369,7 @@ export class AssistantService {
       instructions.push(
         "Cuando el usuario pregunte por disponibilidad, existencias, costos o alertas de un producto, DEBES llamar a la herramienta `get_inventory_status` antes de responder para confirmar la información.",
         "IMPORTANTE: Al mencionar productos del inventario, SIEMPRE incluye la marca si está disponible, junto con el nombre del producto. Ejemplo: 'Miel Savage' en lugar de solo 'Miel'. La marca es información valiosa para los clientes.",
+        "Si necesitas confirmar variantes específicas (ej. talla, color, serial, ancho, edición), pasa esos criterios en el campo `attributes` de la herramienta `get_inventory_status` usando pares clave-valor como `{ \"size\": \"38\", \"color\": \"azul\" }`.",
       );
     }
     if (capabilities.schedulingLookup) {
@@ -406,6 +407,11 @@ export class AssistantService {
                   "Número máximo de coincidencias a devolver (1-10).",
                 minimum: 1,
                 maximum: 10,
+              },
+              attributes: {
+                type: "object",
+                description:
+                  "Filtros de atributos para la variante (por ejemplo { \"size\": \"38\", \"color\": \"azul\" }).",
               },
             },
             required: ["productQuery"],
@@ -510,6 +516,13 @@ export class AssistantService {
           continue;
         }
 
+        const formatAttributes = (attributes: Record<string, any> | undefined) =>
+          attributes && Object.keys(attributes).length
+            ? Object.entries(attributes)
+                .map(([attrKey, attrValue]) => `${attrKey}: ${attrValue}`)
+                .join(", ")
+            : "";
+
         const lines = result.matches.map((match, index) => {
           const alerts: string[] = [];
           if (match.alerts?.lowStock) alerts.push("bajo_stock");
@@ -533,9 +546,21 @@ export class AssistantService {
           const expirationLabel =
             match.nextExpirationDate && match.isPerishable
               ? ` | Próxima expiración: ${new Date(match.nextExpirationDate).toLocaleDateString("es-ES")}`
-              : "";
+            : "";
+          const attributeLabel = (() => {
+            if (match.attributeFiltersApplied) {
+              const formatted = formatAttributes(match.attributeFiltersApplied);
+              return formatted ? ` | Filtro atributos: ${formatted}` : "";
+            }
+            if (match.attributeCombination?.attributes) {
+              const formatted = formatAttributes(match.attributeCombination.attributes);
+              return formatted ? ` | Atributos: ${formatted}` : "";
+            }
+            const formattedVariant = formatAttributes(match.variantAttributes);
+            return formattedVariant ? ` | Atributos variante: ${formattedVariant}` : "";
+          })();
 
-          return `(${index + 1}) ${match.productName}${brandLabel} (SKU: ${match.sku})${categoryLabel}${subcategoryLabel} -> Disponible: ${match.availableQuantity} | Reservado: ${match.reservedQuantity} | Total: ${match.totalQuantity}${priceLabel}${expirationLabel}${alertLabel}`;
+          return `(${index + 1}) ${match.productName}${brandLabel} (SKU: ${match.sku})${categoryLabel}${subcategoryLabel} -> Disponible: ${match.availableQuantity} | Reservado: ${match.reservedQuantity} | Total: ${match.totalQuantity}${priceLabel}${expirationLabel}${alertLabel}${attributeLabel}`;
         });
 
         return [

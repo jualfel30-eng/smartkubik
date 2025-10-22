@@ -98,16 +98,26 @@ export class PurchasesService {
       supplierName = existingSupplier.companyName || existingSupplier.name;
     }
 
+    const { Types } = require("mongoose");
     let totalAmount = 0;
     const poItems = dto.items.map((item) => {
       const totalCost = item.costPrice * item.quantity;
       totalAmount += totalCost;
-      return { ...item, totalCost };
+
+      const resolvedVariantId =
+        item.variantId && Types.ObjectId.isValid(item.variantId)
+          ? new Types.ObjectId(item.variantId)
+          : undefined;
+
+      return {
+        ...item,
+        ...(resolvedVariantId ? { variantId: resolvedVariantId } : {}),
+        variantSku: item.variantSku || item.productSku,
+        totalCost,
+      };
     });
 
     const poNumber = await this.generatePoNumber(user.tenantId);
-
-    const { Types } = require("mongoose");
     const poData = {
       poNumber,
       supplierId,
@@ -215,6 +225,9 @@ export class PurchasesService {
           productId: item.productId,
           productName: item.productName,
           productSku: item.productSku,
+          variantId: item.variantId,
+          variantSku: item.variantSku,
+          variantName: item.variantName,
           quantity: item.quantity,
           costPrice: item.costPrice,
           lotNumber: item.lotNumber,

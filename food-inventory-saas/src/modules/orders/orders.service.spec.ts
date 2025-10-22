@@ -112,12 +112,14 @@ describe("OrdersService - Employee Assignment", () => {
       customerModel as any,
       productModel as any,
       tenantModel as any,
+      {} as any, // bankAccountModel
       inventoryService as any,
       accountingService as any,
       paymentsService as any,
       deliveryService as any,
+      {} as any, // exchangeRateService
       shiftsService as any,
-      {} as any,
+      {} as any, // connection
     );
 
     FEATURES.EMPLOYEE_PERFORMANCE_TRACKING = true;

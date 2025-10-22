@@ -21,6 +21,7 @@ import {
   OrderCalculationDto,
   BulkRegisterPaymentsDto,
   RegisterPaymentDto,
+  CreateOrderItemDto,
 } from "../../dto/order.dto";
 import { InventoryService } from "../inventory/inventory.service";
 import { AccountingService } from "../accounting/accounting.service";
@@ -31,6 +32,7 @@ import { CreatePaymentDto } from "../../dto/payment.dto";
 import { UnitConversionUtil } from "../../utils/unit-conversion.util";
 import { ShiftsService } from "../shifts/shifts.service";
 import { FEATURES } from "../../config/features.config";
+import { getVerticalProfile } from "../../config/vertical-profiles";
 
 @Injectable()
 export class OrdersService {
@@ -151,6 +153,8 @@ export class OrdersService {
           `Producto con ID "${itemDto.productId}" no encontrado.`,
         );
 
+      const variant = this.resolveVariant(product, itemDto);
+
       let unitPrice: number;
       let costPrice: number;
       let conversionFactor = 1;
@@ -192,7 +196,6 @@ export class OrdersService {
         );
       } else {
         // Lógica tradicional: usar precio de la variante
-        const variant = product.variants?.[0];
         unitPrice = variant?.basePrice ?? 0;
         costPrice = variant?.costPrice ?? 0;
         selectedUnit = undefined;
@@ -206,11 +209,20 @@ export class OrdersService {
 
       const ivaAmount = product.ivaApplicable ? totalPrice * 0.16 : 0;
 
+      const attributesSnapshot = this.buildOrderItemAttributes(
+        product,
+        variant,
+        itemDto,
+      );
+      const attributeSummary = this.buildAttributeSummary(attributesSnapshot);
+
       // Crear OrderItem con toda la información de unidades
       detailedItems.push({
         productId: product._id,
         productSku: product.sku,
         productName: product.name,
+        variantId: variant?._id,
+        variantSku: variant?.sku,
         quantity: itemDto.quantity,
         selectedUnit,
         conversionFactor: selectedUnit ? conversionFactor : undefined,
@@ -222,6 +234,11 @@ export class OrdersService {
         igtfAmount: 0,
         finalPrice: 0,
         status: "pending",
+        attributes:
+          Object.keys(attributesSnapshot).length > 0
+            ? attributesSnapshot
+            : undefined,
+        attributeSummary,
       } as OrderItem);
 
       subtotal += totalPrice;
@@ -403,7 +420,7 @@ export class OrdersService {
     if (createOrderDto.autoReserve) {
       // IMPORTANTE: Usar quantityInBaseUnit para productos multi-unidad
       const reservationItems = savedOrder.items.map((item) => ({
-        productSku: item.productSku,
+        productSku: item.variantSku || item.productSku,
         // Si tiene unidad seleccionada, usar quantityInBaseUnit, sino usar quantity normal
         quantity: item.quantityInBaseUnit ?? item.quantity,
       }));
@@ -466,7 +483,7 @@ export class OrdersService {
         );
         unitPrice = sellingUnit.pricePerUnit;
       } else {
-        const variant = product.variants?.[0];
+        const variant = this.resolveVariant(product, itemDto);
         unitPrice = variant?.basePrice ?? 0;
       }
 
@@ -500,25 +517,10 @@ export class OrdersService {
   }
 
   async findAll(query: OrderQueryDto, tenantId: string) {
-    const {
-      page = 1,
-      limit = 20,
-      search,
-      status,
-      customerId,
-      sortBy = "createdAt",
-      sortOrder = "desc",
-    } = query;
-    const filter: any = { tenantId };
-    if (status) filter.status = status;
-    if (customerId) filter.customerId = customerId;
-    if (search) {
-      filter.$or = [
-        { orderNumber: { $regex: search, $options: "i" } },
-        { customerName: { $regex: search, $options: "i" } },
-      ];
-    }
-    const sortOptions: any = { [sortBy]: sortOrder === "asc" ? 1 : -1 };
+    const { filter, sortOptions, page, limit } = this.buildOrderQuery(
+      query,
+      tenantId,
+    );
     const skip = (page - 1) * limit;
     const [orders, total] = await Promise.all([
       this.orderModel
@@ -533,6 +535,107 @@ export class OrdersService {
       this.orderModel.countDocuments(filter),
     ]);
     return { orders, page, limit, total, totalPages: Math.ceil(total / limit) };
+  }
+
+  async exportOrders(query: OrderQueryDto, tenantId: string): Promise<string> {
+    const { filter, sortOptions, limit } = this.buildOrderQuery(query, tenantId);
+    const effectiveLimit = Math.min(Math.max(limit, 1), 5000);
+
+    const orders = await this.orderModel
+      .find(filter)
+      .sort(sortOptions)
+      .limit(effectiveLimit)
+      .populate("customerId", "name")
+      .lean();
+
+    const tenant = await this.tenantModel
+      .findById(tenantId)
+      .select("verticalProfile")
+      .lean();
+    const verticalProfile = getVerticalProfile(
+      tenant?.verticalProfile?.key,
+      tenant?.verticalProfile?.overrides,
+    );
+    const productAttributes = verticalProfile.attributeSchema.filter(
+      (attr) => attr.scope === "product",
+    );
+    const variantAttributes = verticalProfile.attributeSchema.filter(
+      (attr) => attr.scope === "variant",
+    );
+
+    const headers = [
+      "OrderNumber",
+      "Fecha",
+      "Cliente",
+      "Estado",
+      "TotalUSD",
+      "SKU",
+      "Producto",
+      "VarianteSKU",
+      "Cantidad",
+      "PrecioTotal",
+    ]
+      .concat(
+        productAttributes.map(
+          (attr) => `Atributo Producto (${attr.key})${attr.label ? ` - ${attr.label}` : ''}`,
+        ),
+      )
+      .concat(
+        variantAttributes.map(
+          (attr) => `Atributo Variante (${attr.key})${attr.label ? ` - ${attr.label}` : ''}`,
+        ),
+      );
+
+    const rows: string[][] = [];
+
+    for (const order of orders) {
+      const createdAt = order.createdAt
+        ? new Date(order.createdAt).toISOString()
+        : "";
+
+      for (const item of order.items || []) {
+        const attributes = item.attributes || {};
+        const baseRow: (string | number)[] = [
+          order.orderNumber || "",
+          createdAt,
+          order.customerName || "",
+          order.status || "",
+          order.totalAmount ?? 0,
+          item.productSku || "",
+          item.productName || "",
+          item.variantSku || "",
+          item.quantity ?? 0,
+          item.totalPrice ?? 0,
+        ];
+
+        const productAttributeValues = productAttributes.map(
+          (attr) => attributes?.[attr.key] ?? "",
+        );
+        const variantAttributeValues = variantAttributes.map(
+          (attr) => attributes?.[attr.key] ?? "",
+        );
+
+        const row = baseRow
+          .concat(productAttributeValues)
+          .concat(variantAttributeValues)
+          .map((value) =>
+            value === null || value === undefined ? "" : String(value),
+          );
+
+        rows.push(row);
+      }
+    }
+
+    const csvRows = [headers]
+      .concat(rows)
+      .map((row) =>
+        row
+          .map((value) => `"${value.replace(/"/g, '""')}"`)
+          .join(","),
+      )
+      .join("\n");
+
+    return `\uFEFF${csvRows}`;
   }
 
   async findOne(id: string, tenantId: string): Promise<OrderDocument | null> {
@@ -677,6 +780,72 @@ export class OrdersService {
     return order;
   }
 
+  private resolveVariant(
+    product: ProductDocument,
+    itemDto: CreateOrderItemDto,
+  ) {
+    if (itemDto.variantId && product.variants?.length) {
+      const variant = product.variants.find(
+        (v: any) => v._id?.toString() === itemDto.variantId,
+      );
+      if (variant) {
+        return variant;
+      }
+    }
+
+    if (itemDto.variantSku && product.variants?.length) {
+      const variant = product.variants.find(
+        (v: any) => v.sku === itemDto.variantSku,
+      );
+      if (variant) {
+        return variant;
+      }
+    }
+
+    return product.variants?.[0];
+  }
+
+  private buildOrderItemAttributes(
+    product: ProductDocument,
+    variant: any,
+    itemDto: CreateOrderItemDto,
+  ): Record<string, any> {
+    const attributes: Record<string, any> = {};
+
+    if (product.attributes) {
+      Object.assign(attributes, product.attributes);
+    }
+
+    if (variant?.attributes) {
+      Object.assign(attributes, variant.attributes);
+    }
+
+    if (itemDto.attributes) {
+      Object.assign(attributes, itemDto.attributes);
+    }
+
+    return attributes;
+  }
+
+  private buildAttributeSummary(
+    attributes: Record<string, any>,
+  ): string | undefined {
+    const entries = Object.entries(attributes || {}).filter(
+      ([, value]) =>
+        value !== undefined &&
+        value !== null &&
+        `${value}`.trim().length > 0,
+    );
+
+    if (!entries.length) {
+      return undefined;
+    }
+
+    return entries
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(" | ");
+  }
+
   private async generateOrderNumber(_tenantId: string): Promise<string> {
     const now = new Date();
     const year = now.getFullYear().toString().slice(-2);
@@ -744,5 +913,63 @@ export class OrdersService {
     if (totalSpent >= 2000) return "plata";
     if (totalSpent > 0) return "bronce";
     return "nuevo";
+  }
+
+  private buildOrderQuery(query: OrderQueryDto, tenantId: string) {
+    const {
+      page = 1,
+      limit = 20,
+      search,
+      status,
+      customerId,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+      itemAttributeKey,
+      itemAttributeValue,
+    } = query;
+
+    const filter: any = { tenantId };
+    const andConditions: any[] = [];
+
+    if (status) filter.status = status;
+    if (customerId) filter.customerId = customerId;
+    if (search) {
+      const regex = new RegExp(this.escapeRegExp(search), "i");
+      filter.$or = [
+        { orderNumber: regex },
+        { customerName: regex },
+      ];
+    }
+
+    if (itemAttributeKey && itemAttributeValue) {
+      const attrRegex = new RegExp(
+        this.escapeRegExp(itemAttributeValue.trim()),
+        "i",
+      );
+      andConditions.push({
+        items: {
+          $elemMatch: {
+            [`attributes.${itemAttributeKey}`]: attrRegex,
+          },
+        },
+      });
+    }
+
+    if (andConditions.length) {
+      filter.$and = andConditions;
+    }
+
+    const sortOptions: any = { [sortBy]: sortOrder === "asc" ? 1 : -1 };
+
+    return {
+      filter,
+      sortOptions,
+      page,
+      limit,
+    };
+  }
+
+  private escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 }

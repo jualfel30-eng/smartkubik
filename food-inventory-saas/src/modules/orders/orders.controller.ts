@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
   Request,
+  Res,
   HttpStatus,
   HttpException,
   Logger,
@@ -30,6 +31,7 @@ import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
 import { Permissions } from "../../decorators/permissions.decorator";
+import { Response } from "express";
 
 @ApiTags("orders")
 @Controller("orders")
@@ -59,6 +61,37 @@ export class OrdersController {
       throw new HttpException(
         error.message || "Error al crear la orden",
         HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Get("export")
+  @Permissions("orders_read")
+  @ApiOperation({ summary: "Exportar órdenes en CSV con atributos" })
+  @ApiResponse({
+    status: 200,
+    description: "Archivo CSV generado correctamente",
+  })
+  async export(
+    @Query() query: OrderQueryDto,
+    @Request() req,
+    @Res() res: Response,
+  ) {
+    try {
+      const csv = await this.ordersService.exportOrders(
+        query,
+        req.user.tenantId,
+      );
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename=\"orders_${Date.now()}.csv\"`,
+      );
+      res.send(csv);
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al exportar las órdenes",
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }

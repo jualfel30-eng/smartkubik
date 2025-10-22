@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsOptional,
   ValidateNested,
+  IsObject,
 } from "class-validator";
 import { Type } from "class-transformer";
 
@@ -110,6 +111,14 @@ export class BulkProductDto {
   @IsNumber()
   @IsOptional()
   reorderQuantity?: number;
+
+  @IsOptional()
+  @IsObject()
+  productAttributes?: Record<string, any>;
+
+  @IsOptional()
+  @IsObject()
+  variantAttributes?: Record<string, any>;
 }
 
 export class BulkCreateProductsDto {

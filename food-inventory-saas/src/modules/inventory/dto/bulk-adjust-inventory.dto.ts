@@ -4,6 +4,8 @@ import {
   IsNumber,
   IsString,
   ValidateNested,
+  IsOptional,
+  IsObject,
 } from "class-validator";
 import { Type } from "class-transformer";
 
@@ -15,6 +17,14 @@ export class BulkAdjustItemDto {
   @IsNumber()
   @IsNotEmpty()
   NuevaCantidad: number;
+
+  @IsString()
+  @IsOptional()
+  variantSku?: string;
+
+  @IsOptional()
+  @IsObject()
+  attributes?: Record<string, any>;
 }
 
 export class BulkAdjustInventoryDto {

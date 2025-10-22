@@ -8,6 +8,7 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { Model, Types } from "mongoose";
 import { FEATURES, FeatureFlags } from "../../config/features.config";
+import { getVerticalProfile } from "../../config/vertical-profiles";
 import {
   PerformanceKpi,
   PerformanceKpiDocument,
@@ -505,6 +506,239 @@ export class AnalyticsService {
       ])
       .exec();
 
+    const tenantDoc = await this.tenantModel
+      .findById(tenantObjectId)
+      .select("verticalProfile")
+      .lean();
+    const verticalProfile = getVerticalProfile(
+      tenantDoc?.verticalProfile?.key,
+      tenantDoc?.verticalProfile?.overrides,
+    );
+    const inventoryAttributeSchema = verticalProfile.attributeSchema.filter(
+      (attr) => attr.scope === "inventory",
+    );
+    const salesAttributeSchema = verticalProfile.attributeSchema.filter((attr) =>
+      ["product", "variant"].includes(attr.scope),
+    );
+
+    let attributeCombinations: Array<Record<string, any>> = [];
+    if (inventoryAttributeSchema.length) {
+      const combinationDocs = await this.inventoryModel
+        .aggregate([
+          {
+            $match: {
+              tenantId: tenantObjectId,
+              attributeCombinations: { $exists: true, $ne: [] },
+            },
+          },
+          { $unwind: "$attributeCombinations" },
+          {
+            $project: {
+              productId: "$productId",
+              productSku: "$productSku",
+              productName: "$productName",
+              variantSku: {
+                $ifNull: [
+                  "$variantSku",
+                  "$attributeCombinations.attributes.variantSku",
+                ],
+              },
+              combination: "$attributeCombinations",
+            },
+          },
+          {
+            $lookup: {
+              from: "products",
+              localField: "productId",
+              foreignField: "_id",
+              as: "product",
+            },
+          },
+          {
+            $unwind: {
+              path: "$product",
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+          {
+            $project: {
+              productId: { $toString: "$productId" },
+              productSku: 1,
+              productName: {
+                $ifNull: ["$productName", "$product.name", "Sin nombre"],
+              },
+              brand: "$product.brand",
+              category: "$product.category",
+              variantSku: 1,
+              attributes: "$combination.attributes",
+              totalQuantity: "$combination.totalQuantity",
+              availableQuantity: {
+                $ifNull: [
+                  "$combination.availableQuantity",
+                  {
+                    $max: [
+                      0,
+                      {
+                        $subtract: [
+                          "$combination.totalQuantity",
+                          {
+                            $add: [
+                              { $ifNull: ["$combination.reservedQuantity", 0] },
+                              { $ifNull: ["$combination.committedQuantity", 0] },
+                            ],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+              reservedQuantity: {
+                $ifNull: ["$combination.reservedQuantity", 0],
+              },
+              committedQuantity: {
+                $ifNull: ["$combination.committedQuantity", 0],
+              },
+              averageCostPrice: "$combination.averageCostPrice",
+            },
+          },
+          { $sort: { availableQuantity: -1, totalQuantity: -1 } },
+          { $limit: 50 },
+        ])
+        .exec();
+
+      attributeCombinations = combinationDocs.map((doc) => {
+        const cleanedAttributes = { ...(doc.attributes || {}) };
+        if (cleanedAttributes.variantSku) {
+          delete cleanedAttributes.variantSku;
+        }
+
+        return {
+          productId: doc.productId,
+          productSku: doc.productSku,
+          productName: doc.productName,
+          brand: doc.brand,
+          category: doc.category,
+          variantSku: doc.variantSku || null,
+          attributes: cleanedAttributes,
+          totalQuantity: doc.totalQuantity ?? 0,
+          availableQuantity: doc.availableQuantity ?? 0,
+          reservedQuantity: doc.reservedQuantity ?? 0,
+          committedQuantity: doc.committedQuantity ?? 0,
+          averageCostPrice: doc.averageCostPrice ?? 0,
+        };
+      });
+    }
+
+    let salesAttributeCombinations: Array<Record<string, any>> = [];
+    if (salesAttributeSchema.length) {
+      const attributeProjection = salesAttributeSchema.reduce(
+        (acc, descriptor) => {
+          acc[descriptor.key] = {
+            $cond: [
+              {
+                $eq: [`$_id.attributes.${descriptor.key}`, "N/A"],
+              },
+              null,
+              `$_id.attributes.${descriptor.key}`,
+            ],
+          };
+          return acc;
+        },
+        {} as Record<string, any>,
+      );
+
+      const salesCombinationDocs = await this.orderModel
+        .aggregate([
+          {
+            $match: {
+              tenantId: tenantKey,
+              status: "delivered",
+              confirmedAt: { $gte: from, $lte: to },
+            },
+          },
+          { $unwind: "$items" },
+          {
+            $project: {
+              productId: "$items.productId",
+              productSku: "$items.productSku",
+              productName: "$items.productName",
+              brand: "$items.brand",
+              category: "$items.category",
+              variantSku: "$items.variantSku",
+              attributes: "$items.attributes",
+              quantity: { $ifNull: ["$items.quantity", 0] },
+              revenue: {
+                $ifNull: [
+                  { $ifNull: ["$items.finalPrice", "$items.totalPrice"] },
+                  0,
+                ],
+              },
+            },
+          },
+          {
+            $group: {
+              _id: {
+                productId: "$productId",
+                productSku: "$productSku",
+                variantSku: "$variantSku",
+                attributes: salesAttributeSchema.reduce((acc, descriptor) => {
+                  acc[descriptor.key] = {
+                    $ifNull: [
+                      `$attributes.${descriptor.key}`,
+                      "N/A",
+                    ],
+                  };
+                  return acc;
+                }, {} as Record<string, any>),
+              },
+              productName: { $last: "$productName" },
+              brand: { $last: "$brand" },
+              category: { $last: "$category" },
+              unitsSold: { $sum: "$quantity" },
+              totalRevenue: { $sum: "$revenue" },
+            },
+          },
+          {
+            $project: {
+              productId: { $toString: "$_id.productId" },
+              productSku: "$_id.productSku",
+              variantSku: "$_id.variantSku",
+              productName: 1,
+              brand: 1,
+              category: 1,
+              unitsSold: 1,
+              totalRevenue: 1,
+              attributes: attributeProjection,
+            },
+          },
+          { $sort: { totalRevenue: -1, unitsSold: -1 } },
+          { $limit: 50 },
+        ])
+        .exec();
+
+      salesAttributeCombinations = salesCombinationDocs.map((doc) => {
+        const normalizedAttributes = { ...(doc.attributes || {}) };
+        Object.keys(normalizedAttributes).forEach((key) => {
+          if (normalizedAttributes[key] === "N/A") {
+            normalizedAttributes[key] = null;
+          }
+        });
+
+        return {
+          productId: doc.productId,
+          productSku: doc.productSku,
+          productName: doc.productName,
+          brand: doc.brand,
+          category: doc.category,
+          variantSku: doc.variantSku || null,
+          attributes: normalizedAttributes,
+          unitsSold: doc.unitsSold ?? 0,
+          totalRevenue: doc.totalRevenue ?? 0,
+        };
+      });
+    }
+
     return {
       status: stockLevels.map((item) => ({
         label: item._id ?? "Sin datos",
@@ -520,6 +754,14 @@ export class AnalyticsService {
         unitsSold: item.unitsSold ?? 0,
         totalRevenue: item.totalRevenue ?? 0,
       })),
+      attributes: {
+        schema: inventoryAttributeSchema,
+        combinations: attributeCombinations,
+      },
+      salesAttributes: {
+        schema: salesAttributeSchema,
+        combinations: salesAttributeCombinations,
+      },
     };
   }
 

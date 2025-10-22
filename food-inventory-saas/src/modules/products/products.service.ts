@@ -272,6 +272,7 @@ export class ProductsService {
           storageTemperature: productDto.storageTemperature,
           ivaApplicable: productDto.ivaApplicable,
           taxCategory: productDto.taxCategory || "general",
+          attributes: productDto.productAttributes || undefined,
           pricingRules: {
             cashDiscount: 0,
             cardSurcharge: 0,
@@ -301,6 +302,7 @@ export class ProductsService {
                 productDto.image2,
                 productDto.image3,
               ].filter(Boolean) as string[],
+              attributes: productDto.variantAttributes || undefined,
             },
           ],
         };

@@ -271,6 +271,18 @@ export class Tenant {
 
   @Prop({ type: String, required: false })
   whapiToken?: string;
+
+  @Prop({
+    type: {
+      key: { type: String, default: "food-service" },
+      overrides: { type: Object, default: {} },
+    },
+    default: { key: "food-service", overrides: {} },
+  })
+  verticalProfile?: {
+    key: string;
+    overrides?: Record<string, any>;
+  };
 }
 
 export const TenantSchema = SchemaFactory.createForClass(Tenant);

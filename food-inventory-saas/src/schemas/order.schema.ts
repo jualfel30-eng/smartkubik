@@ -60,6 +60,12 @@ export class OrderItem {
   @Prop({ type: String })
   variantSku?: string;
 
+  @Prop({ type: Object })
+  attributes?: Record<string, any>;
+
+  @Prop({ type: String })
+  attributeSummary?: string;
+
   @Prop({ type: Number, required: true })
   quantity: number;
 
@@ -324,6 +330,12 @@ export class Order {
 
   @Prop({ type: String, ref: "Tenant", required: true })
   tenantId: string;
+
+  @Prop({ type: Date })
+  createdAt?: Date;
+
+  @Prop({ type: Date })
+  updatedAt?: Date;
 }
 
 export const OrderSchema = SchemaFactory.createForClass(Order);

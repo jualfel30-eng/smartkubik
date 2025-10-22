@@ -5,6 +5,29 @@ export type InventoryDocument = Inventory & Document;
 export type InventoryLotDocument = InventoryLot & Document;
 export type InventoryMovementDocument = InventoryMovement & Document;
 
+@Schema({ _id: false })
+export class InventoryAttributeCombination {
+  @Prop({ type: Object, required: true })
+  attributes: Record<string, any>;
+
+  @Prop({ type: Number, required: true, default: 0 })
+  totalQuantity: number;
+
+  @Prop({ type: Number, required: true, default: 0 })
+  availableQuantity: number;
+
+  @Prop({ type: Number, required: true, default: 0 })
+  reservedQuantity: number;
+
+  @Prop({ type: Number, required: true, default: 0 })
+  committedQuantity: number;
+
+  @Prop({ type: Number })
+  averageCostPrice?: number;
+}
+export const InventoryAttributeCombinationSchema =
+  SchemaFactory.createForClass(InventoryAttributeCombination);
+
 @Schema({ timestamps: true })
 export class InventoryLot {
   @Prop({ type: String, required: true })
@@ -93,6 +116,15 @@ export class Inventory {
 
   @Prop({ type: [InventoryLotSchema] })
   lots: InventoryLot[];
+
+  @Prop({ type: Object, default: {} })
+  attributes?: Record<string, any>;
+
+  @Prop({
+    type: [InventoryAttributeCombinationSchema],
+    default: [],
+  })
+  attributeCombinations?: InventoryAttributeCombination[];
 
   @Prop({ type: Object })
   location: {
@@ -192,7 +224,22 @@ export const InventoryMovementSchema =
   SchemaFactory.createForClass(InventoryMovement);
 
 // Índices para optimizar consultas de inventario
-InventorySchema.index({ productId: 1, tenantId: 1 }, { unique: true });
+InventorySchema.index(
+  { tenantId: 1, productId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { variantId: { $exists: false } },
+    name: "tenant_product_unique_without_variant",
+  },
+);
+InventorySchema.index(
+  { tenantId: 1, productId: 1, variantId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { variantId: { $exists: true } },
+    name: "tenant_product_variant_unique",
+  },
+);
 InventorySchema.index({ productSku: 1, tenantId: 1 });
 InventorySchema.index({ variantSku: 1, tenantId: 1 });
 InventorySchema.index({ availableQuantity: 1, tenantId: 1 });

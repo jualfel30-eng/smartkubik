@@ -5,6 +5,8 @@ export type ProductDocument = Product & Document;
 
 @Schema()
 export class ProductVariant {
+  readonly _id?: Types.ObjectId;
+
   @Prop({ type: String, required: true })
   name: string;
 
@@ -42,6 +44,9 @@ export class ProductVariant {
     height: number;
     weight: number;
   };
+
+  @Prop({ type: Object, default: {} })
+  attributes?: Record<string, any>;
 }
 const ProductVariantSchema = SchemaFactory.createForClass(ProductVariant);
 
@@ -172,6 +177,9 @@ export class Product {
     fiber: number;
     sodium: number;
   };
+
+  @Prop({ type: Object, default: {} })
+  attributes?: Record<string, any>;
 
   @Prop({ type: Object })
   pricingRules: {

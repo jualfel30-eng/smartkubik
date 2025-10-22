@@ -114,11 +114,34 @@ export class RolesService {
       this.permissionsService.findByModules(enabledModules);
     const permissionsQuery = this.permissionModel
       .find({ name: { $in: permissionNames } })
-      .select("_id");
+      .select("_id name");
     if (session) {
       permissionsQuery.session(session);
     }
-    const permissions = await permissionsQuery.exec();
+    let permissions = await permissionsQuery.exec();
+
+    const existingPermissionNames = new Set(permissions.map((p) => p.name));
+    const missingPermissionNames = permissionNames.filter(
+      (name) => !existingPermissionNames.has(name),
+    );
+
+    if (missingPermissionNames.length > 0) {
+      const documentsToInsert = missingPermissionNames.map((name) => {
+        const [module, action] = name.split("_");
+        return {
+          name,
+          description: `Permission to ${action} ${module}`,
+          module,
+          action,
+        };
+      });
+
+      const insertOperation = this.permissionModel.insertMany(documentsToInsert, {
+        session,
+      });
+      const insertedPermissions = await insertOperation;
+      permissions = [...permissions, ...insertedPermissions];
+    }
     const permissionIds = permissions.map((p) => p._id);
 
     adminRole = new this.roleModel({

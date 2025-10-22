@@ -32,6 +32,15 @@ export class PurchaseOrderItem {
   @Prop({ type: String, required: true })
   productSku: string;
 
+  @Prop({ type: Types.ObjectId, ref: "ProductVariant" })
+  variantId?: Types.ObjectId;
+
+  @Prop({ type: String })
+  variantName?: string;
+
+  @Prop({ type: String })
+  variantSku?: string;
+
   @Prop({ type: Number, required: true })
   quantity: number;
 

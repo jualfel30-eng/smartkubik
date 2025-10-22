@@ -98,12 +98,12 @@ export class OnboardingService {
         );
 
         const confirmationEnforced = isTenantConfirmationEnforced();
-        const confirmationCode = confirmationEnforced
-          ? Math.floor(100000 + Math.random() * 900000).toString()
-          : undefined;
-        const confirmationCodeExpiresAt = confirmationEnforced
-          ? new Date(Date.now() + 1000 * 60 * 60)
-          : undefined;
+        // Generamos siempre un código para poder enviar el correo de bienvenida,
+        // aunque la confirmación no sea obligatoria en todos los entornos.
+        const confirmationCode = Math.floor(100000 + Math.random() * 900000)
+          .toString()
+          .padStart(6, "0");
+        const confirmationCodeExpiresAt = new Date(Date.now() + 1000 * 60 * 60);
 
         const newTenant = new this.tenantModel({
           name: dto.businessName,
@@ -249,15 +249,19 @@ export class OnboardingService {
       );
 
       try {
-        if (isTenantConfirmationEnforced() && tenantDoc.confirmationCode) {
+        if (tenantDoc.confirmationCode) {
           await this.mailService.sendTenantWelcomeEmail(dto.email, {
             businessName: dto.businessName,
             planName: tenantDoc.subscriptionPlan,
             confirmationCode: tenantDoc.confirmationCode,
           });
-        } else {
+        } else if (isTenantConfirmationEnforced()) {
           this.logger.warn(
             `No se envió correo de bienvenida para ${dto.email} porque no se encontró código de confirmación.`,
+          );
+        } else {
+          this.logger.log(
+            `La confirmación de tenant está deshabilitada. Se omite el envío de correo para ${dto.email}.`,
           );
         }
       } catch (error) {
@@ -284,9 +288,108 @@ export class OnboardingService {
   }
 
   async confirmTenant(dto: ConfirmTenantDto) {
-    this.logger.error("Attempted to use deprecated confirmTenant function.");
-    throw new InternalServerErrorException(
-      "This function is deprecated due to the removal of tenantCode and needs to be refactored.",
+    const identifier: Record<string, any> = {};
+
+    if (dto.tenantId) {
+      identifier._id = dto.tenantId;
+    } else if (dto.tenantCode) {
+      identifier.code = dto.tenantCode;
+    } else {
+      throw new BadRequestException(
+        "Debe proporcionar el identificador del tenant (tenantId o tenantCode).",
+      );
+    }
+
+    const tenant = await this.tenantModel.findOne(identifier).exec();
+
+    if (!tenant) {
+      throw new NotFoundException("Tenant no encontrado.");
+    }
+
+    if (tenant.isConfirmed) {
+      this.logger.log(
+        `Tenant ${tenant.name} ya estaba confirmado. Ignorando nueva confirmación para ${dto.email}.`,
+      );
+      return {
+        success: true,
+        message: "La cuenta ya estaba confirmada.",
+        tenant: {
+          id: tenant._id,
+          name: tenant.name,
+          isConfirmed: tenant.isConfirmed,
+        },
+      } as const;
+    }
+
+    if (!tenant.confirmationCode) {
+      this.logger.warn(
+        `Tenant ${tenant._id} no tiene código de confirmación activo registrado.`,
+      );
+      throw new BadRequestException(
+        "No hay un código de confirmación activo para este tenant.",
+      );
+    }
+
+    if (
+      tenant.confirmationCodeExpiresAt &&
+      tenant.confirmationCodeExpiresAt.getTime() < Date.now()
+    ) {
+      throw new BadRequestException(
+        "El código de confirmación ha expirado. Solicita uno nuevo.",
+      );
+    }
+
+    if (tenant.confirmationCode !== dto.confirmationCode) {
+      throw new BadRequestException("Código de confirmación inválido.");
+    }
+
+    const trimmedEmail = dto.email.trim();
+    const emailCandidates = Array.from(
+      new Set([trimmedEmail, trimmedEmail.toLowerCase()]),
     );
+    const user = await this.userModel
+      .findOne({ email: { $in: emailCandidates }, tenantId: tenant._id })
+      .populate({
+        path: "role",
+        populate: { path: "permissions", select: "name" },
+      })
+      .exec();
+
+    if (!user) {
+      this.logger.warn(
+        `No se encontró usuario con email ${dto.email} asociado al tenant ${tenant._id} durante la confirmación.`,
+      );
+      throw new NotFoundException(
+        "Usuario no encontrado para este tenant.",
+      );
+    }
+
+    tenant.isConfirmed = true;
+    tenant.confirmedAt = new Date();
+    tenant.confirmationCode = undefined;
+    tenant.confirmationCodeExpiresAt = undefined;
+    await tenant.save();
+
+    user.isEmailVerified = true;
+    const tokens = await this.tokenService.generateTokens(user, tenant);
+    await user.save();
+
+    return {
+      success: true,
+      message: "Cuenta confirmada exitosamente.",
+      user: {
+        id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+      },
+      tenant: {
+        id: tenant._id,
+        name: tenant.name,
+        isConfirmed: tenant.isConfirmed,
+      },
+      ...tokens,
+    } as const;
   }
 }

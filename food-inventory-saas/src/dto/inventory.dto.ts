@@ -72,6 +72,39 @@ export class CreateInventoryLotDto {
   };
 }
 
+export class InventoryAttributeCombinationDto {
+  @ApiProperty({ description: "Atributos que identifican la combinación", type: Object })
+  @IsObject()
+  attributes: Record<string, any>;
+
+  @ApiProperty({ description: "Cantidad total para la combinación" })
+  @IsNumber()
+  @Min(0)
+  totalQuantity: number;
+
+  @ApiProperty({ description: "Cantidad disponible" })
+  @IsNumber()
+  @Min(0)
+  availableQuantity: number;
+
+  @ApiProperty({ description: "Cantidad reservada" })
+  @IsNumber()
+  @Min(0)
+  reservedQuantity: number;
+
+  @ApiPropertyOptional({ description: "Cantidad comprometida" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  committedQuantity?: number;
+
+  @ApiPropertyOptional({ description: "Costo promedio" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  averageCostPrice?: number;
+}
+
 export class CreateInventoryDto {
   @ApiProperty({ description: "ID del producto" })
   @IsMongoId()
@@ -127,6 +160,21 @@ export class CreateInventoryDto {
     shelf: string;
     bin: string;
   };
+
+  @ApiPropertyOptional({ description: "Atributos agregados del inventario", type: Object })
+  @IsOptional()
+  @IsObject()
+  attributes?: Record<string, any>;
+
+  @ApiPropertyOptional({
+    description: "Combinaciones de atributos con cantidades",
+    type: [InventoryAttributeCombinationDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => InventoryAttributeCombinationDto)
+  attributeCombinations?: InventoryAttributeCombinationDto[];
 }
 
 export class InventoryMovementDto {

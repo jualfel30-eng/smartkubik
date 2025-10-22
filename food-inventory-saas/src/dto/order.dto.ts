@@ -48,6 +48,16 @@ export class CreateOrderItemDto {
   @IsMongoId()
   productId: string;
 
+  @ApiPropertyOptional({ description: "ID de la variante seleccionada" })
+  @IsOptional()
+  @IsMongoId()
+  variantId?: string;
+
+  @ApiPropertyOptional({ description: "SKU de la variante seleccionada" })
+  @IsOptional()
+  @IsString()
+  variantSku?: string;
+
   @ApiProperty({ description: "Cantidad solicitada" })
   @IsNumber()
   @Min(0.01)
@@ -66,6 +76,11 @@ export class CreateOrderItemDto {
   @IsOptional()
   @IsNumber()
   conversionFactor?: number;
+
+  @ApiPropertyOptional({ description: "Atributos específicos del item", type: Object })
+  @IsOptional()
+  @IsObject()
+  attributes?: Record<string, any>;
 }
 
 export class RegisterPaymentDto {
@@ -422,6 +437,20 @@ export class OrderQueryDto {
   @IsOptional()
   @IsEnum(["asc", "desc"])
   sortOrder?: "asc" | "desc" = "desc";
+
+  @ApiPropertyOptional({
+    description: "Clave de atributo del item para filtrar (ej: size, color)",
+  })
+  @IsOptional()
+  @IsString()
+  itemAttributeKey?: string;
+
+  @ApiPropertyOptional({
+    description: "Valor del atributo del item para filtrar",
+  })
+  @IsOptional()
+  @IsString()
+  itemAttributeValue?: string;
 }
 
 export class OrderCalculationDto {

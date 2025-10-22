@@ -19,6 +19,7 @@ export const ALL_PERMISSIONS = [
   "inventory_create",
   "inventory_read",
   "inventory_update",
+  "inventory_delete",
   "orders_create",
   "orders_read",
   "orders_update",

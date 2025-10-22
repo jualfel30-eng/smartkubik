@@ -520,12 +520,18 @@ export class CustomersService {
     id: string,
     tenantId: string,
   ): Promise<CustomerDocument | null> {
-    const tenantFilter = Types.ObjectId.isValid(tenantId)
-      ? new Types.ObjectId(tenantId)
-      : tenantId;
+    const tenantCandidates = Types.ObjectId.isValid(tenantId)
+      ? [tenantId, new Types.ObjectId(tenantId)]
+      : [tenantId];
+    const idFilter = Types.ObjectId.isValid(id)
+      ? new Types.ObjectId(id)
+      : id;
 
     return this.customerModel
-      .findOne({ _id: id, tenantId: tenantFilter })
+      .findOne({
+        _id: idFilter,
+        tenantId: { $in: tenantCandidates },
+      })
       .populate("assignedTo", "firstName lastName")
       .populate("createdBy", "firstName lastName")
       .exec();
