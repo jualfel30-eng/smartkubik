@@ -2141,16 +2141,17 @@ useEffect(() => {
                 <Input id="edit-brand" value={editingProduct.brand} onChange={(e) => setEditingProduct({...editingProduct, brand: e.target.value})} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-sku">SKU</Label>
-                <Input id="edit-sku" value={editingProduct.sku} onChange={(e) => setEditingProduct({...editingProduct, sku: e.target.value})} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-barcode">Código de Barras (UPC) (Opcional)</Label>
-                <Input id="edit-barcode" value={editingProduct.variants[0].barcode} onChange={(e) => {
-                  const newVariants = [...editingProduct.variants];
-                  newVariants[0].barcode = e.target.value;
-                  setEditingProduct({...editingProduct, variants: newVariants});
-                }} />
+                <Label htmlFor="edit-sku">SKU base</Label>
+                <Input
+                  id="edit-sku"
+                  value={editingProduct.sku}
+                  readOnly
+                  disabled
+                  className="bg-muted cursor-not-allowed"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Este SKU identifica al producto dentro del sistema y no puede modificarse. Actualiza los SKU y códigos de barras desde la sección de variantes.
+                </p>
               </div>
               <div className="col-span-2 space-y-2">
                 <Label htmlFor="edit-description">Descripción</Label>

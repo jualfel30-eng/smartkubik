@@ -11,6 +11,7 @@ import BlogSidebar from '@/components/blog/BlogSidebar';
 // shadcn/ui components
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 const BlogIndex = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -49,7 +50,7 @@ const BlogIndex = () => {
           }).join(' ');
           const words = text.trim().split(/\s+/).length;
           const readingTime = Math.max(1, Math.round(words / 200));
-          const excerpt = text.substring(0, 250) + (text.length > 250 ? '...' : '');
+          const excerpt = text.substring(0, 480) + (text.length > 480 ? '...' : '');
           return { ...post, readingTime, excerpt };
         });
         setPosts(postsWithDetails);
@@ -122,10 +123,14 @@ const BlogIndex = () => {
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {filteredPosts.length > 0 ? (
           filteredPosts.map((post) => (
-            <Card key={post._id} className="h-[500px] overflow-hidden hover:shadow-lg transition-shadow duration-200 flex flex-col">
+            <Card key={post._id} className="h-[500px] overflow-hidden hover:shadow-lg transition-shadow duration-200 flex flex-col p-0">
               <Link to={`/blog/${post.slug.current}`} className="flex flex-col h-full">
                 {post.mainImage && (
-                  <img src={urlFor(post.mainImage).url()} alt={post.title} className="w-full h-48 object-cover" />
+                  <img
+                    src={urlFor(post.mainImage).url()}
+                    alt={post.title}
+                    className="w-full h-48 object-cover flex-shrink-0"
+                  />
                 )}
                 <CardHeader className="pt-4 pb-3">
                   <CardTitle className="text-base font-semibold line-clamp-2 mb-2">{post.title}</CardTitle>
@@ -133,13 +138,21 @@ const BlogIndex = () => {
                     {post.authorName} • {new Date(post.publishedAt).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="flex-1 flex flex-col pt-0">
-                  <p className="text-sm text-muted-foreground mb-3 line-clamp-3 flex-1">{post.excerpt}</p>
-                  <div className="flex flex-wrap gap-1.5 mt-auto">
+                <CardContent className="flex-1 flex flex-col pt-0 pb-4">
+                  <p className="text-sm text-muted-foreground mb-3 line-clamp-5">{post.excerpt}</p>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
                     {post.tags && post.tags.slice(0, 2).map(tag => (
                       <Badge key={tag._id} variant="secondary" className="text-xs py-0 px-2">{tag.title}</Badge>
                     ))}
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-auto self-end mb-2 border border-primary text-primary rounded-none px-4"
+                    asChild
+                  >
+                    <span className="inline-flex items-center justify-center gap-2">Seguir leyendo</span>
+                  </Button>
                 </CardContent>
               </Link>
             </Card>
