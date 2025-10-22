@@ -134,6 +134,9 @@ export default function ComprasManagement() {
     return verticalConfig.baseVertical === 'RETAIL' && verticalConfig.allowsWeight === false;
   }, [verticalConfig]);
   const ingredientLabel = isNonFoodRetailVertical ? 'Composición' : 'Ingredientes';
+  const variantSectionDescription = isNonFoodRetailVertical
+    ? 'Agrega presentaciones extra para este producto (tallas, colores, etc.).'
+    : 'Agrega presentaciones adicionales (tamaños, empaques, sabores, etc.) para este producto.';
   const inventorySupportsLots = verticalConfig?.inventory?.supportsLots !== false;
   const inventoryAlerts = Array.isArray(verticalConfig?.inventory?.alerts)
     ? verticalConfig.inventory.alerts
@@ -1303,9 +1306,7 @@ export default function ComprasManagement() {
                         <div className="flex items-center justify-between">
                           <div>
                             <h5 className="text-base font-medium">Variantes adicionales</h5>
-                            <p className="text-sm text-muted-foreground">
-                              Agrega presentaciones extra para este producto (tallas, colores, etc.).
-                            </p>
+                            <p className="text-sm text-muted-foreground">{variantSectionDescription}</p>
                           </div>
                           <Button type="button" variant="outline" size="sm" onClick={addAdditionalVariant}>
                             <Plus className="h-4 w-4 mr-2" />

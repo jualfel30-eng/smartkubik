@@ -162,6 +162,7 @@ function ProductsManagement() {
     const allowsWeight = verticalConfig.allowsWeight;
     return baseVertical === 'RETAIL' && allowsWeight === false;
   }, [verticalConfig]);
+  const supportsVariants = verticalConfig?.supportsVariants !== false;
 
   const ingredientLabel = isNonFoodRetailVertical ? 'Composición' : 'Ingredientes';
 
@@ -1835,13 +1836,15 @@ useEffect(() => {
                       </div>
                     </div>
                   )}
-                  {isNonFoodRetailVertical && (
+                  {supportsVariants && (
                     <div className="border-t pt-4 mt-4 space-y-4">
                       <div className="flex items-center justify-between">
                         <div>
                           <h5 className="text-base font-medium">Variantes adicionales</h5>
                           <p className="text-sm text-muted-foreground">
-                            Crea combinaciones adicionales (talla, color, etc.) para este producto.
+                            {isNonFoodRetailVertical
+                              ? 'Crea combinaciones adicionales (talla, color, etc.) para este producto.'
+                              : 'Agrega presentaciones adicionales (tamaños, empaques, sabores, etc.) para este producto.'}
                           </p>
                         </div>
                         <Button type="button" variant="outline" size="sm" onClick={addAdditionalVariant}>
