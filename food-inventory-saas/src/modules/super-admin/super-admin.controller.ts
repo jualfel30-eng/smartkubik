@@ -1,20 +1,23 @@
 import {
+  Body,
+  BadRequestException,
   Controller,
+  DefaultValuePipe,
   Delete,
-  Param,
-  UseGuards,
+  Get,
   HttpCode,
   HttpStatus,
-  Get,
-  Query,
+  Param,
+  ParseIntPipe,
   Patch,
-  Body,
   Post,
-  Request,
-  UseInterceptors,
-  UploadedFiles,
-  BadRequestException,
+  Query,
   Req,
+  Request,
+  Res,
+  UploadedFiles,
+  UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
 import { FilesInterceptor } from "@nestjs/platform-express";
 import {
@@ -30,6 +33,11 @@ import { SuperAdminGuard } from "./guards/super-admin.guard";
 import { SuperAdminService } from "./super-admin.service";
 import { KnowledgeBaseService } from "../knowledge-base/knowledge-base.service";
 import { AssistantService } from "../assistant/assistant.service";
+import type { Response } from "express";
+import { setAuthCookies } from "../../auth/auth-cookie.util";
+import { ImpersonateUserDto } from "./dto/impersonate-user.dto";
+import { PurgeQueueDto } from "./dto/purge-queue.dto";
+import type { TaskQueueJobStatus } from "../../schemas/task-queue-job.schema";
 
 @ApiTags("Super Admin")
 @ApiBearerAuth()
@@ -87,9 +95,38 @@ export class SuperAdminController {
     status: 200,
     description: "Impersonation successful, returns new tokens.",
   })
-  async impersonateUser(@Param("userId") userId: string, @Request() req) {
+  @ApiBody({
+    type: ImpersonateUserDto,
+    description: "Motivo por el cual se requiere impersonar al usuario",
+  })
+  async impersonateUser(
+    @Param("userId") userId: string,
+    @Body() body: ImpersonateUserDto,
+    @Request() req,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const impersonatorId = req.user.id;
-    return this.superAdminService.impersonateUser(userId, impersonatorId);
+    const trimmedReason = body.reason.trim();
+    const forwardedFor = req.headers["x-forwarded-for"];
+    const resolvedIp = Array.isArray(forwardedFor)
+      ? forwardedFor[0]
+      : forwardedFor?.split(",")[0];
+    const userAgentHeader = req.headers["user-agent"];
+    const userAgent = Array.isArray(userAgentHeader)
+      ? userAgentHeader[0]
+      : userAgentHeader;
+    const sessionContext = {
+      ip: resolvedIp?.trim() || req.ip,
+      userAgent: userAgent?.trim(),
+    };
+    const result = await this.superAdminService.impersonateUser(
+      userId,
+      impersonatorId,
+      sessionContext,
+      trimmedReason,
+    );
+    setAuthCookies(res, result);
+    return result;
   }
 
   @Patch("tenants/:tenantId/status")
@@ -148,6 +185,69 @@ export class SuperAdminController {
     return this.superAdminService.updateTenantModules(
       tenantId,
       body.enabledModules,
+    );
+  }
+
+  @Get("queues/stats")
+  @ApiOperation({ summary: "[SUPER ADMIN] Obtener métricas de la cola de trabajos" })
+  @ApiResponse({ status: 200, description: "Estadísticas de la cola devueltas exitosamente." })
+  async getQueueStats() {
+    return this.superAdminService.getQueueStats();
+  }
+
+  @Get("queues/jobs")
+  @ApiOperation({ summary: "[SUPER ADMIN] Listar trabajos pendientes/activos/errores" })
+  @ApiResponse({ status: 200, description: "Listado de trabajos obtenido exitosamente." })
+  async getQueueJobs(
+    @Query("status") status?: string,
+    @Query("limit", new DefaultValuePipe(25), ParseIntPipe) limit?: number,
+    @Query("skip", new DefaultValuePipe(0), ParseIntPipe) skip?: number,
+  ) {
+    const normalizedStatus =
+      status && status !== "all" ? this.normalizeQueueStatus(status) : undefined;
+
+    return this.superAdminService.listQueueJobs({
+      status: normalizedStatus,
+      limit,
+      skip,
+    });
+  }
+
+  @Post("queues/jobs/:jobId/retry")
+  @ApiOperation({ summary: "[SUPER ADMIN] Reintentar un trabajo fallido" })
+  @ApiResponse({ status: 200, description: "Trabajo reenviado exitosamente." })
+  async retryQueueJob(@Param("jobId") jobId: string) {
+    await this.superAdminService.retryQueueJob(jobId);
+    return { success: true };
+  }
+
+  @Delete("queues/jobs/:jobId")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: "[SUPER ADMIN] Eliminar un trabajo de la cola" })
+  @ApiResponse({ status: 204, description: "Trabajo eliminado." })
+  async deleteQueueJob(@Param("jobId") jobId: string) {
+    await this.superAdminService.deleteQueueJob(jobId);
+  }
+
+  @Post("queues/purge")
+  @ApiOperation({ summary: "[SUPER ADMIN] Limpiar trabajos antiguos de la cola" })
+  @ApiResponse({ status: 200, description: "Trabajos eliminados de la cola." })
+  async purgeQueueJobs(@Body() body: PurgeQueueDto) {
+    const deleted = await this.superAdminService.purgeQueueJobs(
+      body.status,
+      body.olderThanMinutes,
+    );
+
+    return { success: true, deleted };
+  }
+
+  private normalizeQueueStatus(status: string): TaskQueueJobStatus {
+    if (status === "pending" || status === "active" || status === "failed") {
+      return status;
+    }
+
+    throw new BadRequestException(
+      `Estado de trabajo inválido: ${status}. Usa pending, active o failed.`,
     );
   }
 

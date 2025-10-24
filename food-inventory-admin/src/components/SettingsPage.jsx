@@ -13,6 +13,7 @@ import ChangePasswordForm from './ChangePasswordForm'; // Importar ChangePasswor
 import UsageAndBilling from './UsageAndBilling'; // Importar UsageAndBilling
 import { DeliverySettings } from './DeliverySettings'; // Importar DeliverySettings
 import WhatsAppConnection from './WhatsAppConnection'; // Importar WhatsAppConnection
+import SessionManagementPanel from './security/SessionManagementPanel.jsx';
 import { useAuth } from '@/hooks/use-auth.jsx'; // Importar useAuth
 import TenantKnowledgeBaseManager from './TenantKnowledgeBaseManager';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -697,10 +698,9 @@ const SettingsPage = () => {
           <WhatsAppConnection />
         </TabsContent>
         <TabsContent value="security" className="mt-10">
-          <div className="grid gap-6">
-            <div className="lg:col-span-2">
-              <ChangePasswordForm />
-            </div>
+          <div className="grid gap-6 xl:grid-cols-2">
+            <ChangePasswordForm />
+            <SessionManagementPanel />
           </div>
         </TabsContent>
         <TabsContent value="users" className="mt-10">

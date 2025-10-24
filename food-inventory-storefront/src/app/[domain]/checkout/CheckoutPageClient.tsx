@@ -28,6 +28,7 @@ export function CheckoutPageClient({ config }: CheckoutPageClientProps) {
     customerPhone: '',
     customerAddress: '',
     notes: '',
+    honeypot: '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -100,6 +101,8 @@ export function CheckoutPageClient({ config }: CheckoutPageClientProps) {
         })),
         total: calculateTotal(),
         notes: formData.notes || undefined,
+        shippingMethod: 'delivery',
+        honeypot: formData.honeypot,
       };
 
       const order = await createOrder(orderData);
@@ -196,6 +199,16 @@ export function CheckoutPageClient({ config }: CheckoutPageClientProps) {
                   </h2>
 
                   <div className="space-y-4">
+                    <input
+                      type="text"
+                      name="honeypot"
+                      value={formData.honeypot}
+                      onChange={handleInputChange}
+                      className="hidden"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      aria-hidden="true"
+                    />
                     {/* Name */}
                     <div>
                       <label htmlFor="customerName" className="block text-sm font-medium text-gray-700 mb-1">

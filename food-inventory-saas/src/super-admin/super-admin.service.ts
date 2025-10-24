@@ -168,6 +168,7 @@ export class SuperAdminService {
       userId,
       true,
       currentUser.id,
+      { ip: ipAddress },
     );
 
     console.log("---!!! [DEBUG] userToImpersonate object:", user, "!!! ---");

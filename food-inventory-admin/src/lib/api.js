@@ -1,15 +1,13 @@
-const getAuthToken = () => {
-  return localStorage.getItem('accessToken');
-};
+import { createScopedLogger } from './logger';
 
-// Updated fetchApi to handle FormData for file uploads
+const logger = createScopedLogger('api-client');
+
 export const fetchApi = async (url, options = {}) => {
-  const token = getAuthToken();
-
-  const headers = { ...options.headers };
+  const { isPublic: _isPublic, ...restOptions } = options;
+  const headers = { ...(restOptions.headers || {}) };
 
   // Let the browser set the Content-Type for FormData
-  if (!(options.body instanceof FormData)) {
+  if (!(restOptions.body instanceof FormData) && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
   }
 
@@ -18,16 +16,13 @@ export const fetchApi = async (url, options = {}) => {
   headers['Pragma'] = 'no-cache';
   headers['Expires'] = '0';
 
-  if (token && !options.isPublic) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
   const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   const baseUrl = isDevelopment ? 'http://localhost:3000' : 'https://api.smartkubik.com';
 
   const response = await fetch(`${baseUrl}/api/v1${url}`, {
-    ...options,
+    ...restOptions,
     headers,
+    credentials: restOptions.credentials ?? 'include',
   });
 
   if (!response.ok) {
@@ -36,7 +31,7 @@ export const fetchApi = async (url, options = {}) => {
       errorData = await response.json();
     } catch (e) {
       const errorText = await response.text();
-      console.error("Failed to parse JSON response:", errorText);
+      logger.error('Failed to parse JSON response', { errorText });
       errorData = { message: response.statusText };
     }
 
@@ -52,7 +47,23 @@ export const fetchApi = async (url, options = {}) => {
     if (!errorMessage) {
       errorMessage = `Error ${response.status}: ${response.statusText}`;
     }
-    throw new Error(errorMessage);
+
+    if (typeof window !== 'undefined' && (response.status === 401 || response.status === 403)) {
+      window.dispatchEvent(
+        new CustomEvent('auth:unauthorized', {
+          detail: {
+            status: response.status,
+            message: errorMessage,
+            payload: errorData,
+          },
+        }),
+      );
+    }
+
+    const error = new Error(errorMessage);
+    error.status = response.status;
+    error.payload = errorData;
+    throw error;
   }
 
   if (response.status === 204) {
@@ -166,6 +177,47 @@ export const deleteUser = (userId) => {
 export const syncTenantMemberships = (tenantId) => {
   return fetchApi(`/super-admin/tenants/${tenantId}/sync-memberships`, {
     method: 'POST',
+  });
+};
+
+export const getTaskQueueStats = () => {
+  return fetchApi('/super-admin/queues/stats');
+};
+
+export const listTaskQueueJobs = ({ status, limit = 25, skip = 0 } = {}) => {
+  const params = new URLSearchParams();
+  if (status && status !== 'all') {
+    params.set('status', status);
+  }
+  if (limit) {
+    params.set('limit', String(limit));
+  }
+  if (skip) {
+    params.set('skip', String(skip));
+  }
+
+  const query = params.toString();
+  const suffix = query ? `?${query}` : '';
+
+  return fetchApi(`/super-admin/queues/jobs${suffix}`);
+};
+
+export const retryTaskQueueJob = (jobId) => {
+  return fetchApi(`/super-admin/queues/jobs/${jobId}/retry`, {
+    method: 'POST',
+  });
+};
+
+export const deleteTaskQueueJob = (jobId) => {
+  return fetchApi(`/super-admin/queues/jobs/${jobId}`, {
+    method: 'DELETE',
+  });
+};
+
+export const purgeTaskQueueJobs = ({ status, olderThanMinutes } = {}) => {
+  return fetchApi('/super-admin/queues/purge', {
+    method: 'POST',
+    body: JSON.stringify({ status, olderThanMinutes }),
   });
 };
 
@@ -304,6 +356,42 @@ export const changePassword = (passwordData) => {
   return fetchApi('/auth/change-password', {
     method: 'POST',
     body: JSON.stringify(passwordData),
+  });
+};
+
+export const getCurrentSessions = (options = {}) => {
+  const includeRevoked = options.includeRevoked ? 'true' : 'false';
+  return fetchApi(`/auth/sessions?includeRevoked=${includeRevoked}`);
+};
+
+export const revokeSession = (sessionId) => {
+  return fetchApi(`/auth/sessions/${sessionId}`, {
+    method: 'DELETE',
+  });
+};
+
+export const revokeOtherSessions = () => {
+  return fetchApi('/auth/sessions/revoke-others', {
+    method: 'POST',
+  });
+};
+
+export const getUserSessions = (userId, options = {}) => {
+  const includeRevoked = options.includeRevoked ? 'true' : 'false';
+  return fetchApi(
+    `/auth/users/${userId}/sessions?includeRevoked=${includeRevoked}`,
+  );
+};
+
+export const revokeUserSession = (userId, sessionId) => {
+  return fetchApi(`/auth/users/${userId}/sessions/${sessionId}`, {
+    method: 'DELETE',
+  });
+};
+
+export const revokeAllUserSessions = (userId) => {
+  return fetchApi(`/auth/users/${userId}/sessions/revoke-all`, {
+    method: 'POST',
   });
 };
 

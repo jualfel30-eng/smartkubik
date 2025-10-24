@@ -1,6 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
 import { fetchApi } from '@/lib/api';
 import { useCrmContext } from '@/context/CrmContext.jsx';
+import { createScopedLogger } from '@/lib/logger';
+
+const logger = createScopedLogger('use-orders');
 
 export const useOrders = () => {
   const [ordersData, setOrdersData] = useState([]);
@@ -35,7 +38,7 @@ export const useOrders = () => {
       await loadOrders();
       await loadCustomers(); // << RECARGAR DATOS DEL CRM
     } catch (err) {
-      console.error("Error adding order:", err);
+      logger.error('Failed to add order', { error: err?.message ?? err });
       throw err;
     }
   };
@@ -49,7 +52,7 @@ export const useOrders = () => {
       await loadOrders();
       await loadCustomers(); // << RECARGAR DATOS DEL CRM
     } catch (err) {
-      console.error("Error updating order:", err);
+      logger.error('Failed to update order', { error: err?.message ?? err });
       throw err;
     }
   };
@@ -63,7 +66,7 @@ export const useOrders = () => {
       // Por ahora, lo dejamos así para consistencia.
       await loadCustomers();
     } catch (err) {
-      console.error("Error deleting order:", err);
+      logger.error('Failed to delete order', { error: err?.message ?? err });
       throw err;
     }
   };

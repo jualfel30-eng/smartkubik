@@ -15,6 +15,7 @@ import { MailModule } from "../modules/mail/mail.module";
 import { PermissionsModule } from "../modules/permissions/permissions.module";
 import { TokenService } from "./token.service";
 import { MembershipsModule } from "../modules/memberships/memberships.module";
+import { Session, SessionSchema } from "../schemas/session.schema";
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { MembershipsModule } from "../modules/memberships/memberships.module";
       { name: User.name, schema: UserSchema },
       { name: Tenant.name, schema: TenantSchema },
       { name: Role.name, schema: RoleSchema },
+      { name: Session.name, schema: SessionSchema },
     ]),
   ],
   controllers: [AuthController],
@@ -49,6 +51,7 @@ import { MembershipsModule } from "../modules/memberships/memberships.module";
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: Tenant.name, schema: TenantSchema },
+      { name: Session.name, schema: SessionSchema },
     ]),
   ],
 })

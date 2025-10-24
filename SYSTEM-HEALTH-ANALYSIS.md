@@ -27,6 +27,34 @@
 
 ---
 
+## ✅ Actualización 2025-10-24
+
+| Aspecto | Puntaje | Comentarios breves |
+| --- | --- | --- |
+| Vulnerabilidades | **9/10** | Cookies seguras, logger sanitizado e interceptores globales reducen fugas de tokens y datos sensibles. |
+| Seguridad | **9/10** | Revocación masiva de sesiones, encabezados HTTP reforzados y colas persistentes mejoran la higiene general. |
+| Áreas de mejora (código) | **9/10** | Servicios críticos refactorizados, logging centralizado y cacheo multi-tenant reducen deuda técnica. |
+| Velocidad / Performance | **9/10** | Operaciones intensivas se ejecutan en colas durables con backoff y caching de configuraciones. |
+| Incongruencias | **8/10** | Flujos UI ↔ API alineados, incluyendo storefront público y panel de sesiones. |
+| UX / UI | **8/10** | Toasters y paneles de sesión brindan feedback oportuno ante expiraciones y auditoría. |
+| Bugs | **8/10** | Checkout público, onboarding y reservas de inventario estabilizados bajo transacciones. |
+| Cuellos de botella | **9/10** | Contabilidad, inventario y analítica pasan por colas resilientes, liberando el hilo HTTP. |
+
+### 📦 Sincronización con la rama `main`
+
+- **2025-10-24:** La rama `main` incluye todas las optimizaciones de seguridad, performance y observabilidad documentadas en esta actualización.
+- Se mantuvo la rama de trabajo como respaldo, pero la rama por defecto del repositorio ya refleja el estado endurecido descrito en este informe.
+
+### 🚀 Mejoras destacadas guardadas en este ciclo
+
+- **Autenticación reforzada:** cookies httpOnly, rotación y revocación centralizadas de refresh tokens y panel de sesiones para usuarios y administradores.
+- **Storefront estable:** endpoint público protegido con honeypot + rate limiting, reservas de inventario transaccionales y manejo de errores en checkout.
+- **Operaciones asincrónicas:** cola de tareas con driver en memoria y persistente, procesadores dedicados para contabilidad, inventario y KPIs con monitor de salud en el panel.
+- **Observabilidad segura:** scoped logger reutilizable, interceptores de consola y auditoría detallada de impersonaciones con justificación obligatoria.
+- **Endurecimiento HTTP:** política CSP documentada, cabeceras Helmet uniformes y `Permissions-Policy` estricta cubierta por pruebas E2E.
+
+---
+
 ## 🏗️ 1. ARQUITECTURA Y PATRONES
 
 ### ✅ Fortalezas

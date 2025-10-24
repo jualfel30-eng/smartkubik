@@ -1,10 +1,11 @@
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module";
-import { configureApp } from "./app.setup";
+import { configureApp, isSeederEnabledFromEnv } from "./app.setup";
 import * as express from "express";
 import { WINSTON_MODULE_NEST_PROVIDER } from "nest-winston";
 import { ConfigService } from "@nestjs/config";
 import { IoAdapter } from "@nestjs/platform-socket.io";
+import * as cookieParser from "cookie-parser";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -33,9 +34,11 @@ async function bootstrap() {
     }),
   );
 
+  app.use(cookieParser());
+
   await configureApp(app, {
     includeSwagger: true,
-    runSeeder: process.env.NODE_ENV !== "test",
+    runSeeder: isSeederEnabledFromEnv(),
     setGlobalPrefix: true,
   });
 

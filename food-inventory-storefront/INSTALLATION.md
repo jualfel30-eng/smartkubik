@@ -65,7 +65,7 @@ Para probar el storefront, necesitas:
 ### 1. Verificar que el backend está corriendo
 
 ```bash
-curl http://localhost:3000/api/v1/storefront/preview/tu-dominio
+curl http://localhost:3000/api/v1/public/storefront/by-domain/tu-dominio
 ```
 
 Debe retornar la configuración del storefront.

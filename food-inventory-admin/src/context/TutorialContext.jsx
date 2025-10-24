@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { createScopedLogger } from '@/lib/logger';
+
+const logger = createScopedLogger('tutorial-context');
 
 const TutorialContext = createContext();
 export const useTutorial = () => useContext(TutorialContext);
@@ -84,7 +87,9 @@ export const TutorialProvider = ({ children }) => {
     if (!run || !currentStep?.isFormStep) return;
 
     const handleFormSuccess = () => {
-      console.log(`Event ${currentStep.formType}-form-success received! Advancing tutorial.`);
+      logger.debug('Form success event received, advancing tutorial', {
+        formType: currentStep.formType,
+      });
       setStepIndex(prev => prev + 1);
     };
 

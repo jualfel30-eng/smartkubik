@@ -12,6 +12,8 @@ import {
 } from "../../schemas/inventory.schema";
 import { Product, ProductSchema } from "../../schemas/product.schema"; // Import Product schema
 import { RolesModule } from "../roles/roles.module";
+import { TaskQueueModule } from "../task-queue/task-queue.module";
+import { InventoryQueueProcessor } from "./inventory.queue-processor";
 
 @Module({
   imports: [
@@ -19,6 +21,7 @@ import { RolesModule } from "../roles/roles.module";
     RolesModule,
     forwardRef(() => EventsModule),
     forwardRef(() => ProductsModule), // Use forwardRef if there is a circular dependency
+    TaskQueueModule,
     MongooseModule.forFeature([
       { name: Inventory.name, schema: InventorySchema },
       { name: InventoryMovement.name, schema: InventoryMovementSchema },
@@ -26,7 +29,7 @@ import { RolesModule } from "../roles/roles.module";
     ]),
   ],
   controllers: [InventoryController],
-  providers: [InventoryService],
+  providers: [InventoryService, InventoryQueueProcessor],
   exports: [InventoryService],
 })
 export class InventoryModule {}

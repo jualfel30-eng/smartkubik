@@ -32,6 +32,9 @@ import { UsersModule } from "../users/users.module";
 import { KnowledgeBaseModule } from "../knowledge-base/knowledge-base.module";
 import { AssistantModule } from "../assistant/assistant.module";
 import { AuthModule } from "../../auth/auth.module";
+import { TenantConfigurationCacheService } from "../../common/cache/tenant-configuration-cache.service";
+import { AuditLogModule } from "../audit-log/audit-log.module";
+import { TaskQueueModule } from "../task-queue/task-queue.module";
 
 @Module({
   imports: [
@@ -39,6 +42,7 @@ import { AuthModule } from "../../auth/auth.module";
       { name: GlobalSetting.name, schema: GlobalSettingSchema },
     ]),
     AuthModule,
+    AuditLogModule,
     KnowledgeBaseModule, // <--- AÑADIDO
     AssistantModule,
     AppointmentsModule,
@@ -64,9 +68,10 @@ import { AuthModule } from "../../auth/auth.module";
     TablesModule,
     TodosModule,
     UsersModule,
+    TaskQueueModule,
   ],
   controllers: [SuperAdminController],
-  providers: [SuperAdminService],
+  providers: [SuperAdminService, TenantConfigurationCacheService],
   exports: [SuperAdminService],
 })
 export class SuperAdminModule {}

@@ -155,8 +155,8 @@ function TenantLayout() {
     setResolvedTheme(theme);
   }, [theme]);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 

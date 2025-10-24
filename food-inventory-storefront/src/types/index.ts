@@ -75,25 +75,18 @@ export interface OrderData {
   }[];
   total: number;
   notes?: string;
+  shippingMethod?: 'pickup' | 'delivery' | 'envio_nacional';
+  honeypot?: string;
 }
 
 export interface Order {
   _id: string;
-  tenantId: string;
   orderNumber: string;
+  status: string;
+  totalAmount: number;
   customerName: string;
   customerEmail: string;
-  customerPhone: string;
-  customerAddress: string;
-  items: {
-    productId: string;
-    productName: string;
-    quantity: number;
-    price: number;
-  }[];
-  total: number;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  customerPhone?: string;
   notes?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
 }

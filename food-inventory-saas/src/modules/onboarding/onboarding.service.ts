@@ -25,7 +25,7 @@ import {
 import { SeedingService } from "../seeding/seeding.service";
 import { LoggerSanitizer } from "../../utils/logger-sanitizer.util";
 import { getDefaultModulesForVertical } from "../../config/vertical-features.config";
-import { TokenService } from "../../auth/token.service";
+import { AuthService } from "../../auth/auth.service";
 import { MailService } from "../mail/mail.service";
 import { isTenantConfirmationEnforced } from "../../config/tenant-confirmation";
 
@@ -41,7 +41,7 @@ export class OnboardingService {
     private rolesService: RolesService,
     private subscriptionPlansService: SubscriptionPlansService,
     private seedingService: SeedingService,
-    private tokenService: TokenService,
+    private authService: AuthService,
     private mailService: MailService,
     @InjectConnection() private readonly connection: Connection,
   ) {}
@@ -212,7 +212,7 @@ export class OnboardingService {
       }
 
       this.logger.log("[DEBUG] User and tenant created. Generating tokens...");
-      const tokens = await this.tokenService.generateTokens(
+      const tokens = await this.authService.createSessionForUser(
         userWithRole,
         tenantDoc,
       );
@@ -359,9 +359,7 @@ export class OnboardingService {
       this.logger.warn(
         `No se encontró usuario con email ${dto.email} asociado al tenant ${tenant._id} durante la confirmación.`,
       );
-      throw new NotFoundException(
-        "Usuario no encontrado para este tenant.",
-      );
+      throw new NotFoundException("Usuario no encontrado para este tenant.");
     }
 
     tenant.isConfirmed = true;
@@ -371,7 +369,7 @@ export class OnboardingService {
     await tenant.save();
 
     user.isEmailVerified = true;
-    const tokens = await this.tokenService.generateTokens(user, tenant);
+    const tokens = await this.authService.createSessionForUser(user, tenant);
     await user.save();
 
     return {

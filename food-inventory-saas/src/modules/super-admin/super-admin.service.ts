@@ -11,6 +11,14 @@ import {
   GlobalSettingDocument,
 } from "../../schemas/global-settings.schema";
 import { AuthService } from "../../auth/auth.service";
+import {
+  TenantConfigurationCacheService,
+  TenantConfigurationSnapshot,
+} from "../../common/cache/tenant-configuration-cache.service";
+import { AuditLogService } from "../audit-log/audit-log.service";
+import { TaskQueueService } from "../task-queue/task-queue.service";
+import type { TaskQueueJobStatus } from "../../schemas/task-queue-job.schema";
+import type { ListQueueJobsOptions } from "../task-queue/task-queue.types";
 
 @Injectable()
 export class SuperAdminService {
@@ -58,16 +66,99 @@ export class SuperAdminService {
     @InjectModel(GlobalSetting.name)
     private readonly globalSettingModel: Model<GlobalSettingDocument>,
     private readonly authService: AuthService,
+    private readonly tenantConfigurationCache: TenantConfigurationCacheService,
+    private readonly auditLogService: AuditLogService,
+    private readonly taskQueueService: TaskQueueService,
   ) {}
 
   async impersonateUser(
     targetUserId: string,
     impersonatorId: string,
+    sessionContext: { ip?: string; userAgent?: string } = {},
+    reason?: string,
   ): Promise<any> {
     this.logger.log(
       `Impersonation attempt: ${impersonatorId} is trying to impersonate ${targetUserId}`,
     );
-    return this.authService.login(targetUserId, true, impersonatorId);
+    const resolvedIp = this.normalizeIpForAudit(sessionContext.ip);
+    const sanitizedReason = reason?.trim() || undefined;
+    try {
+      const result = await this.authService.login(
+        targetUserId,
+        true,
+        impersonatorId,
+        sessionContext,
+      );
+
+      await this.recordImpersonationAudit(
+        "impersonate_user",
+        impersonatorId,
+        targetUserId,
+        resolvedIp,
+        {
+          targetUserId,
+          sessionId: result?.sessionId ?? null,
+          userAgent: sessionContext.userAgent ?? null,
+          reason: sanitizedReason ?? null,
+        },
+      );
+
+      return result;
+    } catch (error) {
+      await this.recordImpersonationAudit(
+        "impersonate_user_failed",
+        impersonatorId,
+        targetUserId,
+        resolvedIp,
+        {
+          targetUserId,
+          error:
+            error instanceof Error
+              ? error.message
+              : typeof error === "string"
+                ? error
+                : "unknown_error",
+          reason: sanitizedReason ?? null,
+        },
+      );
+      throw error;
+    }
+  }
+
+  private normalizeIpForAudit(ip?: string | null): string {
+    if (!ip) {
+      return "unknown";
+    }
+    return ip.trim() || "unknown";
+  }
+
+  private async recordImpersonationAudit(
+    action: string,
+    impersonatorId: string,
+    targetUserId: string,
+    ipAddress: string,
+    details: Record<string, any>,
+  ): Promise<void> {
+    try {
+      await this.auditLogService.createLog(
+        action,
+        impersonatorId,
+        details,
+        ipAddress,
+        null,
+        targetUserId,
+      );
+    } catch (auditError) {
+      const message =
+        auditError instanceof Error
+          ? auditError.message
+          : typeof auditError === "string"
+            ? auditError
+            : "unknown_error";
+      this.logger.warn(
+        `Failed to persist impersonation audit log (${action}): ${message}`,
+      );
+    }
   }
 
   async getSetting(key: string): Promise<GlobalSettingDocument | null> {
@@ -117,6 +208,29 @@ export class SuperAdminService {
     return { tenants, total };
   }
 
+  async getQueueStats() {
+    return this.taskQueueService.getStats();
+  }
+
+  async listQueueJobs(options: ListQueueJobsOptions = {}) {
+    return this.taskQueueService.listJobs(options);
+  }
+
+  async retryQueueJob(jobId: string): Promise<void> {
+    await this.taskQueueService.retryJob(jobId);
+  }
+
+  async deleteQueueJob(jobId: string): Promise<void> {
+    await this.taskQueueService.deleteJob(jobId);
+  }
+
+  async purgeQueueJobs(
+    status: TaskQueueJobStatus,
+    olderThanMinutes?: number,
+  ): Promise<number> {
+    return this.taskQueueService.purgeJobs(status, olderThanMinutes);
+  }
+
   async getMetrics(): Promise<any> {
     this.logger.log("Fetching super admin metrics");
     // This is a placeholder. In the future, this could calculate global metrics.
@@ -136,6 +250,7 @@ export class SuperAdminService {
       throw new NotFoundException(`Tenant con ID "${tenantId}" no encontrado.`);
     }
 
+    this.tenantConfigurationCache.invalidate(tenantId);
     return updatedTenant;
   }
 
@@ -151,6 +266,7 @@ export class SuperAdminService {
       throw new NotFoundException(`Tenant con ID "${tenantId}" no encontrado.`);
     }
 
+    this.tenantConfigurationCache.invalidate(tenantId);
     return updatedTenant;
   }
 
@@ -163,29 +279,64 @@ export class SuperAdminService {
     return users;
   }
 
-  async getTenantConfiguration(tenantId: string): Promise<any> {
-    this.logger.log(`Fetching configuration for tenant ID: ${tenantId}`);
+  async getTenantConfiguration(
+    tenantId: string,
+  ): Promise<TenantConfigurationSnapshot> {
+    const cachedSnapshot = this.tenantConfigurationCache.get(tenantId);
+    if (cachedSnapshot) {
+      this.logger.debug(
+        `Serving cached tenant configuration for tenantId=${tenantId}.`,
+      );
+      return cachedSnapshot;
+    }
+
+    this.logger.log(
+      `Fetching fresh configuration snapshot for tenant ID: ${tenantId}`,
+    );
     const tenantObjectId = new Types.ObjectId(tenantId);
 
     const tenant = await this.connection
       .model("Tenant")
       .findById(tenantObjectId)
+      .lean()
       .exec();
     if (!tenant) {
       throw new NotFoundException(`Tenant con ID "${tenantId}" no encontrado.`);
     }
 
-    const roles = await this.connection
-      .model("Role")
-      .find({ tenantId: tenantObjectId })
-      .populate("permissions")
-      .exec();
-    const allPermissions = await this.connection
-      .model("Permission")
-      .find({})
-      .exec();
+    const [roles, allPermissions] = await Promise.all([
+      this.connection
+        .model("Role")
+        .find({ tenantId: tenantObjectId })
+        .sort({ name: 1 })
+        .populate({
+          path: "permissions",
+          select: "name module action description",
+          options: { lean: true },
+        })
+        .lean()
+        .exec(),
+      this.connection
+        .model("Permission")
+        .find({})
+        .sort({ module: 1, name: 1 })
+        .lean()
+        .exec(),
+    ]);
 
-    return { tenant, roles, allPermissions };
+    const snapshot: TenantConfigurationSnapshot = {
+      tenant,
+      roles,
+      allPermissions,
+      cachedAt: new Date().toISOString(),
+      metadata: {
+        ttlMs: 0,
+        expiresAt: 0,
+      },
+    };
+
+    this.tenantConfigurationCache.set(tenantId, snapshot);
+    return snapshot;
   }
 
   async updateTenantModules(
@@ -206,6 +357,7 @@ export class SuperAdminService {
       );
     }
 
+    this.tenantConfigurationCache.invalidate(tenantId);
     return { success: true, ...result };
   }
 
@@ -218,8 +370,17 @@ export class SuperAdminService {
     // Permissions are stored as strings, not ObjectIds
     const permissions = permissionIds;
 
-    const result = await this.connection
-      .model("Role")
+    const roleModel = this.connection.model("Role");
+    const role = await roleModel
+      .findById(roleObjectId, { tenantId: 1 })
+      .lean()
+      .exec();
+
+    if (!role) {
+      throw new NotFoundException(`Role con ID "${roleId}" no encontrado.`);
+    }
+
+    const result = await roleModel
       .updateOne(
         { _id: roleObjectId },
         { $set: { permissions: permissions } },
@@ -232,6 +393,9 @@ export class SuperAdminService {
       );
     }
 
+    if (role.tenantId) {
+      this.tenantConfigurationCache.invalidate(role.tenantId.toString());
+    }
     return { success: true, ...result };
   }
 
@@ -286,6 +450,7 @@ export class SuperAdminService {
         `[SUCCESS] El tenant con ID ${tenantId} y todos sus datos han sido eliminados.`,
       );
 
+      this.tenantConfigurationCache.invalidate(tenantId);
       return { message: `Tenant con ID ${tenantId} eliminado exitosamente.` };
     } catch (error) {
       await session.abortTransaction();

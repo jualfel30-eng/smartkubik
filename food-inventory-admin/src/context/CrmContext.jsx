@@ -1,5 +1,8 @@
 import { createContext, useState, useCallback, useEffect, useContext, useRef } from 'react';
 import { fetchApi } from '@/lib/api';
+import { createScopedLogger } from '@/lib/logger';
+
+const logger = createScopedLogger('crm-context');
 
 // 1. Crear el Contexto
 export const CrmContext = createContext();
@@ -61,7 +64,7 @@ export const CrmProvider = ({ children }) => {
       setCurrentPage(page);
       setPageLimit(limit);
     } catch (err) {
-      console.error("Error loading customers:", err.message);
+      logger.error('Failed to load customers', { message: err?.message });
       setCrmData([]);
       setTotalCustomers(0);
       setTotalPages(0);
@@ -76,7 +79,7 @@ export const CrmProvider = ({ children }) => {
       const data = await fetchApi('/orders/__lookup/payment-methods');
       setPaymentMethods(data.data.methods || []);
     } catch (err) {
-      console.error("Error loading payment methods:", err.message);
+      logger.error('Failed to load payment methods', { message: err?.message });
       setPaymentMethods([]);
     }
   }, []);
@@ -110,7 +113,7 @@ export const CrmProvider = ({ children }) => {
       });
       await loadCustomers();
     } catch (err) {
-      console.error("Error adding customer:", err);
+      logger.error('Failed to add customer', { error: err?.message ?? err });
       throw err;
     }
   };
@@ -123,7 +126,7 @@ export const CrmProvider = ({ children }) => {
       });
       await loadCustomers();
     } catch (err) {
-      console.error("Error updating customer:", err);
+      logger.error('Failed to update customer', { error: err?.message ?? err });
       throw err;
     }
   };
@@ -133,7 +136,7 @@ export const CrmProvider = ({ children }) => {
       await fetchApi(`/customers/${customerId}`, { method: 'DELETE' });
       await loadCustomers(); // Recargar
     } catch (err) {
-      console.error("Error deleting customer:", err);
+      logger.error('Failed to delete customer', { error: err?.message ?? err });
       throw err;
     }
   };

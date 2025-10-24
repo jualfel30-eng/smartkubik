@@ -1,19 +1,25 @@
-import { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from 'react';
 import {
   fetchApi,
   switchTenant as switchTenantApi,
 } from '../lib/api';
 import { isFeatureEnabled } from '../config/features';
+import { toast } from 'sonner';
+import { createScopedLogger } from '@/lib/logger';
+
+const logger = createScopedLogger('auth-context');
 
 const AuthContext = createContext(null);
 
 const STORAGE_KEYS = {
-  ACCESS_TOKEN: 'accessToken',
-  REFRESH_TOKEN: 'refreshToken',
-  USER: 'user',
-  TENANT: 'tenant',
-  MEMBERSHIPS: 'memberships',
-  ACTIVE_MEMBERSHIP: 'activeMembershipId',
   LAST_LOCATION: 'lastLocation',
 };
 
@@ -52,82 +58,160 @@ function normalizeTenant(rawTenant) {
 
 export const AuthProvider = ({ children }) => {
   const multiTenantEnabled = isFeatureEnabled('MULTI_TENANT_LOGIN');
-  const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem(STORAGE_KEYS.USER);
-    if (!stored || stored === 'undefined') return null;
-    try {
-      return JSON.parse(stored);
-    } catch (error) {
-      console.error('Failed to parse stored user:', error);
-      return null;
-    }
-  });
-  const [tenant, setTenant] = useState(() => {
-    const stored = localStorage.getItem(STORAGE_KEYS.TENANT);
-    const storedActiveMembership = localStorage.getItem(STORAGE_KEYS.ACTIVE_MEMBERSHIP);
-
-    if (!stored || stored === 'undefined') return null;
-
-    // En modo multi-tenant: solo cargar tenant si hay activeMembershipId
-    if (multiTenantEnabled && !storedActiveMembership) {
-      return null;
-    }
-
-    try {
-      const parsed = JSON.parse(stored);
-      return normalizeTenant(parsed);
-    } catch (error) {
-      console.error('Failed to parse stored tenant:', error);
-      return null;
-    }
-  });
-  const [memberships, setMemberships] = useState(() => {
-    const stored = localStorage.getItem(STORAGE_KEYS.MEMBERSHIPS);
-    if (!stored || stored === 'undefined') return [];
-    try {
-      const parsed = JSON.parse(stored);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (error) {
-      console.error('Failed to parse stored memberships:', error);
-      return [];
-    }
-  });
-  const [activeMembershipId, setActiveMembershipId] = useState(() => {
-    return localStorage.getItem(STORAGE_KEYS.ACTIVE_MEMBERSHIP) || null;
-  });
-  const [token, setToken] = useState(
-    localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN),
-  );
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    !!localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN),
-  );
+  const [user, setUser] = useState(null);
+  const [tenant, setTenant] = useState(null);
+  const [memberships, setMemberships] = useState([]);
+  const [activeMembershipId, setActiveMembershipId] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [isSwitchingTenant, setIsSwitchingTenant] = useState(false);
+  const hasAuthenticatedSessionRef = useRef(false);
+  const sessionExpiryToastShownRef = useRef(false);
+  const manualLogoutRef = useRef(false);
 
-  const resetState = () => {
-    setToken(null);
+  const resetState = useCallback(() => {
     setUser(null);
     setTenant(null);
     setMemberships([]);
     setActiveMembershipId(null);
     setIsAuthenticated(false);
-  };
-
-  const clearStoredSession = () => {
-    localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN);
-    localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
-    localStorage.removeItem(STORAGE_KEYS.USER);
-    localStorage.removeItem(STORAGE_KEYS.TENANT);
-    localStorage.removeItem(STORAGE_KEYS.MEMBERSHIPS);
-    localStorage.removeItem(STORAGE_KEYS.ACTIVE_MEMBERSHIP);
-    resetState();
-  };
-
-  // Este useEffect ya no es necesario para la inicialización,
-  // porque ahora se hace en el useState inicial.
-  // Lo mantenemos vacío para evitar warnings de dependencias.
-  useEffect(() => {
-    // Inicialización ahora en useState
   }, []);
+
+  const applySessionPayload = useCallback(
+    (payload = {}) => {
+      const userData = payload?.user ?? null;
+      const tenantData = payload?.tenant ?? null;
+      const membership = payload?.membership ?? null;
+      const membershipList = Array.isArray(payload?.memberships)
+        ? payload.memberships.filter(Boolean)
+        : [];
+
+      setUser(userData);
+      setIsAuthenticated(Boolean(userData));
+      hasAuthenticatedSessionRef.current = Boolean(userData);
+      sessionExpiryToastShownRef.current = false;
+      manualLogoutRef.current = false;
+
+      const normalizedTenant = tenantData ? normalizeTenant(tenantData) : null;
+
+      if (multiTenantEnabled) {
+        setMemberships(membershipList);
+        setTenant(normalizedTenant);
+
+        const nextMembershipId =
+          membership?.id ||
+          membershipList.find((item) => item.id === activeMembershipId)?.id ||
+          membershipList.find((item) => item.isDefault)?.id ||
+          membershipList[0]?.id ||
+          null;
+
+        setActiveMembershipId(nextMembershipId);
+
+        return {
+          user: userData,
+          tenant: normalizedTenant,
+          memberships: membershipList,
+          membership: membership ?? null,
+          activeMembershipId: nextMembershipId,
+        };
+      }
+
+      setMemberships([]);
+      setActiveMembershipId(membership?.id ?? null);
+      setTenant(normalizedTenant);
+
+      return {
+        user: userData,
+        tenant: normalizedTenant,
+        memberships: [],
+        membership: membership ?? null,
+        activeMembershipId: membership?.id ?? null,
+      };
+    },
+    [multiTenantEnabled, activeMembershipId],
+  );
+
+  const fetchSession = useCallback(async () => {
+    try {
+      const response = await fetchApi('/auth/session');
+      if (response?.data) {
+        return applySessionPayload(response.data);
+      }
+      hasAuthenticatedSessionRef.current = false;
+      sessionExpiryToastShownRef.current = false;
+      manualLogoutRef.current = false;
+      resetState();
+      return null;
+    } catch (error) {
+      const status = Number.isFinite(error?.status) ? Number(error.status) : null;
+      const message = typeof error?.message === 'string' ? error.message.toLowerCase() : '';
+      const isUnauthorized =
+        status === 401 ||
+        status === 403 ||
+        message.includes('unauthorized') ||
+        message.includes('forbidden');
+      if (!isUnauthorized) {
+        logger.warn('Failed to bootstrap auth session', { error: error?.message ?? error });
+      }
+      resetState();
+      if (
+        isUnauthorized &&
+        hasAuthenticatedSessionRef.current &&
+        !sessionExpiryToastShownRef.current &&
+        !manualLogoutRef.current
+      ) {
+        sessionExpiryToastShownRef.current = true;
+        hasAuthenticatedSessionRef.current = false;
+        toast.error('Tu sesión expiró', {
+          description: 'Vuelve a iniciar sesión para continuar.',
+        });
+      }
+      return null;
+    } finally {
+      setIsBootstrapping(false);
+    }
+  }, [applySessionPayload, resetState]);
+
+  useEffect(() => {
+    fetchSession();
+  }, [fetchSession]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const handleUnauthorized = (event) => {
+      const detail = event?.detail ?? {};
+      const status = Number.isFinite(detail?.status) ? Number(detail.status) : null;
+      const message =
+        typeof detail?.message === 'string' ? detail.message.toLowerCase() : '';
+      const isUnauthorized =
+        status === 401 ||
+        status === 403 ||
+        message.includes('unauthorized') ||
+        message.includes('forbidden');
+
+      if (
+        !isUnauthorized ||
+        sessionExpiryToastShownRef.current ||
+        !hasAuthenticatedSessionRef.current ||
+        manualLogoutRef.current
+      ) {
+        return;
+      }
+
+      sessionExpiryToastShownRef.current = true;
+      hasAuthenticatedSessionRef.current = false;
+      resetState();
+      toast.error('Tu sesión expiró', {
+        description: 'Vuelve a iniciar sesión para continuar.',
+      });
+    };
+
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+  }, [resetState]);
 
   const login = async (email, password, tenantCode) => {
     try {
@@ -137,70 +221,35 @@ export const AuthProvider = ({ children }) => {
       });
 
       const {
-        accessToken,
-        refreshToken,
         user: userData,
         tenant: tenantData,
         memberships: membershipsData,
       } = response.data;
+      const sessionSnapshot = applySessionPayload({
+        user: userData,
+        tenant: tenantData,
+        memberships: membershipsData,
+        membership: response.data.membership ?? null,
+      });
 
-      localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
-      if (refreshToken) {
-        localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
-      }
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
+      const requiresTenantSelection =
+        multiTenantEnabled &&
+        Array.isArray(sessionSnapshot.memberships) &&
+        sessionSnapshot.memberships.length > 0 &&
+        !sessionSnapshot.tenant;
 
-      setToken(accessToken);
-      setUser(userData);
-      setIsAuthenticated(true);
-
-      if (multiTenantEnabled && Array.isArray(membershipsData)) {
-        const sanitizedMemberships = membershipsData.filter(Boolean);
-        setMemberships(sanitizedMemberships);
-        localStorage.setItem(
-          STORAGE_KEYS.MEMBERSHIPS,
-          JSON.stringify(sanitizedMemberships),
-        );
-
-        localStorage.removeItem(STORAGE_KEYS.TENANT);
-        setTenant(null);
-
-        const storedPreferredMembership =
-          localStorage.getItem(STORAGE_KEYS.ACTIVE_MEMBERSHIP);
-        const defaultMembership =
-          sanitizedMemberships.find(
-            (membership) => membership.id === storedPreferredMembership,
-          ) ||
-          sanitizedMemberships.find((membership) => membership.isDefault) ||
-          sanitizedMemberships[0] ||
-          null;
-
-        return {
-          success: true,
-          user: userData,
-          memberships: sanitizedMemberships,
-          requiresTenantSelection: sanitizedMemberships.length > 0,
-          defaultMembershipId: defaultMembership?.id || null,
-        };
-      }
-
-      if (tenantData) {
-        const normalizedTenant = normalizeTenant(tenantData);
-        localStorage.setItem(STORAGE_KEYS.TENANT, JSON.stringify(normalizedTenant));
-        setTenant(normalizedTenant);
-      } else {
-        localStorage.removeItem(STORAGE_KEYS.TENANT);
-        setTenant(null);
-      }
-
-      setMemberships([]);
-      localStorage.removeItem(STORAGE_KEYS.MEMBERSHIPS);
-      localStorage.removeItem(STORAGE_KEYS.ACTIVE_MEMBERSHIP);
-
-      return { success: true, user: userData, tenant: tenantData };
+      return {
+        success: true,
+        user: sessionSnapshot.user,
+        tenant: sessionSnapshot.tenant,
+        memberships: sessionSnapshot.memberships,
+        membership: sessionSnapshot.membership,
+        requiresTenantSelection,
+        defaultMembershipId: sessionSnapshot.activeMembershipId ?? null,
+      };
     } catch (error) {
-      console.error('Login failed:', error);
-      clearStoredSession();
+      logger.error('Login failed', { error: error?.message ?? error });
+      resetState();
       throw error;
     }
   };
@@ -216,139 +265,125 @@ export const AuthProvider = ({ children }) => {
       });
 
       const {
-        accessToken,
-        refreshToken,
         user: userData,
         tenant: tenantData,
         membership,
         memberships: updatedMemberships,
       } = response.data;
-
-      localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
-      if (refreshToken) {
-        localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
-      }
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
-      const normalizedTenant = normalizeTenant(tenantData);
-      localStorage.setItem(STORAGE_KEYS.TENANT, JSON.stringify(normalizedTenant));
-      localStorage.setItem(
-        STORAGE_KEYS.ACTIVE_MEMBERSHIP,
-        membership?.id || membershipId,
-      );
-
-      if (Array.isArray(updatedMemberships)) {
-        setMemberships(updatedMemberships);
-        localStorage.setItem(
-          STORAGE_KEYS.MEMBERSHIPS,
-          JSON.stringify(updatedMemberships),
-        );
-      }
-
-      setToken(accessToken);
-      setUser(userData);
-      setTenant(normalizedTenant);
-      setActiveMembershipId(membership?.id || membershipId);
-      setIsAuthenticated(true);
+      const snapshot = applySessionPayload({
+        user: userData,
+        tenant: tenantData,
+        memberships: updatedMemberships,
+        membership: membership ?? null,
+      });
 
       return {
-        user: userData,
-        tenant: normalizedTenant,
-        membership,
+        user: snapshot.user,
+        tenant: snapshot.tenant,
+        membership: snapshot.membership,
       };
     } catch (error) {
-      console.error('Failed to switch tenant:', error);
+      logger.error('Failed to switch tenant', { error: error?.message ?? error });
       throw error;
     } finally {
       setIsSwitchingTenant(false);
     }
   };
 
-  const loginWithTokens = async (data) => {
+  const loginWithTokens = async (payload) => {
     try {
+      const data = payload?.data ?? payload;
+
+      if (!data || typeof data !== 'object') {
+        throw new Error('No se recibió información de autenticación.');
+      }
+
       const {
-        accessToken,
-        refreshToken,
         user: userData,
         tenant: tenantData,
         memberships: membershipsData,
+        membership,
       } = data;
 
-      localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
-      if (refreshToken) {
-        localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+      if (!userData) {
+        throw new Error('No se pudo recuperar el usuario autenticado.');
       }
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(userData));
+      const snapshot = applySessionPayload({
+        user: userData,
+        tenant: tenantData,
+        memberships: membershipsData,
+        membership: membership ?? null,
+      });
 
-      setToken(accessToken);
-      setUser(userData);
-      setIsAuthenticated(true);
+      const requiresTenantSelection =
+        multiTenantEnabled &&
+        Array.isArray(snapshot.memberships) &&
+        snapshot.memberships.length > 0 &&
+        !snapshot.tenant;
 
-      if (multiTenantEnabled && Array.isArray(membershipsData)) {
-        const sanitizedMemberships = membershipsData.filter(Boolean);
-        setMemberships(sanitizedMemberships);
-        localStorage.setItem(
-          STORAGE_KEYS.MEMBERSHIPS,
-          JSON.stringify(sanitizedMemberships),
-        );
-
-        localStorage.removeItem(STORAGE_KEYS.TENANT);
-        setTenant(null);
-
-        return {
-          success: true,
-          user: userData,
-          memberships: sanitizedMemberships,
-          requiresTenantSelection: sanitizedMemberships.length > 0,
-        };
-      }
-
-      // Fallback for single-tenant or non-membership flows
-      if (tenantData) {
-        const normalizedTenant = normalizeTenant(tenantData);
-        localStorage.setItem(STORAGE_KEYS.TENANT, JSON.stringify(normalizedTenant));
-        setTenant(normalizedTenant);
-      } else {
-        localStorage.removeItem(STORAGE_KEYS.TENANT);
-        setTenant(null);
-      }
-
-      setMemberships([]);
-      localStorage.removeItem(STORAGE_KEYS.MEMBERSHIPS);
-      localStorage.removeItem(STORAGE_KEYS.ACTIVE_MEMBERSHIP);
-
-      return { success: true, user: userData, tenant: tenantData };
+      return {
+        success: true,
+        user: snapshot.user,
+        tenant: snapshot.tenant,
+        membership: snapshot.membership,
+        memberships: snapshot.memberships,
+        requiresTenantSelection,
+      };
     } catch (error) {
-      console.error('Login with tokens failed:', error);
-      clearStoredSession();
+      logger.error('Login with tokens failed', { error: error?.message ?? error });
+      resetState();
       throw error;
     }
   };
 
-  const logout = () => {
-    clearStoredSession();
+  const logout = async () => {
+    manualLogoutRef.current = true;
+    try {
+      await fetchApi('/auth/logout', { method: 'POST' });
+    } catch (error) {
+      logger.error('Logout request failed', { error: error?.message ?? error });
+    } finally {
+      resetState();
+      hasAuthenticatedSessionRef.current = false;
+      sessionExpiryToastShownRef.current = false;
+      manualLogoutRef.current = false;
+    }
   };
 
   const updateTenantContext = (partialTenant) => {
     if (!partialTenant) return;
     setTenant((prev) => {
       const nextTenant = { ...(prev || {}), ...partialTenant };
-      localStorage.setItem(STORAGE_KEYS.TENANT, JSON.stringify(nextTenant));
       return nextTenant;
     });
   };
 
   const permissions = useMemo(() => {
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        return payload.role?.permissions || [];
-      } catch (error) {
-        console.error('Error parsing JWT:', error);
+    if (multiTenantEnabled && memberships.length > 0) {
+      const activeMembership =
+        memberships.find((membership) => membership.id === activeMembershipId) ||
+        memberships.find((membership) => membership.isDefault) ||
+        memberships[0];
+
+      if (activeMembership?.permissions) {
+        return activeMembership.permissions;
       }
     }
 
-    return user?.role?.permissions || [];
-  }, [token, user]);
+    if (user?.role?.permissions) {
+      if (Array.isArray(user.role.permissions)) {
+        return user.role.permissions
+          .map((permission) => {
+            if (!permission) return null;
+            if (typeof permission === 'string') return permission;
+            return permission.name || null;
+          })
+          .filter(Boolean);
+      }
+    }
+
+    return [];
+  }, [multiTenantEnabled, memberships, activeMembershipId, user]);
 
   const hasPermission = (permission) => {
     if (multiTenantEnabled && memberships.length > 0 && !tenant) {
@@ -379,11 +414,11 @@ export const AuthProvider = ({ children }) => {
     user,
     tenant,
     tenantConfirmed: tenant ? tenant.isConfirmed !== false : true,
-    token,
     memberships,
     activeMembershipId,
     isSwitchingTenant,
     isAuthenticated,
+    isBootstrapping,
     isMultiTenantEnabled: multiTenantEnabled,
     login,
     selectTenant,
@@ -395,6 +430,7 @@ export const AuthProvider = ({ children }) => {
     saveLastLocation,
     getLastLocation,
     clearLastLocation,
+    refreshSession: fetchSession,
   };
 
   return (

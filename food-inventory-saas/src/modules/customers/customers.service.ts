@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
+import { Model, Types, ClientSession } from "mongoose";
 import { Customer, CustomerDocument } from "../../schemas/customer.schema";
 import { Order, OrderDocument } from "../../schemas/order.schema";
 import {
@@ -29,10 +29,14 @@ export class CustomersService {
   async create(
     createCustomerDto: CreateCustomerDto,
     user: any,
+    session?: ClientSession,
   ): Promise<CustomerDocument> {
     this.logger.log(`Creating customer: ${createCustomerDto.name}`);
 
-    const customerNumber = await this.generateCustomerNumber(user.tenantId);
+    const customerNumber = await this.generateCustomerNumber(
+      user.tenantId,
+      session,
+    );
 
     const customerData = {
       ...createCustomerDto,
@@ -64,7 +68,7 @@ export class CustomersService {
     };
 
     const customer = new this.customerModel(customerData);
-    const savedCustomer = await customer.save();
+    const savedCustomer = await customer.save({ session });
 
     this.logger.log(
       `Customer created successfully with number: ${customerNumber}`,
@@ -519,13 +523,12 @@ export class CustomersService {
   async findOne(
     id: string,
     tenantId: string,
+    session?: ClientSession,
   ): Promise<CustomerDocument | null> {
     const tenantCandidates = Types.ObjectId.isValid(tenantId)
       ? [tenantId, new Types.ObjectId(tenantId)]
       : [tenantId];
-    const idFilter = Types.ObjectId.isValid(id)
-      ? new Types.ObjectId(id)
-      : id;
+    const idFilter = Types.ObjectId.isValid(id) ? new Types.ObjectId(id) : id;
 
     return this.customerModel
       .findOne({
@@ -534,6 +537,7 @@ export class CustomersService {
       })
       .populate("assignedTo", "firstName lastName")
       .populate("createdBy", "firstName lastName")
+      .session(session ?? null)
       .exec();
   }
 
@@ -576,8 +580,15 @@ export class CustomersService {
     return result.modifiedCount > 0;
   }
 
-  private async generateCustomerNumber(tenantId: string): Promise<string> {
-    const count = await this.customerModel.countDocuments({ tenantId });
+  private async generateCustomerNumber(
+    tenantId: string,
+    session?: ClientSession,
+  ): Promise<string> {
+    const query = this.customerModel.countDocuments({ tenantId });
+    if (session) {
+      query.session(session);
+    }
+    const count = await query.exec();
     return `CLI-${(count + 1).toString().padStart(6, "0")}`;
   }
 }

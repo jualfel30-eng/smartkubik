@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { fetchApi } from '../lib/api';
+import { createScopedLogger } from '@/lib/logger';
+
+const logger = createScopedLogger('use-todos');
 
 export const useTodos = () => {
   const [todos, setTodos] = useState([]);
@@ -31,7 +34,7 @@ export const useTodos = () => {
       });
       setTodos(prevTodos => [newTodo, ...prevTodos]);
     } catch (err) {
-      console.error("Failed to add todo:", err);
+      logger.error('Failed to add todo', { error: err?.message ?? err });
     }
   };
 
@@ -45,7 +48,7 @@ export const useTodos = () => {
         prevTodos.map(todo => (todo._id === id ? updatedTodo : todo))
       );
     } catch (err) {
-      console.error("Failed to update todo:", err);
+      logger.error('Failed to update todo', { error: err?.message ?? err });
     }
   };
 
@@ -54,7 +57,7 @@ export const useTodos = () => {
       await fetchApi(`/todos/${id}`, { method: 'DELETE' });
       setTodos(prevTodos => prevTodos.filter(todo => todo._id !== id));
     } catch (err) {
-      console.error("Failed to delete todo:", err);
+      logger.error('Failed to delete todo', { error: err?.message ?? err });
     }
   };
 

@@ -14,6 +14,7 @@ export interface TokenGenerationOptions {
   impersonatorId?: string;
   membershipId?: string;
   roleOverride?: RoleDocument | Types.ObjectId | string | null;
+  sessionId?: string;
 }
 
 @Injectable()
@@ -29,6 +30,10 @@ export class TokenService {
     tenant: TenantDocument | null,
     options: TokenGenerationOptions = {},
   ) {
+    if (!options.sessionId) {
+      throw new Error("Session identifier is required to issue tokens");
+    }
+
     const rawRole =
       options.roleOverride ??
       (user.role as RoleDocument | Types.ObjectId | string | null | undefined);
@@ -128,22 +133,41 @@ export class TokenService {
       payload.membershipId = options.membershipId;
     }
 
+    if (options.sessionId) {
+      payload.sessionId = options.sessionId;
+    }
+
     if (options.impersonation) {
       payload.impersonated = true;
       payload.impersonatorId = options.impersonatorId ?? null;
+    }
+
+    const refreshPayload: Record<string, any> = {
+      sub: user._id,
+      sid: options.sessionId,
+    };
+
+    if (tenant) {
+      refreshPayload.tenantId = tenant._id;
+    }
+
+    if (options.membershipId) {
+      refreshPayload.membershipId = options.membershipId;
+    }
+
+    if (options.impersonation) {
+      refreshPayload.impersonation = true;
+      refreshPayload.impersonatorId = options.impersonatorId ?? null;
     }
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         expiresIn: process.env.JWT_EXPIRES_IN || "15m",
       }),
-      this.jwtService.signAsync(
-        { sub: user._id },
-        {
-          secret: process.env.JWT_REFRESH_SECRET,
-          expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
-        },
-      ),
+      this.jwtService.signAsync(refreshPayload, {
+        secret: process.env.JWT_REFRESH_SECRET,
+        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
+      }),
     ]);
 
     return {

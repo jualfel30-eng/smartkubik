@@ -1,5 +1,8 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { createScopedLogger } from "./logger";
+
+const logger = createScopedLogger("pdf-generator");
 
 // Helper function to load an image and get its dimensions
 const loadImage = (url) => {
@@ -48,7 +51,7 @@ export const generateDocumentPDF = async ({ documentType, orderData, customerDat
 
       doc.addImage(logoImg, 'PNG', 15, 10, logoWidth, logoHeight);
     } catch (e) {
-      console.error("Error adding logo to PDF", e);
+      logger.error("Failed to add logo to PDF", { error: e?.message ?? e });
     }
   }
 

@@ -11,6 +11,9 @@ import { toast } from 'sonner';
 import { ArrowLeft, Save, Settings, Shield, Sparkles, Building2 } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { createScopedLogger } from '@/lib/logger';
+
+const logger = createScopedLogger('tenant-configuration-edit');
 
 const api = {
   get: (url) => fetchApi(url, { method: 'GET' }),
@@ -117,6 +120,45 @@ const MODULE_LABELS = {
   chat: 'WhatsApp Chat'
 };
 
+const formatDateTime = (isoString) => {
+  if (!isoString) return null;
+  const parsedDate = new Date(isoString);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat('es-VE', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(parsedDate);
+};
+
+const describeTimeUntil = (targetTimestamp, ttlMs) => {
+  const reference =
+    typeof targetTimestamp === 'number'
+      ? targetTimestamp
+      : typeof ttlMs === 'number'
+      ? Date.now() + ttlMs
+      : null;
+
+  if (!reference) {
+    return null;
+  }
+
+  const remaining = reference - Date.now();
+  if (remaining <= 0) {
+    return 'Expiró; se recalculará en el próximo acceso';
+  }
+
+  if (remaining >= 60000) {
+    const minutes = Math.ceil(remaining / 60000);
+    return `aprox. ${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}`;
+  }
+
+  const seconds = Math.max(5, Math.ceil(remaining / 1000 / 5) * 5);
+  return `aprox. ${seconds} ${seconds === 1 ? 'segundo' : 'segundos'}`;
+};
+
 const RESTAURANT_MODULES_PRESET = [
   'restaurant',
   'tables',
@@ -151,6 +193,7 @@ export default function TenantConfigurationEdit() {
   const [presetDialogOpen, setPresetDialogOpen] = useState(false);
   const [selectedPresetRoles, setSelectedPresetRoles] = useState([]);
   const [businessVertical, setBusinessVertical] = useState('MIXED');
+  const [snapshotInfo, setSnapshotInfo] = useState(null);
 
   useEffect(() => {
     loadTenantConfiguration();
@@ -160,12 +203,15 @@ export default function TenantConfigurationEdit() {
     try {
       setLoading(true);
       const data = await api.get(`/super-admin/tenants/${tenantId}/configuration`);
-      console.log('📊 Data recibida del backend:', data);
 
-      const { tenant, roles, allPermissions } = data;
-      console.log('👤 Tenant:', tenant);
-      console.log('🎭 Roles:', roles);
-      console.log('🔑 All Permissions:', allPermissions);
+      const { tenant, roles, allPermissions, cachedAt, metadata } = data;
+      logger.debug('Loaded tenant configuration snapshot', {
+        tenantId: tenant?._id || tenant?.id,
+        roleCount: roles.length,
+        permissionCount: allPermissions.length,
+        cachedAt,
+        expiresAt: metadata?.expiresAt ?? null,
+      });
 
       setTenant(tenant);
       setRoles(roles);
@@ -173,17 +219,23 @@ export default function TenantConfigurationEdit() {
       setAllPermissions(allPermissions);
       setEnabledModules(tenant.enabledModules || {});
       setBusinessVertical(tenant.vertical || 'MIXED');
+      setSnapshotInfo({
+        cachedAt: cachedAt ?? null,
+        expiresAt: metadata?.expiresAt ?? null,
+        ttlMs: metadata?.ttlMs ?? null,
+      });
 
       // Initialize role permissions state
       const rolePerms = {};
       roles.forEach(role => {
         rolePerms[role._id] = role.permissions.map(p => p._id || p);
       });
-      console.log('✅ Role Permissions State:', rolePerms);
+      logger.debug('Initialized role permissions map', { roleCount: Object.keys(rolePerms).length });
       setRolePermissions(rolePerms);
     } catch (error) {
-      console.error('❌ Error loading tenant configuration:', error);
+      logger.error('Error loading tenant configuration', error);
       toast.error('Error al cargar la configuración del tenant');
+      setSnapshotInfo(null);
     } finally {
       setLoading(false);
     }
@@ -234,7 +286,7 @@ export default function TenantConfigurationEdit() {
       toast.success('Configuración guardada exitosamente');
       navigate('/super-admin/tenants');
     } catch (error) {
-      console.error('Error saving configuration:', error);
+      logger.error('Error saving configuration', error);
       toast.error('Error al guardar la configuración');
     } finally {
       setSaving(false);
@@ -249,8 +301,7 @@ export default function TenantConfigurationEdit() {
     return acc;
   }, {});
 
-  console.log('🗂️ Permissions by Module:', permissionsByModule);
-  console.log('📋 Roles array length:', roles.length);
+  logger.debug('Grouped permissions by module', { moduleGroups: Object.keys(permissionsByModule).length, roleCount: roles.length });
 
   const permissionIdByName = useMemo(() => {
     const map = new Map();
@@ -265,6 +316,13 @@ export default function TenantConfigurationEdit() {
       prev.includes(roleId) ? prev.filter((id) => id !== roleId) : [...prev, roleId]
     );
   };
+
+  const formattedCacheAt = snapshotInfo?.cachedAt
+    ? formatDateTime(snapshotInfo.cachedAt)
+    : null;
+  const cacheRefreshLabel = snapshotInfo
+    ? describeTimeUntil(snapshotInfo.expiresAt, snapshotInfo.ttlMs)
+    : null;
 
   const applyRestaurantPreset = () => {
     if (selectedPresetRoles.length === 0) {
@@ -338,6 +396,29 @@ export default function TenantConfigurationEdit() {
           {saving ? 'Guardando...' : 'Guardar Cambios'}
         </Button>
       </div>
+
+      {snapshotInfo?.cachedAt && (
+        <div className="flex items-start gap-3 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/60 p-3 text-sm">
+          <Sparkles className="mt-0.5 h-4 w-4 text-muted-foreground" />
+          <div className="space-y-1 text-muted-foreground">
+            {formattedCacheAt && (
+              <p>
+                Configuración generada el{' '}
+                <span className="font-medium text-foreground">{formattedCacheAt}</span>.
+              </p>
+            )}
+            {cacheRefreshLabel && (
+              cacheRefreshLabel.startsWith('Expiró') ? (
+                <p className="text-xs">{cacheRefreshLabel}</p>
+              ) : (
+                <p className="text-xs">
+                  Se actualizará automáticamente {cacheRefreshLabel}.
+                </p>
+              )
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Business Vertical Selector */}
       <Card>
