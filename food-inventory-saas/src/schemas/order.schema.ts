@@ -81,6 +81,18 @@ export class OrderItem {
   @Prop({ type: Number, required: true })
   unitPrice: number; // Precio por la unidad seleccionada
 
+  @Prop({ type: Number, default: 0 })
+  discountPercentage: number; // Descuento aplicado (%)
+
+  @Prop({ type: Number, default: 0 })
+  discountAmount: number; // Monto de descuento en moneda
+
+  @Prop({ type: String })
+  discountReason?: string; // Razón del descuento (venta al mayor, cliente frecuente, etc.)
+
+  @Prop({ type: Types.ObjectId, ref: "User" })
+  discountApprovedBy?: Types.ObjectId; // Usuario que aprobó el descuento
+
   @Prop({ type: Number, required: true })
   totalPrice: number;
 
@@ -200,6 +212,15 @@ export class Order {
 
   @Prop({ type: Number, required: true })
   discountAmount: number;
+
+  @Prop({ type: Number, default: 0 })
+  generalDiscountPercentage: number; // Descuento general aplicado a toda la orden (%)
+
+  @Prop({ type: String })
+  generalDiscountReason?: string; // Razón del descuento general
+
+  @Prop({ type: Types.ObjectId, ref: "User" })
+  generalDiscountApprovedBy?: Types.ObjectId; // Usuario que aprobó el descuento general
 
   @Prop({ type: Number, required: true })
   totalAmount: number;

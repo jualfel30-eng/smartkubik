@@ -56,6 +56,11 @@ export class PermissionsSeed {
       description: "Eliminar órdenes",
       category: "orders",
     },
+    {
+      name: "apply_discounts",
+      description: "Aplicar descuentos a productos y órdenes",
+      category: "orders",
+    },
 
     // Products
     {

@@ -188,6 +188,11 @@ export class Product {
     usdPrice?: number;
     minimumMargin: number;
     maximumDiscount: number;
+    bulkDiscountEnabled?: boolean;
+    bulkDiscountRules?: Array<{
+      minQuantity: number;
+      discountPercentage: number;
+    }>;
   };
 
   @Prop({ type: Object })
@@ -206,6 +211,21 @@ export class Product {
 
   @Prop({ type: Boolean, required: true, default: false })
   igtfExempt: boolean;
+
+  // Promoción/Oferta activa (separado de descuentos por volumen)
+  @Prop({ type: Boolean, default: false })
+  hasActivePromotion: boolean;
+
+  @Prop({ type: Object })
+  promotion?: {
+    discountPercentage: number;
+    reason: string; // promocion_temporal, liquidacion, temporada, lanzamiento, etc.
+    startDate: Date;
+    endDate: Date;
+    durationDays?: number; // Alternativa a endDate
+    isActive: boolean;
+    autoDeactivate: boolean; // Se desactiva automáticamente al llegar a endDate
+  };
 
   @Prop({ type: String, required: true })
   taxCategory: string;

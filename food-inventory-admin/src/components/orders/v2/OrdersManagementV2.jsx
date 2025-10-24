@@ -120,8 +120,10 @@ export function OrdersManagementV2() {
 
   // Effect to fetch tenant settings
   useEffect(() => {
-    getTenantSettings().then(settings => {
-      setTenantSettings(settings);
+    getTenantSettings().then(response => {
+      if (response?.data) {
+        setTenantSettings(response.data);
+      }
     }).catch(err => console.error("Failed to fetch tenant settings:", err));
   }, []);
 

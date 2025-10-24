@@ -4,10 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Input } from '@/components/ui/input.jsx';
 import { Label } from '@/components/ui/label.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Combobox } from '@/components/ui/combobox.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Percent } from 'lucide-react';
 import { fetchApi } from '@/lib/api.js';
 import { useCrmContext } from '@/context/CrmContext.jsx';
 import { venezuelaData } from '@/lib/venezuela-data.js';
@@ -16,6 +17,7 @@ import { LocationPicker } from '@/components/ui/LocationPicker.jsx';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
 import ModifierSelector from '@/components/restaurant/ModifierSelector.jsx';
 import { useAuth } from '@/hooks/use-auth.jsx';
+import { toast } from 'sonner';
 
 const initialOrderState = {
   customerId: '',
@@ -37,7 +39,8 @@ const initialOrderState = {
 export function NewOrderFormV2({ onOrderCreated }) {
   const { crmData: customers, loading: contextLoading } = useCrmContext();
   const { rate: bcvRate, loading: loadingRate, error: rateError } = useExchangeRate();
-  const { tenant } = useAuth();
+  const { tenant, hasPermission } = useAuth();
+  const canApplyDiscounts = hasPermission('orders_apply_discounts');
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [newOrder, setNewOrder] = useState(initialOrderState);
@@ -53,6 +56,15 @@ export function NewOrderFormV2({ onOrderCreated }) {
   const [productSearchInput, setProductSearchInput] = useState('');
   const [shippingCost, setShippingCost] = useState(0);
   const [calculatingShipping, setCalculatingShipping] = useState(false);
+
+  // Estados para descuentos
+  const [showItemDiscountDialog, setShowItemDiscountDialog] = useState(false);
+  const [selectedItemForDiscount, setSelectedItemForDiscount] = useState(null);
+  const [itemDiscountPercentage, setItemDiscountPercentage] = useState(0);
+  const [itemDiscountReason, setItemDiscountReason] = useState('');
+  const [showGeneralDiscountDialog, setShowGeneralDiscountDialog] = useState(false);
+  const [generalDiscountPercentage, setGeneralDiscountPercentage] = useState(0);
+  const [generalDiscountReason, setGeneralDiscountReason] = useState('');
   const restaurantEnabled = Boolean(
     tenant?.enabledModules?.restaurant ||
     tenant?.enabledModules?.tables ||
@@ -602,6 +614,79 @@ export function NewOrderFormV2({ onOrderCreated }) {
     setNewOrder(prev => ({ ...prev, items: prev.items.filter(item => item.productId !== productId) }));
   };
 
+  // Funciones para manejar descuentos en items individuales
+  const handleOpenItemDiscount = (item) => {
+    setSelectedItemForDiscount(item);
+    setItemDiscountPercentage(item.discountPercentage || 0);
+    setItemDiscountReason(item.discountReason || '');
+    setShowItemDiscountDialog(true);
+  };
+
+  const handleApplyItemDiscount = () => {
+    if (!selectedItemForDiscount) return;
+
+    if (itemDiscountPercentage < 0 || itemDiscountPercentage > 100) {
+      toast.error('El descuento debe estar entre 0% y 100%');
+      return;
+    }
+
+    if (itemDiscountPercentage > 0 && !itemDiscountReason) {
+      toast.error('Debes proporcionar una razón para el descuento');
+      return;
+    }
+
+    const updatedItems = newOrder.items.map(item => {
+      if (item.productId === selectedItemForDiscount.productId) {
+        const discountAmount = (item.unitPrice * itemDiscountPercentage) / 100;
+        return {
+          ...item,
+          discountPercentage: itemDiscountPercentage,
+          discountAmount: discountAmount,
+          discountReason: itemDiscountReason,
+          finalPrice: item.unitPrice - discountAmount,
+        };
+      }
+      return item;
+    });
+
+    setNewOrder(prev => ({ ...prev, items: updatedItems }));
+    setShowItemDiscountDialog(false);
+    setSelectedItemForDiscount(null);
+    setItemDiscountPercentage(0);
+    setItemDiscountReason('');
+    toast.success('Descuento aplicado correctamente');
+  };
+
+  // Funciones para manejar descuento general a la orden
+  const handleOpenGeneralDiscount = () => {
+    setGeneralDiscountPercentage(newOrder.generalDiscountPercentage || 0);
+    setGeneralDiscountReason(newOrder.generalDiscountReason || '');
+    setShowGeneralDiscountDialog(true);
+  };
+
+  const handleApplyGeneralDiscount = () => {
+    if (generalDiscountPercentage < 0 || generalDiscountPercentage > 100) {
+      toast.error('El descuento debe estar entre 0% y 100%');
+      return;
+    }
+
+    if (generalDiscountPercentage > 0 && !generalDiscountReason) {
+      toast.error('Debes proporcionar una razón para el descuento');
+      return;
+    }
+
+    setNewOrder(prev => ({
+      ...prev,
+      generalDiscountPercentage: generalDiscountPercentage,
+      generalDiscountReason: generalDiscountReason,
+    }));
+
+    setShowGeneralDiscountDialog(false);
+    setGeneralDiscountPercentage(0);
+    setGeneralDiscountReason('');
+    toast.success('Descuento general aplicado correctamente');
+  };
+
   const handleCreateOrder = async () => {
     if (newOrder.items.length === 0) {
       alert('Agrega al menos un producto a la orden.');
@@ -629,6 +714,11 @@ export function NewOrderFormV2({ onOrderCreated }) {
         specialInstructions: item.specialInstructions,
         unitPrice: item.unitPrice,
         finalPrice: getItemFinalUnitPrice(item),
+        ...(item.discountPercentage && {
+          discountPercentage: item.discountPercentage,
+          discountAmount: item.discountAmount,
+          discountReason: item.discountReason,
+        }),
       })),
       notes: newOrder.notes,
       deliveryMethod: newOrder.deliveryMethod,
@@ -639,6 +729,10 @@ export function NewOrderFormV2({ onOrderCreated }) {
       igtfTotal: totals.igtf,
       shippingCost: totals.shipping,
       totalAmount: totals.total,
+      ...(newOrder.generalDiscountPercentage && {
+        generalDiscountPercentage: newOrder.generalDiscountPercentage,
+        generalDiscountReason: newOrder.generalDiscountReason,
+      }),
     };
     try {
       await fetchApi('/orders', { method: 'POST', body: JSON.stringify(payload) });
@@ -682,18 +776,35 @@ export function NewOrderFormV2({ onOrderCreated }) {
       const quantity = getItemQuantityValue(item);
       return sum + (getItemFinalUnitPrice(item) * quantity);
     }, 0);
+
+    // Aplicar descuento general al subtotal
+    const generalDiscountAmount = (subtotal * (newOrder.generalDiscountPercentage || 0)) / 100;
+    const subtotalAfterDiscount = subtotal - generalDiscountAmount;
+
     const iva = newOrder.items.reduce((sum, item) => {
       if (!item.ivaApplicable) return sum;
       const quantity = getItemQuantityValue(item);
       return sum + (getItemFinalUnitPrice(item) * quantity * 0.16);
     }, 0);
 
+    // Aplicar descuento al IVA también
+    const ivaAfterDiscount = iva - (iva * (newOrder.generalDiscountPercentage || 0)) / 100;
+
     // IGTF will be calculated at payment confirmation time based on selected method
     const igtf = 0;
 
-    const total = subtotal + iva + igtf + shippingCost;
-    return { subtotal, iva, igtf, shipping: shippingCost, total };
-  }, [newOrder.items, shippingCost]);
+    const total = subtotalAfterDiscount + ivaAfterDiscount + igtf + shippingCost;
+    return {
+      subtotal,
+      subtotalAfterDiscount,
+      generalDiscountAmount,
+      iva,
+      ivaAfterDiscount,
+      igtf,
+      shipping: shippingCost,
+      total
+    };
+  }, [newOrder.items, newOrder.generalDiscountPercentage, shippingCost]);
 
   const isCreateDisabled = newOrder.items.length === 0 || !newOrder.customerName || !newOrder.customerRif;
 
@@ -907,7 +1018,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
                   />
                 </div>
             </div>
-            <div className="border rounded-lg mt-4"><Table><TableHeader><TableRow><TableHead>Producto</TableHead><TableHead className="w-24">Cant.</TableHead><TableHead className="w-32">Unidad</TableHead><TableHead>Precio Unit.</TableHead><TableHead>Total</TableHead><TableHead>Acción</TableHead></TableRow></TableHeader><TableBody>
+            <div className="border rounded-lg mt-4"><Table><TableHeader><TableRow><TableHead>Producto</TableHead><TableHead className="w-24">Cant.</TableHead><TableHead className="w-32">Unidad</TableHead><TableHead>Precio Unit.</TableHead><TableHead>Total</TableHead>{canApplyDiscounts && <TableHead className="w-28 text-center">Descuentos</TableHead>}<TableHead className="w-20 text-center">Borrar</TableHead></TableRow></TableHeader><TableBody>
               {newOrder.items.length > 0 ? (
                 newOrder.items.map(item => (
                   <TableRow key={item.productId}>
@@ -983,8 +1094,35 @@ export function NewOrderFormV2({ onOrderCreated }) {
                         </div>
                       )}
                     </TableCell>
-                    <TableCell>${(getItemFinalUnitPrice(item) * getItemQuantityValue(item)).toFixed(2)}</TableCell>
                     <TableCell>
+                      ${(getItemFinalUnitPrice(item) * getItemQuantityValue(item)).toFixed(2)}
+                      {!canApplyDiscounts && item.discountPercentage > 0 && (
+                        <div className="text-xs text-green-600 dark:text-green-400 font-semibold mt-1">
+                          Descuento: -{item.discountPercentage}%
+                        </div>
+                      )}
+                    </TableCell>
+                    {canApplyDiscounts && (
+                      <TableCell className="text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleOpenItemDiscount(item)}
+                            title="Aplicar descuento"
+                            className="h-8 w-8"
+                          >
+                            <Percent className="h-4 w-4 text-blue-500" />
+                          </Button>
+                          {item.discountPercentage > 0 && (
+                            <div className="text-xs text-green-600 dark:text-green-400 font-semibold">
+                              -{item.discountPercentage}%
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                    )}
+                    <TableCell className="text-center">
                       <Button variant="ghost" size="icon" onClick={() => removeProductFromOrder(item.productId)}>
                         <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
@@ -1008,8 +1146,28 @@ export function NewOrderFormV2({ onOrderCreated }) {
             </div>
             <div className="space-y-4">
               <div className="bg-muted/50 p-4 rounded-lg space-y-2 text-sm">
-                <div className="flex justify-between"><span>Subtotal:</span><span>${totals.subtotal.toFixed(2)}</span></div>
-                <div className="flex justify-between"><span>IVA (16%):</span><span>${totals.iva.toFixed(2)}</span></div>
+                <div className="flex justify-between items-center">
+                  <span>Subtotal:</span>
+                  <div className="flex items-center gap-2">
+                    <span>${totals.subtotal.toFixed(2)}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleOpenGeneralDiscount}
+                      title="Aplicar descuento general"
+                      className="h-6 w-6 p-0"
+                    >
+                      <Percent className="h-3 w-3 text-blue-500" />
+                    </Button>
+                  </div>
+                </div>
+                {newOrder.generalDiscountPercentage > 0 && (
+                  <div className="flex justify-between text-green-600 dark:text-green-400">
+                    <span>Descuento ({newOrder.generalDiscountPercentage}%):</span>
+                    <span>-${totals.generalDiscountAmount.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between"><span>IVA (16%):</span><span>${totals.ivaAfterDiscount.toFixed(2)}</span></div>
                 {totals.igtf > 0 && (
                   <div className="flex justify-between text-orange-600 dark:text-orange-300">
                     <span>IGTF (3%):</span><span>${totals.igtf.toFixed(2)}</span>
@@ -1078,6 +1236,153 @@ export function NewOrderFormV2({ onOrderCreated }) {
         </div>
       </CardFooter>
       </Card>
+
+      {/* Dialog para descuento en item individual */}
+      <Dialog open={showItemDiscountDialog} onOpenChange={setShowItemDiscountDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Aplicar Descuento al Producto</DialogTitle>
+            <DialogDescription>
+              {selectedItemForDiscount && `Producto: ${selectedItemForDiscount.name}`}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {selectedItemForDiscount && (
+              <>
+                <div className="space-y-2">
+                  <Label>Precio Original</Label>
+                  <div className="text-lg font-semibold">
+                    ${selectedItemForDiscount.unitPrice?.toFixed(2) || '0.00'}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="discount-percentage">Porcentaje de Descuento (%)</Label>
+                  <Input
+                    id="discount-percentage"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={itemDiscountPercentage}
+                    onChange={(e) => setItemDiscountPercentage(parseFloat(e.target.value) || 0)}
+                    placeholder="Ej: 10"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="discount-reason">Razón del Descuento</Label>
+                  <Select value={itemDiscountReason} onValueChange={setItemDiscountReason}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona una razón" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="venta_mayor">Venta al Mayor</SelectItem>
+                      <SelectItem value="cliente_frecuente">Cliente Frecuente</SelectItem>
+                      <SelectItem value="promocion">Promoción</SelectItem>
+                      <SelectItem value="ajuste_precio">Ajuste de Precio</SelectItem>
+                      <SelectItem value="otro">Otro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {itemDiscountPercentage > 0 && (
+                  <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg">
+                    <div className="text-sm text-muted-foreground">Nuevo Precio</div>
+                    <div className="text-xl font-bold text-green-600 dark:text-green-400">
+                      ${((selectedItemForDiscount.unitPrice || 0) * (1 - itemDiscountPercentage / 100)).toFixed(2)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Ahorro: ${((selectedItemForDiscount.unitPrice || 0) * itemDiscountPercentage / 100).toFixed(2)}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowItemDiscountDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleApplyItemDiscount}>
+              Aplicar Descuento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para descuento general a la orden */}
+      <Dialog open={showGeneralDiscountDialog} onOpenChange={setShowGeneralDiscountDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Aplicar Descuento General a la Orden</DialogTitle>
+            <DialogDescription>
+              Este descuento se aplicará al subtotal completo de la orden
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Subtotal Actual</Label>
+              <div className="text-lg font-semibold">
+                ${totals.subtotal.toFixed(2)}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="general-discount-percentage">Porcentaje de Descuento (%)</Label>
+              <Input
+                id="general-discount-percentage"
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                value={generalDiscountPercentage}
+                onChange={(e) => setGeneralDiscountPercentage(parseFloat(e.target.value) || 0)}
+                placeholder="Ej: 10"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="general-discount-reason">Razón del Descuento</Label>
+              <Select value={generalDiscountReason} onValueChange={setGeneralDiscountReason}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona una razón" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="venta_mayor">Venta al Mayor</SelectItem>
+                  <SelectItem value="cliente_frecuente">Cliente Frecuente</SelectItem>
+                  <SelectItem value="promocion">Promoción Especial</SelectItem>
+                  <SelectItem value="ajuste_precio">Ajuste de Precio</SelectItem>
+                  <SelectItem value="compensacion">Compensación</SelectItem>
+                  <SelectItem value="otro">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {generalDiscountPercentage > 0 && (
+              <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Descuento:</span>
+                  <span className="font-semibold text-green-600 dark:text-green-400">
+                    -${((totals.subtotal * generalDiscountPercentage) / 100).toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Nuevo Subtotal:</span>
+                  <span className="text-xl font-bold text-green-600 dark:text-green-400">
+                    ${(totals.subtotal * (1 - generalDiscountPercentage / 100)).toFixed(2)}
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground mt-2">
+                  * El IVA se calculará sobre el monto con descuento
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowGeneralDiscountDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleApplyGeneralDiscount}>
+              Aplicar Descuento
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

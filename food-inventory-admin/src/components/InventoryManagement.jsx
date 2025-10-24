@@ -60,6 +60,10 @@ function InventoryManagement() {
   const [previewData, setPreviewData] = useState([]);
   const [previewHeaders, setPreviewHeaders] = useState([]);
   const [importReason, setImportReason] = useState('');
+  const [isLotsDialogOpen, setIsLotsDialogOpen] = useState(false);
+  const [selectedInventoryForLots, setSelectedInventoryForLots] = useState(null);
+  const [editingLotIndex, setEditingLotIndex] = useState(null);
+  const [editingLotData, setEditingLotData] = useState(null);
 
   // Estados de paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -503,6 +507,76 @@ const handleProductSelection = (selectedOption) => {
     }
   };
 
+  // Funciones para editar lotes
+  const handleStartEditLot = (index, lot) => {
+    setEditingLotIndex(index);
+    setEditingLotData({
+      lotNumber: lot.lotNumber || '',
+      quantity: lot.quantity || 0,
+      costPrice: lot.costPrice || 0,
+      expirationDate: lot.expirationDate ? new Date(lot.expirationDate).toISOString().split('T')[0] : '',
+      manufacturingDate: lot.manufacturingDate ? new Date(lot.manufacturingDate).toISOString().split('T')[0] : '',
+    });
+  };
+
+  const handleCancelEditLot = () => {
+    setEditingLotIndex(null);
+    setEditingLotData(null);
+  };
+
+  const handleSaveLot = async () => {
+    if (!selectedInventoryForLots || editingLotIndex === null || !editingLotData) return;
+
+    // Validaciones
+    const expirationDate = editingLotData.expirationDate ? new Date(editingLotData.expirationDate) : null;
+    const manufacturingDate = editingLotData.manufacturingDate ? new Date(editingLotData.manufacturingDate) : null;
+
+    if (expirationDate && manufacturingDate && expirationDate <= manufacturingDate) {
+      toast.error('Validación fallida', {
+        description: 'La fecha de vencimiento debe ser posterior a la fecha de fabricación'
+      });
+      return;
+    }
+
+    try {
+      const updatedLots = [...selectedInventoryForLots.lots];
+      updatedLots[editingLotIndex] = {
+        ...updatedLots[editingLotIndex],
+        lotNumber: editingLotData.lotNumber,
+        quantity: Number(editingLotData.quantity),
+        costPrice: Number(editingLotData.costPrice),
+        expirationDate: editingLotData.expirationDate ? new Date(editingLotData.expirationDate).toISOString() : undefined,
+        manufacturingDate: editingLotData.manufacturingDate ? new Date(editingLotData.manufacturingDate).toISOString() : undefined,
+        receivedDate: updatedLots[editingLotIndex].receivedDate || new Date().toISOString(),
+      };
+
+      const response = await fetchApi(`/inventory/${selectedInventoryForLots._id}/lots`, {
+        method: 'PATCH',
+        body: JSON.stringify({ lots: updatedLots }),
+      });
+
+      toast.success('Lote actualizado correctamente');
+
+      // Actualizar el estado local con la respuesta del servidor
+      if (response?.data) {
+        setSelectedInventoryForLots(response.data);
+      } else {
+        setSelectedInventoryForLots({
+          ...selectedInventoryForLots,
+          lots: updatedLots,
+        });
+      }
+
+      // Recargar datos de la tabla
+      await loadData(currentPage);
+
+      // Cerrar modo edición
+      handleCancelEditLot();
+    } catch (err) {
+      toast.error('Error al actualizar lote', { description: err.message });
+    }
+  };
+
   const handleDownloadTemplate = () => {
     const baseHeaders = ['SKU', 'VariantSKU', 'NuevaCantidad'];
     const attributeHeaders = inventoryAttributeColumns.map(({ header }) => header);
@@ -934,6 +1008,7 @@ const handleProductSelection = (selectedOption) => {
                   <TableHead>Stock Disponible</TableHead>
                   <TableHead>Costo Promedio</TableHead>
                   <TableHead>Vencimiento (1er Lote)</TableHead>
+                  <TableHead>Lotes</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Acciones</TableHead>
                 </TableRow>
@@ -952,7 +1027,28 @@ const handleProductSelection = (selectedOption) => {
                     <TableCell>{item.availableQuantity} unidades</TableCell>
                     <TableCell>${item.averageCostPrice.toFixed(2)}</TableCell>
                     <TableCell>
-                      {item.lots?.[0]?.expirationDate ? new Date(item.lots[0].expirationDate).toLocaleDateString() : 'N/A'}
+                      {item.lots && item.lots.length > 0 ? (
+                        <span>{new Date(item.lots[0].expirationDate).toLocaleDateString()}</span>
+                      ) : (
+                        <span className="text-muted-foreground">N/A</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {item.lots && item.lots.length > 0 ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedInventoryForLots(item);
+                            setIsLotsDialogOpen(true);
+                          }}
+                        >
+                          <Package className="h-4 w-4 mr-1" />
+                          {item.lots.length === 1 ? 'Ver lote' : `Ver ${item.lots.length} lotes`}
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Sin lotes</span>
+                      )}
                     </TableCell>
                     <TableCell>{getStatusBadge(item)}</TableCell>
                     <TableCell>
@@ -1144,6 +1240,160 @@ const handleProductSelection = (selectedOption) => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsPreviewDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleConfirmImport}>Confirmar Importación</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Visualización de Lotes */}
+      <Dialog open={isLotsDialogOpen} onOpenChange={setIsLotsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Lotes del Producto</DialogTitle>
+            <DialogDescription>
+              {selectedInventoryForLots && (
+                <div className="mt-2">
+                  <div className="font-semibold text-lg">{selectedInventoryForLots.productName}</div>
+                  <div className="text-sm text-muted-foreground">
+                    SKU: {selectedInventoryForLots.productSku} | Total en inventario: {selectedInventoryForLots.availableQuantity} unidades
+                  </div>
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto">
+            {selectedInventoryForLots?.lots && selectedInventoryForLots.lots.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nro. Lote</TableHead>
+                    <TableHead>Cantidad</TableHead>
+                    <TableHead>Costo Unitario</TableHead>
+                    <TableHead>Fecha de Vencimiento</TableHead>
+                    <TableHead>Fecha de Fabricación</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead>Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {selectedInventoryForLots.lots.map((lot, index) => {
+                    const expirationDate = lot.expirationDate ? new Date(lot.expirationDate) : null;
+                    const manufacturingDate = lot.manufacturingDate ? new Date(lot.manufacturingDate) : null;
+                    const today = new Date();
+                    const daysUntilExpiry = expirationDate ? Math.ceil((expirationDate - today) / (1000 * 60 * 60 * 24)) : null;
+
+                    let statusBadge = null;
+                    if (daysUntilExpiry !== null) {
+                      if (daysUntilExpiry < 0) {
+                        statusBadge = <Badge variant="destructive">Vencido</Badge>;
+                      } else if (daysUntilExpiry <= 7) {
+                        statusBadge = <Badge variant="destructive">Vence en {daysUntilExpiry}d</Badge>;
+                      } else if (daysUntilExpiry <= 30) {
+                        statusBadge = <Badge className="bg-yellow-500 hover:bg-yellow-600">Vence en {daysUntilExpiry}d</Badge>;
+                      } else {
+                        statusBadge = <Badge variant="outline">OK</Badge>;
+                      }
+                    }
+
+                    const isEditing = editingLotIndex === index;
+
+                    return (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium">
+                          {isEditing ? (
+                            <Input
+                              value={editingLotData?.lotNumber || ''}
+                              onChange={(e) => setEditingLotData({ ...editingLotData, lotNumber: e.target.value })}
+                              className="w-full"
+                            />
+                          ) : (
+                            lot.lotNumber || 'N/A'
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditing ? (
+                            <Input
+                              type="number"
+                              value={editingLotData?.quantity || 0}
+                              onChange={(e) => setEditingLotData({ ...editingLotData, quantity: e.target.value })}
+                              className="w-24"
+                            />
+                          ) : (
+                            `${lot.quantity || 0} unidades`
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditing ? (
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={editingLotData?.costPrice || 0}
+                              onChange={(e) => setEditingLotData({ ...editingLotData, costPrice: e.target.value })}
+                              className="w-24"
+                            />
+                          ) : (
+                            `$${(lot.costPrice || 0).toFixed(2)}`
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditing ? (
+                            <Input
+                              type="date"
+                              value={editingLotData?.expirationDate || ''}
+                              onChange={(e) => setEditingLotData({ ...editingLotData, expirationDate: e.target.value })}
+                              className="w-40"
+                            />
+                          ) : (
+                            expirationDate ? expirationDate.toLocaleDateString() : 'N/A'
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {isEditing ? (
+                            <Input
+                              type="date"
+                              value={editingLotData?.manufacturingDate || ''}
+                              onChange={(e) => setEditingLotData({ ...editingLotData, manufacturingDate: e.target.value })}
+                              className="w-40"
+                            />
+                          ) : (
+                            manufacturingDate ? manufacturingDate.toLocaleDateString() : 'N/A'
+                          )}
+                        </TableCell>
+                        <TableCell>{statusBadge}</TableCell>
+                        <TableCell>
+                          {isEditing ? (
+                            <div className="flex space-x-1">
+                              <Button size="sm" onClick={handleSaveLot} variant="default">
+                                Guardar
+                              </Button>
+                              <Button size="sm" onClick={handleCancelEditLot} variant="outline">
+                                Cancelar
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleStartEditLot(index, lot)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No hay lotes registrados para este producto
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsLotsDialogOpen(false)}>Cerrar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

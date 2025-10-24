@@ -10,6 +10,7 @@ import {
   HttpStatus,
   HttpException,
   Delete,
+  Patch,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -26,6 +27,7 @@ import {
   AdjustInventoryDto,
   InventoryQueryDto,
   InventoryMovementQueryDto,
+  UpdateInventoryLotsDto,
 } from "../../dto/inventory.dto";
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
@@ -422,6 +424,34 @@ export class InventoryController {
       throw new HttpException(
         error.message || "Error al obtener el resumen",
         HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Patch(":id/lots")
+  @Permissions("inventory_update")
+  @ApiOperation({ summary: "Actualizar lotes de inventario" })
+  @ApiResponse({ status: 200, description: "Lotes actualizados exitosamente" })
+  async updateLots(
+    @Param("id") id: string,
+    @Body() updateLotsDto: UpdateInventoryLotsDto,
+    @Request() req,
+  ) {
+    try {
+      const result = await this.inventoryService.updateLots(
+        id,
+        updateLotsDto,
+        req.user,
+      );
+      return {
+        success: true,
+        message: "Lotes actualizados exitosamente",
+        data: result,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al actualizar los lotes",
+        HttpStatus.BAD_REQUEST,
       );
     }
   }

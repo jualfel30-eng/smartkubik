@@ -72,6 +72,24 @@ const initialNewProductState = {
     trackExpiration: true,
     fefoEnabled: true,
   },
+  pricingRules: {
+    cashDiscount: 0,
+    cardSurcharge: 0,
+    minimumMargin: 0.2,
+    maximumDiscount: 0.5,
+    bulkDiscountEnabled: false,
+    bulkDiscountRules: [],
+  },
+  hasActivePromotion: false,
+  promotion: {
+    discountPercentage: 0,
+    reason: '',
+    startDate: new Date(),
+    endDate: new Date(),
+    durationDays: 7,
+    isActive: false,
+    autoDeactivate: true,
+  },
   variant: {
     ...createVariantTemplate({ name: 'Estándar' }),
   },
@@ -652,10 +670,21 @@ useEffect(() => {
         cardSurcharge: 0,
         minimumMargin: 0.2,
         maximumDiscount: 0.5,
+        bulkDiscountEnabled: newProduct.pricingRules?.bulkDiscountEnabled || false,
+        bulkDiscountRules: newProduct.pricingRules?.bulkDiscountEnabled
+          ? (newProduct.pricingRules?.bulkDiscountRules || [])
+          : [],
       },
       igtfExempt: false,
       hasMultipleSellingUnits: newProduct.hasMultipleSellingUnits,
       sellingUnits: newProduct.hasMultipleSellingUnits ? newProduct.sellingUnits : [],
+      hasActivePromotion: newProduct.hasActivePromotion || false,
+      ...(newProduct.hasActivePromotion && newProduct.promotion && {
+        promotion: {
+          ...newProduct.promotion,
+          isActive: true,
+        }
+      }),
     };
 
     if (!payload.isPerishable) {
@@ -731,6 +760,23 @@ useEffect(() => {
       hasMultipleSellingUnits: editingProduct.hasMultipleSellingUnits,
       sellingUnits: editingProduct.hasMultipleSellingUnits ? editingProduct.sellingUnits : [],
       ivaApplicable: editingProduct.ivaApplicable,
+      isPerishable: editingProduct.isPerishable,
+      shelfLifeDays: editingProduct.shelfLifeDays,
+      storageTemperature: editingProduct.storageTemperature,
+      pricingRules: {
+        ...(editingProduct.pricingRules || {}),
+        bulkDiscountEnabled: editingProduct.pricingRules?.bulkDiscountEnabled || false,
+        bulkDiscountRules: editingProduct.pricingRules?.bulkDiscountEnabled
+          ? (editingProduct.pricingRules?.bulkDiscountRules || [])
+          : [],
+      },
+      hasActivePromotion: editingProduct.hasActivePromotion || false,
+      ...(editingProduct.hasActivePromotion && editingProduct.promotion && {
+        promotion: {
+          ...editingProduct.promotion,
+          isActive: true,
+        }
+      }),
       variants: sanitizedVariants,
     };
 
@@ -1484,6 +1530,277 @@ useEffect(() => {
                   </div>
                 )}
 
+                <div className="col-span-2 border-t pt-4 mt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-medium">Descuentos por Volumen</h4>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="bulkDiscountEnabled"
+                        checked={newProduct.pricingRules?.bulkDiscountEnabled || false}
+                        onCheckedChange={(checked) =>
+                          setNewProduct({
+                            ...newProduct,
+                            pricingRules: {
+                              ...newProduct.pricingRules,
+                              bulkDiscountEnabled: checked,
+                              bulkDiscountRules: checked ? (newProduct.pricingRules?.bulkDiscountRules || []) : []
+                            }
+                          })
+                        }
+                      />
+                      <Label htmlFor="bulkDiscountEnabled">Activar Descuentos por Volumen</Label>
+                    </div>
+                  </div>
+
+                  {newProduct.pricingRules?.bulkDiscountEnabled && (
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        Configura descuentos automáticos basados en la cantidad comprada
+                      </p>
+                      {(newProduct.pricingRules?.bulkDiscountRules || []).map((rule, index) => (
+                        <div key={index} className="flex gap-3 items-end">
+                          <div className="flex-1 space-y-2">
+                            <Label>Cantidad Mínima</Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={rule.minQuantity}
+                              onChange={(e) => {
+                                const rules = [...(newProduct.pricingRules?.bulkDiscountRules || [])];
+                                rules[index] = {...rules[index], minQuantity: parseInt(e.target.value) || 1};
+                                setNewProduct({
+                                  ...newProduct,
+                                  pricingRules: {...newProduct.pricingRules, bulkDiscountRules: rules}
+                                });
+                              }}
+                              placeholder="Ej: 10"
+                            />
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <Label>Descuento (%)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.1"
+                              value={rule.discountPercentage}
+                              onChange={(e) => {
+                                const rules = [...(newProduct.pricingRules?.bulkDiscountRules || [])];
+                                rules[index] = {...rules[index], discountPercentage: parseFloat(e.target.value) || 0};
+                                setNewProduct({
+                                  ...newProduct,
+                                  pricingRules: {...newProduct.pricingRules, bulkDiscountRules: rules}
+                                });
+                              }}
+                              placeholder="Ej: 10"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              const rules = [...(newProduct.pricingRules?.bulkDiscountRules || [])];
+                              rules.splice(index, 1);
+                              setNewProduct({
+                                ...newProduct,
+                                pricingRules: {...newProduct.pricingRules, bulkDiscountRules: rules}
+                              });
+                            }}
+                          >
+                            Eliminar
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const rules = [...(newProduct.pricingRules?.bulkDiscountRules || [])];
+                          rules.push({ minQuantity: 1, discountPercentage: 0 });
+                          setNewProduct({
+                            ...newProduct,
+                            pricingRules: {...newProduct.pricingRules, bulkDiscountRules: rules}
+                          });
+                        }}
+                      >
+                        + Agregar Regla de Descuento
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Sección de Promociones/Ofertas */}
+                <div className="col-span-2 border-t pt-4 mt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-medium">Promoción/Oferta Especial</h4>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="hasActivePromotion"
+                        checked={newProduct.hasActivePromotion || false}
+                        onCheckedChange={(checked) =>
+                          setNewProduct({
+                            ...newProduct,
+                            hasActivePromotion: checked,
+                          })
+                        }
+                      />
+                      <Label htmlFor="hasActivePromotion">Activar Promoción</Label>
+                    </div>
+                  </div>
+
+                  {newProduct.hasActivePromotion && (
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        Configura una oferta temporal para este producto
+                      </p>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Porcentaje de Descuento (%)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.1"
+                            value={newProduct.promotion?.discountPercentage || 0}
+                            onChange={(e) =>
+                              setNewProduct({
+                                ...newProduct,
+                                promotion: {
+                                  ...newProduct.promotion,
+                                  discountPercentage: parseFloat(e.target.value) || 0,
+                                }
+                              })
+                            }
+                            placeholder="Ej: 20"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Tipo de Promoción</Label>
+                          <Select
+                            value={newProduct.promotion?.reason || ''}
+                            onValueChange={(value) =>
+                              setNewProduct({
+                                ...newProduct,
+                                promotion: {
+                                  ...newProduct.promotion,
+                                  reason: value,
+                                }
+                              })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona el tipo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="promocion_temporal">Promoción Temporal</SelectItem>
+                              <SelectItem value="liquidacion">Liquidación</SelectItem>
+                              <SelectItem value="temporada">Oferta de Temporada</SelectItem>
+                              <SelectItem value="lanzamiento">Lanzamiento</SelectItem>
+                              <SelectItem value="black_friday">Black Friday</SelectItem>
+                              <SelectItem value="otro">Otro</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Fecha de Inicio</Label>
+                          <Input
+                            type="date"
+                            value={newProduct.promotion?.startDate ? new Date(newProduct.promotion.startDate).toISOString().split('T')[0] : ''}
+                            onChange={(e) =>
+                              setNewProduct({
+                                ...newProduct,
+                                promotion: {
+                                  ...newProduct.promotion,
+                                  startDate: new Date(e.target.value),
+                                }
+                              })
+                            }
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Duración (días) o Fecha de Fin</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              type="number"
+                              min="1"
+                              placeholder="Días"
+                              value={newProduct.promotion?.durationDays || ''}
+                              onChange={(e) => {
+                                const days = parseInt(e.target.value) || 0;
+                                const startDate = newProduct.promotion?.startDate || new Date();
+                                const endDate = new Date(startDate);
+                                endDate.setDate(endDate.getDate() + days);
+
+                                setNewProduct({
+                                  ...newProduct,
+                                  promotion: {
+                                    ...newProduct.promotion,
+                                    durationDays: days,
+                                    endDate: endDate,
+                                  }
+                                });
+                              }}
+                              className="w-24"
+                            />
+                            <Input
+                              type="date"
+                              value={newProduct.promotion?.endDate ? new Date(newProduct.promotion.endDate).toISOString().split('T')[0] : ''}
+                              onChange={(e) =>
+                                setNewProduct({
+                                  ...newProduct,
+                                  promotion: {
+                                    ...newProduct.promotion,
+                                    endDate: new Date(e.target.value),
+                                  }
+                                })
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="autoDeactivate"
+                          checked={newProduct.promotion?.autoDeactivate !== false}
+                          onCheckedChange={(checked) =>
+                            setNewProduct({
+                              ...newProduct,
+                              promotion: {
+                                ...newProduct.promotion,
+                                autoDeactivate: checked,
+                              }
+                            })
+                          }
+                        />
+                        <Label htmlFor="autoDeactivate">
+                          Desactivar automáticamente cuando termine la fecha
+                        </Label>
+                      </div>
+
+                      {newProduct.promotion?.discountPercentage > 0 && (
+                        <div className="p-3 bg-orange-50 dark:bg-orange-950 rounded-lg">
+                          <div className="text-sm font-semibold text-orange-600 dark:text-orange-400">
+                            Vista Previa de la Promoción
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {newProduct.promotion?.discountPercentage}% de descuento
+                            {newProduct.promotion?.startDate && newProduct.promotion?.endDate && (
+                              <> desde {new Date(newProduct.promotion.startDate).toLocaleDateString()} hasta {new Date(newProduct.promotion.endDate).toLocaleDateString()}</>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {!isNonFoodRetailVertical && (
                 <div className="col-span-2 border-t pt-4 mt-4">
                   <div className="flex items-center justify-between mb-4">
@@ -1996,6 +2313,7 @@ useEffect(() => {
                   <TableHead>Producto</TableHead>
                   <TableHead>Categoría</TableHead>
                   <TableHead>Variantes</TableHead>
+                  <TableHead>Promoción</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Acciones</TableHead>
                 </TableRow>
@@ -2011,8 +2329,17 @@ useEffect(() => {
                     <TableCell><Badge variant="outline">{product.category}</Badge></TableCell>
                     <TableCell>{product.variants.length}</TableCell>
                     <TableCell>
-                      {product.isActive ? 
-                        <Badge className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1"/>Activo</Badge> : 
+                      {product.hasActivePromotion && product.promotion?.isActive ? (
+                        <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                          -{product.promotion.discountPercentage}% OFF
+                        </Badge>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {product.isActive ?
+                        <Badge className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1"/>Activo</Badge> :
                         <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1"/>Inactivo</Badge>}
                     </TableCell>
                     <TableCell>
@@ -2216,6 +2543,19 @@ useEffect(() => {
               )}
 
               {!isNonFoodRetailVertical && (
+                <div className="flex items-center space-x-2 pt-2">
+                  <Checkbox
+                    id="edit-isPerishable"
+                    checked={editingProduct.isPerishable}
+                    onCheckedChange={(checked) =>
+                      setEditingProduct({ ...editingProduct, isPerishable: checked })
+                    }
+                  />
+                  <Label htmlFor="edit-isPerishable">Es Perecedero</Label>
+                </div>
+              )}
+
+              {!isNonFoodRetailVertical && (
                 <div className="space-y-2">
                   <Label htmlFor="edit-unitOfMeasure">Unidad de Medida Base (Inventario)</Label>
                   <Select
@@ -2241,6 +2581,43 @@ useEffect(() => {
                 </div>
               )}
 
+              {!isNonFoodRetailVertical && editingProduct.isPerishable && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-shelfLifeDays">Vida Útil (días)</Label>
+                    <Input
+                      id="edit-shelfLifeDays"
+                      type="number"
+                      value={editingProduct.shelfLifeDays || 0}
+                      onChange={(e) =>
+                        setEditingProduct({
+                          ...editingProduct,
+                          shelfLifeDays: parseInt(e.target.value) || 0
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-storageTemperature">Temperatura de Almacenamiento</Label>
+                    <Select
+                      value={editingProduct.storageTemperature || 'ambiente'}
+                      onValueChange={(value) =>
+                        setEditingProduct({ ...editingProduct, storageTemperature: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona una temperatura" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ambiente">Ambiente</SelectItem>
+                        <SelectItem value="refrigerado">Refrigerado</SelectItem>
+                        <SelectItem value="congelado">Congelado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+
               {editingProduct.inventoryConfig && (
                 <div className="col-span-2 border-t pt-4 mt-4">
                     <h4 className="text-lg font-medium mb-4">Configuración de Inventario</h4>
@@ -2264,6 +2641,277 @@ useEffect(() => {
                     </div>
                 </div>
               )}
+
+              <div className="col-span-2 border-t pt-4 mt-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-lg font-medium">Descuentos por Volumen</h4>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit-bulkDiscountEnabled"
+                      checked={editingProduct.pricingRules?.bulkDiscountEnabled || false}
+                      onCheckedChange={(checked) =>
+                        setEditingProduct({
+                          ...editingProduct,
+                          pricingRules: {
+                            ...(editingProduct.pricingRules || {}),
+                            bulkDiscountEnabled: checked,
+                            bulkDiscountRules: checked ? (editingProduct.pricingRules?.bulkDiscountRules || []) : []
+                          }
+                        })
+                      }
+                    />
+                    <Label htmlFor="edit-bulkDiscountEnabled">Activar Descuentos por Volumen</Label>
+                  </div>
+                </div>
+
+                {editingProduct.pricingRules?.bulkDiscountEnabled && (
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Configura descuentos automáticos basados en la cantidad comprada
+                    </p>
+                    {(editingProduct.pricingRules?.bulkDiscountRules || []).map((rule, index) => (
+                      <div key={index} className="flex gap-3 items-end">
+                        <div className="flex-1 space-y-2">
+                          <Label>Cantidad Mínima</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={rule.minQuantity}
+                            onChange={(e) => {
+                              const rules = [...(editingProduct.pricingRules?.bulkDiscountRules || [])];
+                              rules[index] = {...rules[index], minQuantity: parseInt(e.target.value) || 1};
+                              setEditingProduct({
+                                ...editingProduct,
+                                pricingRules: {...editingProduct.pricingRules, bulkDiscountRules: rules}
+                              });
+                            }}
+                            placeholder="Ej: 10"
+                          />
+                        </div>
+                        <div className="flex-1 space-y-2">
+                          <Label>Descuento (%)</Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.1"
+                            value={rule.discountPercentage}
+                            onChange={(e) => {
+                              const rules = [...(editingProduct.pricingRules?.bulkDiscountRules || [])];
+                              rules[index] = {...rules[index], discountPercentage: parseFloat(e.target.value) || 0};
+                              setEditingProduct({
+                                ...editingProduct,
+                                pricingRules: {...editingProduct.pricingRules, bulkDiscountRules: rules}
+                              });
+                            }}
+                            placeholder="Ej: 10"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => {
+                            const rules = [...(editingProduct.pricingRules?.bulkDiscountRules || [])];
+                            rules.splice(index, 1);
+                            setEditingProduct({
+                              ...editingProduct,
+                              pricingRules: {...editingProduct.pricingRules, bulkDiscountRules: rules}
+                            });
+                          }}
+                        >
+                          Eliminar
+                        </Button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const rules = [...(editingProduct.pricingRules?.bulkDiscountRules || [])];
+                        rules.push({ minQuantity: 1, discountPercentage: 0 });
+                        setEditingProduct({
+                          ...editingProduct,
+                          pricingRules: {...editingProduct.pricingRules, bulkDiscountRules: rules}
+                        });
+                      }}
+                    >
+                      + Agregar Regla de Descuento
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Sección de Promociones/Ofertas en Edit */}
+              <div className="col-span-2 border-t pt-4 mt-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-lg font-medium">Promoción/Oferta Especial</h4>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit-hasActivePromotion"
+                      checked={editingProduct.hasActivePromotion || false}
+                      onCheckedChange={(checked) =>
+                        setEditingProduct({
+                          ...editingProduct,
+                          hasActivePromotion: checked,
+                        })
+                      }
+                    />
+                    <Label htmlFor="edit-hasActivePromotion">Activar Promoción</Label>
+                  </div>
+                </div>
+
+                {editingProduct.hasActivePromotion && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Configura una oferta temporal para este producto
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Porcentaje de Descuento (%)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.1"
+                          value={editingProduct.promotion?.discountPercentage || 0}
+                          onChange={(e) =>
+                            setEditingProduct({
+                              ...editingProduct,
+                              promotion: {
+                                ...(editingProduct.promotion || {}),
+                                discountPercentage: parseFloat(e.target.value) || 0,
+                              }
+                            })
+                          }
+                          placeholder="Ej: 20"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Tipo de Promoción</Label>
+                        <Select
+                          value={editingProduct.promotion?.reason || ''}
+                          onValueChange={(value) =>
+                            setEditingProduct({
+                              ...editingProduct,
+                              promotion: {
+                                ...(editingProduct.promotion || {}),
+                                reason: value,
+                              }
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona el tipo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="promocion_temporal">Promoción Temporal</SelectItem>
+                            <SelectItem value="liquidacion">Liquidación</SelectItem>
+                            <SelectItem value="temporada">Oferta de Temporada</SelectItem>
+                            <SelectItem value="lanzamiento">Lanzamiento</SelectItem>
+                            <SelectItem value="black_friday">Black Friday</SelectItem>
+                            <SelectItem value="otro">Otro</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Fecha de Inicio</Label>
+                        <Input
+                          type="date"
+                          value={editingProduct.promotion?.startDate ? new Date(editingProduct.promotion.startDate).toISOString().split('T')[0] : ''}
+                          onChange={(e) =>
+                            setEditingProduct({
+                              ...editingProduct,
+                              promotion: {
+                                ...(editingProduct.promotion || {}),
+                                startDate: new Date(e.target.value),
+                              }
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Duración (días) o Fecha de Fin</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            type="number"
+                            min="1"
+                            placeholder="Días"
+                            value={editingProduct.promotion?.durationDays || ''}
+                            onChange={(e) => {
+                              const days = parseInt(e.target.value) || 0;
+                              const startDate = editingProduct.promotion?.startDate || new Date();
+                              const endDate = new Date(startDate);
+                              endDate.setDate(endDate.getDate() + days);
+
+                              setEditingProduct({
+                                ...editingProduct,
+                                promotion: {
+                                  ...(editingProduct.promotion || {}),
+                                  durationDays: days,
+                                  endDate: endDate,
+                                }
+                              });
+                            }}
+                            className="w-24"
+                          />
+                          <Input
+                            type="date"
+                            value={editingProduct.promotion?.endDate ? new Date(editingProduct.promotion.endDate).toISOString().split('T')[0] : ''}
+                            onChange={(e) =>
+                              setEditingProduct({
+                                ...editingProduct,
+                                promotion: {
+                                  ...(editingProduct.promotion || {}),
+                                  endDate: new Date(e.target.value),
+                                }
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="edit-autoDeactivate"
+                        checked={editingProduct.promotion?.autoDeactivate !== false}
+                        onCheckedChange={(checked) =>
+                          setEditingProduct({
+                            ...editingProduct,
+                            promotion: {
+                              ...(editingProduct.promotion || {}),
+                              autoDeactivate: checked,
+                            }
+                          })
+                        }
+                      />
+                      <Label htmlFor="edit-autoDeactivate">
+                        Desactivar automáticamente cuando termine la fecha
+                      </Label>
+                    </div>
+
+                    {editingProduct.promotion?.discountPercentage > 0 && (
+                      <div className="p-3 bg-orange-50 dark:bg-orange-950 rounded-lg">
+                        <div className="text-sm font-semibold text-orange-600 dark:text-orange-400">
+                          Vista Previa de la Promoción
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {editingProduct.promotion?.discountPercentage}% de descuento
+                          {editingProduct.promotion?.startDate && editingProduct.promotion?.endDate && (
+                            <> desde {new Date(editingProduct.promotion.startDate).toLocaleDateString()} hasta {new Date(editingProduct.promotion.endDate).toLocaleDateString()}</>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {!isNonFoodRetailVertical && (
               <div className="col-span-2 border-t pt-4 mt-4">

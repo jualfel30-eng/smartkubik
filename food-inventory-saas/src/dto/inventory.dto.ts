@@ -439,3 +439,63 @@ export class InventoryMovementQueryDto {
   @IsMongoId()
   orderId?: string;
 }
+
+export class InventoryLotDto {
+  @ApiProperty({ description: "Número de lote" })
+  @IsString()
+  @IsNotEmpty()
+  lotNumber: string;
+
+  @ApiProperty({ description: "Cantidad del lote" })
+  @IsNumber()
+  @Min(0)
+  quantity: number;
+
+  @ApiProperty({ description: "Precio de costo del lote" })
+  @IsNumber()
+  @Min(0)
+  costPrice: number;
+
+  @ApiProperty({ description: "Fecha de recepción" })
+  @IsDate()
+  @Type(() => Date)
+  receivedDate: Date;
+
+  @ApiPropertyOptional({ description: "Fecha de vencimiento" })
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  expirationDate?: Date;
+
+  @ApiPropertyOptional({ description: "Fecha de fabricación" })
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  manufacturingDate?: Date;
+
+  @ApiPropertyOptional({ description: "ID del proveedor" })
+  @IsOptional()
+  @IsMongoId()
+  supplierId?: string;
+
+  @ApiPropertyOptional({ description: "Número de factura del proveedor" })
+  @IsOptional()
+  @IsString()
+  supplierInvoice?: string;
+
+  @ApiPropertyOptional({ description: "Estado del lote" })
+  @IsOptional()
+  @IsString()
+  status?: string;
+}
+
+export class UpdateInventoryLotsDto {
+  @ApiProperty({
+    description: "Array de lotes actualizados",
+    type: [InventoryLotDto],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => InventoryLotDto)
+  lots: InventoryLotDto[];
+}

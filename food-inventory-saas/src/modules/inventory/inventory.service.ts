@@ -16,6 +16,7 @@ import {
   AdjustInventoryDto,
   InventoryQueryDto,
   InventoryMovementQueryDto,
+  UpdateInventoryLotsDto,
 } from "../../dto/inventory.dto";
 import { EventsService } from "../events/events.service";
 import { CreateEventDto } from "../../dto/event.dto";
@@ -1212,5 +1213,65 @@ export class InventoryService {
     if (!id) return undefined;
     if (id instanceof Types.ObjectId) return id;
     return Types.ObjectId.isValid(id) ? new Types.ObjectId(id) : undefined;
+  }
+
+  async updateLots(
+    inventoryId: string,
+    updateLotsDto: UpdateInventoryLotsDto,
+    user: any,
+  ): Promise<InventoryDocument> {
+    const inventory = await this.inventoryModel.findOne({
+      _id: new Types.ObjectId(inventoryId),
+      tenantId: this.buildTenantFilter(user.tenantId),
+      isActive: true,
+    });
+
+    if (!inventory) {
+      throw new Error("Inventario no encontrado");
+    }
+
+    // Update lots with the new data
+    inventory.lots = updateLotsDto.lots.map((lotDto) => ({
+      lotNumber: lotDto.lotNumber,
+      quantity: lotDto.quantity,
+      availableQuantity: lotDto.quantity, // Preserve available based on quantity
+      reservedQuantity: 0,
+      costPrice: lotDto.costPrice,
+      receivedDate: lotDto.receivedDate,
+      expirationDate: lotDto.expirationDate,
+      manufacturingDate: lotDto.manufacturingDate,
+      supplierId: lotDto.supplierId ? new Types.ObjectId(lotDto.supplierId) : undefined,
+      supplierInvoice: lotDto.supplierInvoice,
+      status: lotDto.status || "available",
+      createdBy: user.id,
+    })) as any;
+
+    // Recalculate totals from lots
+    inventory.totalQuantity = inventory.lots.reduce(
+      (sum, lot) => sum + lot.quantity,
+      0,
+    );
+    inventory.availableQuantity = inventory.lots.reduce(
+      (sum, lot) => sum + (lot.availableQuantity || lot.quantity),
+      0,
+    );
+
+    // Recalculate average cost price
+    const totalValue = inventory.lots.reduce(
+      (sum, lot) => sum + lot.quantity * lot.costPrice,
+      0,
+    );
+    inventory.averageCostPrice =
+      inventory.totalQuantity > 0 ? totalValue / inventory.totalQuantity : 0;
+
+    inventory.updatedBy = user.id;
+
+    await inventory.save();
+
+    this.logger.log(
+      `Lotes actualizados para inventario ${inventoryId} por usuario ${user.id}`,
+    );
+
+    return inventory;
   }
 }

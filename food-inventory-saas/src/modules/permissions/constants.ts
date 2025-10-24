@@ -24,6 +24,7 @@ export const ALL_PERMISSIONS = [
   "orders_read",
   "orders_update",
   "orders_write",
+  "orders_apply_discounts",
   "payables_create",
   "payables_read",
   "payables_update",

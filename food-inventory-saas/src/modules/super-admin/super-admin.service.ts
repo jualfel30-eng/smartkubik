@@ -215,15 +215,14 @@ export class SuperAdminService {
   ): Promise<any> {
     this.logger.log(`Updating permissions for role ID: ${roleId}`);
     const roleObjectId = new Types.ObjectId(roleId);
-    const permissionObjectIds = permissionIds.map(
-      (id) => new Types.ObjectId(id),
-    );
+    // Permissions are stored as strings, not ObjectIds
+    const permissions = permissionIds;
 
     const result = await this.connection
       .model("Role")
       .updateOne(
         { _id: roleObjectId },
-        { $set: { permissions: permissionObjectIds } },
+        { $set: { permissions: permissions } },
       )
       .exec();
 

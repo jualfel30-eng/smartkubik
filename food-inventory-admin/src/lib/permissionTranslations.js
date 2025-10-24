@@ -50,6 +50,7 @@ export const permissionTranslations = {
   orders_create: 'Crear pedidos',
   orders_read: 'Ver pedidos',
   orders_update: 'Editar y cambiar estado de pedidos',
+  orders_apply_discounts: 'Aplicar descuentos a productos y órdenes',
 
   // Cuentas por Pagar
   payables_create: 'Crear cuentas por pagar',

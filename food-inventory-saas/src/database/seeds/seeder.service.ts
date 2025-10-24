@@ -1,6 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { InjectConnection } from "@nestjs/mongoose";
+import { Connection } from "mongoose";
 import { PermissionsSeed } from "./permissions.seed";
 import { RolesSeed } from "./roles.seed";
+import { addApplyDiscountsPermission } from "../migrations/add-apply-discounts-permission";
 
 @Injectable()
 export class SeederService {
@@ -9,6 +12,7 @@ export class SeederService {
   constructor(
     private readonly permissionsSeed: PermissionsSeed,
     private readonly rolesSeed: RolesSeed,
+    @InjectConnection() private readonly connection: Connection,
   ) {}
 
   async seed(): Promise<void> {
@@ -37,11 +41,27 @@ export class SeederService {
       await this.permissionsSeed.seed();
       await this.rolesSeed.seed();
 
+      // Run migrations after seeding
+      await this.runMigrations();
+
       this.logger.log("✅ Database seeding completed successfully");
     } catch (error) {
       this.logger.error("❌ Error during database seeding:", error.message);
       // No lanzamos el error para no detener la aplicación
       // Solo logueamos el problema
+    }
+  }
+
+  async runMigrations(): Promise<void> {
+    try {
+      this.logger.log("🔄 Running database migrations...");
+
+      await addApplyDiscountsPermission(this.connection);
+
+      this.logger.log("✅ Migrations completed successfully");
+    } catch (error) {
+      this.logger.error("❌ Error during migrations:", error.message);
+      throw error;
     }
   }
 }

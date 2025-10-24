@@ -3,6 +3,7 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { OrdersController } from "./orders.controller";
 import { OrdersPublicController } from "./orders-public.controller";
 import { OrdersService } from "./orders.service";
+import { DiscountService } from "./services/discount.service";
 import { AuthModule } from "../../auth/auth.module";
 import { InventoryModule } from "../inventory/inventory.module";
 import { CustomersModule } from "../customers/customers.module";
@@ -41,7 +42,7 @@ import { ExchangeRateModule } from "../exchange-rate/exchange-rate.module";
     ]),
   ],
   controllers: [OrdersController, OrdersPublicController],
-  providers: [OrdersService],
-  exports: [OrdersService],
+  providers: [OrdersService, DiscountService],
+  exports: [OrdersService, DiscountService],
 })
 export class OrdersModule {}

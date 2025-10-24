@@ -59,6 +59,7 @@ const initialSettings = {
     inventory: {
         fefoEnabled: true,
     },
+    invoiceFormat: 'standard',
     documentTemplates: {
       invoice: {
         primaryColor: '#000000',
@@ -525,12 +526,42 @@ const SettingsPage = () => {
                         </div>
                         <div className="space-y-2">
                             <Label>Texto de Pie de Página (Presupuesto)</Label>
-                            <Input 
-                                name="settings.documentTemplates.quote.footerText" 
-                                value={settings.settings.documentTemplates?.quote?.footerText || ''} 
-                                onChange={handleInputChange} 
+                            <Input
+                                name="settings.documentTemplates.quote.footerText"
+                                value={settings.settings.documentTemplates?.quote?.footerText || ''}
+                                onChange={handleInputChange}
                                 placeholder="Ej: Presupuesto válido por 15 días."
                             />
+                        </div>
+
+                        <div className="border-t border-border my-4"></div>
+
+                        <Label className="font-semibold">Configuración General de Facturas</Label>
+                        <div className="space-y-2">
+                            <Label>Formato de Factura</Label>
+                            <Select
+                                value={settings.settings.invoiceFormat || 'standard'}
+                                onValueChange={(value) => {
+                                    setSettings(prev => ({
+                                        ...prev,
+                                        settings: {
+                                            ...prev.settings,
+                                            invoiceFormat: value
+                                        }
+                                    }));
+                                }}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Seleccionar formato" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="standard">Estándar (A4)</SelectItem>
+                                    <SelectItem value="thermal">Impresora Térmica (80mm)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <p className="text-sm text-muted-foreground">
+                                Estándar para facturas normales, Térmica para tickets de caja. Los montos se mostrarán en USD y Bs usando el tipo de cambio del BCV.
+                            </p>
                         </div>
                 </CardContent>
               </Card>
