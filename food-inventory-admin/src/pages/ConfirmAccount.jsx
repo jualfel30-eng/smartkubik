@@ -6,7 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/use-auth';
 import { fetchApi } from '@/lib/api';
+import { createScopedLogger } from '@/lib/logger';
 import { CheckCircle2, ShieldAlert } from 'lucide-react';
+
+const logger = createScopedLogger('confirm-account');
 
 function ConfirmAccount() {
   const location = useLocation();
@@ -56,14 +59,8 @@ function ConfirmAccount() {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    console.log('🔐 [ConfirmAccount] Iniciando confirmación...');
-    console.log('🔐 [ConfirmAccount] Email:', email);
-    console.log('🔐 [ConfirmAccount] TenantId:', tenantId);
-    console.log('🔐 [ConfirmAccount] TenantCode:', tenantCode);
-    console.log('🔐 [ConfirmAccount] Code:', code);
-
     if (!code || !email || (!tenantId && !tenantCode)) {
-      console.error('❌ [ConfirmAccount] Información incompleta');
+      logger.warn('Attempted confirmation with incomplete data');
       setError('Información incompleta para confirmar la cuenta.');
       return;
     }
@@ -84,26 +81,21 @@ function ConfirmAccount() {
         payload.tenantCode = tenantCode;
       }
 
-      console.log('📤 [ConfirmAccount] Enviando payload:', payload);
-
       const response = await fetchApi('/onboarding/confirm', {
         method: 'POST',
         body: JSON.stringify(payload),
         isPublic: true,
       });
 
-      console.log('✅ [ConfirmAccount] Respuesta del servidor:', response);
-
       setSuccess(true);
       await loginWithTokens(response);
       const destination = typeof getLastLocation === 'function'
         ? getLastLocation() || '/dashboard'
         : '/dashboard';
-
-      console.log('🔄 [ConfirmAccount] Redirigiendo a:', destination);
+      logger.info('Account confirmed, redirecting user');
       setTimeout(() => navigate(destination), 1200);
     } catch (err) {
-      console.error('❌ [ConfirmAccount] Error:', err);
+      logger.error('Failed to confirm account', err);
       setError(err.message || 'No fue posible confirmar la cuenta.');
     } finally {
       setSubmitting(false);

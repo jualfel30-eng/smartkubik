@@ -25,6 +25,7 @@ import {
   InventoryMovementDocument,
 } from "../../schemas/inventory.schema";
 import { Payable, PayableDocument } from "../../schemas/payable.schema";
+import { TaskQueueService } from "../task-queue/task-queue.service";
 
 const SUPPORTED_PERIODS = new Set([
   "7d",
@@ -63,6 +64,7 @@ export class AnalyticsService {
     private readonly inventoryMovementModel: Model<InventoryMovementDocument>,
     @InjectModel(Payable.name)
     private readonly payableModel: Model<PayableDocument>,
+    private readonly taskQueueService: TaskQueueService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM, {
@@ -76,40 +78,74 @@ export class AnalyticsService {
       .find({ status: "active" })
       .select("_id")
       .lean();
-    this.logger.log(`Found ${tenants.length} active tenants to process.`);
+    this.logger.log(`Found ${tenants.length} active tenants to enqueue.`);
 
-    for (const tenant of tenants) {
-      await this.calculateAndSaveKpisForTenant(tenant._id);
-    }
+    const targetDate = this.getDefaultAnalyticsDate();
+    await Promise.all(
+      tenants.map((tenant) =>
+        this.taskQueueService.enqueueAnalyticsKpi(tenant._id.toString(), {
+          trigger: "cron:daily-kpi",
+          date: targetDate,
+        }),
+      ),
+    );
 
-    this.logger.log("Daily performance KPI calculation job finished.");
+    this.logger.log(
+      `Daily performance KPI calculation job enqueued for ${tenants.length} tenants (target=${targetDate.toISOString()}).`,
+    );
+  }
+
+  async scheduleKpiCalculation(
+    tenantId: string | Types.ObjectId,
+    trigger: string = "manual",
+    targetDate?: Date,
+  ): Promise<void> {
+    const { key } = this.normalizeTenantIdentifiers(tenantId);
+    await this.taskQueueService.enqueueAnalyticsKpi(key, {
+      trigger,
+      date: targetDate,
+    });
+    this.logger.log(
+      `KPI calculation enqueued for tenant ${key} (trigger=${trigger}, date=${
+        targetDate?.toISOString() ?? "default"
+      }).`,
+    );
   }
 
   async calculateAndSaveKpisForTenant(
     tenantId: string | Types.ObjectId,
+    targetDate?: Date,
+    trigger: string = "manual",
   ): Promise<void> {
     const { objectId: tenantObjectId } =
       this.normalizeTenantIdentifiers(tenantId);
-    this.logger.log(
-      `Calculating KPIs for tenant: ${tenantObjectId.toHexString()}`,
-    );
+    const effectiveDate = this.resolveTargetDate(targetDate);
+    if (!effectiveDate) {
+      this.logger.warn(
+        `Se recibió una fecha inválida para el cálculo de KPIs (tenant=${tenantObjectId.toHexString()}, trigger=${trigger}).`,
+      );
+      return;
+    }
 
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-    const startOfYesterday = new Date(yesterday.setHours(0, 0, 0, 0));
-    const endOfYesterday = new Date(yesterday.setHours(23, 59, 59, 999));
+    const startOfTarget = new Date(effectiveDate);
+    startOfTarget.setHours(0, 0, 0, 0);
+    const endOfTarget = new Date(effectiveDate);
+    endOfTarget.setHours(23, 59, 59, 999);
+
+    this.logger.log(
+      `Calculating KPIs for tenant ${tenantObjectId.toHexString()} on ${startOfTarget.toISOString()} (trigger=${trigger}).`,
+    );
 
     const shifts = await this.shiftModel
       .find({
         tenantId: tenantObjectId,
-        clockOut: { $gte: startOfYesterday, $lte: endOfYesterday },
+        clockOut: { $gte: startOfTarget, $lte: endOfTarget },
       })
       .lean();
 
     if (!shifts.length) {
       this.logger.log(
-        `No shifts found for tenant ${tenantObjectId} for yesterday. Skipping.`,
+        `No shifts found for tenant ${tenantObjectId} on ${startOfTarget.toISOString()}. Skipping.`,
       );
       return;
     }
@@ -125,7 +161,7 @@ export class AnalyticsService {
       .find({
         tenantId: tenantObjectId,
         status: "delivered",
-        confirmedAt: { $gte: startOfYesterday, $lte: endOfYesterday },
+        confirmedAt: { $gte: startOfTarget, $lte: endOfTarget },
         assignedTo: { $in: userIds },
       })
       .lean();
@@ -154,7 +190,7 @@ export class AnalyticsService {
       const kpiData = {
         userId: new Types.ObjectId(userId),
         tenantId: tenantObjectId,
-        date: startOfYesterday,
+        date: startOfTarget,
         totalSales: salesData.totalSales,
         numberOfOrders: salesData.numberOfOrders,
         totalHoursWorked: hours,
@@ -166,7 +202,7 @@ export class AnalyticsService {
           {
             userId: kpiData.userId,
             tenantId: tenantObjectId,
-            date: startOfYesterday,
+            date: startOfTarget,
           },
           kpiData,
           { upsert: true, new: true },
@@ -175,8 +211,29 @@ export class AnalyticsService {
     }
 
     this.logger.log(
-      `Finished calculating KPIs for tenant: ${tenantObjectId.toHexString()}`,
+      `Finished calculating KPIs for tenant ${tenantObjectId.toHexString()} on ${startOfTarget.toISOString()} (trigger=${trigger}).`,
     );
+  }
+
+  private getDefaultAnalyticsDate(): Date {
+    const today = new Date();
+    const target = new Date(today);
+    target.setDate(today.getDate() - 1);
+    target.setHours(0, 0, 0, 0);
+    return target;
+  }
+
+  private resolveTargetDate(targetDate?: Date): Date | null {
+    if (!targetDate) {
+      return this.getDefaultAnalyticsDate();
+    }
+
+    const normalized = new Date(targetDate);
+    if (Number.isNaN(normalized.getTime())) {
+      return null;
+    }
+    normalized.setHours(0, 0, 0, 0);
+    return normalized;
   }
 
   async getPerformanceKpis(tenantId: string, date: Date) {
@@ -517,8 +574,8 @@ export class AnalyticsService {
     const inventoryAttributeSchema = verticalProfile.attributeSchema.filter(
       (attr) => attr.scope === "inventory",
     );
-    const salesAttributeSchema = verticalProfile.attributeSchema.filter((attr) =>
-      ["product", "variant"].includes(attr.scope),
+    const salesAttributeSchema = verticalProfile.attributeSchema.filter(
+      (attr) => ["product", "variant"].includes(attr.scope),
     );
 
     let attributeCombinations: Array<Record<string, any>> = [];
@@ -584,7 +641,9 @@ export class AnalyticsService {
                           {
                             $add: [
                               { $ifNull: ["$combination.reservedQuantity", 0] },
-                              { $ifNull: ["$combination.committedQuantity", 0] },
+                              {
+                                $ifNull: ["$combination.committedQuantity", 0],
+                              },
                             ],
                           },
                         ],
@@ -682,15 +741,15 @@ export class AnalyticsService {
                 productId: "$productId",
                 productSku: "$productSku",
                 variantSku: "$variantSku",
-                attributes: salesAttributeSchema.reduce((acc, descriptor) => {
-                  acc[descriptor.key] = {
-                    $ifNull: [
-                      `$attributes.${descriptor.key}`,
-                      "N/A",
-                    ],
-                  };
-                  return acc;
-                }, {} as Record<string, any>),
+                attributes: salesAttributeSchema.reduce(
+                  (acc, descriptor) => {
+                    acc[descriptor.key] = {
+                      $ifNull: [`$attributes.${descriptor.key}`, "N/A"],
+                    };
+                    return acc;
+                  },
+                  {} as Record<string, any>,
+                ),
               },
               productName: { $last: "$productName" },
               brand: { $last: "$brand" },

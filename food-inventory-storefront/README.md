@@ -132,14 +132,14 @@ Template para empresas de servicios (legacy)
 
 ## 🔌 APIs Utilizadas
 
-### GET /api/v1/storefront/preview/:domain
+### GET /api/v1/public/storefront/by-domain/:domain
 Obtiene la configuración del storefront para un dominio.
 
-### GET /api/v1/products
+### GET /api/v1/public/products
 Obtiene productos con filtros y paginación.
 
-### POST /api/v1/orders
-Crea una nueva orden.
+### POST /api/v1/public/orders
+Crea una nueva orden pública con validaciones de inventario y protecciones anti-spam.
 
 Ver `INSTALLATION.md` para más detalles sobre las APIs.
 

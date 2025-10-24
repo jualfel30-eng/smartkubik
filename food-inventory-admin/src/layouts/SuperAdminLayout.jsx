@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useLocation, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 import {
-  BarChart3,
-  Users,
+  Activity,
+  BrainCircuit,
   CalendarDays,
-  Settings,
   LogOut,
-  ShieldCheck,
   Menu,
+  Settings,
+  ShieldCheck,
+  Users,
   X,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
@@ -21,9 +22,9 @@ import SuperAdminCalendar from '@/components/super-admin/SuperAdminCalendar';
 import TenantUserList from '@/components/TenantUserList';
 import AuditLogView from '@/components/AuditLogView';
 import TenantConfigurationEdit from '@/components/super-admin/TenantConfigurationEdit';
-import { BrainCircuit } from 'lucide-react';
 import SuperAdminSettings from '@/components/super-admin/SuperAdminSettings';
 import KnowledgeBaseManagement from '@/components/super-admin/KnowledgeBaseManagement';
+import QueueMonitor from '@/components/super-admin/QueueMonitor';
 
 const navItems = [
   { to: '/super-admin/tenants', icon: Settings, label: 'Gestión de Tenants' },
@@ -31,6 +32,7 @@ const navItems = [
   { to: '/super-admin/calendar', icon: CalendarDays, label: 'Calendario' },
   { to: '/super-admin/knowledge-base', icon: BrainCircuit, label: 'Base de Conocimiento' },
   { to: '/super-admin/settings', icon: Settings, label: 'Ajustes' },
+  { to: '/super-admin/queues', icon: Activity, label: 'Cola de Tareas' },
 ];
 
 const NavLink = ({ to, icon: Icon, label, onClick }) => {
@@ -51,8 +53,8 @@ function SuperAdminLayout() {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 
@@ -136,6 +138,7 @@ function SuperAdminLayout() {
               <Route path="tenants/:tenantId/configuration" element={<TenantConfigurationEdit />} />
               <Route path="settings" element={<SuperAdminSettings />} />
               <Route path="knowledge-base" element={<KnowledgeBaseManagement />} />
+              <Route path="queues" element={<QueueMonitor />} />
               <Route path="audit-logs" element={<AuditLogView />} />
               <Route path="*" element={<Navigate to="tenants" />} />
             </Routes>

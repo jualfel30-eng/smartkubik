@@ -186,22 +186,54 @@ export async function getCategories(tenantId: string): Promise<string[]> {
  */
 export async function createOrder(orderData: OrderData): Promise<Order> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/orders`, {
+    const shippingMethod =
+      orderData.shippingMethod ||
+      (orderData.customerAddress ? 'delivery' : undefined);
+
+    const payload: Record<string, any> = {
+      tenantId: orderData.tenantId,
+      customerName: orderData.customerName,
+      customerEmail: orderData.customerEmail,
+      customerPhone: orderData.customerPhone,
+      items: orderData.items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        unitPrice: item.price,
+      })),
+      notes: orderData.notes,
+    };
+
+    payload.honeypot = orderData.honeypot ?? '';
+
+    if (shippingMethod) {
+      payload.shippingMethod = shippingMethod;
+    }
+
+    if (shippingMethod === 'delivery' && orderData.customerAddress) {
+      payload.shippingAddress = {
+        street: orderData.customerAddress,
+        country: 'Venezuela',
+      };
+    }
+
+    const res = await fetch(`${API_BASE}/api/v1/public/orders`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(orderData),
+      body: JSON.stringify(payload),
       cache: 'no-store', // No cachear las órdenes
     });
 
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      throw new Error(errorData.message || `Error al crear orden: ${res.status}`);
+    const responseBody = await res.json().catch(() => ({}));
+
+    if (!res.ok || responseBody.success === false) {
+      throw new Error(
+        responseBody.message || `Error al crear orden: ${res.status}`,
+      );
     }
 
-    const data = await res.json();
-    return data;
+    return responseBody.data;
   } catch (error) {
     console.error('Error creating order:', error);
     throw error;

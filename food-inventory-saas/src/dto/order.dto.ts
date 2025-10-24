@@ -77,7 +77,10 @@ export class CreateOrderItemDto {
   @IsNumber()
   conversionFactor?: number;
 
-  @ApiPropertyOptional({ description: "Atributos específicos del item", type: Object })
+  @ApiPropertyOptional({
+    description: "Atributos específicos del item",
+    type: Object,
+  })
   @IsOptional()
   @IsObject()
   attributes?: Record<string, any>;

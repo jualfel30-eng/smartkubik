@@ -107,8 +107,7 @@ export class AssistantToolsService {
         args?.attributes,
       );
 
-    const searchTerm =
-      baseQuery && baseQuery.length >= 2 ? baseQuery : query;
+    const searchTerm = baseQuery && baseQuery.length >= 2 ? baseQuery : query;
     const regex = new RegExp(this.escapeRegExp(searchTerm), "i");
     const hasAttributeFilters = Object.keys(normalizedFilters).length > 0;
 
@@ -261,8 +260,9 @@ export class AssistantToolsService {
       const comboAttributes = attributeCombination.attributes;
       if (comboAttributes.variantSku) {
         selectedVariant =
-          variants.find((variant) => variant.sku === comboAttributes.variantSku) ||
-          null;
+          variants.find(
+            (variant) => variant.sku === comboAttributes.variantSku,
+          ) || null;
       } else {
         selectedVariant =
           this.findVariantMatch(variants, comboAttributes) || selectedVariant;
@@ -298,7 +298,7 @@ export class AssistantToolsService {
     let committedQuantity = inventory.committedQuantity;
     let totalQuantity = inventory.totalQuantity;
     let averageCostPrice = inventory.averageCostPrice;
-    let lastCostPrice = inventory.lastCostPrice;
+    const lastCostPrice = inventory.lastCostPrice;
 
     if (attributeCombination) {
       availableQuantity =
@@ -323,9 +323,7 @@ export class AssistantToolsService {
       null;
 
     const nextExpiringLot = (inventory as any).lots
-      ?.filter(
-        (lot: any) => lot.status === "available" && lot.expirationDate,
-      )
+      ?.filter((lot: any) => lot.status === "available" && lot.expirationDate)
       .sort((a: any, b: any) => {
         const dateA = new Date(a.expirationDate).getTime();
         const dateB = new Date(b.expirationDate).getTime();
@@ -437,7 +435,9 @@ export class AssistantToolsService {
       return false;
     }
     if (Array.isArray(target)) {
-      return target.some((entry) => this.attributeValueMatches(entry, expected));
+      return target.some((entry) =>
+        this.attributeValueMatches(entry, expected),
+      );
     }
     const normalizedTarget = this.normalizeString(String(target));
     const normalizedExpected = this.normalizeString(expected);

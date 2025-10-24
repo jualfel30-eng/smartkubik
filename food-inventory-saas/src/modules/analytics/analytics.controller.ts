@@ -79,12 +79,13 @@ export class AnalyticsController {
   @Permissions("tenant_settings_read") // Protect this admin-only endpoint
   async triggerCalculation(@Req() req) {
     // This is for testing purposes and should be removed or properly secured in production.
-    await this.analyticsService.calculateAndSaveKpisForTenant(
+    await this.analyticsService.scheduleKpiCalculation(
       req.user.tenantId,
+      "manual:trigger-endpoint",
     );
     return {
       success: true,
-      message: "Cálculo de KPIs para el día de ayer disparado manualmente.",
+      message: "Cálculo de KPIs para el día de ayer encolado correctamente.",
     };
   }
 }

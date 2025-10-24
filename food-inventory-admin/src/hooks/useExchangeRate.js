@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { fetchApi } from '../lib/api';
+import { createScopedLogger } from '@/lib/logger';
+
+const logger = createScopedLogger('use-exchange-rate');
 
 export function useExchangeRate() {
   const [rate, setRate] = useState(null);
@@ -15,7 +18,7 @@ export function useExchangeRate() {
       setRate(response.rate);
       setLastUpdate(new Date(response.lastUpdate));
     } catch (err) {
-      console.error('Error fetching exchange rate:', err);
+      logger.error('Failed to fetch exchange rate', { error: err?.message ?? err });
       setError('No se pudo obtener la tasa de cambio');
     } finally {
       setLoading(false);

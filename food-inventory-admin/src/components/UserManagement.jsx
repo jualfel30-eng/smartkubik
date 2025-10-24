@@ -9,7 +9,11 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner';
-import { PlusCircle, Edit, Trash2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, LogOut } from 'lucide-react';
+import SessionManagementPanel from './security/SessionManagementPanel.jsx';
+import { createScopedLogger } from '../lib/logger';
+
+const logger = createScopedLogger('user-management');
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -17,7 +21,9 @@ const UserManagement = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isInviteModalOpen, setInviteModalOpen] = useState(false);
   const [isUpdateModalOpen, setUpdateModalOpen] = useState(false);
+  const [isSessionModalOpen, setSessionModalOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState(null);
+  const [sessionUser, setSessionUser] = useState(null);
   const [newUserData, setNewUserData] = useState({ firstName: '', lastName: '', email: '', role: '' });
   const { hasPermission } = useAuth();
 
@@ -27,7 +33,7 @@ const UserManagement = () => {
       const [usersResponse, rolesResponse] = await Promise.all([getTenantUsers(), getRoles()]);
       
       if (usersResponse.success) {
-        console.log('Datos de usuarios recibidos del backend:', usersResponse.data);
+        logger.debug('Fetched tenant users', { total: usersResponse.data?.length ?? 0 });
         setUsers(usersResponse.data);
       } else {
         throw new Error(usersResponse.message || 'Failed to fetch users');
@@ -40,6 +46,7 @@ const UserManagement = () => {
       }
 
     } catch (err) {
+      logger.error('Failed to load users or roles', err);
       toast.error(err.message);
     } finally {
       setIsLoading(false);
@@ -124,6 +131,11 @@ const UserManagement = () => {
     setUpdateModalOpen(true);
   }
 
+  const openSessionModal = (user) => {
+    setSessionUser(user);
+    setSessionModalOpen(true);
+  };
+
   const getRoleName = (roleId) => {
     const role = roles.find(r => r._id === roleId);
     return role ? role.name : 'No asignado';
@@ -204,6 +216,11 @@ const UserManagement = () => {
                 <TableCell>{user.email}</TableCell>
                 <TableCell>{user.role ? (typeof user.role === 'object' ? user.role.name : getRoleName(user.role)) : 'No asignado'}</TableCell>
                 <TableCell className="text-right space-x-2">
+                    {hasPermission('users_read') && (
+                        <Button variant="outline" size="sm" onClick={() => openSessionModal(user)} title="Gestionar sesiones">
+                            <LogOut className="h-4 w-4" />
+                        </Button>
+                    )}
                     {hasPermission('users_update') && (
                         <Button variant="outline" size="sm" onClick={() => openUpdateModal(user)}>
                             <Edit className="h-4 w-4" />
@@ -264,6 +281,28 @@ const UserManagement = () => {
                 <Button type="submit">Guardar Cambios</Button>
               </DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
+      )}
+      {sessionUser && (
+        <Dialog
+          open={isSessionModalOpen}
+          onOpenChange={(open) => {
+            setSessionModalOpen(open);
+            if (!open) {
+              setSessionUser(null);
+            }
+          }}
+        >
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Sesiones activas</DialogTitle>
+            </DialogHeader>
+            <SessionManagementPanel
+              userId={sessionUser._id}
+              userName={`${sessionUser.firstName || ''} ${sessionUser.lastName || ''}`.trim()}
+              isSelf={false}
+            />
           </DialogContent>
         </Dialog>
       )}

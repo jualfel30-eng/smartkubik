@@ -112,6 +112,48 @@ describe('Content Security Policy E2E Tests', () => {
       expect(response.headers['x-frame-options']).toBe('SAMEORIGIN');
     });
 
+    it('should include Referrer-Policy: no-referrer', async () => {
+      const response = await request(app.getHttpServer()).get('/api/v1/health');
+
+      expect(response.headers['referrer-policy']).toBe('no-referrer');
+    });
+
+    it('should include DNS Prefetch Control header', async () => {
+      const response = await request(app.getHttpServer()).get('/api/v1/health');
+
+      expect(response.headers['x-dns-prefetch-control']).toBe('off');
+    });
+
+    it('should include X-Permitted-Cross-Domain-Policies header', async () => {
+      const response = await request(app.getHttpServer()).get('/api/v1/health');
+
+      expect(response.headers['x-permitted-cross-domain-policies']).toBe('none');
+    });
+
+    it('should include Cross-Origin-Opener-Policy header', async () => {
+      const response = await request(app.getHttpServer()).get('/api/v1/health');
+
+      expect(response.headers['cross-origin-opener-policy']).toBe('same-origin');
+    });
+
+    it('should include Cross-Origin-Resource-Policy header', async () => {
+      const response = await request(app.getHttpServer()).get('/api/v1/health');
+
+      expect(response.headers['cross-origin-resource-policy']).toBe('cross-origin');
+    });
+
+    it('should include a restrictive Permissions-Policy header', async () => {
+      const response = await request(app.getHttpServer()).get('/api/v1/health');
+
+      const permissionsPolicy = response.headers['permissions-policy'];
+
+      expect(permissionsPolicy).toBeDefined();
+      expect(permissionsPolicy).toContain('geolocation=()');
+      expect(permissionsPolicy).toContain('camera=()');
+      expect(permissionsPolicy).toContain('microphone=()');
+      expect(permissionsPolicy).toContain('fullscreen=(self)');
+    });
+
     it('should include Strict-Transport-Security (HSTS)', async () => {
       const response = await request(app.getHttpServer()).get('/api/v1/health');
 

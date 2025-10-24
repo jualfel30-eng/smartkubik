@@ -13,10 +13,7 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 import { SanitizeString } from "../decorators/sanitize.decorator";
-import {
-  VerticalKey,
-  verticalProfileKeys,
-} from "../config/vertical-profiles";
+import { VerticalKey, verticalProfileKeys } from "../config/vertical-profiles";
 
 class AddressDto {
   @ApiProperty({ example: "Calle Principal 123" })
@@ -91,16 +88,16 @@ class CurrencySettingsDto {
 }
 
 class InventorySettingsDto {
-    @ApiProperty({ example: 10 })
-    @IsNumber()
-    @IsOptional()
-    @Min(0)
-    lowStockAlertThreshold?: number;
+  @ApiProperty({ example: 10 })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  lowStockAlertThreshold?: number;
 
-    @ApiProperty({ example: true })
-    @IsOptional()
-    @IsBoolean()
-    fefoEnabled?: boolean;
+  @ApiProperty({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  fefoEnabled?: boolean;
 }
 
 class InvoiceSettingsDto {

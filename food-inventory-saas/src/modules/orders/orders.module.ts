@@ -14,30 +14,32 @@ import {
   BankAccount,
   BankAccountSchema,
 } from "../../schemas/bank-account.schema";
-import { AccountingModule } from "../accounting/accounting.module";
+import { User, UserSchema } from "../../schemas/user.schema";
 import { RolesModule } from "../roles/roles.module";
 import { PaymentsModule } from "../payments/payments.module";
 import { DeliveryModule } from "../delivery/delivery.module";
 import { ShiftsModule } from "../shifts/shifts.module";
 import { ExchangeRateModule } from "../exchange-rate/exchange-rate.module";
+import { TaskQueueModule } from "../task-queue/task-queue.module";
 
 @Module({
   imports: [
     AuthModule,
     InventoryModule,
     CustomersModule,
-    AccountingModule,
     RolesModule,
     PaymentsModule,
     DeliveryModule,
     ShiftsModule,
     ExchangeRateModule,
+    TaskQueueModule,
     MongooseModule.forFeature([
       { name: Order.name, schema: OrderSchema },
       { name: Customer.name, schema: CustomerSchema },
       { name: Product.name, schema: ProductSchema },
       { name: Tenant.name, schema: TenantSchema },
       { name: BankAccount.name, schema: BankAccountSchema },
+      { name: User.name, schema: UserSchema },
     ]),
   ],
   controllers: [OrdersController, OrdersPublicController],

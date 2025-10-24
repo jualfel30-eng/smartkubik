@@ -20,6 +20,8 @@ import {
 import { EventsService } from "../events/events.service";
 import { CreateEventDto } from "../../dto/event.dto";
 import { BulkAdjustInventoryDto } from "./dto/bulk-adjust-inventory.dto";
+import { TaskQueueService } from "../task-queue/task-queue.service";
+import { InventoryMaintenanceJobData } from "../task-queue/task-queue.types";
 
 @Injectable()
 export class InventoryService {
@@ -32,14 +34,16 @@ export class InventoryService {
     private movementModel: Model<InventoryMovementDocument>,
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     private readonly eventsService: EventsService,
+    private readonly taskQueueService: TaskQueueService,
     @InjectConnection() private connection: Connection,
   ) {
     this.inventoryModel.collection
       .dropIndex("productId_1_tenantId_1")
       .catch((error: any) => {
         if (error?.codeName !== "IndexNotFound" && error?.message) {
-          this.logger
-            .warn?.(`No se pudo eliminar el índice legacy productId_1_tenantId_1: ${error.message}`);
+          this.logger.warn?.(
+            `No se pudo eliminar el índice legacy productId_1_tenantId_1: ${error.message}`,
+          );
         }
       });
   }
@@ -56,7 +60,9 @@ export class InventoryService {
     };
 
     if (createInventoryDto.variantId) {
-      inventoryFilter.variantId = new Types.ObjectId(createInventoryDto.variantId);
+      inventoryFilter.variantId = new Types.ObjectId(
+        createInventoryDto.variantId,
+      );
     } else {
       inventoryFilter.$or = [
         { variantId: { $exists: false } },
@@ -143,6 +149,11 @@ export class InventoryService {
         session,
       );
     }
+    await this.scheduleMaintenanceJob(
+      savedInventory,
+      user,
+      "inventory:create",
+    );
     return savedInventory;
   }
 
@@ -183,6 +194,11 @@ export class InventoryService {
     inventory.updatedBy = user.id;
 
     await inventory.save();
+    await this.scheduleMaintenanceJob(
+      inventory,
+      { ...user, tenantId },
+      "inventory:remove",
+    );
     return true;
   }
 
@@ -215,6 +231,11 @@ export class InventoryService {
       user,
       session,
     );
+    await this.scheduleMaintenanceJob(
+      updatedInventory,
+      user,
+      "inventory:movement",
+    );
     return movement;
   }
 
@@ -230,7 +251,7 @@ export class InventoryService {
       };
 
       // Si el item tiene variantSku, buscar por ese campo
-      if (item.productSku && item.productSku.includes('-VAR')) {
+      if (item.productSku && item.productSku.includes("-VAR")) {
         inventoryQuery.variantSku = item.productSku;
       } else {
         // Si no, buscar por productSku (productos antiguos sin variantes)
@@ -247,7 +268,7 @@ export class InventoryService {
           tenantId: this.buildTenantFilter(user.tenantId),
         };
 
-        if (item.productSku && item.productSku.includes('-VAR')) {
+        if (item.productSku && item.productSku.includes("-VAR")) {
           alternativeQuery.productSku = item.productSku;
         } else {
           alternativeQuery.variantSku = item.productSku;
@@ -318,6 +339,11 @@ export class InventoryService {
       { id: inventory.createdBy, tenantId: inventory.tenantId } as any, // user context
       session,
     );
+    await this.scheduleMaintenanceJob(
+      inventory,
+      { id: inventory.createdBy, tenantId: inventory.tenantId },
+      "inventory:reserve",
+    );
   }
 
   async releaseInventory(
@@ -368,6 +394,11 @@ export class InventoryService {
           },
           user,
           session,
+        );
+        await this.scheduleMaintenanceJob(
+          inventory,
+          user,
+          "inventory:release",
         );
       }
     }
@@ -514,7 +545,9 @@ export class InventoryService {
             item.attributes ?? {},
           );
           if (item.variantSku) {
-            normalizedFilters.variantSku = this.normalizeString(item.variantSku);
+            normalizedFilters.variantSku = this.normalizeString(
+              item.variantSku,
+            );
           }
 
           let combination = inventory.attributeCombinations.find((combo: any) =>
@@ -575,14 +608,17 @@ export class InventoryService {
             combination.availableQuantity ??
             Math.max(0, item.NuevaCantidad - reserved - committed);
 
-          const totalDifference = combination.totalQuantity - previousCombinationTotals.total;
+          const totalDifference =
+            combination.totalQuantity - previousCombinationTotals.total;
           const availableDifference =
             combinationAvailable - previousCombinationTotals.available;
-          const reservedDifference = reserved - previousCombinationTotals.reserved;
+          const reservedDifference =
+            reserved - previousCombinationTotals.reserved;
           const committedDifference =
             committed - previousCombinationTotals.committed;
 
-          inventory.totalQuantity = previousTotals.totalQuantity + totalDifference;
+          inventory.totalQuantity =
+            previousTotals.totalQuantity + totalDifference;
           inventory.availableQuantity = Math.max(
             0,
             previousTotals.availableQuantity + availableDifference,
@@ -1063,6 +1099,150 @@ export class InventoryService {
     return movement.save({ session });
   }
 
+  async runMaintenanceJob(
+    payload: InventoryMaintenanceJobData,
+  ): Promise<void> {
+    const { inventoryId, tenantId, trigger } = payload;
+    const objectId = this.toObjectIdIfValid(inventoryId);
+    const inventory = await this.inventoryModel
+      .findOne({
+        _id: objectId ?? inventoryId,
+        tenantId: this.buildTenantFilter(tenantId),
+      })
+      .exec();
+
+    if (!inventory) {
+      this.logger.warn(
+        `No se encontró inventario ${inventoryId} para ejecutar mantenimiento (trigger=${trigger ?? "manual"}).`,
+      );
+      return;
+    }
+
+    await this.refreshInventoryMetrics(inventory, tenantId);
+    const userContext = {
+      id: payload.userId ?? "system",
+      tenantId,
+    };
+
+    await this.checkAndCreateAlerts(inventory, userContext);
+
+    this.logger.debug?.(
+      `Finalizado mantenimiento para inventario ${inventory._id.toString()} (trigger=${
+        trigger ?? "manual"
+      }).`,
+    );
+  }
+
+  private async refreshInventoryMetrics(
+    inventory: InventoryDocument,
+    tenantId: string,
+  ): Promise<void> {
+    const windowDays = 30;
+    const windowStart = new Date(
+      Date.now() - windowDays * 24 * 60 * 60 * 1000,
+    );
+
+    const match: any = {
+      inventoryId: inventory._id,
+      createdAt: { $gte: windowStart },
+      movementType: { $in: ["out", "sale", "reservation"] },
+      tenantId: this.buildTenantFilter(tenantId),
+    };
+
+    const [consumption] = await this.movementModel.aggregate([
+      { $match: match },
+      { $group: { _id: null, totalQuantity: { $sum: "$quantity" } } },
+    ]);
+
+    const totalConsumption = consumption?.totalQuantity ?? 0;
+    const averageDailySales =
+      windowDays > 0
+        ? Number((totalConsumption / windowDays).toFixed(4))
+        : 0;
+    const turnoverRate =
+      inventory.totalQuantity > 0
+        ? Number(
+            (
+              totalConsumption /
+              Math.max(inventory.totalQuantity, 1)
+            ).toFixed(4),
+          )
+        : 0;
+    const daysOnHand =
+      averageDailySales > 0
+        ? Number(
+            (inventory.availableQuantity / averageDailySales).toFixed(2),
+          )
+        : 0;
+
+    inventory.metrics = {
+      ...inventory.metrics,
+      turnoverRate,
+      averageDailySales,
+      daysOnHand,
+      seasonalityFactor: inventory.metrics?.seasonalityFactor ?? 1,
+    };
+    inventory.markModified?.("metrics");
+    await inventory.save();
+  }
+
+  private async scheduleMaintenanceJob(
+    inventory: InventoryDocument,
+    user: any,
+    trigger: string,
+  ): Promise<void> {
+    const tenantId =
+      this.extractTenantIdString(user?.tenantId) ??
+      this.extractTenantIdString(inventory.tenantId);
+
+    if (!tenantId) {
+      this.logger.warn(
+        `No se pudo determinar el tenant para programar mantenimiento de inventario ${inventory._id.toString()}.`,
+      );
+      return;
+    }
+
+    try {
+      await this.taskQueueService.enqueueInventoryMaintenance(
+        inventory._id.toString(),
+        tenantId,
+        {
+          trigger,
+          userId: user?.id,
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `No se pudo encolar el mantenimiento de inventario ${inventory._id.toString()}: ${
+          error instanceof Error ? error.message : error
+        }`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+  }
+
+  private extractTenantIdString(
+    tenantId?: string | Types.ObjectId,
+  ): string | null {
+    if (!tenantId) {
+      return null;
+    }
+
+    if (tenantId instanceof Types.ObjectId) {
+      return tenantId.toString();
+    }
+
+    if (Types.ObjectId.isValid(tenantId)) {
+      return new Types.ObjectId(tenantId).toString();
+    }
+
+    if (typeof tenantId === "string" && tenantId.trim().length > 0) {
+      return tenantId;
+    }
+
+    return null;
+  }
+
   async addStockFromPurchase(item: any, user: any, session?: ClientSession) {
     const product = await this.productModel
       .findById(item.productId)
@@ -1189,6 +1369,11 @@ export class InventoryService {
       },
       user,
       session,
+    );
+    await this.scheduleMaintenanceJob(
+      inventory,
+      user,
+      "inventory:purchase",
     );
   }
 

@@ -73,7 +73,10 @@ export class CreateInventoryLotDto {
 }
 
 export class InventoryAttributeCombinationDto {
-  @ApiProperty({ description: "Atributos que identifican la combinación", type: Object })
+  @ApiProperty({
+    description: "Atributos que identifican la combinación",
+    type: Object,
+  })
   @IsObject()
   attributes: Record<string, any>;
 
@@ -161,7 +164,10 @@ export class CreateInventoryDto {
     bin: string;
   };
 
-  @ApiPropertyOptional({ description: "Atributos agregados del inventario", type: Object })
+  @ApiPropertyOptional({
+    description: "Atributos agregados del inventario",
+    type: Object,
+  })
   @IsOptional()
   @IsObject()
   attributes?: Record<string, any>;

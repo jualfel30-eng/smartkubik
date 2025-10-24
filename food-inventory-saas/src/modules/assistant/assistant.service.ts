@@ -133,7 +133,8 @@ export class AssistantService {
     } = params;
 
     // Convertir tenantId a string si es ObjectId
-    const tenantIdStr = typeof tenantId === 'string' ? tenantId : tenantId?.toString();
+    const tenantIdStr =
+      typeof tenantId === "string" ? tenantId : tenantId?.toString();
 
     if (!tenantIdStr?.trim()) {
       throw new BadRequestException(
@@ -369,7 +370,7 @@ export class AssistantService {
       instructions.push(
         "Cuando el usuario pregunte por disponibilidad, existencias, costos o alertas de un producto, DEBES llamar a la herramienta `get_inventory_status` antes de responder para confirmar la información.",
         "IMPORTANTE: Al mencionar productos del inventario, SIEMPRE incluye la marca si está disponible, junto con el nombre del producto. Ejemplo: 'Miel Savage' en lugar de solo 'Miel'. La marca es información valiosa para los clientes.",
-        "Si necesitas confirmar variantes específicas (ej. talla, color, serial, ancho, edición), pasa esos criterios en el campo `attributes` de la herramienta `get_inventory_status` usando pares clave-valor como `{ \"size\": \"38\", \"color\": \"azul\" }`.",
+        'Si necesitas confirmar variantes específicas (ej. talla, color, serial, ancho, edición), pasa esos criterios en el campo `attributes` de la herramienta `get_inventory_status` usando pares clave-valor como `{ "size": "38", "color": "azul" }`.',
       );
     }
     if (capabilities.schedulingLookup) {
@@ -411,7 +412,7 @@ export class AssistantService {
               attributes: {
                 type: "object",
                 description:
-                  "Filtros de atributos para la variante (por ejemplo { \"size\": \"38\", \"color\": \"azul\" }).",
+                  'Filtros de atributos para la variante (por ejemplo { "size": "38", "color": "azul" }).',
               },
             },
             required: ["productQuery"],
@@ -489,9 +490,7 @@ export class AssistantService {
           continue;
         }
 
-        this.logger.log(
-          `[DEBUG] Executing inventory lookup for: "${trimmed}"`,
-        );
+        this.logger.log(`[DEBUG] Executing inventory lookup for: "${trimmed}"`);
         const result = await this.assistantToolsService.executeTool(
           tenantId,
           "get_inventory_status",
@@ -516,7 +515,9 @@ export class AssistantService {
           continue;
         }
 
-        const formatAttributes = (attributes: Record<string, any> | undefined) =>
+        const formatAttributes = (
+          attributes: Record<string, any> | undefined,
+        ) =>
           attributes && Object.keys(attributes).length
             ? Object.entries(attributes)
                 .map(([attrKey, attrValue]) => `${attrKey}: ${attrValue}`)
@@ -546,18 +547,22 @@ export class AssistantService {
           const expirationLabel =
             match.nextExpirationDate && match.isPerishable
               ? ` | Próxima expiración: ${new Date(match.nextExpirationDate).toLocaleDateString("es-ES")}`
-            : "";
+              : "";
           const attributeLabel = (() => {
             if (match.attributeFiltersApplied) {
               const formatted = formatAttributes(match.attributeFiltersApplied);
               return formatted ? ` | Filtro atributos: ${formatted}` : "";
             }
             if (match.attributeCombination?.attributes) {
-              const formatted = formatAttributes(match.attributeCombination.attributes);
+              const formatted = formatAttributes(
+                match.attributeCombination.attributes,
+              );
               return formatted ? ` | Atributos: ${formatted}` : "";
             }
             const formattedVariant = formatAttributes(match.variantAttributes);
-            return formattedVariant ? ` | Atributos variante: ${formattedVariant}` : "";
+            return formattedVariant
+              ? ` | Atributos variante: ${formattedVariant}`
+              : "";
           })();
 
           return `(${index + 1}) ${match.productName}${brandLabel} (SKU: ${match.sku})${categoryLabel}${subcategoryLabel} -> Disponible: ${match.availableQuantity} | Reservado: ${match.reservedQuantity} | Total: ${match.totalQuantity}${priceLabel}${expirationLabel}${alertLabel}${attributeLabel}`;
@@ -574,9 +579,9 @@ export class AssistantService {
       return null;
     } catch (error) {
       this.logger.warn(
-        `Bootstrap inventory lookup failed for tenant ${tenantId}: ${(
-          error as Error
-        ).message}`,
+        `Bootstrap inventory lookup failed for tenant ${tenantId}: ${
+          (error as Error).message
+        }`,
       );
       return null;
     }

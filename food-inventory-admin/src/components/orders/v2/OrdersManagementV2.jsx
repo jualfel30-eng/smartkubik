@@ -28,7 +28,7 @@ const paymentStatusMap = {
 
 export function OrdersManagementV2() {
   const { loadCustomers } = useCrmContext();
-  const { tenant, token } = useAuth();
+  const { tenant } = useAuth();
   const verticalConfig = useVerticalConfig();
   const [data, setData] = useState({ orders: [], pagination: null });
   const [loading, setLoading] = useState(true);
@@ -185,8 +185,8 @@ export function OrdersManagementV2() {
       const response = await fetch(`${baseUrl}/api/v1/orders/export?${params.toString()}`, {
         headers: {
           Accept: 'text/csv',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -207,7 +207,7 @@ export function OrdersManagementV2() {
         description: err.message,
       });
     }
-  }, [attributeKey, attributeValue, debouncedSearchTerm, pageLimit, token]);
+  }, [attributeKey, attributeValue, debouncedSearchTerm, pageLimit]);
 
   const handleClearAttributeFilter = useCallback(() => {
     setAttributeKey('');

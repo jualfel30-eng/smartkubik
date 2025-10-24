@@ -191,11 +191,11 @@ async function Page({ params }: { params: { domain: string } }) {
 
 El sistema espera que el backend tenga estos endpoints:
 
-1. **GET** `/api/v1/storefront/preview/:domain`
+1. **GET** `/api/v1/public/storefront/by-domain/:domain`
    - Retorna la configuración del storefront
    - Incluye: tenantId, template, theme, name, domain, logo, description
 
-2. **GET** `/api/v1/storefront/active-domains`
+2. **GET** `/api/v1/public/storefront/active-domains`
    - Retorna array de dominios activos
    - Usado para `generateStaticParams`
 

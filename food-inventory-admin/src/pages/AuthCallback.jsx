@@ -1,35 +1,39 @@
 import { useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/use-auth';
+import { fetchApi } from '../lib/api';
 
 const AuthCallback = () => {
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { loginWithTokens } = useAuth();
 
   useEffect(() => {
     const handleAuth = async () => {
-      const accessToken = searchParams.get('accessToken');
-      const refreshToken = searchParams.get('refreshToken');
+      try {
+        const sessionResponse = await fetchApi('/auth/session');
+        const authResult = await loginWithTokens(sessionResponse);
+        const sessionData = sessionResponse?.data ?? sessionResponse;
+        const user = sessionData?.user || authResult?.user;
 
-      if (accessToken && refreshToken) {
-        const response = await loginWithTokens(accessToken, refreshToken);
-        const user = response?.data; // The actual user object is in the 'data' property
-        
-        if (user && user.role?.name === 'super_admin') {
-          navigate('/super-admin');
-        } else {
-          navigate('/dashboard');
+        if (authResult?.requiresTenantSelection) {
+          navigate('/organizations');
+          return;
         }
-      } else {
-        // Handle error: No tokens found in URL
-        console.error("Google Auth Error: No tokens provided in callback.");
+
+        if (user?.role?.name === 'super_admin') {
+          navigate('/super-admin');
+          return;
+        }
+
+        navigate('/dashboard');
+      } catch (error) {
+        console.error('Google Auth Error:', error);
         navigate('/login', { state: { error: 'Error de autenticación con Google.' } });
       }
     };
 
     handleAuth();
-  }, [searchParams, navigate, loginWithTokens]);
+  }, [navigate, loginWithTokens]);
 
   return (
     <div className="flex items-center justify-center min-h-screen">

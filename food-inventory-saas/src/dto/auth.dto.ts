@@ -256,10 +256,10 @@ export class ResetPasswordDto {
 }
 
 export class RefreshTokenDto {
-  @ApiProperty({ description: "Refresh token" })
+  @ApiPropertyOptional({ description: "Refresh token" })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  refreshToken: string;
+  refreshToken?: string;
 }
 
 export class VerifyEmailDto {

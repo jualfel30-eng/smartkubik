@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
+import { fetchApi } from '@/lib/api';
+import { createScopedLogger } from '@/lib/logger';
 import { useTheme } from '@/components/ThemeProvider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,10 +52,12 @@ const businessVerticals = [
   },
 ];
 
+const logger = createScopedLogger('organization-selector');
+
 export default function OrganizationSelector() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, memberships, selectTenant, logout, activeMembershipId, tenant, getLastLocation, token } = useAuth();
+  const { user, memberships, selectTenant, logout, activeMembershipId, tenant, getLastLocation } = useAuth();
   const { theme } = useTheme();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [creationType, setCreationType] = useState('new-business'); // 'new-business' or 'new-location'
@@ -86,7 +90,7 @@ export default function OrganizationSelector() {
         const savedMembership = memberships.find(m => m.id === activeMembershipId);
 
         if (savedMembership) {
-          console.log('Auto-selecting previously selected organization:', savedMembership.tenant?.name);
+          logger.debug('Auto-selecting previously selected organization');
           setIsAutoSelecting(true);
           try {
             await selectTenant(activeMembershipId, { rememberAsDefault: true });
@@ -94,25 +98,25 @@ export default function OrganizationSelector() {
             // Prioridad 1: Si venimos de una ruta protegida (ej: refresh en /inventory-management)
             const fromRoute = location.state?.from;
             if (fromRoute && fromRoute !== '/organizations') {
-              console.log('Redirecting to original route from refresh:', fromRoute);
+              logger.debug('Redirecting to original route from refresh', { fromRoute });
               navigate(fromRoute, { replace: true });
               return;
             }
 
             // Prioridad 2: Usar lastLocation guardado
             const lastLocation = getLastLocation();
-            console.log('Last location:', lastLocation);
+            logger.debug('Resolved last location after auto-select', { lastLocation });
 
             // Solo redirigir si NO estamos en la página de organizaciones
             // Esto permite ver "Mis Organizaciones" sin ser redirigido
             if (lastLocation !== '/organizations') {
-              console.log('Redirecting to last location:', lastLocation);
+              logger.debug('Redirecting to last location', { lastLocation });
               navigate(lastLocation, { replace: true });
             } else {
-              console.log('Staying on organizations page (user is here intentionally)');
+              logger.debug('Staying on organizations page intentionally');
             }
           } catch (error) {
-            console.error('Failed to auto-select tenant:', error);
+            logger.error('Failed to auto-select tenant', error);
             toast.error('No se pudo restaurar la organización anterior');
           } finally {
             setIsAutoSelecting(false);
@@ -128,7 +132,7 @@ export default function OrganizationSelector() {
   useEffect(() => {
     if (memberships.length === 1 && !activeMembershipId && !tenant && !isAutoSelecting) {
       const singleMembership = memberships[0];
-      console.log('Only one membership found, auto-selecting:', singleMembership.tenant?.name);
+      logger.debug('Only one membership found, auto-selecting');
       handleSelectOrganization(singleMembership);
     }
   }, [memberships, activeMembershipId, tenant, isAutoSelecting]);
@@ -165,14 +169,13 @@ export default function OrganizationSelector() {
 
   const handleSelectOrganization = async (membership) => {
     try {
-      console.log('Selecting organization:', membership);
-      console.log('Membership ID:', membership.id);
+      logger.debug('Selecting organization', { membershipId: membership.id });
       await selectTenant(membership.id, { rememberAsDefault: true });
       const lastLocation = getLastLocation();
-      console.log('Navigating to:', lastLocation);
+      logger.debug('Navigating to selected organization destination', { lastLocation });
       navigate(lastLocation);
     } catch (error) {
-      console.error('Error selecting organization:', error);
+      logger.error('Error selecting organization', error);
       toast.error('No se pudo seleccionar la organización');
     }
   };
@@ -180,11 +183,6 @@ export default function OrganizationSelector() {
   const handleCreateOrganization = async () => {
     setIsLoading(true);
     try {
-      const tokenFromAuth = token || localStorage.getItem('accessToken');
-      if (!tokenFromAuth) {
-        throw new Error('No se encontró un token de autenticación. Inicia sesión nuevamente.');
-      }
-
       const payload = {
         name: formData.name,
         address: formData.address,
@@ -201,27 +199,16 @@ export default function OrganizationSelector() {
         payload.cloneData = true;
       }
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/organizations`, {
+      await fetchApi('/organizations', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${tokenFromAuth}`,
-        },
         body: JSON.stringify(payload),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al crear organización');
-      }
-
-      await response.json(); // Parse response
       toast.success('Organización creada exitosamente');
 
       // Recargar memberships y seleccionar la nueva organización
       window.location.reload();
     } catch (error) {
-      console.error('Error creating organization:', error);
+      logger.error('Error creating organization', error);
       toast.error(error.message || 'Error al crear la organización');
     } finally {
       setIsLoading(false);
@@ -245,8 +232,8 @@ export default function OrganizationSelector() {
     setAvailableCategories([]);
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 

@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectModel, InjectConnection } from "@nestjs/mongoose";
-import { Model, Types, Connection } from "mongoose";
+import { Model, Types, Connection, ClientSession } from "mongoose";
 import { Order, OrderDocument, OrderItem } from "../../schemas/order.schema";
 import { Customer, CustomerDocument } from "../../schemas/customer.schema";
 import { Product, ProductDocument } from "../../schemas/product.schema";
@@ -14,20 +14,21 @@ import {
   BankAccount,
   BankAccountDocument,
 } from "../../schemas/bank-account.schema";
+import { User, UserDocument } from "../../schemas/user.schema";
 import {
   CreateOrderDto,
   UpdateOrderDto,
   OrderQueryDto,
   OrderCalculationDto,
   BulkRegisterPaymentsDto,
-  RegisterPaymentDto,
   CreateOrderItemDto,
 } from "../../dto/order.dto";
+import { CreatePublicOrderDto } from "../../dto/order-public.dto";
 import { InventoryService } from "../inventory/inventory.service";
-import { AccountingService } from "../accounting/accounting.service";
 import { PaymentsService } from "../payments/payments.service";
 import { DeliveryService } from "../delivery/delivery.service";
 import { ExchangeRateService } from "../exchange-rate/exchange-rate.service";
+import { TaskQueueService } from "../task-queue/task-queue.service";
 import { CreatePaymentDto } from "../../dto/payment.dto";
 import { UnitConversionUtil } from "../../utils/unit-conversion.util";
 import { ShiftsService } from "../shifts/shifts.service";
@@ -45,12 +46,13 @@ export class OrdersService {
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     @InjectModel(BankAccount.name)
     private bankAccountModel: Model<BankAccountDocument>,
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
     private readonly inventoryService: InventoryService,
-    private readonly accountingService: AccountingService,
     private readonly paymentsService: PaymentsService,
     private readonly deliveryService: DeliveryService,
     private readonly exchangeRateService: ExchangeRateService,
     private readonly shiftsService: ShiftsService,
+    private readonly taskQueueService: TaskQueueService,
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
@@ -398,24 +400,24 @@ export class OrdersService {
       }
     }
 
-    // Ejecutar contabilidad de forma asíncrona (no bloquear la respuesta)
-    setImmediate(async () => {
-      try {
-        await this.accountingService.createJournalEntryForSale(
-          savedOrder,
-          user.tenantId,
-        );
-        await this.accountingService.createJournalEntryForCOGS(
-          savedOrder,
-          user.tenantId,
-        );
-      } catch (accountingError) {
-        this.logger.error(
-          `Error en la contabilidad automática para la orden ${savedOrder.orderNumber}`,
-          accountingError.stack,
-        );
-      }
-    });
+    try {
+      await this.taskQueueService.enqueueOrderAccounting(
+        savedOrder._id.toString(),
+        this.normalizeTenantId(user.tenantId ?? savedOrder.tenantId),
+        "backoffice:create-order",
+      );
+    } catch (accountingQueueError) {
+      const errorMessage =
+        accountingQueueError instanceof Error
+          ? accountingQueueError.message
+          : String(accountingQueueError);
+      this.logger.error(
+        `No se pudo encolar la contabilidad automática para la orden ${savedOrder.orderNumber}: ${errorMessage}`,
+        accountingQueueError instanceof Error
+          ? accountingQueueError.stack
+          : undefined,
+      );
+    }
 
     if (createOrderDto.autoReserve) {
       // IMPORTANTE: Usar quantityInBaseUnit para productos multi-unidad
@@ -538,7 +540,10 @@ export class OrdersService {
   }
 
   async exportOrders(query: OrderQueryDto, tenantId: string): Promise<string> {
-    const { filter, sortOptions, limit } = this.buildOrderQuery(query, tenantId);
+    const { filter, sortOptions, limit } = this.buildOrderQuery(
+      query,
+      tenantId,
+    );
     const effectiveLimit = Math.min(Math.max(limit, 1), 5000);
 
     const orders = await this.orderModel
@@ -577,12 +582,14 @@ export class OrdersService {
     ]
       .concat(
         productAttributes.map(
-          (attr) => `Atributo Producto (${attr.key})${attr.label ? ` - ${attr.label}` : ''}`,
+          (attr) =>
+            `Atributo Producto (${attr.key})${attr.label ? ` - ${attr.label}` : ""}`,
         ),
       )
       .concat(
         variantAttributes.map(
-          (attr) => `Atributo Variante (${attr.key})${attr.label ? ` - ${attr.label}` : ''}`,
+          (attr) =>
+            `Atributo Variante (${attr.key})${attr.label ? ` - ${attr.label}` : ""}`,
         ),
       );
 
@@ -629,9 +636,7 @@ export class OrdersService {
     const csvRows = [headers]
       .concat(rows)
       .map((row) =>
-        row
-          .map((value) => `"${value.replace(/"/g, '""')}"`)
-          .join(","),
+        row.map((value) => `"${value.replace(/"/g, '""')}"`).join(","),
       )
       .join("\n");
 
@@ -780,6 +785,580 @@ export class OrdersService {
     return order;
   }
 
+  async createPublicOrder(
+    createDto: CreatePublicOrderDto,
+  ): Promise<OrderDocument> {
+    return this.createOrderFromStorefront(createDto);
+  }
+
+  private async createOrderFromStorefront(
+    createDto: CreatePublicOrderDto,
+  ): Promise<OrderDocument> {
+    const session = await this.connection.startSession();
+    let savedOrder: OrderDocument | null = null;
+    let customerForMetrics: Types.ObjectId | null = null;
+    let totalAmountForMetrics = 0;
+
+    try {
+      await session.withTransaction(async () => {
+        const tenant = await this.tenantModel
+          .findById(createDto.tenantId)
+          .session(session);
+
+        if (!tenant) {
+          throw new NotFoundException("Tenant no encontrado");
+        }
+
+        if (
+          tenant.limits?.maxOrders &&
+          tenant.usage?.currentOrders >= tenant.limits.maxOrders
+        ) {
+          throw new BadRequestException(
+            "Límite de órdenes alcanzado para este tenant.",
+          );
+        }
+
+        const createdBy = await this.resolveStorefrontCreator(
+          createDto.tenantId,
+          session,
+        );
+
+        const tenantObjectId = new Types.ObjectId(createDto.tenantId);
+
+        const customer = await this.findOrCreateStorefrontCustomer(
+          createDto,
+          tenantObjectId,
+          createdBy,
+          session,
+        );
+
+        const productIds = createDto.items.map(
+          (item) => new Types.ObjectId(item.productId),
+        );
+
+        const products = await this.productModel
+          .find({
+            _id: { $in: productIds },
+            tenantId: tenantObjectId,
+            isActive: true,
+          })
+          .session(session);
+
+        const detailedItems: OrderItem[] = [];
+        let subtotal = 0;
+        let ivaTotal = 0;
+
+        for (const itemDto of createDto.items) {
+          if (itemDto.quantity > 1000) {
+            throw new BadRequestException(
+              "La cantidad solicitada excede el límite permitido",
+            );
+          }
+
+          const product = products.find(
+            (p) => p._id.toString() === itemDto.productId,
+          );
+
+          if (!product) {
+            throw new NotFoundException(
+              'Producto con ID "' +
+                itemDto.productId +
+                '" no encontrado para este tenant.',
+            );
+          }
+
+          const variant = this.resolveVariant(
+            product,
+            itemDto as unknown as CreateOrderItemDto,
+          );
+
+          const fallbackVariantPrice = product.variants?.[0]?.basePrice ?? 0;
+
+          const unitPrice =
+            itemDto.unitPrice ?? variant?.basePrice ?? fallbackVariantPrice;
+          const costPrice = variant?.costPrice ?? 0;
+
+          const totalPrice = UnitConversionUtil.calculateTotalPrice(
+            itemDto.quantity,
+            unitPrice,
+          );
+
+          const ivaAmount = product.ivaApplicable ? totalPrice * 0.16 : 0;
+
+          const attributesSnapshot = this.buildOrderItemAttributes(
+            product,
+            variant,
+            itemDto as unknown as CreateOrderItemDto,
+          );
+          const attributeSummary =
+            this.buildAttributeSummary(attributesSnapshot);
+
+          detailedItems.push({
+            productId: product._id,
+            productSku: product.sku,
+            productName: product.name,
+            variantId: variant?._id,
+            variantSku: variant?.sku,
+            quantity: itemDto.quantity,
+            quantityInBaseUnit: itemDto.quantity,
+            unitPrice,
+            costPrice,
+            totalPrice,
+            ivaAmount,
+            igtfAmount: 0,
+            finalPrice: 0,
+            status: "pending",
+            attributes:
+              attributesSnapshot && Object.keys(attributesSnapshot).length > 0
+                ? attributesSnapshot
+                : undefined,
+            attributeSummary,
+          } as OrderItem);
+
+          subtotal += totalPrice;
+          ivaTotal += ivaAmount;
+        }
+
+        const shippingCost = createDto.shippingMethod
+          ? (createDto.shippingCost ?? 0)
+          : 0;
+
+        const totalAmount = subtotal + ivaTotal + shippingCost;
+        totalAmountForMetrics = totalAmount;
+
+        let totalAmountVes = 0;
+        try {
+          const rateData = await this.exchangeRateService.getBCVRate();
+          totalAmountVes = totalAmount * rateData.rate;
+        } catch (error) {
+          this.logger.warn(
+            "No fue posible obtener la tasa BCV para la orden pública: " +
+              error.message,
+          );
+        }
+
+        const shippingInfo = createDto.shippingMethod
+          ? {
+              method: createDto.shippingMethod,
+              cost: shippingCost,
+              address: createDto.shippingAddress,
+            }
+          : undefined;
+
+        const reservationItems = detailedItems.map((item) => ({
+          productSku: item.variantSku || item.productSku,
+          quantity: item.quantityInBaseUnit ?? item.quantity,
+        }));
+
+        const order = new this.orderModel({
+          orderNumber: await this.generateOrderNumber(createDto.tenantId),
+          tenantId: createDto.tenantId,
+          customerId: customer._id,
+          customerName: customer.name,
+          customerEmail: createDto.customerEmail,
+          customerPhone: createDto.customerPhone,
+          items: detailedItems,
+          subtotal,
+          ivaTotal,
+          igtfTotal: 0,
+          shippingCost,
+          discountAmount: 0,
+          totalAmount,
+          totalAmountVes,
+          paidAmount: 0,
+          paidAmountVes: 0,
+          payments: [],
+          paymentRecords: [],
+          paymentStatus: "pending",
+          status: "pending",
+          channel: "storefront",
+          type: "retail",
+          shipping: shippingInfo,
+          notes: createDto.notes,
+          inventoryReservation: { isReserved: false },
+          taxInfo: {
+            customerTaxId: customer.taxInfo?.taxId,
+            customerTaxType: customer.taxInfo?.taxType,
+            invoiceRequired: false,
+          },
+          metrics: {
+            totalMargin: 0,
+            marginPercentage: 0,
+          },
+          createdBy,
+        });
+
+        try {
+          await this.inventoryService.reserveInventory(
+            {
+              orderId: order._id.toString(),
+              items: reservationItems,
+            },
+            {
+              tenantId: tenantObjectId.toString(),
+              id:
+                createdBy instanceof Types.ObjectId
+                  ? createdBy.toString()
+                  : String(createdBy),
+            },
+            session,
+          );
+          order.inventoryReservation = {
+            isReserved: true,
+            reservedAt: new Date(),
+          };
+        } catch (error) {
+          this.logger.warn(
+            `Fallo al reservar inventario para orden pública de ${createDto.tenantId}: ${error.message}`,
+          );
+          throw new BadRequestException(
+            error instanceof Error
+              ? error.message
+              : "No se pudo reservar el inventario solicitado",
+          );
+        }
+
+        savedOrder = await order.save({ session });
+        customerForMetrics = customer._id;
+
+        await this.tenantModel.findByIdAndUpdate(
+          tenant._id,
+          { $inc: { "usage.currentOrders": 1 } },
+          { session },
+        );
+      });
+    } finally {
+      await session.endSession();
+    }
+
+    if (!savedOrder || !customerForMetrics) {
+      throw new Error("No se pudo crear la orden pública");
+    }
+
+    try {
+      await this.updateCustomerMetricsIncremental(
+        customerForMetrics,
+        totalAmountForMetrics,
+      );
+    } catch (error) {
+      this.logger.warn(
+        "No se pudieron actualizar las métricas del cliente para la orden pública: " +
+          error.message,
+      );
+    }
+
+    try {
+      await this.taskQueueService.enqueueOrderAccounting(
+        savedOrder._id.toString(),
+        this.normalizeTenantId(savedOrder.tenantId),
+        "storefront:create-order",
+      );
+    } catch (accountingQueueError) {
+      const errorMessage =
+        accountingQueueError instanceof Error
+          ? accountingQueueError.message
+          : String(accountingQueueError);
+      this.logger.error(
+        `No se pudo encolar la contabilidad automática para la orden pública ${savedOrder.orderNumber}: ${errorMessage}`,
+        accountingQueueError instanceof Error
+          ? accountingQueueError.stack
+          : undefined,
+      );
+    }
+
+    return savedOrder;
+  }
+
+  private normalizeTenantId(tenantId: any): string {
+    if (!tenantId) {
+      return "";
+    }
+
+    if (typeof tenantId === "string") {
+      return tenantId;
+    }
+
+    if (tenantId instanceof Types.ObjectId) {
+      return tenantId.toHexString();
+    }
+
+    if (typeof tenantId === "object") {
+      if (tenantId._id) {
+        return this.normalizeTenantId(tenantId._id);
+      }
+
+      if (typeof tenantId.toHexString === "function") {
+        return tenantId.toHexString();
+      }
+    }
+
+    return String(tenantId);
+  }
+
+  private async findOrCreateStorefrontCustomer(
+    createDto: CreatePublicOrderDto,
+    tenantObjectId: Types.ObjectId,
+    createdBy: Types.ObjectId,
+    session: ClientSession,
+  ): Promise<CustomerDocument> {
+    const contactFilters = [{ "contacts.value": createDto.customerEmail }];
+
+    if (createDto.customerPhone) {
+      contactFilters.push({ "contacts.value": createDto.customerPhone });
+    }
+
+    const query: Record<string, any> = {
+      tenantId: tenantObjectId,
+    };
+
+    if (contactFilters.length > 0) {
+      query.$or = contactFilters;
+    }
+
+    const customer = await this.customerModel.findOne(query).session(session);
+
+    if (customer) {
+      let hasChanges = false;
+
+      if (!customer.contacts) {
+        customer.contacts = [] as any;
+        hasChanges = true;
+      }
+
+      if (
+        createDto.customerEmail &&
+        !customer.contacts.some(
+          (contact: any) => contact.value === createDto.customerEmail,
+        )
+      ) {
+        customer.contacts.push({
+          type: "email",
+          value: createDto.customerEmail,
+          isPrimary: !customer.contacts.some(
+            (contact: any) => contact.isPrimary,
+          ),
+          isActive: true,
+        });
+        hasChanges = true;
+      }
+
+      if (
+        createDto.customerPhone &&
+        !customer.contacts.some(
+          (contact: any) => contact.value === createDto.customerPhone,
+        )
+      ) {
+        customer.contacts.push({
+          type: "phone",
+          value: createDto.customerPhone,
+          isPrimary: false,
+          isActive: true,
+        });
+        hasChanges = true;
+      }
+
+      if (!customer.name && createDto.customerName) {
+        customer.name = createDto.customerName;
+        hasChanges = true;
+      }
+
+      if (customer.status === "inactive") {
+        customer.status = "active";
+        hasChanges = true;
+      }
+
+      if (createDto.shippingAddress?.street) {
+        const addressCity = createDto.shippingAddress.city || "Sin ciudad";
+        const addressState = createDto.shippingAddress.state || "Sin estado";
+        const addressCountry = createDto.shippingAddress.country || "Venezuela";
+
+        customer.addresses = customer.addresses || ([] as any);
+        if (
+          !customer.addresses.some(
+            (address: any) =>
+              address.street === createDto.shippingAddress?.street,
+          )
+        ) {
+          customer.addresses.push({
+            type: "shipping",
+            street: createDto.shippingAddress.street,
+            city: addressCity,
+            state: addressState,
+            zipCode: createDto.shippingAddress.zipCode,
+            country: addressCountry,
+            isDefault: customer.addresses.length === 0,
+          });
+          hasChanges = true;
+        }
+
+        if (
+          !customer.primaryLocation ||
+          customer.primaryLocation.address !== createDto.shippingAddress.street
+        ) {
+          customer.primaryLocation = {
+            address: createDto.shippingAddress.street,
+            formattedAddress: [
+              createDto.shippingAddress.street,
+              createDto.shippingAddress.city,
+              createDto.shippingAddress.state,
+              createDto.shippingAddress.country,
+            ]
+              .filter((part) => !!part)
+              .join(", "),
+          } as any;
+          hasChanges = true;
+        }
+      }
+
+      if (hasChanges) {
+        await customer.save({ session });
+      }
+
+      return customer;
+    }
+
+    const customerNumber = await this.generateStorefrontCustomerNumber(
+      createDto.tenantId,
+      session,
+    );
+
+    const contacts: any[] = [
+      {
+        type: "email",
+        value: createDto.customerEmail,
+        isPrimary: true,
+        isActive: true,
+      },
+    ];
+
+    if (createDto.customerPhone) {
+      contacts.push({
+        type: "phone",
+        value: createDto.customerPhone,
+        isPrimary: false,
+        isActive: true,
+      });
+    }
+
+    const addresses: any[] = [];
+    if (createDto.shippingAddress?.street) {
+      const addressCity = createDto.shippingAddress.city || "Sin ciudad";
+      const addressState = createDto.shippingAddress.state || "Sin estado";
+      const addressCountry = createDto.shippingAddress.country || "Venezuela";
+
+      addresses.push({
+        type: "shipping",
+        street: createDto.shippingAddress.street,
+        city: addressCity,
+        state: addressState,
+        zipCode: createDto.shippingAddress.zipCode,
+        country: addressCountry,
+        isDefault: true,
+      });
+    }
+
+    const preferences =
+      createDto.shippingMethod || createDto.shippingAddress?.street
+        ? {
+            preferredCurrency: "USD",
+            preferredPaymentMethod: "online",
+            preferredDeliveryMethod: createDto.shippingMethod ?? "delivery",
+            communicationChannel: "email",
+            marketingOptIn: false,
+            invoiceRequired: false,
+          }
+        : undefined;
+
+    const newCustomer = new this.customerModel({
+      customerNumber,
+      name: createDto.customerName,
+      customerType: "individual",
+      taxInfo: {
+        taxName: createDto.customerName,
+      },
+      contacts,
+      addresses,
+      metrics: {
+        totalOrders: 0,
+        totalSpent: 0,
+        totalSpentUSD: 0,
+        averageOrderValue: 0,
+        orderFrequency: 0,
+        lifetimeValue: 0,
+        returnRate: 0,
+        cancellationRate: 0,
+        paymentDelayDays: 0,
+      },
+      tier: "nuevo",
+      creditInfo: {
+        creditLimit: 0,
+        availableCredit: 0,
+        paymentTerms: 0,
+        creditRating: "C",
+        isBlocked: false,
+      },
+      preferences,
+      status: "active",
+      source: "storefront",
+      createdBy,
+      tenantId: tenantObjectId,
+      primaryLocation: createDto.shippingAddress?.street
+        ? {
+            address: createDto.shippingAddress.street,
+            formattedAddress: [
+              createDto.shippingAddress.street,
+              createDto.shippingAddress.city,
+              createDto.shippingAddress.state,
+              createDto.shippingAddress.country,
+            ]
+              .filter((part) => !!part)
+              .join(", "),
+          }
+        : undefined,
+    });
+
+    return newCustomer.save({ session });
+  }
+
+  private async resolveStorefrontCreator(
+    tenantId: string,
+    session: ClientSession,
+  ): Promise<Types.ObjectId> {
+    const tenantObjectId = new Types.ObjectId(tenantId);
+    const user = await this.userModel
+      .findOne({ tenantId: tenantObjectId })
+      .sort({ createdAt: 1 })
+      .session(session)
+      .select("_id");
+
+    if (!user) {
+      throw new BadRequestException(
+        "No se encontró un usuario asociado al tenant para registrar la orden del storefront.",
+      );
+    }
+
+    return user._id instanceof Types.ObjectId
+      ? (user._id as Types.ObjectId)
+      : new Types.ObjectId(user._id as any);
+  }
+
+  private async generateStorefrontCustomerNumber(
+    tenantId: string,
+    session: ClientSession,
+  ): Promise<string> {
+    const variants: (string | Types.ObjectId)[] = [tenantId];
+    if (Types.ObjectId.isValid(tenantId)) {
+      variants.push(new Types.ObjectId(tenantId));
+    }
+
+    const filter = variants.length > 1 ? { $in: variants } : tenantId;
+
+    const query = this.customerModel.countDocuments({ tenantId: filter });
+    query.session(session);
+    const count = await query.exec();
+    return `CLI-${(count + 1).toString().padStart(6, "0")}`;
+  }
+
   private resolveVariant(
     product: ProductDocument,
     itemDto: CreateOrderItemDto,
@@ -832,18 +1411,14 @@ export class OrdersService {
   ): string | undefined {
     const entries = Object.entries(attributes || {}).filter(
       ([, value]) =>
-        value !== undefined &&
-        value !== null &&
-        `${value}`.trim().length > 0,
+        value !== undefined && value !== null && `${value}`.trim().length > 0,
     );
 
     if (!entries.length) {
       return undefined;
     }
 
-    return entries
-      .map(([key, value]) => `${key}: ${value}`)
-      .join(" | ");
+    return entries.map(([key, value]) => `${key}: ${value}`).join(" | ");
   }
 
   private async generateOrderNumber(_tenantId: string): Promise<string> {
@@ -935,10 +1510,7 @@ export class OrdersService {
     if (customerId) filter.customerId = customerId;
     if (search) {
       const regex = new RegExp(this.escapeRegExp(search), "i");
-      filter.$or = [
-        { orderNumber: regex },
-        { customerName: regex },
-      ];
+      filter.$or = [{ orderNumber: regex }, { customerName: regex }];
     }
 
     if (itemAttributeKey && itemAttributeValue) {

@@ -19,10 +19,13 @@ import {
   InventoryMovementSchema,
 } from "../../schemas/inventory.schema";
 import { Payable, PayableSchema } from "../../schemas/payable.schema";
+import { TaskQueueModule } from "../task-queue/task-queue.module";
+import { AnalyticsQueueProcessor } from "./analytics.queue-processor";
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
+    TaskQueueModule,
     MongooseModule.forFeature([
       { name: PerformanceKpi.name, schema: PerformanceKpiSchema },
       { name: Order.name, schema: OrderSchema },
@@ -36,6 +39,6 @@ import { Payable, PayableSchema } from "../../schemas/payable.schema";
     ]),
   ],
   controllers: [AnalyticsController],
-  providers: [AnalyticsService],
+  providers: [AnalyticsService, AnalyticsQueueProcessor],
 })
 export class AnalyticsModule {}

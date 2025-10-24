@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectModel, InjectConnection } from "@nestjs/mongoose";
-import { Model, Types, Connection } from "mongoose";
+import { Model, Types, Connection, ClientSession } from "mongoose";
 import { Product, ProductDocument } from "../../schemas/product.schema";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import {
@@ -40,161 +40,163 @@ export class ProductsService {
     dto: CreateProductWithPurchaseDto,
     user: any,
   ) {
-    const tenant = await this.tenantModel.findById(user.tenantId);
-    if (!tenant) {
-      throw new BadRequestException("Tenant no encontrado");
-    }
-
-    if (tenant.usage.currentProducts >= tenant.limits.maxProducts) {
-      throw new BadRequestException(
-        "Límite de productos alcanzado para su plan de suscripción.",
-      );
-    }
-
-    const newImagesSize = this.calculateImagesSize(dto.product.variants);
-    if (
-      tenant.usage.currentStorage + newImagesSize >
-      tenant.limits.maxStorage
-    ) {
-      throw new BadRequestException(
-        "Límite de almacenamiento alcanzado para su plan de suscripción.",
-      );
-    }
-
-    const existingProduct = await this.productModel.findOne({
-      sku: dto.product.sku,
-      tenantId: new Types.ObjectId(user.tenantId),
-    });
-    if (existingProduct) {
-      throw new BadRequestException(
-        `El producto con SKU "${dto.product.sku}" ya existe.`,
-      );
-    }
-
+    const session = await this.connection.startSession();
     try {
-      // 1. Supplier (now a Customer of type 'supplier')
-      let supplierId = dto.supplier.supplierId;
-      let supplierName = "";
-      if (!supplierId) {
-        if (
-          !dto.supplier.newSupplierName ||
-          !dto.supplier.newSupplierRif ||
-          !dto.supplier.newSupplierContactName
-        ) {
-          throw new BadRequestException("New supplier data is incomplete.");
+      let savedProduct: ProductDocument | null = null;
+      await session.withTransaction(async () => {
+        const tenant = await this.tenantModel
+          .findById(user.tenantId)
+          .session(session);
+        if (!tenant) {
+          throw new BadRequestException("Tenant no encontrado");
         }
-        // Create a DTO that matches what the CRM form would create
-        const newCustomerDto: CreateCustomerDto = {
-          name: dto.supplier.newSupplierContactName, // Salesperson Name
-          companyName: dto.supplier.newSupplierName, // Company Name
-          customerType: "supplier",
-          taxInfo: {
-            taxId: dto.supplier.newSupplierRif,
-            taxType: dto.supplier.newSupplierRif.charAt(0),
-          },
-          contacts: [
-            {
-              type: "phone",
-              value: dto.supplier.newSupplierContactPhone ?? "",
-              isPrimary: true,
-            },
-          ].filter((c) => c.value),
-        };
-        const newSupplier = await this.customersService.create(
-          newCustomerDto,
-          user,
-        );
-        supplierId = newSupplier._id.toString();
-        supplierName = newSupplier.companyName || newSupplier.name; // Use companyName for consistency
-      } else {
-        const existingSupplier = await this.customersService.findOne(
-          supplierId,
-          user.tenantId,
-        );
-        if (!existingSupplier) {
-          throw new NotFoundException(
-            `Supplier (Customer) with ID "${supplierId}" not found.`,
+
+        const newImagesSize = this.calculateImagesSize(dto.product.variants);
+        this.assertTenantLimits(tenant, newImagesSize);
+
+        const existingProduct = await this.productModel
+          .findOne({
+            sku: dto.product.sku,
+            tenantId: new Types.ObjectId(user.tenantId),
+          })
+          .session(session);
+        if (existingProduct) {
+          throw new BadRequestException(
+            `El producto con SKU "${dto.product.sku}" ya existe.`,
           );
         }
-        supplierName = existingSupplier.companyName || existingSupplier.name;
-      }
 
-      // 2. Product
-      const productData = {
-        ...dto.product,
-        suppliers: [
-          {
-            supplierId: new Types.ObjectId(supplierId),
-            supplierName: supplierName,
+        // 1. Supplier (now a Customer of type 'supplier')
+        let supplierId = dto.supplier.supplierId;
+        let supplierName = "";
+        if (!supplierId) {
+          if (
+            !dto.supplier.newSupplierName ||
+            !dto.supplier.newSupplierRif ||
+            !dto.supplier.newSupplierContactName
+          ) {
+            throw new BadRequestException("New supplier data is incomplete.");
+          }
+          // Create a DTO that matches what the CRM form would create
+          const newCustomerDto: CreateCustomerDto = {
+            name: dto.supplier.newSupplierContactName, // Salesperson Name
+            companyName: dto.supplier.newSupplierName, // Company Name
+            customerType: "supplier",
+            taxInfo: {
+              taxId: dto.supplier.newSupplierRif,
+              taxType: dto.supplier.newSupplierRif.charAt(0),
+            },
+            contacts: [
+              {
+                type: "phone",
+                value: dto.supplier.newSupplierContactPhone ?? "",
+                isPrimary: true,
+              },
+            ].filter((c) => c.value),
+          };
+          const newSupplier = await this.customersService.create(
+            newCustomerDto,
+            user,
+            session,
+          );
+          supplierId = newSupplier._id.toString();
+          supplierName = newSupplier.companyName || newSupplier.name; // Use companyName for consistency
+        } else {
+          const existingSupplier = await this.customersService.findOne(
+            supplierId,
+            user.tenantId,
+            session,
+          );
+          if (!existingSupplier) {
+            throw new NotFoundException(
+              `Supplier (Customer) with ID "${supplierId}" not found.`,
+            );
+          }
+          supplierName = existingSupplier.companyName || existingSupplier.name;
+        }
+
+        // 2. Product
+        const productData = {
+          ...dto.product,
+          suppliers: [
+            {
+              supplierId: new Types.ObjectId(supplierId),
+              supplierName: supplierName,
+              costPrice: dto.inventory.costPrice,
+              supplierSku: dto.product.sku, // Default to product SKU
+              leadTimeDays: 1, // Default
+              minimumOrderQuantity: 1, // Default
+            },
+          ],
+          createdBy: user.id,
+          tenantId: new Types.ObjectId(user.tenantId),
+        };
+        const product = new this.productModel(productData);
+        savedProduct = await product.save({ session });
+
+        await this.incrementTenantUsage(
+          user.tenantId,
+          newImagesSize,
+          session,
+          tenant,
+        );
+
+        // 3. Inventory
+        const inventoryDto: any = {
+          productId: savedProduct._id,
+          productSku: savedProduct.sku,
+          productName: savedProduct.name,
+          totalQuantity: dto.inventory.quantity,
+          averageCostPrice: dto.inventory.costPrice,
+          lots: [],
+        };
+
+        if (savedProduct.isPerishable) {
+          if (!dto.inventory.lotNumber || !dto.inventory.expirationDate) {
+            throw new BadRequestException(
+              "Lot number and expiration date are required for perishable products.",
+            );
+          }
+          inventoryDto.lots.push({
+            lotNumber: dto.inventory.lotNumber,
+            quantity: dto.inventory.quantity,
+            expirationDate: new Date(dto.inventory.expirationDate),
             costPrice: dto.inventory.costPrice,
-            supplierSku: dto.product.sku, // Default to product SKU
-            leadTimeDays: 1, // Default
-            minimumOrderQuantity: 1, // Default
-          },
-        ],
-        createdBy: user.id,
-        tenantId: new Types.ObjectId(user.tenantId),
-      };
-      const createdProduct = new this.productModel(productData);
-      const savedProduct = await createdProduct.save();
+            receivedDate: new Date(dto.purchaseDate),
+          });
+        }
+        await this.inventoryService.create(inventoryDto, user, session);
 
-      await this.tenantModel.findByIdAndUpdate(user.tenantId, {
-        $inc: {
-          "usage.currentProducts": 1,
-          "usage.currentStorage": newImagesSize,
-        },
+        // 4. Purchase Order
+        const purchaseDto: any = {
+          supplierId: supplierId,
+          purchaseDate: dto.purchaseDate,
+          items: [
+            {
+              productId: savedProduct._id.toString(),
+              productName: savedProduct.name,
+              productSku: savedProduct.sku,
+              quantity: dto.inventory.quantity,
+              costPrice: dto.inventory.costPrice,
+            },
+          ],
+          notes: dto.notes,
+        };
+        await this.purchasesService.create(purchaseDto, user, session);
       });
 
-      // 3. Inventory
-      const inventoryDto: any = {
-        productId: savedProduct._id,
-        productSku: savedProduct.sku,
-        productName: savedProduct.name,
-        totalQuantity: dto.inventory.quantity,
-        averageCostPrice: dto.inventory.costPrice,
-        lots: [],
-      };
-
-      if (savedProduct.isPerishable) {
-        if (!dto.inventory.lotNumber || !dto.inventory.expirationDate) {
-          throw new BadRequestException(
-            "Lot number and expiration date are required for perishable products.",
-          );
-        }
-        inventoryDto.lots.push({
-          lotNumber: dto.inventory.lotNumber,
-          quantity: dto.inventory.quantity,
-          expirationDate: new Date(dto.inventory.expirationDate),
-          costPrice: dto.inventory.costPrice,
-          receivedDate: new Date(dto.purchaseDate),
-        });
+      if (!savedProduct) {
+        throw new Error("No se pudo crear el producto");
       }
-      await this.inventoryService.create(inventoryDto, user);
-
-      // 4. Purchase Order
-      const purchaseDto: any = {
-        supplierId: supplierId,
-        purchaseDate: dto.purchaseDate,
-        items: [
-          {
-            productId: savedProduct._id.toString(),
-            productName: savedProduct.name,
-            productSku: savedProduct.sku,
-            quantity: dto.inventory.quantity,
-            costPrice: dto.inventory.costPrice,
-          },
-        ],
-        notes: dto.notes,
-      };
-      await this.purchasesService.create(purchaseDto, user);
-
       return savedProduct;
     } catch (error) {
       this.logger.error(
         `Failed to create product with initial purchase: ${error.message}`,
-        error.stack,
+        error instanceof Error ? error.stack : undefined,
       );
       throw error;
+    } finally {
+      session.endSession();
     }
   }
 
@@ -202,122 +204,94 @@ export class ProductsService {
     createProductDto: CreateProductDto,
     user: any,
   ): Promise<ProductDocument> {
-    this.logger.log(`Creating product with SKU: ${createProductDto.sku}`);
-
-    const tenant = await this.tenantModel.findById(user.tenantId);
-    if (!tenant) {
-      throw new BadRequestException("Tenant no encontrado");
+    const session = await this.connection.startSession();
+    try {
+      let savedProduct: ProductDocument | null = null;
+      await session.withTransaction(async () => {
+        savedProduct = await this.createProductTransactional(
+          createProductDto,
+          user,
+          session,
+        );
+      });
+      if (!savedProduct) {
+        throw new Error("No se pudo crear el producto");
+      }
+      return savedProduct;
+    } finally {
+      session.endSession();
     }
-
-    if (tenant.usage.currentProducts >= tenant.limits.maxProducts) {
-      throw new BadRequestException(
-        "Límite de productos alcanzado para su plan de suscripción.",
-      );
-    }
-
-    const newImagesSize = this.calculateImagesSize(createProductDto.variants);
-    if (
-      tenant.usage.currentStorage + newImagesSize >
-      tenant.limits.maxStorage
-    ) {
-      throw new BadRequestException(
-        "Límite de almacenamiento alcanzado para su plan de suscripción.",
-      );
-    }
-
-    const existingProduct = await this.productModel.findOne({
-      sku: createProductDto.sku,
-      tenantId: new Types.ObjectId(user.tenantId),
-    });
-    if (existingProduct) {
-      throw new Error(`El SKU ${createProductDto.sku} ya existe`);
-    }
-    const productData = {
-      ...createProductDto,
-      isActive: true, // Explicitly set new products as active
-      createdBy: user.id,
-      tenantId: new Types.ObjectId(user.tenantId),
-    };
-    const createdProduct = new this.productModel(productData);
-    const savedProduct = await createdProduct.save();
-
-    await this.tenantModel.findByIdAndUpdate(user.tenantId, {
-      $inc: {
-        "usage.currentProducts": 1,
-        "usage.currentStorage": newImagesSize,
-      },
-    });
-
-    return savedProduct;
   }
 
   async bulkCreate(bulkCreateProductsDto: BulkCreateProductsDto, user: any) {
     const session = await this.connection.startSession();
-    session.startTransaction();
     try {
       const createdProducts: any[] = [];
-      for (const productDto of bulkCreateProductsDto.products) {
-        const createProductDto: CreateProductDto = {
-          sku: productDto.sku,
-          name: productDto.name,
-          category: productDto.category,
-          subcategory: productDto.subcategory || "",
-          brand: productDto.brand || "",
-          unitOfMeasure: productDto.unitOfMeasure || "unidad",
-          isSoldByWeight: productDto.isSoldByWeight || false,
-          description: productDto.description,
-          ingredients: productDto.ingredients,
-          isPerishable: productDto.isPerishable,
-          shelfLifeDays: productDto.shelfLifeDays,
-          storageTemperature: productDto.storageTemperature,
-          ivaApplicable: productDto.ivaApplicable,
-          taxCategory: productDto.taxCategory || "general",
-          attributes: productDto.productAttributes || undefined,
-          pricingRules: {
-            cashDiscount: 0,
-            cardSurcharge: 0,
-            minimumMargin: 0,
-            maximumDiscount: 0,
-          },
-          inventoryConfig: {
-            minimumStock: productDto.minimumStock ?? 10,
-            maximumStock: productDto.maximumStock ?? 100,
-            reorderPoint: productDto.reorderPoint ?? 20,
-            reorderQuantity: productDto.reorderQuantity ?? 50,
-            trackLots: true,
-            trackExpiration: true,
-            fefoEnabled: true,
-          },
-          variants: [
-            {
-              name: productDto.variantName,
-              sku: productDto.variantSku || `${productDto.sku}-VAR1`,
-              barcode: productDto.variantBarcode || "",
-              unit: productDto.variantUnit,
-              unitSize: productDto.variantUnitSize,
-              basePrice: productDto.variantBasePrice,
-              costPrice: productDto.variantCostPrice,
-              images: [
-                productDto.image1,
-                productDto.image2,
-                productDto.image3,
-              ].filter(Boolean) as string[],
-              attributes: productDto.variantAttributes || undefined,
+      await session.withTransaction(async () => {
+        for (const productDto of bulkCreateProductsDto.products) {
+          const createProductDto: CreateProductDto = {
+            sku: productDto.sku,
+            name: productDto.name,
+            category: productDto.category,
+            subcategory: productDto.subcategory || "",
+            brand: productDto.brand || "",
+            unitOfMeasure: productDto.unitOfMeasure || "unidad",
+            isSoldByWeight: productDto.isSoldByWeight || false,
+            description: productDto.description,
+            ingredients: productDto.ingredients,
+            isPerishable: productDto.isPerishable,
+            shelfLifeDays: productDto.shelfLifeDays,
+            storageTemperature: productDto.storageTemperature,
+            ivaApplicable: productDto.ivaApplicable,
+            taxCategory: productDto.taxCategory || "general",
+            attributes: productDto.productAttributes || undefined,
+            pricingRules: {
+              cashDiscount: 0,
+              cardSurcharge: 0,
+              minimumMargin: 0,
+              maximumDiscount: 0,
             },
-          ],
-        };
+            inventoryConfig: {
+              minimumStock: productDto.minimumStock ?? 10,
+              maximumStock: productDto.maximumStock ?? 100,
+              reorderPoint: productDto.reorderPoint ?? 20,
+              reorderQuantity: productDto.reorderQuantity ?? 50,
+              trackLots: true,
+              trackExpiration: true,
+              fefoEnabled: true,
+            },
+            variants: [
+              {
+                name: productDto.variantName,
+                sku: productDto.variantSku || `${productDto.sku}-VAR1`,
+                barcode: productDto.variantBarcode || "",
+                unit: productDto.variantUnit,
+                unitSize: productDto.variantUnitSize,
+                basePrice: productDto.variantBasePrice,
+                costPrice: productDto.variantCostPrice,
+                images: [
+                  productDto.image1,
+                  productDto.image2,
+                  productDto.image3,
+                ].filter(Boolean) as string[],
+                attributes: productDto.variantAttributes || undefined,
+              },
+            ],
+          };
 
-        const createdProduct = await this.create(createProductDto, user);
-        createdProducts.push(createdProduct);
-      }
-
-      await session.commitTransaction();
+          const createdProduct = await this.createProductTransactional(
+            createProductDto,
+            user,
+            session,
+          );
+          createdProducts.push(createdProduct);
+        }
+      });
       return {
         success: true,
         message: `${createdProducts.length} productos creados exitosamente.`,
       };
     } catch (error) {
-      await session.abortTransaction();
       this.logger.error(
         `Error durante la creación masiva de productos: ${error.message}`,
         error.stack,
@@ -325,6 +299,124 @@ export class ProductsService {
       throw new Error("Error al crear productos masivamente.");
     } finally {
       session.endSession();
+    }
+  }
+
+  private async createProductTransactional(
+    createProductDto: CreateProductDto,
+    user: any,
+    session: ClientSession,
+  ): Promise<ProductDocument> {
+    this.logger.log(`Creating product with SKU: ${createProductDto.sku}`);
+
+    const tenant = await this.tenantModel
+      .findById(user.tenantId)
+      .session(session);
+    if (!tenant) {
+      throw new BadRequestException("Tenant no encontrado");
+    }
+
+    const newImagesSize = this.calculateImagesSize(createProductDto.variants);
+    this.assertTenantLimits(tenant, newImagesSize);
+
+    const existingProduct = await this.productModel
+      .findOne({
+        sku: createProductDto.sku,
+        tenantId: new Types.ObjectId(user.tenantId),
+      })
+      .session(session);
+    if (existingProduct) {
+      throw new BadRequestException(
+        `El SKU ${createProductDto.sku} ya existe para este tenant`,
+      );
+    }
+
+    await this.incrementTenantUsage(
+      user.tenantId,
+      newImagesSize,
+      session,
+      tenant,
+    );
+
+    const productData = {
+      ...createProductDto,
+      isActive: true, // Explicitly set new products as active
+      createdBy: user.id,
+      tenantId: new Types.ObjectId(user.tenantId),
+    };
+
+    const createdProduct = new this.productModel(productData);
+    const savedProduct = await createdProduct.save({ session });
+
+    return savedProduct;
+  }
+
+  private assertTenantLimits(tenant: TenantDocument, newImagesSize: number) {
+    if (
+      typeof tenant.limits?.maxProducts === "number" &&
+      tenant.usage.currentProducts >= tenant.limits.maxProducts
+    ) {
+      throw new BadRequestException(
+        "Límite de productos alcanzado para su plan de suscripción.",
+      );
+    }
+
+    if (
+      typeof tenant.limits?.maxStorage === "number" &&
+      tenant.usage.currentStorage + newImagesSize > tenant.limits.maxStorage
+    ) {
+      throw new BadRequestException(
+        "Límite de almacenamiento alcanzado para su plan de suscripción.",
+      );
+    }
+  }
+
+  private async incrementTenantUsage(
+    tenantId: string,
+    newImagesSize: number,
+    session: ClientSession,
+    tenant?: TenantDocument,
+  ) {
+    const resolvedTenantId = Types.ObjectId.isValid(tenantId)
+      ? new Types.ObjectId(tenantId)
+      : tenantId;
+    const match: Record<string, any> = {
+      _id: resolvedTenantId,
+    };
+
+    if (tenant?.limits?.maxProducts !== undefined) {
+      match["usage.currentProducts"] = {
+        $lt: tenant.limits.maxProducts,
+      };
+    }
+
+    const updateResult = await this.tenantModel.findOneAndUpdate(
+      {
+        ...match,
+        ...(tenant?.limits?.maxStorage !== undefined
+          ? {
+              $expr: {
+                $lte: [
+                  { $add: ["$usage.currentStorage", newImagesSize] },
+                  "$limits.maxStorage",
+                ],
+              },
+            }
+          : {}),
+      },
+      {
+        $inc: {
+          "usage.currentProducts": 1,
+          "usage.currentStorage": newImagesSize,
+        },
+      },
+      { session, new: true },
+    );
+
+    if (!updateResult) {
+      throw new BadRequestException(
+        "No se pudo actualizar el uso del tenant. Revise los límites disponibles.",
+      );
     }
   }
 

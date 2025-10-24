@@ -497,6 +497,40 @@ function Register() {
   const { isAuthenticated, loginWithTokens } = useAuth();
   const navigate = useNavigate();
 
+  const registrationDisabled = true;
+
+  if (registrationDisabled) {
+    if (isAuthenticated) {
+      return <Navigate to="/dashboard" replace />;
+    }
+
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-muted/40 px-4 py-10">
+        <img src={smartkubikLogo} alt="Smartkubik Logo" className="h-12 w-auto mb-8" />
+        <Card className="w-full max-w-xl shadow-lg border border-muted-foreground/10">
+          <CardHeader className="space-y-3 text-center">
+            <Badge className="mx-auto bg-primary/10 text-primary">Registro por invitación</Badge>
+            <CardTitle className="text-2xl">El registro público está cerrado</CardTitle>
+            <CardDescription>
+              Actualmente solo los administradores pueden crear nuevas cuentas. Solicita una invitación o comunícate con nuestro equipo de ventas para activar tu espacio en SmartKubik.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6 text-sm text-muted-foreground">
+            <p>
+              Si tu organización ya utiliza SmartKubik, pídele a un administrador que te envíe una invitación desde el panel de usuarios. Para implementaciones nuevas, nuestro equipo comercial puede ayudarte a planificar el despliegue y habilitar los módulos que necesites.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button onClick={() => navigate('/login')}>Ir al inicio de sesión</Button>
+              <Button variant="outline" asChild>
+                <a href="mailto:ventas@smartkubik.com">Contactar a ventas</a>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const handleNext = () => setStep((prev) => Math.min(prev + 1, stepConfig.length));
   const handleBack = () => setStep((prev) => Math.max(prev - 1, 1));
   const handlePlanSelect = (planId) => {

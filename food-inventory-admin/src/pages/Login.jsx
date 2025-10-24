@@ -53,7 +53,7 @@ function Login() {
           setError(
             'Tu cuenta no tiene organizaciones activas asignadas. Contacta a tu administrador.',
           );
-          logout();
+          await logout();
           return;
         }
 
@@ -69,7 +69,7 @@ function Login() {
           setError(
             'Todas tus organizaciones están inactivas. Contacta a tu administrador.',
           );
-          logout();
+          await logout();
           return;
         }
 
@@ -130,7 +130,7 @@ function Login() {
     }
   };
 
-  const handleTenantDialogClose = () => {
+  const handleTenantDialogClose = async () => {
     if (closingAfterSelectionRef.current) {
       closingAfterSelectionRef.current = false;
       setAvailableMemberships([]);
@@ -143,7 +143,7 @@ function Login() {
     setAvailableMemberships([]);
     setDefaultMembershipId(null);
     setTenantSelectionError('');
-    logout();
+    await logout();
   };
 
   return (

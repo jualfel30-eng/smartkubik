@@ -5,6 +5,16 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Button } from './ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
+import { Label } from './ui/label';
+import { Textarea } from './ui/textarea';
 import { useAuth } from '../hooks/use-auth';
 
 export default function TenantUserList() {
@@ -14,6 +24,9 @@ export default function TenantUserList() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [impersonationTarget, setImpersonationTarget] = useState(null);
+  const [impersonationReason, setImpersonationReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -33,21 +46,50 @@ export default function TenantUserList() {
     loadUsers();
   }, [loadUsers]);
 
-  const handleImpersonate = async (userId) => {
+  const openImpersonationDialog = (user) => {
+    setImpersonationTarget(user);
+    setImpersonationReason('');
+  };
+
+  const closeImpersonationDialog = () => {
+    setImpersonationTarget(null);
+    setImpersonationReason('');
+    setSubmitting(false);
+  };
+
+  const handleImpersonate = async () => {
+    if (!impersonationTarget) {
+      return;
+    }
+
+    const trimmedReason = impersonationReason.trim();
+    if (!trimmedReason) {
+      toast.error('Debes indicar un motivo para impersonar.');
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      const tokenData = await fetchApi(`/super-admin/tenants/${tenantId}/users/${userId}/impersonate`, {
-        method: 'POST',
-      });
+      const tokenData = await fetchApi(
+        `/super-admin/tenants/${tenantId}/users/${impersonationTarget._id}/impersonate`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ reason: trimmedReason }),
+        },
+      );
 
       if (tokenData && tokenData.accessToken) {
         toast.success('Impersonando al usuario...');
         await loginWithTokens(tokenData);
         navigate('/organizations');
+        closeImpersonationDialog();
       } else {
         throw new Error("No se recibió una respuesta válida para la impersonación.");
       }
     } catch (error) {
       toast.error('Error al impersonar al usuario', { description: error.message });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -89,13 +131,57 @@ export default function TenantUserList() {
                 <TableCell>{user.email}</TableCell>
                 <TableCell>{user.role?.name || 'N/A'}</TableCell>
                 <TableCell>
-                  <Button variant="outline" size="sm" onClick={() => handleImpersonate(user._id)}>Impersonar</Button>
+                  <Button variant="outline" size="sm" onClick={() => openImpersonationDialog(user)}>
+                    Impersonar
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </CardContent>
+      <Dialog
+        open={Boolean(impersonationTarget)}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            closeImpersonationDialog();
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar impersonación</DialogTitle>
+            <DialogDescription>
+              Ingresa el motivo por el cual necesitas impersonar a {impersonationTarget?.firstName}{' '}
+              {impersonationTarget?.lastName}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="impersonation-reason">Motivo</Label>
+            <Textarea
+              id="impersonation-reason"
+              value={impersonationReason}
+              onChange={(event) => setImpersonationReason(event.target.value)}
+              placeholder="Describe el motivo de la impersonación"
+              rows={4}
+              disabled={submitting}
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeImpersonationDialog}
+              disabled={submitting}
+            >
+              Cancelar
+            </Button>
+            <Button type="button" onClick={handleImpersonate} disabled={submitting}>
+              {submitting ? 'Impersonando…' : 'Confirmar impersonación'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

@@ -79,6 +79,7 @@ export class PurchasesService {
       const newSupplier = await this.customersService.create(
         newCustomerDto,
         user,
+        session,
       );
       supplierId = newSupplier._id.toString();
       supplierName = newSupplier.companyName || newSupplier.name;
@@ -89,6 +90,7 @@ export class PurchasesService {
       const existingSupplier = await this.customersService.findOne(
         supplierId,
         user.tenantId,
+        session,
       );
       if (!existingSupplier) {
         throw new NotFoundException(
