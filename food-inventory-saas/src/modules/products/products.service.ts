@@ -261,7 +261,7 @@ export class ProductsService {
           sku: productDto.sku,
           name: productDto.name,
           category: productDto.category,
-          subcategory: productDto.subcategory || "",
+          subcategory: productDto.subcategory || [],
           brand: productDto.brand || "",
           unitOfMeasure: productDto.unitOfMeasure || "unidad",
           isSoldByWeight: productDto.isSoldByWeight || false,

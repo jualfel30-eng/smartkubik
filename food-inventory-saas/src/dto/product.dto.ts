@@ -199,17 +199,17 @@ export class CreateProductDto {
   @SanitizeString()
   name: string;
 
-  @ApiProperty({ description: "Categorías del producto", type: String })
-  @IsString()
-  @IsNotEmpty()
-  @SanitizeString()
-  category: string;
+  @ApiProperty({ description: "Categorías del producto", type: [String], isArray: true })
+  @IsArray()
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  category: string[];
 
-  @ApiProperty({ description: "Subcategorías del producto", type: String })
-  @IsString()
-  @IsNotEmpty()
-  @SanitizeString()
-  subcategory: string;
+  @ApiProperty({ description: "Subcategorías del producto", type: [String], isArray: true })
+  @IsArray()
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  subcategory: string[];
 
   @ApiProperty({ description: "Marca del producto" })
   @IsString()
@@ -379,18 +379,24 @@ export class UpdateProductDto {
   name?: string;
 
   @ApiPropertyOptional({
-    description: "Categoría del producto",
+    description: "Categorías del producto",
+    type: [String],
+    isArray: true,
   })
   @IsOptional()
-  @IsString()
-  category?: string;
+  @IsArray()
+  @IsString({ each: true })
+  category?: string[];
 
   @ApiPropertyOptional({
-    description: "Subcategoría del producto",
+    description: "Subcategorías del producto",
+    type: [String],
+    isArray: true,
   })
   @IsOptional()
-  @IsString()
-  subcategory?: string;
+  @IsArray()
+  @IsString({ each: true })
+  subcategory?: string[];
 
   @ApiPropertyOptional({ description: "Marca del producto" })
   @IsOptional()

@@ -16,19 +16,74 @@ import { Switch } from '@/components/ui/switch.jsx';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip.jsx';
 import { fetchApi } from '../lib/api';
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
-import { 
-  Plus, 
-  Search, 
-  Edit, 
-  Trash2, 
-  Package, 
-  CheckCircle, 
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Package,
+  CheckCircle,
   XCircle,
   Download,
-  Upload
+  Upload,
+  X
 } from 'lucide-react';
 
 const UNASSIGNED_SELECT_VALUE = '__UNASSIGNED__';
+
+// Tag Input Component for categories/subcategories
+const TagInput = ({ value = [], onChange, placeholder, id, helpText }) => {
+  const [inputValue, setInputValue] = useState('');
+
+  const handleKeyDown = (e) => {
+    if (e.key === ',' || e.key === 'Enter') {
+      e.preventDefault();
+      const tag = inputValue.trim();
+      if (tag && !value.includes(tag)) {
+        onChange([...value, tag]);
+        setInputValue('');
+      }
+    } else if (e.key === 'Backspace' && !inputValue && value.length > 0) {
+      // Remove last tag when backspace is pressed on empty input
+      onChange(value.slice(0, -1));
+    }
+  };
+
+  const removeTag = (tagToRemove) => {
+    onChange(value.filter(tag => tag !== tagToRemove));
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[42px] bg-background">
+        {value.map((tag, index) => (
+          <Badge key={index} variant="secondary" className="flex items-center gap-1 px-2 py-1">
+            {tag}
+            <button
+              type="button"
+              onClick={() => removeTag(tag)}
+              className="hover:bg-muted rounded-full p-0.5"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
+        ))}
+        <input
+          id={id}
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={value.length === 0 ? placeholder : ''}
+          className="flex-1 min-w-[120px] outline-none bg-transparent text-sm"
+        />
+      </div>
+      {helpText && (
+        <p className="text-xs text-muted-foreground">{helpText}</p>
+      )}
+    </div>
+  );
+};
 
 const createVariantTemplate = (options = {}) => {
   const { name = '', unit = 'unidad' } = options;
@@ -48,8 +103,8 @@ const createVariantTemplate = (options = {}) => {
 const initialNewProductState = {
   sku: '',
   name: '',
-  category: '',
-  subcategory: '',
+  category: [],
+  subcategory: [],
   brand: '',
   description: '',
   ingredients: '',
@@ -307,7 +362,7 @@ useEffect(() => {
     setFilteredProducts(products);
   }, [products]);
 
-  const categories = [...new Set(products.map(p => p.category))];
+  const categories = [...new Set(products.flatMap(p => Array.isArray(p.category) ? p.category : [p.category]).filter(Boolean))];
 
   const normalizeAttributeValue = (attr, rawValue) => {
     if (rawValue === UNASSIGNED_SELECT_VALUE) {
@@ -1365,23 +1420,25 @@ useEffect(() => {
                 <div className="grid grid-cols-2 gap-x-6 gap-y-4 pt-6 border-t">
                   <div className="space-y-2">
                     <Label htmlFor="category">Categoría</Label>
-                    <Input
+                    <TagInput
                       id="category"
                       value={newProduct.category}
-                      onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
-                      placeholder={getPlaceholder('category', 'Ej: Bebidas')}
+                      onChange={(tags) => setNewProduct({ ...newProduct, category: tags })}
+                      placeholder={getPlaceholder('category', 'Ej: Bebidas, Alimentos')}
+                      helpText="Escribe una categoría y presiona coma (,) o Enter para agregar. Puedes agregar múltiples categorías para ayudar a la IA a encontrar productos más fácilmente."
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="subcategory">Sub-categoría</Label>
-                    <Input
+                    <TagInput
                       id="subcategory"
                       value={newProduct.subcategory}
-                      onChange={(e) => setNewProduct({ ...newProduct, subcategory: e.target.value })}
-                      placeholder={getPlaceholder('subcategory', 'Ej: Gaseosas')}
+                      onChange={(tags) => setNewProduct({ ...newProduct, subcategory: tags })}
+                      placeholder={getPlaceholder('subcategory', 'Ej: Gaseosas, Refrescos')}
+                      helpText="Escribe una sub-categoría y presiona coma (,) o Enter para agregar. Esto facilita la búsqueda sin necesidad de ser experto."
                     />
                   </div>
-                  
+
                   <div className="col-span-2 space-y-2">
                     <Label htmlFor="description">Descripción</Label>
                     <Textarea
@@ -2326,7 +2383,13 @@ useEffect(() => {
                       <div className="font-medium">{product.name}</div>
                       <div className="text-sm text-muted-foreground">{product.brand}</div>
                     </TableCell>
-                    <TableCell><Badge variant="outline">{product.category}</Badge></TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {(Array.isArray(product.category) ? product.category : [product.category]).filter(Boolean).map((cat, idx) => (
+                          <Badge key={idx} variant="outline">{cat}</Badge>
+                        ))}
+                      </div>
+                    </TableCell>
                     <TableCell>{product.variants.length}</TableCell>
                     <TableCell>
                       {product.hasActivePromotion && product.promotion?.isActive ? (
@@ -2461,7 +2524,23 @@ useEffect(() => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-category">Categoría</Label>
-                <Input id="edit-category" value={editingProduct.category} onChange={(e) => setEditingProduct({...editingProduct, category: e.target.value})} />
+                <TagInput
+                  id="edit-category"
+                  value={Array.isArray(editingProduct.category) ? editingProduct.category : (editingProduct.category ? [editingProduct.category] : [])}
+                  onChange={(tags) => setEditingProduct({...editingProduct, category: tags})}
+                  placeholder="Ej: Bebidas, Alimentos"
+                  helpText="Escribe una categoría y presiona coma (,) o Enter para agregar. Puedes agregar múltiples categorías para ayudar a la IA a encontrar productos más fácilmente."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-subcategory">Sub-categoría</Label>
+                <TagInput
+                  id="edit-subcategory"
+                  value={Array.isArray(editingProduct.subcategory) ? editingProduct.subcategory : (editingProduct.subcategory ? [editingProduct.subcategory] : [])}
+                  onChange={(tags) => setEditingProduct({...editingProduct, subcategory: tags})}
+                  placeholder="Ej: Gaseosas, Refrescos"
+                  helpText="Escribe una sub-categoría y presiona coma (,) o Enter para agregar. Esto facilita la búsqueda sin necesidad de ser experto."
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-brand">Marca</Label>

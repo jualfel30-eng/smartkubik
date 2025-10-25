@@ -117,11 +117,11 @@ export class Product {
   @Prop({ type: String, required: true })
   name: string;
 
-  @Prop({ type: String, required: true })
-  category: string;
+  @Prop({ type: [String], required: true })
+  category: string[];
 
-  @Prop({ type: String, required: true })
-  subcategory: string;
+  @Prop({ type: [String], required: true })
+  subcategory: string[];
 
   @Prop({ type: String, required: true })
   brand: string;

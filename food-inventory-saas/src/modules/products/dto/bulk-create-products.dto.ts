@@ -16,12 +16,14 @@ export class BulkProductDto {
   @IsString()
   name: string;
 
-  @IsString()
-  category: string;
+  @IsArray()
+  @IsString({ each: true })
+  category: string[];
 
-  @IsString()
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  subcategory?: string;
+  subcategory?: string[];
 
   @IsString()
   @IsOptional()
