@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
+import { Model, Types } from "mongoose";
 import { Order, OrderDocument } from "../../schemas/order.schema";
 import { Customer, CustomerDocument } from "../../schemas/customer.schema";
 import { Inventory, InventoryDocument } from "../../schemas/inventory.schema";
@@ -21,6 +21,7 @@ export class DashboardService {
   async getSummary(user: any) {
     this.logger.log(`Fetching dashboard summary for tenant: ${user.tenantId}`);
     const tenantId = user.tenantId;
+    const tenantObjectId = new Types.ObjectId(tenantId);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -37,10 +38,13 @@ export class DashboardService {
       nearExpirationAlerts,
       recentOrders,
     ] = await Promise.all([
-      this.inventoryModel.countDocuments({
-        tenantId,
+      // Count unique products that have at least one variant with stock
+      // Use tenantObjectId for Inventory model (stored as ObjectId)
+      this.inventoryModel.distinct('productId', {
+        tenantId: tenantObjectId,
         totalQuantity: { $gt: 0 },
-      }),
+        isActive: true,
+      }).then(productIds => productIds.length),
       this.orderModel.countDocuments({
         tenantId,
         createdAt: { $gte: today, $lt: tomorrow },

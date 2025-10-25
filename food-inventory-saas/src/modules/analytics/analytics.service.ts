@@ -334,22 +334,22 @@ export class AnalyticsService {
         ? {
             $dateToString: {
               format: "%Y-%m-%d",
-              date: "$confirmedAt",
+              date: "$createdAt",
               timezone: "UTC",
             },
           }
         : {
             $dateToString: {
               format: "%Y-%m",
-              date: "$confirmedAt",
+              date: "$createdAt",
               timezone: "UTC",
             },
           };
 
     const matchStage = {
       tenantId: tenantKey,
-      status: "delivered",
-      confirmedAt: { $gte: from, $lte: to },
+      status: { $nin: ["draft", "cancelled", "refunded"] },
+      createdAt: { $gte: from, $lte: to },
     };
 
     const trend = await this.orderModel
@@ -379,14 +379,27 @@ export class AnalyticsService {
           },
         },
         { $unwind: { path: "$productInfo", preserveNullAndEmptyArrays: true } },
+        // Unwind the category array to handle multiple categories per product
+        {
+          $unwind: {
+            path: "$productInfo.category",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
         {
           $group: {
             _id: {
               $ifNull: ["$productInfo.category", "$items.productName"],
             },
             totalAmount: {
+              // Use totalPrice directly (already includes quantity * unitPrice)
+              // If finalPrice exists and is > 0, use it, otherwise use totalPrice
               $sum: {
-                $ifNull: ["$items.finalPrice", "$items.totalPrice"],
+                $cond: [
+                  { $gt: ["$items.finalPrice", 0] },
+                  "$items.finalPrice",
+                  "$items.totalPrice",
+                ],
               },
             },
           },
@@ -409,8 +422,8 @@ export class AnalyticsService {
         {
           $match: {
             tenantId: tenantKey,
-            status: "delivered",
-            confirmedAt: { $gte: previousRange.from, $lte: previousRange.to },
+            status: { $nin: ["draft", "cancelled", "refunded"] },
+            createdAt: { $gte: previousRange.from, $lte: previousRange.to },
           },
         },
         { $group: { _id: null, total: { $sum: "$totalAmount" } } },
@@ -484,8 +497,8 @@ export class AnalyticsService {
         {
           $match: {
             tenantId: tenantKey,
-            status: "delivered",
-            confirmedAt: { $gte: from, $lte: to },
+            status: { $nin: ["draft", "cancelled", "refunded"] },
+            createdAt: { $gte: from, $lte: to },
           },
         },
         { $unwind: "$items" },
@@ -653,8 +666,8 @@ export class AnalyticsService {
           {
             $match: {
               tenantId: tenantKey,
-              status: "delivered",
-              confirmedAt: { $gte: from, $lte: to },
+              status: { $nin: ["draft", "cancelled", "refunded"] },
+              createdAt: { $gte: from, $lte: to },
             },
           },
           { $unwind: "$items" },
@@ -778,14 +791,14 @@ export class AnalyticsService {
         {
           $match: {
             tenantId: tenantKey,
-            status: "delivered",
-            confirmedAt: { $gte: from, $lte: to },
+            status: { $nin: ["draft", "cancelled", "refunded"] },
+            createdAt: { $gte: from, $lte: to },
           },
         },
         {
           $group: {
             _id: {
-              $dateToString: { format, date: "$confirmedAt", timezone: "UTC" },
+              $dateToString: { format, date: "$createdAt", timezone: "UTC" },
             },
             total: { $sum: "$totalAmount" },
           },
@@ -851,14 +864,14 @@ export class AnalyticsService {
         {
           $match: {
             tenantId: tenantKey,
-            status: "delivered",
+            status: { $nin: ["draft", "cancelled", "refunded"] },
           },
         },
         {
           $group: {
             _id: "$customerId",
             customerName: { $last: "$customerName" },
-            lastPurchase: { $max: "$confirmedAt" },
+            lastPurchase: { $max: "$createdAt" },
             frequency: { $sum: 1 },
             monetary: { $sum: "$totalAmount" },
           },
