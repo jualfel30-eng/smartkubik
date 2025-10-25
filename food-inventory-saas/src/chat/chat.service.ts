@@ -28,9 +28,17 @@ import {
 } from "../lib/whapi-sdk/whapi-sdk-typescript-fetch";
 import { AssistantService } from "../modules/assistant/assistant.service";
 
+interface QueuedMessage {
+  tenant: TenantDocument;
+  conversation: ConversationDocument;
+  content: string;
+}
+
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
+  private readonly messageQueues = new Map<string, QueuedMessage[]>();
+  private readonly processingQueues = new Map<string, boolean>();
 
   constructor(
     @InjectModel(Conversation.name)
@@ -245,7 +253,8 @@ export class ChatService {
 
           this.chatGateway.emitNewMessage(tenantId, savedMessage);
 
-          await this.maybeRespondWithAssistant(tenant, conversation, content);
+          // Queue the message for processing instead of blocking
+          this.enqueueMessage(tenant, conversation, content);
         }
       }
     }
@@ -358,6 +367,76 @@ export class ChatService {
         `Assistant auto-reply failed for tenant ${tenant.id}: ${error.message}`,
         error.stack,
       );
+    }
+  }
+
+  /**
+   * Adds a message to the conversation queue for async processing.
+   * Each conversation has its own queue to maintain message order and context.
+   */
+  private enqueueMessage(
+    tenant: TenantDocument,
+    conversation: ConversationDocument,
+    content: string,
+  ): void {
+    const queueKey = `${tenant.id}:${conversation.customerPhoneNumber}`;
+
+    if (!this.messageQueues.has(queueKey)) {
+      this.messageQueues.set(queueKey, []);
+    }
+
+    const queue = this.messageQueues.get(queueKey)!;
+    queue.push({ tenant, conversation, content });
+
+    this.logger.log(
+      `📨 Message enqueued for ${conversation.customerPhoneNumber}. Queue size: ${queue.length}`,
+    );
+
+    // Start processing if not already processing
+    if (!this.processingQueues.get(queueKey)) {
+      this.processQueue(queueKey).catch((err) => {
+        this.logger.error(
+          `Error processing queue for ${queueKey}: ${err.message}`,
+          err.stack,
+        );
+      });
+    }
+  }
+
+  /**
+   * Processes messages in a conversation queue sequentially.
+   * This ensures messages are handled in order and context is preserved.
+   */
+  private async processQueue(queueKey: string): Promise<void> {
+    this.processingQueues.set(queueKey, true);
+
+    try {
+      while (true) {
+        const queue = this.messageQueues.get(queueKey);
+        if (!queue || queue.length === 0) {
+          break;
+        }
+
+        const message = queue.shift()!;
+        this.logger.log(
+          `⚙️ Processing message for ${message.conversation.customerPhoneNumber}. Remaining in queue: ${queue.length}`,
+        );
+
+        await this.maybeRespondWithAssistant(
+          message.tenant,
+          message.conversation,
+          message.content,
+        );
+      }
+    } finally {
+      this.processingQueues.set(queueKey, false);
+
+      // Clean up empty queues
+      const queue = this.messageQueues.get(queueKey);
+      if (queue && queue.length === 0) {
+        this.messageQueues.delete(queueKey);
+        this.processingQueues.delete(queueKey);
+      }
     }
   }
 

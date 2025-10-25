@@ -154,7 +154,7 @@ export class OpenaiService {
     if (!this.chatModelCache || now - this.chatModelFetchedAt > 5 * 60 * 1000) {
       const setting =
         await this.superAdminService.getSetting("OPENAI_CHAT_MODEL");
-      this.chatModelCache = setting?.value?.trim() || "gpt-4o-mini";
+      this.chatModelCache = setting?.value?.trim() || "gpt-4o";
       this.chatModelFetchedAt = now;
     }
 

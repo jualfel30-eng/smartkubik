@@ -109,6 +109,44 @@ const INVENTORY_STOPWORDS = new Set([
   "cuenta",
   "cuanto",
   "cuánto",
+  "tienes",
+  "tiene",
+  "tener",
+  "venden",
+  "vendes",
+  "vende",
+  "manejas",
+  "maneja",
+  "manejan",
+  "trabajan",
+  "trabaja",
+  "trabajas",
+  "me",
+  "te",
+  "le",
+  "nos",
+  "les",
+  "se",
+  "si",
+  "sí",
+  "no",
+  "o",
+  "y",
+  "pero",
+  "como",
+  "cómo",
+  "que",
+  "qué",
+  "cual",
+  "cuál",
+  "ese",
+  "esa",
+  "esos",
+  "esas",
+  "este",
+  "esta",
+  "estos",
+  "estas",
 ]);
 
 @Injectable()
@@ -363,13 +401,19 @@ export class AssistantService {
       "Solo puedes utilizar información verificada: fragmentos del contexto proporcionado y resultados de las herramientas autorizadas.",
       "Si la información disponible no es concluyente, indica claramente que no puedes confirmarla.",
       "Incluye detalles numéricos (cantidades, montos, horarios) solo cuando los hayas verificado.",
+      "IMPORTANTE - CONTEXTO: Cuando el usuario haga referencias implícitas como 'cada uno', 'estos', 'esos', 'las diferencias', etc., usa el contexto de la conversación actual y los productos mencionados recientemente para entender a qué se refiere. Por ejemplo, si acabas de mostrar dos productos (ej: Beef Tallow Facial y Beef Tallow Corporal) y el usuario pregunta 'para qué sirve cada uno?', debes responder explicando el uso específico de cada producto mencionado.",
     ];
 
     if (capabilities.inventoryLookup) {
       instructions.push(
         "Cuando el usuario pregunte por disponibilidad, existencias, costos o alertas de un producto, DEBES llamar a la herramienta `get_inventory_status` antes de responder para confirmar la información.",
         "IMPORTANTE: Al mencionar productos del inventario, SIEMPRE incluye la marca si está disponible, junto con el nombre del producto. Ejemplo: 'Miel Savage' en lugar de solo 'Miel'. La marca es información valiosa para los clientes.",
+        "La herramienta de búsqueda es muy flexible y busca en TODOS los campos: nombre, marca, categoría, subcategoría, descripción, ingredientes, SKU y variantes. Por ejemplo, si el usuario pregunta 'tienes cebo de res?', puedes buscar 'cebo res' y el sistema encontrará productos que contengan estas palabras en cualquiera de sus campos.",
+        "Cuando un usuario use términos coloquiales, genéricos o en diferentes idiomas (ej. 'beef tallow', 'cebo', 'sebo'), usa esos mismos términos en la búsqueda. El sistema es inteligente y encontrará coincidencias parciales en nombres, ingredientes, descripciones, marcas y categorías.",
+        "Si la primera búsqueda no encuentra resultados, intenta con sinónimos o términos relacionados. Por ejemplo, si 'cebo de res' no da resultados, prueba con 'beef tallow', 'grasa de res', 'sebo', etc.",
         "Si necesitas confirmar variantes específicas (ej. talla, color, serial, ancho, edición), pasa esos criterios en el campo `attributes` de la herramienta `get_inventory_status` usando pares clave-valor como `{ \"size\": \"38\", \"color\": \"azul\" }`.",
+        "REGLA CRÍTICA - INFORMACIÓN CONFIDENCIAL: NUNCA menciones el 'averageCost' (costo promedio) ni 'lastPurchaseCost' (costo de compra) del producto. Esta información es estrictamente interna y NO debe revelarse al cliente bajo ninguna circunstancia. Solo puedes mencionar el 'sellingPrice' (precio de venta).",
+        "REGLA CRÍTICA - CANTIDADES: NO menciones cantidades disponibles específicas EXCEPTO cuando haya menos de 10 unidades disponibles. En ese caso, menciona la escasez para crear urgencia (ejemplo: 'Solo quedan 3 unidades disponibles'). Si hay 10 o más unidades, simplemente di que 'está disponible' o 'tenemos disponibilidad' sin mencionar números exactos.",
       );
     }
     if (capabilities.schedulingLookup) {
@@ -392,14 +436,14 @@ export class AssistantService {
         function: {
           name: "get_inventory_status",
           description:
-            "Obtiene un resumen del inventario actual de un producto del tenant, incluyendo cantidades disponibles, reservadas y costos.",
+            "Busca productos en el inventario y obtiene su disponibilidad actual. Esta herramienta busca coincidencias en TODOS los campos del producto: nombre, SKU, descripción, ingredientes, marca, categoría, subcategoría y variantes. Por ejemplo, si el usuario pregunta por 'cebo de res', buscará en todos estos campos para encontrar productos que contengan esas palabras. Retorna cantidades disponibles, reservadas, costos y alertas.",
           parameters: {
             type: "object",
             properties: {
               productQuery: {
                 type: "string",
                 description:
-                  "Nombre, SKU o palabra clave del producto a consultar.",
+                  "Término de búsqueda que puede ser: nombre del producto, SKU, marca, categoría, subcategoría, ingrediente, o cualquier palabra clave relacionada. La búsqueda es flexible y buscará coincidencias en todos los campos del producto.",
               },
               limit: {
                 type: "integer",
@@ -595,16 +639,32 @@ export class AssistantService {
     }
 
     const lowered = normalizedQuestion.toLowerCase();
-    const pattern =
-      /(?:de|del|para|sobre)\s+([a-z0-9\s\-_.]+?)(?:\s+(?:hay|quedan|disponibles|tienen|tenemos|existen)|$)/gi;
-    let match: RegExpExecArray | null;
-    while ((match = pattern.exec(lowered))) {
-      const term = match[1]?.trim();
-      if (term?.length) {
-        candidates.push(this.normalizeInventoryTerm(term));
+
+    // Patrones para extraer el producto de diferentes tipos de preguntas
+    const patterns = [
+      // "tienes cebo de res?" -> "cebo de res"
+      /(?:tienes|tiene|tienen|venden|vendes|vende|manejan|manejas|maneja)\s+([a-záéíóúüñ0-9\s\-_.]+?)(?:\?|$)/gi,
+      // "hay cebo de res?" -> "cebo de res"
+      /(?:hay|existe|existen|quedan)\s+([a-záéíóúüñ0-9\s\-_.]+?)(?:\?|$)/gi,
+      // "cuánto cuesta el cebo de res?" -> "cebo de res"
+      /(?:cuesta|cuestan|vale|valen|precio\s+de|precio\s+del)\s+(?:el|la|los|las)?\s*([a-záéíóúüñ0-9\s\-_.]+?)(?:\?|$)/gi,
+      // "disponibilidad de cebo de res" -> "cebo de res"
+      /(?:disponibilidad\s+de|stock\s+de|inventario\s+de)\s+([a-záéíóúüñ0-9\s\-_.]+?)(?:\?|$)/gi,
+      // Patrones tradicionales
+      /(?:de|del|para|sobre)\s+([a-záéíóúüñ0-9\s\-_.]+?)(?:\s+(?:hay|quedan|disponibles|tienen|tenemos|existen)|$)/gi,
+    ];
+
+    for (const pattern of patterns) {
+      let match: RegExpExecArray | null;
+      while ((match = pattern.exec(lowered))) {
+        const term = match[1]?.trim();
+        if (term && term.length > 1) {
+          candidates.push(this.normalizeInventoryTerm(term));
+        }
       }
     }
 
+    // Filtrar tokens para obtener solo las palabras significativas
     const tokens = lowered
       .split(/\s+/)
       .map((token) => token.trim())
@@ -617,8 +677,17 @@ export class AssistantService {
       );
 
     if (tokens.length) {
-      const lastTokens = tokens.slice(-3).join(" ");
-      candidates.push(this.normalizeInventoryTerm(lastTokens));
+      // Agregar últimos 2-4 tokens significativos
+      if (tokens.length >= 2) {
+        candidates.push(this.normalizeInventoryTerm(tokens.slice(-2).join(" ")));
+      }
+      if (tokens.length >= 3) {
+        candidates.push(this.normalizeInventoryTerm(tokens.slice(-3).join(" ")));
+      }
+      if (tokens.length >= 4) {
+        candidates.push(this.normalizeInventoryTerm(tokens.slice(-4).join(" ")));
+      }
+      // Todos los tokens significativos juntos
       candidates.push(this.normalizeInventoryTerm(tokens.join(" ")));
     }
 

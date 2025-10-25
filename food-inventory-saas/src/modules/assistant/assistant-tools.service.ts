@@ -120,8 +120,13 @@ export class AssistantToolsService {
           { sku: regex },
           { tags: regex },
           { description: regex },
+          { ingredients: regex },
+          { brand: regex },
+          { category: regex },
+          { subcategory: regex },
           { "variants.sku": regex },
           { "variants.name": regex },
+          { "variants.description": regex },
         ],
       })
       .limit(limit * 3)
