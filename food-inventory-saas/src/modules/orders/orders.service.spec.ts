@@ -119,6 +119,7 @@ describe("OrdersService - Employee Assignment", () => {
       deliveryService as any,
       {} as any, // exchangeRateService
       shiftsService as any,
+      {} as any, // discountService
       {} as any, // connection
     );
 
