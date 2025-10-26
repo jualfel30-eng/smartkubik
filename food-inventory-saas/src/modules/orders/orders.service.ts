@@ -33,6 +33,7 @@ import { UnitConversionUtil } from "../../utils/unit-conversion.util";
 import { ShiftsService } from "../shifts/shifts.service";
 import { FEATURES } from "../../config/features.config";
 import { getVerticalProfile } from "../../config/vertical-profiles";
+import { DiscountService } from "./services/discount.service";
 
 @Injectable()
 export class OrdersService {
@@ -51,6 +52,7 @@ export class OrdersService {
     private readonly deliveryService: DeliveryService,
     private readonly exchangeRateService: ExchangeRateService,
     private readonly shiftsService: ShiftsService,
+    private readonly discountService: DiscountService,
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
@@ -155,57 +157,51 @@ export class OrdersService {
 
       const variant = this.resolveVariant(product, itemDto);
 
-      let unitPrice: number;
+      let originalUnitPrice: number;
       let costPrice: number;
       let conversionFactor = 1;
       let quantityInBaseUnit = itemDto.quantity;
       let selectedUnit: string | undefined;
 
-      // ======== MULTI-UNIT LOGIC ========
-      // Si el producto tiene múltiples unidades de venta Y se seleccionó una unidad
+      // ======== MULTI-UNIT LOGIC / GET ORIGINAL PRICE ========
       if (
         product.hasMultipleSellingUnits &&
         itemDto.selectedUnit &&
         product.sellingUnits?.length > 0
       ) {
-        this.logger.log(
-          `Processing multi-unit product: ${product.name}, unit: ${itemDto.selectedUnit}`,
-        );
-
-        // Validar y obtener la unidad de venta
         const sellingUnit = UnitConversionUtil.validateQuantityAndUnit(
           itemDto.quantity,
           itemDto.selectedUnit,
           product.sellingUnits,
         );
-
-        // Usar precio y costo de la unidad seleccionada (NO del variant)
-        unitPrice = sellingUnit.pricePerUnit;
+        originalUnitPrice = sellingUnit.pricePerUnit;
         costPrice = sellingUnit.costPerUnit;
         conversionFactor = sellingUnit.conversionFactor;
         selectedUnit = sellingUnit.abbreviation;
-
-        // Convertir cantidad a unidad base para descuento de inventario
         quantityInBaseUnit = UnitConversionUtil.convertToBaseUnit(
           itemDto.quantity,
           sellingUnit,
         );
-
-        this.logger.log(
-          `Multi-unit conversion: ${itemDto.quantity} ${selectedUnit} = ${quantityInBaseUnit} ${product.unitOfMeasure} (base unit)`,
-        );
       } else {
-        // Lógica tradicional: usar precio de la variante
-        unitPrice = variant?.basePrice ?? 0;
+        originalUnitPrice = variant?.basePrice ?? 0;
         costPrice = variant?.costPrice ?? 0;
         selectedUnit = undefined;
       }
 
-      // Calcular precio total con precisión decimal
+      // ======== DISCOUNT CALCULATION ========
+      const discountResult = await this.discountService.calculateBestDiscount(
+        product._id.toString(),
+        itemDto.quantity,
+        originalUnitPrice,
+      );
+
+      const finalUnitPrice = discountResult.discountedPrice;
       const totalPrice = UnitConversionUtil.calculateTotalPrice(
         itemDto.quantity,
-        unitPrice,
+        finalUnitPrice,
       );
+      const totalDiscountAmount =
+        (originalUnitPrice - finalUnitPrice) * itemDto.quantity;
 
       const ivaAmount = product.ivaApplicable ? totalPrice * 0.16 : 0;
 
@@ -216,7 +212,7 @@ export class OrdersService {
       );
       const attributeSummary = this.buildAttributeSummary(attributesSnapshot);
 
-      // Crear OrderItem con toda la información de unidades
+      // Crear OrderItem con toda la información de unidades y descuentos
       detailedItems.push({
         productId: product._id,
         productSku: product.sku,
@@ -227,12 +223,19 @@ export class OrdersService {
         selectedUnit,
         conversionFactor: selectedUnit ? conversionFactor : undefined,
         quantityInBaseUnit: selectedUnit ? quantityInBaseUnit : undefined,
-        unitPrice,
+        unitPrice: originalUnitPrice,
         costPrice,
         totalPrice,
         ivaAmount,
         igtfAmount: 0,
-        finalPrice: 0,
+        finalPrice: finalUnitPrice,
+        discountPercentage: discountResult.discountPercentage,
+        discountAmount: totalDiscountAmount,
+        discountReason: discountResult.applied
+          ? discountResult.rule
+            ? "bulk"
+            : "promotion"
+          : undefined,
         status: "pending",
         attributes:
           Object.keys(attributesSnapshot).length > 0
@@ -468,9 +471,9 @@ export class OrdersService {
         );
       }
 
-      let unitPrice: number;
+      let originalUnitPrice: number;
 
-      // ======== MULTI-UNIT LOGIC para cálculos ========
+      // ======== MULTI-UNIT LOGIC / GET ORIGINAL PRICE ========
       if (
         product.hasMultipleSellingUnits &&
         itemDto.selectedUnit &&
@@ -481,15 +484,23 @@ export class OrdersService {
           itemDto.selectedUnit,
           product.sellingUnits,
         );
-        unitPrice = sellingUnit.pricePerUnit;
+        originalUnitPrice = sellingUnit.pricePerUnit;
       } else {
         const variant = this.resolveVariant(product, itemDto);
-        unitPrice = variant?.basePrice ?? 0;
+        originalUnitPrice = variant?.basePrice ?? 0;
       }
 
+      // ======== DISCOUNT CALCULATION ========
+      const discountResult = await this.discountService.calculateBestDiscount(
+        product._id.toString(),
+        itemDto.quantity,
+        originalUnitPrice,
+      );
+
+      const finalUnitPrice = discountResult.discountedPrice;
       const totalPrice = UnitConversionUtil.calculateTotalPrice(
         itemDto.quantity,
-        unitPrice,
+        finalUnitPrice,
       );
 
       const ivaAmount = product.ivaApplicable ? totalPrice * 0.16 : 0;

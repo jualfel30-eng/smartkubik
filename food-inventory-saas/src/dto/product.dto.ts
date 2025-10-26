@@ -502,6 +502,24 @@ export class UpdateProductDto {
   @ValidateNested({ each: true })
   @Type(() => CreateProductVariantDto)
   variants?: CreateProductVariantDto[];
+
+  @ApiPropertyOptional({ description: "Tiene una promoción activa" })
+  @IsOptional()
+  @IsBoolean()
+  hasActivePromotion?: boolean;
+
+  @ApiPropertyOptional({ description: "Detalles de la promoción" })
+  @IsOptional()
+  @IsObject()
+  promotion?: {
+    discountPercentage: number;
+    reason: string;
+    startDate: Date;
+    endDate: Date;
+    durationDays?: number;
+    isActive: boolean;
+    autoDeactivate: boolean;
+  };
 }
 
 export class ProductQueryDto {

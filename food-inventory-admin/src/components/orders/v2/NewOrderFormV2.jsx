@@ -452,6 +452,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
       defaultUnit,
       baseUnitPrice,
       initialQuantity,
+      promotionInfo,
     } = config;
 
     const finalUnitPrice = baseUnitPrice + priceAdjustment;
@@ -475,6 +476,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
         hasMultipleSellingUnits: hasMultiUnit,
         sellingUnits: hasMultiUnit ? product.sellingUnits : null,
         selectedUnit: hasMultiUnit ? defaultUnit?.abbreviation : null,
+        promotionInfo: promotionInfo || null,
       };
 
       const items = [...prev.items];
@@ -511,8 +513,28 @@ export function NewOrderFormV2({ onOrderCreated }) {
     }
     const hasMultiUnit = product.hasMultipleSellingUnits && product.sellingUnits?.length > 0;
     const defaultUnit = hasMultiUnit ? product.sellingUnits.find(u => u.isDefault) || product.sellingUnits[0] : null;
-    const baseUnitPrice = hasMultiUnit ? (defaultUnit?.pricePerUnit || 0) : (variant.basePrice || 0);
+    let baseUnitPrice = hasMultiUnit ? (defaultUnit?.pricePerUnit || 0) : (variant.basePrice || 0);
     const initialQuantity = hasMultiUnit ? (defaultUnit?.minimumQuantity || 1) : 1;
+
+    // Apply promotional discount if active
+    let promotionInfo = null;
+    if (product.hasActivePromotion && product.promotion?.isActive) {
+      const now = new Date();
+      const startDate = new Date(product.promotion.startDate);
+      const endDate = new Date(product.promotion.endDate);
+
+      // Check if promotion is currently valid
+      if (now >= startDate && now <= endDate) {
+        const discountPercentage = product.promotion.discountPercentage || 0;
+        const discountedPrice = baseUnitPrice * (1 - discountPercentage / 100);
+        promotionInfo = {
+          originalPrice: baseUnitPrice,
+          discountPercentage,
+          reason: product.promotion.reason,
+        };
+        baseUnitPrice = discountedPrice;
+      }
+    }
 
     const config = {
       product,
@@ -521,6 +543,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
       defaultUnit,
       baseUnitPrice,
       initialQuantity,
+      promotionInfo,
     };
 
     setPendingProductConfig(config);
@@ -1087,11 +1110,29 @@ export function NewOrderFormV2({ onOrderCreated }) {
                       )}
                     </TableCell>
                     <TableCell>
-                      ${getItemFinalUnitPrice(item).toFixed(2)}
-                      {item.modifiers && item.modifiers.length > 0 && (
-                        <div className="text-xs text-muted-foreground">
-                          Base: ${(Number(item.unitPrice) || 0).toFixed(2)}
+                      {item.promotionInfo ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm line-through text-muted-foreground">
+                              ${item.promotionInfo.originalPrice.toFixed(2)}
+                            </span>
+                            <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+                              ${getItemFinalUnitPrice(item).toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="text-xs text-green-600 dark:text-green-400">
+                            🎉 -{item.promotionInfo.discountPercentage}% descuento
+                          </div>
                         </div>
+                      ) : (
+                        <>
+                          ${getItemFinalUnitPrice(item).toFixed(2)}
+                          {item.modifiers && item.modifiers.length > 0 && (
+                            <div className="text-xs text-muted-foreground">
+                              Base: ${(Number(item.unitPrice) || 0).toFixed(2)}
+                            </div>
+                          )}
+                        </>
                       )}
                     </TableCell>
                     <TableCell>

@@ -155,6 +155,9 @@ export class DiscountService {
       const startDate = new Date(product.promotion.startDate);
       const endDate = new Date(product.promotion.endDate);
 
+      // Set end date to end of day to be inclusive
+      endDate.setHours(23, 59, 59, 999);
+
       if (now < startDate || now > endDate) {
         return {
           applied: false,
