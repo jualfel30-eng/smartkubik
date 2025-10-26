@@ -261,6 +261,22 @@ export class Customer {
 
   @Prop({ type: Date })
   anniversaryDate?: Date;
+
+  // WhatsApp integration fields
+  @Prop({ type: String })
+  whatsappNumber?: string; // WhatsApp phone number (from "from" field)
+
+  @Prop({ type: String })
+  whatsappChatId?: string; // WhatsApp chat ID (from "chat_id" field)
+
+  @Prop({ type: String })
+  whatsappName?: string; // WhatsApp public name (from "from_name" field)
+
+  @Prop({ type: Boolean, default: false })
+  isWhatsappCustomer: boolean; // Indicates if customer was created via WhatsApp
+
+  @Prop({ type: Date })
+  lastWhatsappInteraction?: Date; // Last time customer interacted via WhatsApp
 }
 
 export const CustomerSchema = SchemaFactory.createForClass(Customer);
@@ -277,6 +293,11 @@ CustomerSchema.index({ "metrics.lastOrderDate": -1, tenantId: 1 });
 CustomerSchema.index({ "metrics.totalSpent": -1, tenantId: 1 });
 CustomerSchema.index({ assignedTo: 1, tenantId: 1 });
 CustomerSchema.index({ nextFollowUpDate: 1, tenantId: 1 });
+
+// WhatsApp indexes
+CustomerSchema.index({ whatsappNumber: 1, tenantId: 1 });
+CustomerSchema.index({ whatsappChatId: 1, tenantId: 1 });
+CustomerSchema.index({ isWhatsappCustomer: 1, tenantId: 1 });
 
 // Índice de texto para búsqueda
 CustomerSchema.index({

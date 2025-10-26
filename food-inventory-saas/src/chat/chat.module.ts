@@ -12,6 +12,7 @@ import { WhapiSignatureGuard } from "./guards/whapi-signature.guard";
 
 import { SuperAdminModule } from "../modules/super-admin/super-admin.module";
 import { AssistantModule } from "../modules/assistant/assistant.module";
+import { WhapiModule } from "../modules/whapi/whapi.module";
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { AssistantModule } from "../modules/assistant/assistant.module";
     ]),
     SuperAdminModule,
     AssistantModule,
+    WhapiModule,
   ],
   providers: [ChatService, ChatGateway, WhapiSignatureGuard],
   controllers: [ChatController],

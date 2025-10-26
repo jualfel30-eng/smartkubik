@@ -38,6 +38,11 @@ interface AssistantQuestionParams {
   topK?: number;
   knowledgeBaseTenantId?: string;
   aiSettings?: AssistantSettings;
+  conversationHistory?: Array<{
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp?: Date;
+  }>;
 }
 
 interface ContextHit {
@@ -53,6 +58,11 @@ interface AgentRunOptions {
   contextBlock: string;
   tools: ChatCompletionTool[];
   preferredModel?: string;
+  conversationHistory?: Array<{
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp?: Date;
+  }>;
 }
 
 interface AgentRunResult {
@@ -168,6 +178,7 @@ export class AssistantService {
       topK = 5,
       knowledgeBaseTenantId,
       aiSettings,
+      conversationHistory = [],
     } = params;
 
     // Convertir tenantId a string si es ObjectId
@@ -272,6 +283,7 @@ export class AssistantService {
       contextBlock,
       tools: toolDefinitions,
       preferredModel: aiSettings?.model,
+      conversationHistory,
     });
 
     const answer = agentResult.answer?.trim();
@@ -402,6 +414,10 @@ export class AssistantService {
       "Si la información disponible no es concluyente, indica claramente que no puedes confirmarla.",
       "Incluye detalles numéricos (cantidades, montos, horarios) solo cuando los hayas verificado.",
       "IMPORTANTE - CONTEXTO: Cuando el usuario haga referencias implícitas como 'cada uno', 'estos', 'esos', 'las diferencias', etc., usa el contexto de la conversación actual y los productos mencionados recientemente para entender a qué se refiere. Por ejemplo, si acabas de mostrar dos productos (ej: Beef Tallow Facial y Beef Tallow Corporal) y el usuario pregunta 'para qué sirve cada uno?', debes responder explicando el uso específico de cada producto mencionado.",
+      "📱 CLIENTES POR WHATSAPP: Muchos clientes interactúan contigo a través de WhatsApp. Cuando un cliente te escribe por primera vez, automáticamente se crea un perfil básico con su nombre y número. Sin embargo, para completar una orden de venta, necesitas información adicional.",
+      "📋 DATOS REQUERIDOS PARA ÓRDENES: Antes de crear una orden de venta, DEBES solicitar y confirmar los siguientes datos del cliente si no los tiene registrados: (1) Cédula o documento de identidad, (2) Método de pago preferido (efectivo, transferencia, tarjeta, etc.), (3) Dirección de entrega completa (si es delivery). Si el cliente ya tiene estos datos en su perfil, puedes proceder directamente.",
+      "📍 UBICACIÓN PARA DELIVERY: Si el cliente quiere delivery, pídele que comparta su ubicación por WhatsApp. Esto es más preciso que escribir la dirección manualmente. Puedes decir: 'Para asegurar una entrega rápida, ¿podrías compartirme tu ubicación por WhatsApp?'. Una vez compartida, se guardará automáticamente.",
+      "💡 RECOPILACIÓN AMIGABLE: Solicita los datos faltantes de forma natural y amigable. Por ejemplo: 'Perfecto! Para completar tu pedido necesito algunos datos: ¿Me podrías indicar tu número de cédula y tu método de pago preferido (efectivo, transferencia, etc.)?'. No pidas todos los datos de golpe si el cliente está haciendo múltiples preguntas; espera el momento apropiado cuando muestre intención de compra.",
     ];
 
     if (capabilities.inventoryLookup) {
@@ -411,9 +427,16 @@ export class AssistantService {
         "La herramienta de búsqueda es muy flexible y busca en TODOS los campos: nombre, marca, categoría, subcategoría, descripción, ingredientes, SKU y variantes. Por ejemplo, si el usuario pregunta 'tienes cebo de res?', puedes buscar 'cebo res' y el sistema encontrará productos que contengan estas palabras en cualquiera de sus campos.",
         "Cuando un usuario use términos coloquiales, genéricos o en diferentes idiomas (ej. 'beef tallow', 'cebo', 'sebo'), usa esos mismos términos en la búsqueda. El sistema es inteligente y encontrará coincidencias parciales en nombres, ingredientes, descripciones, marcas y categorías.",
         "Si la primera búsqueda no encuentra resultados, intenta con sinónimos o términos relacionados. Por ejemplo, si 'cebo de res' no da resultados, prueba con 'beef tallow', 'grasa de res', 'sebo', etc.",
+        "🔍 ANÁLISIS OBLIGATORIO DE DESCRIPCIONES: Cuando recibas múltiples productos de la herramienta, DEBES leer el campo 'description' de CADA UNO antes de responder. El nombre puede ser similar pero la descripción revela el uso específico. NUNCA digas 'no tenemos' sin antes leer todas las descripciones.",
+        "🎯 EJEMPLO REAL - DIFERENCIACIÓN: Usuario: 'quiero beef tallow corporal' → Llamas get_inventory_status('beef tallow') → Recibes: [A: {productName: 'Beef Tallow Facial', description: 'Hidratante facial'}, B: {productName: 'Beef Tallow', description: 'Bálsamo corporal de uso tópico'}] → Respuesta CORRECTA: 'Tenemos Beef Tallow Savage a $X para uso corporal' (Producto B) → Respuesta INCORRECTA: 'No tenemos beef tallow corporal' (ignoraste la descripción del producto B).",
+        "📋 PROCESO PASO A PASO: (1) Usuario especifica uso/característica (facial, corporal, sin fragancia, etc.), (2) Llamas herramienta con término general (ej: 'beef tallow'), (3) Recibes lista de productos, (4) Lees campo 'description' de CADA producto, (5) Identificas cuál coincide con lo pedido, (6) Mencionas SOLO ese producto. Si ninguno coincide, ofreces las alternativas.",
+        "🚫 REGLA CRÍTICA: Antes de decir 'no tenemos X' verifica que NINGUNA descripción de los productos devueltos mencione X. Si encuentras X en alguna descripción, ESE es el producto que el usuario quiere, sin importar si el nombre del producto no lo menciona explícitamente.",
         "Si necesitas confirmar variantes específicas (ej. talla, color, serial, ancho, edición), pasa esos criterios en el campo `attributes` de la herramienta `get_inventory_status` usando pares clave-valor como `{ \"size\": \"38\", \"color\": \"azul\" }`.",
         "REGLA CRÍTICA - INFORMACIÓN CONFIDENCIAL: NUNCA menciones el 'averageCost' (costo promedio) ni 'lastPurchaseCost' (costo de compra) del producto. Esta información es estrictamente interna y NO debe revelarse al cliente bajo ninguna circunstancia. Solo puedes mencionar el 'sellingPrice' (precio de venta).",
         "REGLA CRÍTICA - CANTIDADES: NO menciones cantidades disponibles específicas EXCEPTO cuando haya menos de 10 unidades disponibles. En ese caso, menciona la escasez para crear urgencia (ejemplo: 'Solo quedan 3 unidades disponibles'). Si hay 10 o más unidades, simplemente di que 'está disponible' o 'tenemos disponibilidad' sin mencionar números exactos.",
+        "🎉 PROMOCIONES Y OFERTAS: La herramienta `get_inventory_status` incluye un campo 'relatedPromotions' que contiene productos en oferta de la misma categoría o marca que el producto buscado. DEBES revisar este campo y mencionar proactivamente las ofertas disponibles al cliente.",
+        "Cuando encuentres productos en promoción en 'relatedPromotions', SIEMPRE menciónalos de forma atractiva: (1) Di el nombre y marca del producto en oferta, (2) Muestra el precio original tachado y el nuevo precio, (3) Menciona el porcentaje de descuento, (4) Indica que es por tiempo limitado. Ejemplo: '¡También tenemos Ajo Savage en oferta! $18 ahora a solo $16.20 (-10% de descuento) por tiempo limitado. ¿Te interesa?'",
+        "Si el producto consultado tiene un campo 'promotion' con información de descuento activo, SIEMPRE muestra ambos precios (original y con descuento) y menciona el porcentaje de ahorro.",
       );
     }
     if (capabilities.schedulingLookup) {
@@ -714,15 +737,27 @@ export class AssistantService {
       contextBlock,
       tools,
       preferredModel,
+      conversationHistory = [],
     } = options;
 
+    // Build messages array with conversation history
     const messages: ChatCompletionMessageParam[] = [
       { role: "system", content: systemPrompt },
-      {
-        role: "user",
-        content: `Pregunta original: ${question}\n\nContexto documental disponible:\n${contextBlock}`,
-      },
     ];
+
+    // Add conversation history from current session
+    for (const historyMsg of conversationHistory) {
+      messages.push({
+        role: historyMsg.role,
+        content: historyMsg.content,
+      });
+    }
+
+    // Add current question with context
+    messages.push({
+      role: "user",
+      content: `Pregunta original: ${question}\n\nContexto documental disponible:\n${contextBlock}`,
+    });
 
     const maxIterations = 4;
     let usedTools = false;

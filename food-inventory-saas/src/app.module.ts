@@ -53,6 +53,7 @@ import { VectorDbModule } from "./modules/vector-db/vector-db.module";
 import { KnowledgeBaseModule } from "./modules/knowledge-base/knowledge-base.module";
 import { AssistantModule } from "./modules/assistant/assistant.module";
 import { BankReconciliationModule } from "./modules/bank-reconciliation/bank-reconciliation.module";
+import { WhapiModule } from "./modules/whapi/whapi.module";
 import { createWinstonLoggerOptions } from "./config/logger.config";
 
 @Module({
@@ -153,6 +154,7 @@ import { createWinstonLoggerOptions } from "./config/logger.config";
     VectorDbModule,
     KnowledgeBaseModule,
     AssistantModule,
+    WhapiModule,
   ],
   controllers: [AppController, TenantController],
   providers: [

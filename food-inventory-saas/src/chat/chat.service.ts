@@ -27,6 +27,7 @@ import {
   EventTypeEnum,
 } from "../lib/whapi-sdk/whapi-sdk-typescript-fetch";
 import { AssistantService } from "../modules/assistant/assistant.service";
+import { WhapiService } from "../modules/whapi/whapi.service";
 
 interface QueuedMessage {
   tenant: TenantDocument;
@@ -50,6 +51,7 @@ export class ChatService {
     private readonly configService: ConfigService,
     private readonly superAdminService: SuperAdminService,
     private readonly assistantService: AssistantService,
+    private readonly whapiService: WhapiService,
   ) {}
 
   async generateQrCode(tenantId: string): Promise<{ qrCode: string }> {
@@ -239,6 +241,26 @@ export class ChatService {
         if (msg.from && msg.text) {
           const customerPhoneNumber = msg.from;
           const content = msg.text.body;
+          const fromName = msg.from_name || msg.fromName;
+          const chatId = msg.chat_id || msg.chatId || msg.from;
+
+          // Auto-create or update customer in CRM
+          try {
+            await this.whapiService.findOrCreateWhatsAppCustomer(
+              customerPhoneNumber,
+              fromName,
+              chatId,
+              tenantId,
+            );
+            this.logger.log(
+              `✅ Customer auto-created/updated for ${customerPhoneNumber}`,
+            );
+          } catch (error) {
+            this.logger.error(
+              `Failed to auto-create customer: ${error.message}`,
+              error.stack,
+            );
+          }
 
           const conversation = await this.findOrCreateConversation(
             tenantId,
@@ -255,6 +277,31 @@ export class ChatService {
 
           // Queue the message for processing instead of blocking
           this.enqueueMessage(tenant, conversation, content);
+        }
+
+        // Handle location sharing
+        if (msg.type === 'location' && msg.location && msg.from) {
+          try {
+            const chatId = msg.chat_id || msg.chatId || msg.from;
+            const customer = await this.whapiService.getCustomerByWhatsAppNumber(
+              msg.from,
+              tenantId,
+            );
+
+            if (customer) {
+              await this.whapiService.processLocationShare(
+                customer._id.toString(),
+                msg.location,
+                tenantId,
+              );
+              this.logger.log(`📍 Location saved for customer ${customer._id}`);
+            }
+          } catch (error) {
+            this.logger.error(
+              `Failed to process location share: ${error.message}`,
+              error.stack,
+            );
+          }
         }
       }
     }
@@ -311,10 +358,58 @@ export class ChatService {
         })}`,
       );
 
+      // Get conversation history for CURRENT SESSION only
+      // A session starts when there's a gap of more than 30 minutes from previous message
+      const SESSION_TIMEOUT_MINUTES = 30;
+
+      // Get all recent messages
+      const allRecentMessages = await this.messageModel
+        .find({ conversationId: conversation._id })
+        .sort({ createdAt: -1 })
+        .limit(50) // Get last 50 to find session boundary
+        .exec();
+
+      // Find the start of current session (work backwards from most recent)
+      const currentSessionMessages: MessageDocument[] = [];
+      let lastMessageTime: Date | null = null;
+
+      for (const msg of allRecentMessages) {
+        if (lastMessageTime) {
+          const timeDiffMinutes = (lastMessageTime.getTime() - msg.createdAt.getTime()) / (1000 * 60);
+
+          // If gap is more than 30 minutes, this is a previous session - stop here
+          if (timeDiffMinutes > SESSION_TIMEOUT_MINUTES) {
+            this.logger.log(
+              `🔄 Session boundary detected: ${timeDiffMinutes.toFixed(1)} minutes gap`,
+            );
+            break;
+          }
+        }
+
+        currentSessionMessages.push(msg);
+        lastMessageTime = msg.createdAt;
+      }
+
+      // Format history as array of messages (reverse to get chronological order)
+      // Exclude the current message (most recent) from history
+      const history = currentSessionMessages
+        .slice(1) // Skip the first (most recent) message as it's the current one
+        .reverse()
+        .map((msg) => ({
+          role: (msg.sender === SenderType.CUSTOMER ? 'user' : 'assistant') as 'user' | 'assistant',
+          content: msg.content,
+          timestamp: msg.createdAt,
+        }));
+
+      this.logger.log(
+        `📜 Current session: ${currentSessionMessages.length} messages (${history.length} in history context)`,
+      );
+
       const assistantResponse = await this.assistantService.answerQuestion({
         tenantId: tenant.id,
         question: customerMessage,
         knowledgeBaseTenantId,
+        conversationHistory: history, // NEW: Pass conversation history
         aiSettings: {
           model: tenant.aiAssistant?.model,
           capabilities: capabilities,

@@ -214,8 +214,87 @@ export class AssistantToolsService {
       ok: true,
       query,
       matches,
+      relatedPromotions: await this.findRelatedPromotions(tenantId, matchedProducts),
       timestamp: new Date().toISOString(),
     };
+  }
+
+  private async findRelatedPromotions(
+    tenantId: string,
+    matchedProducts: any[],
+  ): Promise<any[]> {
+    if (!matchedProducts.length) return [];
+
+    const tenantObjectId = new Types.ObjectId(tenantId);
+    const now = new Date();
+
+    // Extract categories and brands from matched products
+    const categories = new Set<string>();
+    const brands = new Set<string>();
+    matchedProducts.forEach((product) => {
+      if (Array.isArray(product.category)) {
+        product.category.forEach((cat: string) => categories.add(cat));
+      }
+      if (product.brand) brands.add(product.brand);
+    });
+
+    // Find products with active promotions in same categories or brands
+    const promotionProducts = await this.productModel
+      .find({
+        tenantId: tenantObjectId,
+        hasActivePromotion: true,
+        'promotion.isActive': true,
+        'promotion.startDate': { $lte: now },
+        'promotion.endDate': { $gte: now },
+        $or: [
+          { category: { $in: Array.from(categories) } },
+          { brand: { $in: Array.from(brands) } },
+        ],
+      })
+      .limit(5)
+      .lean();
+
+    if (!promotionProducts.length) return [];
+
+    // Get inventory for promoted products
+    const productIds = promotionProducts.map((p) => p._id);
+    const inventories = await this.inventoryModel
+      .find({
+        tenantId: tenantObjectId,
+        productId: { $in: productIds },
+        isActive: { $ne: false },
+        availableQuantity: { $gt: 0 },
+      })
+      .lean();
+
+    const inventoryMap = new Map();
+    inventories.forEach((inv) => {
+      inventoryMap.set(inv.productId.toString(), inv);
+    });
+
+    // Build promotion info
+    return promotionProducts
+      .filter((product) => inventoryMap.has(product._id.toString()))
+      .map((product) => {
+        const inventory = inventoryMap.get(product._id.toString());
+        const variant = product.variants?.[0];
+        const basePrice = variant?.basePrice || 0;
+        const discountPercentage = product.promotion?.discountPercentage || 0;
+        const discountedPrice = basePrice * (1 - discountPercentage / 100);
+
+        return {
+          productId: product._id.toString(),
+          productName: product.name,
+          brand: product.brand,
+          category: product.category,
+          originalPrice: basePrice,
+          discountedPrice,
+          discountPercentage,
+          availableQuantity: inventory.availableQuantity,
+          reason: product.promotion?.reason,
+          endDate: product.promotion?.endDate,
+        };
+      });
   }
 
   private buildInventoryMatch(params: {
@@ -337,6 +416,29 @@ export class AssistantToolsService {
         return dateA - dateB;
       })[0];
 
+    // Check if product has active promotion
+    let promotionInfo: any = null;
+    if ((product as any).hasActivePromotion && (product as any).promotion?.isActive) {
+      const now = new Date();
+      const startDate = new Date((product as any).promotion.startDate);
+      const endDate = new Date((product as any).promotion.endDate);
+
+      if (now >= startDate && now <= endDate) {
+        const discountPercentage = (product as any).promotion.discountPercentage || 0;
+        const originalPrice = sellingPrice || 0;
+        const discountedPrice = originalPrice * (1 - discountPercentage / 100);
+
+        promotionInfo = {
+          discountPercentage,
+          originalPrice,
+          discountedPrice,
+          reason: (product as any).promotion.reason,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        };
+      }
+    }
+
     return {
       productId: product._id.toString(),
       productName: inventory.productName || (product as any).name,
@@ -357,9 +459,11 @@ export class AssistantToolsService {
       committedQuantity,
       totalQuantity,
       unit: selectedVariant?.unit || (product as any).unitOfMeasure,
-      sellingPrice,
+      sellingPrice: promotionInfo?.discountedPrice ?? sellingPrice,
+      originalPrice: promotionInfo?.originalPrice,
       averageCostPrice,
       lastCostPrice,
+      promotion: promotionInfo,
       alerts: (inventory as any).alerts,
       nextExpirationDate: nextExpiringLot?.expirationDate || null,
       nextExpiringQuantity: nextExpiringLot?.availableQuantity || null,
