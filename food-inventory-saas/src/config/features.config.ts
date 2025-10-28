@@ -33,6 +33,10 @@ export interface FeatureFlags {
 
   // Fase 1B: Login Multi-Tenant
   MULTI_TENANT_LOGIN: boolean;
+
+  // Servicios & Booking
+  SERVICE_BOOKING_PORTAL: boolean;
+  APPOINTMENT_REMINDERS: boolean;
 }
 
 /**
@@ -64,6 +68,12 @@ export const FEATURES: FeatureFlags = {
 
   // Fase 1B
   MULTI_TENANT_LOGIN: process.env.ENABLE_MULTI_TENANT_LOGIN === "true",
+
+  // Servicios & Booking
+  SERVICE_BOOKING_PORTAL:
+    process.env.ENABLE_SERVICE_BOOKING_PORTAL === "true",
+  APPOINTMENT_REMINDERS:
+    process.env.ENABLE_APPOINTMENT_REMINDERS === "true",
 };
 
 /**

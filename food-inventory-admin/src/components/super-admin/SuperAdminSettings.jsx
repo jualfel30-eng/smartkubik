@@ -10,32 +10,37 @@ const WHAPI_TOKEN_KEY = 'WHAPI_MASTER_TOKEN';
 const OPENAI_API_KEY = 'OPENAI_API_KEY';
 const PINECONE_API_KEY = 'PINECONE_API_KEY';
 const PINECONE_ENVIRONMENT = 'PINECONE_ENVIRONMENT';
+const REDIS_URL_KEY = 'REDIS_URL';
 
 const SuperAdminSettings = () => {
   const [whapiToken, setWhapiToken] = useState('');
   const [openAIApiKey, setOpenAIApiKey] = useState('');
   const [pineconeApiKey, setPineconeApiKey] = useState('');
   const [pineconeEnv, setPineconeEnv] = useState('');
+  const [redisUrl, setRedisUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const [savingWhapi, setSavingWhapi] = useState(false);
   const [savingOpenAI, setSavingOpenAI] = useState(false);
   const [savingPinecone, setSavingPinecone] = useState(false);
+  const [savingRedis, setSavingRedis] = useState(false);
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
         setLoading(true);
-        const [whapiRes, openAIRes, pineconeKeyRes, pineconeEnvRes] = await Promise.all([
+        const [whapiRes, openAIRes, pineconeKeyRes, pineconeEnvRes, redisUrlRes] = await Promise.all([
           fetchApi(`/super-admin/settings/${WHAPI_TOKEN_KEY}`),
           fetchApi(`/super-admin/settings/${OPENAI_API_KEY}`),
           fetchApi(`/super-admin/settings/${PINECONE_API_KEY}`),
           fetchApi(`/super-admin/settings/${PINECONE_ENVIRONMENT}`),
+          fetchApi(`/super-admin/settings/${REDIS_URL_KEY}`),
         ]);
 
         if (whapiRes?.data?.value) setWhapiToken(whapiRes.data.value);
         if (openAIRes?.data?.value) setOpenAIApiKey(openAIRes.data.value);
         if (pineconeKeyRes?.data?.value) setPineconeApiKey(pineconeKeyRes.data.value);
         if (pineconeEnvRes?.data?.value) setPineconeEnv(pineconeEnvRes.data.value);
+        if (redisUrlRes?.data?.value) setRedisUrl(redisUrlRes.data.value);
 
       } catch (error) {
         console.error('Could not fetch existing settings.', error);
@@ -98,6 +103,21 @@ const SuperAdminSettings = () => {
     }
   };
 
+  const handleSaveRedis = async () => {
+    setSavingRedis(true);
+    try {
+      await fetchApi('/super-admin/settings', {
+        method: 'POST',
+        body: JSON.stringify({ key: REDIS_URL_KEY, value: redisUrl }),
+      });
+      toast.success('URL de Redis guardada exitosamente.');
+    } catch (error) {
+      toast.error('Error al guardar la URL de Redis', { description: error.message });
+    } finally {
+      setSavingRedis(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
         <h1 className="text-3xl font-bold">Integraciones</h1>
@@ -107,6 +127,28 @@ const SuperAdminSettings = () => {
                 <CardDescription>Tokens y claves para servicios de terceros.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
+                {/* Redis Settings */}
+                <div className="space-y-4 p-4 border rounded-lg">
+                    <Label className="text-lg font-semibold">Redis / BullMQ</Label>
+                    <div className="space-y-2">
+                        <Label htmlFor="redis-url">URL de conexión Redis</Label>
+                        <Input
+                            id="redis-url"
+                            type="password"
+                            value={redisUrl}
+                            onChange={(e) => setRedisUrl(e.target.value)}
+                            placeholder="Ej: rediss://default:pass@host:port"
+                            disabled={loading}
+                        />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                        Si dejas este campo vacío, se usará la configuración local por defecto (127.0.0.1:6379 o variables REDIS_HOST/PORT).
+                    </p>
+                    <Button onClick={handleSaveRedis} disabled={savingRedis || loading}>
+                        {savingRedis ? 'Guardando...' : 'Guardar URL de Redis'}
+                    </Button>
+                </div>
+
                 {/* Pinecone Settings */}
                 <div className="space-y-4 p-4 border rounded-lg">
                     <Label className="text-lg font-semibold">Pinecone</Label>

@@ -14,8 +14,17 @@ export class Conversation {
   @Prop()
   customerName?: string;
 
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Customer" })
+  customerId?: MongooseSchema.Types.ObjectId;
+
   @Prop({ type: [{ type: MongooseSchema.Types.ObjectId, ref: "Message" }] })
   messages: MongooseSchema.Types.ObjectId[];
+
+  @Prop({ type: String })
+  summary?: string;
+
+  @Prop({ type: Date })
+  summaryUpdatedAt?: Date;
 }
 
 export const ConversationSchema = SchemaFactory.createForClass(Conversation);

@@ -15,6 +15,7 @@ import {
 } from "./schemas/conversation.schema";
 import { Message, MessageDocument, SenderType } from "./schemas/message.schema";
 import { Tenant, TenantDocument } from "../schemas/tenant.schema";
+import { Customer, CustomerDocument } from "../schemas/customer.schema";
 import { ChatGateway } from "./chat.gateway";
 import { ConfigService } from "@nestjs/config";
 import { SuperAdminService } from "../modules/super-admin/super-admin.service";
@@ -28,30 +29,29 @@ import {
 } from "../lib/whapi-sdk/whapi-sdk-typescript-fetch";
 import { AssistantService } from "../modules/assistant/assistant.service";
 import { WhapiService } from "../modules/whapi/whapi.service";
-
-interface QueuedMessage {
-  tenant: TenantDocument;
-  conversation: ConversationDocument;
-  content: string;
-}
+import {
+  AssistantMessageQueueService,
+  AssistantMessageJobData,
+} from "./queues/assistant-message.queue.service";
 
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
-  private readonly messageQueues = new Map<string, QueuedMessage[]>();
-  private readonly processingQueues = new Map<string, boolean>();
 
   constructor(
     @InjectModel(Conversation.name)
     private conversationModel: Model<ConversationDocument>,
     @InjectModel(Message.name) private messageModel: Model<MessageDocument>,
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
+    @InjectModel(Customer.name)
+    private customerModel: Model<CustomerDocument>,
     @Inject(forwardRef(() => ChatGateway))
     private readonly chatGateway: ChatGateway,
     private readonly configService: ConfigService,
     private readonly superAdminService: SuperAdminService,
     private readonly assistantService: AssistantService,
     private readonly whapiService: WhapiService,
+    private readonly assistantQueueService: AssistantMessageQueueService,
   ) {}
 
   async generateQrCode(tenantId: string): Promise<{ qrCode: string }> {
@@ -234,7 +234,8 @@ export class ChatService {
 
     if (payload?.messages) {
       for (const msg of payload.messages) {
-        if (msg?.fromMe) {
+        // Skip messages sent by us (support both snake_case and camelCase)
+        if (msg?.fromMe || msg?.from_me) {
           continue;
         }
 
@@ -275,8 +276,8 @@ export class ChatService {
 
           this.chatGateway.emitNewMessage(tenantId, savedMessage);
 
-          // Queue the message for processing instead of blocking
-          this.enqueueMessage(tenant, conversation, content);
+          // Encolar procesamiento del asistente (o ejecutar inline si no hay BullMQ)
+          await this.scheduleAssistantJob(tenant, conversation, savedMessage);
         }
 
         // Handle location sharing
@@ -311,18 +312,32 @@ export class ChatService {
     tenantId: string,
     customerPhoneNumber: string,
   ): Promise<ConversationDocument> {
+    const tenantObjectId = new Types.ObjectId(tenantId);
     let conversation = await this.conversationModel
-      .findOne({ tenantId: new Types.ObjectId(tenantId), customerPhoneNumber })
+      .findOne({ tenantId, customerPhoneNumber })
       .exec();
 
     if (!conversation) {
-      this.logger.log(
-        `Creating new conversation for ${customerPhoneNumber} in tenant ${tenantId}`,
-      );
+      const existingCustomer = await this.customerModel
+        .findOne({ tenantId: tenantObjectId, phone: customerPhoneNumber })
+        .select('_id')
+        .lean();
+
+      if (!existingCustomer) {
+        this.logger.log(
+          `Creating new conversation and customer for ${customerPhoneNumber} in tenant ${tenantId}`,
+        );
+      } else {
+        this.logger.log(
+          `Creating new conversation for existing customer ${existingCustomer._id} (${customerPhoneNumber}) in tenant ${tenantId}`,
+        );
+      }
+
       conversation = new this.conversationModel({
         tenantId,
         customerPhoneNumber,
         messages: [],
+        customerId: existingCustomer?._id,
       });
       await conversation.save();
     }
@@ -330,13 +345,143 @@ export class ChatService {
     return conversation;
   }
 
-  private async maybeRespondWithAssistant(
+  private async scheduleAssistantJob(
     tenant: TenantDocument,
     conversation: ConversationDocument,
-    customerMessage: string,
+    message: MessageDocument,
   ): Promise<void> {
     if (!tenant.aiAssistant?.autoReplyEnabled) {
       return;
+    }
+
+    const jobData: AssistantMessageJobData = {
+      tenantId: tenant.id?.toString(),
+      conversationId: conversation._id.toString(),
+      customerPhoneNumber: conversation.customerPhoneNumber,
+      messageId: message._id.toString(),
+      content: message.content,
+    };
+
+    try {
+      const enqueued =
+        await this.assistantQueueService.enqueueAssistantMessage(jobData);
+
+      if (enqueued) {
+        this.chatGateway.emitAssistantStatus(tenant.id, {
+          conversationId: jobData.conversationId,
+          status: "queued",
+          customerMessageId: jobData.messageId,
+        });
+      } else {
+        await this.processAssistantJob(jobData);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to enqueue assistant job for tenant ${tenant.id}: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
+      this.chatGateway.emitAssistantStatus(tenant.id, {
+        conversationId: jobData.conversationId,
+        status: "failed",
+        customerMessageId: jobData.messageId,
+        note: (error as Error).message,
+      });
+    }
+  }
+
+  async processAssistantJob(
+    data: AssistantMessageJobData,
+  ): Promise<void> {
+    const { tenantId, conversationId, messageId, content } = data;
+
+    try {
+      const tenant = await this.tenantModel.findById(tenantId).exec();
+      if (!tenant) {
+        this.logger.warn(
+          `Assistant job skipped: tenant ${tenantId} not found.`,
+        );
+        this.chatGateway.emitAssistantStatus(tenantId, {
+          conversationId,
+          status: "failed",
+          customerMessageId: messageId,
+          note: "tenant_not_found",
+        });
+        return;
+      }
+
+      if (!tenant.aiAssistant?.autoReplyEnabled) {
+        this.logger.debug(
+          `Assistant auto-reply disabled for tenant ${tenantId}; skipping job.`,
+        );
+        this.chatGateway.emitAssistantStatus(tenantId, {
+          conversationId,
+          status: "completed",
+          customerMessageId: messageId,
+          note: "auto_reply_disabled",
+        });
+        return;
+      }
+
+      const conversation = await this.conversationModel
+        .findById(conversationId)
+        .exec();
+      if (!conversation) {
+        this.logger.warn(
+          `Assistant job skipped: conversation ${conversationId} not found.`,
+        );
+        this.chatGateway.emitAssistantStatus(tenantId, {
+          conversationId,
+          status: "failed",
+          customerMessageId: messageId,
+          note: "conversation_not_found",
+        });
+        return;
+      }
+
+      this.chatGateway.emitAssistantStatus(tenantId, {
+        conversationId,
+        status: "processing",
+        customerMessageId: messageId,
+      });
+
+      const result = await this.generateAssistantReply(
+        tenant,
+        conversation,
+        content,
+        messageId,
+      );
+
+      this.chatGateway.emitAssistantStatus(tenantId, {
+        conversationId,
+        status: "completed",
+        customerMessageId: messageId,
+        assistantMessageId: result.assistantMessage
+          ? result.assistantMessage._id.toString()
+          : undefined,
+        note: result.note,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Assistant job failed for tenant ${tenantId}, conversation ${conversationId}: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
+      this.chatGateway.emitAssistantStatus(tenantId, {
+        conversationId,
+        status: "failed",
+        customerMessageId: messageId,
+        note: (error as Error).message,
+      });
+    }
+  }
+
+  private async generateAssistantReply(
+    tenant: TenantDocument,
+    conversation: ConversationDocument,
+    customerMessage: string,
+    customerMessageId?: string,
+  ): Promise<{ assistantMessage?: MessageDocument; note?: string }> {
+    if (!tenant.aiAssistant?.autoReplyEnabled) {
+      return { note: "auto_reply_disabled" };
     }
 
     try {
@@ -345,7 +490,6 @@ export class ChatService {
         tenant.aiAssistant?.knowledgeBaseTenantId?.trim() ||
         tenant.id.toString();
 
-      // Convertir capabilities a objeto plano para evitar problemas con Mongoose
       const capabilities = tenant.aiAssistant?.capabilities
         ? JSON.parse(JSON.stringify(tenant.aiAssistant.capabilities))
         : undefined;
@@ -358,26 +502,23 @@ export class ChatService {
         })}`,
       );
 
-      // Get conversation history for CURRENT SESSION only
-      // A session starts when there's a gap of more than 30 minutes from previous message
       const SESSION_TIMEOUT_MINUTES = 30;
 
-      // Get all recent messages
       const allRecentMessages = await this.messageModel
         .find({ conversationId: conversation._id })
         .sort({ createdAt: -1 })
-        .limit(50) // Get last 50 to find session boundary
+        .limit(50)
         .exec();
 
-      // Find the start of current session (work backwards from most recent)
       const currentSessionMessages: MessageDocument[] = [];
       let lastMessageTime: Date | null = null;
 
       for (const msg of allRecentMessages) {
         if (lastMessageTime) {
-          const timeDiffMinutes = (lastMessageTime.getTime() - msg.createdAt.getTime()) / (1000 * 60);
+          const timeDiffMinutes =
+            (lastMessageTime.getTime() - msg.createdAt.getTime()) /
+            (1000 * 60);
 
-          // If gap is more than 30 minutes, this is a previous session - stop here
           if (timeDiffMinutes > SESSION_TIMEOUT_MINUTES) {
             this.logger.log(
               `🔄 Session boundary detected: ${timeDiffMinutes.toFixed(1)} minutes gap`,
@@ -390,13 +531,13 @@ export class ChatService {
         lastMessageTime = msg.createdAt;
       }
 
-      // Format history as array of messages (reverse to get chronological order)
-      // Exclude the current message (most recent) from history
       const history = currentSessionMessages
-        .slice(1) // Skip the first (most recent) message as it's the current one
+        .slice(1)
         .reverse()
         .map((msg) => ({
-          role: (msg.sender === SenderType.CUSTOMER ? 'user' : 'assistant') as 'user' | 'assistant',
+          role: (msg.sender === SenderType.CUSTOMER
+            ? "user"
+            : "assistant") as "user" | "assistant",
           content: msg.content,
           timestamp: msg.createdAt,
         }));
@@ -409,7 +550,8 @@ export class ChatService {
         tenantId: tenant.id,
         question: customerMessage,
         knowledgeBaseTenantId,
-        conversationHistory: history, // NEW: Pass conversation history
+        conversationHistory: history,
+        conversationSummary: conversation.summary,
         aiSettings: {
           model: tenant.aiAssistant?.model,
           capabilities: capabilities,
@@ -419,16 +561,10 @@ export class ChatService {
       const answer = assistantResponse?.answer?.trim();
       if (!answer) {
         this.logger.warn(
-          `Assistant returned an empty answer for tenant ${tenant.id}.`,
+          `Assistant returned an empty answer for tenant ${tenant.id} (message ${customerMessageId || "n/a"}).`,
         );
-        return;
+        return { note: "assistant_empty_answer" };
       }
-
-      const metadata = {
-        sources: assistantResponse.sources,
-        usedFallback: assistantResponse.usedFallback,
-        usedTools: assistantResponse.usedTools,
-      };
 
       if (
         !assistantResponse.usedFallback &&
@@ -436,10 +572,16 @@ export class ChatService {
         !assistantResponse.usedTools
       ) {
         this.logger.log(
-          `Assistant response for tenant ${tenant.id} lacks contextual sources. Skipping auto-reply.`,
+          `Assistant response for tenant ${tenant.id} lacks contextual sources. Skipping auto-reply (message ${customerMessageId || "n/a"}).`,
         );
-        return;
+        return { note: "no_verified_context" };
       }
+
+      const metadata = {
+        sources: assistantResponse.sources,
+        usedFallback: assistantResponse.usedFallback,
+        usedTools: assistantResponse.usedTools,
+      };
 
       const assistantMessage = await this.saveMessage(
         conversation,
@@ -457,82 +599,60 @@ export class ChatService {
         answer,
         "assistant",
       );
+
+      await this.updateConversationSummary(conversation._id);
+
+      return { assistantMessage };
     } catch (error) {
       this.logger.error(
-        `Assistant auto-reply failed for tenant ${tenant.id}: ${error.message}`,
-        error.stack,
+        `Assistant auto-reply failed for tenant ${tenant.id} (message ${customerMessageId || "n/a"}): ${(error as Error).message}`,
+        (error as Error).stack,
       );
+      throw error;
     }
   }
 
-  /**
-   * Adds a message to the conversation queue for async processing.
-   * Each conversation has its own queue to maintain message order and context.
-   */
-  private enqueueMessage(
-    tenant: TenantDocument,
-    conversation: ConversationDocument,
-    content: string,
-  ): void {
-    const queueKey = `${tenant.id}:${conversation.customerPhoneNumber}`;
+  private async updateConversationSummary(
+    conversationId: Types.ObjectId,
+  ): Promise<void> {
+    const recentMessages = await this.messageModel
+      .find({ conversationId })
+      .sort({ createdAt: -1 })
+      .limit(12)
+      .lean();
 
-    if (!this.messageQueues.has(queueKey)) {
-      this.messageQueues.set(queueKey, []);
+    if (!recentMessages.length) {
+      return;
     }
 
-    const queue = this.messageQueues.get(queueKey)!;
-    queue.push({ tenant, conversation, content });
-
-    this.logger.log(
-      `📨 Message enqueued for ${conversation.customerPhoneNumber}. Queue size: ${queue.length}`,
-    );
-
-    // Start processing if not already processing
-    if (!this.processingQueues.get(queueKey)) {
-      this.processQueue(queueKey).catch((err) => {
-        this.logger.error(
-          `Error processing queue for ${queueKey}: ${err.message}`,
-          err.stack,
-        );
-      });
-    }
-  }
-
-  /**
-   * Processes messages in a conversation queue sequentially.
-   * This ensures messages are handled in order and context is preserved.
-   */
-  private async processQueue(queueKey: string): Promise<void> {
-    this.processingQueues.set(queueKey, true);
-
-    try {
-      while (true) {
-        const queue = this.messageQueues.get(queueKey);
-        if (!queue || queue.length === 0) {
-          break;
+    const summaryLines = recentMessages
+      .slice()
+      .reverse()
+      .map((msg) => {
+        let speaker = "Equipo";
+        if (msg.sender === SenderType.CUSTOMER) {
+          speaker = "Cliente";
+        } else if (msg.sender === SenderType.ASSISTANT) {
+          speaker = "Asistente";
         }
+        return `${speaker}: ${msg.content}`;
+      });
 
-        const message = queue.shift()!;
-        this.logger.log(
-          `⚙️ Processing message for ${message.conversation.customerPhoneNumber}. Remaining in queue: ${queue.length}`,
-        );
+    const summary = summaryLines.join(" | ");
+    const trimmedSummary =
+      summary.length > 1800 ? summary.slice(summary.length - 1800) : summary;
 
-        await this.maybeRespondWithAssistant(
-          message.tenant,
-          message.conversation,
-          message.content,
-        );
-      }
-    } finally {
-      this.processingQueues.set(queueKey, false);
-
-      // Clean up empty queues
-      const queue = this.messageQueues.get(queueKey);
-      if (queue && queue.length === 0) {
-        this.messageQueues.delete(queueKey);
-        this.processingQueues.delete(queueKey);
-      }
-    }
+    await this.conversationModel
+      .updateOne(
+        { _id: conversationId },
+        {
+          $set: {
+            summary: trimmedSummary,
+            summaryUpdatedAt: new Date(),
+          },
+        },
+      )
+      .exec();
   }
 
   private async resolveWhapiToken(tenant: TenantDocument): Promise<string> {
@@ -562,25 +682,46 @@ export class ChatService {
     body: string,
     context: "manual" | "assistant",
   ): Promise<void> {
-    try {
-      const config = new Configuration({ accessToken });
-      const messagesApi = new MessagesApi(config);
-      const sendMessageTextRequest: SendMessageTextRequest = {
-        senderText: {
-          to: recipientPhone,
-          body,
-        },
-      };
+    const config = new Configuration({ accessToken });
+    const messagesApi = new MessagesApi(config);
+    const sendMessageTextRequest: SendMessageTextRequest = {
+      senderText: {
+        to: recipientPhone,
+        body,
+      },
+    };
 
-      await messagesApi.sendMessageText(sendMessageTextRequest);
-      this.logger.log(
-        `[${context}] Successfully sent message to ${recipientPhone} via Whapi SDK`,
-      );
-    } catch (error) {
-      this.logger.error(
-        `[${context}] Failed to send message via Whapi SDK: ${error.message}`,
-        error.stack,
-      );
+    const maxAttempts = 3;
+    const retryableErrors = new Set(["ETIMEDOUT", "ECONNRESET", "EPIPE"]);
+
+    let attempt = 0;
+    while (attempt < maxAttempts) {
+      attempt += 1;
+      try {
+        await messagesApi.sendMessageText(sendMessageTextRequest);
+        this.logger.log(
+          `[${context}] Successfully sent message to ${recipientPhone} via Whapi SDK (attempt ${attempt})`,
+        );
+        return;
+      } catch (error) {
+        const code = (error as any)?.code;
+        const isRetryable = code && retryableErrors.has(code);
+
+        this.logger.warn(
+          `[${context}] Attempt ${attempt} failed to send message to ${recipientPhone}: ${error.message} (code: ${code || "unknown"})`,
+        );
+
+        if (!isRetryable || attempt >= maxAttempts) {
+          this.logger.error(
+            `[${context}] Failed to send message via Whapi SDK after ${attempt} attempt(s): ${error.message}`,
+            error.stack,
+          );
+          return;
+        }
+
+        const backoffMs = 2000 * attempt;
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      }
     }
   }
 

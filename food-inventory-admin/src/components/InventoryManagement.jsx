@@ -34,6 +34,10 @@ import {
 } from 'lucide-react';
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
 
+const DEFAULT_ITEMS_PER_PAGE = 20;
+const SEARCH_ITEMS_PER_PAGE = 100;
+const SEARCH_DEBOUNCE_MS = 600;
+
 function InventoryManagement() {
   const [inventoryData, setInventoryData] = useState([]);
   const [products, setProducts] = useState([]);
@@ -69,8 +73,11 @@ function InventoryManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
+  const [committedSearch, setCommittedSearch] = useState('');
   const verticalConfig = useVerticalConfig();
+  const manualItemsPerPageRef = useRef(DEFAULT_ITEMS_PER_PAGE);
+  const lastQueryRef = useRef({ search: null, limit: null });
   const inventoryAttributes = useMemo(
     () => (verticalConfig?.attributeSchema || []).filter((attr) => attr.scope === 'inventory'),
     [verticalConfig],
@@ -169,14 +176,23 @@ function InventoryManagement() {
       setNewInventoryItem({ ...newInventoryItem, lots: updatedLots });
   };
 
-  const loadData = useCallback(async (page = currentPage) => {
+  const loadData = useCallback(async ({ page, limit, search }) => {
     try {
       setLoading(true);
       setError(null);
-      console.log('🔄 [InventoryManagement] Cargando datos... Página:', page);
+      console.log('🔄 [InventoryManagement] Cargando datos... Página:', page, 'Límite:', limit, 'Search:', search);
+
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+      });
+
+      if (search) {
+        params.set('search', search);
+      }
 
       const [inventoryResponse, productsList] = await Promise.all([
-        fetchApi(`/inventory?page=${page}&limit=${itemsPerPage}`),
+        fetchApi(`/inventory?${params.toString()}`),
         fetchApi('/products?limit=500')  // Límite máximo permitido por el backend
       ]);
 
@@ -196,6 +212,10 @@ function InventoryManagement() {
         setCurrentPage(inventoryResponse.pagination.page);
         setTotalPages(inventoryResponse.pagination.totalPages);
         setTotalItems(inventoryResponse.pagination.total);
+      } else {
+        setCurrentPage(page);
+        setTotalPages(1);
+        setTotalItems(inventoryWithAttributes.length);
       }
 
       console.log('✅ [InventoryManagement] Datos actualizados en estado');
@@ -208,29 +228,55 @@ function InventoryManagement() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, itemsPerPage]);
+  }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const refreshData = useCallback(
+    async (page, limit, search) => {
+      await loadData({ page, limit, search });
+      lastQueryRef.current = { search, limit };
+    },
+    [loadData],
+  );
 
   useEffect(() => {
     console.log('🔍 [useEffect Filter] Filtrando datos...');
     console.log('🔍 [useEffect Filter] inventoryData.length:', inventoryData.length);
     let filtered = inventoryData;
-    if (searchTerm) {
-      filtered = filtered.filter(item =>
-        item.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.productSku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.productId?.brand?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
     if (filterCategory !== 'all') {
       filtered = filtered.filter(item => item.productId?.category === filterCategory);
     }
     console.log('🔍 [useEffect Filter] filteredData.length:', filtered.length);
     setFilteredData(filtered);
-  }, [inventoryData, searchTerm, filterCategory]);
+  }, [inventoryData, filterCategory]);
+
+  useEffect(() => {
+    const trimmed = searchTerm.trim();
+    if (trimmed === '') {
+      setCommittedSearch('');
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      setCommittedSearch(trimmed);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    const effectiveLimit = committedSearch
+      ? Math.max(manualItemsPerPageRef.current, SEARCH_ITEMS_PER_PAGE)
+      : manualItemsPerPageRef.current;
+
+    if (itemsPerPage !== effectiveLimit) {
+      setItemsPerPage(effectiveLimit);
+    }
+
+    if (
+      lastQueryRef.current.search !== committedSearch ||
+      lastQueryRef.current.limit !== effectiveLimit
+    ) {
+      refreshData(1, effectiveLimit, committedSearch);
+    }
+  }, [committedSearch, itemsPerPage, refreshData]);
 
   const categories = [...new Set(inventoryData.map(item => item.productId?.category).filter(Boolean))];
 
@@ -238,7 +284,7 @@ function InventoryManagement() {
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {
       setCurrentPage(newPage);
-      loadData(newPage);
+      refreshData(newPage, itemsPerPage, committedSearch);
     }
   };
 
@@ -251,9 +297,13 @@ function InventoryManagement() {
   };
 
   const handleItemsPerPageChange = (newLimit) => {
-    setItemsPerPage(newLimit);
+    manualItemsPerPageRef.current = newLimit;
+    const effectiveLimit = committedSearch
+      ? Math.max(newLimit, SEARCH_ITEMS_PER_PAGE)
+      : newLimit;
+    setItemsPerPage(effectiveLimit);
     setCurrentPage(1);
-    loadData(1);
+    refreshData(1, effectiveLimit, committedSearch);
   };
 
   const getStatusBadge = (item) => {
@@ -399,7 +449,7 @@ const handleProductSelection = (selectedOption) => {
         // Esperar un momento antes de recargar para dar tiempo al backend
         await new Promise(resolve => setTimeout(resolve, 500));
         console.log('🔄 [handleAddItem] Llamando a loadData() en página 1...');
-        await loadData(1);
+        await refreshData(1, itemsPerPage, committedSearch);
         console.log('✅ [handleAddItem] loadData() completado');
       } catch (err) {
         console.error('❌ [handleAddItem] Error:', err);
@@ -447,7 +497,7 @@ const handleProductSelection = (selectedOption) => {
       // Esperar un momento antes de recargar
       await new Promise(resolve => setTimeout(resolve, 500));
       console.log('🔄 [handleAddItem] Llamando a loadData() en página 1...');
-      await loadData(1);
+      await refreshData(1, itemsPerPage, committedSearch);
       console.log('✅ [handleAddItem] loadData() completado');
     } catch (err) {
       console.error('❌ [handleAddItem] Error:', err);
@@ -480,7 +530,7 @@ const handleProductSelection = (selectedOption) => {
       });
       setIsEditDialogOpen(false);
       toast.success('Inventario ajustado correctamente.');
-      await loadData(currentPage); // Recargar datos en la página actual
+      await refreshData(currentPage, itemsPerPage, committedSearch); // Recargar datos en la página actual
     } catch (err) {
       toast.error('Error al ajustar inventario', { description: err.message });
     }
@@ -498,9 +548,9 @@ const handleProductSelection = (selectedOption) => {
       const itemsInCurrentPage = filteredData.length;
       if (itemsInCurrentPage === 1 && currentPage > 1) {
         setCurrentPage(currentPage - 1);
-        await loadData(currentPage - 1);
+        await refreshData(currentPage - 1, itemsPerPage, committedSearch);
       } else {
-        await loadData(currentPage);
+        await refreshData(currentPage, itemsPerPage, committedSearch);
       }
     } catch (err) {
       toast.error('Error al eliminar inventario', { description: err.message });
@@ -568,7 +618,7 @@ const handleProductSelection = (selectedOption) => {
       }
 
       // Recargar datos de la tabla
-      await loadData(currentPage);
+      await refreshData(currentPage, itemsPerPage, committedSearch);
 
       // Cerrar modo edición
       handleCancelEditLot();
@@ -776,7 +826,7 @@ const handleProductSelection = (selectedOption) => {
 
       // Volver a la primera página después de importar masivamente
       setCurrentPage(1);
-      await loadData(1);
+      await refreshData(1, itemsPerPage, committedSearch);
 
     } catch (error) {
       toast.error('Error al ajustar el inventario', {

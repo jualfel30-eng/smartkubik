@@ -659,6 +659,102 @@ export class AccountingService {
     return newEntry.save();
   }
 
+  async createJournalEntryForManualDeposit(params: {
+    tenantId: string;
+    amount: number;
+    currency?: string;
+    appointmentId: string;
+    appointmentNumber?: string;
+    customerName?: string;
+    serviceName?: string;
+    reference?: string;
+    method?: string;
+    transactionDate: Date;
+  }): Promise<JournalEntryDocument> {
+    const {
+      tenantId,
+      amount,
+      appointmentId,
+      appointmentNumber,
+      customerName,
+      serviceName,
+      reference,
+      method,
+      transactionDate,
+    } = params;
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException(
+        "El monto del depósito debe ser mayor a 0 para generar el asiento.",
+      );
+    }
+
+    const cashOrBankAcc = await this.findAccountByCode("1101", tenantId);
+    const customerAdvanceAccount = await this.findOrCreateAccount(
+      {
+        code: "2103",
+        name: "Anticipos de Clientes",
+        type: "Pasivo",
+      },
+      tenantId,
+    );
+
+    const descriptionParts = [
+      "Depósito manual de reserva",
+      serviceName ? `(${serviceName})` : undefined,
+      customerName ? `- ${customerName}` : undefined,
+    ].filter(Boolean);
+
+    const description =
+      descriptionParts.length > 0
+        ? descriptionParts.join(" ")
+        : `Depósito manual cita ${appointmentNumber || appointmentId}`;
+
+    const entryDto: CreateJournalEntryDto = {
+      date: transactionDate.toISOString(),
+      description,
+      lines: [
+        {
+          accountId: cashOrBankAcc._id.toString(),
+          debit: amount,
+          credit: 0,
+          description,
+        },
+        {
+          accountId: customerAdvanceAccount._id.toString(),
+          debit: 0,
+          credit: amount,
+          description:
+            reference || `Anticipo de cliente (${method || "manual"})`,
+        },
+      ],
+    };
+
+    const newEntry = new this.journalEntryModel({
+      ...entryDto,
+      date: new Date(entryDto.date),
+      lines: entryDto.lines.map((line) => ({
+        account: line.accountId,
+        debit: line.debit,
+        credit: line.credit,
+        description: line.description,
+      })),
+      tenantId,
+      isAutomatic: true,
+      metadata: {
+        createdFrom: "appointments_manual_deposit",
+        appointmentId,
+        appointmentNumber: appointmentNumber ?? null,
+        customerName: customerName ?? null,
+        serviceName: serviceName ?? null,
+        reference,
+        method,
+      },
+    });
+
+    return newEntry.save();
+  }
+
   async getProfitAndLoss(tenantId: string, from: Date, to: Date): Promise<any> {
     await this.fixJournalEntryDates(tenantId);
     const tenantObjectId = tenantId;

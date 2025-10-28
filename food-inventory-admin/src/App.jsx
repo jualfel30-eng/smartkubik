@@ -32,6 +32,7 @@ import {
   Utensils,
   ChefHat,
   MessageSquare, // Icono añadido para WhatsApp
+  PiggyBank,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import './App.css';
@@ -90,6 +91,7 @@ const FloorPlan = lazy(() => import('@/components/restaurant/FloorPlan.jsx').the
 const KitchenDisplay = lazy(() => import('@/components/restaurant/KitchenDisplay.jsx'));
 const WhatsAppInbox = lazy(() => import('./pages/WhatsAppInbox.jsx')); // <-- Componente de WhatsApp añadido
 const AssistantChatWidget = lazy(() => import('@/components/AssistantChatWidget.jsx'));
+const HospitalityDepositsDashboard = lazy(() => import('@/components/hospitality/HospitalityDepositsDashboard.jsx'));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -244,6 +246,7 @@ function TenantLayout() {
     { name: 'Citas', href: 'appointments', icon: Calendar, permission: 'appointments_read' },
     { name: 'Servicios', href: 'services', icon: Briefcase, permission: 'appointments_read' },
     { name: 'Recursos', href: 'resources', icon: UserSquare, permission: 'appointments_read' },
+    { name: 'Depósitos', href: 'hospitality/deposits', icon: PiggyBank, permission: 'appointments_read', requiresModule: 'appointments' },
     { name: 'Calendario', href: 'calendar', icon: CalendarDays, permission: 'events_read' },
     { name: 'Reportes', href: 'reports', icon: AreaChart, permission: 'reports_read' },
   ];
@@ -401,7 +404,7 @@ function TenantLayout() {
         <SidebarRail />
       </Sidebar>
       <SidebarInset className="bg-background">
-        <div className="flex min-h-screen flex-col">
+        <div className="flex h-screen flex-col overflow-hidden">
           <div className="flex items-center justify-between border-b border-border bg-card px-4 py-3 md:hidden">
             <div className="flex items-center gap-2">
               <SidebarTrigger className="text-muted-foreground" />
@@ -450,7 +453,7 @@ function TenantLayout() {
               </Button>
             </div>
           </div>
-          <div className="flex-1 p-4 md:p-6">
+          <div className="flex-1 min-h-0 overflow-auto p-4 md:p-6">
             <Suspense fallback={<LoadingFallback />}>
               <Routes>
                 <Route path="dashboard" element={<DashboardView />} />
@@ -475,6 +478,7 @@ function TenantLayout() {
                 <Route path="appointments" element={<AppointmentsManagement />} />
                 <Route path="services" element={<ServicesManagement />} />
                 <Route path="resources" element={<ResourcesManagement />} />
+                <Route path="hospitality/deposits" element={<HospitalityDepositsDashboard />} />
                 <Route path="calendar" element={<CalendarView />} />
                 <Route path="restaurant/floor-plan" element={<FloorPlan />} />
                 <Route path="restaurant/kitchen-display" element={<KitchenDisplay />} />

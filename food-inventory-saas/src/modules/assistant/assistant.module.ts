@@ -12,12 +12,14 @@ import { Service, ServiceSchema } from "../../schemas/service.schema";
 import { Resource, ResourceSchema } from "../../schemas/resource.schema";
 import { AssistantToolsService } from "./assistant-tools.service";
 import { AppointmentsModule } from "../appointments/appointments.module";
+import { ExchangeRateModule } from "../exchange-rate/exchange-rate.module";
 
 @Module({
   imports: [
     KnowledgeBaseModule,
     OpenaiModule,
     AppointmentsModule,
+    ExchangeRateModule,
     MongooseModule.forFeature([
       { name: Tenant.name, schema: TenantSchema },
       { name: Product.name, schema: ProductSchema },

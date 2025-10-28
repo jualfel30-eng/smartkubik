@@ -12,11 +12,19 @@ import {
   VerticalProfile,
   getVerticalProfile,
 } from "../../config/vertical-profiles";
+import { UnitConversionUtil } from "../../utils/unit-conversion.util";
+import { ExchangeRateService } from "../exchange-rate/exchange-rate.service";
 
 interface InventoryLookupArgs {
   productQuery: string;
   limit?: number;
   attributes?: Record<string, any>;
+  quantity?: number | string;
+  unit?: string;
+}
+
+interface PromotionLookupArgs {
+  limit?: number;
 }
 
 interface ServiceAvailabilityArgs {
@@ -26,6 +34,27 @@ interface ServiceAvailabilityArgs {
   resourceName?: string;
   date: string;
   limit?: number;
+}
+
+interface RequestedMeasurement {
+  quantity: number;
+  unit: string;
+  normalizedUnit?: string;
+  source: "args" | "query" | "combined";
+  rawInput?: string;
+}
+
+interface AssistantTenantContext {
+  verticalProfile: VerticalProfile | null;
+  currencyCode?: string;
+  currencySymbol?: string;
+  exchangeRates?: {
+    ves?: {
+      rate: number;
+      source?: string;
+      fetchedAt?: string;
+    };
+  };
 }
 
 @Injectable()
@@ -44,6 +73,7 @@ export class AssistantToolsService {
     @InjectModel(Tenant.name)
     private readonly tenantModel: Model<TenantDocument>,
     private readonly appointmentsService: AppointmentsService,
+    private readonly exchangeRateService: ExchangeRateService,
   ) {}
 
   async executeTool(
@@ -57,6 +87,11 @@ export class AssistantToolsService {
           return await this.lookupProductInventory(
             tenantId,
             rawArgs as InventoryLookupArgs,
+          );
+        case "list_active_promotions":
+          return await this.listActivePromotions(
+            tenantId,
+            rawArgs as PromotionLookupArgs,
           );
         case "check_service_availability":
           return await this.checkServiceAvailability(
@@ -99,16 +134,22 @@ export class AssistantToolsService {
     }
 
     const tenantObjectId = new Types.ObjectId(tenantId);
-    const verticalProfile = await this.resolveTenantVerticalProfile(tenantId);
+    const tenantContext = await this.resolveTenantContext(tenantId);
+    const {
+      sanitizedQuery,
+      measurement: requestedMeasurement,
+    } = this.buildRequestedMeasurement(query, args);
+
+    const queryForFilters = sanitizedQuery || query;
     const { baseQuery, normalizedFilters, displayFilters } =
       this.extractAttributeFilters(
-        query,
-        verticalProfile?.attributeSchema || [],
+        queryForFilters,
+        tenantContext.verticalProfile?.attributeSchema || [],
         args?.attributes,
       );
 
     const searchTerm =
-      baseQuery && baseQuery.length >= 2 ? baseQuery : query;
+      baseQuery && baseQuery.length >= 2 ? baseQuery : queryForFilters;
     const regex = new RegExp(this.escapeRegExp(searchTerm), "i");
     const hasAttributeFilters = Object.keys(normalizedFilters).length > 0;
 
@@ -203,8 +244,10 @@ export class AssistantToolsService {
           inventory,
           normalizedFilters,
           displayFilters,
-          verticalProfile,
+          verticalProfile: tenantContext.verticalProfile,
           hasAttributeFilters,
+          requestedMeasurement,
+          tenantContext,
         });
       })
       .filter(Boolean)
@@ -217,6 +260,223 @@ export class AssistantToolsService {
       relatedPromotions: await this.findRelatedPromotions(tenantId, matchedProducts),
       timestamp: new Date().toISOString(),
     };
+  }
+
+  private async listActivePromotions(
+    tenantId: string,
+    args: PromotionLookupArgs = {},
+  ): Promise<Record<string, any>> {
+    const limit = Math.min(Math.max(Number(args?.limit) || 5, 1), 10);
+    const tenantObjectId = new Types.ObjectId(tenantId);
+    const tenantContext = await this.resolveTenantContext(tenantId);
+    const now = new Date();
+
+    const promotionProducts = await this.productModel
+      .find({
+        tenantId: tenantObjectId,
+        hasActivePromotion: true,
+        "promotion.isActive": true,
+        "promotion.startDate": { $lte: now },
+        "promotion.endDate": { $gte: now },
+      })
+      .limit(limit * 2)
+      .lean();
+
+    if (!promotionProducts.length) {
+      return {
+        ok: true,
+        promotions: [],
+        message: "No hay promociones activas registradas en este momento.",
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    const productIds = promotionProducts.map((product) => product._id);
+    const inventories = await this.inventoryModel
+      .find({
+        tenantId: tenantObjectId,
+        productId: { $in: productIds },
+        isActive: { $ne: false },
+      })
+      .lean();
+
+    const inventoryMap = new Map<
+      string,
+      InventoryDocument & { [key: string]: any }
+    >();
+    inventories.forEach((inventory) => {
+      inventoryMap.set(inventory.productId.toString(), inventory as any);
+    });
+
+    const promotions = promotionProducts
+      .map((product) => {
+        const inventory =
+          inventoryMap.get(product._id.toString()) || ({} as any);
+
+        const defaultSellingUnit =
+          (product as any).sellingUnits?.find((unit: any) => unit.isDefault) ??
+          (product as any).sellingUnits?.find((unit: any) => unit.isActive) ??
+          null;
+
+        let selectedVariant: any = null;
+        if (Array.isArray((product as any).variants) && (product as any).variants.length) {
+          selectedVariant =
+            (product as any).variants.find((variant: any) => variant?.isActive) ||
+            (product as any).variants[0];
+        }
+
+        let promotionInfo: any = null;
+        if ((product as any).promotion?.isActive) {
+          const discountPercentage =
+            (product as any).promotion.discountPercentage || 0;
+          const baselinePrice =
+            defaultSellingUnit?.pricePerUnit ??
+            selectedVariant?.basePrice ??
+            (product as any).pricingRules?.usdPrice ??
+            0;
+          const discountedPrice = baselinePrice * (1 - discountPercentage / 100);
+
+          promotionInfo = {
+            discountPercentage,
+            originalPrice: baselinePrice,
+            discountedPrice,
+            reason: (product as any).promotion.reason,
+            startDate: (product as any).promotion.startDate,
+            endDate: (product as any).promotion.endDate,
+          };
+        }
+
+        const pricing = this.buildPricingDetails({
+          product,
+          inventory,
+          defaultSellingUnit,
+          selectedVariant,
+          tenantContext,
+          promotionInfo,
+        });
+
+        // Hide exact stock quantities unless limited (< 10 units) to create urgency
+        const availQty = inventory.availableQuantity;
+        const hasLimitedStock = typeof availQty === 'number' && availQty < 10;
+        const stockStatus = typeof availQty === 'number' && availQty > 0
+          ? (hasLimitedStock ? 'limitado' : 'disponible')
+          : 'agotado';
+
+        return {
+          productId: product._id.toString(),
+          productName: (product as any).name,
+          brand: (product as any).brand,
+          category: (product as any).category,
+          subcategory: (product as any).subcategory,
+          promotion: promotionInfo,
+          pricing,
+          availableQuantity: hasLimitedStock ? availQty : null,
+          stockStatus,
+          hasLimitedStock,
+          attributes: (product as any).attributes || undefined,
+        };
+      })
+      .slice(0, limit);
+
+    return {
+      ok: true,
+      promotions,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  private buildRequestedMeasurement(
+    rawQuery: string,
+    args: InventoryLookupArgs,
+  ): {
+    sanitizedQuery: string;
+    measurement?: RequestedMeasurement | null;
+  } {
+    const query = rawQuery?.trim() || "";
+    const extraction = UnitConversionUtil.extractMeasurement(query);
+    const sanitizedQuery = extraction.normalizedText || query;
+
+    const explicitQuantity = this.parseQuantityArg(args?.quantity);
+    const explicitUnit =
+      typeof args?.unit === "string" && args.unit.trim()
+        ? args.unit.trim()
+        : undefined;
+
+    let quantity: number | undefined;
+    let unit: string | undefined;
+    let normalizedUnit: string | undefined;
+    let source: RequestedMeasurement["source"] | undefined;
+
+    if (explicitQuantity !== undefined) {
+      quantity = explicitQuantity;
+      source = "args";
+    }
+
+    if (
+      extraction.quantity !== undefined &&
+      Number.isFinite(extraction.quantity)
+    ) {
+      if (quantity !== undefined && source === "args") {
+        source = "combined";
+      } else if (quantity === undefined) {
+        quantity = extraction.quantity;
+        source = source || "query";
+      }
+    }
+
+    if (explicitUnit) {
+      unit = explicitUnit;
+      normalizedUnit =
+        UnitConversionUtil.normalizeWeightUnit(explicitUnit) || undefined;
+      source = source === "query" ? "combined" : source || "args";
+    }
+
+    if (!unit && extraction.unit) {
+      unit = extraction.unit;
+      normalizedUnit =
+        extraction.normalizedUnit ||
+        UnitConversionUtil.normalizeWeightUnit(extraction.unit) ||
+        undefined;
+      source = source === "args" ? "combined" : source || "query";
+    }
+
+    if (
+      quantity === undefined ||
+      unit === undefined ||
+      !Number.isFinite(quantity)
+    ) {
+      return { sanitizedQuery };
+    }
+
+    return {
+      sanitizedQuery,
+      measurement: {
+        quantity,
+        unit,
+        normalizedUnit: normalizedUnit || undefined,
+        rawInput: extraction.rawMatch,
+        source: source || "query",
+      },
+    };
+  }
+
+  private parseQuantityArg(value: unknown): number | undefined {
+    if (value === null || value === undefined) {
+      return undefined;
+    }
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : undefined;
+    }
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return undefined;
+      }
+      const normalized = trimmed.replace(",", ".");
+      const parsed = Number(normalized);
+      return Number.isFinite(parsed) ? parsed : undefined;
+    }
+    return undefined;
   }
 
   private async findRelatedPromotions(
@@ -304,6 +564,8 @@ export class AssistantToolsService {
     displayFilters: Record<string, string>;
     verticalProfile?: VerticalProfile | null;
     hasAttributeFilters: boolean;
+    requestedMeasurement?: RequestedMeasurement | null;
+    tenantContext: AssistantTenantContext;
   }): Record<string, any> | null {
     const {
       product,
@@ -311,6 +573,8 @@ export class AssistantToolsService {
       normalizedFilters,
       displayFilters,
       hasAttributeFilters,
+      requestedMeasurement,
+      tenantContext,
     } = params;
 
     const filtersApplied = Object.keys(normalizedFilters);
@@ -439,6 +703,22 @@ export class AssistantToolsService {
       }
     }
 
+    const pricingDetails = this.buildPricingDetails({
+      product,
+      inventory,
+      defaultSellingUnit,
+      selectedVariant,
+      requestedMeasurement,
+      tenantContext,
+      promotionInfo,
+    });
+
+    // Hide exact stock quantities unless limited (< 10 units) to create urgency
+    const hasLimitedStock = typeof availableQuantity === 'number' && availableQuantity < 10;
+    const stockStatus = typeof availableQuantity === 'number' && availableQuantity > 0
+      ? (hasLimitedStock ? 'limitado' : 'disponible')
+      : 'agotado';
+
     return {
       productId: product._id.toString(),
       productName: inventory.productName || (product as any).name,
@@ -454,10 +734,9 @@ export class AssistantToolsService {
       description: (product as any).description,
       ingredients: (product as any).ingredients,
       isPerishable: (product as any).isPerishable,
-      availableQuantity,
-      reservedQuantity,
-      committedQuantity,
-      totalQuantity,
+      availableQuantity: hasLimitedStock ? availableQuantity : null,
+      stockStatus,
+      hasLimitedStock,
       unit: selectedVariant?.unit || (product as any).unitOfMeasure,
       sellingPrice: promotionInfo?.discountedPrice ?? sellingPrice,
       originalPrice: promotionInfo?.originalPrice,
@@ -483,7 +762,368 @@ export class AssistantToolsService {
       attributeFiltersApplied: filtersApplied.length
         ? displayFilters
         : undefined,
+      requestedMeasurement: requestedMeasurement
+        ? {
+            quantity: requestedMeasurement.quantity,
+            unit: requestedMeasurement.unit,
+            normalizedUnit: requestedMeasurement.normalizedUnit,
+            source: requestedMeasurement.source,
+          }
+        : undefined,
+      pricing: pricingDetails || undefined,
     };
+  }
+
+  private buildPricingDetails(params: {
+    product: ProductDocument & { [key: string]: any };
+    inventory: InventoryDocument & { [key: string]: any };
+    defaultSellingUnit: any | null;
+    selectedVariant: any | null;
+    requestedMeasurement?: RequestedMeasurement | null;
+    tenantContext: AssistantTenantContext;
+    promotionInfo?: any | null;
+  }): Record<string, any> | null {
+    const {
+      product,
+      defaultSellingUnit,
+      selectedVariant,
+      requestedMeasurement,
+      tenantContext,
+      promotionInfo,
+    } = params;
+
+    const unitPriceContext = this.resolveUnitPrice({
+      product,
+      defaultSellingUnit,
+      selectedVariant,
+      promotionInfo,
+    });
+
+    const {
+      unitPrice,
+      unitLabel,
+      source: unitPriceSource,
+    } = unitPriceContext;
+
+    const baseCurrencyCode = "USD";
+    const baseCurrencySymbol = "$";
+
+    const measurementUnitNormalized = requestedMeasurement?.normalizedUnit
+      ? requestedMeasurement.normalizedUnit
+      : UnitConversionUtil.normalizeWeightUnit(
+          requestedMeasurement?.unit || "",
+        );
+    const priceUnitNormalized = UnitConversionUtil.normalizeWeightUnit(
+      unitLabel || "",
+    );
+
+    const baseUnitNormalized =
+      UnitConversionUtil.normalizeWeightUnit(product.unitOfMeasure || "") ||
+      UnitConversionUtil.normalizeWeightUnit(
+        defaultSellingUnit?.abbreviation || "",
+      ) ||
+      UnitConversionUtil.normalizeWeightUnit(selectedVariant?.unit || "");
+
+    let quantityInUnitPrice: number | null = null;
+    let quantityInBaseUnit: number | null = null;
+
+    if (
+      requestedMeasurement &&
+      typeof requestedMeasurement.quantity === "number" &&
+      Number.isFinite(requestedMeasurement.quantity)
+    ) {
+      if (
+        measurementUnitNormalized &&
+        (priceUnitNormalized ||
+          (unitLabel &&
+            unitLabel.toLowerCase() ===
+              (requestedMeasurement.unit || "").toLowerCase()))
+      ) {
+        if (priceUnitNormalized) {
+          quantityInUnitPrice = UnitConversionUtil.convertWeight(
+            requestedMeasurement.quantity,
+            measurementUnitNormalized,
+            priceUnitNormalized,
+          );
+        }
+
+        if (
+          quantityInUnitPrice === null &&
+          unitLabel &&
+          requestedMeasurement.unit &&
+          unitLabel.toLowerCase() === requestedMeasurement.unit.toLowerCase()
+        ) {
+          quantityInUnitPrice = requestedMeasurement.quantity;
+        }
+      }
+
+      if (measurementUnitNormalized && baseUnitNormalized) {
+        quantityInBaseUnit = UnitConversionUtil.convertWeight(
+          requestedMeasurement.quantity,
+          measurementUnitNormalized,
+          baseUnitNormalized,
+        );
+      } else if (
+        baseUnitNormalized &&
+        requestedMeasurement.unit &&
+        requestedMeasurement.unit.toLowerCase() === baseUnitNormalized
+      ) {
+        quantityInBaseUnit = requestedMeasurement.quantity;
+      }
+    }
+
+    const baseUnit =
+      baseUnitNormalized ||
+      priceUnitNormalized ||
+      product.unitOfMeasure ||
+      unitLabel ||
+      null;
+
+    let totalPrice: number | null = null;
+    if (
+      unitPrice !== null &&
+      quantityInUnitPrice !== null &&
+      Number.isFinite(quantityInUnitPrice)
+    ) {
+      totalPrice = UnitConversionUtil.calculateTotalPrice(
+        quantityInUnitPrice,
+        unitPrice,
+      );
+    }
+
+    const formattedUnitPrice =
+      unitPrice !== null
+        ? this.formatCurrency(
+            unitPrice,
+            baseCurrencySymbol,
+            baseCurrencyCode,
+          )
+        : undefined;
+
+    const formattedTotalPrice =
+      totalPrice !== null
+        ? this.formatCurrency(
+            totalPrice,
+            baseCurrencySymbol,
+            baseCurrencyCode,
+          )
+        : undefined;
+
+    const conversions: Record<
+      string,
+      {
+        currencyCode: string;
+        currencySymbol?: string;
+        rate?: number;
+        source?: string;
+        fetchedAt?: string;
+        unitPrice?: number;
+        formattedUnitPrice?: string;
+        totalPrice?: number;
+        formattedTotalPrice?: string;
+      }
+    > = {};
+
+    const vesRate = tenantContext.exchangeRates?.ves?.rate;
+    if (vesRate && unitPrice !== null) {
+      const symbol = tenantContext.currencySymbol || "Bs";
+      const unitPriceVes = unitPrice * vesRate;
+      const totalPriceVes =
+        totalPrice !== null ? totalPrice * vesRate : undefined;
+      conversions.ves = {
+        currencyCode: "VES",
+        currencySymbol: symbol,
+        rate: vesRate,
+        source: tenantContext.exchangeRates?.ves?.source,
+        fetchedAt: tenantContext.exchangeRates?.ves?.fetchedAt,
+        unitPrice: unitPriceVes,
+        formattedUnitPrice: this.formatCurrency(unitPriceVes, symbol, "VES"),
+        totalPrice: totalPriceVes,
+        formattedTotalPrice:
+          totalPriceVes !== undefined
+            ? this.formatCurrency(totalPriceVes, symbol, "VES")
+            : undefined,
+      };
+    }
+
+    const requestedDisplay =
+      requestedMeasurement &&
+      typeof requestedMeasurement.quantity === "number" &&
+      requestedMeasurement.unit
+        ? this.formatQuantityDisplay(
+            requestedMeasurement.quantity,
+            requestedMeasurement.unit,
+          )
+        : undefined;
+
+    const baseDisplay =
+      quantityInBaseUnit !== null && baseUnit
+        ? this.formatQuantityDisplay(quantityInBaseUnit, baseUnit)
+        : undefined;
+
+    const summaryParts: string[] = [];
+    if (requestedDisplay) {
+      summaryParts.push(requestedDisplay);
+    }
+    if (baseDisplay && baseDisplay !== requestedDisplay) {
+      summaryParts.push(`≈ ${baseDisplay}`);
+    }
+    if (formattedTotalPrice) {
+      summaryParts.push(`→ ${formattedTotalPrice}`);
+    }
+    const vesConversion = conversions.ves?.formattedTotalPrice;
+    if (vesConversion) {
+      summaryParts.push(
+        `≈ ${vesConversion} ${conversions.ves?.source ? `(BCV)` : ""}`.trim(),
+      );
+    }
+
+    const conversionSummary =
+      summaryParts.length > 0 ? summaryParts.join(" ") : undefined;
+
+    if (
+      unitPrice === null &&
+      totalPrice === null &&
+      !requestedMeasurement
+    ) {
+      return {
+        unitPrice: null,
+        unitLabel,
+        unitPriceSource,
+        currencySymbol: baseCurrencySymbol,
+        currencyCode: baseCurrencyCode,
+      };
+    }
+
+    return {
+      unitPrice,
+      unitLabel,
+      unitPriceSource,
+      currencySymbol: baseCurrencySymbol,
+      currencyCode: baseCurrencyCode,
+      formattedUnitPrice,
+      requestedQuantity: requestedMeasurement?.quantity,
+      requestedUnit: requestedMeasurement?.unit,
+      requestedUnitNormalized: measurementUnitNormalized,
+      quantityInUnitPrice:
+        quantityInUnitPrice !== null ? quantityInUnitPrice : undefined,
+      baseUnit: baseUnit || undefined,
+      quantityInBaseUnit:
+        quantityInBaseUnit !== null ? quantityInBaseUnit : undefined,
+      totalPrice: totalPrice !== null ? totalPrice : undefined,
+      formattedTotalPrice,
+      conversionSummary,
+      hasMeasurement: !!requestedMeasurement,
+      conversions: Object.keys(conversions).length ? conversions : undefined,
+    };
+  }
+
+  private resolveUnitPrice(params: {
+    product: ProductDocument & { [key: string]: any };
+    defaultSellingUnit: any | null;
+    selectedVariant: any | null;
+    promotionInfo?: any | null;
+  }): {
+    unitPrice: number | null;
+    unitLabel: string | null;
+    source: "promotion" | "selling_unit" | "variant" | "pricing_rules" | null;
+  } {
+    const { product, defaultSellingUnit, selectedVariant, promotionInfo } =
+      params;
+
+    if (
+      defaultSellingUnit &&
+      typeof defaultSellingUnit.pricePerUnit === "number" &&
+      Number.isFinite(defaultSellingUnit.pricePerUnit)
+    ) {
+      const hasPromotion =
+        promotionInfo &&
+        typeof promotionInfo.discountedPrice === "number" &&
+        Number.isFinite(promotionInfo.discountedPrice);
+
+      const unitPrice = hasPromotion
+        ? promotionInfo.discountedPrice
+        : defaultSellingUnit.pricePerUnit;
+
+      return {
+        unitPrice,
+        unitLabel: defaultSellingUnit.abbreviation || product.unitOfMeasure,
+        source: hasPromotion ? "promotion" : "selling_unit",
+      };
+    }
+
+    if (
+      selectedVariant &&
+      typeof selectedVariant.basePrice === "number" &&
+      Number.isFinite(selectedVariant.basePrice)
+    ) {
+      return {
+        unitPrice: selectedVariant.basePrice,
+        unitLabel: selectedVariant.unit || product.unitOfMeasure || null,
+        source: "variant",
+      };
+    }
+
+    const usdPrice = product?.pricingRules?.usdPrice;
+    if (typeof usdPrice === "number" && Number.isFinite(usdPrice)) {
+      return {
+        unitPrice: usdPrice,
+        unitLabel: product.unitOfMeasure || "unidad",
+        source: "pricing_rules",
+      };
+    }
+
+    return {
+      unitPrice: null,
+      unitLabel: product.unitOfMeasure || null,
+      source: null,
+    };
+  }
+
+  private formatQuantityDisplay(
+    quantity: number,
+    unit?: string | null,
+  ): string {
+    const formattedQuantity = this.formatNumber(quantity);
+    return unit ? `${formattedQuantity} ${unit}`.trim() : formattedQuantity;
+  }
+
+  private formatNumber(value: number, maximumFractionDigits = 3): string {
+    if (!Number.isFinite(value)) {
+      return String(value);
+    }
+
+    const absValue = Math.abs(value);
+    const minimumFractionDigits =
+      absValue >= 1 ? 0 : Math.min(2, maximumFractionDigits);
+
+    return new Intl.NumberFormat("es-VE", {
+      maximumFractionDigits,
+      minimumFractionDigits,
+    }).format(Number(value));
+  }
+
+  private formatCurrency(
+    value: number,
+    currencySymbol?: string,
+    currencyCode?: string,
+  ): string {
+    if (!Number.isFinite(value)) {
+      return "";
+    }
+
+    const formatted = new Intl.NumberFormat("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number(value));
+
+    if (currencySymbol) {
+      return `${currencySymbol} ${formatted}`.trim();
+    }
+    if (currencyCode) {
+      return `${currencyCode} ${formatted}`.trim();
+    }
+    return formatted;
   }
 
   private findVariantMatch(
@@ -559,16 +1199,71 @@ export class AssistantToolsService {
     );
   }
 
-  private async resolveTenantVerticalProfile(
+  private async resolveTenantContext(
     tenantId: string,
-  ): Promise<VerticalProfile> {
+  ): Promise<AssistantTenantContext> {
     const tenant = await this.tenantModel
       .findById(tenantId)
-      .select("verticalProfile")
+      .select("verticalProfile settings.currency")
       .lean();
+
     const key = tenant?.verticalProfile?.key;
     const overrides = tenant?.verticalProfile?.overrides;
-    return getVerticalProfile(key, overrides);
+    const verticalProfile = getVerticalProfile(key, overrides);
+
+    const currencyCode = tenant?.settings?.currency?.primary;
+    const exchangeRates: AssistantTenantContext["exchangeRates"] = {};
+
+    try {
+      const bcvRate = await this.exchangeRateService.getBCVRate();
+      if (bcvRate?.rate) {
+        exchangeRates.ves = {
+          rate: bcvRate.rate,
+          source: bcvRate.source,
+          fetchedAt: bcvRate.lastUpdate
+            ? new Date(bcvRate.lastUpdate).toISOString()
+            : undefined,
+        };
+      }
+    } catch (error) {
+      this.logger.warn(
+        `No se pudo obtener la tasa BCV para tenant ${tenantId}: ${(error as Error).message}`,
+      );
+    }
+
+    return {
+      verticalProfile,
+      currencyCode: currencyCode || undefined,
+      currencySymbol: this.resolveCurrencySymbol(currencyCode),
+      exchangeRates: Object.keys(exchangeRates).length ? exchangeRates : undefined,
+    };
+  }
+
+  private resolveCurrencySymbol(currencyCode?: string | null): string | undefined {
+    if (!currencyCode) {
+      return undefined;
+    }
+
+    const upper = currencyCode.toUpperCase();
+    switch (upper) {
+      case "VES":
+      case "VEF":
+        return "Bs";
+      case "USD":
+        return "$";
+      case "EUR":
+        return "€";
+      case "COP":
+      case "ARS":
+      case "MXN":
+        return "$";
+      case "PEN":
+        return "S/";
+      case "BRL":
+        return "R$";
+      default:
+        return undefined;
+    }
   }
 
   private extractAttributeFilters(

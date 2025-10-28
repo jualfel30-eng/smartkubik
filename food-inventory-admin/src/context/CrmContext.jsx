@@ -14,6 +14,11 @@ export const CrmProvider = ({ children }) => {
   const [pageLimit, setPageLimit] = useState(25);
   const [totalCustomers, setTotalCustomers] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const lastQueryRef = useRef({
+    page: 1,
+    limit: 25,
+    filters: {},
+  });
 
   const extractCustomers = (payload) => {
     const candidates = [
@@ -43,15 +48,28 @@ export const CrmProvider = ({ children }) => {
     return Array.from(map.values());
   };
 
-  const loadCustomers = useCallback(async (page = 1, limit = 25) => {
+  const loadCustomers = useCallback(async (page = 1, limit = 25, filters = {}) => {
     try {
       setLoading(true);
       setError(null);
 
       const params = new URLSearchParams({
         page: page.toString(),
-        limit: limit.toString()
+        limit: limit.toString(),
       });
+
+      if (filters.search && filters.search.trim() !== '') {
+        params.set('search', filters.search.trim());
+      }
+      if (filters.customerType && filters.customerType !== 'all') {
+        params.set('customerType', filters.customerType);
+      }
+      if (filters.status && filters.status !== 'all') {
+        params.set('status', filters.status);
+      }
+      if (filters.assignedTo) {
+        params.set('assignedTo', filters.assignedTo);
+      }
 
       const response = await fetchApi(`/customers?${params.toString()}`);
 
@@ -60,6 +78,11 @@ export const CrmProvider = ({ children }) => {
       setTotalPages(response.pagination?.totalPages || 0);
       setCurrentPage(page);
       setPageLimit(limit);
+      lastQueryRef.current = {
+        page,
+        limit,
+        filters: { ...filters },
+      };
     } catch (err) {
       console.error("Error loading customers:", err.message);
       setCrmData([]);
@@ -108,7 +131,8 @@ export const CrmProvider = ({ children }) => {
         method: 'POST',
         body: JSON.stringify(customerData),
       });
-      await loadCustomers();
+      const { page, limit, filters } = lastQueryRef.current;
+      await loadCustomers(page ?? 1, limit ?? 25, filters ?? {});
     } catch (err) {
       console.error("Error adding customer:", err);
       throw err;
@@ -121,7 +145,8 @@ export const CrmProvider = ({ children }) => {
         method: 'PATCH',
         body: JSON.stringify(customerData),
       });
-      await loadCustomers();
+      const { page, limit, filters } = lastQueryRef.current;
+      await loadCustomers(page ?? 1, limit ?? 25, filters ?? {});
     } catch (err) {
       console.error("Error updating customer:", err);
       throw err;
@@ -131,7 +156,8 @@ export const CrmProvider = ({ children }) => {
   const deleteCustomer = async (customerId) => {
     try {
       await fetchApi(`/customers/${customerId}`, { method: 'DELETE' });
-      await loadCustomers(); // Recargar
+      const { page, limit, filters } = lastQueryRef.current;
+      await loadCustomers(page ?? 1, limit ?? 25, filters ?? {}); // Recargar
     } catch (err) {
       console.error("Error deleting customer:", err);
       throw err;

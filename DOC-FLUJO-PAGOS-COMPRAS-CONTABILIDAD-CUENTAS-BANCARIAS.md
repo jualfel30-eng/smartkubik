@@ -58,3 +58,40 @@ El objetivo es crear un sistema de "caja negra" donde las acciones operativas (c
 - **Backend:** `PurchasesService`, `PayablesService`, `PaymentsService`, `BankTransactionsService`, `AccountingService`.
 
 Este flujo integrado garantiza una trazabilidad completa de los egresos, desde la necesidad de compra hasta la verificación final en el banco, proporcionando un control financiero robusto y minimizando el trabajo manual.
+
+## 6. Cobros Manuales de Depósitos (Hospitality)
+
+> **Contexto:** Reservas de habitaciones/spa donde el huésped paga vía transferencia o pago móvil. No existen pasarelas automáticas; la validación la realiza un humano.
+
+1. **Solicitud inicial (portal público):**
+   - El guest selecciona un servicio que requiere depósito; el portal muestra CTA directo a WhatsApp con instrucciones de pago.
+   - La cita se crea con estado `submitted` en `depositRecords`, se marca `paymentStatus=pending` y se genera un todo interno (`Cobrar depósito`).
+
+2. **Registro del comprobante (backoffice):**
+   - Desde `AppointmentsManagement.jsx`, el staff ingresa el monto reportado, referencia bancaria y adjunta captura (imagen/PDF o URL).
+   - El depósito queda con estado `submitted` y visible en la ficha de la cita con notas internas.
+
+3. **Validación manual:**
+   - El administrador abre el diálogo "Gestionar depósito" para confirmar o rechazar.
+   - Al **confirmar**: se valida el monto, se puede ajustar la fecha/forzar tasa, se selecciona la cuenta bancaria destino y se sube nueva evidencia si corresponde.
+   - Al **rechazar**: se dejan notas obligatorias con la razón (monto incorrecto, referencia inválida, etc.).
+
+4. **Automatizaciones al confirmar:**
+   - `appointments.service.ts` actualiza `depositRecords` (estado `confirmed`, `confirmedAmount`, `metadata` y anexos).
+   - Se registra un movimiento `credit` en `bank-transactions.service.ts` contra la cuenta seleccionada y se actualiza el balance.
+   - Se genera un asiento contable automático (`1101` vs `2103 Anticipos de Clientes`) mediante `AccountingService.createJournalEntryForManualDeposit`.
+   - La tarea de cobro se marca como completada y `paymentStatus` pasa a `partial` o `paid` según el total confirmado.
+
+5. **Rechazos:**
+   - El estado vuelve a `pending`, se reabre la tarea y se documenta la nota de resolución (`decisionNotes`).
+   - El historial conserva los adjuntos y comentarios para auditoría.
+
+6. **Seguimiento y reporting:**
+   - Los campos `depositRecords.*` alimentan métricas de depósitos pendientes vs confirmados.
+   - Los movimientos bancarios quedan disponibles para conciliación y el asiento contable permite reflejar anticipos de clientes en el balance.
+
+> **Próximos pasos:** Integrar verificaciones de múltiples depósitos parciales, generar recibos en PDF y habilitar reversos automáticos si se cancela la reserva.
+
+**Referencias adicionales:**
+- `docs/verticals/HOSPITALITY-DEPOSIT-PLAYBOOK.md` – plantillas de mensajes y checklist operativa.
+- `food-inventory-admin/src/components/hospitality/HospitalityDepositsDashboard.jsx` – dashboard de depósitos pendientes.

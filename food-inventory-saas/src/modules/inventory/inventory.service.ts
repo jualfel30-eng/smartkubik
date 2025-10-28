@@ -1,6 +1,12 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectModel, InjectConnection } from "@nestjs/mongoose";
-import { Model, Types, ClientSession, Connection } from "mongoose";
+import {
+  Model,
+  Types,
+  ClientSession,
+  Connection,
+  SortOrder,
+} from "mongoose";
 import {
   Inventory,
   InventoryDocument,
@@ -982,6 +988,12 @@ export class InventoryService {
       includeInactive = false,
     } = query;
 
+    const pageNumber = Math.max(Number(page) || 1, 1);
+    const limitNumber = Math.max(Number(limit) || 20, 1);
+    const searchTerm =
+      typeof search === "string" ? search.trim() : "";
+    const isSearching = searchTerm.length > 0;
+
     const filter: any = {
       tenantId: this.buildTenantFilter(tenantId),
     };
@@ -994,34 +1006,65 @@ export class InventoryService {
     if (lowStock) filter["alerts.lowStock"] = true;
     if (nearExpiration) filter["alerts.nearExpiration"] = true;
     if (expired) filter["alerts.expired"] = true;
-    if (minAvailable !== undefined)
+    if (minAvailable !== undefined) {
       filter.availableQuantity = { $gte: minAvailable };
-    if (search) {
+    }
+    let brandProductIds: Types.ObjectId[] = [];
+    if (isSearching) {
+      const regex = new RegExp(this.escapeRegExp(searchTerm), "i");
+
+      const brandMatches = await this.productModel
+        .find(
+          {
+            tenantId: this.buildTenantFilter(tenantId),
+            brand: regex,
+          },
+          { _id: 1 },
+        )
+        .limit(200)
+        .lean();
+
+      if (brandMatches.length > 0) {
+        brandProductIds = brandMatches
+          .map((doc: any) =>
+            doc._id instanceof Types.ObjectId
+              ? doc._id
+              : new Types.ObjectId(doc._id),
+          )
+          .filter(Boolean);
+      }
+
       filter.$or = [
-        { productSku: { $regex: search, $options: "i" } },
-        { productName: { $regex: search, $options: "i" } },
-        { variantSku: { $regex: search, $options: "i" } },
+        { productSku: regex },
+        { productName: regex },
+        { variantSku: regex },
+        ...(brandProductIds.length > 0
+          ? [{ productId: { $in: brandProductIds } }]
+          : []),
       ];
     }
-    const sortOptions: any = {};
-    sortOptions[sortBy] = sortOrder === "asc" ? 1 : -1;
-    const skip = (page - 1) * limit;
+    const sortField = sortBy || "lastUpdated";
+    const sortDirection: SortOrder = sortOrder === "asc" ? "asc" : "desc";
+    const sortOptions: Record<string, SortOrder> = {
+      [sortField]: sortDirection,
+    };
+    const skip = (pageNumber - 1) * limitNumber;
     const [inventory, total] = await Promise.all([
       this.inventoryModel
         .find(filter)
         .sort(sortOptions)
         .skip(skip)
-        .limit(limit)
+        .limit(limitNumber)
         .populate("productId", "name category brand isPerishable")
         .exec(),
       this.inventoryModel.countDocuments(filter),
     ]);
     return {
       inventory,
-      page,
-      limit,
+      page: pageNumber,
+      limit: limitNumber,
       total,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.ceil(total / limitNumber),
     };
   }
 
@@ -1273,5 +1316,9 @@ export class InventoryService {
     );
 
     return inventory;
+  }
+
+  private escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 }

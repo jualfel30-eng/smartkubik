@@ -1,9 +1,11 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { MongooseModule } from "@nestjs/mongoose";
+import { MongooseModule, getModelToken } from "@nestjs/mongoose";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { APP_GUARD } from "@nestjs/core";
 import { WinstonModule } from "nest-winston";
+import { BullModule } from "@nestjs/bullmq";
+import { Model } from "mongoose";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { AuthModule } from "./auth/auth.module";
@@ -55,6 +57,11 @@ import { AssistantModule } from "./modules/assistant/assistant.module";
 import { BankReconciliationModule } from "./modules/bank-reconciliation/bank-reconciliation.module";
 import { WhapiModule } from "./modules/whapi/whapi.module";
 import { createWinstonLoggerOptions } from "./config/logger.config";
+import {
+  GlobalSetting,
+  GlobalSettingDocument,
+  GlobalSettingSchema,
+} from "./schemas/global-settings.schema";
 
 @Module({
   imports: [
@@ -109,6 +116,141 @@ import { createWinstonLoggerOptions } from "./config/logger.config";
         limit: 500, // 500 requests por hora
       },
     ]),
+    ...(process.env.DISABLE_BULLMQ === "true"
+      ? []
+      : [
+          BullModule.forRootAsync({
+            imports: [
+              ConfigModule,
+              MongooseModule.forFeature([
+                { name: GlobalSetting.name, schema: GlobalSettingSchema },
+              ]),
+            ],
+            useFactory: async (
+              configService: ConfigService,
+              globalSettingModel: Model<GlobalSettingDocument>,
+            ) => {
+          const prefix =
+            configService.get<string>("BULLMQ_PREFIX") || "food_inventory";
+          const defaultJobOptions = {
+            removeOnComplete: 200,
+            removeOnFail: 200,
+          attempts: 3,
+          backoff: {
+            type: "exponential",
+            delay: 3000,
+          },
+        };
+
+        const buildConnectionFromUrl = (url: string) => {
+          if (!url) {
+            throw new Error("Redis URL is empty");
+          }
+
+          let normalized = url.trim();
+          if (!normalized.includes("://")) {
+            normalized = `redis://${normalized}`;
+          }
+
+          const parsed = new URL(normalized);
+          const connection: Record<string, any> = {
+            host: parsed.hostname,
+            port: parsed.port ? Number(parsed.port) : 6379,
+          };
+
+          if (parsed.username) {
+            connection.username = decodeURIComponent(parsed.username);
+          }
+
+          if (parsed.password) {
+            connection.password = decodeURIComponent(parsed.password);
+          }
+
+          if (parsed.pathname && parsed.pathname !== "/") {
+            const dbValue = Number(parsed.pathname.replace("/", ""));
+            if (!Number.isNaN(dbValue)) {
+              connection.db = dbValue;
+            }
+          }
+
+          const tlsQuery =
+            parsed.searchParams.get("tls") || parsed.searchParams.get("ssl");
+
+          // Check if TLS is explicitly disabled
+          const tlsExplicitlyDisabled = tlsQuery && tlsQuery.toLowerCase() === "false";
+
+          const forceTls =
+            !tlsExplicitlyDisabled && (
+              parsed.protocol === "rediss:" ||
+              (tlsQuery && tlsQuery.toLowerCase() === "true") ||
+              parsed.hostname.endsWith(".redis-cloud.com") ||
+              configService.get<string>("REDIS_TLS") === "true"
+            );
+
+          if (forceTls) {
+            connection.tls = {
+              rejectUnauthorized: false,
+              servername: parsed.hostname,
+            };
+          }
+
+          return connection;
+        };
+
+        const envRedisUrl = configService.get<string>("REDIS_URL")?.trim();
+
+        let resolvedRedisUrl = envRedisUrl;
+
+        if (!resolvedRedisUrl) {
+          const redisUrlSetting = await globalSettingModel
+            .findOne({ key: "REDIS_URL" })
+            .lean()
+            .exec();
+          resolvedRedisUrl = redisUrlSetting?.value?.trim();
+        }
+
+        if (resolvedRedisUrl) {
+          return {
+            connection: buildConnectionFromUrl(resolvedRedisUrl),
+            prefix,
+            defaultJobOptions,
+          };
+        }
+
+        const connection: Record<string, any> = {
+          host: configService.get<string>("REDIS_HOST") || "127.0.0.1",
+          port: Number(configService.get<string>("REDIS_PORT") || 6379),
+        };
+
+        const username = configService.get<string>("REDIS_USERNAME");
+        if (username) {
+          connection.username = username;
+        }
+
+        const password = configService.get<string>("REDIS_PASSWORD");
+        if (password) {
+          connection.password = password;
+        }
+
+        const db = configService.get<string>("REDIS_DB");
+        if (db) {
+          const dbValue = Number(db);
+          connection.db = Number.isNaN(dbValue) ? 0 : dbValue;
+        }
+
+        if (configService.get<string>("REDIS_TLS") === "true") {
+          connection.tls = {};
+        }
+
+        return {
+          connection,
+          prefix,
+          defaultJobOptions,
+        };
+      },
+            inject: [ConfigService, getModelToken(GlobalSetting.name)],
+          }),
+        ]),
     AuthModule,
     OnboardingModule,
     ProductsModule,

@@ -25,6 +25,7 @@ interface AssistantCapabilities {
   inventoryLookup: boolean;
   schedulingLookup: boolean;
   orderLookup: boolean;
+  promotionLookup: boolean;
 }
 
 interface AssistantSettings {
@@ -38,6 +39,7 @@ interface AssistantQuestionParams {
   topK?: number;
   knowledgeBaseTenantId?: string;
   aiSettings?: AssistantSettings;
+  conversationSummary?: string;
   conversationHistory?: Array<{
     role: 'user' | 'assistant';
     content: string;
@@ -75,6 +77,7 @@ const DEFAULT_CAPABILITIES: AssistantCapabilities = {
   inventoryLookup: false,
   schedulingLookup: false,
   orderLookup: false,
+  promotionLookup: true,
 };
 
 const INVENTORY_STOPWORDS = new Set([
@@ -157,7 +160,77 @@ const INVENTORY_STOPWORDS = new Set([
   "esta",
   "estos",
   "estas",
+  "demás",
+  "demas",
+  "precio",
+  "precios",
+  "costo",
+  "costos",
+  "valor",
+  "valores",
+  "pregunté",
+  "pregunte",
+  "preguntaste",
+  "preguntó",
+  "pregunto",
+  "ayude",
+  "ayuda",
+  "ayudar",
+  "reserve",
+  "reservar",
+  "algo",
+  "nada",
+  "todo",
+  "todos",
+  "todas",
 ]);
+
+const PROMOTION_KEYWORDS = [
+  "promocion",
+  "promoción",
+  "promociones",
+  "oferta",
+  "ofertas",
+  "descuento",
+  "descuentos",
+  "especial",
+  "especiales",
+  "rebaja",
+  "rebajas",
+  "promo",
+  "promos",
+  "barato",
+  "baratos",
+  "barata",
+  "baratas",
+  "economico",
+  "económico",
+  "economicos",
+  "económicos",
+  "economica",
+  "económica",
+  "economicas",
+  "económicas",
+  "oferton",
+  "ofertón",
+  "sale",
+  "liquidacion",
+  "liquidación",
+  "2x1",
+  "3x2",
+  "combo",
+  "combos",
+  "paquete",
+  "paquetes",
+  "precio especial",
+  "precio bajo",
+  "buen precio",
+  "mejor precio",
+  "precio reducido",
+  "ahorro",
+  "ahorrar",
+  "outlet",
+];
 
 @Injectable()
 export class AssistantService {
@@ -178,6 +251,7 @@ export class AssistantService {
       topK = 5,
       knowledgeBaseTenantId,
       aiSettings,
+      conversationSummary,
       conversationHistory = [],
     } = params;
 
@@ -238,6 +312,12 @@ export class AssistantService {
     const bootstrapSections: string[] = [];
     let bootstrapUsedTools = false;
 
+    if (conversationSummary?.trim()) {
+      bootstrapSections.push(
+        `## Resumen conversación reciente\n${conversationSummary.trim()}`,
+      );
+    }
+
     this.logger.log(
       `[DEBUG] inventoryLookup enabled: ${capabilities.inventoryLookup}`,
     );
@@ -258,6 +338,16 @@ export class AssistantService {
         bootstrapUsedTools = true;
       } else {
         this.logger.warn(`[DEBUG] Bootstrap inventory returned null`);
+      }
+    }
+
+    if (capabilities.promotionLookup && this.shouldCheckPromotions(question)) {
+      const promotionsBootstrap = await this.bootstrapPromotionsContext(
+        tenantIdStr,
+      );
+      if (promotionsBootstrap) {
+        bootstrapSections.push(promotionsBootstrap);
+        bootstrapUsedTools = true;
       }
     }
 
@@ -413,7 +503,9 @@ export class AssistantService {
       "Solo puedes utilizar información verificada: fragmentos del contexto proporcionado y resultados de las herramientas autorizadas.",
       "Si la información disponible no es concluyente, indica claramente que no puedes confirmarla.",
       "Incluye detalles numéricos (cantidades, montos, horarios) solo cuando los hayas verificado.",
-      "IMPORTANTE - CONTEXTO: Cuando el usuario haga referencias implícitas como 'cada uno', 'estos', 'esos', 'las diferencias', etc., usa el contexto de la conversación actual y los productos mencionados recientemente para entender a qué se refiere. Por ejemplo, si acabas de mostrar dos productos (ej: Beef Tallow Facial y Beef Tallow Corporal) y el usuario pregunta 'para qué sirve cada uno?', debes responder explicando el uso específico de cada producto mencionado.",
+      "🧠 REGLA CRÍTICA - USO DE CONTEXTO CONVERSACIONAL: Cuando el usuario haga referencias implícitas o vagas, SIEMPRE usa el historial de la conversación para entenderlas. Ejemplos de referencias vagas: 'cada uno', 'estos', 'esos', 'lo demás', 'y sobre X?', 'te pregunté por X', 'el precio' (sin especificar de qué), 'cuánto cuesta' (sin mencionar el producto). En estos casos, busca en mensajes anteriores qué productos se mencionaron o preguntaron, y llama a las herramientas con esos nombres específicos.",
+      "🔗 CONTINUIDAD DE PEDIDOS: Si el cliente está armando un pedido y menciona productos adicionales con frases como 'también quiero X', 'añade Y', 'y el Z?', mantén un resumen mental del pedido completo y muestra el total actualizado cada vez que agregue items.",
+      "Mantén continuidad: si recibes un resumen de conversación previa o referencias recientes, retoma el hilo y evita pedir al cliente que repita información ya suministrada.",
       "📱 CLIENTES POR WHATSAPP: Muchos clientes interactúan contigo a través de WhatsApp. Cuando un cliente te escribe por primera vez, automáticamente se crea un perfil básico con su nombre y número. Sin embargo, para completar una orden de venta, necesitas información adicional.",
       "📋 DATOS REQUERIDOS PARA ÓRDENES: Antes de crear una orden de venta, DEBES solicitar y confirmar los siguientes datos del cliente si no los tiene registrados: (1) Cédula o documento de identidad, (2) Método de pago preferido (efectivo, transferencia, tarjeta, etc.), (3) Dirección de entrega completa (si es delivery). Si el cliente ya tiene estos datos en su perfil, puedes proceder directamente.",
       "📍 UBICACIÓN PARA DELIVERY: Si el cliente quiere delivery, pídele que comparta su ubicación por WhatsApp. Esto es más preciso que escribir la dirección manualmente. Puedes decir: 'Para asegurar una entrega rápida, ¿podrías compartirme tu ubicación por WhatsApp?'. Una vez compartida, se guardará automáticamente.",
@@ -433,15 +525,30 @@ export class AssistantService {
         "🚫 REGLA CRÍTICA: Antes de decir 'no tenemos X' verifica que NINGUNA descripción de los productos devueltos mencione X. Si encuentras X en alguna descripción, ESE es el producto que el usuario quiere, sin importar si el nombre del producto no lo menciona explícitamente.",
         "Si necesitas confirmar variantes específicas (ej. talla, color, serial, ancho, edición), pasa esos criterios en el campo `attributes` de la herramienta `get_inventory_status` usando pares clave-valor como `{ \"size\": \"38\", \"color\": \"azul\" }`.",
         "REGLA CRÍTICA - INFORMACIÓN CONFIDENCIAL: NUNCA menciones el 'averageCost' (costo promedio) ni 'lastPurchaseCost' (costo de compra) del producto. Esta información es estrictamente interna y NO debe revelarse al cliente bajo ninguna circunstancia. Solo puedes mencionar el 'sellingPrice' (precio de venta).",
-        "REGLA CRÍTICA - CANTIDADES: NO menciones cantidades disponibles específicas EXCEPTO cuando haya menos de 10 unidades disponibles. En ese caso, menciona la escasez para crear urgencia (ejemplo: 'Solo quedan 3 unidades disponibles'). Si hay 10 o más unidades, simplemente di que 'está disponible' o 'tenemos disponibilidad' sin mencionar números exactos.",
+        "📦 REGLA CRÍTICA - DISPONIBILIDAD DE STOCK: Las herramientas devuelven tres campos relacionados con stock: (1) 'stockStatus' que puede ser 'disponible', 'limitado' o 'agotado', (2) 'hasLimitedStock' (boolean), (3) 'availableQuantity' (solo aparece si hasLimitedStock es true). NUNCA menciones cantidades específicas a menos que 'hasLimitedStock' sea true. Si hasLimitedStock=true y availableQuantity existe, menciona la cantidad exacta para crear urgencia (ejemplo: 'Solo quedan 3 unidades disponibles'). Si stockStatus='disponible', solo di 'está disponible' o 'tenemos disponibilidad' sin números. Si stockStatus='agotado', informa que está agotado actualmente.",
         "🎉 PROMOCIONES Y OFERTAS: La herramienta `get_inventory_status` incluye un campo 'relatedPromotions' que contiene productos en oferta de la misma categoría o marca que el producto buscado. DEBES revisar este campo y mencionar proactivamente las ofertas disponibles al cliente.",
         "Cuando encuentres productos en promoción en 'relatedPromotions', SIEMPRE menciónalos de forma atractiva: (1) Di el nombre y marca del producto en oferta, (2) Muestra el precio original tachado y el nuevo precio, (3) Menciona el porcentaje de descuento, (4) Indica que es por tiempo limitado. Ejemplo: '¡También tenemos Ajo Savage en oferta! $18 ahora a solo $16.20 (-10% de descuento) por tiempo limitado. ¿Te interesa?'",
         "Si el producto consultado tiene un campo 'promotion' con información de descuento activo, SIEMPRE muestra ambos precios (original y con descuento) y menciona el porcentaje de ahorro.",
+        "💱 CONVERSIONES AUTOMÁTICAS: Cuando la herramienta devuelva el objeto `pricing`, confía en esa información para precios y conversiones. Usa el campo `conversionSummary` para explicar la equivalencia entre la cantidad solicitada y la unidad base (ejemplo: '240 g ≈ 0.24 kg → $8.50').",
+        "Si el cliente solicita montos en bolívares, toma los valores desde `pricing.conversions.ves` (o la conversión más reciente disponible), menciona la tasa BCV usada (`rate`, `source`, `fetchedAt`) y aclara que es una referencia del día.",
+        "Si `pricing.hasMeasurement` es verdadero y existe `pricing.totalPrice`, menciónalo claramente junto con la unidad de referencia (`pricing.unitLabel` o `pricing.baseUnit`). Si falta el total, explica que la herramienta no pudo calcularlo.",
+        "Nunca inventes factores de conversión. Si la herramienta no entrega `conversionSummary`, aclara que necesitas la unidad exacta que maneja el inventario o sugiere la unidad por defecto del producto.",
+        "🛍️ PROMOCIONES DEL DÍA: Cuando el cliente pregunte por ofertas, descuentos o promociones activas, llama a la herramienta `list_active_promotions` para listar las promociones vigentes antes de responder y muestra tanto el precio base en USD como la conversión en bolívares si está disponible.",
+        "Al presentar promociones, incluye nombre y marca del producto, precio original, precio con descuento y porcentaje de ahorro. Si hay pocas unidades o la promoción vence pronto, resáltalo.",
       );
     }
     if (capabilities.schedulingLookup) {
       instructions.push(
         "Si el usuario solicita confirmar horarios o disponibilidad de servicios, DEBES llamar a la herramienta `check_service_availability` para ofrecer solo horarios realmente libres.",
+      );
+    }
+
+    if (capabilities.promotionLookup) {
+      instructions.push(
+        "🎁 BÚSQUEDA DE OFERTAS Y PROMOCIONES: Cuando el usuario pregunte sobre ofertas, promociones, descuentos, rebajas, especiales, productos baratos, combos, 2x1, liquidaciones, outlets, precios reducidos, ahorros o cualquier variación similar, es OBLIGATORIO que llames INMEDIATAMENTE a la herramienta `list_active_promotions` ANTES de responder.",
+        "IMPORTANTE: NO intentes buscar promociones usando `get_inventory_status`. La herramienta `list_active_promotions` está específicamente diseñada para mostrar TODAS las promociones activas vigentes del sistema.",
+        "Cuando presentes las promociones, SIEMPRE incluye: (1) Nombre completo y marca del producto, (2) Precio original tachado y precio con descuento, (3) Porcentaje de descuento calculado, (4) Cantidad disponible si es limitada, (5) Fecha de vencimiento de la promoción si aplica.",
+        "Presenta las ofertas de forma atractiva y entusiasta para motivar la compra. Ejemplo: '🎉 ¡Tenemos excelentes ofertas! Miel Savage de $20 ahora a solo $18 (-10%) con 15 unidades disponibles. También Ajo Savage de $18 a $16.20 (-10%). ¿Cuál te interesa?'",
       );
     }
 
@@ -480,8 +587,40 @@ export class AssistantService {
                 description:
                   "Filtros de atributos para la variante (por ejemplo { \"size\": \"38\", \"color\": \"azul\" }).",
               },
+              quantity: {
+                oneOf: [{ type: "number" }, { type: "string" }],
+                description:
+                  "Cantidad solicitada en número o texto (ej. 0.5, \"250 g\").",
+              },
+              unit: {
+                type: "string",
+                description:
+                  "Unidad solicitada (ej. \"g\", \"kg\", \"lb\"). Si no se indica se detecta desde el texto.",
+              },
             },
             required: ["productQuery"],
+          },
+        },
+      });
+    }
+
+    if (capabilities.promotionLookup) {
+      tools.push({
+        type: "function",
+        function: {
+          name: "list_active_promotions",
+          description:
+            "OBLIGATORIO usar esta herramienta cuando el usuario pregunta sobre: ofertas, promociones, descuentos, rebajas, productos en oferta, o especiales disponibles. Obtiene TODOS los productos con promociones activas vigentes, incluyendo precios originales, precios con descuento, porcentaje de descuento, cantidades disponibles, y fechas de inicio/fin de la promoción. Usa esta herramienta para responder preguntas como '¿Tienes ofertas?', '¿Qué productos están en promoción?', '¿Hay descuentos disponibles?', o cualquier variación similar.",
+          parameters: {
+            type: "object",
+            properties: {
+              limit: {
+                type: "integer",
+                description: "Número máximo de promociones a listar (1-10). Por defecto 5.",
+                minimum: 1,
+                maximum: 10,
+              },
+            },
           },
         },
       });
@@ -649,6 +788,128 @@ export class AssistantService {
     }
   }
 
+  private shouldCheckPromotions(question: string): boolean {
+    if (!question?.trim()) {
+      return false;
+    }
+    const normalized = question
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+    return PROMOTION_KEYWORDS.some((keyword) =>
+      normalized.includes(keyword),
+    );
+  }
+
+  private async bootstrapPromotionsContext(
+    tenantId: string,
+  ): Promise<string | null> {
+    try {
+      const result = await this.assistantToolsService.executeTool(
+        tenantId,
+        "list_active_promotions",
+        { limit: 5 },
+      );
+
+      if (
+        !result?.ok ||
+        !Array.isArray(result.promotions) ||
+        result.promotions.length === 0
+      ) {
+        return null;
+      }
+
+      const lines = result.promotions.map((promo: any, index: number) => {
+        const pricing = promo.pricing || {};
+        const promotionInfo = promo.promotion || {};
+        const baseSymbol = pricing.currencySymbol || "$";
+        const baseCode = pricing.currencyCode || "USD";
+
+        const discountedLabel =
+          typeof promotionInfo.discountedPrice === "number"
+            ? this.formatCurrencyAmount(
+                promotionInfo.discountedPrice,
+                baseSymbol,
+                baseCode,
+              )
+            : pricing.formattedUnitPrice;
+
+        const originalLabel =
+          typeof promotionInfo.originalPrice === "number"
+            ? this.formatCurrencyAmount(
+                promotionInfo.originalPrice,
+                baseSymbol,
+                baseCode,
+              )
+            : undefined;
+
+        let priceSegment = discountedLabel || "";
+        if (originalLabel && discountedLabel && originalLabel !== discountedLabel) {
+          priceSegment = `${discountedLabel} (antes ${originalLabel})`;
+        } else if (originalLabel && !discountedLabel) {
+          priceSegment = `Oferta desde ${originalLabel}`;
+        }
+
+        const vesLabel =
+          pricing.conversions?.ves?.formattedUnitPrice ??
+          pricing.conversions?.ves?.formattedTotalPrice;
+        const vesSegment = vesLabel
+          ? ` | ≈ ${vesLabel} ${pricing.conversions?.ves?.source ? "(BCV)" : ""}`
+          : "";
+
+        const discountSegment =
+          typeof promotionInfo.discountPercentage === "number"
+            ? `-${promotionInfo.discountPercentage}%`
+            : "";
+
+        const availability =
+          typeof promo.availableQuantity === "number"
+            ? `Disponibles: ${promo.availableQuantity}`
+            : "";
+
+        return `(${index + 1}) ${promo.productName}${
+          promo.brand ? ` (${promo.brand})` : ""
+        }${priceSegment ? ` → ${priceSegment}` : ""}${
+          discountSegment ? ` ${discountSegment}` : ""
+        }${vesSegment}${availability ? ` | ${availability}` : ""}`;
+      });
+
+      return [
+        "## Promociones activas detectadas",
+        lines.join("\n"),
+        `Fecha de consulta: ${result.timestamp || new Date().toISOString()}`,
+      ].join("\n");
+    } catch (error) {
+      this.logger.warn(
+        `Bootstrap promotions lookup failed for tenant ${tenantId}: ${(error as Error).message}`,
+      );
+      return null;
+    }
+  }
+
+  private formatCurrencyAmount(
+    value: number,
+    symbol?: string,
+    code?: string,
+  ): string {
+    if (!Number.isFinite(value)) {
+      return "";
+    }
+
+    const formatted = new Intl.NumberFormat("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+
+    if (symbol) {
+      return `${symbol} ${formatted}`.trim();
+    }
+    if (code) {
+      return `${code} ${formatted}`.trim();
+    }
+    return formatted;
+  }
+
   private buildInventoryQueryCandidates(question: string): string[] {
     const candidates: string[] = [];
 
@@ -665,16 +926,20 @@ export class AssistantService {
 
     // Patrones para extraer el producto de diferentes tipos de preguntas
     const patterns = [
+      // "te pregunté por miel" -> "miel"
+      /(?:pregunté|pregunte|preguntaste|preguntó|pregunto)\s+(?:por|sobre)\s+([a-záéíóúüñ0-9\s\-_.]+?)(?:\?|$)/gi,
+      // "y el precio de gelatina" -> "gelatina"
+      /(?:y\s+)?(?:el|la|los|las)?\s*(?:precio|costo|valor)\s+(?:de|del)\s+(?:la|el|los|las)?\s*([a-záéíóúüñ0-9\s\-_.]+?)(?:\?|$)/gi,
       // "tienes cebo de res?" -> "cebo de res"
       /(?:tienes|tiene|tienen|venden|vendes|vende|manejan|manejas|maneja)\s+([a-záéíóúüñ0-9\s\-_.]+?)(?:\?|$)/gi,
       // "hay cebo de res?" -> "cebo de res"
       /(?:hay|existe|existen|quedan)\s+([a-záéíóúüñ0-9\s\-_.]+?)(?:\?|$)/gi,
       // "cuánto cuesta el cebo de res?" -> "cebo de res"
-      /(?:cuesta|cuestan|vale|valen|precio\s+de|precio\s+del)\s+(?:el|la|los|las)?\s*([a-záéíóúüñ0-9\s\-_.]+?)(?:\?|$)/gi,
+      /(?:cuesta|cuestan|vale|valen)\s+(?:el|la|los|las)?\s*([a-záéíóúüñ0-9\s\-_.]+?)(?:\?|$)/gi,
       // "disponibilidad de cebo de res" -> "cebo de res"
       /(?:disponibilidad\s+de|stock\s+de|inventario\s+de)\s+([a-záéíóúüñ0-9\s\-_.]+?)(?:\?|$)/gi,
-      // Patrones tradicionales
-      /(?:de|del|para|sobre)\s+([a-záéíóúüñ0-9\s\-_.]+?)(?:\s+(?:hay|quedan|disponibles|tienen|tenemos|existen)|$)/gi,
+      // "sobre el aceite de coco" -> "aceite de coco"
+      /(?:sobre|acerca\s+de)\s+(?:el|la|los|las)?\s*([a-záéíóúüñ0-9\s\-_.]+?)(?:\?|$)/gi,
     ];
 
     for (const pattern of patterns) {
@@ -817,6 +1082,34 @@ export class AssistantService {
     }
 
     return { answer: "", usedTools };
+  }
+
+  private formatCurrencyDisplay(
+    value: number | null | undefined,
+    symbol?: string,
+    code?: string,
+  ): string | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+      return null;
+    }
+
+    const formatted = new Intl.NumberFormat("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(numeric);
+
+    if (symbol) {
+      return `${symbol} ${formatted}`.trim();
+    }
+    if (code) {
+      return `${code} ${formatted}`.trim();
+    }
+    return formatted;
   }
 
   private parseToolArguments(

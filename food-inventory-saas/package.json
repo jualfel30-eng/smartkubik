@@ -55,6 +55,7 @@
     "@langchain/pinecone": "0.2.0",
     "@pinecone-database/pinecone": "^5.0.2",
     "nest-winston": "^1.9.3",
+    "@nestjs/bullmq": "^10.2.1",
     "@types/nodemailer": "^7.0.1",
     "@types/passport-google-oauth20": "^2.0.16",
     "axios": "^1.12.2",
@@ -68,6 +69,7 @@
     "dotenv": "^17.2.2",
     "express": "^4.21.2",
     "helmet": "^7.2.0",
+    "bullmq": "^5.8.3",
     "langchain": "^0.3.36",
     "moment": "^2.29.4",
     "moment-timezone": "^0.5.43",
@@ -85,7 +87,8 @@
     "sanitize-html": "^2.17.0",
     "socket.io": "^4.8.1",
     "uuid": "^9.0.1",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "ioredis": "^5.4.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.10",

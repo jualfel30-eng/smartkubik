@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -30,6 +30,10 @@ import {
 import { useCRM } from '@/hooks/use-crm.js';
 import { LocationPicker } from '@/components/ui/LocationPicker.jsx';
 
+const DEFAULT_PAGE_LIMIT = 25;
+const SEARCH_PAGE_LIMIT = 100;
+const SEARCH_DEBOUNCE_MS = 600;
+
 const initialNewContactState = {
   name: '',
   customerType: 'business', // Default value
@@ -53,6 +57,68 @@ function CRMManagement() {
   const [filterTier, setFilterTier] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [committedSearch, setCommittedSearch] = useState('');
+  const manualPageLimitRef = useRef(DEFAULT_PAGE_LIMIT);
+  const lastQueryRef = useRef({
+    search: null,
+    customerType: null,
+    limit: null,
+  });
+  const currentFilters = useMemo(() => {
+    const filters = {};
+    if (committedSearch) {
+      filters.search = committedSearch;
+    }
+    if (filterType !== 'all') {
+      filters.customerType = filterType;
+    }
+    return filters;
+  }, [committedSearch, filterType]);
+
+  const reloadCustomers = useCallback(
+    async (page, limit, filtersOverride) => {
+      const filtersToUse = filtersOverride ?? currentFilters;
+      lastQueryRef.current = {
+        search: filtersToUse?.search ?? '',
+        customerType: filtersToUse?.customerType ?? 'all',
+        limit,
+      };
+      await loadCustomers(page, limit, filtersToUse);
+    },
+    [currentFilters, loadCustomers],
+  );
+
+  useEffect(() => {
+    const trimmed = searchTerm.trim();
+    if (trimmed === '') {
+      setCommittedSearch('');
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      setCommittedSearch(trimmed);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    const effectiveLimit = committedSearch
+      ? Math.max(manualPageLimitRef.current, SEARCH_PAGE_LIMIT)
+      : manualPageLimitRef.current;
+
+    const normalizedSearch = committedSearch || '';
+    const normalizedCustomerType = filterType !== 'all' ? filterType : 'all';
+
+    if (
+      lastQueryRef.current.search === normalizedSearch &&
+      lastQueryRef.current.customerType === normalizedCustomerType &&
+      lastQueryRef.current.limit === effectiveLimit
+    ) {
+      return;
+    }
+
+    setCurrentPage(1);
+    reloadCustomers(1, effectiveLimit, currentFilters);
+  }, [committedSearch, filterType, currentFilters, reloadCustomers, setCurrentPage]);
 
   const [selectedContactId, setSelectedContactId] = useState(null);
   const [editingFormState, setEditingFormState] = useState({});
@@ -87,23 +153,12 @@ function CRMManagement() {
   useEffect(() => {
     let filtered = [...crmData];
 
-    if (searchTerm) {
-      filtered = filtered.filter(c => 
-        c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (c.companyName && c.companyName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (c.taxInfo?.taxId && c.taxInfo.taxId.includes(searchTerm)) ||
-        (c.contacts?.some(ct => ct.value.toLowerCase().includes(searchTerm.toLowerCase())))
-      );
-    }
-    if (filterType !== 'all') {
-      filtered = filtered.filter(c => c.customerType === filterType);
-    }
     if (filterTier !== 'all') {
       filtered = filtered.filter(c => c.tier === filterTier);
     }
 
     setFilteredData(filtered);
-  }, [crmData, searchTerm, filterType, filterTier]);
+  }, [crmData, filterTier]);
 
   useEffect(() => {
     console.log('CRM Data received:', crmData);
@@ -240,7 +295,7 @@ function CRMManagement() {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <h2 className="text-3xl font-bold text-foreground">Gestión de Contactos</h2>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <Button onClick={() => loadCustomers(currentPage, pageLimit)} disabled={loading} variant="outline" className="w-full sm:w-auto">
+          <Button onClick={() => reloadCustomers(currentPage, pageLimit, currentFilters)} disabled={loading} variant="outline" className="w-full sm:w-auto">
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Actualizando...' : 'Actualizar'}
           </Button>
@@ -332,9 +387,14 @@ function CRMManagement() {
               <div className="flex items-center space-x-2">
                 <Label htmlFor="pageLimit" className="text-sm">Mostrar:</Label>
                 <Select value={pageLimit.toString()} onValueChange={(value) => {
-                  setPageLimit(parseInt(value));
+                  const parsed = parseInt(value, 10);
+                  manualPageLimitRef.current = parsed;
+                  const effectiveLimit = committedSearch
+                    ? Math.max(parsed, SEARCH_PAGE_LIMIT)
+                    : parsed;
+                  setPageLimit(effectiveLimit);
                   setCurrentPage(1);
-                  loadCustomers(1, parseInt(value));
+                  reloadCustomers(1, effectiveLimit, currentFilters);
                 }}>
                   <SelectTrigger className="w-[100px]">
                     <SelectValue />
@@ -355,7 +415,7 @@ function CRMManagement() {
                   onClick={() => {
                     const newPage = Math.max(1, currentPage - 1);
                     setCurrentPage(newPage);
-                    loadCustomers(newPage, pageLimit);
+                    reloadCustomers(newPage, pageLimit, currentFilters);
                   }}
                   disabled={currentPage === 1}
                 >
@@ -374,7 +434,7 @@ function CRMManagement() {
                   onClick={() => {
                     const newPage = Math.min(totalPages, currentPage + 1);
                     setCurrentPage(newPage);
-                    loadCustomers(newPage, pageLimit);
+                    reloadCustomers(newPage, pageLimit, currentFilters);
                   }}
                   disabled={currentPage === totalPages}
                 >

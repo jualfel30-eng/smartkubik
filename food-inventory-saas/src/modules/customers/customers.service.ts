@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
+import { Model, Types, SortOrder } from "mongoose";
 import { Customer, CustomerDocument } from "../../schemas/customer.schema";
 import { Order, OrderDocument } from "../../schemas/order.schema";
 import {
@@ -84,6 +84,14 @@ export class CustomersService {
       sortOrder = "desc",
     } = query;
 
+    const pageNumber = Math.max(Number(page) || 1, 1);
+    const limitNumber = Math.max(Number(limit) || 20, 1);
+    const sortDirection: SortOrder = sortOrder === "asc" ? "asc" : "desc";
+    const sortKey = sortBy || "metrics.totalSpent";
+    const searchTerm =
+      typeof search === "string" ? search.trim() : "";
+    const isSearching = searchTerm.length > 0;
+
     const tenantIdVariants: (string | Types.ObjectId)[] = [tenantId];
     if (Types.ObjectId.isValid(tenantId)) {
       tenantIdVariants.push(new Types.ObjectId(tenantId));
@@ -102,15 +110,19 @@ export class CustomersService {
     } else {
       filter.status = { $ne: "inactive" };
     }
-    if (assignedTo) filter.assignedTo = new Types.ObjectId(assignedTo);
+    if (assignedTo) {
+      filter.assignedTo = new Types.ObjectId(assignedTo);
+    }
 
-    if (search) {
+    if (isSearching) {
+      const regex = new RegExp(this.escapeRegExp(searchTerm), "i");
       filter.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { lastName: { $regex: search, $options: "i" } },
-        { companyName: { $regex: search, $options: "i" } },
-        { customerNumber: { $regex: search, $options: "i" } },
-        { "taxInfo.taxId": { $regex: search, $options: "i" } },
+        { name: regex },
+        { lastName: regex },
+        { companyName: regex },
+        { customerNumber: regex },
+        { "taxInfo.taxId": regex },
+        { contacts: { $elemMatch: { value: regex } } },
       ];
     }
 
@@ -313,12 +325,13 @@ export class CustomersService {
       const totalResult = await this.customerModel.aggregate(totalPipeline);
       const total = totalResult[0]?.total || 0;
 
-      const sortOptions: any = {};
-      sortOptions[sortBy] = sortOrder === "asc" ? 1 : -1;
+      const aggregationSort: Record<string, 1 | -1> = {
+        [sortKey]: sortOrder === "asc" ? 1 : -1,
+      };
 
-      aggregationPipeline.push({ $sort: sortOptions });
-      aggregationPipeline.push({ $skip: (page - 1) * limit });
-      aggregationPipeline.push({ $limit: limit });
+      aggregationPipeline.push({ $sort: aggregationSort });
+      aggregationPipeline.push({ $skip: (pageNumber - 1) * limitNumber });
+      aggregationPipeline.push({ $limit: limitNumber });
 
       const customers = await this.customerModel.aggregate(aggregationPipeline);
 
@@ -329,26 +342,28 @@ export class CustomersService {
 
       return {
         customers: customersWithTiers,
-        page,
-        limit,
+        page: pageNumber,
+        limit: limitNumber,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limitNumber),
       };
     } catch (error) {
       this.logger.error(`Error in findAll aggregation: ${error.message}`);
       this.logger.error(`Full error:`, error);
 
-      const sortOptions: any = {};
-      sortOptions[sortBy === "metrics.totalSpent" ? "createdAt" : sortBy] =
-        sortOrder === "asc" ? 1 : -1;
-      const skip = (page - 1) * limit;
+      const fallbackSortKey =
+        sortKey === "metrics.totalSpent" ? "createdAt" : sortKey;
+      const sortOptions: Record<string, SortOrder> = {
+        [fallbackSortKey]: sortDirection,
+      };
+      const skip = (pageNumber - 1) * limitNumber;
 
       const [customers, total] = await Promise.all([
         this.customerModel
           .find(filter)
           .sort(sortOptions)
           .skip(skip)
-          .limit(limit)
+          .limit(limitNumber)
           .lean()
           .populate("assignedTo", "firstName lastName")
           .exec(),
@@ -362,12 +377,16 @@ export class CustomersService {
 
       return {
         customers: customersWithTiers,
-        page,
-        limit,
+        page: pageNumber,
+        limit: limitNumber,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limitNumber),
       };
     }
+  }
+
+  private escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
   private async calculateAndAssignTiers(

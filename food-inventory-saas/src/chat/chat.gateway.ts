@@ -50,6 +50,22 @@ export class ChatGateway {
     this.server.to(tenantId).emit("newMessage", message);
   }
 
+  emitAssistantStatus(
+    tenantId: string,
+    payload: {
+      conversationId: string;
+      status: "queued" | "processing" | "completed" | "failed";
+      customerMessageId?: string;
+      assistantMessageId?: string;
+      note?: string;
+    },
+  ) {
+    this.logger.log(
+      `Emitting assistantStatus (${payload.status}) to room ${tenantId} for conversation ${payload.conversationId}`,
+    );
+    this.server.to(tenantId).emit("assistantStatus", payload);
+  }
+
   @SubscribeMessage("sendMessage")
   async handleMessage(
     @MessageBody() data: { conversationId: string; content: string },
