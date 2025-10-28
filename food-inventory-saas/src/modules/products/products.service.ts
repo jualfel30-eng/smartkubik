@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectModel, InjectConnection } from "@nestjs/mongoose";
-import { Model, Types, Connection } from "mongoose";
+import { Model, Types, Connection, SortOrder } from "mongoose";
 import { Product, ProductDocument } from "../../schemas/product.schema";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import {
@@ -338,12 +338,18 @@ export class ProductsService {
       isActive = true,
       includeInactive = false,
     } = query;
-    const filter: any = { tenantId: new Types.ObjectId(tenantId) };
+
+    const pageNumber = Math.max(Number(page) || 1, 1);
+    const limitNumber = Math.max(Number(limit) || 20, 1);
+    const searchTerm =
+      typeof search === "string" ? search.trim() : "";
+    const isSearching = searchTerm.length > 0;
+
+    const filter: any = {
+      tenantId: new Types.ObjectId(tenantId),
+    };
     if (!includeInactive) {
       filter.isActive = isActive;
-    }
-    if (search) {
-      filter.$text = { $search: search };
     }
     if (category) {
       filter.category = category;
@@ -351,27 +357,51 @@ export class ProductsService {
     if (brand) {
       filter.brand = brand;
     }
-    const skip = (page - 1) * limit;
+    if (isSearching) {
+      const regex = new RegExp(this.escapeRegExp(searchTerm), "i");
+      filter.$or = [
+        { name: regex },
+        { sku: regex },
+        { brand: regex },
+        { description: regex },
+        { tags: regex },
+        { "variants.sku": regex },
+        { "variants.barcode": regex },
+      ];
+    }
+
+    const skip = (pageNumber - 1) * limitNumber;
+    const sortOptions: Record<string, SortOrder> = isSearching
+      ? { name: "asc" }
+      : { createdAt: "desc" };
+
     this.logger.debug(
-      `findAll -> tenantId=${tenantId}, includeInactive=${includeInactive}, isActive=${isActive}, page=${page}, limit=${limit}, search=${search ?? ""}, category=${category ?? ""}, brand=${brand ?? ""}`,
+      `findAll -> tenantId=${tenantId}, includeInactive=${includeInactive}, isActive=${isActive}, page=${pageNumber}, limit=${limitNumber}, search=${searchTerm}, category=${category ?? ""}, brand=${brand ?? ""}, isSearching=${isSearching}`,
     );
+
     const [products, total] = await Promise.all([
       this.productModel
         .find(filter)
-        .select("+isSoldByWeight +unitOfMeasure") // Explicitly include the fields
-        .sort({ createdAt: -1 })
+        .select("+isSoldByWeight +unitOfMeasure")
+        .sort(sortOptions)
         .skip(skip)
-        .limit(limit)
+        .limit(limitNumber)
+        .lean()
         .exec(),
       this.productModel.countDocuments(filter),
     ]);
+
     return {
       products,
-      page,
-      limit,
+      page: pageNumber,
+      limit: limitNumber,
       total,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.ceil(total / limitNumber),
     };
+  }
+
+  private escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
   async findOne(id: string, tenantId: string): Promise<ProductDocument | null> {

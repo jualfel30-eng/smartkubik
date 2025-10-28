@@ -11,6 +11,66 @@ import { SellingUnit } from "../schemas/product.schema";
 Decimal.set({ precision: 10, rounding: Decimal.ROUND_HALF_UP });
 
 export class UnitConversionUtil {
+  private static readonly WEIGHT_CONVERSIONS: Record<string, { toKg: number }> =
+    {
+      kg: { toKg: 1 },
+      kilogram: { toKg: 1 },
+      kilograms: { toKg: 1 },
+      kilogramo: { toKg: 1 },
+      kilogramos: { toKg: 1 },
+      kilo: { toKg: 1 },
+      kilos: { toKg: 1 },
+      g: { toKg: 1 / 1000 },
+      gr: { toKg: 1 / 1000 },
+      grs: { toKg: 1 / 1000 },
+      gram: { toKg: 1 / 1000 },
+      grams: { toKg: 1 / 1000 },
+      gramo: { toKg: 1 / 1000 },
+      gramos: { toKg: 1 / 1000 },
+      lb: { toKg: 0.45359237 },
+      lbs: { toKg: 0.45359237 },
+      pound: { toKg: 0.45359237 },
+      pounds: { toKg: 0.45359237 },
+      libra: { toKg: 0.45359237 },
+      libras: { toKg: 0.45359237 },
+      oz: { toKg: 0.0283495231 },
+      ounce: { toKg: 0.0283495231 },
+      ounces: { toKg: 0.0283495231 },
+      onza: { toKg: 0.0283495231 },
+      onzas: { toKg: 0.0283495231 },
+    };
+
+  private static readonly UNIT_NORMALIZATION_MAP: Record<string, string> = {
+    kg: "kg",
+    kilogram: "kg",
+    kilograms: "kg",
+    kilogramo: "kg",
+    kilogramos: "kg",
+    kilo: "kg",
+    kilos: "kg",
+    g: "g",
+    gr: "g",
+    grs: "g",
+    gram: "g",
+    grams: "g",
+    gramo: "g",
+    gramos: "g",
+    lb: "lb",
+    lbs: "lb",
+    pound: "lb",
+    pounds: "lb",
+    libra: "lb",
+    libras: "lb",
+    oz: "oz",
+    ounce: "oz",
+    ounces: "oz",
+    onza: "oz",
+    onzas: "oz",
+  };
+
+  private static readonly MEASUREMENT_REGEX =
+    /(\d+(?:[.,]\d+)?|\d+\s*\/\s*\d+)\s*(kg|kilogram(?:os|as)?|kilo(?:s)?|g|grs?|gram(?:os?)?|lb|lbs|libra(?:s)?|oz|onza(?:s)?)/i;
+
   /**
    * Convierte una cantidad de una unidad de venta a la unidad base
    * @param quantity - Cantidad en la unidad de venta
@@ -25,6 +85,59 @@ export class UnitConversionUtil {
 
     // Retornar con máximo 4 decimales para unidad base
     return result.toDecimalPlaces(4).toNumber();
+  }
+
+  /**
+   * Convierte una cantidad entre unidades de peso soportadas (kg, g, lb, oz).
+   * Si la unidad no está soportada, retorna null.
+   */
+  static convertWeight(
+    quantity: number,
+    fromUnit: string,
+    toUnit: string,
+  ): number | null {
+    if (!fromUnit || !toUnit) {
+      return null;
+    }
+
+    const normalizedFrom = this.normalizeWeightUnit(fromUnit);
+    const normalizedTo = this.normalizeWeightUnit(toUnit);
+
+    if (!normalizedFrom || !normalizedTo) {
+      return null;
+    }
+
+    const from = this.WEIGHT_CONVERSIONS[normalizedFrom];
+    const to = this.WEIGHT_CONVERSIONS[normalizedTo];
+
+    if (!from || !to) {
+      return null;
+    }
+
+    const quantityDecimal = new Decimal(quantity);
+    const kgValue = quantityDecimal.times(from.toKg);
+    const converted = kgValue.dividedBy(to.toKg);
+    return converted.toDecimalPlaces(4).toNumber();
+  }
+
+  /**
+   * Intenta inferir un factor de conversión cuando el producto no tiene sellingUnits configuradas.
+   * Actualmente soporta unidades de peso comunes.
+   */
+  static inferConversionFactor(
+    unitAbbreviation: string,
+    baseUnit: string,
+  ): number | null {
+    if (!unitAbbreviation || !baseUnit) {
+      return null;
+    }
+
+    const converted = this.convertWeight(1, unitAbbreviation, baseUnit);
+    if (converted === null) {
+      return null;
+    }
+
+    return converted;
   }
 
   /**
@@ -192,5 +305,89 @@ export class UnitConversionUtil {
   ): string {
     const baseQuantity = this.convertToBaseUnit(quantity, sellingUnit);
     return `${quantity} ${sellingUnit.abbreviation} = ${baseQuantity} ${baseUnit}`;
+  }
+
+  /**
+   * Extrae una medida (cantidad + unidad) de un texto libre.
+   * Retorna el texto sin la medida para búsquedas y los datos de cantidad detectados.
+   */
+  static extractMeasurement(
+    input: string,
+  ): {
+    normalizedText: string;
+    quantity?: number;
+    unit?: string;
+    normalizedUnit?: string;
+    rawMatch?: string;
+  } {
+    if (!input) {
+      return {
+        normalizedText: "",
+      };
+    }
+
+    const match = this.MEASUREMENT_REGEX.exec(input);
+    if (!match) {
+      return {
+        normalizedText: input.trim(),
+      };
+    }
+
+    const rawQuantity = match[1]?.trim();
+    const rawUnit = match[2]?.trim();
+    const normalizedUnit = this.normalizeWeightUnit(rawUnit || "");
+
+    const quantity = rawQuantity
+      ? this.parseQuantityValue(rawQuantity)
+      : undefined;
+
+    const normalizedText = `${input.slice(0, match.index)} ${input.slice(
+      (match.index || 0) + match[0].length,
+    )}`
+      .replace(/\s+/g, " ")
+      .trim();
+
+    return {
+      normalizedText,
+      quantity: quantity !== undefined && !Number.isNaN(quantity) ? quantity : undefined,
+      unit: rawUnit,
+      normalizedUnit: normalizedUnit || undefined,
+      rawMatch: match[0]?.trim(),
+    };
+  }
+
+  /**
+   * Normaliza una unidad de peso a su forma canónica (kg, g, lb u oz).
+   */
+  static normalizeWeightUnit(unit: string | undefined | null): string | null {
+    if (!unit) {
+      return null;
+    }
+
+    const sanitized = unit
+      .toLowerCase()
+      .replace(/\./g, "")
+      .replace(/\s+/g, "")
+      .trim();
+
+    return this.UNIT_NORMALIZATION_MAP[sanitized] || null;
+  }
+
+  /**
+   * Convierte valores en formato fraccional o con coma decimal a número.
+   */
+  private static parseQuantityValue(raw: string): number {
+    const cleaned = raw.replace(/\s+/g, "");
+    if (cleaned.includes("/")) {
+      const [numerator, denominator] = cleaned.split("/");
+      const num = Number(numerator?.replace(",", "."));
+      const den = Number(denominator?.replace(",", "."));
+      if (Number.isFinite(num) && Number.isFinite(den) && den !== 0) {
+        return new Decimal(num).dividedBy(den).toNumber();
+      }
+      return Number.NaN;
+    }
+
+    return Number(cleaned.replace(",", "."));
   }
 }

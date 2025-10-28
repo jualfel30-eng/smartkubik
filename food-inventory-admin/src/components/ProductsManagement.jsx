@@ -30,6 +30,8 @@ import {
 } from 'lucide-react';
 
 const UNASSIGNED_SELECT_VALUE = '__UNASSIGNED__';
+const DEFAULT_PAGE_LIMIT = 25;
+const SEARCH_PAGE_LIMIT = 100;
 
 // Tag Input Component for categories/subcategories
 const TagInput = ({ value = [], onChange, placeholder, id, helpText }) => {
@@ -100,6 +102,43 @@ const createVariantTemplate = (options = {}) => {
   };
 };
 
+const normalizeStringList = (input) => {
+  if (Array.isArray(input)) {
+    return input
+      .map((item) => {
+        if (typeof item === 'string') {
+          return item.trim();
+        }
+        if (item === null || item === undefined) {
+          return '';
+        }
+        return String(item).trim();
+      })
+      .filter((item) => item.length > 0);
+  }
+
+  if (typeof input === 'string') {
+    const trimmed = input.trim();
+    if (!trimmed) {
+      return [];
+    }
+    if (trimmed.includes(',')) {
+      return trimmed
+        .split(',')
+        .map((part) => part.trim())
+        .filter((part) => part.length > 0);
+    }
+    return [trimmed];
+  }
+
+  if (input === null || input === undefined) {
+    return [];
+  }
+
+  const coerced = String(input).trim();
+  return coerced ? [coerced] : [];
+};
+
 const initialNewProductState = {
   sku: '',
   name: '',
@@ -159,7 +198,7 @@ function ProductsManagement() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageLimit, setPageLimit] = useState(25);
+  const [pageLimit, setPageLimit] = useState(DEFAULT_PAGE_LIMIT);
   const [totalProducts, setTotalProducts] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const lastFetchRef = useRef({ filter: null, timestamp: 0 });
@@ -171,6 +210,7 @@ function ProductsManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const dragImageIndex = useRef(null);
+  const manualPageLimitRef = useRef(DEFAULT_PAGE_LIMIT);
 
   // Estados para importación masiva
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
@@ -361,6 +401,16 @@ useEffect(() => {
   useEffect(() => {
     setFilteredProducts(products);
   }, [products]);
+
+  // Expand the page size automatically when the search bar is in use so tenants see broad matches without touching pagination.
+  useEffect(() => {
+    const trimmed = searchTerm.trim();
+    if (trimmed) {
+      setPageLimit((prev) => (prev >= SEARCH_PAGE_LIMIT ? prev : SEARCH_PAGE_LIMIT));
+    } else {
+      setPageLimit(manualPageLimitRef.current || DEFAULT_PAGE_LIMIT);
+    }
+  }, [searchTerm]);
 
   const categories = [...new Set(products.flatMap(p => Array.isArray(p.category) ? p.category : [p.category]).filter(Boolean))];
 
@@ -673,6 +723,8 @@ useEffect(() => {
       newProduct.attributes,
       productAttributes,
     );
+    const normalizedCategory = normalizeStringList(newProduct.category);
+    const normalizedSubcategory = normalizeStringList(newProduct.subcategory);
 
     const buildVariantPayload = (variant, position) => {
       if (!variant) {
@@ -715,6 +767,8 @@ useEffect(() => {
 
     const payload = {
       ...newProduct,
+      category: normalizedCategory,
+      subcategory: normalizedSubcategory,
       attributes: productAttributesPayload,
       variants: [
         primaryVariantPayload,
@@ -779,6 +833,8 @@ useEffect(() => {
       editingProduct.attributes,
       productAttributes,
     );
+    const normalizedCategory = normalizeStringList(editingProduct.category);
+    const normalizedSubcategory = normalizeStringList(editingProduct.subcategory);
     const sanitizedVariants = (editingProduct.variants || []).map((variant) => {
       const sanitizedAttributes = serializeAttributes(variant.attributes, variantAttributes);
       const trimmedSku =
@@ -804,8 +860,8 @@ useEffect(() => {
 
     const payload = {
       name: editingProduct.name,
-      category: editingProduct.category,
-      subcategory: editingProduct.subcategory,
+      category: normalizedCategory,
+      subcategory: normalizedSubcategory,
       brand: editingProduct.brand,
       description: editingProduct.description,
       ingredients: editingProduct.ingredients,
@@ -2440,6 +2496,8 @@ useEffect(() => {
                           if (!productToEdit.sellingUnits) {
                             productToEdit.sellingUnits = [];
                           }
+                          productToEdit.category = normalizeStringList(productToEdit.category);
+                          productToEdit.subcategory = normalizeStringList(productToEdit.subcategory);
                           setEditingProduct(productToEdit);
                           setIsEditDialogOpen(true);
                         }}><Edit className="h-4 w-4" /></Button>
@@ -2464,7 +2522,9 @@ useEffect(() => {
               <div className="flex items-center space-x-2">
                 <Label htmlFor="pageLimit" className="text-sm">Mostrar:</Label>
                 <Select value={pageLimit.toString()} onValueChange={(value) => {
-                  setPageLimit(parseInt(value));
+                  const parsed = parseInt(value, 10);
+                  manualPageLimitRef.current = parsed;
+                  setPageLimit(parsed);
                   setCurrentPage(1);
                 }}>
                   <SelectTrigger className="w-[100px]">
