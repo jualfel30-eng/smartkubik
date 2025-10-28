@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import Image from 'next/image';
 
 interface ModernServicesProps {
@@ -16,6 +16,10 @@ interface ModernServicesProps {
       image: string;
       category: string;
     }>;
+    theme?: {
+      primaryColor?: string;
+      secondaryColor?: string;
+    };
     team?: Array<{
       name: string;
       role: string;
@@ -37,10 +41,15 @@ interface ModernServicesProps {
         country?: string;
       };
     };
+    externalLinks?: {
+      reserveWithGoogle?: string;
+      whatsapp?: string;
+    };
   };
+  domain?: string;
 }
 
-export default function ModernServices({ config }: ModernServicesProps) {
+export default function ModernServices({ config, domain }: ModernServicesProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   const categories = ['all', ...new Set(config.services.map(s => s.category))];
@@ -48,8 +57,15 @@ export default function ModernServices({ config }: ModernServicesProps) {
     ? config.services
     : config.services.filter(s => s.category === selectedCategory);
 
+  const primaryColor = config?.theme?.primaryColor || '#1d4ed8';
+  const secondaryColor = config?.theme?.secondaryColor || '#2563eb';
+  const themeStyle: CSSProperties = {
+    '--color-primary': primaryColor,
+    '--color-secondary': secondaryColor,
+  } as CSSProperties;
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen" style={themeStyle}>
       {/* Header con Logo y Navegación */}
       <header className="sticky top-0 bg-white shadow-md z-50">
         <nav className="container mx-auto px-4 py-4 flex justify-between items-center">
@@ -77,16 +93,41 @@ export default function ModernServices({ config }: ModernServicesProps) {
       </header>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-primary to-secondary text-white py-20">
+      <section
+        className="text-white py-20"
+        style={{
+          backgroundImage: `linear-gradient(90deg, ${primaryColor}, ${secondaryColor})`,
+        }}
+      >
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-5xl font-bold mb-4">{config.name}</h1>
           <p className="text-xl mb-8 max-w-2xl mx-auto">{config.description}</p>
-          <a 
-            href="#contacto" 
-            className="bg-white text-primary px-8 py-3 rounded-full font-semibold hover:bg-opacity-90 transition inline-block"
-          >
-            Contáctanos Ahora
-          </a>
+          <div className="flex flex-wrap justify-center gap-4">
+            <a 
+              href="#contacto" 
+              className="bg-white text-primary px-8 py-3 rounded-full font-semibold hover:bg-opacity-90 transition inline-block"
+            >
+              Contáctanos Ahora
+            </a>
+            {domain && (
+              <a
+                href={`/${domain}/book`}
+                className="bg-transparent border border-white px-8 py-3 rounded-full font-semibold hover:bg-white hover:text-primary transition inline-block"
+              >
+                Reservar en Línea
+              </a>
+            )}
+            {config.externalLinks?.reserveWithGoogle && (
+              <a
+                href={config.externalLinks.reserveWithGoogle}
+                className="bg-white/20 border border-white/60 px-8 py-3 rounded-full font-semibold hover:bg-white hover:text-primary transition inline-block"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Reservar con Google
+              </a>
+            )}
+          </div>
         </div>
       </section>
 
@@ -200,6 +241,23 @@ export default function ModernServices({ config }: ModernServicesProps) {
                     </a>
                   </div>
                 </div>
+
+                {config.externalLinks?.whatsapp && (
+                  <div className="flex items-start gap-3">
+                    <span className="text-primary text-xl">💬</span>
+                    <div>
+                      <p className="font-medium">WhatsApp</p>
+                      <a
+                        href={config.externalLinks.whatsapp}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-gray-600 hover:text-primary"
+                      >
+                        Escríbenos por WhatsApp
+                      </a>
+                    </div>
+                  </div>
+                )}
 
                 {config.contactInfo.address && (
                   <div className="flex items-start gap-3">

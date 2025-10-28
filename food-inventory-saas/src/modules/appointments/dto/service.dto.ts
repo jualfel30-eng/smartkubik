@@ -1,4 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
+import { Type } from "class-transformer";
 import {
   IsString,
   IsNumber,
@@ -8,7 +9,40 @@ import {
   IsArray,
   Min,
   MaxLength,
+  ValidateNested,
 } from "class-validator";
+
+class ServiceAddonDto {
+  @ApiProperty({ description: "Nombre del addon", example: "Champagne" })
+  @IsString()
+  @MaxLength(120)
+  name: string;
+
+  @ApiProperty({
+    description: "Descripción del addon",
+    required: false,
+    example: "Botella de bienvenida",
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  description?: string;
+
+  @ApiProperty({ description: "Precio del addon", example: 45 })
+  @IsNumber()
+  @Min(0)
+  price: number;
+
+  @ApiProperty({
+    description: "Duración adicional en minutos",
+    required: false,
+    example: 30,
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  duration?: number;
+}
 
 export class CreateServiceDto {
   @ApiProperty({
@@ -39,6 +73,15 @@ export class CreateServiceDto {
   @Min(1)
   duration: number;
 
+  @ApiProperty({
+    description: "Tipo de servicio",
+    enum: ["room", "spa", "experience", "concierge", "general"],
+    default: "general",
+  })
+  @IsEnum(["room", "spa", "experience", "concierge", "general"])
+  @IsOptional()
+  serviceType?: string;
+
   @ApiProperty({ description: "Precio del servicio", example: 25.0 })
   @IsNumber()
   @Min(0)
@@ -53,6 +96,26 @@ export class CreateServiceDto {
   @IsOptional()
   @Min(0)
   cost?: number;
+
+  @ApiProperty({
+    description: "Horas mínimas de antelación para reservar",
+    required: false,
+    example: 4,
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  minAdvanceBooking?: number;
+
+  @ApiProperty({
+    description: "Horas máximas de antelación para reservar",
+    required: false,
+    example: 720,
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  maxAdvanceBooking?: number;
 
   @ApiProperty({
     description: "Estado del servicio",
@@ -117,6 +180,46 @@ export class CreateServiceDto {
   @Min(1)
   maxSimultaneous?: number;
 
+  @ApiProperty({
+    description: "Addons opcionales para el servicio",
+    required: false,
+    type: [ServiceAddonDto],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ServiceAddonDto)
+  @IsOptional()
+  addons?: ServiceAddonDto[];
+
+  @ApiProperty({
+    description: "Requiere depósito para confirmar",
+    required: false,
+    default: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  requiresDeposit?: boolean;
+
+  @ApiProperty({
+    description: "Tipo de depósito",
+    enum: ["fixed", "percentage"],
+    required: false,
+    default: "fixed",
+  })
+  @IsEnum(["fixed", "percentage"])
+  @IsOptional()
+  depositType?: string;
+
+  @ApiProperty({
+    description: "Monto del depósito (valor o porcentaje)",
+    required: false,
+    example: 50,
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  depositAmount?: number;
+
   @ApiProperty({ description: "Metadata adicional", required: false })
   @IsOptional()
   metadata?: Record<string, any>;
@@ -147,6 +250,15 @@ export class UpdateServiceDto {
   @Min(1)
   duration?: number;
 
+  @ApiProperty({
+    description: "Tipo de servicio",
+    enum: ["room", "spa", "experience", "concierge", "general"],
+    required: false,
+  })
+  @IsEnum(["room", "spa", "experience", "concierge", "general"])
+  @IsOptional()
+  serviceType?: string;
+
   @ApiProperty({ description: "Precio del servicio", required: false })
   @IsNumber()
   @IsOptional()
@@ -158,6 +270,24 @@ export class UpdateServiceDto {
   @IsOptional()
   @Min(0)
   cost?: number;
+
+  @ApiProperty({
+    description: "Horas mínimas de antelación para reservar",
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  minAdvanceBooking?: number;
+
+  @ApiProperty({
+    description: "Horas máximas de antelación para reservar",
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  maxAdvanceBooking?: number;
 
   @ApiProperty({
     description: "Estado del servicio",
@@ -213,6 +343,43 @@ export class UpdateServiceDto {
   @IsOptional()
   @Min(1)
   maxSimultaneous?: number;
+
+  @ApiProperty({
+    description: "Addons opcionales para el servicio",
+    required: false,
+    type: [ServiceAddonDto],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ServiceAddonDto)
+  @IsOptional()
+  addons?: ServiceAddonDto[];
+
+  @ApiProperty({
+    description: "Requiere depósito para confirmar",
+    required: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  requiresDeposit?: boolean;
+
+  @ApiProperty({
+    description: "Tipo de depósito",
+    enum: ["fixed", "percentage"],
+    required: false,
+  })
+  @IsEnum(["fixed", "percentage"])
+  @IsOptional()
+  depositType?: string;
+
+  @ApiProperty({
+    description: "Monto del depósito (valor o porcentaje)",
+    required: false,
+  })
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  depositAmount?: number;
 
   @ApiProperty({ description: "Metadata adicional", required: false })
   @IsOptional()

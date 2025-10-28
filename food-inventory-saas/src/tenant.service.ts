@@ -154,6 +154,16 @@ export class TenantService {
           });
         }
       }
+      if (updateDto.settings.hospitalityPolicies) {
+        Object.entries(updateDto.settings.hospitalityPolicies).forEach(
+          ([key, value]) => {
+            if (value === undefined) {
+              return;
+            }
+            updatePayload[`settings.hospitalityPolicies.${key}`] = value;
+          },
+        );
+      }
     }
 
     if (updateDto.verticalProfile) {

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { getTenantSettings, updateTenantSettings, uploadTenantLogo } from '@/lib/api';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -71,6 +72,14 @@ const initialSettings = {
         accentColor: '#FFFFFF',
         footerText: '',
       }
+    },
+    hospitalityPolicies: {
+      depositRequired: true,
+      depositPercentage: 30,
+      cancellationWindowHours: 24,
+      noShowPenaltyType: 'percentage',
+      noShowPenaltyValue: 100,
+      manualNotes: '',
     }
   }
 };
@@ -149,6 +158,10 @@ const SettingsPage = () => {
             ...initialSettings.settings.documentTemplates.quote,
             ...(settingsData.settings?.documentTemplates?.quote || {}),
           },
+        },
+        hospitalityPolicies: {
+          ...initialSettings.settings.hospitalityPolicies,
+          ...(settingsData.settings?.hospitalityPolicies || {}),
         },
       },
     };
@@ -434,6 +447,99 @@ const SettingsPage = () => {
                         <div className="space-y-2"><Label>Estado/Provincia</Label><Input name="contactInfo.address.state" value={settings.contactInfo.address.state} onChange={handleInputChange} /></div>
                         <div className="space-y-2"><Label>Código Postal</Label><Input name="contactInfo.address.zipCode" value={settings.contactInfo.address.zipCode} onChange={handleInputChange} /></div>
                         <div className="space-y-2"><Label>País</Label><Input name="contactInfo.address.country" value={settings.contactInfo.address.country} onChange={handleInputChange} /></div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Políticas de Depósitos y Cancelación (Hospitality)</CardTitle>
+                        <CardDescription>
+                          Ajusta el porcentaje de depósito, la ventana de cancelación y la penalización por no-show para tus reservas hoteleras.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="flex items-center justify-between rounded-md border p-4">
+                            <div>
+                                <p className="font-semibold">Requerir depósito</p>
+                                <p className="text-sm text-muted-foreground">Solicita un abono inicial para que la reserva quede confirmada.</p>
+                            </div>
+                            <Switch
+                              checked={Boolean(settings.settings.hospitalityPolicies?.depositRequired)}
+                              onCheckedChange={(checked) => handleSwitchChange('settings.hospitalityPolicies.depositRequired', checked)}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Porcentaje de depósito (%)</Label>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="1"
+                                  name="settings.hospitalityPolicies.depositPercentage"
+                                  value={settings.settings.hospitalityPolicies?.depositPercentage ?? ''}
+                                  onChange={handleInputChange}
+                                />
+                                <p className="text-xs text-muted-foreground">Se muestra en el portal público y en los mensajes automáticos.</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Cancelación sin penalización (horas)</Label>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  name="settings.hospitalityPolicies.cancellationWindowHours"
+                                  value={settings.settings.hospitalityPolicies?.cancellationWindowHours ?? ''}
+                                  onChange={handleInputChange}
+                                />
+                                <p className="text-xs text-muted-foreground">Tiempo mínimo antes de la cita para permitir cancelaciones gratuitas.</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Penalización por no-show</Label>
+                                <Select
+                                  value={settings.settings.hospitalityPolicies?.noShowPenaltyType || 'percentage'}
+                                  onValueChange={(value) => setNestedValue('settings.hospitalityPolicies.noShowPenaltyType', value)}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Selecciona un tipo" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="percentage">Porcentaje del servicio</SelectItem>
+                                    <SelectItem value="fixed">Monto fijo (moneda primaria)</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Valor de la penalización</Label>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  name="settings.hospitalityPolicies.noShowPenaltyValue"
+                                  value={settings.settings.hospitalityPolicies?.noShowPenaltyValue ?? ''}
+                                  onChange={handleInputChange}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                  Si el tipo es porcentaje, ingresa un valor entre 0 y 100. Para monto fijo, usa la moneda principal.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Notas operativas</Label>
+                            <Textarea
+                              rows={3}
+                              name="settings.hospitalityPolicies.manualNotes"
+                              value={settings.settings.hospitalityPolicies?.manualNotes || ''}
+                              onChange={handleInputChange}
+                              placeholder="Instrucciones internas: horarios de validación, bancos preferidos, procedimientos especiales, etc."
+                            />
+                            <p className="text-xs text-muted-foreground">Se mostrará como guía rápida para el equipo de reservas.</p>
+                        </div>
                     </CardContent>
                 </Card>
 

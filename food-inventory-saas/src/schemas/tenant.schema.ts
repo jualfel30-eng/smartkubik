@@ -89,6 +89,16 @@ export class TenantSettings {
       footerText: string;
     };
   };
+
+  @Prop({ type: Object })
+  hospitalityPolicies: {
+    depositRequired?: boolean;
+    depositPercentage?: number;
+    cancellationWindowHours?: number;
+    noShowPenaltyType?: "percentage" | "fixed";
+    noShowPenaltyValue?: number;
+    manualNotes?: string;
+  };
 }
 
 const TenantSettingsSchema = SchemaFactory.createForClass(TenantSettings);

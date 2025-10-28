@@ -8,6 +8,7 @@ import {
   IsNotEmptyObject,
   IsNumber,
   Min,
+  Max,
   IsBoolean,
   IsIn,
 } from "class-validator";
@@ -157,6 +158,45 @@ class DocumentTemplatesSettingsDto {
   quote?: QuoteSettingsDto;
 }
 
+class HospitalityPoliciesSettingsDto {
+  @ApiProperty({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  depositRequired?: boolean;
+
+  @ApiProperty({ example: 30 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  depositPercentage?: number;
+
+  @ApiProperty({ example: 24 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  cancellationWindowHours?: number;
+
+  @ApiProperty({ example: "percentage", enum: ["percentage", "fixed"] })
+  @IsOptional()
+  @IsIn(["percentage", "fixed"])
+  noShowPenaltyType?: "percentage" | "fixed";
+
+  @ApiProperty({ example: 100 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  noShowPenaltyValue?: number;
+
+  @ApiProperty({
+    example: "Validar depósitos con el estado de cuenta Mercantil a las 10:00 y 16:00.",
+  })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  manualNotes?: string;
+}
+
 class VerticalProfileSettingsDto {
   @ApiProperty({ enum: verticalProfileKeys })
   @IsString()
@@ -237,6 +277,12 @@ class OperationalSettingsDto {
   @ValidateNested()
   @Type(() => DocumentTemplatesSettingsDto)
   documentTemplates?: DocumentTemplatesSettingsDto;
+
+  @ApiProperty({ type: HospitalityPoliciesSettingsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => HospitalityPoliciesSettingsDto)
+  hospitalityPolicies?: HospitalityPoliciesSettingsDto;
 }
 
 export class UpdateTenantSettingsDto {

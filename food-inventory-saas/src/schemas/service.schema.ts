@@ -29,11 +29,24 @@ export class Service {
   @Prop({ type: Number, required: true })
   duration: number; // Duración en minutos
 
+  @Prop({
+    type: String,
+    enum: ["room", "spa", "experience", "concierge", "general"],
+    default: "general",
+  })
+  serviceType: string; // Clasificación para vertical de servicios/hotelería
+
   @Prop({ type: Number, required: true, default: 0 })
   price: number; // Precio del servicio
 
   @Prop({ type: Number, default: 0 })
   cost: number; // Costo del servicio (opcional, para calcular margen)
+
+  @Prop({ type: Number, default: 0 })
+  minAdvanceBooking: number; // Horas mínimas de antelación para reservar
+
+  @Prop({ type: Number, default: 4320 })
+  maxAdvanceBooking: number; // Horas máximas (por defecto 180 días)
 
   @Prop({ type: String, enum: ["active", "inactive"], default: "active" })
   status: string;
@@ -55,6 +68,37 @@ export class Service {
 
   @Prop({ type: Number, default: 1 })
   maxSimultaneous: number; // Máximo de servicios simultáneos permitidos
+
+  @Prop({
+    type: [
+      {
+        name: { type: String, required: true, trim: true },
+        description: { type: String, trim: true },
+        price: { type: Number, default: 0 },
+        duration: { type: Number },
+      },
+    ],
+    default: [],
+  })
+  addons: Array<{
+    name: string;
+    description?: string;
+    price: number;
+    duration?: number;
+  }>;
+
+  @Prop({ type: Boolean, default: false })
+  requiresDeposit: boolean;
+
+  @Prop({
+    type: String,
+    enum: ["fixed", "percentage"],
+    default: "fixed",
+  })
+  depositType: string;
+
+  @Prop({ type: Number, default: 0 })
+  depositAmount: number;
 
   @Prop({ type: Object })
   metadata: Record<string, any>; // Datos adicionales específicos del negocio
