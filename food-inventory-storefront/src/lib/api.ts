@@ -1,4 +1,19 @@
-import { StorefrontConfig, ProductsResponse, OrderData, Order } from '@/types';
+import {
+  StorefrontConfig,
+  ProductsResponse,
+  OrderData,
+  Order,
+  BookingService,
+  AvailabilitySlot,
+  CreateBookingPayload,
+  CreateBookingResponse,
+  CancelBookingPayload,
+  CancelBookingResponse,
+  BookingLookupPayload,
+  BookingSummary,
+  RescheduleBookingPayload,
+  RescheduleBookingResponse,
+} from '@/types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -23,6 +38,59 @@ function transformProduct(product: any): any {
     isActive: product.isActive,
     tenantId: product.tenantId,
   };
+}
+
+function transformService(service: any): BookingService {
+  const tenantId =
+    typeof service.tenantId === 'string'
+      ? service.tenantId
+      : service.tenantId?._id ||
+        service.tenantId?.toString?.() ||
+        '';
+
+  return {
+    _id: service._id,
+    tenantId,
+    name: service.name,
+    description: service.description || '',
+    category: service.category || 'General',
+    duration: service.duration || 60,
+    serviceType: (service.serviceType || 'general') as BookingService['serviceType'],
+    price: service.price || 0,
+    color: service.color || undefined,
+    requiresResource: Boolean(service.requiresResource),
+    allowedResourceTypes: service.allowedResourceTypes || [],
+    bufferTimeBefore: service.bufferTimeBefore || 0,
+    bufferTimeAfter: service.bufferTimeAfter || 0,
+    maxSimultaneous: service.maxSimultaneous || 1,
+    addons: (service.addons || []).map((addon: any) => ({
+      name: addon.name,
+      description: addon.description,
+      price: addon.price || 0,
+      duration: addon.duration,
+    })),
+    requiresDeposit: Boolean(service.requiresDeposit),
+    depositType: service.depositType || 'fixed',
+    depositAmount: service.depositAmount || 0,
+    minAdvanceBooking: service.minAdvanceBooking,
+    maxAdvanceBooking: service.maxAdvanceBooking,
+    metadata: service.metadata || {},
+  };
+}
+
+async function parseJsonError(res: Response): Promise<never> {
+  let message = `Error ${res.status}`;
+  try {
+    const body = await res.json();
+    message =
+      body?.message ||
+      body?.error ||
+      body?.errors?.[0]?.message ||
+      JSON.stringify(body);
+  } catch (err) {
+    console.error('Failed to parse error response', err);
+  }
+  throw new Error(message);
 }
 
 /**
@@ -152,6 +220,201 @@ export async function getProductById(productId: string, tenantId: string): Promi
     console.error('Error fetching product:', error);
     throw error;
   }
+}
+
+/**
+ * Obtiene servicios disponibles para agendar (endpoint público)
+ */
+export async function getBookingServices(
+  tenantId: string,
+  options?: { category?: string }
+): Promise<BookingService[]> {
+  const params = new URLSearchParams({ tenantId });
+  if (options?.category) {
+    params.append('category', options.category);
+  }
+
+  const res = await fetch(`${API_BASE}/api/v1/public/services?${params.toString()}`, {
+    next: {
+      revalidate: 180,
+      tags: [`services-${tenantId}`],
+    },
+  });
+
+  if (!res.ok) {
+    await parseJsonError(res);
+  }
+
+  const body = await res.json();
+  return (body.data || []).map(transformService);
+}
+
+/**
+ * Obtiene detalle de un servicio específico (endpoint público)
+ */
+export async function getBookingServiceById(
+  tenantId: string,
+  serviceId: string
+): Promise<BookingService> {
+  const res = await fetch(
+    `${API_BASE}/api/v1/public/services/${serviceId}?tenantId=${tenantId}`,
+    {
+      next: {
+        revalidate: 180,
+        tags: [`service-${serviceId}`],
+      },
+    }
+  );
+
+  if (!res.ok) {
+    await parseJsonError(res);
+  }
+
+  const body = await res.json();
+  return transformService(body.data);
+}
+
+/**
+ * Obtiene las categorías de servicios disponibles
+ */
+export async function getBookingServiceCategories(tenantId: string): Promise<string[]> {
+  const res = await fetch(
+    `${API_BASE}/api/v1/public/services/categories?tenantId=${tenantId}`,
+    {
+      next: {
+        revalidate: 300,
+        tags: [`service-categories-${tenantId}`],
+      },
+    }
+  );
+
+  if (!res.ok) {
+    await parseJsonError(res);
+  }
+
+  const body = await res.json();
+  return body.data || [];
+}
+
+/**
+ * Consulta disponibilidad para un servicio dado (endpoint público)
+ */
+export async function getServiceAvailability(
+  payload: {
+    tenantId: string;
+    serviceId: string;
+    date: string;
+    resourceId?: string;
+    additionalResourceIds?: string[];
+    capacity?: number;
+  }
+): Promise<AvailabilitySlot[]> {
+  const res = await fetch(`${API_BASE}/api/v1/public/appointments/availability`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      tenantId: payload.tenantId,
+      serviceId: payload.serviceId,
+      resourceId: payload.resourceId,
+      additionalResourceIds: payload.additionalResourceIds,
+      date: payload.date,
+      capacity: payload.capacity,
+    }),
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    await parseJsonError(res);
+  }
+
+  const body = await res.json();
+  return body.data || [];
+}
+
+/**
+ * Crea una reserva pública
+ */
+export async function createBooking(
+  booking: CreateBookingPayload
+): Promise<CreateBookingResponse> {
+  const res = await fetch(`${API_BASE}/api/v1/public/appointments`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(booking),
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    await parseJsonError(res);
+  }
+
+  const body = await res.json();
+  return body.data;
+}
+
+/**
+ * Cancela una reserva pública
+ */
+export async function cancelBooking(
+  appointmentId: string,
+  payload: CancelBookingPayload
+): Promise<CancelBookingResponse> {
+  const res = await fetch(
+    `${API_BASE}/api/v1/public/appointments/${appointmentId}/cancel`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+    }
+  );
+
+  if (!res.ok) {
+    await parseJsonError(res);
+  }
+
+  const body = await res.json();
+  return body.data;
+}
+
+export async function lookupBookings(
+  payload: BookingLookupPayload
+): Promise<BookingSummary[]> {
+  const res = await fetch(`${API_BASE}/api/v1/public/appointments/lookup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    cache: 'no-store',
+  });
+
+  if (!res.ok) {
+    await parseJsonError(res);
+  }
+
+  const body = await res.json();
+  return body.data || [];
+}
+
+export async function rescheduleBooking(
+  appointmentId: string,
+  payload: RescheduleBookingPayload
+): Promise<RescheduleBookingResponse> {
+  const res = await fetch(
+    `${API_BASE}/api/v1/public/appointments/${appointmentId}/reschedule`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+    }
+  );
+
+  if (!res.ok) {
+    await parseJsonError(res);
+  }
+
+  const body = await res.json();
+  return body.data;
 }
 
 /**

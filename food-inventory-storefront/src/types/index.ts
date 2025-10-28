@@ -5,14 +5,17 @@ export interface StorefrontConfig {
   tenantId: string | { _id: string; [key: string]: any };
   isActive: boolean;
   domain: string;
+  name?: string;
+  description?: string;
   theme: {
-    primaryColor: string;
-    secondaryColor: string;
+    primaryColor?: string;
+    secondaryColor?: string;
     logo?: string;
     favicon?: string;
   };
   templateType: 'ecommerce' | 'services';
   customCSS?: string;
+  language?: string;
   seo: {
     title: string;
     description?: string;
@@ -32,6 +35,10 @@ export interface StorefrontConfig {
       state?: string;
       country?: string;
     };
+  };
+  externalLinks?: {
+    reserveWithGoogle?: string;
+    whatsapp?: string;
   };
   createdAt: string;
   updatedAt: string;
@@ -96,4 +103,136 @@ export interface Order {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ServiceAddon {
+  name: string;
+  description?: string;
+  price: number;
+  duration?: number;
+}
+
+export interface BookingService {
+  _id: string;
+  tenantId: string;
+  name: string;
+  description?: string;
+  category: string;
+  duration: number;
+  serviceType: "room" | "spa" | "experience" | "concierge" | "general";
+  price: number;
+  color?: string;
+  requiresResource: boolean;
+  allowedResourceTypes: string[];
+  bufferTimeBefore?: number;
+  bufferTimeAfter?: number;
+  maxSimultaneous: number;
+  addons: ServiceAddon[];
+  requiresDeposit: boolean;
+  depositType: "fixed" | "percentage";
+  depositAmount: number;
+  minAdvanceBooking?: number;
+  maxAdvanceBooking?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AvailabilitySlot {
+  start: string;
+  end: string;
+}
+
+export interface BookingCustomerPayload {
+  firstName: string;
+  lastName?: string;
+  email: string;
+  phone: string;
+  preferredLanguage?: string;
+}
+
+export interface BookingGuestPayload {
+  name: string;
+  guestEmail?: string;
+  guestPhone?: string;
+  role?: string;
+}
+
+export interface BookingAddonPayload {
+  name: string;
+  price?: number;
+  quantity?: number;
+}
+
+export interface CreateBookingPayload {
+  tenantId: string;
+  serviceId: string;
+  startTime: string;
+  locationId?: string;
+  resourceId?: string;
+  additionalResourceIds?: string[];
+  notes?: string;
+  partySize?: number;
+  customer: BookingCustomerPayload;
+  guests?: BookingGuestPayload[];
+  addons?: BookingAddonPayload[];
+  metadata?: Record<string, unknown>;
+  acceptPolicies?: boolean;
+}
+
+export interface CreateBookingResponse {
+  appointmentId: string;
+  status: string;
+  cancellationCode: string;
+  startTime: string;
+  endTime: string;
+}
+
+export interface CancelBookingPayload {
+  tenantId: string;
+  cancellationCode: string;
+  reason?: string;
+}
+
+export interface CancelBookingResponse {
+  appointmentId: string;
+  previousStatus: string;
+  newStatus: string;
+  cancelledAt: string;
+}
+
+export interface BookingLookupPayload {
+  tenantId: string;
+  email: string;
+  phone?: string;
+  cancellationCode?: string;
+  includePast?: boolean;
+}
+
+export interface BookingSummary {
+  appointmentId: string;
+  serviceId: string | null;
+  serviceName: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+  cancellationCode?: string;
+  locationName?: string;
+  resourceName?: string;
+  capacity: number;
+  addons: BookingAddonPayload[];
+  price: number;
+  canModify: boolean;
+}
+
+export interface RescheduleBookingPayload {
+  tenantId: string;
+  newStartTime: string;
+  cancellationCode: string;
+  notes?: string;
+}
+
+export interface RescheduleBookingResponse {
+  appointmentId: string;
+  status: string;
+  startTime: string;
+  endTime: string;
 }

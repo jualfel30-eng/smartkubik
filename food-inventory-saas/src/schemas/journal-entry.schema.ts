@@ -40,6 +40,9 @@ export class JournalEntry {
 
   @Prop({ type: Boolean, required: true, default: false })
   isAutomatic: boolean;
+
+  @Prop({ type: Object, default: {} })
+  metadata?: Record<string, any>;
 }
 
 export const JournalEntrySchema = SchemaFactory.createForClass(JournalEntry);
