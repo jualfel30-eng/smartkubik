@@ -383,7 +383,7 @@ function ResourcesManagement() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-950">
           <DialogHeader>
             <DialogTitle>
               {editingResource ? 'Editar Recurso' : 'Nuevo Recurso'}
@@ -501,7 +501,7 @@ function ResourcesManagement() {
               <h3 className="text-lg font-semibold mb-3">Horario de Disponibilidad</h3>
               <div className="space-y-2">
                 {DAYS.map((day) => (
-                  <div key={day.key} className="flex items-center gap-4 p-3 bg-gray-50 rounded">
+                  <div key={day.key} className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-slate-800 rounded">
                     <div className="w-32">
                       <Checkbox
                         id={`schedule-${day.key}`}
