@@ -21,6 +21,24 @@ echo -e "${BLUE}🚀 SmartKubik SIMPLE Deploy${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
+# Step 0: Validate local dependencies
+echo -e "${YELLOW}🔍 Validating local dependencies...${NC}"
+cd $BACKEND_LOCAL
+if ! npm ls --depth=0 > /dev/null 2>&1; then
+  echo -e "${RED}❌ Backend dependencies are broken. Run 'npm install' first.${NC}"
+  exit 1
+fi
+echo -e "${GREEN}✅ Backend dependencies valid${NC}"
+cd ..
+
+cd $FRONTEND_LOCAL
+if ! npm ls --depth=0 > /dev/null 2>&1; then
+  echo -e "${RED}❌ Frontend dependencies are broken. Run 'npm install' first.${NC}"
+  exit 1
+fi
+echo -e "${GREEN}✅ Frontend dependencies valid${NC}"
+cd ..
+
 # Step 1: Build backend locally
 echo -e "${YELLOW}📦 Building backend locally...${NC}"
 cd $BACKEND_LOCAL
@@ -45,6 +63,25 @@ echo -e "${YELLOW}📤 Uploading frontend...${NC}"
 rsync -avz --delete $FRONTEND_LOCAL/dist/ $SERVER:~/smartkubik/food-inventory-admin/dist/
 ssh $SERVER "sudo chmod -R 755 ~/smartkubik/food-inventory-admin/dist"
 echo -e "${GREEN}✅ Frontend uploaded${NC}"
+
+# Step 4.5: Sync package files and install dependencies if needed
+echo -e "${YELLOW}🔍 Checking backend dependencies on server...${NC}"
+rsync -avz $BACKEND_LOCAL/package.json $SERVER:~/smartkubik/food-inventory-saas/
+rsync -avz $BACKEND_LOCAL/package-lock.json $SERVER:~/smartkubik/food-inventory-saas/
+
+# Check if npm install is needed
+NEEDS_INSTALL=$(ssh $SERVER "cd ~/smartkubik/food-inventory-saas && \
+  ([ ! -d node_modules ] || \
+   [ package-lock.json -nt node_modules/.package-lock.json ] || \
+   ! npm ls --depth=0 > /dev/null 2>&1) && echo 'YES' || echo 'NO'")
+
+if [[ "$NEEDS_INSTALL" == "YES" ]]; then
+  echo -e "${YELLOW}📦 Installing dependencies on server (this may take a moment)...${NC}"
+  ssh $SERVER "cd ~/smartkubik/food-inventory-saas && npm ci --production --prefer-offline"
+  echo -e "${GREEN}✅ Dependencies installed${NC}"
+else
+  echo -e "${GREEN}✅ Dependencies up to date (skipping install)${NC}"
+fi
 
 # Step 5: Reload PM2 (zero downtime)
 echo -e "${YELLOW}🔄 Reloading PM2...${NC}"
