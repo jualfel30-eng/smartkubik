@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area'; // Assuming shadcn/ui ScrollArea
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils'; // Utility for conditional class names
+import { cn, generateHeadingId } from '@/lib/utils'; // Utility for conditional class names
 
 const TableOfContents = ({ content }) => {
   const [headings, setHeadings] = useState([]);
@@ -17,13 +17,15 @@ const TableOfContents = ({ content }) => {
     content.forEach(block => {
       if (block._type === 'block' && block.style) {
         if (block.style === 'h2' || block.style === 'h3') {
-          const text = block.children.map(child => child.text).join('');
-          const id = text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-*|-*$/g, ''); // Simple slug generation
-          extractedHeadings.push({
-            id,
-            text,
-            level: parseInt(block.style.replace('h', '')),
-          });
+          const text = block.children.map(child => child.text || '').join('');
+          const id = generateHeadingId(block);
+          if (id) {
+            extractedHeadings.push({
+              id,
+              text,
+              level: parseInt(block.style.replace('h', '')),
+            });
+          }
         }
       }
     });

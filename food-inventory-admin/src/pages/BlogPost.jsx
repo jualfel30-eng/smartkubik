@@ -4,6 +4,8 @@ import { sanityClient } from '@/lib/sanity';
 import { PortableText } from '@portabletext/react';
 import { urlFor } from '@/lib/sanity'; // Assuming urlFor utility exists for image URLs
 
+import { generateHeadingId } from '@/lib/utils';
+
 // Import new blog components
 import BlogNavbar from '@/components/blog/BlogNavbar';
 import BlogCategoryNav from '@/components/blog/BlogCategoryNav';
@@ -19,12 +21,12 @@ import RelatedPosts from '@/components/blog/RelatedPosts';
 // Custom PortableText components to add IDs to headings
 const PortableTextComponents = {
   block: {
-    h2: ({ children }) => {
-      const id = children[0].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-*|-*$/g, '');
+    h2: ({ value, children }) => {
+      const id = generateHeadingId(value);
       return <h2 id={id} className="mt-8 mb-4 text-3xl font-bold tracking-tight">{children}</h2>;
     },
-    h3: ({ children }) => {
-      const id = children[0].toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-*|-*$/g, '');
+    h3: ({ value, children }) => {
+      const id = generateHeadingId(value);
       return <h3 id={id} className="mt-6 mb-3 text-2xl font-semibold tracking-tight">{children}</h3>;
     },
     normal: ({ children }) => <p className="mb-4 leading-relaxed">{children}</p>,
