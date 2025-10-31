@@ -1,8 +1,17 @@
-import { Injectable, NotFoundException, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  Logger,
+  BadRequestException,
+} from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 import { Resource, ResourceDocument } from "../../schemas/resource.schema";
-import { CreateResourceDto, UpdateResourceDto } from "./dto/resource.dto";
+import {
+  CreateResourceDto,
+  UpdateResourceDto,
+  ResourceLayoutItemDto,
+} from "./dto/resource.dto";
 
 @Injectable()
 export class ResourcesService {
@@ -42,7 +51,10 @@ export class ResourcesService {
       query.type = filters.type;
     }
 
-    return this.resourceModel.find(query).sort({ type: 1, name: 1 }).exec();
+    return this.resourceModel
+      .find(query)
+      .sort({ type: 1, floor: 1, sortIndex: 1, name: 1 })
+      .exec();
   }
 
   async findOne(tenantId: string, id: string): Promise<Resource> {
@@ -97,7 +109,7 @@ export class ResourcesService {
   async getActiveResources(tenantId: string): Promise<Resource[]> {
     return this.resourceModel
       .find({ tenantId, status: "active" })
-      .sort({ type: 1, name: 1 })
+      .sort({ type: 1, floor: 1, sortIndex: 1, name: 1 })
       .exec();
   }
 
@@ -107,7 +119,7 @@ export class ResourcesService {
   ): Promise<Resource[]> {
     return this.resourceModel
       .find({ tenantId, type, status: "active" })
-      .sort({ name: 1 })
+      .sort({ floor: 1, sortIndex: 1, name: 1 })
       .exec();
   }
 
@@ -135,7 +147,71 @@ export class ResourcesService {
           { specializations: { $regex: searchTerm, $options: "i" } },
         ],
       })
-      .sort({ name: 1 })
+      .sort({ floor: 1, sortIndex: 1, name: 1 })
+      .exec();
+  }
+
+  async updateLayout(
+    tenantId: string,
+    items: ResourceLayoutItemDto[],
+  ): Promise<Resource[]> {
+    this.logger.log(
+      `Updating layout for ${items.length} resources in tenant ${tenantId}`,
+    );
+
+    if (!items || items.length === 0) {
+      throw new BadRequestException(
+        "Debes enviar al menos un recurso para actualizar su layout.",
+      );
+    }
+
+    const ids = items.map((item) => item.id);
+    const uniqueIds = new Set(ids);
+    if (uniqueIds.size !== ids.length) {
+      throw new BadRequestException(
+        "Hay IDs de recursos duplicados en la solicitud.",
+      );
+    }
+
+    const existingCount = await this.resourceModel
+      .countDocuments({ tenantId, _id: { $in: Array.from(uniqueIds) } })
+      .exec();
+    if (existingCount !== uniqueIds.size) {
+      throw new NotFoundException(
+        "Uno o más recursos no pertenecen al tenant o no existen.",
+      );
+    }
+
+    const bulkOps = items.map((item, index) => {
+      const updateDoc: Record<string, unknown> = {};
+      if (item.floor !== undefined) {
+        updateDoc.floor = item.floor;
+      }
+      if (item.zone !== undefined) {
+        updateDoc.zone = item.zone;
+      }
+      if (item.sortIndex !== undefined) {
+        updateDoc.sortIndex = item.sortIndex;
+      } else {
+        updateDoc.sortIndex = index;
+      }
+      if (item.locationTags !== undefined) {
+        updateDoc.locationTags = item.locationTags;
+      }
+
+      return {
+        updateOne: {
+          filter: { _id: item.id, tenantId },
+          update: { $set: updateDoc },
+        },
+      };
+    });
+
+    await this.resourceModel.bulkWrite(bulkOps, { ordered: false });
+
+    return this.resourceModel
+      .find({ tenantId, _id: { $in: Array.from(uniqueIds) } })
+      .sort({ floor: 1, sortIndex: 1, name: 1 })
       .exec();
   }
 

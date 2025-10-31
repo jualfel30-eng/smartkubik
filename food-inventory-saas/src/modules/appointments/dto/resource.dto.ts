@@ -11,6 +11,8 @@ import {
   IsEmail,
   MaxLength,
   Min,
+  ArrayMinSize,
+  IsMongoId,
 } from "class-validator";
 import { Type } from "class-transformer";
 
@@ -192,6 +194,47 @@ export class CreateResourceDto {
   @ApiProperty({ description: "Metadata adicional", required: false })
   @IsOptional()
   metadata?: Record<string, any>;
+
+  @ApiProperty({
+    description: "Piso o nivel donde se ubica el recurso",
+    example: "Piso 3",
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  floor?: string;
+
+  @ApiProperty({
+    description: "Zona, ala o sub-área del piso",
+    example: "Ala Norte",
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  zone?: string;
+
+  @ApiProperty({
+    description: "Orden relativo dentro del piso",
+    example: 5,
+    required: false,
+  })
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  sortIndex?: number;
+
+  @ApiProperty({
+    description: "Etiquetas geográficas o de categoría",
+    example: ["vista-mar", "accesible"],
+    required: false,
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  locationTags?: string[];
 }
 
 export class UpdateResourceDto {
@@ -284,4 +327,103 @@ export class UpdateResourceDto {
   @ApiProperty({ description: "Metadata adicional", required: false })
   @IsOptional()
   metadata?: Record<string, any>;
+
+  @ApiProperty({
+    description: "Piso o nivel donde se ubica el recurso",
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  floor?: string;
+
+  @ApiProperty({
+    description: "Zona o ala dentro del piso",
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  zone?: string;
+
+  @ApiProperty({
+    description: "Orden relativo dentro del piso",
+    required: false,
+  })
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  sortIndex?: number;
+
+  @ApiProperty({
+    description: "Etiquetas auxiliares para filtros de ubicación",
+    required: false,
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  locationTags?: string[];
+}
+
+export class ResourceLayoutItemDto {
+  @ApiProperty({
+    description: "ID del recurso a reubicar",
+    example: "64f1c0e1ff2e5a0012a45678",
+  })
+  @IsMongoId()
+  id: string;
+
+  @ApiProperty({
+    description: "Piso o nivel",
+    example: "Piso 2",
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  floor?: string;
+
+  @ApiProperty({
+    description: "Zona o ala dentro del piso",
+    example: "Ala Este",
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  zone?: string;
+
+  @ApiProperty({
+    description: "Orden relativo dentro del piso",
+    example: 3,
+    required: false,
+  })
+  @Type(() => Number)
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  sortIndex?: number;
+
+  @ApiProperty({
+    description: "Etiquetas para filtros de ubicación",
+    example: ["vista-mar", "doble"],
+    required: false,
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  locationTags?: string[];
+}
+
+export class UpdateResourceLayoutDto {
+  @ApiProperty({
+    type: [ResourceLayoutItemDto],
+    description: "Listado de habitaciones con sus nuevos atributos de layout",
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => ResourceLayoutItemDto)
+  items: ResourceLayoutItemDto[];
 }

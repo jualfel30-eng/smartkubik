@@ -47,6 +47,18 @@ export class Resource {
   @Prop({ type: String })
   color: string; // Color para visualización en calendario
 
+  @Prop({ type: String, trim: true })
+  floor?: string; // Piso o nivel dentro del hotel
+
+  @Prop({ type: String, trim: true })
+  zone?: string; // Zona/ala dentro del piso (ej. Norte, VIP)
+
+  @Prop({ type: Number, default: 0 })
+  sortIndex?: number; // Orden relativo dentro del piso
+
+  @Prop({ type: [String], default: [] })
+  locationTags?: string[]; // Etiquetas auxiliares para filtros (ej. vista-mar, accesible)
+
   // Horario de disponibilidad
   @Prop({
     type: Object,

@@ -20,7 +20,11 @@ import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { ModuleAccessGuard } from "../../guards/module-access.guard";
 import { RequireModule } from "../../decorators/require-module.decorator";
 import { ResourcesService } from "./resources.service";
-import { CreateResourceDto, UpdateResourceDto } from "./dto/resource.dto";
+import {
+  CreateResourceDto,
+  UpdateResourceDto,
+  UpdateResourceLayoutDto,
+} from "./dto/resource.dto";
 
 @ApiTags("Resources (Appointments)")
 @ApiBearerAuth()
@@ -115,5 +119,23 @@ export class ResourcesController {
   @ApiResponse({ status: 404, description: "Recurso no encontrado" })
   remove(@Request() req, @Param("id") id: string) {
     return this.resourcesService.remove(req.user.tenantId, id);
+  }
+
+  @Put("layout/bulk")
+  @ApiOperation({
+    summary: "Actualizar layout (piso/zona/orden) de múltiples recursos",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Layout actualizado exitosamente",
+  })
+  updateLayout(
+    @Request() req,
+    @Body() updateLayoutDto: UpdateResourceLayoutDto,
+  ) {
+    return this.resourcesService.updateLayout(
+      req.user.tenantId,
+      updateLayoutDto.items,
+    );
   }
 }
