@@ -14,6 +14,11 @@ import {
 } from "../../config/vertical-profiles";
 import { UnitConversionUtil } from "../../utils/unit-conversion.util";
 import { ExchangeRateService } from "../exchange-rate/exchange-rate.service";
+import {
+  PublicCreateAppointmentDto,
+  PublicRescheduleAppointmentDto,
+  PublicCancelAppointmentDto,
+} from "../appointments/dto/public-appointment.dto";
 
 interface InventoryLookupArgs {
   productQuery: string;
@@ -34,6 +39,42 @@ interface ServiceAvailabilityArgs {
   resourceName?: string;
   date: string;
   limit?: number;
+}
+
+interface ServiceBookingArgs {
+  serviceId?: string;
+  serviceQuery?: string;
+  startTime?: string;
+  date?: string;
+  time?: string;
+  resourceId?: string;
+  resourceName?: string;
+  partySize?: number;
+  notes?: string;
+  customer?: {
+    firstName?: string;
+    lastName?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+    preferredLanguage?: string;
+  };
+  addons?: Array<{ name: string; price?: number; quantity?: number }>;
+  metadata?: Record<string, any>;
+  acceptPolicies?: boolean;
+}
+
+interface ModifyBookingArgs {
+  appointmentId: string;
+  cancellationCode: string;
+  newStartTime: string;
+  notes?: string;
+}
+
+interface CancelBookingArgs {
+  appointmentId: string;
+  cancellationCode: string;
+  reason?: string;
 }
 
 interface RequestedMeasurement {
@@ -97,6 +138,21 @@ export class AssistantToolsService {
           return await this.checkServiceAvailability(
             tenantId,
             rawArgs as ServiceAvailabilityArgs,
+          );
+        case "create_service_booking":
+          return await this.createServiceBooking(
+            tenantId,
+            rawArgs as ServiceBookingArgs,
+          );
+        case "modify_service_booking":
+          return await this.modifyServiceBooking(
+            tenantId,
+            rawArgs as ModifyBookingArgs,
+          );
+        case "cancel_service_booking":
+          return await this.cancelServiceBooking(
+            tenantId,
+            rawArgs as CancelBookingArgs,
           );
         default:
           this.logger.warn(`Tool "${toolName}" is not implemented.`);
@@ -1460,6 +1516,238 @@ export class AssistantToolsService {
     };
   }
 
+  private async createServiceBooking(
+    tenantId: string,
+    args: ServiceBookingArgs,
+  ): Promise<Record<string, any>> {
+    if (!args) {
+      return {
+        ok: false,
+        message: "Debes indicar los datos de la reserva que deseas crear.",
+      };
+    }
+
+    const services = await this.findCandidateServices(
+      tenantId,
+      args.serviceId,
+      args.serviceQuery,
+      1,
+    );
+
+    if (!services.length) {
+      return {
+        ok: false,
+        message:
+          "No encontré un servicio activo que coincida con tu solicitud. Especifica el nombre exacto o el ID del servicio.",
+      };
+    }
+
+    const service = services[0];
+    const startTimeIso = this.resolveStartTimeISO({
+      explicit: args.startTime,
+      date: args.date,
+      time: args.time,
+    });
+
+    if (!startTimeIso) {
+      return {
+        ok: false,
+        message:
+          "No pude interpretar la fecha y hora solicitadas. Proporciónalas en formato ISO o incluye `date` (YYYY-MM-DD) y `time` (HH:mm).",
+      };
+    }
+
+    const customerFirstName =
+      args.customer?.firstName ||
+      this.extractFirstName(args.customer?.name) ||
+      undefined;
+    const customerLastName =
+      args.customer?.lastName || this.extractLastName(args.customer?.name);
+    const customerEmail = args.customer?.email?.trim();
+    const customerPhone = args.customer?.phone?.trim();
+
+    if (!customerFirstName || !customerEmail || !customerPhone) {
+      return {
+        ok: false,
+        message:
+          "Para crear la reserva necesito nombre, correo electrónico y teléfono del huésped principal.",
+      };
+    }
+
+    const resolvedResourceId = await this.resolveResourceId(
+      tenantId,
+      args.resourceId,
+      args.resourceName,
+    );
+
+    const normalizedAddons = (args.addons || []).map((addon) => ({
+      name: addon.name,
+      price: Number.isFinite(addon.price) ? Number(addon.price) : 0,
+      quantity:
+        addon.quantity && addon.quantity > 0
+          ? Math.floor(addon.quantity)
+          : 1,
+    }));
+
+    const payload: PublicCreateAppointmentDto = {
+      tenantId,
+      serviceId: service._id.toString(),
+      startTime: startTimeIso,
+      notes: args.notes,
+      resourceId: resolvedResourceId,
+      locationId: (service as any)?.locationId?.toString(),
+      partySize:
+        args.partySize && args.partySize > 0
+          ? Math.floor(args.partySize)
+          : undefined,
+      addons: normalizedAddons,
+      metadata: {
+        ...(args.metadata || {}),
+        assistantTool: "create_service_booking",
+        requestedAt: new Date().toISOString(),
+      },
+      acceptPolicies: args.acceptPolicies !== false,
+      customer: {
+        firstName: customerFirstName,
+        lastName: customerLastName,
+        email: customerEmail,
+        phone: customerPhone,
+        preferredLanguage: args.customer?.preferredLanguage,
+      },
+      guests: [],
+    } as PublicCreateAppointmentDto;
+
+    try {
+      const result = await this.appointmentsService.createFromPublic(payload);
+      const normalizedStart = this.normalizeDateOutput(result.startTime);
+      const normalizedEnd = this.normalizeDateOutput(result.endTime);
+      const startTime = normalizedStart ?? this.coerceToString(result.startTime);
+      const endTime = normalizedEnd ?? this.coerceToString(result.endTime);
+      return {
+        ok: true,
+        appointmentId: result.appointmentId,
+        status: result.status,
+        cancellationCode: result.cancellationCode,
+        startTime,
+        endTime,
+        message: "Reserva creada correctamente.",
+      };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "No fue posible crear la reserva.";
+      return {
+        ok: false,
+        message,
+      };
+    }
+  }
+
+  private async modifyServiceBooking(
+    tenantId: string,
+    args: ModifyBookingArgs,
+  ): Promise<Record<string, any>> {
+    if (!args?.appointmentId || !args?.cancellationCode) {
+      return {
+        ok: false,
+        message:
+          "Debes indicar el ID de la reserva y el código de cancelación para modificarla.",
+      };
+    }
+
+    const newStartTimeIso = this.resolveStartTimeISO({
+      explicit: args.newStartTime,
+    });
+
+    if (!newStartTimeIso) {
+      return {
+        ok: false,
+        message:
+          "No pude interpretar la nueva fecha/hora. Envíala en formato ISO (YYYY-MM-DDTHH:mm:ssZ).",
+      };
+    }
+
+    const payload: PublicRescheduleAppointmentDto = {
+      tenantId,
+      cancellationCode: args.cancellationCode,
+      newStartTime: newStartTimeIso,
+      notes: args.notes,
+    } as PublicRescheduleAppointmentDto;
+
+    try {
+      const result = await this.appointmentsService.rescheduleFromPublic(
+        args.appointmentId,
+        payload,
+      );
+      const normalizedStart = this.normalizeDateOutput(result.startTime);
+      const normalizedEnd = this.normalizeDateOutput(result.endTime);
+      const startTime = normalizedStart ?? this.coerceToString(result.startTime);
+      const endTime = normalizedEnd ?? this.coerceToString(result.endTime);
+      return {
+        ok: true,
+        appointmentId: result.appointmentId,
+        status: result.status,
+        startTime,
+        endTime,
+        message: "Reserva reprogramada exitosamente.",
+      };
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No fue posible reprogramar la reserva.";
+      return {
+        ok: false,
+        message,
+      };
+    }
+  }
+
+  private async cancelServiceBooking(
+    tenantId: string,
+    args: CancelBookingArgs,
+  ): Promise<Record<string, any>> {
+    if (!args?.appointmentId || !args?.cancellationCode) {
+      return {
+        ok: false,
+        message:
+          "Debes indicar el ID de la reserva y el código de cancelación para anularla.",
+      };
+    }
+
+    const payload: PublicCancelAppointmentDto = {
+      tenantId,
+      cancellationCode: args.cancellationCode,
+      reason: args.reason,
+    } as PublicCancelAppointmentDto;
+
+    try {
+      const result = await this.appointmentsService.cancelFromPublic(
+        args.appointmentId,
+        payload,
+      );
+      return {
+        ok: true,
+        appointmentId: result.appointmentId,
+        previousStatus: result.previousStatus,
+        newStatus: result.newStatus,
+        cancelledAt:
+          (result.cancelledAt instanceof Date
+            ? result.cancelledAt.toISOString()
+            : result.cancelledAt) || new Date().toISOString(),
+        message: "Reserva cancelada correctamente.",
+      };
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No fue posible cancelar la reserva.";
+      return {
+        ok: false,
+        message,
+      };
+    }
+  }
+
   private async findCandidateServices(
     tenantId: string,
     serviceId?: string,
@@ -1490,5 +1778,115 @@ export class AssistantToolsService {
 
   private escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  private resolveStartTimeISO(args: {
+    explicit?: string;
+    date?: string;
+    time?: string;
+  }): string | null {
+    if (args.explicit) {
+      const explicitDate = new Date(args.explicit);
+      if (!Number.isNaN(explicitDate.getTime())) {
+        return explicitDate.toISOString();
+      }
+    }
+
+    if (args.date && args.time) {
+      const combined = new Date(`${args.date}T${args.time}`);
+      if (!Number.isNaN(combined.getTime())) {
+        return combined.toISOString();
+      }
+    }
+
+    if (args.date) {
+      const dateOnly = new Date(`${args.date}T12:00:00`);
+      if (!Number.isNaN(dateOnly.getTime())) {
+        return dateOnly.toISOString();
+      }
+    }
+
+    return null;
+  }
+
+  private extractFirstName(name?: string): string | undefined {
+    if (!name) {
+      return undefined;
+    }
+    const parts = name.trim().split(/\s+/);
+    return parts.length ? parts[0] : undefined;
+  }
+
+  private extractLastName(name?: string): string | undefined {
+    if (!name) {
+      return undefined;
+    }
+    const parts = name.trim().split(/\s+/);
+    if (parts.length <= 1) {
+      return undefined;
+    }
+    return parts.slice(1).join(" ");
+  }
+
+  private normalizeDateOutput(value: unknown): string | undefined {
+    if (!value) {
+      return undefined;
+    }
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+    if (typeof value === "string") {
+      return value;
+    }
+    if (
+      typeof value === "object" &&
+      typeof (value as any)?.toISOString === "function"
+    ) {
+      try {
+        return (value as any).toISOString();
+      } catch (error) {
+        this.logger.warn(
+          `No se pudo normalizar la fecha devuelta por el servicio de citas: ${(error as Error).message}`,
+        );
+      }
+    }
+    return undefined;
+  }
+
+  private coerceToString(value: unknown): string | undefined {
+    if (value === null || value === undefined) {
+      return undefined;
+    }
+    try {
+      return String(value);
+    } catch (error) {
+      this.logger.warn(
+        `No fue posible convertir el valor a texto en assistant-tools: ${(error as Error).message}`,
+      );
+      return undefined;
+    }
+  }
+
+  private async resolveResourceId(
+    tenantId: string,
+    resourceId?: string,
+    resourceName?: string,
+  ): Promise<string | undefined> {
+    if (resourceId) {
+      return resourceId;
+    }
+    if (!resourceName) {
+      return undefined;
+    }
+
+    const resource = await this.resourceModel
+      .findOne({
+        tenantId,
+        status: "active",
+        name: new RegExp(this.escapeRegExp(resourceName.trim()), "i"),
+      })
+      .lean();
+
+    return resource?._id?.toString();
   }
 }

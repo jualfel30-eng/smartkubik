@@ -27,6 +27,7 @@
     "db:migrate:weight-selling": "ts-node -r dotenv/config scripts/migrate-products-for-weight-selling.ts",
     "db:migrate:tenant-ids": "ts-node -r dotenv/config scripts/migrate-tenant-ids-to-string.ts",
     "db:migrate:vertical": "ts-node -r dotenv/config scripts/migrate-tenants-vertical.ts",
+    "db:migrate:hospitality-hand-off": "ts-node -r dotenv/config scripts/migrate-hospitality-hand-off.ts",
     "seed:plans": "ts-node -r dotenv/config scripts/seed-subscription-plans.ts",
     "seed:restaurant": "ts-node -r dotenv/config scripts/seed-restaurant.ts",
     "db:reset": "ts-node scripts/reset-database.ts",
@@ -34,7 +35,8 @@
     "seed:super-admin": "ts-node -r dotenv/config scripts/seed-super-admin.ts",
     "clear-tenant": "tsx scripts/clear-tenant-data.ts",
     "verify-tenant": "tsx scripts/verify-tenant-data.ts",
-    "fix-user-tenant": "tsx scripts/fix-user-tenant.ts"
+    "fix-user-tenant": "tsx scripts/fix-user-tenant.ts",
+    "load-test:hospitality-notifications": "ts-node -r dotenv/config scripts/hospitality-notification-load-test.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
@@ -71,6 +73,7 @@
     "helmet": "^7.2.0",
     "bullmq": "^5.8.3",
     "langchain": "^0.3.36",
+    "luxon": "^3.5.0",
     "moment": "^2.29.4",
     "moment-timezone": "^0.5.43",
     "mongoose": "^7.6.3",

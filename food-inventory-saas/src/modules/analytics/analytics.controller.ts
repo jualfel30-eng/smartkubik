@@ -75,6 +75,24 @@ export class AnalyticsController {
     return { success: true, data };
   }
 
+  @Get("hospitality/hotel-ops")
+  @Permissions("reports_read")
+  async getHospitalityOperations(
+    @Req() req,
+    @Query()
+    query: {
+      startDate?: string;
+      endDate?: string;
+      granularity?: "day" | "week";
+    },
+  ) {
+    const data = await this.analyticsService.getHospitalityOperations(
+      req.user.tenantId,
+      query,
+    );
+    return { success: true, data };
+  }
+
   @Get("trigger-kpi-calculation")
   @Permissions("tenant_settings_read") // Protect this admin-only endpoint
   async triggerCalculation(@Req() req) {

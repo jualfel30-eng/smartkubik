@@ -159,6 +159,12 @@ export class Appointment {
   @Prop({ type: String })
   cancelledBy: string; // Usuario que canceló
 
+  @Prop({ type: String, index: true })
+  externalId?: string;
+
+  @Prop({ type: String })
+  externalSource?: string;
+
   // Orden de venta (si se generó al completar)
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Order" })
   orderId: MongooseSchema.Types.ObjectId;
@@ -321,6 +327,7 @@ AppointmentSchema.index({ tenantId: 1, startTime: 1, endTime: 1 }); // Para bús
 AppointmentSchema.index({ tenantId: 1, locationId: 1, startTime: 1 });
 AppointmentSchema.index({ tenantId: 1, capacityUsed: 1 });
 AppointmentSchema.index({ tenantId: 1, seriesId: 1 });
+AppointmentSchema.index({ tenantId: 1, externalId: 1, externalSource: 1 });
 AppointmentSchema.index({ tenantId: 1, "depositRecords.status": 1 });
 
 // Índice de texto para búsqueda

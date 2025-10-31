@@ -188,6 +188,7 @@ function AppointmentsManagement() {
   const [depositActionPreview, setDepositActionPreview] = useState('');
   const [depositActionSubmitting, setDepositActionSubmitting] = useState(false);
   const [receiptLoadingId, setReceiptLoadingId] = useState(null);
+  const [auditTrail, setAuditTrail] = useState([]);
   const depositFileInputRef = useRef(null);
   const depositActionFileInputRef = useRef(null);
   const depositMethodOptions = useMemo(() => DEPOSIT_METHOD_OPTIONS, []);
@@ -785,6 +786,7 @@ function AppointmentsManagement() {
     setSelectedDeposit(null);
     setDepositActionForm({ ...initialDepositActionState });
     setDepositActionPreview('');
+    setAuditTrail([]);
     if (depositFileInputRef.current) {
       depositFileInputRef.current.value = '';
     }
@@ -810,6 +812,17 @@ function AppointmentsManagement() {
     return Array.isArray(response) ? response[0] : response?.data || response;
   }, []);
 
+  const fetchAppointmentAudit = useCallback(async (id) => {
+    const response = await fetchApi(`/appointments/${id}/audit`);
+    if (Array.isArray(response)) {
+      return response;
+    }
+    if (response && Array.isArray(response.data)) {
+      return response.data;
+    }
+    return [];
+  }, []);
+
   const openEditDialog = async (appointment) => {
     try {
       setLoading(true);
@@ -827,6 +840,7 @@ function AppointmentsManagement() {
       if (depositActionFileInputRef.current) {
         depositActionFileInputRef.current.value = '';
       }
+      const audit = await fetchAppointmentAudit(appointment._id);
       setFormData({
         customerId: detail.customerId?._id || detail.customerId,
         serviceId: detail.serviceId?._id || detail.serviceId,
@@ -836,6 +850,7 @@ function AppointmentsManagement() {
         notes: detail.notes || '',
         status: detail.status,
       });
+      setAuditTrail(audit);
       setIsDialogOpen(true);
     } catch (error) {
       console.error('Error loading appointment detail:', error);
@@ -851,10 +866,12 @@ function AppointmentsManagement() {
       const detail = await fetchAppointmentDetail(editingAppointment._id);
       setEditingAppointment(detail);
       setDepositRecords(detail?.depositRecords || []);
+      const audit = await fetchAppointmentAudit(editingAppointment._id);
+      setAuditTrail(audit);
     } catch (error) {
       console.error('Error refreshing appointment detail:', error);
     }
-  }, [editingAppointment, fetchAppointmentDetail]);
+  }, [editingAppointment, fetchAppointmentDetail, fetchAppointmentAudit]);
 
   const handleServiceChange = (serviceId) => {
     const serviceList = Array.isArray(services) ? services : [];
@@ -1599,6 +1616,44 @@ function AppointmentsManagement() {
                     </Button>
                   </div>
                 </form>
+              </div>
+            )}
+
+            {editingAppointment && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-gray-700">Historial de cambios</h3>
+                <div className="border border-gray-200 rounded-md max-h-48 overflow-y-auto bg-muted/40 divide-y divide-gray-200">
+                  {auditTrail.length === 0 ? (
+                    <p className="p-3 text-xs text-gray-500">No hay eventos registrados aún.</p>
+                  ) : (
+                    auditTrail.map((event) => (
+                      <div
+                        key={event._id || event.createdAt}
+                        className="p-3 text-xs text-gray-600 flex flex-col gap-1"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-gray-700">{event.action}</span>
+                          <span className="text-[11px] text-gray-400">
+                            {event.createdAt
+                              ? new Date(event.createdAt).toLocaleString('es-VE')
+                              : ''}
+                          </span>
+                        </div>
+                        {event.performedBy && (
+                          <span className="text-[11px] text-gray-500">Por: {event.performedBy}</span>
+                        )}
+                        {event.source && (
+                          <span className="text-[11px] text-gray-500">Origen: {event.source}</span>
+                        )}
+                        {event.changes && Object.keys(event.changes).length > 0 && (
+                          <pre className="bg-white border border-gray-200 rounded p-2 text-[11px] whitespace-pre-wrap">
+                            {JSON.stringify(event.changes, null, 2)}
+                          </pre>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             )}
 

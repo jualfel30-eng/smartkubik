@@ -18,6 +18,23 @@ export class MailService {
     });
   }
 
+  async sendTemplatedEmail(options: {
+    to: string;
+    subject: string;
+    html: string;
+    text?: string;
+  }): Promise<void> {
+    const mailOptions = {
+      from: this.configService.get<string>("SMTP_FROM"),
+      to: options.to,
+      subject: options.subject,
+      html: options.html,
+      text: options.text,
+    };
+
+    await this.transporter.sendMail(mailOptions);
+  }
+
   async sendUserWelcomeEmail(email: string, tempPassword: string) {
     const mailOptions = {
       from: this.configService.get<string>("SMTP_FROM"),

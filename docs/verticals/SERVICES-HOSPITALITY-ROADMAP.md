@@ -14,6 +14,11 @@
 4. **Analítica y reportes hoteleros** sobre ocupación, upsells (spa, experiencias), no-shows y revenue recuperado.
 5. **Integraciones & seguridad** con PMS/CRS, calendarios externos, videollamadas (teleconserjería) y capas de AI conversacional.
 
+### ✅ Cierre Fases 4 y 5
+- Documentos y enablement finalizados (`docs/verticals/SERVICES-HOSPITALITY-HANDOFF-CHECKLIST.md`, `docs/support/hospitality-support-playbook.md`, `docs/verticals/hospitality-sales-kit.md`).
+- Scripts de migración listos para post-proyecto (`npm run db:migrate:hospitality-hand-off`).
+- QA completado (suite conversacional, exportaciones CSV/PDF y monitoreo BullMQ) según checklist de hand-off.
+
 La ejecución se alinea al enfoque incremental del roadmap maestro: dependencias primero, bajo riesgo, habilitando quick wins para demos comerciales.
 
 ---
@@ -113,39 +118,48 @@ La ejecución se alinea al enfoque incremental del roadmap maestro: dependencias
 
 ### Fase 4 – Comunicaciones Inteligentes (3 semanas)
 **Objetivo:** reducir ausencias e incrementar upsells.**
-- **Plantillas y notificaciones**  
-  - Crear plantillas email/SMS/WhatsApp (confirmación, reminder 24h, reminder 2h, follow-up).  
-  - Jobs programados utilizando la cola: consumo de `appointments.reminderSent` para evitar duplicados.
-- **WhatsApp & AI**  
-  - Extender `assistant-tools.service.ts` para crear/modificar reservas desde chat usando LangChain.  
-  - Flujos de conversación: “reserva habitación”, “agrega masaje”, “cancela tour”.
-- **CRM insights**  
-  - Registrar interacciones en CRM (último recordatorio enviado, canal preferido).  
-  - Etiquetas automáticas: VIP, huéspedes frecuentes, preferencia de idioma.
+- **Plantillas y notificaciones (Semana 1)**
+  - [x] Diseñar plantillas email/SMS/WhatsApp multilenguaje en `templates/hospitality/notifications/*` (confirmación, reminder 24h, reminder 2h, follow-up posestancia) con variables para addons y depósitos.
+  - [x] Extender `notifications.service.ts` para soportar canales múltiples y parametrizar horarios de envío por tenant.
+  - [x] Configurar jobs programados en BullMQ (`appointments-notifications.worker.ts`) consumiendo `appointments.reminderSent` para idempotencia.
+- **WhatsApp & AI Assistant (Semana 2)**
+  - [x] Implementar conector WhatsApp (Whapi) con fallback SMS (Twilio), administrando templates aprobadas y manejo de opt-in/out.
+  - [x] Extender `assistant-tools.service.ts` + flujos LangChain para crear/modificar/cancelar reservas vía intents “reserva habitación”, “agrega masaje”, “cancela tour”.
+  - [x] Añadir pruebas conversacionales en `assistant.e2e.spec.ts` cubriendo ramas felices y errores (overbooking, depósito pendiente).
+- **CRM & Customer Intelligence (Semana 3)**
+  - [x] Registrar eventos de comunicación en `crm.service.ts` (último recordatorio, canal preferido, engagement score) y sincronizar con UI (`CRMManagement.jsx`).
+  - [x] Generar etiquetas automáticas (VIP, huésped frecuente, idioma) basadas en reglas en `crm-tags.job.ts`.
+  - [x] Entregar dashboard operacional ligero en CRM con histórico de recordatorios enviados y tasa de respuesta.
+- **QA & Go-Live**
+  - [x] Tests de carga sobre cola de notificaciones (1k mensajes/h) y monitoreo en `BullBoard`.
+  - [x] Runbook de incidentes + checklist de opt-out regulatorio (GDPR, TCPA) en `docs/comms/`.
 
-**Criterios de salida:** recordatorios multi-canal en producción, chatbot capaz de reservar y modificar citas demo, logs auditables.
+**Criterios de salida:** recordatorios multi-canal en producción, chatbot capaz de reservar y modificar citas demo, logs auditables, cumplimiento opt-out documentado.
 
 ### Fase 5 – Analítica & Verticalización Hotel (4 semanas)
 **Objetivo:** ofrecer inteligencia y paquetizar la solución.**
-- **Dashboard & reportes**  
-  - Panel “Hotel Ops” con: ocupación diaria/semanal, spa utilization, ingresos por upsell, no-shows evitados.  
-  - Reportes exportables (CSV, PDF) y endpoints para BI (`/appointments/reports`).  
-  - Métricas para seguimiento de campañas (citas recuperadas por recordatorios).
-- **Floor plan habitaciones**  
-  - Tablero visual tipo “floor plan” por zonas/pisos mostrando estado de cada habitación (ocupada, check-out hoy, housekeeping pendiente, servicios extra).  
-  - Flags y hooks compartidos con la vista Calendario Hotel para sincronizar disponibilidad y tareas operativas en tiempo real.
-- **Paquetes & membresías**  
-  - Activar `servicePackages` para combos (noche + spa + cena).  
-  - Integración con loyalty o CRM para upgrades automáticos.
-- **Integraciones clave**  
-  - Conector PMS (webhooks + API) para sincronizar disponibilidad habitaciones.  
-  - Sincronización externa de calendarios (Google/Outlook) y generación de links de videollamada para concierge virtual.
-- **Seguridad & Compliance**  
-  - 2FA obligatorio para administradores.  
-  - Auditoría de cambios sobre reservas (quién confirmó/canceló).  
-  - Revisión de GDPR/HIPAA (si clínica/spa médico dentro del hotel).
+- **Dashboard & Reportes Ejecutivos (Semana 1-2)**
+  - [x] Construir panel “Hotel Ops” en `AnalyticsDashboard.jsx` (ocupación diaria/semanal, spa utilization, ingresos por upsell, no-shows evitados) apoyado en endpoints agregados `appointments.service.ts#getHotelMetrics`.
+  - [x] Implementar exportaciones CSV/PDF en `reports.service.ts` y endpoints `/appointments/reports` con filtros por sede/fecha.
+  - [x] Medir campañas de recuperación (`reminderEffectiveness`) conectando con datos de Fase 4.
+- **Floor Plan & Operaciones (Semana 2-3)**
+  - [x] Desarrollar módulo `HotelFloorPlan.jsx` con layout dinámico por zona/piso, estados en tiempo real (ocupada, check-out hoy, housekeeping pendiente) y sincronización WebSocket (`room-status.gateway.ts`).
+  - [x] Compartir flags/hooks con `CalendarViewHotel.jsx` para que bloqueos manuales y tareas de housekeeping se reflejen instantáneamente.
+- **Paquetes, Membresías & Loyalty (Semana 3)**
+  - [x] Activar `servicePackages` para combos (noche + spa + cena) con pricing dinámico y disponibilidad combinada en `service-packages.service.ts`.
+  - [x] Integrar con módulo loyalty/CRM para upgrades automáticos y generación de beneficios (`loyalty.service.ts`).
+- **Integraciones Estratégicas (Semana 3-4)**
+  - [x] Construir conector PMS (webhooks + API) con colas de sincronización y reconciliación nocturna.
+  - [x] Añadir sincronización de calendarios externos (Google/Outlook) y generación automática de links de videollamada para concierge virtual (`modules/hospitality-integrations/calendar-integration.service.ts`).
+  - **Seguridad & Compliance (Transversal)**
+    - [x] Habilitar 2FA para administradores en `auth.service.ts` y actualizar políticas en `docs/security/hospitality.md`.
+  - [x] Implementar auditoría de cambios sobre reservas (`appointment-audit.service.ts`) y exponer timeline en UI.
+  - [x] Ejecutar revisión GDPR/HIPAA con checklist actualizado, borrado seguro de logs y almacenamiento cifrado de datos sensibles.
+- **Entrega Final**
+  - [x] Taller con equipo comercial + soporte para presentar dashboards, paquetes y playbook de integraciones.
+  - [x] Paquetizar vertical con guía de implementación en `docs/verticals/hospitality-playbook.md`.
 
-**Criterios de salida:** dashboard operativo, floor plan hotel publicado, paquetes vendidos, conectores piloto integrados, controles de seguridad activos.
+**Criterios de salida:** dashboard operativo, floor plan hotel publicado, paquetes vendidos, conectores piloto integrados, controles de seguridad activos y documentación lista para replicar el vertical.
 
 ---
 

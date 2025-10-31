@@ -19,6 +19,10 @@ import {
   InventoryMovementSchema,
 } from "../../schemas/inventory.schema";
 import { Payable, PayableSchema } from "../../schemas/payable.schema";
+import { Appointment, AppointmentSchema } from "../../schemas/appointment.schema";
+import { Service, ServiceSchema } from "../../schemas/service.schema";
+import { Resource, ResourceSchema } from "../../schemas/resource.schema";
+import { Customer, CustomerSchema } from "../../schemas/customer.schema";
 
 @Module({
   imports: [
@@ -33,6 +37,10 @@ import { Payable, PayableSchema } from "../../schemas/payable.schema";
       { name: Inventory.name, schema: InventorySchema },
       { name: InventoryMovement.name, schema: InventoryMovementSchema },
       { name: Payable.name, schema: PayableSchema },
+      { name: Appointment.name, schema: AppointmentSchema },
+      { name: Service.name, schema: ServiceSchema },
+      { name: Resource.name, schema: ResourceSchema },
+      { name: Customer.name, schema: CustomerSchema },
     ]),
   ],
   controllers: [AnalyticsController],

@@ -1,0 +1,28 @@
+{
+  "id": "hospitality_follow_up",
+  "description": "Seguimiento post estadía para feedback y ofertas",
+  "channels": {
+    "email": {
+      "subject": {
+        "es": "¿Cómo estuvo tu experiencia en {{hotelName}}?",
+        "en": "How was your {{hotelName}} experience?"
+      },
+      "body": {
+        "es": "Hola {{guestName}},<br/><br/>Gracias por visitarnos para {{serviceName}}. Queremos escuchar tu opinión: {{feedbackUrl}}.<br/>{{#if loyaltyOffer}}Por ser huésped frecuente tienes {{loyaltyOffer}} en tu próxima visita.{{/if}}<br/><br/>Nos encantará verte pronto.",
+        "en": "Hi {{guestName}},<br/><br/>Thank you for choosing us for {{serviceName}}. Share your thoughts here: {{feedbackUrl}}.<br/>{{#if loyaltyOffer}}As a frequent guest you unlock {{loyaltyOffer}} for your next stay.{{/if}}<br/><br/>See you soon!"
+      }
+    },
+    "sms": {
+      "body": {
+        "es": "{{hotelName}}: ¿Cómo te fue en {{serviceName}}? Evalúanos: {{feedbackShortUrl}}",
+        "en": "{{hotelName}}: How was {{serviceName}}? Rate us: {{feedbackShortUrl}}"
+      }
+    },
+    "whatsapp": {
+      "body": {
+        "es": "Hola {{guestName}} 🙌 Gracias por venir. Tu feedback nos ayuda: {{feedbackShortUrl}}. {{#if loyaltyOffer}}Además tienes {{loyaltyOffer}} en tu próxima visita.{{/if}}",
+        "en": "Hi {{guestName}} 🙌 Thanks for visiting. Share feedback: {{feedbackShortUrl}}. {{#if loyaltyOffer}}You also unlock {{loyaltyOffer}} next time.{{/if}}"
+      }
+    }
+  }
+}

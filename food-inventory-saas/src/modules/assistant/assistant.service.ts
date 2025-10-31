@@ -540,6 +540,9 @@ export class AssistantService {
     if (capabilities.schedulingLookup) {
       instructions.push(
         "Si el usuario solicita confirmar horarios o disponibilidad de servicios, DEBES llamar a la herramienta `check_service_availability` para ofrecer solo horarios realmente libres.",
+        "Si el huésped pide crear o confirmar una reserva concreta, solicita los datos clave (servicio, fecha/hora, nombre, correo y teléfono) y llama a `create_service_booking` para generar la cita en el sistema.",
+        "Cuando el huésped pida mover una reserva existente, solicita el ID y el código de cancelación y utiliza `modify_service_booking` para reprogramarla. Si necesita anularla, usa `cancel_service_booking` con el mismo código.",
+        "Después de ejecutar una herramienta de reservas, resume el resultado indicando horario confirmado, código de cancelación y próximos pasos relevantes (depósitos, recordatorios, etc.).",
       );
     }
 
@@ -667,6 +670,165 @@ export class AssistantService {
               },
             },
             required: ["date"],
+          },
+        },
+      });
+
+      tools.push({
+        type: "function",
+        function: {
+          name: "create_service_booking",
+          description:
+            "Crea una reserva confirmada para un huésped, generando el código de cancelación y dejando trazabilidad en CRM.",
+          parameters: {
+            type: "object",
+            properties: {
+              serviceId: {
+                type: "string",
+                description: "ID del servicio si se conoce.",
+              },
+              serviceQuery: {
+                type: "string",
+                description:
+                  "Nombre o descripción del servicio a reservar cuando no se conoce el ID.",
+              },
+              startTime: {
+                type: "string",
+                description:
+                  "Fecha y hora en formato ISO 8601. Alternativamente puedes pasar `date` + `time`.",
+              },
+              date: {
+                type: "string",
+                description: "Fecha (YYYY-MM-DD) si no se envía startTime.",
+              },
+              time: {
+                type: "string",
+                description: "Hora (HH:mm) si no se envía startTime.",
+              },
+              resourceId: {
+                type: "string",
+                description:
+                  "ID del recurso requerido (masajista, habitación, guía).",
+              },
+              resourceName: {
+                type: "string",
+                description:
+                  "Nombre del recurso cuando no se conoce su ID exacto.",
+              },
+              partySize: {
+                type: "integer",
+                description: "Cantidad de huéspedes que asistirán.",
+                minimum: 1,
+              },
+              notes: {
+                type: "string",
+                description: "Notas especiales o preferencias del huésped.",
+              },
+              customer: {
+                type: "object",
+                description:
+                  "Datos del huésped principal (obligatorio: nombre, correo, teléfono).",
+                properties: {
+                  firstName: { type: "string" },
+                  lastName: { type: "string" },
+                  name: { type: "string" },
+                  email: { type: "string" },
+                  phone: { type: "string" },
+                  preferredLanguage: { type: "string" },
+                },
+                required: ["email", "phone"],
+              },
+              addons: {
+                type: "array",
+                description:
+                  "Servicios adicionales (champagne, late check-out, etc.).",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    price: { type: "number" },
+                    quantity: { type: "integer", minimum: 1 },
+                  },
+                },
+              },
+              metadata: {
+                type: "object",
+                description: "Información adicional relevante para la reserva.",
+              },
+              acceptPolicies: {
+                type: "boolean",
+                description:
+                  "Indica si el huésped aceptó términos y políticas. Por defecto true.",
+              },
+            },
+            required: ["customer"],
+            anyOf: [
+              { required: ["startTime"] },
+              { required: ["date", "time"] },
+            ],
+          },
+        },
+      });
+
+      tools.push({
+        type: "function",
+        function: {
+          name: "modify_service_booking",
+          description:
+            "Reprograma una reserva existente usando el código de cancelación entregado al huésped.",
+          parameters: {
+            type: "object",
+            properties: {
+              appointmentId: {
+                type: "string",
+                description: "ID de la reserva a modificar.",
+              },
+              cancellationCode: {
+                type: "string",
+                description:
+                  "Código de cancelación que se envió en la confirmación original.",
+              },
+              newStartTime: {
+                type: "string",
+                description:
+                  "Nueva fecha y hora en formato ISO 8601. Debe ser futura.",
+              },
+              notes: {
+                type: "string",
+                description:
+                  "Notas adicionales del huésped para la nueva reserva.",
+              },
+            },
+            required: ["appointmentId", "cancellationCode", "newStartTime"],
+          },
+        },
+      });
+
+      tools.push({
+        type: "function",
+        function: {
+          name: "cancel_service_booking",
+          description:
+            "Cancela una reserva existente antes de su inicio usando el código de cancelación.",
+          parameters: {
+            type: "object",
+            properties: {
+              appointmentId: {
+                type: "string",
+                description: "ID de la reserva a cancelar.",
+              },
+              cancellationCode: {
+                type: "string",
+                description:
+                  "Código de cancelación provisto al huésped en la confirmación.",
+              },
+              reason: {
+                type: "string",
+                description:
+                  "Motivo que indica el huésped para la cancelación (opcional).",
+              },
+            },
+            required: ["appointmentId", "cancellationCode"],
           },
         },
       });

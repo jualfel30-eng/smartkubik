@@ -1,0 +1,28 @@
+{
+  "id": "hospitality_reminder_2h",
+  "description": "Recordatorio 2h antes con instrucciones de llegada",
+  "channels": {
+    "email": {
+      "subject": {
+        "es": "Te esperamos en {{hotelName}} en 2 horas",
+        "en": "See you at {{hotelName}} in 2 hours"
+      },
+      "body": {
+        "es": "Hola {{guestName}},<br/><br/>En 2 horas comienza {{serviceName}}. Te recomendamos llegar {{arrivalLead}} antes. {{#if locationInstructions}}Instrucciones: {{locationInstructions}}.{{/if}}<br/>Si tendrás retraso responde este mensaje para reprogramar.",
+        "en": "Hi {{guestName}},<br/><br/>In 2 hours your {{serviceName}} starts. Please arrive {{arrivalLead}} early. {{#if locationInstructions}}Directions: {{locationInstructions}}.{{/if}}<br/>Reply if you expect any delay so we can assist you."
+      }
+    },
+    "sms": {
+      "body": {
+        "es": "{{hotelName}}: {{serviceName}} inicia en 2h. Llega {{arrivalLead}} antes. Dudas: {{contactPhone}}",
+        "en": "{{hotelName}}: {{serviceName}} starts in 2h. Arrive {{arrivalLead}} early. Help: {{contactPhone}}"
+      }
+    },
+    "whatsapp": {
+      "body": {
+        "es": "¡Hola {{guestName}}! Estamos listos para {{serviceName}} en {{startTimeShort}}. Si necesitas transporte o más tiempo, dinos por aquí.",
+        "en": "Hi {{guestName}}! We are ready for {{serviceName}} at {{startTimeShort}}. Need transport or extra time? Let us know here."
+      }
+    }
+  }
+}

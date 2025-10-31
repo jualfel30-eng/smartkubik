@@ -236,6 +236,13 @@ export class AppointmentsController {
     return this.appointmentsService.findOne(req.user.tenantId, id);
   }
 
+  @Get(":id/audit")
+  @ApiOperation({ summary: "Obtener timeline de auditoría de una cita" })
+  @ApiResponse({ status: 200, description: "Eventos de auditoría" })
+  getAudit(@Request() req, @Param("id") id: string) {
+    return this.appointmentsService.getAuditTrail(req.user.tenantId, id);
+  }
+
   @Put(":id")
   @ApiOperation({ summary: "Actualizar una cita" })
   @ApiResponse({ status: 200, description: "Cita actualizada exitosamente" })

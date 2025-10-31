@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { LoyaltyService } from "../loyalty/loyalty.service";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types, SortOrder } from "mongoose";
 import { Customer, CustomerDocument } from "../../schemas/customer.schema";
@@ -17,6 +18,19 @@ interface CustomerScore {
   loyaltyScore?: number;
 }
 
+interface RecordCommunicationEventOptions {
+  tenantId: string;
+  customerId: string;
+  event: {
+    templateId: string;
+    channels: string[];
+    deliveredAt: Date;
+    appointmentId?: string;
+    contextSnapshot?: Record<string, any>;
+    engagementDelta?: number;
+  };
+}
+
 @Injectable()
 export class CustomersService {
   private readonly logger = new Logger(CustomersService.name);
@@ -24,6 +38,7 @@ export class CustomersService {
   constructor(
     @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>,
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
+    private readonly loyaltyService: LoyaltyService,
   ) {}
 
   async create(
@@ -38,6 +53,13 @@ export class CustomersService {
       ...createCustomerDto,
       customerNumber,
       tier: "bronce", // Default tier for new customers
+      loyaltyScore: 0,
+      loyalty: {
+        tier: "bronce",
+        lastUpgradeAt: new Date(),
+        benefits: [],
+        pendingRewards: [],
+      },
       segments: [],
       interactions: [],
       metrics: {
@@ -516,6 +538,16 @@ export class CustomersService {
       }
     });
 
+    await Promise.all(
+      customerScores.map((score) =>
+        this.loyaltyService.syncTierFromScore({
+          tenantId,
+          customerId: score.customerId,
+          loyaltyScore: score.loyaltyScore || 0,
+        }),
+      ),
+    );
+
     return customers.map((customer) => {
       const tier = tierMap.get(customer._id.toString()) || "bronce";
       const loyaltyScore = scoreMap.get(customer._id.toString()) || 0;
@@ -556,6 +588,24 @@ export class CustomersService {
       .exec();
   }
 
+  async findByEmail(email: string, tenantId: string) {
+    if (!email) {
+      return null;
+    }
+
+    const emailCandidates = [email, email.toLowerCase()];
+    const tenantCandidates = Types.ObjectId.isValid(tenantId)
+      ? [tenantId, new Types.ObjectId(tenantId)]
+      : [tenantId];
+
+    return this.customerModel
+      .findOne({
+        tenantId: { $in: tenantCandidates },
+        "contacts.value": { $in: emailCandidates },
+      })
+      .exec();
+  }
+
   async update(
     id: string,
     updateCustomerDto: UpdateCustomerDto,
@@ -593,6 +643,151 @@ export class CustomersService {
     );
 
     return result.modifiedCount > 0;
+  }
+
+  async recordCommunicationEvent(
+    options: RecordCommunicationEventOptions,
+  ): Promise<void> {
+    const tenantCandidates = Types.ObjectId.isValid(options.tenantId)
+      ? [options.tenantId, new Types.ObjectId(options.tenantId)]
+      : [options.tenantId];
+
+    const customer = await this.customerModel
+      .findOne({
+        _id: options.customerId,
+        tenantId: { $in: tenantCandidates },
+      })
+      .exec();
+
+    if (!customer) {
+      this.logger.warn(
+        `Customer ${options.customerId} not found to record communication event`,
+      );
+      return;
+    }
+
+    customer.communicationEvents = customer.communicationEvents || [];
+    customer.communicationEvents.push({
+      templateId: options.event.templateId,
+      channels: options.event.channels,
+      deliveredAt: options.event.deliveredAt,
+      appointmentId: options.event.appointmentId,
+      contextSnapshot: options.event.contextSnapshot,
+      engagementDelta: options.event.engagementDelta,
+    });
+
+    const latestChannel = options.event.channels?.[0];
+    const preferences = customer.preferences || {
+      preferredCurrency: "VES",
+      preferredPaymentMethod: "pending",
+      preferredDeliveryMethod: "delivery",
+      communicationChannel: latestChannel || "email",
+      marketingOptIn: true,
+      invoiceRequired: false,
+    };
+
+    preferences.communicationChannel = latestChannel || preferences.communicationChannel;
+    customer.preferences = preferences;
+
+    customer.lastContactDate = options.event.deliveredAt;
+
+    customer.metrics = customer.metrics || ({} as any);
+    customer.metrics.communicationTouchpoints =
+      (customer.metrics.communicationTouchpoints || 0) + 1;
+
+    const delta =
+      typeof options.event.engagementDelta === "number"
+        ? options.event.engagementDelta
+        : this.calculateEngagementDelta(options.event.channels);
+    const previousScore = customer.metrics.engagementScore || 0;
+    customer.metrics.engagementScore = Math.max(
+      0,
+      Math.min(100, previousScore + delta),
+    );
+
+    customer.nextFollowUpDate = this.calculateNextFollowUpDate(
+      customer.metrics.engagementScore,
+      options.event.channels,
+    );
+
+    this.applyHospitalityTags(customer);
+
+    customer.markModified("communicationEvents");
+    customer.markModified("metrics");
+    customer.markModified("preferences");
+    customer.markModified("segments");
+
+    await customer.save();
+  }
+
+  private calculateEngagementDelta(channels: string[]): number {
+    if (!channels || channels.length === 0) {
+      return 1;
+    }
+    const normalized = channels.map((channel) => channel.toLowerCase());
+    if (normalized.includes("whatsapp")) {
+      return 8;
+    }
+    if (normalized.includes("sms")) {
+      return 6;
+    }
+    return 4;
+  }
+
+  private calculateNextFollowUpDate(
+    engagementScore: number,
+    channels: string[],
+  ): Date | undefined {
+    const baseDays = engagementScore >= 80 ? 3 : engagementScore >= 50 ? 7 : 14;
+    const hasAsyncChannel = channels.some((channel) =>
+      ["whatsapp", "sms"].includes(channel.toLowerCase()),
+    );
+    const days = hasAsyncChannel ? Math.max(2, baseDays - 2) : baseDays;
+    const followUp = new Date();
+    followUp.setDate(followUp.getDate() + days);
+    return followUp;
+  }
+
+  private applyHospitalityTags(customer: CustomerDocument): void {
+    const segments = Array.isArray(customer.segments)
+      ? [...customer.segments]
+      : [];
+
+    const ensureSegment = (name: string, description: string) => {
+      const exists = segments.some((segment) => segment.name === name);
+      if (!exists) {
+        segments.push({
+          name,
+          description,
+          assignedAt: new Date(),
+          assignedBy:
+            (customer.createdBy as Types.ObjectId) ||
+            (customer.tenantId as unknown as Types.ObjectId),
+        });
+      }
+    };
+
+    if ((customer.metrics?.engagementScore || 0) >= 80) {
+      ensureSegment("VIP", "Alto engagement en comunicaciones automatizadas");
+    }
+
+    if (
+      customer.communicationEvents?.some((event) =>
+        event.channels.includes("whatsapp"),
+      )
+    ) {
+      ensureSegment("WhatsApp", "Cliente con interacción por WhatsApp");
+    }
+
+    if (
+      customer.communicationEvents?.filter((event) =>
+        event.channels.includes("email"),
+      ).length >= 5
+    ) {
+      ensureSegment("Email Engaged", "Cliente que responde correos frecuentes");
+    }
+
+    customer.segments = segments;
   }
 
   private async generateCustomerNumber(tenantId: string): Promise<string> {

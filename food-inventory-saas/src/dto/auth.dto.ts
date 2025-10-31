@@ -30,6 +30,16 @@ export class LoginDto {
   @IsOptional()
   @IsString()
   ip?: string;
+
+  @ApiPropertyOptional({ description: "Código 2FA TOTP" })
+  @IsOptional()
+  @IsString()
+  twoFactorCode?: string;
+
+  @ApiPropertyOptional({ description: "Código de respaldo 2FA" })
+  @IsOptional()
+  @IsString()
+  twoFactorBackupCode?: string;
 }
 
 export class SwitchTenantDto {

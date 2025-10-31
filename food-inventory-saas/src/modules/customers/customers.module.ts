@@ -14,11 +14,13 @@ import {
   PurchaseOrderRatingSchema,
 } from "../../schemas/purchase-order-rating.schema";
 import { RolesModule } from "../roles/roles.module";
+import { LoyaltyModule } from "../loyalty/loyalty.module";
 
 @Module({
   imports: [
     AuthModule,
     RolesModule,
+    LoyaltyModule,
     MongooseModule.forFeature([
       { name: Customer.name, schema: CustomerSchema },
       { name: Order.name, schema: OrderSchema },

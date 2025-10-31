@@ -53,6 +53,18 @@ export class User {
   @Prop()
   lockUntil?: Date;
 
+  @Prop({ type: Boolean, default: false })
+  twoFactorEnabled: boolean;
+
+  @Prop({ type: String })
+  twoFactorSecret?: string;
+
+  @Prop({ type: [String], default: [] })
+  twoFactorBackupCodes: string[];
+
+  @Prop({ type: Date })
+  twoFactorLastVerifiedAt?: Date;
+
   @Prop({ type: Types.ObjectId, ref: "Tenant", required: false })
   tenantId?: Types.ObjectId;
 

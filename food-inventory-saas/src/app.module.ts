@@ -56,6 +56,9 @@ import { KnowledgeBaseModule } from "./modules/knowledge-base/knowledge-base.mod
 import { AssistantModule } from "./modules/assistant/assistant.module";
 import { BankReconciliationModule } from "./modules/bank-reconciliation/bank-reconciliation.module";
 import { WhapiModule } from "./modules/whapi/whapi.module";
+import { ServicePackagesModule } from "./modules/service-packages/service-packages.module";
+import { LoyaltyModule } from "./modules/loyalty/loyalty.module";
+import { HospitalityIntegrationsModule } from "./modules/hospitality-integrations/hospitality-integrations.module";
 import { createWinstonLoggerOptions } from "./config/logger.config";
 import {
   GlobalSetting,
@@ -284,6 +287,9 @@ import {
     BankAccountsModule,
     BankReconciliationModule,
     AppointmentsModule,
+    ServicePackagesModule,
+    LoyaltyModule,
+    HospitalityIntegrationsModule,
     StorefrontModule,
     OrganizationsModule,
     UsersModule,

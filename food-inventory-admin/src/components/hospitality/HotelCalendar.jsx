@@ -109,6 +109,67 @@ export function HotelCalendar({ resourceId }) {
       }));
   }, [rawEvents, serviceTypeFilter, statusFilter]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const now = new Date();
+    const map = new Map();
+
+    rawEvents.forEach((event) => {
+      const roomId = event.resourceId || event.roomId || event.locationId;
+      if (!roomId) {
+        return;
+      }
+
+      const start = event.startTime ? new Date(event.startTime) : null;
+      const end = event.endTime ? new Date(event.endTime) : null;
+      const existing = map.get(roomId) || {
+        id: String(roomId),
+        name: event.resourceName || event.locationName || `Recurso ${roomId}`,
+        status: 'available',
+        currentGuest: null,
+        nextCheckIn: null,
+        hasHousekeepingTask: false,
+      };
+
+      if (start && end) {
+        if (start <= now && end >= now) {
+          existing.status = 'occupied';
+          existing.currentGuest = event.customerName || event.customer?.name || existing.currentGuest;
+          existing.nextCheckIn = null;
+        } else if (start > now) {
+          if (existing.status !== 'occupied') {
+            existing.status = 'upcoming';
+          }
+          if (!existing.nextCheckIn || new Date(existing.nextCheckIn) > start) {
+            existing.nextCheckIn = start.toISOString();
+          }
+        }
+      }
+
+      if (
+        event.hasHousekeepingTask ||
+        event.housekeepingStatus === 'pending' ||
+        event.metadata?.requiresHousekeeping ||
+        event.metadata?.housekeepingStatus === 'pending'
+      ) {
+        existing.hasHousekeepingTask = true;
+      }
+
+      map.set(roomId, existing);
+    });
+
+    const rooms = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+    window.dispatchEvent(
+      new CustomEvent('hospitality-floorplan-sync', {
+        detail: {
+          rooms,
+          updatedAt: new Date().toISOString(),
+        },
+      }),
+    );
+  }, [rawEvents]);
+
   const groupedByServiceType = useMemo(() => {
     const counters = {
       room: 0,
