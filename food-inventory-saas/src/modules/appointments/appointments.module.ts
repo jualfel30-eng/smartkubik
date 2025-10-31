@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { BullModule, getQueueToken } from "@nestjs/bullmq";
 import {
@@ -24,6 +24,13 @@ import { AppointmentsPublicController } from "./appointments-public.controller";
 import { ServicesPublicController } from "./services-public.controller";
 import { BankAccountsModule } from "../bank-accounts/bank-accounts.module";
 import { AccountingModule } from "../accounting/accounting.module";
+import { NotificationsModule } from "../notifications/notifications.module";
+import { HospitalityIntegrationsModule } from "../hospitality-integrations/hospitality-integrations.module";
+import {
+  AppointmentAudit,
+  AppointmentAuditSchema,
+} from "../../schemas/appointment-audit.schema";
+import { AppointmentAuditService } from "./appointment-audit.service";
 
 const queueImports =
   process.env.DISABLE_BULLMQ === "true"
@@ -55,10 +62,13 @@ const queueProviders =
       { name: Tenant.name, schema: TenantSchema },
       { name: User.name, schema: UserSchema },
       { name: Todo.name, schema: TodoSchema },
+      { name: AppointmentAudit.name, schema: AppointmentAuditSchema },
     ]),
     ...queueImports,
     BankAccountsModule,
     AccountingModule,
+    NotificationsModule,
+    forwardRef(() => HospitalityIntegrationsModule),
   ],
   controllers: [
     AppointmentsController,
@@ -69,6 +79,7 @@ const queueProviders =
   ],
   providers: [
     AppointmentsService,
+    AppointmentAuditService,
     ServicesService,
     ResourcesService,
     ...queueProviders,
@@ -78,6 +89,7 @@ const queueProviders =
     ServicesService,
     ResourcesService,
     AppointmentQueueService,
+    AppointmentAuditService,
   ],
 })
 export class AppointmentsModule {}

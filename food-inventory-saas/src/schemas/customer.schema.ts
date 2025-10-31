@@ -128,6 +128,30 @@ export class CustomerInteraction {
 const CustomerInteractionSchema =
   SchemaFactory.createForClass(CustomerInteraction);
 
+@Schema()
+export class CustomerCommunicationEvent {
+  @Prop({ type: String, required: true })
+  templateId: string;
+
+  @Prop({ type: [String], default: [] })
+  channels: string[];
+
+  @Prop({ type: Date, required: true })
+  deliveredAt: Date;
+
+  @Prop({ type: String })
+  appointmentId?: string;
+
+  @Prop({ type: Object })
+  contextSnapshot?: Record<string, any>;
+
+  @Prop({ type: Number, default: 0 })
+  engagementDelta?: number;
+}
+
+const CustomerCommunicationEventSchema =
+  SchemaFactory.createForClass(CustomerCommunicationEvent);
+
 @Schema({ timestamps: true })
 export class Customer {
   @Prop({ type: String, required: true })
@@ -169,6 +193,9 @@ export class Customer {
   @Prop({ type: [CustomerInteractionSchema] })
   interactions: CustomerInteraction[];
 
+  @Prop({ type: [CustomerCommunicationEventSchema], default: [] })
+  communicationEvents: CustomerCommunicationEvent[];
+
   @Prop({ type: Object })
   primaryLocation?: {
     address: string;
@@ -205,10 +232,36 @@ export class Customer {
     returnRate: number;
     cancellationRate: number;
     paymentDelayDays: number;
+    communicationTouchpoints?: number;
+    engagementScore?: number;
   };
 
   @Prop({ type: String })
   tier: string;
+
+  @Prop({ type: Number, default: 0 })
+  loyaltyScore?: number;
+
+  @Prop({
+    type: Object,
+    default: {},
+  })
+  loyalty?: {
+    tier?: string;
+    lastUpgradeAt?: Date;
+    benefits?: Array<{
+      type: string;
+      value?: number;
+      description?: string;
+      expiresAt?: Date;
+    }>;
+    pendingRewards?: Array<{
+      rewardId: string;
+      description: string;
+      generatedAt: Date;
+      expiresAt?: Date;
+    }>;
+  };
 
   @Prop({ type: Object })
   creditInfo: {
@@ -288,11 +341,13 @@ CustomerSchema.index({ "taxInfo.taxId": 1, tenantId: 1 });
 CustomerSchema.index({ customerType: 1, tenantId: 1 });
 CustomerSchema.index({ status: 1, tenantId: 1 });
 CustomerSchema.index({ tier: 1, tenantId: 1 });
+CustomerSchema.index({ "loyalty.tier": 1, tenantId: 1 });
 CustomerSchema.index({ createdAt: -1, tenantId: 1 });
 CustomerSchema.index({ "metrics.lastOrderDate": -1, tenantId: 1 });
 CustomerSchema.index({ "metrics.totalSpent": -1, tenantId: 1 });
 CustomerSchema.index({ assignedTo: 1, tenantId: 1 });
 CustomerSchema.index({ nextFollowUpDate: 1, tenantId: 1 });
+CustomerSchema.index({ "metrics.engagementScore": -1, tenantId: 1 });
 
 // WhatsApp indexes
 CustomerSchema.index({ whatsappNumber: 1, tenantId: 1 });

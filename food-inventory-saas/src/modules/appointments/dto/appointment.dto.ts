@@ -12,6 +12,7 @@ import {
   Min,
   IsArray,
   ValidateNested,
+  IsObject,
 } from "class-validator";
 
 class AppointmentParticipantDto {
@@ -240,7 +241,18 @@ export class CreateAppointmentDto {
 
   @ApiProperty({ description: "Metadata adicional", required: false })
   @IsOptional()
+  @IsObject()
   metadata?: Record<string, any>;
+
+  @ApiProperty({ description: "Identificador externo", required: false })
+  @IsOptional()
+  @IsString()
+  externalId?: string;
+
+  @ApiProperty({ description: "Origen externo de la reserva", required: false })
+  @IsOptional()
+  @IsString()
+  externalSource?: string;
 }
 
 export class UpdateAppointmentDto {
@@ -416,7 +428,18 @@ export class UpdateAppointmentDto {
 
   @ApiProperty({ description: "Metadata adicional", required: false })
   @IsOptional()
+  @IsObject()
   metadata?: Record<string, any>;
+
+  @ApiProperty({ description: "Identificador externo", required: false })
+  @IsOptional()
+  @IsString()
+  externalId?: string;
+
+  @ApiProperty({ description: "Origen externo", required: false })
+  @IsOptional()
+  @IsString()
+  externalSource?: string;
 }
 
 export class AppointmentFilterDto {

@@ -92,6 +92,7 @@ const KitchenDisplay = lazy(() => import('@/components/restaurant/KitchenDisplay
 const WhatsAppInbox = lazy(() => import('./pages/WhatsAppInbox.jsx')); // <-- Componente de WhatsApp añadido
 const AssistantChatWidget = lazy(() => import('@/components/AssistantChatWidget.jsx'));
 const HospitalityDepositsDashboard = lazy(() => import('@/components/hospitality/HospitalityDepositsDashboard.jsx'));
+const HospitalityOperationsDashboard = lazy(() => import('@/components/hospitality/HospitalityOperationsDashboard.jsx'));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -247,6 +248,8 @@ function TenantLayout() {
     { name: 'Servicios', href: 'services', icon: Briefcase, permission: 'appointments_read' },
     { name: 'Recursos', href: 'resources', icon: UserSquare, permission: 'appointments_read' },
     { name: 'Depósitos', href: 'hospitality/deposits', icon: PiggyBank, permission: 'appointments_read', requiresModule: 'appointments' },
+    { name: 'Operaciones Hotel', href: 'hospitality/operations', icon: Building2, permission: 'appointments_read', requiresModule: 'appointments' },
+    { name: 'Plano Hotel', href: 'hospitality/floor-plan', icon: Building, permission: 'appointments_read', requiresModule: 'appointments' },
     { name: 'Calendario', href: 'calendar', icon: CalendarDays, permission: 'events_read' },
     { name: 'Reportes', href: 'reports', icon: AreaChart, permission: 'reports_read' },
   ];
@@ -479,6 +482,8 @@ function TenantLayout() {
                 <Route path="services" element={<ServicesManagement />} />
                 <Route path="resources" element={<ResourcesManagement />} />
                 <Route path="hospitality/deposits" element={<HospitalityDepositsDashboard />} />
+                <Route path="hospitality/operations" element={<HospitalityOperationsDashboard />} />
+                <Route path="hospitality/floor-plan" element={<HospitalityOperationsDashboard />} />
                 <Route path="calendar" element={<CalendarView />} />
                 <Route path="restaurant/floor-plan" element={<FloorPlan />} />
                 <Route path="restaurant/kitchen-display" element={<KitchenDisplay />} />

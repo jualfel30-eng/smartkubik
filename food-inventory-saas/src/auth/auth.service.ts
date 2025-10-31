@@ -10,6 +10,7 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import * as bcrypt from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
+import { createHmac } from "crypto";
 import { User, UserDocument } from "../schemas/user.schema";
 import { Tenant, TenantDocument } from "../schemas/tenant.schema";
 import { LoggerSanitizer } from "../utils/logger-sanitizer.util";
@@ -104,7 +105,8 @@ export class AuthService {
       };
     }
 
-    const { email, password, ip } = loginDto as LoginDto;
+    const { email, password, ip, twoFactorCode, twoFactorBackupCode } =
+      loginDto as LoginDto;
     const trimmedEmail = email.trim();
     const emailCandidates = Array.from(
       new Set([trimmedEmail, trimmedEmail.toLowerCase()]),
@@ -115,6 +117,8 @@ export class AuthService {
       trimmedEmail,
       password,
       ip,
+      twoFactorCode,
+      twoFactorBackupCode,
     );
   }
 
@@ -123,6 +127,8 @@ export class AuthService {
     rawEmail: string,
     password: string,
     ip?: string,
+    twoFactorCode?: string,
+    twoFactorBackupCode?: string,
   ) {
     const sanitizedEmailForLog = LoggerSanitizer.sanitize({ email: rawEmail });
     this.logger.log(
@@ -146,6 +152,12 @@ export class AuthService {
 
     await this.ensureUserNotLocked(user, rawEmail);
     await this.verifyPasswordOrThrow(user, password, rawEmail);
+
+    await this.verifyTwoFactor(user, {
+      email: rawEmail,
+      code: twoFactorCode,
+      backupCode: twoFactorBackupCode,
+    });
 
     if (!user.isActive) {
       this.logger.warn(`❌ User ${rawEmail} is not active`);
@@ -212,6 +224,61 @@ export class AuthService {
           lastLoginIP: ip || "unknown",
         },
       },
+    );
+  }
+
+  private async verifyTwoFactor(
+    user: UserDocument,
+    options: { email: string; code?: string; backupCode?: string },
+  ): Promise<void> {
+    if (!user.twoFactorEnabled) {
+      return;
+    }
+
+    const { email, code, backupCode } = options;
+
+    if (!user.twoFactorSecret && (!user.twoFactorBackupCodes?.length || !backupCode)) {
+      this.logger.error(
+        `Usuario ${email} tiene 2FA habilitado pero sin secretos configurados`,
+      );
+      throw new UnauthorizedException(
+        "Tu cuenta requiere verificación 2FA pero no está correctamente configurada",
+      );
+    }
+
+    if (backupCode) {
+      const normalized = backupCode.trim();
+      if (!user.twoFactorBackupCodes?.includes(normalized)) {
+        this.logger.warn(`Backup code inválido para ${email}`);
+        throw new UnauthorizedException("Código de respaldo inválido o ya usado");
+      }
+
+      await this.userModel.updateOne(
+        { _id: user._id },
+        {
+          $pull: { twoFactorBackupCodes: normalized },
+          $set: { twoFactorLastVerifiedAt: new Date() },
+        },
+      );
+
+      return;
+    }
+
+    if (!code) {
+      this.logger.warn(`Intento de login sin código 2FA para ${email}`);
+      throw new UnauthorizedException("Se requiere el código 2FA");
+    }
+
+    const verified = this.verifyTotpCode(user.twoFactorSecret || "", code);
+
+    if (!verified) {
+      this.logger.warn(`Código 2FA inválido para ${email}`);
+      throw new UnauthorizedException("Código 2FA inválido");
+    }
+
+    await this.userModel.updateOne(
+      { _id: user._id },
+      { $set: { twoFactorLastVerifiedAt: new Date() } },
     );
   }
 
@@ -666,5 +733,80 @@ export class AuthService {
     }
 
     await this.userModel.updateOne({ _id: user._id }, updates);
+  }
+
+  private verifyTotpCode(secret: string, token: string, window = 1): boolean {
+    if (!secret || !token) {
+      return false;
+    }
+
+    const sanitizedToken = token.replace(/\s+/g, "");
+    if (!/^[0-9]{6}$/.test(sanitizedToken)) {
+      return false;
+    }
+
+    const decodedSecret = this.decodeBase32(secret);
+    if (!decodedSecret) {
+      return false;
+    }
+
+    const step = 30;
+    const currentCounter = Math.floor(Date.now() / 1000 / step);
+
+    for (let offset = -window; offset <= window; offset += 1) {
+      const counter = currentCounter + offset;
+      if (counter < 0) {
+        continue;
+      }
+      const generated = this.generateTotp(decodedSecret, counter);
+      if (generated === sanitizedToken) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private decodeBase32(secret: string): Buffer | null {
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+    const normalized = secret.toUpperCase().replace(/[^A-Z2-7]/g, "");
+    if (!normalized.length) {
+      return null;
+    }
+
+    let bits = "";
+    for (const char of normalized) {
+      const value = alphabet.indexOf(char);
+      if (value === -1) {
+        continue;
+      }
+      bits += value.toString(2).padStart(5, "0");
+    }
+
+    const bytes: number[] = [];
+    for (let i = 0; i + 8 <= bits.length; i += 8) {
+      bytes.push(parseInt(bits.substring(i, i + 8), 2));
+    }
+
+    return bytes.length ? Buffer.from(bytes) : null;
+  }
+
+  private generateTotp(secret: Buffer, counter: number): string {
+    const buffer = Buffer.alloc(8);
+    buffer.writeBigUInt64BE(BigInt(counter));
+
+    const hmac = createHmac("sha1", secret);
+    hmac.update(buffer);
+    const digest = hmac.digest();
+
+    const offset = digest[digest.length - 1] & 0x0f;
+    const binary =
+      ((digest[offset] & 0x7f) << 24) |
+      ((digest[offset + 1] & 0xff) << 16) |
+      ((digest[offset + 2] & 0xff) << 8) |
+      (digest[offset + 3] & 0xff);
+
+    const otp = binary % 1_000_000;
+    return otp.toString().padStart(6, "0");
   }
 }

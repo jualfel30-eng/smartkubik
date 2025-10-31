@@ -25,6 +25,13 @@ import {
   InventoryMovementDocument,
 } from "../../schemas/inventory.schema";
 import { Payable, PayableDocument } from "../../schemas/payable.schema";
+import {
+  Appointment,
+  AppointmentDocument,
+} from "../../schemas/appointment.schema";
+import { Service, ServiceDocument } from "../../schemas/service.schema";
+import { Resource, ResourceDocument } from "../../schemas/resource.schema";
+import { Customer, CustomerDocument } from "../../schemas/customer.schema";
 
 const SUPPORTED_PERIODS = new Set([
   "7d",
@@ -63,6 +70,14 @@ export class AnalyticsService {
     private readonly inventoryMovementModel: Model<InventoryMovementDocument>,
     @InjectModel(Payable.name)
     private readonly payableModel: Model<PayableDocument>,
+    @InjectModel(Appointment.name)
+    private readonly appointmentModel: Model<AppointmentDocument>,
+    @InjectModel(Service.name)
+    private readonly serviceModel: Model<ServiceDocument>,
+    @InjectModel(Resource.name)
+    private readonly resourceModel: Model<ResourceDocument>,
+    @InjectModel(Customer.name)
+    private readonly customerModel: Model<CustomerDocument>,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM, {
@@ -893,6 +908,404 @@ export class AnalyticsService {
         monetary: item.monetary ?? 0,
       };
     });
+  }
+
+  async getHospitalityOperations(
+    tenantId: string,
+    params: { startDate?: string; endDate?: string; granularity?: "day" | "week" },
+  ) {
+    const { objectId, key: tenantKey } =
+      this.normalizeTenantIdentifiers(tenantId);
+
+    const now = new Date();
+    const start = params?.startDate ? new Date(params.startDate) : new Date(now);
+    if (Number.isNaN(start.getTime())) {
+      throw new BadRequestException("Invalid startDate provided");
+    }
+
+    const end = params?.endDate ? new Date(params.endDate) : new Date(now);
+    if (Number.isNaN(end.getTime())) {
+      throw new BadRequestException("Invalid endDate provided");
+    }
+
+    if (start.getTime() > end.getTime()) {
+      const swap = new Date(start);
+      start.setTime(end.getTime());
+      end.setTime(swap.getTime());
+    }
+
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+
+    const tenantVariants: Array<string | Types.ObjectId> = [
+      tenantId,
+      tenantKey,
+      objectId,
+    ];
+
+    const appointments = await this.appointmentModel
+      .find({
+        tenantId: { $in: tenantVariants },
+        startTime: { $gte: start, $lte: end },
+      })
+      .select(
+        "startTime endTime status resourceId serviceId capacity capacityUsed addons paidAmount paymentStatus metadata depositRecords",
+      )
+      .lean();
+
+    const serviceIds = Array.from(
+      new Set(
+        appointments
+          .map((item) => item.serviceId?.toString())
+          .filter(Boolean) as string[],
+      ),
+    );
+
+    const resourceIds = Array.from(
+      new Set(
+        appointments
+          .map((item) => item.resourceId?.toString())
+          .filter(Boolean) as string[],
+      ),
+    );
+
+    const services = await this.serviceModel
+      .find({ _id: { $in: serviceIds } })
+      .select("serviceType name metadata")
+      .lean();
+    const resources = await this.resourceModel
+      .find({ _id: { $in: resourceIds } })
+      .select("type name status")
+      .lean();
+
+    const roomResourceIds = new Set(
+      resources
+        .filter((resource) => resource.type === "room")
+        .map((resource) => resource._id.toString()),
+    );
+    const spaServiceIds = new Set(
+      services
+        .filter((service) =>
+          ["spa", "wellness", "experience"].includes(
+            (service.serviceType || "").toLowerCase(),
+          ),
+        )
+        .map((service) => service._id.toString()),
+    );
+
+    const activeRooms = await this.resourceModel.countDocuments({
+      tenantId: { $in: tenantVariants },
+      type: "room",
+      status: "active",
+    });
+
+    const dayCount =
+      Math.max(1, Math.floor((end.getTime() - start.getTime()) / 86400000) + 1);
+
+    const roomOccupancyByDay = new Map<string, Set<string>>();
+    const spaCountByDay = new Map<string, number>();
+    const revenueByDay = new Map<string, number>();
+    const addonsByDay = new Map<string, number>();
+    const noShowByDay = new Map<string, number>();
+
+    let addonsRevenue = 0;
+    let recoveredRevenue = 0;
+    let pendingDeposits = 0;
+    let remindersSent = 0;
+    let attendedCount = 0;
+    let packageRevenue = 0;
+    let packageCount = 0;
+
+    appointments.forEach((appointment) => {
+      const dayKey = this.buildDayKey(appointment.startTime);
+      const isActive = !["cancelled", "no_show"].includes(
+        (appointment.status || "").toLowerCase(),
+      );
+
+      const resourceKey = appointment.resourceId?.toString() || "";
+      if (roomResourceIds.has(resourceKey) && isActive) {
+        if (!roomOccupancyByDay.has(dayKey)) {
+          roomOccupancyByDay.set(dayKey, new Set());
+        }
+        roomOccupancyByDay.get(dayKey)!.add(resourceKey);
+      }
+
+      const serviceKey = appointment.serviceId?.toString() || "";
+      if (spaServiceIds.has(serviceKey) && isActive) {
+        spaCountByDay.set(dayKey, (spaCountByDay.get(dayKey) || 0) + 1);
+      }
+
+      const paidAmount =
+        appointment.paymentStatus === "paid"
+          ? Number(appointment.paidAmount || 0)
+          : 0;
+      revenueByDay.set(dayKey, (revenueByDay.get(dayKey) || 0) + paidAmount);
+
+      const addonsTotal = (appointment.addons || []).reduce(
+        (sum, addon) => sum + (addon.price || 0) * (addon.quantity || 1),
+        0,
+      );
+      addonsRevenue += addonsTotal;
+      addonsByDay.set(dayKey, (addonsByDay.get(dayKey) || 0) + addonsTotal);
+
+      const depositRecords = appointment.depositRecords || [];
+      depositRecords.forEach((record) => {
+        if (["requested", "submitted"].includes(record.status)) {
+          pendingDeposits += 1;
+        }
+        if (record.status === "confirmed") {
+          recoveredRevenue += Number(record.amount || 0);
+        }
+      });
+
+      const reminderHistory =
+        Array.isArray(appointment.metadata?.reminderHistory)
+          ? appointment.metadata.reminderHistory
+          : [];
+      remindersSent += reminderHistory.length;
+
+      if (isActive) {
+        attendedCount += 1;
+      }
+
+      if (appointment.metadata?.servicePackageId) {
+        packageCount += 1;
+        if (appointment.metadata.packageAmount) {
+          packageRevenue += Number(appointment.metadata.packageAmount) || 0;
+        }
+      }
+
+      if (appointment.status === "no_show") {
+        noShowByDay.set(dayKey, (noShowByDay.get(dayKey) || 0) + 1);
+      }
+    });
+
+    const occupiedRoomNights = Array.from(roomOccupancyByDay.values()).reduce(
+      (sum, item) => sum + item.size,
+      0,
+    );
+    const totalRoomCapacity = activeRooms * dayCount || 1;
+    const occupancyRate = occupiedRoomNights / totalRoomCapacity;
+
+    const totalSpaCapacity = spaServiceIds.size * dayCount || 1;
+    const spaUtilization =
+      Array.from(spaCountByDay.values()).reduce((sum, value) => sum + value, 0) /
+      totalSpaCapacity;
+
+    const upsellConversionRate = appointments.length
+      ? appointments.filter((item) => (item.addons || []).length > 0).length /
+        appointments.length
+      : 0;
+
+    const reminderEffectiveness = remindersSent
+      ? attendedCount / remindersSent
+      : null;
+
+    const vipGuests = await this.customerModel.countDocuments({
+      tenantId: tenantKey,
+      "segments.name": "VIP",
+    });
+
+    const communicationSnapshot = await this.customerModel.aggregate([
+      {
+        $match: {
+          tenantId: tenantKey,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          touchpoints: {
+            $sum: {
+              $ifNull: ["$metrics.communicationTouchpoints", 0],
+            },
+          },
+          engaged: {
+            $sum: {
+              $cond: [
+                { $gte: ["$metrics.engagementScore", 80] },
+                1,
+                0,
+              ],
+            },
+          },
+          total: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const communicationSummary = communicationSnapshot?.[0] || {
+      touchpoints: 0,
+      engaged: 0,
+      total: 0,
+    };
+
+    const timeSeries: Array<{
+      date: string;
+      occupancyRate: number;
+      spaUtilization: number;
+      revenue: number;
+      addonsRevenue: number;
+      noShows: number;
+    }> = [];
+
+    for (let dayIndex = 0; dayIndex < dayCount; dayIndex += 1) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + dayIndex);
+      const key = this.buildDayKey(date);
+      const occupiedRooms = roomOccupancyByDay.get(key)?.size || 0;
+      const spaCount = spaCountByDay.get(key) || 0;
+      timeSeries.push({
+        date: key,
+        occupancyRate: activeRooms > 0 ? occupiedRooms / activeRooms : 0,
+        spaUtilization:
+          spaServiceIds.size > 0 ? spaCount / spaServiceIds.size : 0,
+        revenue: revenueByDay.get(key) || 0,
+        addonsRevenue: addonsByDay.get(key) || 0,
+        noShows: noShowByDay.get(key) || 0,
+      });
+    }
+
+    const floorPlan = resources
+      .filter((resource) => resource.type === "room")
+      .map((resource) => this.resolveRoomStatus(resource, appointments));
+
+    return {
+      range: {
+        from: start.toISOString(),
+        to: end.toISOString(),
+        days: dayCount,
+      },
+      kpis: {
+        occupancyRate,
+        spaUtilization,
+        addonsRevenue,
+        recoveredRevenue,
+        pendingDeposits,
+        upsellConversionRate,
+        reminderEffectiveness,
+        vipGuests,
+        communicationTouchpoints: communicationSummary.touchpoints,
+        highlyEngagedCustomers: communicationSummary.engaged,
+        totalCustomers: communicationSummary.total,
+        packagesSold: packageCount,
+        packageRevenue,
+      },
+      floorPlan,
+      timeSeries,
+    };
+  }
+
+  private buildDayKey(value: Date | string): string {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return new Date().toISOString().slice(0, 10);
+    }
+    return date.toISOString().slice(0, 10);
+  }
+
+  private resolveRoomStatus(
+    resource: { _id: Types.ObjectId | string; name: string },
+    appointments: Array<{
+      resourceId?: unknown;
+      status?: string;
+      startTime: Date | string;
+      endTime: Date | string;
+      customerName?: string;
+      metadata?: Record<string, any>;
+    }>,
+  ) {
+    const resourceId =
+      resource._id instanceof Types.ObjectId
+        ? resource._id.toHexString()
+        : resource._id.toString();
+
+    const related = appointments.filter((appointment) => {
+      if (!appointment.resourceId) {
+        return false;
+      }
+      const appointmentResourceId = this.normalizeObjectId(
+        appointment.resourceId,
+      );
+      if (!appointmentResourceId) {
+        return false;
+      }
+      return (
+        appointmentResourceId === resourceId &&
+        !["cancelled", "no_show"].includes(
+          (appointment.status || "").toLowerCase(),
+        )
+      );
+    });
+
+    const now = new Date();
+    let status: "available" | "occupied" | "upcoming" = "available";
+    let currentGuest: string | null = null;
+    let nextCheckIn: string | null = null;
+
+    related.forEach((appointment) => {
+      const start =
+        appointment.startTime instanceof Date
+          ? appointment.startTime
+          : new Date(appointment.startTime);
+      const end =
+        appointment.endTime instanceof Date
+          ? appointment.endTime
+          : new Date(appointment.endTime);
+
+      if (start <= now && end >= now) {
+        status = "occupied";
+        currentGuest =
+          appointment.metadata?.contactDetails?.name ||
+          appointment.customerName ||
+          currentGuest;
+      } else if (start > now) {
+        if (!nextCheckIn || new Date(nextCheckIn) > start) {
+          nextCheckIn = start.toISOString();
+        }
+        if (status !== "occupied") {
+          status = "upcoming";
+        }
+      }
+    });
+
+    const hasHousekeepingTask = related.some((appointment) =>
+      Boolean(appointment.metadata?.housekeepingTodoId),
+    );
+
+    return {
+      id: resourceId,
+      name: resource.name,
+      status,
+      currentGuest,
+      nextCheckIn,
+      hasHousekeepingTask,
+    };
+  }
+
+  private normalizeObjectId(value: unknown): string | null {
+    if (!value) {
+      return null;
+    }
+    if (value instanceof Types.ObjectId) {
+      return value.toHexString();
+    }
+    if (typeof (value as any)?.toHexString === "function") {
+      try {
+        return (value as any).toHexString();
+      } catch (error) {
+        this.logger.debug(
+          `No se pudo convertir ObjectId con toHexString: ${(error as Error).message}`,
+        );
+      }
+    }
+    if (typeof (value as any)?.toString === "function") {
+      const asString = (value as any).toString();
+      if (asString && asString !== "[object Object]") {
+        return asString;
+      }
+    }
+    return null;
   }
 
   private ensureObjectId(

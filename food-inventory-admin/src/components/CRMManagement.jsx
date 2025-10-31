@@ -216,6 +216,41 @@ function CRMManagement() {
     }
   };
 
+  const communicationsLeaderboard = useMemo(() => {
+    return [...filteredData]
+      .filter((customer) => Array.isArray(customer.communicationEvents) && customer.communicationEvents.length > 0)
+      .sort(
+        (a, b) => (b.metrics?.engagementScore || 0) - (a.metrics?.engagementScore || 0),
+      )
+      .slice(0, 5)
+      .map((customer) => {
+        const lastEvent = customer.communicationEvents?.[customer.communicationEvents.length - 1];
+        return {
+          id: customer._id,
+          name: customer.name,
+          totalEvents: customer.communicationEvents?.length || 0,
+          channel:
+            lastEvent?.channels?.[0] || customer.preferences?.communicationChannel || 'email',
+          engagementScore: customer.metrics?.engagementScore || 0,
+          lastContactAt: lastEvent?.deliveredAt ? new Date(lastEvent.deliveredAt) : null,
+        };
+      });
+  }, [filteredData]);
+
+  const communicationTotals = useMemo(() => {
+    return filteredData.reduce(
+      (acc, customer) => {
+        const touchpoints = customer.metrics?.communicationTouchpoints || 0;
+        const engagement = customer.metrics?.engagementScore || 0;
+        return {
+          touchpoints: acc.touchpoints + touchpoints,
+          engaged: acc.engaged + (engagement >= 80 ? 1 : 0),
+        };
+      },
+      { touchpoints: 0, engaged: 0 },
+    );
+  }, [filteredData]);
+
   const handleEditContact = async () => {
     if (!selectedContactId) return;
 
@@ -291,6 +326,100 @@ function CRMManagement() {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Inteligencia de comunicaciones</CardTitle>
+          <CardDescription>
+            Seguimiento de recordatorios automatizados y respuesta de huéspedes a través de correo, SMS y WhatsApp.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card className="border-none bg-muted/40 shadow-none">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Touchpoints totales
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold text-foreground">{communicationTotals.touchpoints}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-none bg-muted/40 shadow-none">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Clientes altamente comprometidos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold text-foreground">{communicationTotals.engaged}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-none bg-muted/40 shadow-none">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Clientes monitoreados
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold text-foreground">{filteredData.length}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-none bg-muted/40 shadow-none">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Último envío registrado
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  {communicationsLeaderboard[0]?.lastContactAt
+                    ? communicationsLeaderboard[0].lastContactAt.toLocaleString()
+                    : 'Sin registros recientes'}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="overflow-x-auto rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Interacciones</TableHead>
+                  <TableHead>Canal preferido</TableHead>
+                  <TableHead>Último contacto</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {communicationsLeaderboard.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-sm text-muted-foreground">
+                      Aún no se registran interacciones automáticas.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {communicationsLeaderboard.map((entry) => (
+                  <TableRow key={entry.id}>
+                    <TableCell>
+                      <div className="font-medium text-foreground">{entry.name}</div>
+                      <div className="text-xs text-muted-foreground">Engagement {Math.round(entry.engagementScore)}</div>
+                    </TableCell>
+                    <TableCell>{entry.totalEvents}</TableCell>
+                    <TableCell className="capitalize">{entry.channel}</TableCell>
+                    <TableCell>
+                      {entry.lastContactAt
+                        ? entry.lastContactAt.toLocaleString()
+                        : 'Sin historial'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* ... (Stats cards remain the same) ... */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <h2 className="text-3xl font-bold text-foreground">Gestión de Contactos</h2>

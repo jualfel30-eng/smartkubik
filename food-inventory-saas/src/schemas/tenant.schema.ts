@@ -99,6 +99,33 @@ export class TenantSettings {
     noShowPenaltyValue?: number;
     manualNotes?: string;
   };
+
+  @Prop({ type: Object })
+  integrations?: {
+    calendar?: {
+      timezone?: string;
+      syncWindowDays?: number;
+      google?: {
+        accessToken?: string;
+        refreshToken?: string;
+        calendarId?: string;
+        enabled?: boolean;
+      };
+      outlook?: {
+        accessToken?: string;
+        refreshToken?: string;
+        calendarId?: string;
+        enabled?: boolean;
+      };
+    };
+    pms?: {
+      provider?: string;
+      apiKey?: string;
+      endpoint?: string;
+      propertyCode?: string;
+      enabled?: boolean;
+    };
+  };
 }
 
 const TenantSettingsSchema = SchemaFactory.createForClass(TenantSettings);

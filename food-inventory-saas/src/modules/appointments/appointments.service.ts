@@ -48,6 +48,8 @@ import {
 import { AppointmentQueueService } from "./queues/appointment-queue.service";
 import { APPOINTMENT_DEPOSIT_ALERT_JOB } from "./queues/appointments.queue.constants";
 import { isFeatureEnabled } from "../../config/features.config";
+import { CalendarIntegrationService } from "../hospitality-integrations/calendar-integration.service";
+import { AppointmentAuditService } from "./appointment-audit.service";
 
 @Injectable()
 export class AppointmentsService {
@@ -67,6 +69,8 @@ export class AppointmentsService {
     private readonly bankAccountsService: BankAccountsService,
     private readonly bankTransactionsService: BankTransactionsService,
     private readonly accountingService: AccountingService,
+    private readonly calendarIntegrationService: CalendarIntegrationService,
+    private readonly appointmentAuditService: AppointmentAuditService,
   ) {}
 
   private ensureProofWithinLimit(base64?: string): void {
@@ -276,6 +280,18 @@ export class AppointmentsService {
       resourcesInvolved,
     });
 
+    if (createAppointmentDto.externalId) {
+      newAppointment.externalId = createAppointmentDto.externalId;
+      newAppointment.externalSource =
+        createAppointmentDto.externalSource || createAppointmentDto.source;
+    }
+
+    if (createAppointmentDto.metadata) {
+      newAppointment.metadata = {
+        ...(createAppointmentDto.metadata || {}),
+      };
+    }
+
     const saved = await newAppointment.save();
     this.logger.log(`Appointment created successfully: ${saved._id}`);
 
@@ -294,6 +310,45 @@ export class AppointmentsService {
       service,
       tenantId,
       userObjectId: housekeepingUserId,
+    });
+
+    const calendarResult = await this.calendarIntegrationService.syncAppointment({
+      tenantId,
+      appointment: saved,
+    });
+
+    if (
+      calendarResult &&
+      (calendarResult.googleEventId || calendarResult.outlookEventId)
+    ) {
+      const calendarMetadata = {
+        ...(saved.metadata?.calendar || {}),
+        googleEventId:
+          calendarResult.googleEventId || saved.metadata?.calendar?.googleEventId,
+        outlookEventId:
+          calendarResult.outlookEventId || saved.metadata?.calendar?.outlookEventId,
+        icsPayload: calendarResult.icsPayload,
+        lastSyncAt: new Date().toISOString(),
+      };
+
+      saved.metadata = {
+        ...(saved.metadata || {}),
+        calendar: calendarMetadata,
+      };
+
+      await this.appointmentModel.updateOne(
+        { _id: saved._id },
+        { $set: { metadata: saved.metadata } },
+      );
+    }
+
+    await this.appointmentAuditService.record({
+      tenantId,
+      appointmentId: saved._id,
+      action: "create",
+      performedBy: userId,
+      source: createAppointmentDto.externalSource || createAppointmentDto.source,
+      changes: createAppointmentDto,
     });
 
     return saved;
@@ -1189,6 +1244,27 @@ export class AppointmentsService {
     return appointment;
   }
 
+  async findByExternalId(
+    tenantId: string,
+    externalId: string,
+    source?: string,
+  ): Promise<AppointmentDocument | null> {
+    if (!externalId) {
+      return null;
+    }
+
+    const query: Record<string, any> = {
+      tenantId,
+      externalId,
+    };
+
+    if (source) {
+      query.externalSource = source;
+    }
+
+    return this.appointmentModel.findOne(query).exec();
+  }
+
   async update(
     tenantId: string,
     id: string,
@@ -1269,6 +1345,21 @@ export class AppointmentsService {
     // Handle status changes
     const updateData: any = { ...updateAppointmentDto };
 
+    if (updateAppointmentDto.metadata) {
+      updateData.metadata = {
+        ...(existing.metadata || {}),
+        ...updateAppointmentDto.metadata,
+      };
+    }
+
+    if (updateAppointmentDto.externalId !== undefined) {
+      updateData.externalId = updateAppointmentDto.externalId;
+    }
+
+    if (updateAppointmentDto.externalSource !== undefined) {
+      updateData.externalSource = updateAppointmentDto.externalSource;
+    }
+
     if (updateAppointmentDto.status === "confirmed" && !existing.confirmed) {
       updateData.confirmed = true;
       updateData.confirmedAt = new Date();
@@ -1341,11 +1432,86 @@ export class AppointmentsService {
     }
 
     this.logger.log(`Appointment updated successfully: ${id}`);
+
+    if (updated.status === "cancelled") {
+      await this.calendarIntegrationService.cancelAppointment({
+        tenantId,
+        appointment: updated,
+      });
+      await this.appointmentModel.updateOne(
+        { _id: updated._id },
+        {
+          $set: {
+            "metadata.calendar.cancelledAt": new Date().toISOString(),
+          },
+        },
+      );
+      updated.metadata = {
+        ...(updated.metadata || {}),
+        calendar: {
+          ...(updated.metadata?.calendar || {}),
+          cancelledAt: new Date().toISOString(),
+        },
+      };
+    } else {
+      const calendarResult = await this.calendarIntegrationService.syncAppointment({
+        tenantId,
+        appointment: updated,
+      });
+
+      if (
+        calendarResult &&
+        (calendarResult.googleEventId || calendarResult.outlookEventId)
+      ) {
+        const calendarMetadata = {
+          ...(updated.metadata?.calendar || {}),
+          googleEventId:
+            calendarResult.googleEventId || updated.metadata?.calendar?.googleEventId,
+          outlookEventId:
+            calendarResult.outlookEventId || updated.metadata?.calendar?.outlookEventId,
+          icsPayload: calendarResult.icsPayload,
+          lastSyncAt: new Date().toISOString(),
+        };
+
+        updated.metadata = {
+          ...(updated.metadata || {}),
+          calendar: calendarMetadata,
+        };
+
+        await this.appointmentModel.updateOne(
+          { _id: updated._id },
+          { $set: { metadata: updated.metadata } },
+        );
+      }
+    }
+
+    await this.appointmentAuditService.record({
+      tenantId,
+      appointmentId: updated._id,
+      action: "update",
+      performedBy: userId,
+      source: updateAppointmentDto.externalSource || updated.externalSource,
+      changes: updateAppointmentDto,
+    });
+
     return updated;
   }
 
   async remove(tenantId: string, id: string): Promise<void> {
     this.logger.log(`Deleting appointment ${id} for tenant: ${tenantId}`);
+
+    const existing = await this.appointmentModel
+      .findOne({ _id: id, tenantId })
+      .exec();
+
+    if (!existing) {
+      throw new NotFoundException(`Cita con ID ${id} no encontrada`);
+    }
+
+    await this.calendarIntegrationService.cancelAppointment({
+      tenantId,
+      appointment: existing,
+    });
 
     const result = await this.appointmentModel
       .deleteOne({ _id: id, tenantId })
@@ -1356,6 +1522,19 @@ export class AppointmentsService {
     }
 
     this.logger.log(`Appointment deleted successfully: ${id}`);
+
+    await this.appointmentAuditService.record({
+      tenantId,
+      appointmentId: existing._id,
+      action: "delete",
+      performedBy: undefined,
+      source: existing.externalSource,
+      changes: {},
+    });
+  }
+
+  async getAuditTrail(tenantId: string, appointmentId: string) {
+    return this.appointmentAuditService.list(tenantId, appointmentId);
   }
 
   async getPublicAvailability(
@@ -2464,8 +2643,10 @@ export class AppointmentsService {
       appointmentId: params.appointmentId.toHexString(),
       tenantId: params.tenantId,
       reminderAt,
+      channels: ["email", "whatsapp"],
       metadata: {
         depositId: params.depositId,
+        templateId: "hospitality_reminder_24h",
       },
       jobName: APPOINTMENT_DEPOSIT_ALERT_JOB,
     });
@@ -2989,6 +3170,210 @@ export class AppointmentsService {
     };
   }
 
+  async buildHospitalityNotificationContext(
+    tenantId: string,
+    appointmentId: string,
+  ): Promise<{
+    customerId: string;
+    customerEmail?: string | null;
+    customerPhone?: string | null;
+    whatsappChatId?: string | null;
+    language?: string | null;
+    templateContext: Record<string, any>;
+    preferredChannels: string[];
+  } | null> {
+    const appointment = await this.appointmentModel
+      .findOne({
+        _id: this.toObjectIdOrValue(appointmentId),
+        tenantId,
+      })
+      .populate("customerId")
+      .populate("serviceId")
+      .populate("resourceId")
+      .exec();
+
+    if (!appointment) {
+      this.logger.warn(
+        `Cannot build notification context: appointment ${appointmentId} not found for tenant ${tenantId}`,
+      );
+      return null;
+    }
+
+    const customerDoc = appointment.customerId as unknown as CustomerDocument;
+    const serviceDoc = appointment.serviceId as unknown as ServiceDocument | undefined;
+    const resourceDoc = appointment.resourceId as unknown as ResourceDocument | undefined;
+
+    const tenant = await this.tenantModel
+      .findById(this.toObjectIdOrValue(tenantId))
+      .select("name settings timezone")
+      .lean();
+
+    const hotelName = tenant?.name || "Tu hotel";
+    const tenantTimezone = tenant?.timezone || "America/Caracas";
+    const tenantLanguage = ((tenant as Record<string, any> | undefined)?.settings?.language || tenant?.language || "es").toLowerCase();
+    const locale = tenantLanguage === "en" ? "en-US" : "es-VE";
+
+    const startDate =
+      appointment.startTime instanceof Date
+        ? appointment.startTime
+        : new Date(appointment.startTime);
+
+    const formatOptions: Intl.DateTimeFormatOptions = {
+      timeZone: tenantTimezone,
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      hour: "2-digit",
+      minute: "2-digit",
+    };
+
+    const formatShort: Intl.DateTimeFormatOptions = {
+      timeZone: tenantTimezone,
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    };
+
+    const startTimeLong = startDate.toLocaleString(locale, formatOptions);
+    const startTimeShort = startDate.toLocaleString(locale, formatShort);
+    const startTimeLocal = startDate.toLocaleString(locale, {
+      timeZone: tenantTimezone,
+      dateStyle: "full",
+      timeStyle: "short",
+    });
+
+    const addonsList = (appointment.addons || [])
+      .map((addon) => `${addon.name} x${addon.quantity}`)
+      .join(", ");
+
+    const depositRecord = (appointment.depositRecords || []).find((record) =>
+      ["requested", "submitted"].includes(record.status),
+    );
+
+    const metadata = appointment.metadata || {};
+    const policySettings = (tenant?.settings?.hospitalityPolicies || {}) as Record<string, any>;
+    const arrivalLeadMinutes =
+      typeof policySettings.arrivalLeadMinutes === "number"
+        ? policySettings.arrivalLeadMinutes
+        : metadata?.arrivalLeadMinutes ?? 15;
+
+    const portalBase =
+      this.configService.get<string>("BOOKING_PORTAL_URL") ||
+      this.configService.get<string>("FRONTEND_URL") ||
+      "https://smartkubik.com";
+
+    const selfServiceUrl = `${portalBase}/reservations/${appointment._id}?tenant=${tenantId}`;
+
+    const customerPreferences = (customerDoc?.preferences || {}) as Record<string, any>;
+    const preferredChannels: string[] = [];
+    if (customerPreferences.communicationChannel) {
+      preferredChannels.push(customerPreferences.communicationChannel);
+    }
+    if (!preferredChannels.includes("email")) {
+      preferredChannels.push("email");
+    }
+    if (!preferredChannels.includes("sms")) {
+      preferredChannels.push("sms");
+    }
+    if (!preferredChannels.includes("whatsapp")) {
+      preferredChannels.push("whatsapp");
+    }
+
+    const templateContext = {
+      hotelName,
+      guestName:
+        appointment.customerName ||
+        customerDoc?.name ||
+        customerDoc?.companyName ||
+        "Huésped",
+      serviceName: appointment.serviceName,
+      resourceName: resourceDoc?.name || appointment.resourceName,
+      startTimeLocal,
+      startTimeShort,
+      startTimeLong,
+      addons: appointment.addons || [],
+      addonsList,
+      depositRequired: Boolean(depositRecord),
+      depositAmount: depositRecord?.amount
+        ? `${depositRecord.amount} ${depositRecord.currency || "USD"}`
+        : undefined,
+      depositStatus: depositRecord?.status,
+      pendingDeposit: Boolean(depositRecord),
+      confirmationCode: metadata?.cancellationCode,
+      upsellRecommendation:
+        serviceDoc?.metadata?.hospitality?.upsellCopy ||
+        "Completa tu experiencia con nuestro circuito de spa",
+      upsellShort:
+        serviceDoc?.metadata?.hospitality?.upsellShort ||
+        "un masaje relajante",
+      arrivalLead: `${arrivalLeadMinutes} minutos`,
+      locationInstructions:
+        serviceDoc?.metadata?.hospitality?.locationInstructions ||
+        metadata?.locationInstructions,
+      contactPhone:
+        customerDoc?.contacts?.find(
+          (contact: any) => contact.type === "phone" && contact.isPrimary,
+        )?.value || metadata?.contactPhone || appointment.customerPhone,
+      selfServiceUrl,
+      selfServiceShortUrl: metadata?.selfServiceShortUrl || selfServiceUrl,
+      loyaltyOffer:
+        metadata?.loyaltyOffer ||
+        serviceDoc?.metadata?.hospitality?.loyaltyOffer,
+      feedbackUrl:
+        metadata?.feedbackUrl ||
+        `${portalBase}/reservations/${appointment._id}/feedback`,
+      feedbackShortUrl:
+        metadata?.feedbackShortUrl ||
+        `${portalBase}/r/${appointment._id.toString().slice(-6)}`,
+    };
+
+    return {
+      customerId: (customerDoc?._id || appointment.customerId)?.toString(),
+      customerEmail:
+        appointment.customerEmail ||
+        customerDoc?.contacts?.find((contact: any) => contact.type === "email")
+          ?.value,
+      customerPhone:
+        appointment.customerPhone ||
+        customerDoc?.contacts?.find((contact: any) => contact.type === "phone")
+          ?.value,
+      whatsappChatId: customerDoc?.whatsappChatId || customerDoc?.whatsappNumber,
+      language: customerPreferences.language || tenantLanguage,
+      templateContext,
+      preferredChannels,
+    };
+  }
+
+  async markReminderDispatched(
+    tenantId: string,
+    appointmentId: string,
+    jobName: string,
+    channels: string[],
+  ): Promise<void> {
+    await this.appointmentModel.updateOne(
+      {
+        _id: this.toObjectIdOrValue(appointmentId),
+        tenantId,
+      },
+      {
+        $set: {
+          reminderSent: true,
+          reminderSentAt: new Date(),
+          "metadata.lastReminderJob": jobName,
+          "metadata.lastReminderChannels": channels,
+        },
+        $push: {
+          "metadata.reminderHistory": {
+            jobName,
+            channels,
+            sentAt: new Date(),
+          },
+        },
+      },
+    );
+  }
+
   private async scheduleReminderIfEnabled(
     appointment: AppointmentDocument,
     tenantId: string,
@@ -3025,32 +3410,48 @@ export class AppointmentsService {
     const offsetMinutes = Number(offsetRaw);
     const sanitizedOffset = Number.isNaN(offsetMinutes) ? 60 : offsetMinutes;
 
-    const reminderAt = new Date(
-      startTime.getTime() - sanitizedOffset * 60000,
-    );
+    const minimumLeadMs = 30 * 60 * 1000;
+    const reminderCandidates = [
+      { offsetMinutes: 24 * 60, templateId: "hospitality_reminder_24h" },
+      { offsetMinutes: 120, templateId: "hospitality_reminder_2h" },
+    ];
 
-    if (reminderAt.getTime() <= Date.now()) {
-      this.logger.debug(
-        `Skipping reminder for appointment ${appointment._id} because reminder time is in the past`,
-      );
-      return;
+    if (!reminderCandidates.some((candidate) => candidate.offsetMinutes === sanitizedOffset)) {
+      reminderCandidates.push({
+        offsetMinutes: sanitizedOffset,
+        templateId: sanitizedOffset <= 150
+          ? "hospitality_reminder_2h"
+          : "hospitality_reminder_24h",
+      });
     }
 
-    try {
-      await this.appointmentQueueService.scheduleReminderJob({
-        appointmentId: appointment._id.toString(),
-        tenantId,
-        reminderAt,
-        metadata: {
-          triggeredBy: userId,
-          offsetMinutes: sanitizedOffset,
-        },
-      });
-    } catch (error) {
-      this.logger.error(
-        `Failed to schedule reminder for appointment ${appointment._id}`,
-        (error as Error).stack,
+    for (const candidate of reminderCandidates) {
+      const reminderAt = new Date(
+        startTime.getTime() - candidate.offsetMinutes * 60000,
       );
+
+      if (reminderAt.getTime() <= Date.now() + minimumLeadMs) {
+        continue;
+      }
+
+      try {
+        await this.appointmentQueueService.scheduleReminderJob({
+          appointmentId: appointment._id.toString(),
+          tenantId,
+          reminderAt,
+          channels: ["email", "sms", "whatsapp"],
+          metadata: {
+            triggeredBy: userId,
+            offsetMinutes: candidate.offsetMinutes,
+            templateId: candidate.templateId,
+          },
+        });
+      } catch (error) {
+        this.logger.error(
+          `Failed to schedule reminder for appointment ${appointment._id}`,
+          (error as Error).stack,
+        );
+      }
     }
   }
 }

@@ -7,6 +7,10 @@ import {
   APPOINTMENT_DEPOSIT_ALERT_JOB,
 } from "./appointments.queue.constants";
 import { AppointmentsService } from "../appointments.service";
+import {
+  NotificationsService,
+  NotificationChannel,
+} from "../../notifications/notifications.service";
 
 interface ReminderJobPayload {
   appointmentId: string;
@@ -20,7 +24,10 @@ interface ReminderJobPayload {
 export class AppointmentReminderProcessor extends WorkerHost {
   private readonly logger = new Logger(AppointmentReminderProcessor.name);
 
-  constructor(private readonly appointmentsService: AppointmentsService) {
+  constructor(
+    private readonly appointmentsService: AppointmentsService,
+    private readonly notificationsService: NotificationsService,
+  ) {
     super();
   }
 
@@ -40,6 +47,13 @@ export class AppointmentReminderProcessor extends WorkerHost {
         appointmentId,
         metadata,
       );
+      await this.dispatchHospitalityNotification({
+        tenantId,
+        appointmentId,
+        requestedChannels: channels,
+        explicitTemplate: metadata?.templateId || "hospitality_reminder_24h",
+        jobName: job.name,
+      });
       return;
     }
 
@@ -47,7 +61,13 @@ export class AppointmentReminderProcessor extends WorkerHost {
       `Processing reminder job ${job.id} for appointment ${appointmentId} (tenant ${tenantId}) at ${reminderAt} via ${channels?.join(", ") || "default channels"}`,
     );
 
-    // TODO: integrar con MailService / WhatsApp / SMS en fases posteriores.
+    await this.dispatchHospitalityNotification({
+      tenantId,
+      appointmentId,
+      requestedChannels: channels,
+      explicitTemplate: metadata?.templateId,
+      jobName: job.name,
+    });
   }
 
   @OnWorkerEvent("completed")
@@ -63,5 +83,80 @@ export class AppointmentReminderProcessor extends WorkerHost {
       `Reminder job ${job?.id} (${job?.name}) failed`,
       err.stack,
     );
+  }
+
+  private async dispatchHospitalityNotification(params: {
+    tenantId: string;
+    appointmentId: string;
+    requestedChannels?: string[];
+    explicitTemplate?: string;
+    jobName: string;
+  }): Promise<void> {
+    const context =
+      await this.appointmentsService.buildHospitalityNotificationContext(
+        params.tenantId,
+        params.appointmentId,
+      );
+
+    if (!context) {
+      return;
+    }
+
+    const templateId =
+      params.explicitTemplate || this.resolveTemplateForJob(params.jobName);
+    const channels = this.resolveChannels(
+      params.requestedChannels,
+      context.preferredChannels,
+    );
+
+    await this.notificationsService.sendAppointmentNotification({
+      tenantId: params.tenantId,
+      appointmentId: params.appointmentId,
+      customerId: context.customerId,
+      customerEmail: context.customerEmail || undefined,
+      customerPhone: context.customerPhone || undefined,
+      whatsappChatId: context.whatsappChatId || undefined,
+      language: context.language || undefined,
+      templateId,
+      channels,
+      context: context.templateContext,
+    });
+
+    await this.appointmentsService.markReminderDispatched(
+      params.tenantId,
+      params.appointmentId,
+      params.jobName,
+      channels,
+    );
+  }
+
+  private resolveChannels(
+    requested: string[] | undefined,
+    fallback: string[],
+  ): NotificationChannel[] {
+    const normalized = new Set<string>();
+    (requested && requested.length ? requested : fallback).forEach((channel) => {
+      if (!channel) {
+        return;
+      }
+      const lower = channel.toLowerCase();
+      if (["email", "sms", "whatsapp"].includes(lower)) {
+        normalized.add(lower);
+      }
+    });
+    if (normalized.size === 0) {
+      return ["email", "whatsapp"];
+    }
+    return Array.from(normalized) as NotificationChannel[];
+  }
+
+  private resolveTemplateForJob(jobName: string): string {
+    if (jobName === APPOINTMENT_REMINDER_JOB) {
+      return "hospitality_reminder_24h";
+    }
+    if (jobName === APPOINTMENT_DEPOSIT_ALERT_JOB) {
+      return "hospitality_reminder_24h";
+    }
+    return "hospitality_reminder_2h";
   }
 }

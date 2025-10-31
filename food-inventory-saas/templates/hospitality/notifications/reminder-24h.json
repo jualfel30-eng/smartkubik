@@ -1,0 +1,28 @@
+{
+  "id": "hospitality_reminder_24h",
+  "description": "Recordatorio 24h antes con sugerencias de upsell",
+  "channels": {
+    "email": {
+      "subject": {
+        "es": "Recordatorio de tu reserva {{startTimeShort}}",
+        "en": "Reminder: upcoming stay on {{startTimeShort}}"
+      },
+      "body": {
+        "es": "Hola {{guestName}},<br/><br/>Mañana te esperamos para {{serviceName}} a las {{startTimeLocal}}. {{#if pendingDeposit}}Recuerda completar el depósito pendiente de {{depositAmount}} para garantizar tu espacio.{{/if}}<br/>Sugerencia del concierge: {{upsellRecommendation}}.<br/><br/>Cualquier cambio puedes hacerlo aquí: {{selfServiceUrl}}.",
+        "en": "Hi {{guestName}},<br/><br/>We are waiting for you tomorrow for {{serviceName}} at {{startTimeLocal}}. {{#if pendingDeposit}}Please complete the pending deposit of {{depositAmount}} to secure your spot.{{/if}}<br/>Concierge tip: {{upsellRecommendation}}.<br/><br/>Manage your booking here: {{selfServiceUrl}}."
+      }
+    },
+    "sms": {
+      "body": {
+        "es": "Recordatorio {{hotelName}}: mañana {{serviceName}} {{startTimeShort}}. {{#if pendingDeposit}}Depósito pendiente {{depositAmount}}. {{/if}}Gestiona: {{selfServiceShortUrl}}",
+        "en": "Reminder {{hotelName}}: tomorrow {{serviceName}} {{startTimeShort}}. {{#if pendingDeposit}}Deposit pending {{depositAmount}}. {{/if}}Manage: {{selfServiceShortUrl}}"
+      }
+    },
+    "whatsapp": {
+      "body": {
+        "es": "Hola {{guestName}} 🌴 Mañana te esperamos para {{serviceName}}. ¿Deseas agregar {{upsellShort}}? Responde sí y lo dejamos reservado.",
+        "en": "Hi {{guestName}} 🌴 Tomorrow is your {{serviceName}}. Want to add {{upsellShort}}? Reply yes and we’ll handle it."
+      }
+    }
+  }
+}

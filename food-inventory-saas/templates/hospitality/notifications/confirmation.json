@@ -1,0 +1,28 @@
+{
+  "id": "hospitality_confirmation",
+  "description": "Confirmación de reserva para huéspedes con detalle de addons y depósito",
+  "channels": {
+    "email": {
+      "subject": {
+        "es": "Confirmación de tu reserva en {{hotelName}}",
+        "en": "Your reservation at {{hotelName}} is confirmed"
+      },
+      "body": {
+        "es": "Hola {{guestName}},<br/><br/>Tu reserva para {{serviceName}} el {{startTimeLocal}} quedó confirmada. {{#if addons}}Has agregado: {{addonsList}}.{{/if}} {{#if depositRequired}}Recibiremos un depósito de {{depositAmount}} (estado: {{depositStatus}}).{{/if}}<br/><br/>Si necesitas cambios utiliza el código {{confirmationCode}} o responde este correo.",
+        "en": "Hi {{guestName}},<br/><br/>Your booking for {{serviceName}} on {{startTimeLocal}} is confirmed. {{#if addons}}You added: {{addonsList}}.{{/if}} {{#if depositRequired}}We expect a deposit of {{depositAmount}} (status: {{depositStatus}}).{{/if}}<br/><br/>Use code {{confirmationCode}} for changes or reply to this email."
+      }
+    },
+    "sms": {
+      "body": {
+        "es": "{{hotelName}}: reserva confirmada para {{serviceName}} el {{startTimeShort}}. Código {{confirmationCode}}.",
+        "en": "{{hotelName}}: booking confirmed for {{serviceName}} on {{startTimeShort}}. Code {{confirmationCode}}."
+      }
+    },
+    "whatsapp": {
+      "body": {
+        "es": "Hola {{guestName}} 👋 Tu reserva de {{serviceName}} está lista para el {{startTimeLong}}. Si deseas agregar experiencias responde a este mensaje.",
+        "en": "Hi {{guestName}} 👋 Your {{serviceName}} booking is set for {{startTimeLong}}. Reply if you want to add experiences."
+      }
+    }
+  }
+}
