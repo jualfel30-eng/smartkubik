@@ -120,6 +120,26 @@ function InventoryManagement() {
     return variant.sku || 'Variante';
   }, []);
 
+  const formatProductCategory = useCallback((category) => {
+    if (Array.isArray(category)) {
+      const cleaned = category
+        .map((value) => (typeof value === 'string' ? value.trim() : String(value || '')))
+        .filter((value) => value.length > 0);
+      return cleaned.length > 0 ? cleaned.join(', ') : 'N/A';
+    }
+
+    if (typeof category === 'string') {
+      const trimmed = category.trim();
+      return trimmed || 'N/A';
+    }
+
+    if (category === null || category === undefined) {
+      return 'N/A';
+    }
+
+    const coerced = String(category).trim();
+    return coerced || 'N/A';
+  }, []);
   const useVariantInventory = useMemo(() => {
     if (!selectedProduct) {
       return false;
@@ -278,7 +298,38 @@ function InventoryManagement() {
     }
   }, [committedSearch, itemsPerPage, refreshData]);
 
-  const categories = [...new Set(inventoryData.map(item => item.productId?.category).filter(Boolean))];
+  const categories = useMemo(() => {
+    const collected = [];
+
+    inventoryData.forEach((item) => {
+      const rawCategory = item.productId?.category;
+
+      if (Array.isArray(rawCategory)) {
+        rawCategory
+          .map((value) => (typeof value === 'string' ? value.trim() : String(value || '')))
+          .filter((value) => value.length > 0)
+          .forEach((value) => collected.push(value));
+        return;
+      }
+
+      if (typeof rawCategory === 'string') {
+        const trimmed = rawCategory.trim();
+        if (trimmed) {
+          collected.push(trimmed);
+        }
+        return;
+      }
+
+      if (rawCategory !== null && rawCategory !== undefined) {
+        const coerced = String(rawCategory).trim();
+        if (coerced) {
+          collected.push(coerced);
+        }
+      }
+    });
+
+    return Array.from(new Set(collected));
+  }, [inventoryData]);
 
   // Funciones de paginación
   const handlePageChange = (newPage) => {
@@ -1042,8 +1093,8 @@ const handleProductSelection = (selectedOption) => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas las categorías</SelectItem>
-                {categories.map(category => (
-                  <SelectItem key={category} value={category}>{category}</SelectItem>
+                {categories.map((category, index) => (
+                  <SelectItem key={`category-${index}-${category}`} value={category}>{category}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -1073,7 +1124,7 @@ const handleProductSelection = (selectedOption) => {
                         <div className="text-sm text-muted-foreground">{item.productId?.brand || 'N/A'}</div>
                       </div>
                     </TableCell>
-                    <TableCell>{item.productId?.category || 'N/A'}</TableCell>
+                    <TableCell>{formatProductCategory(item.productId?.category)}</TableCell>
                     <TableCell>{item.availableQuantity} unidades</TableCell>
                     <TableCell>${item.averageCostPrice.toFixed(2)}</TableCell>
                     <TableCell>

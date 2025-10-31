@@ -93,6 +93,7 @@ const WhatsAppInbox = lazy(() => import('./pages/WhatsAppInbox.jsx')); // <-- Co
 const AssistantChatWidget = lazy(() => import('@/components/AssistantChatWidget.jsx'));
 const HospitalityDepositsDashboard = lazy(() => import('@/components/hospitality/HospitalityDepositsDashboard.jsx'));
 const HospitalityOperationsDashboard = lazy(() => import('@/components/hospitality/HospitalityOperationsDashboard.jsx'));
+const HotelFloorPlanPage = lazy(() => import('@/components/hospitality/HotelFloorPlanPage.jsx'));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -483,7 +484,7 @@ function TenantLayout() {
                 <Route path="resources" element={<ResourcesManagement />} />
                 <Route path="hospitality/deposits" element={<HospitalityDepositsDashboard />} />
                 <Route path="hospitality/operations" element={<HospitalityOperationsDashboard />} />
-                <Route path="hospitality/floor-plan" element={<HospitalityOperationsDashboard />} />
+                <Route path="hospitality/floor-plan" element={<HotelFloorPlanPage />} />
                 <Route path="calendar" element={<CalendarView />} />
                 <Route path="restaurant/floor-plan" element={<FloorPlan />} />
                 <Route path="restaurant/kitchen-display" element={<KitchenDisplay />} />

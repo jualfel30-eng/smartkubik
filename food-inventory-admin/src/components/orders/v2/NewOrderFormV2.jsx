@@ -18,6 +18,7 @@ import { useExchangeRate } from '@/hooks/useExchangeRate';
 import ModifierSelector from '@/components/restaurant/ModifierSelector.jsx';
 import { useAuth } from '@/hooks/use-auth.jsx';
 import { toast } from 'sonner';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group.jsx';
 
 const initialOrderState = {
   customerId: '',
@@ -34,6 +35,14 @@ const initialOrderState = {
     city: 'Valencia',
     street: '',
   },
+};
+
+const formatDecimalString = (value, decimals = 3) => {
+  if (!Number.isFinite(value)) {
+    return '0';
+  }
+  const fixed = value.toFixed(decimals);
+  return fixed.replace(/\.?0+$/, '') || '0';
 };
 
 export function NewOrderFormV2({ onOrderCreated }) {
@@ -477,6 +486,8 @@ export function NewOrderFormV2({ onOrderCreated }) {
         sellingUnits: hasMultiUnit ? product.sellingUnits : null,
         selectedUnit: hasMultiUnit ? defaultUnit?.abbreviation : null,
         promotionInfo: promotionInfo || null,
+        quantityEntryMode: product.isSoldByWeight ? 'quantity' : 'quantity',
+        amountInput: '',
       };
 
       const items = [...prev.items];
@@ -489,11 +500,26 @@ export function NewOrderFormV2({ onOrderCreated }) {
       );
 
       if (matchIndex !== -1) {
-        const existingQuantity = parseFloat(items[matchIndex].quantity) || 0;
-        items[matchIndex] = {
-          ...items[matchIndex],
-          quantity: existingQuantity + newItem.quantity,
+        const existingItem = items[matchIndex];
+        const existingQuantity = parseFloat(existingItem.quantity) || 0;
+        const additionalQuantity = parseFloat(newItem.quantity) || 0;
+        const mergedQuantity = existingQuantity + additionalQuantity;
+        const quantityValue = existingItem.isSoldByWeight || existingItem.hasMultipleSellingUnits
+          ? formatDecimalString(mergedQuantity)
+          : String(Math.round(mergedQuantity));
+
+        const updatedItem = {
+          ...existingItem,
+          quantity: quantityValue,
         };
+
+        if (existingItem.isSoldByWeight && existingItem.quantityEntryMode === 'amount') {
+          const price = getItemFinalUnitPrice(existingItem);
+          const amount = price * (parseFloat(quantityValue) || 0);
+          updatedItem.amountInput = amount > 0 ? amount.toFixed(2) : '';
+        }
+
+        items[matchIndex] = updatedItem;
       } else {
         items.push(newItem);
       }
@@ -608,9 +634,91 @@ export function NewOrderFormV2({ onOrderCreated }) {
       sanitizedValue = newQuantityStr.replace(/[^0-9]/g, '');
     }
 
-    const updatedItems = newOrder.items.map(item =>
-      item.productId === productId ? { ...item, quantity: sanitizedValue } : item
-    );
+    const updatedItems = newOrder.items.map(item => {
+      if (item.productId !== productId) {
+        return item;
+      }
+
+      const nextItem = {
+        ...item,
+        quantity: sanitizedValue,
+      };
+
+      if (item.isSoldByWeight && item.quantityEntryMode === 'amount') {
+        const price = getItemFinalUnitPrice(nextItem);
+        const quantityNumeric = parseFloat(sanitizedValue) || 0;
+        const amount = price * quantityNumeric;
+        nextItem.amountInput = quantityNumeric > 0 && price > 0 ? amount.toFixed(2) : sanitizedValue ? '0.00' : '';
+      }
+
+      return nextItem;
+    });
+    setNewOrder(prev => ({ ...prev, items: updatedItems }));
+  };
+
+  const handleItemEntryModeChange = (productId, mode) => {
+    if (!mode) return;
+
+    setNewOrder(prev => ({
+      ...prev,
+      items: prev.items.map(item => {
+        if (item.productId !== productId || !item.isSoldByWeight) {
+          return item;
+        }
+
+        if (mode === 'amount') {
+          const quantityNumeric = getItemQuantityValue(item);
+          const price = getItemFinalUnitPrice(item);
+          const initialAmount =
+            quantityNumeric > 0 && price > 0 ? (quantityNumeric * price).toFixed(2) : '';
+          return {
+            ...item,
+            quantityEntryMode: 'amount',
+            amountInput: initialAmount,
+          };
+        }
+
+        return {
+          ...item,
+          quantityEntryMode: 'quantity',
+          amountInput: '',
+        };
+      }),
+    }));
+  };
+
+  const handleItemAmountChange = (productId, newAmountStr) => {
+    let sanitizedValue = newAmountStr.replace(/[^0-9.,]/g, '').replace(/,/g, '.');
+    const parts = sanitizedValue.split('.');
+    if (parts.length > 2) {
+      return;
+    }
+
+    const updatedItems = newOrder.items.map(item => {
+      if (item.productId !== productId || !item.isSoldByWeight) {
+        return item;
+      }
+
+      const price = getItemFinalUnitPrice(item);
+      const amountNumeric = parseFloat(sanitizedValue);
+      let quantityString = item.quantity;
+
+      if (!sanitizedValue) {
+        quantityString = '';
+      } else if (!Number.isNaN(amountNumeric) && price > 0) {
+        const computedQuantity = amountNumeric / price;
+        quantityString = formatDecimalString(computedQuantity);
+      } else {
+        quantityString = '0';
+      }
+
+      return {
+        ...item,
+        amountInput: sanitizedValue,
+        quantity: quantityString,
+      };
+    });
+
     setNewOrder(prev => ({ ...prev, items: updatedItems }));
   };
 
@@ -619,12 +727,28 @@ export function NewOrderFormV2({ onOrderCreated }) {
       if (item.productId === productId && item.hasMultipleSellingUnits) {
         const selectedUnit = item.sellingUnits.find(u => u.abbreviation === newUnitAbbr);
         if (selectedUnit) {
+          const basePrice = selectedUnit.pricePerUnit;
+          const modifierAdjustment = calculateModifierAdjustment(item);
+          const nextFinalPrice = basePrice + modifierAdjustment;
+          let nextQuantity = selectedUnit.minimumQuantity ?? item.quantity;
+
+          if (item.isSoldByWeight && item.quantityEntryMode === 'amount') {
+            const amountNumeric = parseFloat(item.amountInput);
+            if (!Number.isNaN(amountNumeric) && amountNumeric > 0 && nextFinalPrice > 0) {
+              nextQuantity = formatDecimalString(amountNumeric / nextFinalPrice);
+            } else if (!item.amountInput) {
+              nextQuantity = '';
+            } else {
+              nextQuantity = '0';
+            }
+          }
+
           return {
             ...item,
             selectedUnit: selectedUnit.abbreviation,
-            unitPrice: selectedUnit.pricePerUnit,
-            finalPrice: selectedUnit.pricePerUnit + calculateModifierAdjustment(item),
-            quantity: selectedUnit.minimumQuantity || item.quantity,
+            unitPrice: basePrice,
+            finalPrice: nextFinalPrice,
+            quantity: nextQuantity,
           };
         }
       }
@@ -661,13 +785,21 @@ export function NewOrderFormV2({ onOrderCreated }) {
     const updatedItems = newOrder.items.map(item => {
       if (item.productId === selectedItemForDiscount.productId) {
         const discountAmount = (item.unitPrice * itemDiscountPercentage) / 100;
-        return {
+        const nextFinalPrice = item.unitPrice - discountAmount;
+        const updatedItem = {
           ...item,
           discountPercentage: itemDiscountPercentage,
           discountAmount: discountAmount,
           discountReason: itemDiscountReason,
-          finalPrice: item.unitPrice - discountAmount,
+          finalPrice: nextFinalPrice,
         };
+        if (item.isSoldByWeight && item.quantityEntryMode === 'amount') {
+          const amountNumeric = parseFloat(item.amountInput);
+          if (!Number.isNaN(amountNumeric) && amountNumeric > 0 && nextFinalPrice > 0) {
+            updatedItem.quantity = formatDecimalString(amountNumeric / nextFinalPrice);
+          }
+        }
+        return updatedItem;
       }
       return item;
     });
@@ -1075,16 +1207,56 @@ export function NewOrderFormV2({ onOrderCreated }) {
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center">
-                        <Input
-                          type="text"
-                          inputMode={item.isSoldByWeight || item.hasMultipleSellingUnits ? "decimal" : "numeric"}
-                          value={item.quantity}
-                          onChange={(e) => handleItemQuantityChange(item.productId, e.target.value, item.isSoldByWeight || item.hasMultipleSellingUnits)}
-                          className="w-20 h-8 text-center"
-                        />
-                        {!item.hasMultipleSellingUnits && (
-                          <span className="ml-2 text-xs text-muted-foreground">{item.unitOfMeasure}</span>
+                      <div className="space-y-2">
+                        {item.isSoldByWeight && (
+                          <ToggleGroup
+                            type="single"
+                            size="sm"
+                            value={item.quantityEntryMode || 'quantity'}
+                            onValueChange={(value) => handleItemEntryModeChange(item.productId, value)}
+                            className="justify-start"
+                          >
+                            <ToggleGroupItem value="quantity" aria-label="Ingresar por peso">
+                              Peso
+                            </ToggleGroupItem>
+                            <ToggleGroupItem value="amount" aria-label="Ingresar por monto">
+                              $
+                            </ToggleGroupItem>
+                          </ToggleGroup>
+                        )}
+                        {item.isSoldByWeight && item.quantityEntryMode === 'amount' ? (
+                          <div className="space-y-1">
+                            <div className="flex items-center">
+                              <Input
+                                type="text"
+                                inputMode="decimal"
+                                value={item.amountInput ?? ''}
+                                onChange={(e) => handleItemAmountChange(item.productId, e.target.value)}
+                                placeholder="Monto"
+                                className="w-24 h-8 text-center"
+                              />
+                              <span className="ml-2 text-xs text-muted-foreground">USD</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              ≈ {formatDecimalString(getItemQuantityValue(item))}{' '}
+                              {item.hasMultipleSellingUnits
+                                ? item.selectedUnit || item.unitOfMeasure
+                                : item.unitOfMeasure}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center">
+                            <Input
+                              type="text"
+                              inputMode={item.isSoldByWeight || item.hasMultipleSellingUnits ? "decimal" : "numeric"}
+                              value={item.quantity}
+                              onChange={(e) => handleItemQuantityChange(item.productId, e.target.value, item.isSoldByWeight || item.hasMultipleSellingUnits)}
+                              className="w-20 h-8 text-center"
+                            />
+                            {!item.hasMultipleSellingUnits && (
+                              <span className="ml-2 text-xs text-muted-foreground">{item.unitOfMeasure}</span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </TableCell>

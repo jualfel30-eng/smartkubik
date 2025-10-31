@@ -139,6 +139,90 @@ const normalizeStringList = (input) => {
   return coerced ? [coerced] : [];
 };
 
+const normalizeDecimalInput = (rawValue) => {
+  if (rawValue === null || rawValue === undefined) {
+    return '';
+  }
+
+  if (typeof rawValue === 'number') {
+    return Number.isFinite(rawValue) ? rawValue.toString() : '';
+  }
+
+  if (typeof rawValue !== 'string') {
+    return '';
+  }
+
+  const value = rawValue.trim();
+
+  if (value === '' || value === '.' || value === '-.' || value === '-') {
+    return value;
+  }
+
+  if (value.startsWith('.')) {
+    return `0${value}`;
+  }
+
+  if (value.startsWith('-.')) {
+    return `-0${value.slice(1)}`;
+  }
+
+  return value;
+};
+
+const parseDecimalInput = (value) => {
+  if (typeof value === 'number') {
+    return Number.isNaN(value) ? null : value;
+  }
+
+  const normalized = normalizeDecimalInput(value);
+
+  if (
+    normalized === '' ||
+    normalized === '.' ||
+    normalized === '-.' ||
+    normalized === '-'
+  ) {
+    return null;
+  }
+
+  const parsed = parseFloat(normalized);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const sanitizeSellingUnitsForPayload = (units = []) =>
+  units.map((unit) => {
+    const {
+      conversionFactorInput,
+      pricePerUnitInput,
+      costPerUnitInput,
+      ...rest
+    } = unit || {};
+
+    const parsedConversion =
+      parseDecimalInput(
+        conversionFactorInput !== undefined ? conversionFactorInput : rest?.conversionFactor
+      ) ?? 0;
+
+    const parsedPrice =
+      parseDecimalInput(
+        pricePerUnitInput !== undefined ? pricePerUnitInput : rest?.pricePerUnit
+      ) ?? 0;
+
+    const parsedCost =
+      parseDecimalInput(
+        costPerUnitInput !== undefined ? costPerUnitInput : rest?.costPerUnit
+      ) ?? 0;
+
+    return {
+      ...rest,
+      conversionFactor: parsedConversion,
+      pricePerUnit: parsedPrice,
+      costPerUnit: parsedCost,
+      minimumQuantity: Number(rest?.minimumQuantity) || 0,
+      incrementStep: Number(rest?.incrementStep) || 0,
+    };
+  });
+
 const initialNewProductState = {
   sku: '',
   name: '',
@@ -786,7 +870,9 @@ useEffect(() => {
       },
       igtfExempt: false,
       hasMultipleSellingUnits: newProduct.hasMultipleSellingUnits,
-      sellingUnits: newProduct.hasMultipleSellingUnits ? newProduct.sellingUnits : [],
+      sellingUnits: newProduct.hasMultipleSellingUnits
+        ? sanitizeSellingUnitsForPayload(newProduct.sellingUnits)
+        : [],
       hasActivePromotion: newProduct.hasActivePromotion || false,
       ...(newProduct.hasActivePromotion && newProduct.promotion && {
         promotion: {
@@ -869,7 +955,9 @@ useEffect(() => {
       isSoldByWeight: editingProduct.isSoldByWeight,
       unitOfMeasure: editingProduct.unitOfMeasure,
       hasMultipleSellingUnits: editingProduct.hasMultipleSellingUnits,
-      sellingUnits: editingProduct.hasMultipleSellingUnits ? editingProduct.sellingUnits : [],
+      sellingUnits: editingProduct.hasMultipleSellingUnits
+        ? sanitizeSellingUnitsForPayload(editingProduct.sellingUnits)
+        : [],
       ivaApplicable: editingProduct.ivaApplicable,
       isPerishable: editingProduct.isPerishable,
       shelfLifeDays: editingProduct.shelfLifeDays,
@@ -1999,16 +2087,47 @@ useEffect(() => {
                               <Input
                                 type="number"
                                 step="0.001"
+                                inputMode="decimal"
                                 placeholder={getPlaceholder('sellingUnitConversion', 'Ej: 1000')}
-                                value={unit.conversionFactor || ''}
+                                value={
+                                  unit.conversionFactorInput ??
+                                  normalizeDecimalInput(unit.conversionFactor ?? '')
+                                }
                                 onChange={(e) => {
-                                  const units = [...newProduct.sellingUnits];
-                                  units[index].conversionFactor = parseFloat(e.target.value) || 0;
+                                  const rawValue = e.target.value;
+                                  const units = newProduct.sellingUnits.map((currentUnit, unitIndex) => {
+                                    if (unitIndex !== index) {
+                                      return currentUnit;
+                                    }
+                                    const parsed = parseDecimalInput(rawValue);
+                                    return {
+                                      ...currentUnit,
+                                      conversionFactorInput: rawValue,
+                                      conversionFactor: parsed !== null ? parsed : null,
+                                    };
+                                  });
+                                  setNewProduct({...newProduct, sellingUnits: units});
+                                }}
+                                onBlur={() => {
+                                  const units = newProduct.sellingUnits.map((currentUnit, unitIndex) => {
+                                    if (unitIndex !== index) {
+                                      return currentUnit;
+                                    }
+                                    const normalizedInput = normalizeDecimalInput(currentUnit.conversionFactorInput ?? '');
+                                    const parsed = parseDecimalInput(normalizedInput);
+                                    return {
+                                      ...currentUnit,
+                                      conversionFactorInput: normalizedInput,
+                                      conversionFactor: parsed !== null ? parsed : null,
+                                    };
+                                  });
                                   setNewProduct({...newProduct, sellingUnits: units});
                                 }}
                               />
                               <p className="text-xs text-muted-foreground">
-                                1 {unit.abbreviation || 'unidad'} = {unit.conversionFactor || 0} {newProduct.unitOfMeasure}
+                                1 {unit.abbreviation || 'unidad'} = {parseDecimalInput(
+                                  (unit.conversionFactorInput ?? unit.conversionFactor)
+                                ) ?? 0} {newProduct.unitOfMeasure}
                               </p>
                             </div>
                             <div className="space-y-2">
@@ -2016,11 +2135,40 @@ useEffect(() => {
                               <Input
                                 type="number"
                                 step="0.01"
+                                inputMode="decimal"
                                 placeholder={getPlaceholder('sellingUnitPrice', 'Ej: 20.00')}
-                                value={unit.pricePerUnit || ''}
+                                value={
+                                  unit.pricePerUnitInput ??
+                                  normalizeDecimalInput(unit.pricePerUnit ?? '')
+                                }
                                 onChange={(e) => {
-                                  const units = [...newProduct.sellingUnits];
-                                  units[index].pricePerUnit = parseFloat(e.target.value) || 0;
+                                  const rawValue = e.target.value;
+                                  const units = newProduct.sellingUnits.map((currentUnit, unitIndex) => {
+                                    if (unitIndex !== index) {
+                                      return currentUnit;
+                                    }
+                                    const parsed = parseDecimalInput(rawValue);
+                                    return {
+                                      ...currentUnit,
+                                      pricePerUnitInput: rawValue,
+                                      pricePerUnit: parsed !== null ? parsed : null,
+                                    };
+                                  });
+                                  setNewProduct({...newProduct, sellingUnits: units});
+                                }}
+                                onBlur={() => {
+                                  const units = newProduct.sellingUnits.map((currentUnit, unitIndex) => {
+                                    if (unitIndex !== index) {
+                                      return currentUnit;
+                                    }
+                                    const normalizedInput = normalizeDecimalInput(currentUnit.pricePerUnitInput ?? '');
+                                    const parsed = parseDecimalInput(normalizedInput);
+                                    return {
+                                      ...currentUnit,
+                                      pricePerUnitInput: normalizedInput,
+                                      pricePerUnit: parsed !== null ? parsed : null,
+                                    };
+                                  });
                                   setNewProduct({...newProduct, sellingUnits: units});
                                 }}
                               />
@@ -2030,11 +2178,40 @@ useEffect(() => {
                               <Input
                                 type="number"
                                 step="0.01"
+                                inputMode="decimal"
                                 placeholder={getPlaceholder('sellingUnitCost', 'Ej: 12.00')}
-                                value={unit.costPerUnit || ''}
+                                value={
+                                  unit.costPerUnitInput ??
+                                  normalizeDecimalInput(unit.costPerUnit ?? '')
+                                }
                                 onChange={(e) => {
-                                  const units = [...newProduct.sellingUnits];
-                                  units[index].costPerUnit = parseFloat(e.target.value) || 0;
+                                  const rawValue = e.target.value;
+                                  const units = newProduct.sellingUnits.map((currentUnit, unitIndex) => {
+                                    if (unitIndex !== index) {
+                                      return currentUnit;
+                                    }
+                                    const parsed = parseDecimalInput(rawValue);
+                                    return {
+                                      ...currentUnit,
+                                      costPerUnitInput: rawValue,
+                                      costPerUnit: parsed !== null ? parsed : null,
+                                    };
+                                  });
+                                  setNewProduct({...newProduct, sellingUnits: units});
+                                }}
+                                onBlur={() => {
+                                  const units = newProduct.sellingUnits.map((currentUnit, unitIndex) => {
+                                    if (unitIndex !== index) {
+                                      return currentUnit;
+                                    }
+                                    const normalizedInput = normalizeDecimalInput(currentUnit.costPerUnitInput ?? '');
+                                    const parsed = parseDecimalInput(normalizedInput);
+                                    return {
+                                      ...currentUnit,
+                                      costPerUnitInput: normalizedInput,
+                                      costPerUnit: parsed !== null ? parsed : null,
+                                    };
+                                  });
                                   setNewProduct({...newProduct, sellingUnits: units});
                                 }}
                               />
@@ -2110,8 +2287,11 @@ useEffect(() => {
                               name: '',
                               abbreviation: '',
                               conversionFactor: 1,
+                              conversionFactorInput: '1',
                               pricePerUnit: 0,
+                              pricePerUnitInput: '',
                               costPerUnit: 0,
+                              costPerUnitInput: '',
                               isActive: true,
                               isDefault: newProduct.sellingUnits.length === 0,
                               minimumQuantity: 0,
@@ -2496,6 +2676,23 @@ useEffect(() => {
                           if (!productToEdit.sellingUnits) {
                             productToEdit.sellingUnits = [];
                           }
+                          productToEdit.sellingUnits = productToEdit.sellingUnits.map((unit) => {
+                            const conversionSource =
+                              unit?.conversionFactorInput ?? unit?.conversionFactor ?? '';
+                            const priceSource =
+                              unit?.pricePerUnitInput ?? unit?.pricePerUnit ?? '';
+                            const costSource =
+                              unit?.costPerUnitInput ?? unit?.costPerUnit ?? '';
+                            return {
+                              ...unit,
+                              conversionFactorInput: normalizeDecimalInput(conversionSource),
+                              conversionFactor: parseDecimalInput(conversionSource),
+                              pricePerUnitInput: normalizeDecimalInput(priceSource),
+                              pricePerUnit: parseDecimalInput(priceSource),
+                              costPerUnitInput: normalizeDecimalInput(costSource),
+                              costPerUnit: parseDecimalInput(costSource),
+                            };
+                          });
                           productToEdit.category = normalizeStringList(productToEdit.category);
                           productToEdit.subcategory = normalizeStringList(productToEdit.subcategory);
                           setEditingProduct(productToEdit);
@@ -3143,16 +3340,47 @@ useEffect(() => {
                               <Input
                                 type="number"
                                 step="0.001"
+                                inputMode="decimal"
                                 placeholder={getPlaceholder('sellingUnitConversion', 'Ej: 1000')}
-                              value={unit.conversionFactor || ''}
+                              value={
+                                unit.conversionFactorInput ??
+                                normalizeDecimalInput(unit.conversionFactor ?? '')
+                              }
                               onChange={(e) => {
-                                const units = [...editingProduct.sellingUnits];
-                                units[index].conversionFactor = parseFloat(e.target.value) || 0;
+                                const rawValue = e.target.value;
+                                const units = editingProduct.sellingUnits.map((currentUnit, unitIndex) => {
+                                  if (unitIndex !== index) {
+                                    return currentUnit;
+                                  }
+                                  const parsed = parseDecimalInput(rawValue);
+                                  return {
+                                    ...currentUnit,
+                                    conversionFactorInput: rawValue,
+                                    conversionFactor: parsed !== null ? parsed : null,
+                                  };
+                                });
+                                setEditingProduct({...editingProduct, sellingUnits: units});
+                              }}
+                              onBlur={() => {
+                                const units = editingProduct.sellingUnits.map((currentUnit, unitIndex) => {
+                                  if (unitIndex !== index) {
+                                    return currentUnit;
+                                  }
+                                  const normalizedInput = normalizeDecimalInput(currentUnit.conversionFactorInput ?? '');
+                                  const parsed = parseDecimalInput(normalizedInput);
+                                  return {
+                                    ...currentUnit,
+                                    conversionFactorInput: normalizedInput,
+                                    conversionFactor: parsed !== null ? parsed : null,
+                                  };
+                                });
                                 setEditingProduct({...editingProduct, sellingUnits: units});
                               }}
                             />
                             <p className="text-xs text-muted-foreground">
-                              1 {unit.abbreviation || 'unidad'} = {unit.conversionFactor || 0} {editingProduct.unitOfMeasure}
+                              1 {unit.abbreviation || 'unidad'} = {parseDecimalInput(
+                                (unit.conversionFactorInput ?? unit.conversionFactor)
+                              ) ?? 0} {editingProduct.unitOfMeasure}
                             </p>
                           </div>
                           <div className="space-y-2">
@@ -3160,11 +3388,40 @@ useEffect(() => {
                               <Input
                                 type="number"
                                 step="0.01"
+                                inputMode="decimal"
                                 placeholder={getPlaceholder('sellingUnitPrice', 'Ej: 20.00')}
-                              value={unit.pricePerUnit || ''}
+                              value={
+                                unit.pricePerUnitInput ??
+                                normalizeDecimalInput(unit.pricePerUnit ?? '')
+                              }
                               onChange={(e) => {
-                                const units = [...editingProduct.sellingUnits];
-                                units[index].pricePerUnit = parseFloat(e.target.value) || 0;
+                                const rawValue = e.target.value;
+                                const units = editingProduct.sellingUnits.map((currentUnit, unitIndex) => {
+                                  if (unitIndex !== index) {
+                                    return currentUnit;
+                                  }
+                                  const parsed = parseDecimalInput(rawValue);
+                                  return {
+                                    ...currentUnit,
+                                    pricePerUnitInput: rawValue,
+                                    pricePerUnit: parsed !== null ? parsed : null,
+                                  };
+                                });
+                                setEditingProduct({...editingProduct, sellingUnits: units});
+                              }}
+                              onBlur={() => {
+                                const units = editingProduct.sellingUnits.map((currentUnit, unitIndex) => {
+                                  if (unitIndex !== index) {
+                                    return currentUnit;
+                                  }
+                                  const normalizedInput = normalizeDecimalInput(currentUnit.pricePerUnitInput ?? '');
+                                  const parsed = parseDecimalInput(normalizedInput);
+                                  return {
+                                    ...currentUnit,
+                                    pricePerUnitInput: normalizedInput,
+                                    pricePerUnit: parsed !== null ? parsed : null,
+                                  };
+                                });
                                 setEditingProduct({...editingProduct, sellingUnits: units});
                               }}
                             />
@@ -3174,11 +3431,40 @@ useEffect(() => {
                               <Input
                                 type="number"
                                 step="0.01"
+                                inputMode="decimal"
                                 placeholder={getPlaceholder('sellingUnitCost', 'Ej: 12.00')}
-                              value={unit.costPerUnit || ''}
+                              value={
+                                unit.costPerUnitInput ??
+                                normalizeDecimalInput(unit.costPerUnit ?? '')
+                              }
                               onChange={(e) => {
-                                const units = [...editingProduct.sellingUnits];
-                                units[index].costPerUnit = parseFloat(e.target.value) || 0;
+                                const rawValue = e.target.value;
+                                const units = editingProduct.sellingUnits.map((currentUnit, unitIndex) => {
+                                  if (unitIndex !== index) {
+                                    return currentUnit;
+                                  }
+                                  const parsed = parseDecimalInput(rawValue);
+                                  return {
+                                    ...currentUnit,
+                                    costPerUnitInput: rawValue,
+                                    costPerUnit: parsed !== null ? parsed : null,
+                                  };
+                                });
+                                setEditingProduct({...editingProduct, sellingUnits: units});
+                              }}
+                              onBlur={() => {
+                                const units = editingProduct.sellingUnits.map((currentUnit, unitIndex) => {
+                                  if (unitIndex !== index) {
+                                    return currentUnit;
+                                  }
+                                  const normalizedInput = normalizeDecimalInput(currentUnit.costPerUnitInput ?? '');
+                                  const parsed = parseDecimalInput(normalizedInput);
+                                  return {
+                                    ...currentUnit,
+                                    costPerUnitInput: normalizedInput,
+                                    costPerUnit: parsed !== null ? parsed : null,
+                                  };
+                                });
                                 setEditingProduct({...editingProduct, sellingUnits: units});
                               }}
                             />
@@ -3254,8 +3540,11 @@ useEffect(() => {
                             name: '',
                             abbreviation: '',
                             conversionFactor: 1,
+                            conversionFactorInput: '1',
                             pricePerUnit: 0,
+                            pricePerUnitInput: '',
                             costPerUnit: 0,
+                            costPerUnitInput: '',
                             isActive: true,
                             isDefault: (editingProduct.sellingUnits || []).length === 0,
                             minimumQuantity: 0,
