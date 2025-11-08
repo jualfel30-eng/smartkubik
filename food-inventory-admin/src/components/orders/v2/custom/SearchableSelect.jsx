@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
+import Select from 'react-select';
 import CreatableSelect from 'react-select/creatable';
 
 export function SearchableSelect({
@@ -11,34 +12,12 @@ export function SearchableSelect({
   inputValue, // Opcional
   ...props
 }) {
-  const [internalInputValue, setInternalInputValue] = useState('');
-  
-  const isControlled = inputValue !== undefined;
-  const currentInputValue = isControlled ? inputValue : internalInputValue;
-
-  const handleInputChange = (newInputValue, actionMeta) => {
-    if (actionMeta.action === 'input-change') {
-      if (onInputChange) {
-        onInputChange(newInputValue, actionMeta);
-      }
-      
-      if (!isControlled) {
-        setInternalInputValue(newInputValue);
-      }
-    }
-  };
+  // Usar Select normal si no es creatable, CreatableSelect si lo es
+  const SelectComponent = isCreatable ? CreatableSelect : Select;
 
   const handleChange = (selectedOption, actionMeta) => {
     if (onSelection) {
       onSelection(selectedOption, actionMeta);
-    }
-    
-    if (selectedOption && actionMeta.action === 'select-option') {
-      if (onInputChange && isControlled) {
-        onInputChange('', { action: 'clear-input' });
-      } else if (!isControlled) {
-        setInternalInputValue('');
-      }
     }
   };
 
@@ -58,21 +37,20 @@ export function SearchableSelect({
   };
 
   return (
-    <CreatableSelect
+    <SelectComponent
       options={options}
       onChange={handleChange}
-      onInputChange={handleInputChange}
-      inputValue={currentInputValue}
+      onInputChange={onInputChange}
+      inputValue={inputValue}
       value={value}
       placeholder={placeholder}
       isClearable
       isSearchable
-      blurInputOnSelect={false}
-      openMenuOnClick={true}
-      openMenuOnFocus={true}
+      openMenuOnClick
+      openMenuOnFocus
       unstyled
       classNames={classNames}
-      formatCreateLabel={(inputValue) => `Crear nuevo: "${inputValue}"`}
+      formatCreateLabel={isCreatable ? (inputValue) => `Crear nuevo: "${inputValue}"` : undefined}
       noOptionsMessage={() => "No se encontraron resultados"}
       {...props}
     />
