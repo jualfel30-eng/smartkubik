@@ -237,7 +237,10 @@ export class AuthService {
 
     const { email, code, backupCode } = options;
 
-    if (!user.twoFactorSecret && (!user.twoFactorBackupCodes?.length || !backupCode)) {
+    if (
+      !user.twoFactorSecret &&
+      (!user.twoFactorBackupCodes?.length || !backupCode)
+    ) {
       this.logger.error(
         `Usuario ${email} tiene 2FA habilitado pero sin secretos configurados`,
       );
@@ -250,7 +253,9 @@ export class AuthService {
       const normalized = backupCode.trim();
       if (!user.twoFactorBackupCodes?.includes(normalized)) {
         this.logger.warn(`Backup code inválido para ${email}`);
-        throw new UnauthorizedException("Código de respaldo inválido o ya usado");
+        throw new UnauthorizedException(
+          "Código de respaldo inválido o ya usado",
+        );
       }
 
       await this.userModel.updateOne(

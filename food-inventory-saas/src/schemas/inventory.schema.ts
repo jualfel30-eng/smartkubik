@@ -25,8 +25,9 @@ export class InventoryAttributeCombination {
   @Prop({ type: Number })
   averageCostPrice?: number;
 }
-export const InventoryAttributeCombinationSchema =
-  SchemaFactory.createForClass(InventoryAttributeCombination);
+export const InventoryAttributeCombinationSchema = SchemaFactory.createForClass(
+  InventoryAttributeCombination,
+);
 
 @Schema({ timestamps: true })
 export class InventoryLot {

@@ -1,7 +1,11 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
-import { CreateTodoDto, UpdateTodoDto } from "../../dto/todo.dto";
+import {
+  CreateTodoDto,
+  UpdateTodoDto,
+  TodoFilterDto,
+} from "../../dto/todo.dto";
 import { Todo, TodoDocument } from "../../schemas/todo.schema";
 import { Event, EventDocument } from "../../schemas/event.schema";
 
@@ -13,18 +17,59 @@ export class TodosService {
   ) {}
 
   async create(createTodoDto: CreateTodoDto, user: any): Promise<Todo> {
+    const normalizedTags = Array.isArray(createTodoDto.tags)
+      ? Array.from(
+          new Set(
+            createTodoDto.tags
+              .map((tag) => String(tag).trim())
+              .filter((tag) => Boolean(tag)),
+          ),
+        )
+      : [];
+    const createdBy =
+      typeof user?.id === "string" && user.id.length
+        ? user.id
+        : user?.sub ?? user?.userId;
+
+    if (!createdBy) {
+      throw new BadRequestException(
+        "No se pudo determinar el usuario que crea la tarea",
+      );
+    }
+
     const newTodo = new this.todoModel({
       ...createTodoDto,
-      createdBy: this.toObjectIdOrValue(user.sub),
+      tags: normalizedTags,
+      createdBy: this.toObjectIdOrValue(createdBy),
       tenantId: this.normalizeTenantValue(user.tenantId),
     });
     return newTodo.save();
   }
 
-  async findAll(tenantId: string): Promise<Todo[]> {
+  async findAll(tenantId: string, filters?: TodoFilterDto): Promise<Todo[]> {
+    const query: Record<string, unknown> = {
+      tenantId: this.buildTenantFilter(tenantId),
+    };
+
+    if (filters?.tags?.length) {
+      query.tags = { $in: filters.tags };
+    }
+
+    if (typeof filters?.isCompleted === "boolean") {
+      query.isCompleted = filters.isCompleted;
+    }
+
+    if (filters?.resourceId) {
+      query.resourceId = filters.resourceId;
+    }
+
+    if (filters?.appointmentId) {
+      query.appointmentId = filters.appointmentId;
+    }
+
     return this.todoModel
-      .find({ tenantId: this.buildTenantFilter(tenantId) })
-      .sort({ createdAt: -1 })
+      .find(query)
+      .sort({ dueDate: 1, createdAt: -1 })
       .exec();
   }
 

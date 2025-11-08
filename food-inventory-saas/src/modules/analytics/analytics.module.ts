@@ -19,7 +19,10 @@ import {
   InventoryMovementSchema,
 } from "../../schemas/inventory.schema";
 import { Payable, PayableSchema } from "../../schemas/payable.schema";
-import { Appointment, AppointmentSchema } from "../../schemas/appointment.schema";
+import {
+  Appointment,
+  AppointmentSchema,
+} from "../../schemas/appointment.schema";
 import { Service, ServiceSchema } from "../../schemas/service.schema";
 import { Resource, ResourceSchema } from "../../schemas/resource.schema";
 import { Customer, CustomerSchema } from "../../schemas/customer.schema";

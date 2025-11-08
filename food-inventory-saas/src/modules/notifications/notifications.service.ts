@@ -56,9 +56,12 @@ export class NotificationsService {
     @InjectModel(GlobalSetting.name)
     private readonly globalSettingModel: Model<GlobalSettingDocument>,
   ) {
-    this.twilioAccountSid = this.configService.get<string>("TWILIO_ACCOUNT_SID") ?? undefined;
-    this.twilioAuthToken = this.configService.get<string>("TWILIO_AUTH_TOKEN") ?? undefined;
-    this.twilioSmsFrom = this.configService.get<string>("TWILIO_SMS_FROM") ?? undefined;
+    this.twilioAccountSid =
+      this.configService.get<string>("TWILIO_ACCOUNT_SID") ?? undefined;
+    this.twilioAuthToken =
+      this.configService.get<string>("TWILIO_AUTH_TOKEN") ?? undefined;
+    this.twilioSmsFrom =
+      this.configService.get<string>("TWILIO_SMS_FROM") ?? undefined;
   }
 
   async sendAppointmentNotification(
@@ -125,7 +128,10 @@ export class NotificationsService {
     }
 
     const renderedSubject = channelTemplate.subject
-      ? this.renderTemplate(channelTemplate.subject[language] || "", payload.context)
+      ? this.renderTemplate(
+          channelTemplate.subject[language] || "",
+          payload.context,
+        )
       : undefined;
     const renderedBody = this.renderTemplate(
       channelTemplate.body[language] || "",
@@ -135,13 +141,18 @@ export class NotificationsService {
     switch (channel) {
       case "email":
         if (!payload.customerEmail) {
-          throw new Error("Customer email not available for email notification");
+          throw new Error(
+            "Customer email not available for email notification",
+          );
         }
         await this.mailService.sendTemplatedEmail({
           to: payload.customerEmail,
           subject:
             renderedSubject ||
-            this.renderTemplate(`Notificación de ${payload.context.hotelName || "SmartKubik"}`, payload.context),
+            this.renderTemplate(
+              `Notificación de ${payload.context.hotelName || "SmartKubik"}`,
+              payload.context,
+            ),
           html: renderedBody,
         });
         break;
@@ -153,7 +164,9 @@ export class NotificationsService {
         break;
       case "whatsapp":
         if (!(payload.whatsappChatId || payload.customerPhone)) {
-          throw new Error("Neither WhatsApp chat id nor phone available for WhatsApp notification");
+          throw new Error(
+            "Neither WhatsApp chat id nor phone available for WhatsApp notification",
+          );
         }
         await this.sendWhatsApp(
           payload.tenantId,
@@ -166,7 +179,10 @@ export class NotificationsService {
     }
   }
 
-  private renderTemplate(template: string, context: Record<string, any>): string {
+  private renderTemplate(
+    template: string,
+    context: Record<string, any>,
+  ): string {
     if (!template) {
       return "";
     }
@@ -212,7 +228,11 @@ export class NotificationsService {
   }
 
   private async sendSms(to: string, body: string): Promise<void> {
-    if (!this.twilioAccountSid || !this.twilioAuthToken || !this.twilioSmsFrom) {
+    if (
+      !this.twilioAccountSid ||
+      !this.twilioAuthToken ||
+      !this.twilioSmsFrom
+    ) {
       this.logger.warn(
         `Twilio SMS credentials missing. Pretending to send SMS to ${to}: ${body}`,
       );
@@ -257,7 +277,9 @@ export class NotificationsService {
       );
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : `Unknown error: ${JSON.stringify(error)}`;
+        error instanceof Error
+          ? error.message
+          : `Unknown error: ${JSON.stringify(error)}`;
       throw new Error(`Failed to send WhatsApp message via Whapi: ${message}`);
     }
   }
@@ -295,8 +317,14 @@ export class NotificationsService {
           ? new Types.ObjectId(tenantId)
           : undefined;
         const tenant = tenantObjectId
-          ? await this.tenantModel.findById(tenantObjectId).select("whapiToken").exec()
-          : await this.tenantModel.findOne({ code: tenantId }).select("whapiToken").exec();
+          ? await this.tenantModel
+              .findById(tenantObjectId)
+              .select("whapiToken")
+              .exec()
+          : await this.tenantModel
+              .findOne({ code: tenantId })
+              .select("whapiToken")
+              .exec();
         tenantToken = tenant?.whapiToken?.trim() || undefined;
         if (tenantToken) {
           this.whapiTokenCache.set(cacheKey, tenantToken);
@@ -359,7 +387,11 @@ export class NotificationsService {
           const chunks: Buffer[] = [];
           response.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
           response.on("end", () => {
-            if (response.statusCode && response.statusCode >= 200 && response.statusCode < 300) {
+            if (
+              response.statusCode &&
+              response.statusCode >= 200 &&
+              response.statusCode < 300
+            ) {
               resolve();
               return;
             }

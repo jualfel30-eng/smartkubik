@@ -311,9 +311,7 @@ export class UnitConversionUtil {
    * Extrae una medida (cantidad + unidad) de un texto libre.
    * Retorna el texto sin la medida para búsquedas y los datos de cantidad detectados.
    */
-  static extractMeasurement(
-    input: string,
-  ): {
+  static extractMeasurement(input: string): {
     normalizedText: string;
     quantity?: number;
     unit?: string;
@@ -349,7 +347,10 @@ export class UnitConversionUtil {
 
     return {
       normalizedText,
-      quantity: quantity !== undefined && !Number.isNaN(quantity) ? quantity : undefined,
+      quantity:
+        quantity !== undefined && !Number.isNaN(quantity)
+          ? quantity
+          : undefined,
       unit: rawUnit,
       normalizedUnit: normalizedUnit || undefined,
       rawMatch: match[0]?.trim(),

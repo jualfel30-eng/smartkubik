@@ -549,7 +549,10 @@ export class OrdersService {
   }
 
   async exportOrders(query: OrderQueryDto, tenantId: string): Promise<string> {
-    const { filter, sortOptions, limit } = this.buildOrderQuery(query, tenantId);
+    const { filter, sortOptions, limit } = this.buildOrderQuery(
+      query,
+      tenantId,
+    );
     const effectiveLimit = Math.min(Math.max(limit, 1), 5000);
 
     const orders = await this.orderModel
@@ -588,12 +591,14 @@ export class OrdersService {
     ]
       .concat(
         productAttributes.map(
-          (attr) => `Atributo Producto (${attr.key})${attr.label ? ` - ${attr.label}` : ''}`,
+          (attr) =>
+            `Atributo Producto (${attr.key})${attr.label ? ` - ${attr.label}` : ""}`,
         ),
       )
       .concat(
         variantAttributes.map(
-          (attr) => `Atributo Variante (${attr.key})${attr.label ? ` - ${attr.label}` : ''}`,
+          (attr) =>
+            `Atributo Variante (${attr.key})${attr.label ? ` - ${attr.label}` : ""}`,
         ),
       );
 
@@ -640,9 +645,7 @@ export class OrdersService {
     const csvRows = [headers]
       .concat(rows)
       .map((row) =>
-        row
-          .map((value) => `"${value.replace(/"/g, '""')}"`)
-          .join(","),
+        row.map((value) => `"${value.replace(/"/g, '""')}"`).join(","),
       )
       .join("\n");
 
@@ -843,18 +846,14 @@ export class OrdersService {
   ): string | undefined {
     const entries = Object.entries(attributes || {}).filter(
       ([, value]) =>
-        value !== undefined &&
-        value !== null &&
-        `${value}`.trim().length > 0,
+        value !== undefined && value !== null && `${value}`.trim().length > 0,
     );
 
     if (!entries.length) {
       return undefined;
     }
 
-    return entries
-      .map(([key, value]) => `${key}: ${value}`)
-      .join(" | ");
+    return entries.map(([key, value]) => `${key}: ${value}`).join(" | ");
   }
 
   private async generateOrderNumber(_tenantId: string): Promise<string> {
@@ -946,10 +945,7 @@ export class OrdersService {
     if (customerId) filter.customerId = customerId;
     if (search) {
       const regex = new RegExp(this.escapeRegExp(search), "i");
-      filter.$or = [
-        { orderNumber: regex },
-        { customerName: regex },
-      ];
+      filter.$or = [{ orderNumber: regex }, { customerName: regex }];
     }
 
     if (itemAttributeKey && itemAttributeValue) {

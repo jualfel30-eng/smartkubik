@@ -341,8 +341,7 @@ export class ProductsService {
 
     const pageNumber = Math.max(Number(page) || 1, 1);
     const limitNumber = Math.max(Number(limit) || 20, 1);
-    const searchTerm =
-      typeof search === "string" ? search.trim() : "";
+    const searchTerm = typeof search === "string" ? search.trim() : "";
     const isSearching = searchTerm.length > 0;
 
     const filter: any = {

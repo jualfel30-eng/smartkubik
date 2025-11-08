@@ -21,7 +21,10 @@ import { PackagePricingDto } from "./dto/package-pricing.dto";
 import { AppointmentsService } from "../appointments/appointments.service";
 import { LoyaltyService } from "../loyalty/loyalty.service";
 
-type ResourceAssignmentMap = Map<string, { resourceId?: string; additionalResourceIds: string[] }>;
+type ResourceAssignmentMap = Map<
+  string,
+  { resourceId?: string; additionalResourceIds: string[] }
+>;
 
 @Injectable()
 export class ServicePackagesService {
@@ -41,7 +44,10 @@ export class ServicePackagesService {
     tenantId: string,
     createDto: CreateServicePackageDto,
   ): Promise<ServicePackageDocument> {
-    await this.assertServicesExist(tenantId, createDto.items.map((i) => i.serviceId));
+    await this.assertServicesExist(
+      tenantId,
+      createDto.items.map((i) => i.serviceId),
+    );
 
     const doc = new this.servicePackageModel({
       tenantId,
@@ -51,9 +57,10 @@ export class ServicePackagesService {
           adjustmentType: rule.adjustmentType,
           value: rule.value,
           daysOfWeek: rule.daysOfWeek || [],
-          season: rule.seasonStart && rule.seasonEnd
-            ? { start: rule.seasonStart, end: rule.seasonEnd }
-            : undefined,
+          season:
+            rule.seasonStart && rule.seasonEnd
+              ? { start: rule.seasonStart, end: rule.seasonEnd }
+              : undefined,
           occupancyThreshold: rule.occupancyThreshold,
           channels: rule.channels || [],
           loyaltyTiers: rule.loyaltyTiers || [],
@@ -102,7 +109,10 @@ export class ServicePackagesService {
     updateDto: UpdateServicePackageDto,
   ): Promise<ServicePackageDocument> {
     if (updateDto.items) {
-      await this.assertServicesExist(tenantId, updateDto.items.map((i) => i.serviceId));
+      await this.assertServicesExist(
+        tenantId,
+        updateDto.items.map((i) => i.serviceId),
+      );
     }
 
     const updated = await this.servicePackageModel
@@ -137,7 +147,10 @@ export class ServicePackagesService {
   }
 
   async remove(tenantId: string, id: string): Promise<void> {
-    const result = await this.servicePackageModel.deleteOne({ _id: id, tenantId });
+    const result = await this.servicePackageModel.deleteOne({
+      _id: id,
+      tenantId,
+    });
     if (!result.deletedCount) {
       throw new NotFoundException("Paquete no encontrado");
     }
@@ -149,7 +162,9 @@ export class ServicePackagesService {
     payload: PackageAvailabilityDto,
   ) {
     const servicePackage = await this.findOne(tenantId, packageId);
-    const resourceAssignments = this.buildAssignmentMap(payload.resourceAssignments);
+    const resourceAssignments = this.buildAssignmentMap(
+      payload.resourceAssignments,
+    );
 
     const start = DateTime.fromISO(payload.startTime, { zone: "utc" });
     if (!start.isValid) {
@@ -216,13 +231,19 @@ export class ServicePackagesService {
     const base =
       typeof servicePackage.basePrice === "number"
         ? servicePackage.basePrice
-        : services.reduce((total, service: any) => total + Number(service.price || 0), 0);
+        : services.reduce(
+            (total, service: any) => total + Number(service.price || 0),
+            0,
+          );
 
-    const discountMultiplier = 1 - (servicePackage.baseDiscountPercentage || 0) / 100;
+    const discountMultiplier =
+      1 - (servicePackage.baseDiscountPercentage || 0) / 100;
     let runningTotal = Math.max(base * discountMultiplier, 0);
 
     const context = {
-      startTime: payload.startTime ? DateTime.fromISO(payload.startTime) : undefined,
+      startTime: payload.startTime
+        ? DateTime.fromISO(payload.startTime)
+        : undefined,
       channel: payload.channel,
       occupancyRate: payload.occupancyRate,
       loyaltyTier: undefined as string | undefined,
@@ -259,7 +280,8 @@ export class ServicePackagesService {
     return {
       packageId,
       basePrice: base,
-      discountedPrice: Math.round((base * discountMultiplier + Number.EPSILON) * 100) / 100,
+      discountedPrice:
+        Math.round((base * discountMultiplier + Number.EPSILON) * 100) / 100,
       dynamicPrice: runningTotal,
       loyalty: loyaltyAdjustments,
     };
@@ -285,11 +307,13 @@ export class ServicePackagesService {
     resourceAssignments: ResourceAssignmentMap;
     service: ServiceDocument;
   }) {
-    const { tenantId, item, packageStart, resourceAssignments, service } = params;
+    const { tenantId, item, packageStart, resourceAssignments, service } =
+      params;
 
     const assignment = resourceAssignments.get(item.serviceId.toString()) || {
       resourceId: undefined,
-      additionalResourceIds: item.defaultAdditionalResourceIds?.map((id) => id.toString()) || [],
+      additionalResourceIds:
+        item.defaultAdditionalResourceIds?.map((id) => id.toString()) || [],
     };
 
     const start = packageStart.plus({ minutes: item.offsetMinutes || 0 });
@@ -321,7 +345,9 @@ export class ServicePackagesService {
       end.toJSDate(),
       resourceIds,
       undefined,
-      service.serviceType === "room" ? service.metadata?.defaultLocationId : undefined,
+      service.serviceType === "room"
+        ? service.metadata?.defaultLocationId
+        : undefined,
     );
 
     return {
@@ -332,16 +358,24 @@ export class ServicePackagesService {
     };
   }
 
-  private computeServiceDuration(service: ServiceDocument, quantity: number): number {
+  private computeServiceDuration(
+    service: ServiceDocument,
+    quantity: number,
+  ): number {
     const baseDuration = Number(service.duration || 0);
     const bufferBefore = Number(service.bufferTimeBefore || 0);
     const bufferAfter = Number(service.bufferTimeAfter || 0);
     return (baseDuration + bufferBefore + bufferAfter) * Math.max(quantity, 1);
   }
 
-  private async assertServicesExist(tenantId: string, serviceIds: string[]): Promise<void> {
+  private async assertServicesExist(
+    tenantId: string,
+    serviceIds: string[],
+  ): Promise<void> {
     if (!serviceIds?.length) {
-      throw new BadRequestException("Un paquete debe incluir al menos un servicio");
+      throw new BadRequestException(
+        "Un paquete debe incluir al menos un servicio",
+      );
     }
 
     const uniqueIds = Array.from(new Set(serviceIds.filter(Boolean)));

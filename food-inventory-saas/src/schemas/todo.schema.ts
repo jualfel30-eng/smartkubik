@@ -23,6 +23,12 @@ export class Todo {
   @Prop({ type: String, required: false })
   relatedEventId?: string;
 
+  @Prop({ type: String, required: false, index: true })
+  resourceId?: string;
+
+  @Prop({ type: String, required: false, index: true })
+  appointmentId?: string;
+
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;
 

@@ -5,7 +5,10 @@ import { ReportsService } from "./reports.service";
 import { Order, OrderSchema } from "../../schemas/order.schema";
 import { Customer, CustomerSchema } from "../../schemas/customer.schema";
 import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
-import { Appointment, AppointmentSchema } from "../../schemas/appointment.schema";
+import {
+  Appointment,
+  AppointmentSchema,
+} from "../../schemas/appointment.schema";
 
 @Module({
   imports: [

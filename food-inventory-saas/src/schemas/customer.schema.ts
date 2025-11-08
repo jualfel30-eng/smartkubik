@@ -149,8 +149,9 @@ export class CustomerCommunicationEvent {
   engagementDelta?: number;
 }
 
-const CustomerCommunicationEventSchema =
-  SchemaFactory.createForClass(CustomerCommunicationEvent);
+const CustomerCommunicationEventSchema = SchemaFactory.createForClass(
+  CustomerCommunicationEvent,
+);
 
 @Schema({ timestamps: true })
 export class Customer {
@@ -234,6 +235,9 @@ export class Customer {
     paymentDelayDays: number;
     communicationTouchpoints?: number;
     engagementScore?: number;
+    totalDeposits?: number;
+    depositCount?: number;
+    lastDepositDate?: Date;
   };
 
   @Prop({ type: String })

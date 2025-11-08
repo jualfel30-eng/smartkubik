@@ -220,10 +220,7 @@ export class SuperAdminService {
 
     const result = await this.connection
       .model("Role")
-      .updateOne(
-        { _id: roleObjectId },
-        { $set: { permissions: permissions } },
-      )
+      .updateOne({ _id: roleObjectId }, { $set: { permissions: permissions } })
       .exec();
 
     if (result.modifiedCount === 0) {

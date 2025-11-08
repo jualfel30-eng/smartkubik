@@ -136,9 +136,12 @@ export class RolesService {
         };
       });
 
-      const insertOperation = this.permissionModel.insertMany(documentsToInsert, {
-        session,
-      });
+      const insertOperation = this.permissionModel.insertMany(
+        documentsToInsert,
+        {
+          session,
+        },
+      );
       const insertedPermissions = await insertOperation;
       permissions = [...permissions, ...insertedPermissions];
     }

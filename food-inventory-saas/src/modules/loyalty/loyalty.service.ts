@@ -25,7 +25,10 @@ export class LoyaltyService {
     private readonly packageModel: Model<ServicePackageDocument>,
   ) {}
 
-  async resolveLoyaltyTier(tenantId: string, customerId?: string): Promise<string | undefined> {
+  async resolveLoyaltyTier(
+    tenantId: string,
+    customerId?: string,
+  ): Promise<string | undefined> {
     if (!customerId) {
       return undefined;
     }
@@ -44,9 +47,7 @@ export class LoyaltyService {
     return customer.loyalty?.tier || customer.tier;
   }
 
-  async applyPackageBenefits(
-    input: ApplyPackageBenefitsInput,
-  ): Promise<{
+  async applyPackageBenefits(input: ApplyPackageBenefitsInput): Promise<{
     finalPrice: number;
     appliedBenefits: Array<Record<string, any>>;
     tier?: string;
@@ -85,14 +86,17 @@ export class LoyaltyService {
           });
         }
 
-        const complimentaryAddons = servicePackage?.metadata?.loyalty?.complimentaryAddons?.filter(
-          (addon: any) => !addon.tiers?.length || addon.tiers.includes(tier!),
-        );
+        const complimentaryAddons =
+          servicePackage?.metadata?.loyalty?.complimentaryAddons?.filter(
+            (addon: any) => !addon.tiers?.length || addon.tiers.includes(tier!),
+          );
 
         if (complimentaryAddons?.length) {
           appliedBenefits.push({
             type: "complimentary-addons",
-            addons: complimentaryAddons.map((addon: any) => addon.name || addon.id),
+            addons: complimentaryAddons.map(
+              (addon: any) => addon.name || addon.id,
+            ),
           });
         }
 
@@ -103,7 +107,10 @@ export class LoyaltyService {
               loyalty: {
                 ...(customer.loyalty || {}),
                 tier,
-                lastUpgradeAt: customer.loyalty?.tier !== tier ? new Date() : customer.loyalty?.lastUpgradeAt,
+                lastUpgradeAt:
+                  customer.loyalty?.tier !== tier
+                    ? new Date()
+                    : customer.loyalty?.lastUpgradeAt,
               },
             },
             $inc: {
@@ -122,7 +129,10 @@ export class LoyaltyService {
       });
     }
 
-    finalPrice = Math.max(Math.round((finalPrice + Number.EPSILON) * 100) / 100, 0);
+    finalPrice = Math.max(
+      Math.round((finalPrice + Number.EPSILON) * 100) / 100,
+      0,
+    );
 
     return {
       finalPrice,

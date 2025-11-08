@@ -10,9 +10,14 @@ import {
   Req,
   NotFoundException,
   HttpCode,
+  Query,
 } from "@nestjs/common";
 import { TodosService } from "./todos.service";
-import { CreateTodoDto, UpdateTodoDto } from "../../dto/todo.dto";
+import {
+  CreateTodoDto,
+  TodoFilterDto,
+  UpdateTodoDto,
+} from "../../dto/todo.dto";
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 
 @UseGuards(JwtAuthGuard)
@@ -26,8 +31,8 @@ export class TodosController {
   }
 
   @Get()
-  findAll(@Req() req) {
-    return this.todosService.findAll(req.user.tenantId);
+  findAll(@Req() req, @Query() filters: TodoFilterDto) {
+    return this.todosService.findAll(req.user.tenantId, filters);
   }
 
   @Patch(":id")

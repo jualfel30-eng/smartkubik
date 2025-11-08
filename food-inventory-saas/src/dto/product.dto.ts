@@ -82,7 +82,10 @@ export class CreateProductVariantDto {
     weight: number;
   };
 
-  @ApiPropertyOptional({ description: "Atributos personalizados de la variante", type: Object })
+  @ApiPropertyOptional({
+    description: "Atributos personalizados de la variante",
+    type: Object,
+  })
   @IsOptional()
   @IsObject()
   attributes?: Record<string, any>;
@@ -199,13 +202,21 @@ export class CreateProductDto {
   @SanitizeString()
   name: string;
 
-  @ApiProperty({ description: "Categorías del producto", type: [String], isArray: true })
+  @ApiProperty({
+    description: "Categorías del producto",
+    type: [String],
+    isArray: true,
+  })
   @IsArray()
   @IsString({ each: true })
   @IsNotEmpty({ each: true })
   category: string[];
 
-  @ApiProperty({ description: "Subcategorías del producto", type: [String], isArray: true })
+  @ApiProperty({
+    description: "Subcategorías del producto",
+    type: [String],
+    isArray: true,
+  })
   @IsArray()
   @IsString({ each: true })
   @IsNotEmpty({ each: true })
@@ -264,7 +275,10 @@ export class CreateProductDto {
   @SanitizeStringArray()
   tags?: string[];
 
-  @ApiPropertyOptional({ description: "Atributos personalizados del producto", type: Object })
+  @ApiPropertyOptional({
+    description: "Atributos personalizados del producto",
+    type: Object,
+  })
   @IsOptional()
   @IsObject()
   attributes?: Record<string, any>;

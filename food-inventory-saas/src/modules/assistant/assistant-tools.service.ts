@@ -191,10 +191,8 @@ export class AssistantToolsService {
 
     const tenantObjectId = new Types.ObjectId(tenantId);
     const tenantContext = await this.resolveTenantContext(tenantId);
-    const {
-      sanitizedQuery,
-      measurement: requestedMeasurement,
-    } = this.buildRequestedMeasurement(query, args);
+    const { sanitizedQuery, measurement: requestedMeasurement } =
+      this.buildRequestedMeasurement(query, args);
 
     const queryForFilters = sanitizedQuery || query;
     const { baseQuery, normalizedFilters, displayFilters } =
@@ -313,7 +311,10 @@ export class AssistantToolsService {
       ok: true,
       query,
       matches,
-      relatedPromotions: await this.findRelatedPromotions(tenantId, matchedProducts),
+      relatedPromotions: await this.findRelatedPromotions(
+        tenantId,
+        matchedProducts,
+      ),
       timestamp: new Date().toISOString(),
     };
   }
@@ -375,10 +376,14 @@ export class AssistantToolsService {
           null;
 
         let selectedVariant: any = null;
-        if (Array.isArray((product as any).variants) && (product as any).variants.length) {
+        if (
+          Array.isArray((product as any).variants) &&
+          (product as any).variants.length
+        ) {
           selectedVariant =
-            (product as any).variants.find((variant: any) => variant?.isActive) ||
-            (product as any).variants[0];
+            (product as any).variants.find(
+              (variant: any) => variant?.isActive,
+            ) || (product as any).variants[0];
         }
 
         let promotionInfo: any = null;
@@ -390,7 +395,8 @@ export class AssistantToolsService {
             selectedVariant?.basePrice ??
             (product as any).pricingRules?.usdPrice ??
             0;
-          const discountedPrice = baselinePrice * (1 - discountPercentage / 100);
+          const discountedPrice =
+            baselinePrice * (1 - discountPercentage / 100);
 
           promotionInfo = {
             discountPercentage,
@@ -413,10 +419,13 @@ export class AssistantToolsService {
 
         // Hide exact stock quantities unless limited (< 10 units) to create urgency
         const availQty = inventory.availableQuantity;
-        const hasLimitedStock = typeof availQty === 'number' && availQty < 10;
-        const stockStatus = typeof availQty === 'number' && availQty > 0
-          ? (hasLimitedStock ? 'limitado' : 'disponible')
-          : 'agotado';
+        const hasLimitedStock = typeof availQty === "number" && availQty < 10;
+        const stockStatus =
+          typeof availQty === "number" && availQty > 0
+            ? hasLimitedStock
+              ? "limitado"
+              : "disponible"
+            : "agotado";
 
         return {
           productId: product._id.toString(),
@@ -559,9 +568,9 @@ export class AssistantToolsService {
       .find({
         tenantId: tenantObjectId,
         hasActivePromotion: true,
-        'promotion.isActive': true,
-        'promotion.startDate': { $lte: now },
-        'promotion.endDate': { $gte: now },
+        "promotion.isActive": true,
+        "promotion.startDate": { $lte: now },
+        "promotion.endDate": { $gte: now },
         $or: [
           { category: { $in: Array.from(categories) } },
           { brand: { $in: Array.from(brands) } },
@@ -665,8 +674,9 @@ export class AssistantToolsService {
       const comboAttributes = attributeCombination.attributes;
       if (comboAttributes.variantSku) {
         selectedVariant =
-          variants.find((variant) => variant.sku === comboAttributes.variantSku) ||
-          null;
+          variants.find(
+            (variant) => variant.sku === comboAttributes.variantSku,
+          ) || null;
       } else {
         selectedVariant =
           this.findVariantMatch(variants, comboAttributes) || selectedVariant;
@@ -702,7 +712,7 @@ export class AssistantToolsService {
     let committedQuantity = inventory.committedQuantity;
     let totalQuantity = inventory.totalQuantity;
     let averageCostPrice = inventory.averageCostPrice;
-    let lastCostPrice = inventory.lastCostPrice;
+    const lastCostPrice = inventory.lastCostPrice;
 
     if (attributeCombination) {
       availableQuantity =
@@ -727,9 +737,7 @@ export class AssistantToolsService {
       null;
 
     const nextExpiringLot = (inventory as any).lots
-      ?.filter(
-        (lot: any) => lot.status === "available" && lot.expirationDate,
-      )
+      ?.filter((lot: any) => lot.status === "available" && lot.expirationDate)
       .sort((a: any, b: any) => {
         const dateA = new Date(a.expirationDate).getTime();
         const dateB = new Date(b.expirationDate).getTime();
@@ -738,13 +746,17 @@ export class AssistantToolsService {
 
     // Check if product has active promotion
     let promotionInfo: any = null;
-    if ((product as any).hasActivePromotion && (product as any).promotion?.isActive) {
+    if (
+      (product as any).hasActivePromotion &&
+      (product as any).promotion?.isActive
+    ) {
       const now = new Date();
       const startDate = new Date((product as any).promotion.startDate);
       const endDate = new Date((product as any).promotion.endDate);
 
       if (now >= startDate && now <= endDate) {
-        const discountPercentage = (product as any).promotion.discountPercentage || 0;
+        const discountPercentage =
+          (product as any).promotion.discountPercentage || 0;
         const originalPrice = sellingPrice || 0;
         const discountedPrice = originalPrice * (1 - discountPercentage / 100);
 
@@ -770,10 +782,14 @@ export class AssistantToolsService {
     });
 
     // Hide exact stock quantities unless limited (< 10 units) to create urgency
-    const hasLimitedStock = typeof availableQuantity === 'number' && availableQuantity < 10;
-    const stockStatus = typeof availableQuantity === 'number' && availableQuantity > 0
-      ? (hasLimitedStock ? 'limitado' : 'disponible')
-      : 'agotado';
+    const hasLimitedStock =
+      typeof availableQuantity === "number" && availableQuantity < 10;
+    const stockStatus =
+      typeof availableQuantity === "number" && availableQuantity > 0
+        ? hasLimitedStock
+          ? "limitado"
+          : "disponible"
+        : "agotado";
 
     return {
       productId: product._id.toString(),
@@ -855,11 +871,7 @@ export class AssistantToolsService {
       promotionInfo,
     });
 
-    const {
-      unitPrice,
-      unitLabel,
-      source: unitPriceSource,
-    } = unitPriceContext;
+    const { unitPrice, unitLabel, source: unitPriceSource } = unitPriceContext;
 
     const baseCurrencyCode = "USD";
     const baseCurrencySymbol = "$";
@@ -949,20 +961,12 @@ export class AssistantToolsService {
 
     const formattedUnitPrice =
       unitPrice !== null
-        ? this.formatCurrency(
-            unitPrice,
-            baseCurrencySymbol,
-            baseCurrencyCode,
-          )
+        ? this.formatCurrency(unitPrice, baseCurrencySymbol, baseCurrencyCode)
         : undefined;
 
     const formattedTotalPrice =
       totalPrice !== null
-        ? this.formatCurrency(
-            totalPrice,
-            baseCurrencySymbol,
-            baseCurrencyCode,
-          )
+        ? this.formatCurrency(totalPrice, baseCurrencySymbol, baseCurrencyCode)
         : undefined;
 
     const conversions: Record<
@@ -1037,11 +1041,7 @@ export class AssistantToolsService {
     const conversionSummary =
       summaryParts.length > 0 ? summaryParts.join(" ") : undefined;
 
-    if (
-      unitPrice === null &&
-      totalPrice === null &&
-      !requestedMeasurement
-    ) {
+    if (unitPrice === null && totalPrice === null && !requestedMeasurement) {
       return {
         unitPrice: null,
         unitLabel,
@@ -1242,7 +1242,9 @@ export class AssistantToolsService {
       return false;
     }
     if (Array.isArray(target)) {
-      return target.some((entry) => this.attributeValueMatches(entry, expected));
+      return target.some((entry) =>
+        this.attributeValueMatches(entry, expected),
+      );
     }
     const normalizedTarget = this.normalizeString(String(target));
     const normalizedExpected = this.normalizeString(expected);
@@ -1291,11 +1293,15 @@ export class AssistantToolsService {
       verticalProfile,
       currencyCode: currencyCode || undefined,
       currencySymbol: this.resolveCurrencySymbol(currencyCode),
-      exchangeRates: Object.keys(exchangeRates).length ? exchangeRates : undefined,
+      exchangeRates: Object.keys(exchangeRates).length
+        ? exchangeRates
+        : undefined,
     };
   }
 
-  private resolveCurrencySymbol(currencyCode?: string | null): string | undefined {
+  private resolveCurrencySymbol(
+    currencyCode?: string | null,
+  ): string | undefined {
     if (!currencyCode) {
       return undefined;
     }
@@ -1584,9 +1590,7 @@ export class AssistantToolsService {
       name: addon.name,
       price: Number.isFinite(addon.price) ? Number(addon.price) : 0,
       quantity:
-        addon.quantity && addon.quantity > 0
-          ? Math.floor(addon.quantity)
-          : 1,
+        addon.quantity && addon.quantity > 0 ? Math.floor(addon.quantity) : 1,
     }));
 
     const payload: PublicCreateAppointmentDto = {
@@ -1621,7 +1625,8 @@ export class AssistantToolsService {
       const result = await this.appointmentsService.createFromPublic(payload);
       const normalizedStart = this.normalizeDateOutput(result.startTime);
       const normalizedEnd = this.normalizeDateOutput(result.endTime);
-      const startTime = normalizedStart ?? this.coerceToString(result.startTime);
+      const startTime =
+        normalizedStart ?? this.coerceToString(result.startTime);
       const endTime = normalizedEnd ?? this.coerceToString(result.endTime);
       return {
         ok: true,
@@ -1634,7 +1639,9 @@ export class AssistantToolsService {
       };
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "No fue posible crear la reserva.";
+        error instanceof Error
+          ? error.message
+          : "No fue posible crear la reserva.";
       return {
         ok: false,
         message,
@@ -1680,7 +1687,8 @@ export class AssistantToolsService {
       );
       const normalizedStart = this.normalizeDateOutput(result.startTime);
       const normalizedEnd = this.normalizeDateOutput(result.endTime);
-      const startTime = normalizedStart ?? this.coerceToString(result.startTime);
+      const startTime =
+        normalizedStart ?? this.coerceToString(result.startTime);
       const endTime = normalizedEnd ?? this.coerceToString(result.endTime);
       return {
         ok: true,

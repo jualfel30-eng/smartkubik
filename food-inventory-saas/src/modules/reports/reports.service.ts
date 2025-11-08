@@ -3,7 +3,10 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { Order, OrderDocument } from "../../schemas/order.schema";
 import { Customer, CustomerDocument } from "../../schemas/customer.schema";
-import { Appointment, AppointmentDocument } from "../../schemas/appointment.schema";
+import {
+  Appointment,
+  AppointmentDocument,
+} from "../../schemas/appointment.schema";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import * as moment from "moment-timezone";
 
@@ -197,10 +200,16 @@ export class ReportsService {
         capacityUsed: appointment.capacityUsed,
         capacity: appointment.capacity,
         addons: Array.isArray(appointment.addons)
-          ? appointment.addons.map((addon: any) => `${addon.name} x${addon.quantity || 1}`).join("; ")
+          ? appointment.addons
+              .map((addon: any) => `${addon.name} x${addon.quantity || 1}`)
+              .join("; ")
           : "",
         hasHousekeepingTask: requiresHousekeeping,
-        currentStatus: isActive ? "occupied" : nextCheckIn ? "upcoming" : "available",
+        currentStatus: isActive
+          ? "occupied"
+          : nextCheckIn
+            ? "upcoming"
+            : "available",
         nextCheckIn,
       };
     });
@@ -260,7 +269,9 @@ export class ReportsService {
           this.escapeCsv(row.addons || ""),
           row.hasHousekeepingTask ? "Sí" : "No",
           row.currentStatus,
-          row.nextCheckIn ? moment(row.nextCheckIn).tz(timezone).format("YYYY-MM-DD HH:mm") : "",
+          row.nextCheckIn
+            ? moment(row.nextCheckIn).tz(timezone).format("YYYY-MM-DD HH:mm")
+            : "",
         ].join(","),
       ),
     ].join("\n");
@@ -364,9 +375,9 @@ export class ReportsService {
     const addDivider = () => {
       ensureSpace();
       currentPage.lines.push(
-        `0.850 0.850 0.850 RG 0.5 w ${margin.toFixed(2)} ${cursorY.toFixed(2)} m ${(pageWidth -
-          margin)
-          .toFixed(2)} ${cursorY.toFixed(2)} l S`,
+        `0.850 0.850 0.850 RG 0.5 w ${margin.toFixed(2)} ${cursorY.toFixed(2)} m ${(
+          pageWidth - margin
+        ).toFixed(2)} ${cursorY.toFixed(2)} l S`,
       );
       cursorY -= lineHeight;
     };
@@ -379,8 +390,10 @@ export class ReportsService {
     cursorY -= 6;
 
     rows.forEach((row, index) => {
-      addTextLines(`${index + 1}. ${row.serviceName} · ${String(row.currentStatus || "").toUpperCase()}`,
-        { size: 12, color: [0.07, 0.07, 0.07] });
+      addTextLines(
+        `${index + 1}. ${row.serviceName} · ${String(row.currentStatus || "").toUpperCase()}`,
+        { size: 12, color: [0.07, 0.07, 0.07] },
+      );
 
       const details: string[] = [
         `Reserva: ${row.appointmentId || "N/D"}`,
@@ -395,7 +408,9 @@ export class ReportsService {
         details.push(`Addons: ${row.addons}`);
       }
 
-      details.push(`Housekeeping pendiente: ${row.hasHousekeepingTask ? "Sí" : "No"}`);
+      details.push(
+        `Housekeeping pendiente: ${row.hasHousekeepingTask ? "Sí" : "No"}`,
+      );
 
       if (row.nextCheckIn) {
         details.push(
@@ -423,7 +438,10 @@ export class ReportsService {
 
     appendObject(1, "<< /Type /Catalog /Pages 2 0 R >>");
     const pageIds = pages.map((_, index) => `${index + 3} 0 R`).join(" ");
-    appendObject(2, `<< /Type /Pages /Kids [${pageIds}] /Count ${pages.length} >>`);
+    appendObject(
+      2,
+      `<< /Type /Pages /Kids [${pageIds}] /Count ${pages.length} >>`,
+    );
 
     pages.forEach((page, index) => {
       const pageObjId = 3 + index;
@@ -446,7 +464,10 @@ export class ReportsService {
       );
     });
 
-    appendObject(fontObjectId, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+    appendObject(
+      fontObjectId,
+      "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    );
 
     const totalObjects = fontObjectId;
     const startXref = Buffer.byteLength(pdf, "utf8");
@@ -474,7 +495,7 @@ export class ReportsService {
     if (!value) {
       return "";
     }
-    if (value.includes(",") || value.includes("\"")) {
+    if (value.includes(",") || value.includes('"')) {
       return `"${value.replace(/"/g, '""')}"`;
     }
     return value;

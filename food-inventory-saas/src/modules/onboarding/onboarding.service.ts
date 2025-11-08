@@ -359,9 +359,7 @@ export class OnboardingService {
       this.logger.warn(
         `No se encontró usuario con email ${dto.email} asociado al tenant ${tenant._id} durante la confirmación.`,
       );
-      throw new NotFoundException(
-        "Usuario no encontrado para este tenant.",
-      );
+      throw new NotFoundException("Usuario no encontrado para este tenant.");
     }
 
     tenant.isConfirmed = true;

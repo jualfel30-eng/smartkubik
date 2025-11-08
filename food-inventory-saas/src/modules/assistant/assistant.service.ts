@@ -41,7 +41,7 @@ interface AssistantQuestionParams {
   aiSettings?: AssistantSettings;
   conversationSummary?: string;
   conversationHistory?: Array<{
-    role: 'user' | 'assistant';
+    role: "user" | "assistant";
     content: string;
     timestamp?: Date;
   }>;
@@ -61,7 +61,7 @@ interface AgentRunOptions {
   tools: ChatCompletionTool[];
   preferredModel?: string;
   conversationHistory?: Array<{
-    role: 'user' | 'assistant';
+    role: "user" | "assistant";
     content: string;
     timestamp?: Date;
   }>;
@@ -256,7 +256,8 @@ export class AssistantService {
     } = params;
 
     // Convertir tenantId a string si es ObjectId
-    const tenantIdStr = typeof tenantId === 'string' ? tenantId : tenantId?.toString();
+    const tenantIdStr =
+      typeof tenantId === "string" ? tenantId : tenantId?.toString();
 
     if (!tenantIdStr?.trim()) {
       throw new BadRequestException(
@@ -342,9 +343,8 @@ export class AssistantService {
     }
 
     if (capabilities.promotionLookup && this.shouldCheckPromotions(question)) {
-      const promotionsBootstrap = await this.bootstrapPromotionsContext(
-        tenantIdStr,
-      );
+      const promotionsBootstrap =
+        await this.bootstrapPromotionsContext(tenantIdStr);
       if (promotionsBootstrap) {
         bootstrapSections.push(promotionsBootstrap);
         bootstrapUsedTools = true;
@@ -523,7 +523,7 @@ export class AssistantService {
         "🎯 EJEMPLO REAL - DIFERENCIACIÓN: Usuario: 'quiero beef tallow corporal' → Llamas get_inventory_status('beef tallow') → Recibes: [A: {productName: 'Beef Tallow Facial', description: 'Hidratante facial'}, B: {productName: 'Beef Tallow', description: 'Bálsamo corporal de uso tópico'}] → Respuesta CORRECTA: 'Tenemos Beef Tallow Savage a $X para uso corporal' (Producto B) → Respuesta INCORRECTA: 'No tenemos beef tallow corporal' (ignoraste la descripción del producto B).",
         "📋 PROCESO PASO A PASO: (1) Usuario especifica uso/característica (facial, corporal, sin fragancia, etc.), (2) Llamas herramienta con término general (ej: 'beef tallow'), (3) Recibes lista de productos, (4) Lees campo 'description' de CADA producto, (5) Identificas cuál coincide con lo pedido, (6) Mencionas SOLO ese producto. Si ninguno coincide, ofreces las alternativas.",
         "🚫 REGLA CRÍTICA: Antes de decir 'no tenemos X' verifica que NINGUNA descripción de los productos devueltos mencione X. Si encuentras X en alguna descripción, ESE es el producto que el usuario quiere, sin importar si el nombre del producto no lo menciona explícitamente.",
-        "Si necesitas confirmar variantes específicas (ej. talla, color, serial, ancho, edición), pasa esos criterios en el campo `attributes` de la herramienta `get_inventory_status` usando pares clave-valor como `{ \"size\": \"38\", \"color\": \"azul\" }`.",
+        'Si necesitas confirmar variantes específicas (ej. talla, color, serial, ancho, edición), pasa esos criterios en el campo `attributes` de la herramienta `get_inventory_status` usando pares clave-valor como `{ "size": "38", "color": "azul" }`.',
         "REGLA CRÍTICA - INFORMACIÓN CONFIDENCIAL: NUNCA menciones el 'averageCost' (costo promedio) ni 'lastPurchaseCost' (costo de compra) del producto. Esta información es estrictamente interna y NO debe revelarse al cliente bajo ninguna circunstancia. Solo puedes mencionar el 'sellingPrice' (precio de venta).",
         "📦 REGLA CRÍTICA - DISPONIBILIDAD DE STOCK: Las herramientas devuelven tres campos relacionados con stock: (1) 'stockStatus' que puede ser 'disponible', 'limitado' o 'agotado', (2) 'hasLimitedStock' (boolean), (3) 'availableQuantity' (solo aparece si hasLimitedStock es true). NUNCA menciones cantidades específicas a menos que 'hasLimitedStock' sea true. Si hasLimitedStock=true y availableQuantity existe, menciona la cantidad exacta para crear urgencia (ejemplo: 'Solo quedan 3 unidades disponibles'). Si stockStatus='disponible', solo di 'está disponible' o 'tenemos disponibilidad' sin números. Si stockStatus='agotado', informa que está agotado actualmente.",
         "🎉 PROMOCIONES Y OFERTAS: La herramienta `get_inventory_status` incluye un campo 'relatedPromotions' que contiene productos en oferta de la misma categoría o marca que el producto buscado. DEBES revisar este campo y mencionar proactivamente las ofertas disponibles al cliente.",
@@ -588,17 +588,17 @@ export class AssistantService {
               attributes: {
                 type: "object",
                 description:
-                  "Filtros de atributos para la variante (por ejemplo { \"size\": \"38\", \"color\": \"azul\" }).",
+                  'Filtros de atributos para la variante (por ejemplo { "size": "38", "color": "azul" }).',
               },
               quantity: {
                 oneOf: [{ type: "number" }, { type: "string" }],
                 description:
-                  "Cantidad solicitada en número o texto (ej. 0.5, \"250 g\").",
+                  'Cantidad solicitada en número o texto (ej. 0.5, "250 g").',
               },
               unit: {
                 type: "string",
                 description:
-                  "Unidad solicitada (ej. \"g\", \"kg\", \"lb\"). Si no se indica se detecta desde el texto.",
+                  'Unidad solicitada (ej. "g", "kg", "lb"). Si no se indica se detecta desde el texto.',
               },
             },
             required: ["productQuery"],
@@ -619,7 +619,8 @@ export class AssistantService {
             properties: {
               limit: {
                 type: "integer",
-                description: "Número máximo de promociones a listar (1-10). Por defecto 5.",
+                description:
+                  "Número máximo de promociones a listar (1-10). Por defecto 5.",
                 minimum: 1,
                 maximum: 10,
               },
@@ -857,9 +858,7 @@ export class AssistantService {
           continue;
         }
 
-        this.logger.log(
-          `[DEBUG] Executing inventory lookup for: "${trimmed}"`,
-        );
+        this.logger.log(`[DEBUG] Executing inventory lookup for: "${trimmed}"`);
         const result = await this.assistantToolsService.executeTool(
           tenantId,
           "get_inventory_status",
@@ -884,7 +883,9 @@ export class AssistantService {
           continue;
         }
 
-        const formatAttributes = (attributes: Record<string, any> | undefined) =>
+        const formatAttributes = (
+          attributes: Record<string, any> | undefined,
+        ) =>
           attributes && Object.keys(attributes).length
             ? Object.entries(attributes)
                 .map(([attrKey, attrValue]) => `${attrKey}: ${attrValue}`)
@@ -914,18 +915,22 @@ export class AssistantService {
           const expirationLabel =
             match.nextExpirationDate && match.isPerishable
               ? ` | Próxima expiración: ${new Date(match.nextExpirationDate).toLocaleDateString("es-ES")}`
-            : "";
+              : "";
           const attributeLabel = (() => {
             if (match.attributeFiltersApplied) {
               const formatted = formatAttributes(match.attributeFiltersApplied);
               return formatted ? ` | Filtro atributos: ${formatted}` : "";
             }
             if (match.attributeCombination?.attributes) {
-              const formatted = formatAttributes(match.attributeCombination.attributes);
+              const formatted = formatAttributes(
+                match.attributeCombination.attributes,
+              );
               return formatted ? ` | Atributos: ${formatted}` : "";
             }
             const formattedVariant = formatAttributes(match.variantAttributes);
-            return formattedVariant ? ` | Atributos variante: ${formattedVariant}` : "";
+            return formattedVariant
+              ? ` | Atributos variante: ${formattedVariant}`
+              : "";
           })();
 
           return `(${index + 1}) ${match.productName}${brandLabel} (SKU: ${match.sku})${categoryLabel}${subcategoryLabel} -> Disponible: ${match.availableQuantity} | Reservado: ${match.reservedQuantity} | Total: ${match.totalQuantity}${priceLabel}${expirationLabel}${alertLabel}${attributeLabel}`;
@@ -942,9 +947,9 @@ export class AssistantService {
       return null;
     } catch (error) {
       this.logger.warn(
-        `Bootstrap inventory lookup failed for tenant ${tenantId}: ${(
-          error as Error
-        ).message}`,
+        `Bootstrap inventory lookup failed for tenant ${tenantId}: ${
+          (error as Error).message
+        }`,
       );
       return null;
     }
@@ -958,9 +963,7 @@ export class AssistantService {
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase();
-    return PROMOTION_KEYWORDS.some((keyword) =>
-      normalized.includes(keyword),
-    );
+    return PROMOTION_KEYWORDS.some((keyword) => normalized.includes(keyword));
   }
 
   private async bootstrapPromotionsContext(
@@ -1006,7 +1009,11 @@ export class AssistantService {
             : undefined;
 
         let priceSegment = discountedLabel || "";
-        if (originalLabel && discountedLabel && originalLabel !== discountedLabel) {
+        if (
+          originalLabel &&
+          discountedLabel &&
+          originalLabel !== discountedLabel
+        ) {
           priceSegment = `${discountedLabel} (antes ${originalLabel})`;
         } else if (originalLabel && !discountedLabel) {
           priceSegment = `Oferta desde ${originalLabel}`;
@@ -1129,13 +1136,19 @@ export class AssistantService {
     if (tokens.length) {
       // Agregar últimos 2-4 tokens significativos
       if (tokens.length >= 2) {
-        candidates.push(this.normalizeInventoryTerm(tokens.slice(-2).join(" ")));
+        candidates.push(
+          this.normalizeInventoryTerm(tokens.slice(-2).join(" ")),
+        );
       }
       if (tokens.length >= 3) {
-        candidates.push(this.normalizeInventoryTerm(tokens.slice(-3).join(" ")));
+        candidates.push(
+          this.normalizeInventoryTerm(tokens.slice(-3).join(" ")),
+        );
       }
       if (tokens.length >= 4) {
-        candidates.push(this.normalizeInventoryTerm(tokens.slice(-4).join(" ")));
+        candidates.push(
+          this.normalizeInventoryTerm(tokens.slice(-4).join(" ")),
+        );
       }
       // Todos los tokens significativos juntos
       candidates.push(this.normalizeInventoryTerm(tokens.join(" ")));

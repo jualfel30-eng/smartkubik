@@ -1,12 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectModel, InjectConnection } from "@nestjs/mongoose";
-import {
-  Model,
-  Types,
-  ClientSession,
-  Connection,
-  SortOrder,
-} from "mongoose";
+import { Model, Types, ClientSession, Connection, SortOrder } from "mongoose";
 import {
   Inventory,
   InventoryDocument,
@@ -45,8 +39,9 @@ export class InventoryService {
       .dropIndex("productId_1_tenantId_1")
       .catch((error: any) => {
         if (error?.codeName !== "IndexNotFound" && error?.message) {
-          this.logger
-            .warn?.(`No se pudo eliminar el índice legacy productId_1_tenantId_1: ${error.message}`);
+          this.logger.warn?.(
+            `No se pudo eliminar el índice legacy productId_1_tenantId_1: ${error.message}`,
+          );
         }
       });
   }
@@ -63,7 +58,9 @@ export class InventoryService {
     };
 
     if (createInventoryDto.variantId) {
-      inventoryFilter.variantId = new Types.ObjectId(createInventoryDto.variantId);
+      inventoryFilter.variantId = new Types.ObjectId(
+        createInventoryDto.variantId,
+      );
     } else {
       inventoryFilter.$or = [
         { variantId: { $exists: false } },
@@ -237,7 +234,7 @@ export class InventoryService {
       };
 
       // Si el item tiene variantSku, buscar por ese campo
-      if (item.productSku && item.productSku.includes('-VAR')) {
+      if (item.productSku && item.productSku.includes("-VAR")) {
         inventoryQuery.variantSku = item.productSku;
       } else {
         // Si no, buscar por productSku (productos antiguos sin variantes)
@@ -254,7 +251,7 @@ export class InventoryService {
           tenantId: this.buildTenantFilter(user.tenantId),
         };
 
-        if (item.productSku && item.productSku.includes('-VAR')) {
+        if (item.productSku && item.productSku.includes("-VAR")) {
           alternativeQuery.productSku = item.productSku;
         } else {
           alternativeQuery.variantSku = item.productSku;
@@ -521,7 +518,9 @@ export class InventoryService {
             item.attributes ?? {},
           );
           if (item.variantSku) {
-            normalizedFilters.variantSku = this.normalizeString(item.variantSku);
+            normalizedFilters.variantSku = this.normalizeString(
+              item.variantSku,
+            );
           }
 
           let combination = inventory.attributeCombinations.find((combo: any) =>
@@ -582,14 +581,17 @@ export class InventoryService {
             combination.availableQuantity ??
             Math.max(0, item.NuevaCantidad - reserved - committed);
 
-          const totalDifference = combination.totalQuantity - previousCombinationTotals.total;
+          const totalDifference =
+            combination.totalQuantity - previousCombinationTotals.total;
           const availableDifference =
             combinationAvailable - previousCombinationTotals.available;
-          const reservedDifference = reserved - previousCombinationTotals.reserved;
+          const reservedDifference =
+            reserved - previousCombinationTotals.reserved;
           const committedDifference =
             committed - previousCombinationTotals.committed;
 
-          inventory.totalQuantity = previousTotals.totalQuantity + totalDifference;
+          inventory.totalQuantity =
+            previousTotals.totalQuantity + totalDifference;
           inventory.availableQuantity = Math.max(
             0,
             previousTotals.availableQuantity + availableDifference,
@@ -990,8 +992,7 @@ export class InventoryService {
 
     const pageNumber = Math.max(Number(page) || 1, 1);
     const limitNumber = Math.max(Number(limit) || 20, 1);
-    const searchTerm =
-      typeof search === "string" ? search.trim() : "";
+    const searchTerm = typeof search === "string" ? search.trim() : "";
     const isSearching = searchTerm.length > 0;
 
     const filter: any = {
@@ -1283,7 +1284,9 @@ export class InventoryService {
       receivedDate: lotDto.receivedDate,
       expirationDate: lotDto.expirationDate,
       manufacturingDate: lotDto.manufacturingDate,
-      supplierId: lotDto.supplierId ? new Types.ObjectId(lotDto.supplierId) : undefined,
+      supplierId: lotDto.supplierId
+        ? new Types.ObjectId(lotDto.supplierId)
+        : undefined,
       supplierInvoice: lotDto.supplierInvoice,
       status: lotDto.status || "available",
       createdBy: user.id,

@@ -103,9 +103,29 @@ export const verticalProfiles: Record<VerticalKey, VerticalProfile> = {
     supportsVariants: true,
     defaultUnits: ["unidad"],
     attributeSchema: [
-      { key: "size", label: "Talla", type: "enum", options: [], scope: "variant", required: true, ui: { widget: "chip" } },
-      { key: "color", label: "Color", type: "string", scope: "variant", ui: { widget: "chip" } },
-      { key: "gender", label: "Género", type: "enum", options: ["F", "M", "Unisex"], scope: "product" },
+      {
+        key: "size",
+        label: "Talla",
+        type: "enum",
+        options: [],
+        scope: "variant",
+        required: true,
+        ui: { widget: "chip" },
+      },
+      {
+        key: "color",
+        label: "Color",
+        type: "string",
+        scope: "variant",
+        ui: { widget: "chip" },
+      },
+      {
+        key: "gender",
+        label: "Género",
+        type: "enum",
+        options: ["F", "M", "Unisex"],
+        scope: "product",
+      },
       { key: "season", label: "Temporada", type: "string", scope: "product" },
     ],
     inventory: {
@@ -129,8 +149,21 @@ export const verticalProfiles: Record<VerticalKey, VerticalProfile> = {
     supportsVariants: true,
     defaultUnits: ["par"],
     attributeSchema: [
-      { key: "size", label: "Talla", type: "enum", options: [], scope: "variant", required: true },
-      { key: "width", label: "Ancho", type: "enum", options: ["Normal", "Ancho"], scope: "variant" },
+      {
+        key: "size",
+        label: "Talla",
+        type: "enum",
+        options: [],
+        scope: "variant",
+        required: true,
+      },
+      {
+        key: "width",
+        label: "Ancho",
+        type: "enum",
+        options: ["Normal", "Ancho"],
+        scope: "variant",
+      },
       { key: "material", label: "Material", type: "string", scope: "product" },
     ],
     inventory: {
@@ -153,9 +186,20 @@ export const verticalProfiles: Record<VerticalKey, VerticalProfile> = {
     supportsVariants: true,
     defaultUnits: ["unidad", "pack"],
     attributeSchema: [
-      { key: "dimensions", label: "Dimensiones", type: "dimension", scope: "product" },
+      {
+        key: "dimensions",
+        label: "Dimensiones",
+        type: "dimension",
+        scope: "product",
+      },
       { key: "gauge", label: "Calibre", type: "string", scope: "variant" },
-      { key: "compatibility", label: "Compatibilidad", type: "string", scope: "product", ui: { widget: "textarea" } },
+      {
+        key: "compatibility",
+        label: "Compatibilidad",
+        type: "string",
+        scope: "product",
+        ui: { widget: "textarea" },
+      },
     ],
     inventory: {
       supportsLots: false,
@@ -177,10 +221,32 @@ export const verticalProfiles: Record<VerticalKey, VerticalProfile> = {
     supportsVariants: true,
     defaultUnits: ["unidad"],
     attributeSchema: [
-      { key: "serial", label: "Serial", type: "string", scope: "inventory", required: true },
-      { key: "manufacturerSku", label: "SKU Fabricante", type: "string", scope: "product" },
-      { key: "warranty", label: "Garantía (meses)", type: "number", scope: "product" },
-      { key: "specs", label: "Especificaciones", type: "string", scope: "product", ui: { widget: "textarea" } },
+      {
+        key: "serial",
+        label: "Serial",
+        type: "string",
+        scope: "inventory",
+        required: true,
+      },
+      {
+        key: "manufacturerSku",
+        label: "SKU Fabricante",
+        type: "string",
+        scope: "product",
+      },
+      {
+        key: "warranty",
+        label: "Garantía (meses)",
+        type: "number",
+        scope: "product",
+      },
+      {
+        key: "specs",
+        label: "Especificaciones",
+        type: "string",
+        scope: "product",
+        ui: { widget: "textarea" },
+      },
     ],
     inventory: {
       supportsLots: false,
@@ -203,10 +269,33 @@ export const verticalProfiles: Record<VerticalKey, VerticalProfile> = {
     supportsVariants: true,
     defaultUnits: ["unidad"],
     attributeSchema: [
-      { key: "ageRange", label: "Rango de edad", type: "range", scope: "product", required: true },
-      { key: "license", label: "Licencia/Franquicia", type: "string", scope: "product" },
-      { key: "batteryType", label: "Tipo de batería", type: "enum", options: ["AA", "AAA", "Recargable", "No requiere"], scope: "product" },
-      { key: "safetyNotes", label: "Advertencias de seguridad", type: "string", scope: "product", ui: { widget: "textarea" } },
+      {
+        key: "ageRange",
+        label: "Rango de edad",
+        type: "range",
+        scope: "product",
+        required: true,
+      },
+      {
+        key: "license",
+        label: "Licencia/Franquicia",
+        type: "string",
+        scope: "product",
+      },
+      {
+        key: "batteryType",
+        label: "Tipo de batería",
+        type: "enum",
+        options: ["AA", "AAA", "Recargable", "No requiere"],
+        scope: "product",
+      },
+      {
+        key: "safetyNotes",
+        label: "Advertencias de seguridad",
+        type: "string",
+        scope: "product",
+        ui: { widget: "textarea" },
+      },
     ],
     inventory: {
       supportsLots: false,
@@ -222,7 +311,9 @@ export const verticalProfiles: Record<VerticalKey, VerticalProfile> = {
 };
 
 // Placeholder export para validar en tests si es necesario durante Fase 0
-export const verticalProfileKeys = Object.keys(verticalProfiles) as VerticalKey[];
+export const verticalProfileKeys = Object.keys(
+  verticalProfiles,
+) as VerticalKey[];
 
 const cloneProfile = (profile: VerticalProfile): VerticalProfile => ({
   ...profile,

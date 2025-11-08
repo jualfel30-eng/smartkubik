@@ -110,8 +110,7 @@ export class CustomersService {
     const limitNumber = Math.max(Number(limit) || 20, 1);
     const sortDirection: SortOrder = sortOrder === "asc" ? "asc" : "desc";
     const sortKey = sortBy || "metrics.totalSpent";
-    const searchTerm =
-      typeof search === "string" ? search.trim() : "";
+    const searchTerm = typeof search === "string" ? search.trim() : "";
     const isSearching = searchTerm.length > 0;
 
     const tenantIdVariants: (string | Types.ObjectId)[] = [tenantId];
@@ -275,14 +274,226 @@ export class CustomersService {
           },
         },
 
+        // Lookup hospitality deposits (confirmed)
+        {
+          $lookup: {
+            from: "appointments",
+            let: {
+              customerId: "$_id",
+              currentTenantId: "$tenantId",
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      // Tenant match (string/ObjectId tolerant)
+                      {
+                        $or: [
+                          {
+                            $and: [
+                              { $eq: [{ $type: "$tenantId" }, "objectId"] },
+                              { $eq: ["$tenantId", "$$currentTenantId"] },
+                            ],
+                          },
+                          {
+                            $and: [
+                              { $eq: [{ $type: "$tenantId" }, "string"] },
+                              { $eq: [{ $strLenCP: "$tenantId" }, 24] },
+                              {
+                                $eq: [
+                                  { $toObjectId: "$tenantId" },
+                                  "$$currentTenantId",
+                                ],
+                              },
+                            ],
+                          },
+                          {
+                            $and: [
+                              { $eq: [{ $type: "$tenantId" }, "objectId"] },
+                              { $eq: [{ $type: "$$currentTenantId" }, "string"] },
+                              {
+                                $eq: [
+                                  "$tenantId",
+                                  { $toObjectId: "$$currentTenantId" },
+                                ],
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                      // Customer match
+                      {
+                        $or: [
+                          {
+                            $and: [
+                              { $eq: [{ $type: "$customerId" }, "objectId"] },
+                              { $eq: ["$customerId", "$$customerId"] },
+                            ],
+                          },
+                          {
+                            $and: [
+                              { $eq: [{ $type: "$customerId" }, "string"] },
+                              { $eq: [{ $strLenCP: "$customerId" }, 24] },
+                              {
+                                $eq: [
+                                  { $toObjectId: "$customerId" },
+                                  "$$customerId",
+                                ],
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                },
+              },
+              { $project: { depositRecords: 1 } },
+              { $unwind: "$depositRecords" },
+              { $match: { "depositRecords.status": "confirmed" } },
+              {
+                $addFields: {
+                  depositAmount: {
+                    $ifNull: [
+                      "$depositRecords.confirmedAmount",
+                      "$depositRecords.amount",
+                    ],
+                  },
+                  depositAmountUsd: {
+                    $let: {
+                      vars: {
+                        amount: {
+                          $ifNull: [
+                            "$depositRecords.confirmedAmount",
+                            "$depositRecords.amount",
+                          ],
+                        },
+                        amountUsd: {
+                          $ifNull: ["$depositRecords.amountUsd", 0],
+                        },
+                        currency: {
+                          $toUpper: {
+                            $ifNull: ["$depositRecords.currency", "USD"],
+                          },
+                        },
+                        exchangeRate: {
+                          $ifNull: ["$depositRecords.exchangeRate", 0],
+                        },
+                      },
+                      in: {
+                        $cond: [
+                          { $gt: ["$$amountUsd", 0] },
+                          "$$amountUsd",
+                          {
+                            $cond: [
+                              {
+                                $and: [
+                                  { $eq: ["$$currency", "VES"] },
+                                  { $gt: ["$$exchangeRate", 0] },
+                                ],
+                              },
+                              {
+                                $divide: [
+                                  { $ifNull: ["$$amount", 0] },
+                                  "$$exchangeRate",
+                                ],
+                              },
+                              { $ifNull: ["$$amount", 0] },
+                            ],
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  totalAmount: { $sum: { $ifNull: ["$depositAmount", 0] } },
+                  totalAmountUsd: { $sum: { $ifNull: ["$depositAmountUsd", 0] } },
+                  lastDepositAt: { $max: "$depositRecords.confirmedAt" },
+                  depositCount: { $sum: 1 },
+                },
+              },
+            ],
+            as: "appointmentDeposits",
+          },
+        },
+
         // Calcular métricas
         {
           $addFields: {
+            depositSummary: {
+              $arrayElemAt: ["$appointmentDeposits", 0],
+            },
+            totalDepositsAmount: {
+              $ifNull: [
+                { $arrayElemAt: ["$appointmentDeposits.totalAmount", 0] },
+                0,
+              ],
+            },
+            totalDepositsAmountUsd: {
+              $ifNull: [
+                { $arrayElemAt: ["$appointmentDeposits.totalAmountUsd", 0] },
+                0,
+              ],
+            },
+            lastDepositAt: {
+              $ifNull: [
+                { $arrayElemAt: ["$appointmentDeposits.lastDepositAt", 0] },
+                null,
+              ],
+            },
+            depositCount: {
+              $ifNull: [
+                { $arrayElemAt: ["$appointmentDeposits.depositCount", 0] },
+                0,
+              ],
+            },
             "metrics.totalSpent": {
               $cond: {
                 if: { $ne: ["$customerType", "supplier"] },
-                then: { $sum: "$customerOrders.totalAmount" },
+                then: {
+                  $add: [
+                    { $sum: "$customerOrders.totalAmount" },
+                    {
+                      $ifNull: [
+                        {
+                          $arrayElemAt: [
+                            "$appointmentDeposits.totalAmountUsd",
+                            0,
+                          ],
+                        },
+                        0,
+                      ],
+                    },
+                  ],
+                },
                 else: { $ifNull: ["$metrics.totalSpent", 0] },
+              },
+            },
+            "metrics.totalSpentUSD": {
+              $cond: {
+                if: { $ne: ["$customerType", "supplier"] },
+                then: {
+                  $add: [
+                    { $sum: "$customerOrders.totalAmount" },
+                    {
+                      $ifNull: [
+                        {
+                          $arrayElemAt: [
+                            "$appointmentDeposits.totalAmountUsd",
+                            0,
+                          ],
+                        },
+                        0,
+                      ],
+                    },
+                  ],
+                },
+                else: { $ifNull: ["$metrics.totalSpentUSD", 0] },
               },
             },
 
@@ -302,8 +513,42 @@ export class CustomersService {
                     { $gt: [{ $size: "$customerOrders" }, 0] },
                   ],
                 },
-                then: { $max: "$customerOrders.createdAt" },
-                else: "$metrics.lastOrderDate",
+                then: {
+                  $let: {
+                    vars: {
+                      lastOrderDate: { $max: "$customerOrders.createdAt" },
+                      lastDepositDate: {
+                        $arrayElemAt: [
+                          "$appointmentDeposits.lastDepositAt",
+                          0,
+                        ],
+                      },
+                    },
+                    in: {
+                      $cond: [
+                        {
+                          $gt: [
+                            "$$lastOrderDate",
+                            { $ifNull: ["$$lastDepositDate", "$$lastOrderDate"] },
+                          ],
+                        },
+                        "$$lastOrderDate",
+                        { $ifNull: ["$$lastDepositDate", "$$lastOrderDate"] },
+                      ],
+                    },
+                  },
+                },
+                else: {
+                  $ifNull: [
+                    {
+                      $arrayElemAt: [
+                        "$appointmentDeposits.lastDepositAt",
+                        0,
+                      ],
+                    },
+                    "$metrics.lastOrderDate",
+                  ],
+                },
               },
             },
 
@@ -313,6 +558,24 @@ export class CustomersService {
                 then: { $size: "$purchaseOrders" },
                 else: { $ifNull: ["$metrics.totalPurchaseOrders", 0] },
               },
+            },
+            "metrics.totalDeposits": {
+              $ifNull: [
+                { $arrayElemAt: ["$appointmentDeposits.totalAmountUsd", 0] },
+                0,
+              ],
+            },
+            "metrics.depositCount": {
+              $ifNull: [
+                { $arrayElemAt: ["$appointmentDeposits.depositCount", 0] },
+                0,
+              ],
+            },
+            "metrics.lastDepositDate": {
+              $ifNull: [
+                { $arrayElemAt: ["$appointmentDeposits.lastDepositAt", 0] },
+                "$metrics.lastDepositDate",
+              ],
             },
 
             assignedTo: {
@@ -339,6 +602,12 @@ export class CustomersService {
             customerOrders: 0,
             purchaseOrders: 0,
             assignedToUser: 0,
+            appointmentDeposits: 0,
+            depositSummary: 0,
+            totalDepositsAmount: 0,
+            totalDepositsAmountUsd: 0,
+            lastDepositAt: 0,
+            depositCount: 0,
           },
         },
       ];
@@ -574,9 +843,7 @@ export class CustomersService {
     const tenantCandidates = Types.ObjectId.isValid(tenantId)
       ? [tenantId, new Types.ObjectId(tenantId)]
       : [tenantId];
-    const idFilter = Types.ObjectId.isValid(id)
-      ? new Types.ObjectId(id)
-      : id;
+    const idFilter = Types.ObjectId.isValid(id) ? new Types.ObjectId(id) : id;
 
     return this.customerModel
       .findOne({
@@ -686,7 +953,8 @@ export class CustomersService {
       invoiceRequired: false,
     };
 
-    preferences.communicationChannel = latestChannel || preferences.communicationChannel;
+    preferences.communicationChannel =
+      latestChannel || preferences.communicationChannel;
     customer.preferences = preferences;
 
     customer.lastContactDate = options.event.deliveredAt;

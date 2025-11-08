@@ -73,7 +73,7 @@ export class TenantSettings {
   @Prop({ type: [PaymentMethodSettingSchema], default: undefined })
   paymentMethods: PaymentMethodSetting[];
 
-  @Prop({ type: String, default: 'standard' })
+  @Prop({ type: String, default: "standard" })
   invoiceFormat: string; // 'standard' | 'thermal'
 
   @Prop({ type: Object })

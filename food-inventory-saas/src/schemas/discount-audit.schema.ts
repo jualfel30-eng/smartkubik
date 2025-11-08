@@ -5,7 +5,11 @@ export type DiscountAuditDocument = DiscountAudit & Document;
 
 @Schema({ timestamps: true })
 export class DiscountAudit {
-  @Prop({ type: String, required: true, enum: ["order", "order_item", "product"] })
+  @Prop({
+    type: String,
+    required: true,
+    enum: ["order", "order_item", "product"],
+  })
   discountType: string; // Tipo de descuento: en orden completa, item específico, o producto
 
   @Prop({ type: Types.ObjectId, ref: "Order" })

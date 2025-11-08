@@ -1,20 +1,22 @@
-import { Connection } from 'mongoose';
-import { Logger } from '@nestjs/common';
+import { Connection } from "mongoose";
+import { Logger } from "@nestjs/common";
 
-const logger = new Logger('ConvertCategoriesToArraysMigration');
+const logger = new Logger("ConvertCategoriesToArraysMigration");
 
 export async function up(connection: Connection): Promise<void> {
-  logger.log('🚀 Starting migration: Convert category and subcategory to arrays');
+  logger.log(
+    "🚀 Starting migration: Convert category and subcategory to arrays",
+  );
 
   const db = connection.db;
-  const productsCollection = db.collection('products');
+  const productsCollection = db.collection("products");
 
   // Find all products where category or subcategory is still a string
   const productsToUpdate = await productsCollection
     .find({
       $or: [
-        { category: { $type: 'string' } },
-        { subcategory: { $type: 'string' } },
+        { category: { $type: "string" } },
+        { subcategory: { $type: "string" } },
       ],
     })
     .toArray();
@@ -27,7 +29,7 @@ export async function up(connection: Connection): Promise<void> {
     const updateFields: any = {};
 
     // Convert category from string to array if needed
-    if (typeof product.category === 'string') {
+    if (typeof product.category === "string") {
       updateFields.category = product.category ? [product.category] : [];
       logger.log(
         `  📝 Product ${product.sku}: Converting category "${product.category}" → ["${product.category}"]`,
@@ -35,7 +37,7 @@ export async function up(connection: Connection): Promise<void> {
     }
 
     // Convert subcategory from string to array if needed
-    if (typeof product.subcategory === 'string') {
+    if (typeof product.subcategory === "string") {
       updateFields.subcategory = product.subcategory
         ? [product.subcategory]
         : [];
@@ -60,15 +62,20 @@ export async function up(connection: Connection): Promise<void> {
 }
 
 export async function down(connection: Connection): Promise<void> {
-  logger.log('⏪ Starting rollback: Convert category and subcategory back to strings');
+  logger.log(
+    "⏪ Starting rollback: Convert category and subcategory back to strings",
+  );
 
   const db = connection.db;
-  const productsCollection = db.collection('products');
+  const productsCollection = db.collection("products");
 
   // Find all products where category or subcategory is an array
   const productsToRollback = await productsCollection
     .find({
-      $or: [{ category: { $type: 'array' } }, { subcategory: { $type: 'array' } }],
+      $or: [
+        { category: { $type: "array" } },
+        { subcategory: { $type: "array" } },
+      ],
     })
     .toArray();
 
@@ -81,18 +88,19 @@ export async function down(connection: Connection): Promise<void> {
 
     // Convert category from array to string (take first element)
     if (Array.isArray(product.category)) {
-      updateFields.category = product.category.length > 0 ? product.category[0] : '';
+      updateFields.category =
+        product.category.length > 0 ? product.category[0] : "";
       logger.log(
-        `  📝 Product ${product.sku}: Rolling back category [${product.category.join(', ')}] → "${updateFields.category}"`,
+        `  📝 Product ${product.sku}: Rolling back category [${product.category.join(", ")}] → "${updateFields.category}"`,
       );
     }
 
     // Convert subcategory from array to string (take first element)
     if (Array.isArray(product.subcategory)) {
       updateFields.subcategory =
-        product.subcategory.length > 0 ? product.subcategory[0] : '';
+        product.subcategory.length > 0 ? product.subcategory[0] : "";
       logger.log(
-        `  📝 Product ${product.sku}: Rolling back subcategory [${product.subcategory.join(', ')}] → "${updateFields.subcategory}"`,
+        `  📝 Product ${product.sku}: Rolling back subcategory [${product.subcategory.join(", ")}] → "${updateFields.subcategory}"`,
       );
     }
 

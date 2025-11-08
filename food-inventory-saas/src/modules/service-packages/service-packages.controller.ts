@@ -30,7 +30,9 @@ import { PackagePricingDto } from "./dto/package-pricing.dto";
 @UseGuards(JwtAuthGuard, ModuleAccessGuard)
 @RequireModule("servicePackages")
 export class ServicePackagesController {
-  constructor(private readonly servicePackagesService: ServicePackagesService) {}
+  constructor(
+    private readonly servicePackagesService: ServicePackagesService,
+  ) {}
 
   @Post()
   @ApiOperation({ summary: "Crear un paquete de servicios" })
@@ -58,7 +60,11 @@ export class ServicePackagesController {
 
   @Put(":id")
   @ApiOperation({ summary: "Actualizar paquete" })
-  update(@Request() req, @Param("id") id: string, @Body() dto: UpdateServicePackageDto) {
+  update(
+    @Request() req,
+    @Param("id") id: string,
+    @Body() dto: UpdateServicePackageDto,
+  ) {
     return this.servicePackagesService.update(req.user.tenantId, id, dto);
   }
 
@@ -75,12 +81,24 @@ export class ServicePackagesController {
     @Param("id") id: string,
     @Body() dto: PackageAvailabilityDto,
   ) {
-    return this.servicePackagesService.getAvailability(req.user.tenantId, id, dto);
+    return this.servicePackagesService.getAvailability(
+      req.user.tenantId,
+      id,
+      dto,
+    );
   }
 
   @Post(":id/price")
   @ApiOperation({ summary: "Calcular precio dinámico" })
-  price(@Request() req, @Param("id") id: string, @Body() dto: PackagePricingDto) {
-    return this.servicePackagesService.calculatePricing(req.user.tenantId, id, dto);
+  price(
+    @Request() req,
+    @Param("id") id: string,
+    @Body() dto: PackagePricingDto,
+  ) {
+    return this.servicePackagesService.calculatePricing(
+      req.user.tenantId,
+      id,
+      dto,
+    );
   }
 }

@@ -25,7 +25,8 @@ export class ServicePackageItem {
   optional: boolean;
 }
 
-const ServicePackageItemSchema = SchemaFactory.createForClass(ServicePackageItem);
+const ServicePackageItemSchema =
+  SchemaFactory.createForClass(ServicePackageItem);
 
 @Schema({ _id: false })
 export class DynamicPricingRule {
@@ -57,7 +58,8 @@ export class DynamicPricingRule {
   loyaltyTiers?: string[];
 }
 
-const DynamicPricingRuleSchema = SchemaFactory.createForClass(DynamicPricingRule);
+const DynamicPricingRuleSchema =
+  SchemaFactory.createForClass(DynamicPricingRule);
 
 @Schema({ timestamps: true })
 export class ServicePackage {
@@ -92,7 +94,8 @@ export class ServicePackage {
   leadTimeMinutes: number;
 }
 
-export const ServicePackageSchema = SchemaFactory.createForClass(ServicePackage);
+export const ServicePackageSchema =
+  SchemaFactory.createForClass(ServicePackage);
 
 ServicePackageSchema.index({ tenantId: 1, isActive: 1 });
 ServicePackageSchema.index({ tenantId: 1, name: 1 }, { unique: true });

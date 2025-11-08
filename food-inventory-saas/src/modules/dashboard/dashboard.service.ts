@@ -40,11 +40,13 @@ export class DashboardService {
     ] = await Promise.all([
       // Count unique products that have at least one variant with stock
       // Use tenantObjectId for Inventory model (stored as ObjectId)
-      this.inventoryModel.distinct('productId', {
-        tenantId: tenantObjectId,
-        totalQuantity: { $gt: 0 },
-        isActive: true,
-      }).then(productIds => productIds.length),
+      this.inventoryModel
+        .distinct("productId", {
+          tenantId: tenantObjectId,
+          totalQuantity: { $gt: 0 },
+          isActive: true,
+        })
+        .then((productIds) => productIds.length),
       this.orderModel.countDocuments({
         tenantId,
         createdAt: { $gte: today, $lt: tomorrow },

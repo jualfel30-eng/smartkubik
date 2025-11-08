@@ -545,8 +545,8 @@ export class AnalyticsService {
     const inventoryAttributeSchema = verticalProfile.attributeSchema.filter(
       (attr) => attr.scope === "inventory",
     );
-    const salesAttributeSchema = verticalProfile.attributeSchema.filter((attr) =>
-      ["product", "variant"].includes(attr.scope),
+    const salesAttributeSchema = verticalProfile.attributeSchema.filter(
+      (attr) => ["product", "variant"].includes(attr.scope),
     );
 
     let attributeCombinations: Array<Record<string, any>> = [];
@@ -612,7 +612,9 @@ export class AnalyticsService {
                           {
                             $add: [
                               { $ifNull: ["$combination.reservedQuantity", 0] },
-                              { $ifNull: ["$combination.committedQuantity", 0] },
+                              {
+                                $ifNull: ["$combination.committedQuantity", 0],
+                              },
                             ],
                           },
                         ],
@@ -710,15 +712,15 @@ export class AnalyticsService {
                 productId: "$productId",
                 productSku: "$productSku",
                 variantSku: "$variantSku",
-                attributes: salesAttributeSchema.reduce((acc, descriptor) => {
-                  acc[descriptor.key] = {
-                    $ifNull: [
-                      `$attributes.${descriptor.key}`,
-                      "N/A",
-                    ],
-                  };
-                  return acc;
-                }, {} as Record<string, any>),
+                attributes: salesAttributeSchema.reduce(
+                  (acc, descriptor) => {
+                    acc[descriptor.key] = {
+                      $ifNull: [`$attributes.${descriptor.key}`, "N/A"],
+                    };
+                    return acc;
+                  },
+                  {} as Record<string, any>,
+                ),
               },
               productName: { $last: "$productName" },
               brand: { $last: "$brand" },
@@ -912,13 +914,19 @@ export class AnalyticsService {
 
   async getHospitalityOperations(
     tenantId: string,
-    params: { startDate?: string; endDate?: string; granularity?: "day" | "week" },
+    params: {
+      startDate?: string;
+      endDate?: string;
+      granularity?: "day" | "week";
+    },
   ) {
     const { objectId, key: tenantKey } =
       this.normalizeTenantIdentifiers(tenantId);
 
     const now = new Date();
-    const start = params?.startDate ? new Date(params.startDate) : new Date(now);
+    const start = params?.startDate
+      ? new Date(params.startDate)
+      : new Date(now);
     if (Number.isNaN(start.getTime())) {
       throw new BadRequestException("Invalid startDate provided");
     }
@@ -999,8 +1007,10 @@ export class AnalyticsService {
       status: "active",
     });
 
-    const dayCount =
-      Math.max(1, Math.floor((end.getTime() - start.getTime()) / 86400000) + 1);
+    const dayCount = Math.max(
+      1,
+      Math.floor((end.getTime() - start.getTime()) / 86400000) + 1,
+    );
 
     const roomOccupancyByDay = new Map<string, Set<string>>();
     const spaCountByDay = new Map<string, number>();
@@ -1058,10 +1068,11 @@ export class AnalyticsService {
         }
       });
 
-      const reminderHistory =
-        Array.isArray(appointment.metadata?.reminderHistory)
-          ? appointment.metadata.reminderHistory
-          : [];
+      const reminderHistory = Array.isArray(
+        appointment.metadata?.reminderHistory,
+      )
+        ? appointment.metadata.reminderHistory
+        : [];
       remindersSent += reminderHistory.length;
 
       if (isActive) {
@@ -1089,8 +1100,10 @@ export class AnalyticsService {
 
     const totalSpaCapacity = spaServiceIds.size * dayCount || 1;
     const spaUtilization =
-      Array.from(spaCountByDay.values()).reduce((sum, value) => sum + value, 0) /
-      totalSpaCapacity;
+      Array.from(spaCountByDay.values()).reduce(
+        (sum, value) => sum + value,
+        0,
+      ) / totalSpaCapacity;
 
     const upsellConversionRate = appointments.length
       ? appointments.filter((item) => (item.addons || []).length > 0).length /
@@ -1122,11 +1135,7 @@ export class AnalyticsService {
           },
           engaged: {
             $sum: {
-              $cond: [
-                { $gte: ["$metrics.engagementScore", 80] },
-                1,
-                0,
-              ],
+              $cond: [{ $gte: ["$metrics.engagementScore", 80] }, 1, 0],
             },
           },
           total: { $sum: 1 },
