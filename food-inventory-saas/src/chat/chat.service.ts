@@ -281,13 +281,14 @@ export class ChatService {
         }
 
         // Handle location sharing
-        if (msg.type === 'location' && msg.location && msg.from) {
+        if (msg.type === "location" && msg.location && msg.from) {
           try {
             const chatId = msg.chat_id || msg.chatId || msg.from;
-            const customer = await this.whapiService.getCustomerByWhatsAppNumber(
-              msg.from,
-              tenantId,
-            );
+            const customer =
+              await this.whapiService.getCustomerByWhatsAppNumber(
+                msg.from,
+                tenantId,
+              );
 
             if (customer) {
               await this.whapiService.processLocationShare(
@@ -320,7 +321,7 @@ export class ChatService {
     if (!conversation) {
       const existingCustomer = await this.customerModel
         .findOne({ tenantId: tenantObjectId, phone: customerPhoneNumber })
-        .select('_id')
+        .select("_id")
         .lean();
 
       if (!existingCustomer) {
@@ -389,9 +390,7 @@ export class ChatService {
     }
   }
 
-  async processAssistantJob(
-    data: AssistantMessageJobData,
-  ): Promise<void> {
+  async processAssistantJob(data: AssistantMessageJobData): Promise<void> {
     const { tenantId, conversationId, messageId, content } = data;
 
     try {
@@ -516,8 +515,7 @@ export class ChatService {
       for (const msg of allRecentMessages) {
         if (lastMessageTime) {
           const timeDiffMinutes =
-            (lastMessageTime.getTime() - msg.createdAt.getTime()) /
-            (1000 * 60);
+            (lastMessageTime.getTime() - msg.createdAt.getTime()) / (1000 * 60);
 
           if (timeDiffMinutes > SESSION_TIMEOUT_MINUTES) {
             this.logger.log(
@@ -535,9 +533,9 @@ export class ChatService {
         .slice(1)
         .reverse()
         .map((msg) => ({
-          role: (msg.sender === SenderType.CUSTOMER
-            ? "user"
-            : "assistant") as "user" | "assistant",
+          role: (msg.sender === SenderType.CUSTOMER ? "user" : "assistant") as
+            | "user"
+            | "assistant",
           content: msg.content,
           timestamp: msg.createdAt,
         }));

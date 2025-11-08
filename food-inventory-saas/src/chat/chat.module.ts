@@ -49,12 +49,7 @@ const queueProviders =
     AssistantModule,
     WhapiModule,
   ],
-  providers: [
-    ChatService,
-    ChatGateway,
-    WhapiSignatureGuard,
-    ...queueProviders,
-  ],
+  providers: [ChatService, ChatGateway, WhapiSignatureGuard, ...queueProviders],
   controllers: [ChatController],
 })
 export class ChatModule {}

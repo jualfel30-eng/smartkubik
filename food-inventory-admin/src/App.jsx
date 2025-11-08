@@ -62,6 +62,7 @@ const CRMManagement = lazy(() => import('@/components/CRMManagement.jsx'));
 const OrdersManagement = lazy(() => import('@/components/orders/v2/OrdersManagementV2.jsx').then(module => ({ default: module.OrdersManagementV2 })));
 const CalendarView = lazy(() => import('@/components/CalendarView.jsx').then(module => ({ default: module.CalendarView })));
 const Login = lazy(() => import('./pages/Login'));
+const LoginV2 = lazy(() => import('./pages/LoginV2'));
 const Register = lazy(() => import('./pages/Register'));
 const ConfirmAccount = lazy(() => import('./pages/ConfirmAccount'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
@@ -91,7 +92,7 @@ const FloorPlan = lazy(() => import('@/components/restaurant/FloorPlan.jsx').the
 const KitchenDisplay = lazy(() => import('@/components/restaurant/KitchenDisplay.jsx'));
 const WhatsAppInbox = lazy(() => import('./pages/WhatsAppInbox.jsx')); // <-- Componente de WhatsApp añadido
 const AssistantChatWidget = lazy(() => import('@/components/AssistantChatWidget.jsx'));
-const HospitalityDepositsDashboard = lazy(() => import('@/components/hospitality/HospitalityDepositsDashboard.jsx'));
+const PaymentsManagementDashboard = lazy(() => import('@/components/hospitality/PaymentsManagementDashboard.jsx'));
 const HospitalityOperationsDashboard = lazy(() => import('@/components/hospitality/HospitalityOperationsDashboard.jsx'));
 const HotelFloorPlanPage = lazy(() => import('@/components/hospitality/HotelFloorPlanPage.jsx'));
 
@@ -482,7 +483,7 @@ function TenantLayout() {
                 <Route path="appointments" element={<AppointmentsManagement />} />
                 <Route path="services" element={<ServicesManagement />} />
                 <Route path="resources" element={<ResourcesManagement />} />
-                <Route path="hospitality/deposits" element={<HospitalityDepositsDashboard />} />
+                <Route path="hospitality/deposits" element={<PaymentsManagementDashboard />} />
                 <Route path="hospitality/operations" element={<HospitalityOperationsDashboard />} />
                 <Route path="hospitality/floor-plan" element={<HotelFloorPlanPage />} />
                 <Route path="calendar" element={<CalendarView />} />
@@ -521,7 +522,7 @@ function AppContent() {
           <Route path="/" element={<SmartKubikLanding />} />
           <Route path="/blog" element={<BlogIndex />} />
           <Route path="/blog/:slug" element={<BlogPost />} />
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={<LoginV2 />} />
           <Route path="/register" element={<Register />} />
           <Route path="/confirm-account" element={<ConfirmAccount />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />

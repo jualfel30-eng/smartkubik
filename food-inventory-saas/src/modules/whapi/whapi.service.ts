@@ -1,8 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Customer, CustomerDocument } from '../../schemas/customer.schema';
-import { WhapiWebhookDto } from '../../dto/whapi.dto';
+import { Injectable, Logger } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { Customer, CustomerDocument } from "../../schemas/customer.schema";
+import { WhapiWebhookDto } from "../../dto/whapi.dto";
 
 @Injectable()
 export class WhapiService {
@@ -17,22 +17,29 @@ export class WhapiService {
    * @param webhookData - Webhook payload from Whapi
    * @param tenantId - Tenant ID for multi-tenancy
    */
-  async processWebhook(webhookData: WhapiWebhookDto, tenantId: string): Promise<any> {
+  async processWebhook(
+    webhookData: WhapiWebhookDto,
+    tenantId: string,
+  ): Promise<any> {
     try {
-      this.logger.log(`Processing Whapi webhook: ${JSON.stringify(webhookData)}`);
+      this.logger.log(
+        `Processing Whapi webhook: ${JSON.stringify(webhookData)}`,
+      );
 
       // Ignore messages sent by the bot itself
       if (webhookData.from_me) {
-        this.logger.log('Ignoring message from bot');
-        return { success: true, message: 'Message from bot ignored' };
+        this.logger.log("Ignoring message from bot");
+        return { success: true, message: "Message from bot ignored" };
       }
 
       // Extract customer info from webhook
       const { from, from_name, chat_id, type, location } = webhookData;
 
       if (!from || !chat_id) {
-        this.logger.warn('Missing required fields (from or chat_id) in webhook');
-        return { success: false, message: 'Missing required fields' };
+        this.logger.warn(
+          "Missing required fields (from or chat_id) in webhook",
+        );
+        return { success: false, message: "Missing required fields" };
       }
 
       // Find or create customer
@@ -44,8 +51,12 @@ export class WhapiService {
       );
 
       // Process location if shared
-      if (type === 'location' && location) {
-        await this.processLocationShare(customer._id.toString(), location, tenantId);
+      if (type === "location" && location) {
+        await this.processLocationShare(
+          customer._id.toString(),
+          location,
+          tenantId,
+        );
       }
 
       // Update last interaction timestamp
@@ -56,10 +67,10 @@ export class WhapiService {
       return {
         success: true,
         customer,
-        message: 'Webhook processed successfully',
+        message: "Webhook processed successfully",
       };
     } catch (error) {
-      this.logger.error('Error processing Whapi webhook:', error);
+      this.logger.error("Error processing Whapi webhook:", error);
       throw error;
     }
   }
@@ -124,14 +135,14 @@ export class WhapiService {
     const customerNumber = await this.generateCustomerNumber(tenantId);
 
     // Extract name parts from WhatsApp name if available
-    let name = 'Cliente WhatsApp';
+    let name = "Cliente WhatsApp";
     let lastName: string | undefined;
 
     if (whatsappName) {
-      const nameParts = whatsappName.trim().split(' ');
+      const nameParts = whatsappName.trim().split(" ");
       name = nameParts[0];
       if (nameParts.length > 1) {
-        lastName = nameParts.slice(1).join(' ');
+        lastName = nameParts.slice(1).join(" ");
       }
     }
 
@@ -140,9 +151,9 @@ export class WhapiService {
       customerNumber,
       name,
       lastName,
-      customerType: 'individual',
-      source: 'whatsapp',
-      status: 'active',
+      customerType: "individual",
+      source: "whatsapp",
+      status: "active",
       tenantId: tenantObjectId,
       whatsappNumber,
       whatsappChatId: chatId,
@@ -153,11 +164,11 @@ export class WhapiService {
       // Add WhatsApp contact
       contacts: [
         {
-          type: 'whatsapp',
+          type: "whatsapp",
           value: whatsappNumber,
           isPrimary: true,
           isActive: true,
-          name: whatsappName || 'WhatsApp',
+          name: whatsappName || "WhatsApp",
         },
       ],
 
@@ -176,10 +187,10 @@ export class WhapiService {
 
       // Initialize preferences
       preferences: {
-        preferredCurrency: 'VES',
-        preferredPaymentMethod: 'pending',
-        preferredDeliveryMethod: 'delivery',
-        communicationChannel: 'whatsapp',
+        preferredCurrency: "VES",
+        preferredPaymentMethod: "pending",
+        preferredDeliveryMethod: "delivery",
+        communicationChannel: "whatsapp",
         marketingOptIn: false,
         invoiceRequired: false,
       },
@@ -189,12 +200,12 @@ export class WhapiService {
         creditLimit: 0,
         availableCredit: 0,
         paymentTerms: 0,
-        creditRating: 'new',
+        creditRating: "new",
         isBlocked: false,
       },
 
       taxInfo: {},
-      tier: 'standard',
+      tier: "standard",
 
       // This will be set by a pre-save hook or manually if needed
       createdBy: tenantObjectId, // Using tenantId as placeholder for now
@@ -214,7 +225,12 @@ export class WhapiService {
    */
   async processLocationShare(
     customerId: string,
-    location: { latitude: number; longitude: number; name?: string; address?: string },
+    location: {
+      latitude: number;
+      longitude: number;
+      name?: string;
+      address?: string;
+    },
     tenantId: string,
   ): Promise<void> {
     try {
@@ -232,7 +248,10 @@ export class WhapiService {
 
       // Update primary location
       const primaryLocation = {
-        address: location.address || location.name || 'Ubicación compartida desde WhatsApp',
+        address:
+          location.address ||
+          location.name ||
+          "Ubicación compartida desde WhatsApp",
         coordinates: {
           lat: location.latitude,
           lng: location.longitude,
@@ -253,30 +272,27 @@ export class WhapiService {
 
       if (!addressExists) {
         const newAddress = {
-          type: 'delivery',
-          street: location.address || location.name || 'Ubicación compartida',
-          city: 'Pendiente',
-          state: 'Pendiente',
-          country: 'Venezuela',
+          type: "delivery",
+          street: location.address || location.name || "Ubicación compartida",
+          city: "Pendiente",
+          state: "Pendiente",
+          country: "Venezuela",
           coordinates: {
             lat: location.latitude,
             lng: location.longitude,
           },
           isDefault: customer.addresses?.length === 0, // First address is default
-          notes: 'Compartido desde WhatsApp',
+          notes: "Compartido desde WhatsApp",
         };
 
         updates.$push = { addresses: newAddress };
       }
 
-      await this.customerModel.updateOne(
-        { _id: customer._id },
-        updates,
-      );
+      await this.customerModel.updateOne({ _id: customer._id }, updates);
 
       this.logger.log(`Location updated for customer ${customerId}`);
     } catch (error) {
-      this.logger.error('Error processing location share:', error);
+      this.logger.error("Error processing location share:", error);
       throw error;
     }
   }
@@ -294,7 +310,7 @@ export class WhapiService {
     });
 
     // Generate customer number: WA-XXXXX (WhatsApp prefix)
-    const customerNumber = `WA-${String(count + 1).padStart(5, '0')}`;
+    const customerNumber = `WA-${String(count + 1).padStart(5, "0")}`;
 
     // Check if number already exists (unlikely but possible)
     const exists = await this.customerModel.findOne({

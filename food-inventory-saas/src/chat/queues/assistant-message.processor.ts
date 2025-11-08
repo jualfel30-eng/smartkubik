@@ -5,9 +5,7 @@ import {
   ASSISTANT_MESSAGES_QUEUE,
   ASSISTANT_PROCESS_MESSAGE_JOB,
 } from "./assistant.queue.constants";
-import {
-  AssistantMessageJobData,
-} from "./assistant-message.queue.service";
+import { AssistantMessageJobData } from "./assistant-message.queue.service";
 import { ChatService } from "../chat.service";
 
 @Processor(ASSISTANT_MESSAGES_QUEUE)
@@ -18,9 +16,7 @@ export class AssistantMessageProcessor extends WorkerHost {
     super();
   }
 
-  async process(
-    job: Job<AssistantMessageJobData>,
-  ): Promise<void> {
+  async process(job: Job<AssistantMessageJobData>): Promise<void> {
     const data = job.data;
     if (!data) {
       this.logger.warn("Job de asistente recibido sin datos; se omite.");

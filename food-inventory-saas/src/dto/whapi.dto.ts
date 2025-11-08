@@ -1,88 +1,97 @@
-import { IsString, IsOptional, IsObject, IsNumber, IsBoolean } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsString,
+  IsOptional,
+  IsObject,
+  IsNumber,
+  IsBoolean,
+} from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class WhapiLocationDto {
-  @ApiProperty({ description: 'Latitude coordinate' })
+  @ApiProperty({ description: "Latitude coordinate" })
   @IsNumber()
   latitude: number;
 
-  @ApiProperty({ description: 'Longitude coordinate' })
+  @ApiProperty({ description: "Longitude coordinate" })
   @IsNumber()
   longitude: number;
 
-  @ApiPropertyOptional({ description: 'Location name' })
+  @ApiPropertyOptional({ description: "Location name" })
   @IsOptional()
   @IsString()
   name?: string;
 
-  @ApiPropertyOptional({ description: 'Location address' })
+  @ApiPropertyOptional({ description: "Location address" })
   @IsOptional()
   @IsString()
   address?: string;
 }
 
 export class WhapiTextDto {
-  @ApiProperty({ description: 'Message text body' })
+  @ApiProperty({ description: "Message text body" })
   @IsString()
   body: string;
 }
 
 export class WhapiWebhookDto {
-  @ApiProperty({ description: 'Event type (e.g., messages.upsert)' })
+  @ApiProperty({ description: "Event type (e.g., messages.upsert)" })
   @IsString()
   event: string;
 
-  @ApiPropertyOptional({ description: 'Sender phone number' })
+  @ApiPropertyOptional({ description: "Sender phone number" })
   @IsOptional()
   @IsString()
   from?: string;
 
-  @ApiPropertyOptional({ description: 'Sender public WhatsApp name' })
+  @ApiPropertyOptional({ description: "Sender public WhatsApp name" })
   @IsOptional()
   @IsString()
   from_name?: string;
 
-  @ApiPropertyOptional({ description: 'Chat ID' })
+  @ApiPropertyOptional({ description: "Chat ID" })
   @IsOptional()
   @IsString()
   chat_id?: string;
 
-  @ApiPropertyOptional({ description: 'Recipient phone number' })
+  @ApiPropertyOptional({ description: "Recipient phone number" })
   @IsOptional()
   @IsString()
   to?: string;
 
-  @ApiPropertyOptional({ description: 'Message type (text, location, etc.)' })
+  @ApiPropertyOptional({ description: "Message type (text, location, etc.)" })
   @IsOptional()
   @IsString()
   type?: string;
 
-  @ApiPropertyOptional({ description: 'Text message content', type: WhapiTextDto })
+  @ApiPropertyOptional({
+    description: "Text message content",
+    type: WhapiTextDto,
+  })
   @IsOptional()
   @IsObject()
   text?: WhapiTextDto;
 
-  @ApiPropertyOptional({ description: 'Location data', type: WhapiLocationDto })
+  @ApiPropertyOptional({ description: "Location data", type: WhapiLocationDto })
   @IsOptional()
   @IsObject()
   location?: WhapiLocationDto;
 
-  @ApiPropertyOptional({ description: 'Message ID' })
+  @ApiPropertyOptional({ description: "Message ID" })
   @IsOptional()
   @IsString()
   id?: string;
 
-  @ApiPropertyOptional({ description: 'Timestamp' })
+  @ApiPropertyOptional({ description: "Timestamp" })
   @IsOptional()
   @IsNumber()
   timestamp?: number;
 
-  @ApiPropertyOptional({ description: 'If message is from the bot itself' })
+  @ApiPropertyOptional({ description: "If message is from the bot itself" })
   @IsOptional()
   @IsBoolean()
   from_me?: boolean;
 
-  @ApiPropertyOptional({ description: 'Raw payload data' })
+  @ApiPropertyOptional({ description: "Raw payload data" })
   @IsOptional()
   @IsObject()
   payload?: any;

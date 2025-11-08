@@ -21,9 +21,7 @@ export class AssistantMessageQueueService {
   constructor(
     @Optional()
     @InjectQueue(ASSISTANT_MESSAGES_QUEUE)
-    private readonly assistantQueue:
-      | Queue<AssistantMessageJobData>
-      | null,
+    private readonly assistantQueue: Queue<AssistantMessageJobData> | null,
   ) {}
 
   /**
@@ -40,19 +38,15 @@ export class AssistantMessageQueueService {
       return false;
     }
 
-    await this.assistantQueue.add(
-      ASSISTANT_PROCESS_MESSAGE_JOB,
-      data,
-      {
-        removeOnComplete: true,
-        removeOnFail: false,
-        attempts: 3,
-        backoff: {
-          type: "exponential",
-          delay: 2000,
-        },
+    await this.assistantQueue.add(ASSISTANT_PROCESS_MESSAGE_JOB, data, {
+      removeOnComplete: true,
+      removeOnFail: false,
+      attempts: 3,
+      backoff: {
+        type: "exponential",
+        delay: 2000,
       },
-    );
+    });
 
     this.logger.debug(
       `Mensaje del asistente encolado (tenant ${data.tenantId}, conversation ${data.conversationId})`,
