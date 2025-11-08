@@ -139,7 +139,7 @@ function HotelFloorPlanBuilder({
       setLoading(true);
       setError(null);
       try {
-        const response = await fetchApi('/resources?type=room');
+        const response = await fetchApi('/resources?type=room&status=active');
         if (!isMounted) {
           return;
         }
@@ -176,7 +176,7 @@ function HotelFloorPlanBuilder({
     const groups = new Map();
     rooms.forEach((room) => {
       const key = getFloorKey(room.floor);
-    const label = getFloorLabel(key);
+      const label = getFloorLabel(key);
       if (!groups.has(key)) {
         groups.set(key, { key, label, count: 0 });
       }

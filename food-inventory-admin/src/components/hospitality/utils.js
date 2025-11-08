@@ -1,5 +1,68 @@
 export const UNASSIGNED_FLOOR_KEY = '__UNASSIGNED__';
 export const UNASSIGNED_ZONE_LABEL = 'Sin zona';
+export const ROOM_STATUS_LABELS = {
+  available: 'Disponible',
+  occupied: 'Ocupada',
+  upcoming: 'Próxima',
+  housekeeping: 'Housekeeping',
+  maintenance: 'Mantenimiento',
+};
+
+export const ROOM_STATUS_VARIANTS = {
+  available: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
+  occupied: 'bg-rose-500/10 text-rose-600 dark:text-rose-300',
+  upcoming: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
+  housekeeping: 'bg-sky-500/10 text-sky-600 dark:text-sky-300',
+  maintenance: 'bg-slate-500/10 text-slate-600 dark:text-slate-300',
+};
+
+export const getRoomStatusLabel = (status) =>
+  ROOM_STATUS_LABELS[status] || ROOM_STATUS_LABELS.available;
+
+export function getCountdownInfo(dateInput) {
+  if (!dateInput) {
+    return null;
+  }
+  const target = new Date(dateInput);
+  if (Number.isNaN(target.getTime())) {
+    return null;
+  }
+  const now = Date.now();
+  const diffMs = target.getTime() - now;
+  const absMinutes = Math.round(Math.abs(diffMs) / (1000 * 60));
+  const hours = Math.floor(absMinutes / 60);
+  const minutes = absMinutes % 60;
+  const prefix = diffMs >= 0 ? 'En' : 'Hace';
+  const parts = [];
+  if (hours > 0) {
+    parts.push(`${hours}h`);
+  }
+  if (minutes > 0 || hours === 0) {
+    parts.push(`${minutes}m`);
+  }
+  const label = `${prefix} ${parts.join(' ')}`.trim();
+  let status = 'future';
+  if (diffMs < 0) {
+    status = 'overdue';
+  } else if (diffMs <= 60 * 60 * 1000) {
+    status = 'soon';
+  }
+  return { label, status, diffMs, target };
+}
+
+export function getCountdownBadgeClass(countdown) {
+  if (!countdown) {
+    return 'bg-muted text-muted-foreground';
+  }
+  switch (countdown.status) {
+    case 'soon':
+      return 'bg-amber-500/10 text-amber-600 dark:text-amber-300';
+    case 'overdue':
+      return 'bg-rose-500/10 text-rose-600 dark:text-rose-300';
+    default:
+      return 'bg-muted text-muted-foreground';
+  }
+}
 
 const STATUS_NORMALIZATION = {
   available: 'available',
@@ -44,6 +107,85 @@ export const getFloorKey = (floor) => {
 
 export const getFloorLabel = (floorKey) =>
   floorKey === UNASSIGNED_FLOOR_KEY ? 'Sin piso asignado' : floorKey;
+
+const EVENT_STORAGE_KEY = 'hospitalityFloorplanLogs';
+
+const safeSerialize = (value) => {
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    console.warn('[HospitalityLogs] No se pudo serializar el evento', error);
+    return null;
+  }
+};
+
+const safeParse = (value) => {
+  if (!value) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.warn('[HospitalityLogs] No se pudo parsear el historial de eventos', error);
+    return [];
+  }
+};
+
+export function logHospitalityEvent(eventType, metadata = {}) {
+  const event = {
+    type: eventType,
+    timestamp: new Date().toISOString(),
+    ...metadata,
+  };
+
+  if (typeof window !== 'undefined') {
+    try {
+      window.dispatchEvent(
+        new CustomEvent('hospitality-floorplan-event', {
+          detail: event,
+        }),
+      );
+    } catch (error) {
+      console.warn('[HospitalityLogs] No se pudo emitir el evento', error);
+    }
+
+    try {
+      const storage = window?.sessionStorage;
+      if (storage) {
+        const history = safeParse(storage.getItem(EVENT_STORAGE_KEY));
+        history.push(event);
+        if (history.length > 200) {
+          history.splice(0, history.length - 200);
+        }
+        const serialized = safeSerialize(history);
+        if (serialized) {
+          storage.setItem(EVENT_STORAGE_KEY, serialized);
+        }
+      }
+    } catch (error) {
+      console.info('[HospitalityLogs] (fallback)', event);
+    }
+  } else {
+    console.info('[HospitalityLogs]', event);
+  }
+}
+
+export function readHospitalityEventLog() {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+  try {
+    const storage = window?.sessionStorage;
+    if (!storage) {
+      return [];
+    }
+    return safeParse(storage.getItem(EVENT_STORAGE_KEY));
+  } catch (error) {
+    console.warn('[HospitalityLogs] No se pudo leer el historial', error);
+    return [];
+  }
+}
 
 export function normalizeHospitalityResource(resource) {
   if (!resource) {
@@ -134,6 +276,7 @@ export function normalizeHospitalityResource(resource) {
     currentGuest: currentGuest ? String(currentGuest) : null,
     nextCheckIn,
     hasHousekeepingTask: housekeepingPending,
+    baseRate: resource.baseRate || null,
   };
 }
 

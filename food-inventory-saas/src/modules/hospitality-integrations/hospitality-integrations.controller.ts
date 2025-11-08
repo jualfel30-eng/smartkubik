@@ -8,7 +8,10 @@ export class HospitalityIntegrationsController {
   constructor(private readonly pmsIntegrationService: PmsIntegrationService) {}
 
   @Post("pms/webhook")
-  async handlePmsWebhook(@Body() payload: any, @Headers("x-tenant-id") tenantId?: string) {
+  async handlePmsWebhook(
+    @Body() payload: any,
+    @Headers("x-tenant-id") tenantId?: string,
+  ) {
     await this.pmsIntegrationService.enqueueWebhook(tenantId, payload);
     return { received: true };
   }

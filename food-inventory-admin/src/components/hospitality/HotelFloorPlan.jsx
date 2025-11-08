@@ -20,23 +20,11 @@ import {
   getFloorLabel,
   UNASSIGNED_FLOOR_KEY,
   UNASSIGNED_ZONE_LABEL,
+  ROOM_STATUS_VARIANTS,
+  getRoomStatusLabel,
+  getCountdownInfo,
+  getCountdownBadgeClass,
 } from './utils.js';
-
-const STATUS_VARIANTS = {
-  available: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
-  occupied: 'bg-rose-500/10 text-rose-600 dark:text-rose-300',
-  upcoming: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
-  housekeeping: 'bg-sky-500/10 text-sky-600 dark:text-sky-300',
-  maintenance: 'bg-slate-500/10 text-slate-600 dark:text-slate-300',
-};
-
-const STATUS_LABELS = {
-  available: 'Disponible',
-  occupied: 'Ocupada',
-  upcoming: 'Próxima',
-  housekeeping: 'Housekeeping',
-  maintenance: 'Mantenimiento',
-};
 
 export function HotelFloorPlan({
   rooms = [],
@@ -44,6 +32,8 @@ export function HotelFloorPlan({
   onRoomAction,
   actionLoadingId,
   headerActions = null,
+  onRoomSelect,
+  selectedRoomId,
 }) {
   if (!Array.isArray(rooms) || rooms.length === 0) {
     return (
@@ -163,18 +153,39 @@ export function HotelFloorPlan({
                     <div className="space-y-3">
                       {zone.rooms.map((room) => {
                         const variant =
-                          STATUS_VARIANTS[room.status] || STATUS_VARIANTS.available;
-                        const statusLabel =
-                          STATUS_LABELS[room.status] || STATUS_LABELS.available;
+                          ROOM_STATUS_VARIANTS[room.status] || ROOM_STATUS_VARIANTS.available;
+                        const statusLabel = getRoomStatusLabel(room.status);
                         const isUpdating = actionLoadingId === room.id;
                         const locationTags = Array.isArray(room.locationTags)
                           ? room.locationTags
                           : [];
+                        const isSelected = selectedRoomId === room.id;
+                        const checkInCountdown = getCountdownInfo(room.nextCheckIn);
+                       const countdownBadgeClass = getCountdownBadgeClass(checkInCountdown);
+                        const housekeepingDueDate = room.housekeepingDueDate
+                          ? new Date(room.housekeepingDueDate)
+                          : null;
+                        const housekeepingDueLabel =
+                          housekeepingDueDate && !Number.isNaN(housekeepingDueDate.getTime())
+                            ? housekeepingDueDate.toLocaleString()
+                            : null;
 
                         return (
                           <div
                             key={room.id}
-                            className="rounded-lg border border-border/70 bg-background p-4 shadow-sm transition hover:border-primary/50"
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => onRoomSelect?.(room)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                onRoomSelect?.(room);
+                              }
+                            }}
+                            className={cn(
+                              'rounded-lg border border-border/70 bg-background p-4 text-left shadow-sm transition hover:border-primary/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                              isSelected && 'border-primary ring-2 ring-primary/50',
+                            )}
                           >
                             <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                               <div>
@@ -194,6 +205,7 @@ export function HotelFloorPlan({
                                       size="icon"
                                       className="size-8 text-muted-foreground"
                                       disabled={isUpdating}
+                                      onClick={(event) => event.stopPropagation()}
                                     >
                                       {isUpdating ? (
                                         <Loader2 className="size-4 animate-spin" />
@@ -203,11 +215,12 @@ export function HotelFloorPlan({
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end" className="min-w-44">
-                          <DropdownMenuLabel>Acciones rápidas</DropdownMenuLabel>
-                          <DropdownMenuItem
-                            onSelect={(event) => {
-                              event.preventDefault();
-                              onRoomAction?.({ type: 'check-in', room });
+                                    <DropdownMenuLabel>Acciones rápidas</DropdownMenuLabel>
+                                    <DropdownMenuItem
+                                      onSelect={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        onRoomAction?.({ type: 'check-in', room });
                                       }}
                                     >
                                       <UserPlus className="size-4" />
@@ -216,6 +229,7 @@ export function HotelFloorPlan({
                                     <DropdownMenuItem
                                       onSelect={(event) => {
                                         event.preventDefault();
+                                        event.stopPropagation();
                                         onRoomAction?.({
                                           type: 'status',
                                           status: 'available',
@@ -230,71 +244,77 @@ export function HotelFloorPlan({
                                     <DropdownMenuItem
                                       onSelect={(event) => {
                                         event.preventDefault();
+                                        event.stopPropagation();
                                         onRoomAction?.({
                                           type: 'status',
                                           status: 'occupied',
                                           room,
                                         });
                                       }}
-                            disabled={room.status === 'occupied'}
-                          >
-                            <BedDouble className="size-4" />
-                            Marcar ocupada
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onSelect={(event) => {
-                              event.preventDefault();
-                              onRoomAction?.({ type: 'check-out', room });
-                            }}
-                            disabled={room.status === 'housekeeping'}
-                          >
-                            <Sparkles className="size-4" />
-                            Registrar check-out
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onSelect={(event) => {
-                              event.preventDefault();
-                              onRoomAction?.({ type: 'housekeeping', room });
-                            }}
+                                      disabled={room.status === 'occupied'}
+                                    >
+                                      <BedDouble className="size-4" />
+                                      Marcar ocupada
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onSelect={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        onRoomAction?.({ type: 'check-out', room });
+                                      }}
+                                      disabled={room.status === 'housekeeping'}
                                     >
                                       <Sparkles className="size-4" />
-                            Solicitar housekeeping
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onSelect={(event) => {
-                              event.preventDefault();
-                              onRoomAction?.({ type: 'housekeeping-done', room });
-                            }}
-                            disabled={room.status !== 'housekeeping'}
-                          >
-                            <Sparkles className="size-4 rotate-180" />
-                            Housekeeping listo
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onSelect={(event) => {
-                              event.preventDefault();
-                              onRoomAction?.({ type: 'maintenance-on', room });
-                            }}
-                            disabled={room.status === 'maintenance'}
-                          >
-                            <BedDouble className="size-4" />
-                            Bloquear por mantenimiento
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onSelect={(event) => {
-                              event.preventDefault();
-                              onRoomAction?.({ type: 'maintenance-off', room });
-                            }}
-                            disabled={room.status !== 'maintenance'}
-                          >
-                            <DoorOpen className="size-4" />
-                            Liberar mantenimiento
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
+                                      Registrar check-out
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onSelect={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        onRoomAction?.({ type: 'housekeeping', room });
+                                      }}
+                                    >
+                                      <Sparkles className="size-4" />
+                                      Solicitar housekeeping
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onSelect={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        onRoomAction?.({ type: 'housekeeping-done', room });
+                                      }}
+                                      disabled={room.status !== 'housekeeping'}
+                                    >
+                                      <Sparkles className="size-4 rotate-180" />
+                                      Housekeeping listo
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onSelect={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        onRoomAction?.({ type: 'maintenance-on', room });
+                                      }}
+                                      disabled={room.status === 'maintenance'}
+                                    >
+                                      <BedDouble className="size-4" />
+                                      Bloquear por mantenimiento
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onSelect={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        onRoomAction?.({ type: 'maintenance-off', room });
+                                      }}
+                                      disabled={room.status !== 'maintenance'}
+                                    >
+                                      <DoorOpen className="size-4" />
+                                      Liberar mantenimiento
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </div>
 
                             {room.currentGuest && (
                               <p className="text-sm text-muted-foreground">
@@ -308,6 +328,31 @@ export function HotelFloorPlan({
                               <p className="text-sm text-muted-foreground">
                                 Próximo check-in: {new Date(room.nextCheckIn).toLocaleString()}
                               </p>
+                            )}
+
+                            {(checkInCountdown || room.hasHousekeepingTask) && (
+                              <div className="mt-2 flex flex-wrap items-center gap-2">
+                                {checkInCountdown && (
+                                  <Badge
+                                    className={cn(
+                                      'text-xs font-medium',
+                                      countdownBadgeClass,
+                                    )}
+                                  >
+                                    Check-in {checkInCountdown.label}
+                                  </Badge>
+                                )}
+                                {room.hasHousekeepingTask && (
+                                  <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-300 text-xs font-medium">
+                                    Housekeeping pendiente
+                                    {housekeepingDueLabel && (
+                                      <span className="ml-1 font-normal opacity-80">
+                                        · {housekeepingDueLabel}
+                                      </span>
+                                    )}
+                                  </Badge>
+                                )}
+                              </div>
                             )}
 
                             {locationTags.length > 0 && (
@@ -325,6 +370,11 @@ export function HotelFloorPlan({
                               {room.hasHousekeepingTask && (
                                 <span className="font-medium text-amber-500">
                                   Housekeeping pendiente
+                                  {housekeepingDueLabel && (
+                                    <span className="ml-1 font-normal text-amber-600 dark:text-amber-300">
+                                      · {housekeepingDueLabel}
+                                    </span>
+                                  )}
                                 </span>
                               )}
                             </div>
@@ -352,12 +402,20 @@ HotelFloorPlan.propTypes = {
       currentGuest: PropTypes.string,
       nextCheckIn: PropTypes.string,
       hasHousekeepingTask: PropTypes.bool,
+      housekeepingTask: PropTypes.shape({
+        _id: PropTypes.string,
+        dueDate: PropTypes.string,
+        priority: PropTypes.string,
+      }),
+      housekeepingDueDate: PropTypes.string,
     }),
   ),
   lastUpdated: PropTypes.string,
   onRoomAction: PropTypes.func,
   actionLoadingId: PropTypes.string,
   headerActions: PropTypes.node,
+  onRoomSelect: PropTypes.func,
+  selectedRoomId: PropTypes.string,
 };
 
 export default HotelFloorPlan;

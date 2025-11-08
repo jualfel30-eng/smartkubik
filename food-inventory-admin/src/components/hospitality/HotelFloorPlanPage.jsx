@@ -1,22 +1,49 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
+import { Separator } from '@/components/ui/separator.jsx';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerClose,
+} from '@/components/ui/drawer.jsx';
 import { toast } from 'sonner';
-import { Settings2, MapPinned } from 'lucide-react';
+import {
+  Settings2,
+  MapPinned,
+  DoorOpen,
+  BedDouble,
+  Sparkles,
+  UserPlus,
+  ShieldOff,
+} from 'lucide-react';
 
 import { fetchApi } from '@/lib/api';
+import { cn } from '@/lib/utils.js';
 import HotelFloorPlan from './HotelFloorPlan.jsx';
 import QuickCheckInDialog from './QuickCheckInDialog.jsx';
 import HotelFloorPlanBuilder from './HotelFloorPlanBuilder.jsx';
+import { useHousekeepingTasks } from './useHousekeepingTasks.js';
 import {
   compareRooms,
   normalizeHospitalityResource,
   UNASSIGNED_FLOOR_KEY,
+  UNASSIGNED_ZONE_LABEL,
   getFloorKey,
   getFloorLabel,
+  ROOM_STATUS_VARIANTS,
+  getRoomStatusLabel,
+  getCountdownInfo,
+  getCountdownBadgeClass,
+  logHospitalityEvent,
 } from './utils.js';
 
 const STATUS_FILTERS = [
@@ -69,19 +96,39 @@ function mergeRooms(baseRooms = [], updates = []) {
 const formatFloorLabel = (floorKey) => getFloorLabel(floorKey);
 
 export default function HotelFloorPlanPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialFloorParam = searchParams.get('floor');
+  const initialStatusParam = searchParams.get('status');
+  const initialRoomParam = searchParams.get('room');
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [baseRooms, setBaseRooms] = useState([]);
   const [liveRooms, setLiveRooms] = useState([]);
   const [resourceLookup, setResourceLookup] = useState({});
   const [lastSync, setLastSync] = useState(null);
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [floorFilter, setFloorFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(
+    initialStatusParam && STATUS_FILTERS.some((item) => item.value === initialStatusParam)
+      ? initialStatusParam
+      : 'all',
+  );
+  const [floorFilter, setFloorFilter] = useState(initialFloorParam || 'all');
   const [searchTerm, setSearchTerm] = useState('');
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [isLayoutBuilderOpen, setIsLayoutBuilderOpen] = useState(false);
   const [isCheckInOpen, setIsCheckInOpen] = useState(false);
   const [checkInRoom, setCheckInRoom] = useState(null);
+  const [detailRoomId, setDetailRoomId] = useState(initialRoomParam || null);
+  const [isDetailOpen, setIsDetailOpen] = useState(Boolean(initialRoomParam));
+  const previousFloorRef = useRef(floorFilter);
+  const previousStatusRef = useRef(statusFilter);
+  const previousRoomRef = useRef(detailRoomId);
+  const {
+    tasksByResource,
+    refresh: refreshHousekeepingTasks,
+    markPendingForResource,
+    markCompletedForResource,
+  } = useHousekeepingTasks();
 
   useEffect(() => {
     let isMounted = true;
@@ -90,7 +137,7 @@ export default function HotelFloorPlanPage() {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetchApi('/resources?type=room');
+        const response = await fetchApi('/resources?type=room&status=active');
         if (!isMounted) {
           return;
         }
@@ -301,6 +348,47 @@ export default function HotelFloorPlanPage() {
     [resourceLookup],
   );
 
+  const ensureHousekeepingTask = useCallback(
+    async (room) => {
+      if (!room?.id) {
+        return;
+      }
+      const dueDate =
+        room.housekeepingDueDate ||
+        room.nextCheckIn ||
+        new Date(Date.now() + 15 * 60 * 1000).toISOString();
+      try {
+        await markPendingForResource(room.id, {
+          roomName: room.name,
+          dueDate,
+          appointmentId: room.housekeepingTask?.appointmentId,
+          priority: room.housekeepingTask?.priority,
+        });
+      } catch (error) {
+        console.error(`No se pudo registrar la tarea de housekeeping para ${room.name}`, error);
+      } finally {
+        await refreshHousekeepingTasks();
+      }
+    },
+    [markPendingForResource, refreshHousekeepingTasks],
+  );
+
+  const finalizeHousekeepingTask = useCallback(
+    async (room) => {
+      if (!room?.id) {
+        return;
+      }
+      try {
+        await markCompletedForResource(room.id);
+      } catch (error) {
+        console.error(`No se pudo cerrar la tarea de housekeeping para ${room.name}`, error);
+      } finally {
+        await refreshHousekeepingTasks();
+      }
+    },
+    [markCompletedForResource, refreshHousekeepingTasks],
+  );
+
   const handleRoomAction = useCallback(
     (action) => {
       if (!action?.room) {
@@ -308,31 +396,57 @@ export default function HotelFloorPlanPage() {
       }
 
       const { room } = action;
+      const floorKey = getFloorKey(room.floor);
+      logHospitalityEvent('room_action_triggered', {
+        source: 'floor-plan-page',
+        action: action.type,
+        status: action.status,
+        roomId: room.id,
+        roomName: room.name,
+        floor: floorKey,
+      });
 
       if (action.type === 'check-in') {
         setCheckInRoom(room);
         setIsCheckInOpen(true);
+        setDetailRoomId(room.id);
+        setIsDetailOpen(true);
         return;
       }
 
       if (action.type === 'check-out') {
-        void updateRoomStatus(room, 'housekeeping', {
-          toastMessage: 'Check-out registrado. Housekeeping pendiente.',
-        });
+        void (async () => {
+          await updateRoomStatus(room, 'housekeeping', {
+            toastMessage: 'Check-out registrado. Housekeeping pendiente.',
+          });
+          await ensureHousekeepingTask(room);
+        })();
+        setDetailRoomId(room.id);
+        setIsDetailOpen(true);
         return;
       }
 
       if (action.type === 'housekeeping') {
-        void updateRoomStatus(room, 'housekeeping', {
-          toastMessage: 'Se notificó a housekeeping.',
-        });
+        void (async () => {
+          await updateRoomStatus(room, 'housekeeping', {
+            toastMessage: 'Se notificó a housekeeping.',
+          });
+          await ensureHousekeepingTask(room);
+        })();
+        setDetailRoomId(room.id);
+        setIsDetailOpen(true);
         return;
       }
 
       if (action.type === 'housekeeping-done') {
-        void updateRoomStatus(room, 'available', {
-          toastMessage: 'Habitación lista para el próximo huésped.',
-        });
+        void (async () => {
+          await updateRoomStatus(room, 'available', {
+            toastMessage: 'Habitación lista para el próximo huésped.',
+          });
+          await finalizeHousekeepingTask(room);
+        })();
+        setDetailRoomId(room.id);
+        setIsDetailOpen(true);
         return;
       }
 
@@ -340,13 +454,20 @@ export default function HotelFloorPlanPage() {
         void updateRoomStatus(room, 'maintenance', {
           toastMessage: 'Habitación bloqueada por mantenimiento.',
         });
+        setDetailRoomId(room.id);
+        setIsDetailOpen(true);
         return;
       }
 
       if (action.type === 'maintenance-off') {
-        void updateRoomStatus(room, 'available', {
-          toastMessage: 'Habitación liberada de mantenimiento.',
-        });
+        void (async () => {
+          await updateRoomStatus(room, 'available', {
+            toastMessage: 'Habitación liberada de mantenimiento.',
+          });
+          await finalizeHousekeepingTask(room);
+        })();
+        setDetailRoomId(room.id);
+        setIsDetailOpen(true);
         return;
       }
 
@@ -358,12 +479,19 @@ export default function HotelFloorPlanPage() {
           maintenance: 'Habitación bloqueada por mantenimiento.',
           upcoming: 'Habitación marcada como próxima.',
         };
-        void updateRoomStatus(room, action.status, {
-          toastMessage: messages[action.status] || 'Estado actualizado.',
-        });
+        void (async () => {
+          await updateRoomStatus(room, action.status, {
+            toastMessage: messages[action.status] || 'Estado actualizado.',
+          });
+          if (action.status === 'housekeeping') {
+            await ensureHousekeepingTask(room);
+          } else if (action.status === 'available') {
+            await finalizeHousekeepingTask(room);
+          }
+        })();
       }
     },
-    [updateRoomStatus],
+    [ensureHousekeepingTask, finalizeHousekeepingTask, updateRoomStatus],
   );
 
   const handleQuickCheckInSuccess = useCallback(
@@ -374,6 +502,14 @@ export default function HotelFloorPlanPage() {
 
       const resource = resourceLookup[room.id];
       const stayEndsAt = checkOut || resource?.metadata?.nextCheckIn || null;
+
+      logHospitalityEvent('quick_checkin_completed', {
+        source: 'floor-plan-page',
+        roomId: room.id,
+        roomName: room.name,
+        guestName,
+        scheduledCheckout: stayEndsAt,
+      });
 
       setLiveRooms((prev) =>
         mergeRooms(prev, [
@@ -405,12 +541,33 @@ export default function HotelFloorPlanPage() {
             nextCheckIn: stayEndsAt,
           },
         );
+        await finalizeHousekeepingTask(room);
       } finally {
         setCheckInRoom(null);
+        setDetailRoomId(room.id);
+        setIsDetailOpen(true);
       }
     },
-    [resourceLookup, updateRoomStatus],
+    [finalizeHousekeepingTask, resourceLookup, updateRoomStatus],
   );
+
+  const handleRoomSelect = useCallback((room) => {
+    if (!room?.id) {
+      return;
+    }
+    const floorKey = getFloorKey(room.floor);
+    if (floorKey && floorKey !== floorFilter) {
+      setFloorFilter(floorKey);
+    }
+    logHospitalityEvent('room_selected', {
+      source: 'floor-plan-page',
+      roomId: room.id,
+      roomName: room.name,
+      floor: floorKey,
+    });
+    setDetailRoomId(room.id);
+    setIsDetailOpen(true);
+  }, [floorFilter]);
 
   const handleLayoutSaved = useCallback((updatedResources = [], normalizedRooms) => {
     const normalizedList =
@@ -443,6 +600,10 @@ export default function HotelFloorPlanPage() {
     setLiveRooms((prev) => mergeRooms(prev, normalizedList));
     setLastSync(new Date().toISOString());
     setIsLayoutBuilderOpen(false);
+    logHospitalityEvent('layout_saved', {
+      source: 'floor-plan-page',
+      roomsUpdated: normalizedList.length,
+    });
   }, []);
 
   const combinedRooms = useMemo(() => {
@@ -452,9 +613,63 @@ export default function HotelFloorPlanPage() {
     return liveRooms.length ? mergeRooms(merged, liveRooms) : merged;
   }, [baseRooms, liveRooms]);
 
+  const roomsWithTasks = useMemo(() => {
+    return combinedRooms.map((room) => {
+      const resourceTasks = tasksByResource.get(room.id) || [];
+      const pendingTasks = resourceTasks.filter((task) => task && task.isCompleted === false);
+      pendingTasks.sort((a, b) => {
+        const aTime = a?.dueDate ? new Date(a.dueDate).getTime() : Number.POSITIVE_INFINITY;
+        const bTime = b?.dueDate ? new Date(b.dueDate).getTime() : Number.POSITIVE_INFINITY;
+        return aTime - bTime;
+      });
+      const pendingTask = pendingTasks[0] || null;
+      return {
+        ...room,
+        housekeepingTask: pendingTask,
+        hasHousekeepingTask: Boolean(pendingTask),
+        housekeepingDueDate: pendingTask?.dueDate || null,
+      };
+    });
+  }, [combinedRooms, tasksByResource]);
+
+  const detailRoom = useMemo(() => {
+    if (!detailRoomId) {
+      return null;
+    }
+    return roomsWithTasks.find((room) => room.id === detailRoomId) || null;
+  }, [detailRoomId, roomsWithTasks]);
+
+  useEffect(() => {
+    if (detailRoomId && detailRoom) {
+      const floorKey = getFloorKey(detailRoom.floor);
+      if (floorKey && floorKey !== floorFilter) {
+        setFloorFilter(floorKey);
+      }
+      if (!isDetailOpen) {
+        setIsDetailOpen(true);
+      }
+    }
+  }, [detailRoomId, detailRoom, floorFilter, isDetailOpen, setFloorFilter, setIsDetailOpen]);
+
+  useEffect(() => {
+    if (detailRoomId && !detailRoom) {
+      setDetailRoomId(null);
+      setIsDetailOpen(false);
+    }
+  }, [detailRoomId, detailRoom, setDetailRoomId, setIsDetailOpen]);
+
+  const detailCountdown = detailRoom ? getCountdownInfo(detailRoom.nextCheckIn) : null;
+  const detailHousekeepingDue = detailRoom?.housekeepingDueDate
+    ? new Date(detailRoom.housekeepingDueDate)
+    : null;
+  const detailHousekeepingDueLabel =
+    detailHousekeepingDue && !Number.isNaN(detailHousekeepingDue.getTime())
+      ? detailHousekeepingDue.toLocaleString()
+      : null;
+
   const uniqueFloors = useMemo(() => {
     const set = new Set();
-    combinedRooms.forEach((room) => {
+    roomsWithTasks.forEach((room) => {
       set.add(getFloorKey(room.floor));
     });
     const floors = Array.from(set);
@@ -464,10 +679,74 @@ export default function HotelFloorPlanPage() {
       return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
     });
     return floors;
-  }, [combinedRooms]);
+  }, [roomsWithTasks]);
+
+  useEffect(() => {
+    if (floorFilter !== 'all' && !uniqueFloors.includes(floorFilter)) {
+      setFloorFilter('all');
+    }
+  }, [uniqueFloors, floorFilter, setFloorFilter]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (floorFilter && floorFilter !== 'all') {
+      params.set('floor', floorFilter);
+    }
+    if (statusFilter && statusFilter !== 'all') {
+      params.set('status', statusFilter);
+    }
+    if (detailRoomId) {
+      params.set('room', detailRoomId);
+    }
+    const newSearch = params.toString();
+    const currentSearch = searchParams.toString();
+    if (newSearch !== currentSearch) {
+      setSearchParams(params, { replace: true });
+    }
+  }, [floorFilter, statusFilter, detailRoomId, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (previousFloorRef.current !== floorFilter) {
+      logHospitalityEvent('floor_filter_changed', {
+        source: 'floor-plan-page',
+        floor: floorFilter,
+      });
+      previousFloorRef.current = floorFilter;
+    }
+  }, [floorFilter]);
+
+  useEffect(() => {
+    if (previousStatusRef.current !== statusFilter) {
+      logHospitalityEvent('status_filter_changed', {
+        source: 'floor-plan-page',
+        status: statusFilter,
+      });
+      previousStatusRef.current = statusFilter;
+    }
+  }, [statusFilter]);
+
+  useEffect(() => {
+    if (previousRoomRef.current === detailRoomId) {
+      return;
+    }
+    if (detailRoomId && detailRoom) {
+      logHospitalityEvent('room_detail_opened', {
+        source: 'floor-plan-page',
+        roomId: detailRoom.id,
+        roomName: detailRoom.name,
+        floor: getFloorKey(detailRoom.floor),
+      });
+    } else if (previousRoomRef.current) {
+      logHospitalityEvent('room_detail_closed', {
+        source: 'floor-plan-page',
+        roomId: previousRoomRef.current,
+      });
+    }
+    previousRoomRef.current = detailRoomId;
+  }, [detailRoomId, detailRoom]);
 
   const filteredRooms = useMemo(() => {
-    return combinedRooms.filter((room) => {
+    return roomsWithTasks.filter((room) => {
       if (floorFilter !== 'all') {
         const key = getFloorKey(room.floor);
         if (key !== floorFilter) {
@@ -484,9 +763,7 @@ export default function HotelFloorPlanPage() {
           room.name,
           room.floor,
           room.zone,
-          Array.isArray(room.locationTags)
-            ? room.locationTags.join(' ')
-            : '',
+          Array.isArray(room.locationTags) ? room.locationTags.join(' ') : '',
           room.currentGuest,
         ]
           .join(' ')
@@ -497,7 +774,7 @@ export default function HotelFloorPlanPage() {
       }
       return true;
     });
-  }, [combinedRooms, floorFilter, statusFilter, searchTerm]);
+  }, [roomsWithTasks, floorFilter, statusFilter, searchTerm]);
 
   if (loading) {
     return (
@@ -565,24 +842,24 @@ export default function HotelFloorPlanPage() {
           <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card className="border-muted-foreground/10 bg-muted/10 p-4">
               <div className="text-sm text-muted-foreground">Habitaciones totales</div>
-              <div className="mt-2 text-2xl font-semibold">{combinedRooms.length}</div>
+              <div className="mt-2 text-2xl font-semibold">{roomsWithTasks.length}</div>
             </Card>
             <Card className="border-muted-foreground/10 bg-emerald-50/60 p-4">
               <div className="text-sm text-emerald-600">Disponibles</div>
               <div className="mt-2 text-2xl font-semibold text-emerald-600">
-                {combinedRooms.filter((room) => room.status === 'available').length}
+                {roomsWithTasks.filter((room) => room.status === 'available').length}
               </div>
             </Card>
             <Card className="border-muted-foreground/10 bg-rose-50/60 p-4">
               <div className="text-sm text-rose-600">Ocupadas</div>
               <div className="mt-2 text-2xl font-semibold text-rose-600">
-                {combinedRooms.filter((room) => room.status === 'occupied').length}
+                {roomsWithTasks.filter((room) => room.status === 'occupied').length}
               </div>
             </Card>
             <Card className="border-muted-foreground/10 bg-sky-50/60 p-4">
               <div className="text-sm text-sky-600">Housekeeping pendientes</div>
               <div className="mt-2 text-2xl font-semibold text-sky-600">
-                {combinedRooms.filter((room) => room.hasHousekeepingTask).length}
+                {roomsWithTasks.filter((room) => room.hasHousekeepingTask).length}
               </div>
             </Card>
           </CardContent>
@@ -648,12 +925,19 @@ export default function HotelFloorPlanPage() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setIsLayoutBuilderOpen(true)}
+              onClick={() => {
+                logHospitalityEvent('layout_builder_opened', {
+                  source: 'floor-plan-page',
+                });
+                setIsLayoutBuilderOpen(true);
+              }}
             >
               <Settings2 className="mr-2 size-4" />
               Organizar habitaciones
             </Button>
           }
+          onRoomSelect={handleRoomSelect}
+          selectedRoomId={detailRoom?.id || null}
         />
       </div>
 
@@ -668,6 +952,200 @@ export default function HotelFloorPlanPage() {
         room={checkInRoom}
         onSuccess={handleQuickCheckInSuccess}
       />
+
+      <Drawer
+        open={isDetailOpen && Boolean(detailRoom)}
+        onOpenChange={(open) => {
+          setIsDetailOpen(open);
+          if (!open) {
+            setDetailRoomId(null);
+          }
+        }}
+        direction="right"
+      >
+        <DrawerContent className="w-[97vw] sm:w-[1024px] sm:max-w-none">
+          {detailRoom && (
+            <>
+              <DrawerHeader className="space-y-2">
+                <Badge
+                  className={cn(
+                    'w-fit capitalize',
+                    ROOM_STATUS_VARIANTS[detailRoom.status] || ROOM_STATUS_VARIANTS.available,
+                  )}
+                >
+                  {getRoomStatusLabel(detailRoom.status)}
+                </Badge>
+                <DrawerTitle className="text-xl font-semibold">
+                  {detailRoom.name}
+                </DrawerTitle>
+                <DrawerDescription className="text-sm text-muted-foreground">
+                  Piso {getFloorLabel(getFloorKey(detailRoom.floor))}{' '}
+                  {detailRoom.zone && detailRoom.zone !== UNASSIGNED_ZONE_LABEL
+                    ? `· Zona ${detailRoom.zone}`
+                    : ''}
+                </DrawerDescription>
+                {detailCountdown && (
+                  <Badge
+                    className={cn(
+                      'w-fit text-xs font-medium',
+                      getCountdownBadgeClass(detailCountdown),
+                    )}
+                  >
+                    Check-in {detailCountdown.label}
+                  </Badge>
+                )}
+              </DrawerHeader>
+
+              <Card className="mx-4 mb-4 border-border/70">
+                <CardContent className="space-y-4 p-4">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">Huésped</p>
+                    <p className="text-sm text-foreground">
+                      {detailRoom.currentGuest || 'Sin huésped asignado'}
+                    </p>
+                  </div>
+                  {(detailCountdown || detailRoom.hasHousekeepingTask) && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {detailCountdown && (
+                        <Badge
+                          className={cn(
+                            'text-xs font-medium',
+                            getCountdownBadgeClass(detailCountdown),
+                          )}
+                        >
+                          Check-in {detailCountdown.label}
+                        </Badge>
+                      )}
+                      {detailRoom.hasHousekeepingTask && (
+                        <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-300 text-xs font-medium">
+                          Housekeeping pendiente
+                          {detailHousekeepingDueLabel && (
+                            <span className="ml-1 font-normal opacity-80">
+                              · {detailHousekeepingDueLabel}
+                            </span>
+                          )}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                  <Separator />
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">Próximo check-in</p>
+                    <p className="text-sm text-foreground">
+                      {detailRoom.nextCheckIn
+                        ? new Date(detailRoom.nextCheckIn).toLocaleString()
+                        : 'Sin reservas programadas'}
+                    </p>
+                  </div>
+                  <Separator />
+                  <div className="grid gap-3 text-sm md:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">Piso</p>
+                      <p>{getFloorLabel(getFloorKey(detailRoom.floor))}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">Zona</p>
+                      <p>{detailRoom.zone || UNASSIGNED_ZONE_LABEL}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">Etiquetas</p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {Array.isArray(detailRoom.locationTags) && detailRoom.locationTags.length ? (
+                          detailRoom.locationTags.map((tag) => (
+                            <Badge key={tag} variant="outline" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))
+                        ) : (
+                          <span className="text-muted-foreground text-xs">Sin etiquetas</span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">Housekeeping</p>
+                      <p>
+                        {detailRoom.hasHousekeepingTask
+                          ? 'Tarea pendiente'
+                          : detailRoom.status === 'housekeeping'
+                            ? 'En curso'
+                            : 'Sin pendientes'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">Vence</p>
+                      <p>
+                        {detailHousekeepingDueLabel || 'Sin fecha programada'}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <DrawerFooter className="gap-3">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Button
+                    type="button"
+                    variant="default"
+                    onClick={() => handleRoomAction({ type: 'check-in', room: detailRoom })}
+                  >
+                    <UserPlus className="mr-2 size-4" />
+                    Check-in walk-in
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => handleRoomAction({ type: 'check-out', room: detailRoom })}
+                    disabled={detailRoom.status === 'housekeeping'}
+                  >
+                    <DoorOpen className="mr-2 size-4" />
+                    Registrar check-out
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleRoomAction({ type: 'housekeeping', room: detailRoom })}
+                  >
+                    <Sparkles className="mr-2 size-4" />
+                    Solicitar housekeeping
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleRoomAction({ type: 'housekeeping-done', room: detailRoom })}
+                    disabled={detailRoom.status !== 'housekeeping'}
+                  >
+                    <Sparkles className="mr-2 size-4 rotate-180" />
+                    Housekeeping listo
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleRoomAction({ type: 'maintenance-on', room: detailRoom })}
+                    disabled={detailRoom.status === 'maintenance'}
+                  >
+                    <BedDouble className="mr-2 size-4" />
+                    Bloquear mantenimiento
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleRoomAction({ type: 'maintenance-off', room: detailRoom })}
+                    disabled={detailRoom.status !== 'maintenance'}
+                  >
+                    <ShieldOff className="mr-2 size-4" />
+                    Liberar mantenimiento
+                  </Button>
+                </div>
+                <DrawerClose asChild>
+                  <Button type="button" variant="ghost">
+                    Cerrar
+                  </Button>
+                </DrawerClose>
+              </DrawerFooter>
+            </>
+          )}
+        </DrawerContent>
+      </Drawer>
 
       <HotelFloorPlanBuilder
         open={isLayoutBuilderOpen}

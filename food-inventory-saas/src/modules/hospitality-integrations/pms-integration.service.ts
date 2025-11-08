@@ -43,7 +43,10 @@ export class PmsIntegrationService {
     private readonly tenantModel: Model<TenantDocument>,
   ) {}
 
-  async enqueueWebhook(tenantId: string | undefined, payload: any): Promise<void> {
+  async enqueueWebhook(
+    tenantId: string | undefined,
+    payload: any,
+  ): Promise<void> {
     const resolvedTenantId = tenantId || payload?.tenantId;
     if (!resolvedTenantId) {
       this.logger.warn("Webhook recibido sin tenantId");
@@ -77,9 +80,7 @@ export class PmsIntegrationService {
   }): Promise<void> {
     const { tenantId, reservation } = job.data;
 
-    const tenant = await this.tenantModel
-      .findOne({ _id: tenantId })
-      .lean();
+    const tenant = await this.tenantModel.findOne({ _id: tenantId }).lean();
     if (!tenant) {
       this.logger.warn(`Tenant ${tenantId} no encontrado para PMS`);
       return;
@@ -138,7 +139,9 @@ export class PmsIntegrationService {
     );
   }
 
-  async processNightlyReconcile(job: { data: { tenantId: string } }): Promise<void> {
+  async processNightlyReconcile(job: {
+    data: { tenantId: string };
+  }): Promise<void> {
     const { tenantId } = job.data;
     this.logger.log(`Iniciando reconciliación nocturna PMS para ${tenantId}`);
 

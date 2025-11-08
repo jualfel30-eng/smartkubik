@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { fetchApi } from '@/lib/api';
-import { Loader2, Clipboard, Calendar, ExternalLink } from 'lucide-react';
+import { Loader2, Clipboard, Calendar, ExternalLink, CreditCard } from 'lucide-react';
+import { AppointmentsPaymentDialog } from './AppointmentsPaymentDialog.jsx';
 
 const STATUS_VARIANT = {
   requested: 'secondary',
@@ -77,6 +78,9 @@ export default function HospitalityDepositsDashboard() {
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState({ total: 0, byCurrency: {}, earliest: null });
   const [search, setSearch] = useState('');
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [paymentAppointment, setPaymentAppointment] = useState(null);
+  const [paymentLoadingId, setPaymentLoadingId] = useState(null);
   const navigate = useNavigate();
 
   const loadData = async () => {
@@ -135,8 +139,46 @@ export default function HospitalityDepositsDashboard() {
     navigate('/appointments', { state: { focusAppointmentId: appointmentId } });
   };
 
+  const handleRegisterPayment = async (deposit) => {
+    const appointmentId = deposit?.appointmentId;
+    if (!appointmentId) {
+      toast.error('No pudimos identificar la reserva asociada.');
+      return;
+    }
+    const loadingKey = deposit?.depositId || deposit?._id || appointmentId;
+    setPaymentAppointment(null);
+    try {
+      setPaymentLoadingId(loadingKey);
+      const response = await fetchApi(`/appointments/${appointmentId}`);
+      const appointmentData = response?.data || response?.appointment || response;
+      if (!appointmentData) {
+        throw new Error('Respuesta inválida del servidor');
+      }
+      setPaymentAppointment(appointmentData);
+      setIsPaymentDialogOpen(true);
+    } catch (err) {
+      console.error('Error fetching appointment for payment', err);
+      toast.error('No pudimos cargar la reserva para registrar el pago.');
+    } finally {
+      setPaymentLoadingId(null);
+    }
+  };
+
+const handleClosePaymentDialog = () => {
+  setIsPaymentDialogOpen(false);
+  setPaymentAppointment(null);
+  setPaymentLoadingId(null);
+};
+
+const handlePaymentSuccess = async () => {
+  toast.success('Pago registrado y conciliado correctamente.');
+  await loadData();
+  handleClosePaymentDialog();
+};
+
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Depósitos pendientes</h1>
@@ -223,8 +265,14 @@ export default function HospitalityDepositsDashboard() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredItems.map((deposit) => (
-                    <TableRow key={`${deposit.appointmentId}-${deposit.depositId}`}>
+                  filteredItems.map((deposit) => {
+                    const rowKey =
+                      deposit.depositId ||
+                      deposit._id ||
+                      `${deposit.appointmentId || 'unknown'}-${deposit.reference || 'pending'}`;
+                    const isPaymentLoading = paymentLoadingId === rowKey;
+                    return (
+                      <TableRow key={rowKey}>
                       <TableCell>
                         <div className="flex flex-col">
                           <span>{formatDateTime(deposit.createdAt)}</span>
@@ -257,7 +305,7 @@ export default function HospitalityDepositsDashboard() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex flex-wrap justify-end gap-2">
                           <Button
                             variant="outline"
                             size="sm"
@@ -265,6 +313,19 @@ export default function HospitalityDepositsDashboard() {
                           >
                             <Clipboard className="h-3.5 w-3.5 mr-1" />
                             Copiar mensaje
+                          </Button>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => handleRegisterPayment(deposit)}
+                            disabled={isPaymentLoading}
+                          >
+                            {isPaymentLoading ? (
+                              <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                            ) : (
+                              <CreditCard className="h-3.5 w-3.5 mr-1" />
+                            )}
+                            Registrar pago
                           </Button>
                           <Button
                             variant="secondary"
@@ -276,14 +337,22 @@ export default function HospitalityDepositsDashboard() {
                           </Button>
                         </div>
                       </TableCell>
-                    </TableRow>
-                  ))
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
           </div>
         </CardContent>
-      </Card>
-    </div>
+        </Card>
+      </div>
+      <AppointmentsPaymentDialog
+        isOpen={isPaymentDialogOpen && Boolean(paymentAppointment)}
+        appointment={paymentAppointment}
+        onClose={handleClosePaymentDialog}
+        onPaymentSuccess={handlePaymentSuccess}
+      />
+    </>
   );
 }
