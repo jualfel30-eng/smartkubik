@@ -2,4 +2,6 @@
 **/.DS_Store
 .last-backup
 backups/
-food-inventory-saas/logs/
+food-inventory-saas/logs/backend_ssl_errors.log
+backend_ssl_errors_sample.log
+backend_ssl_errors_with_context.log
