@@ -249,7 +249,7 @@ function TenantLayout() {
     { name: 'Citas', href: 'appointments', icon: Calendar, permission: 'appointments_read' },
     { name: 'Servicios', href: 'services', icon: Briefcase, permission: 'appointments_read' },
     { name: 'Recursos', href: 'resources', icon: UserSquare, permission: 'appointments_read' },
-    { name: 'Depósitos', href: 'hospitality/deposits', icon: PiggyBank, permission: 'appointments_read', requiresModule: 'appointments' },
+    { name: 'Cobros', href: 'hospitality/deposits', icon: PiggyBank, permission: 'appointments_read', requiresModule: 'appointments' },
     { name: 'Operaciones Hotel', href: 'hospitality/operations', icon: Building2, permission: 'appointments_read', requiresModule: 'appointments' },
     { name: 'Plano Hotel', href: 'hospitality/floor-plan', icon: Building, permission: 'appointments_read', requiresModule: 'appointments' },
     { name: 'Calendario', href: 'calendar', icon: CalendarDays, permission: 'events_read' },

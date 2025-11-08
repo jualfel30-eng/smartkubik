@@ -93,6 +93,7 @@ export default function PaymentsManagementDashboard() {
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerData, setCustomerData] = useState(null);
+  const [customerSearchInput, setCustomerSearchInput] = useState('');
 
   // Reports tab
   const [receivables, setReceivables] = useState(null);
@@ -268,6 +269,10 @@ export default function PaymentsManagementDashboard() {
       setSelectedCustomer(null);
       setSelectedCustomerId('');
     }
+  };
+
+  const handleCustomerInputChange = (inputValue) => {
+    setCustomerSearchInput(inputValue);
   };
 
   const byCurrencyEntries = useMemo(() => Object.entries(pendingSummary.byCurrency || {}), [pendingSummary.byCurrency]);
@@ -501,7 +506,7 @@ export default function PaymentsManagementDashboard() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Gestión de pagos</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Gestión de cobros</h1>
             <p className="text-muted-foreground">
               Administra depósitos pendientes, pagos confirmados y reportes financieros.
             </p>
@@ -811,6 +816,8 @@ export default function PaymentsManagementDashboard() {
                     <SearchableSelect
                       options={customerOptions}
                       onSelection={handleCustomerSelection}
+                      onInputChange={handleCustomerInputChange}
+                      inputValue={customerSearchInput}
                       value={selectedCustomer}
                       placeholder="Buscar cliente por nombre, teléfono, email o RIF/CI..."
                       isCreatable={false}

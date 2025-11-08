@@ -30,9 +30,9 @@ export function SearchableSelect({
     input: () => "text-sm text-foreground",
     placeholder: () => "text-muted-foreground",
     menu: () => "my-2 z-50 min-w-full overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md",
-    option: ({ isFocused }) =>
-      isFocused
-        ? "cursor-default rounded-sm bg-accent text-accent-foreground px-2 py-1.5 text-sm"
+    option: ({ isFocused, isSelected }) =>
+      isFocused || isSelected
+        ? "cursor-default rounded-sm bg-primary/25 text-foreground px-2 py-1.5 text-sm font-medium"
         : "cursor-default px-2 py-1.5 text-sm",
   };
 
