@@ -23,7 +23,8 @@ export class AppointmentAuditService {
   ) {}
 
   async record(options: RecordAuditOptions): Promise<void> {
-    const { tenantId, appointmentId, action, performedBy, source, changes } = options;
+    const { tenantId, appointmentId, action, performedBy, source, changes } =
+      options;
     await this.auditModel.create({
       tenantId,
       appointmentId,

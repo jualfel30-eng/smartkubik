@@ -3,6 +3,40 @@ import { Document } from "mongoose";
 
 export type ResourceDocument = Resource & Document;
 
+export interface ResourceBaseRate {
+  amount: number;
+  currency: string;
+  description?: string;
+}
+
+export interface ResourcePricingTier {
+  label: string;
+  amount: number;
+  currency?: string;
+  startDate?: Date;
+  endDate?: Date;
+  daysOfWeek?: string[];
+  minNights?: number;
+  maxNights?: number;
+  isDefault?: boolean;
+  channel?: string;
+}
+
+export interface ResourcePromotion {
+  name: string;
+  type: "percentage" | "fixed";
+  value: number;
+  description?: string;
+  startDate?: Date;
+  endDate?: Date;
+  minNights?: number;
+  maxNights?: number;
+  bookingWindowStart?: Date;
+  bookingWindowEnd?: Date;
+  stackable?: boolean;
+  code?: string;
+}
+
 /**
  * Resource Schema - Recursos del negocio (personas, equipos, salas)
  *
@@ -111,6 +145,60 @@ export class Resource {
 
   @Prop({ type: Object })
   metadata: Record<string, any>; // Información adicional (licencias, certificaciones, etc.)
+
+  @Prop({
+    type: {
+      amount: { type: Number, default: 0 },
+      currency: { type: String, default: "USD" },
+      description: { type: String },
+    },
+    default: null,
+  })
+  baseRate?: ResourceBaseRate | null;
+
+  @Prop({
+    type: [
+      {
+        label: { type: String, required: true, trim: true },
+        amount: { type: Number, required: true },
+        currency: { type: String, default: "USD" },
+        startDate: { type: Date },
+        endDate: { type: Date },
+        daysOfWeek: { type: [String], default: [] },
+        minNights: { type: Number },
+        maxNights: { type: Number },
+        isDefault: { type: Boolean, default: false },
+        channel: { type: String, trim: true },
+      },
+    ],
+    default: [],
+  })
+  pricing: ResourcePricingTier[];
+
+  @Prop({
+    type: [
+      {
+        name: { type: String, required: true, trim: true },
+        type: {
+          type: String,
+          enum: ["percentage", "fixed"],
+          default: "percentage",
+        },
+        value: { type: Number, required: true },
+        description: { type: String },
+        startDate: { type: Date },
+        endDate: { type: Date },
+        minNights: { type: Number },
+        maxNights: { type: Number },
+        bookingWindowStart: { type: Date },
+        bookingWindowEnd: { type: Date },
+        stackable: { type: Boolean, default: false },
+        code: { type: String, trim: true },
+      },
+    ],
+    default: [],
+  })
+  promotions: ResourcePromotion[];
 }
 
 export const ResourceSchema = SchemaFactory.createForClass(Resource);

@@ -51,7 +51,7 @@ export class ServicesService {
       })),
       requiresDeposit,
       depositType: requiresDeposit ? depositType : "fixed",
-      depositAmount: requiresDeposit ? depositAmount ?? 0 : 0,
+      depositAmount: requiresDeposit ? (depositAmount ?? 0) : 0,
       minAdvanceBooking,
       maxAdvanceBooking,
       tenantId,

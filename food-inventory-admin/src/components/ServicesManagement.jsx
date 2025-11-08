@@ -8,8 +8,10 @@ import { Textarea } from '@/components/ui/textarea.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { Checkbox } from '@/components/ui/checkbox.jsx';
 import { fetchApi } from '../lib/api';
 import { useModuleAccess } from '../hooks/useModuleAccess';
+import { useBusinessModel, getBusinessContextText } from '../hooks/useBusinessModel';
 import ModuleAccessDenied from './ModuleAccessDenied';
 import {
   Plus,
@@ -19,8 +21,19 @@ import {
   Clock,
   DollarSign,
   CheckCircle,
-  XCircle
+  XCircle,
+  User,
+  Building,
+  Wrench,
+  Truck
 } from 'lucide-react';
+
+const RESOURCE_TYPES = [
+  { value: 'person', label: 'Persona', icon: User },
+  { value: 'room', label: 'Sala/Habitación', icon: Building },
+  { value: 'equipment', label: 'Equipo', icon: Wrench },
+  { value: 'vehicle', label: 'Vehículo', icon: Truck },
+];
 
 const initialServiceState = {
   name: '',
@@ -40,6 +53,7 @@ const initialServiceState = {
 
 function ServicesManagement() {
   const hasAccess = useModuleAccess('appointments');
+  const { isResourceCentric, isFlexible, businessType } = useBusinessModel();
   const [services, setServices] = useState([]);
   const [filteredServices, setFilteredServices] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -421,30 +435,93 @@ function ServicesManagement() {
                 />
               </div>
 
-              <div>
-                <Label htmlFor="price">Precio ($) *</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
-                  required
-                />
-              </div>
+              {isResourceCentric && !isFlexible ? (
+                <div className="col-span-2 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded">
+                      <Building className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                        {getBusinessContextText(businessType, 'service').title}
+                      </h4>
+                      <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
+                        {getBusinessContextText(businessType, 'service').description}
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label htmlFor="price" className="text-blue-900 dark:text-blue-100">
+                            Precio desde ($)
+                          </Label>
+                          <Input
+                            id="price"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={formData.price}
+                            onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
+                            placeholder="Ej: 100"
+                            className="bg-white dark:bg-gray-950"
+                          />
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                            Solo referencial, el precio real está en cada recurso
+                          </p>
+                        </div>
+                        <div>
+                          <Label htmlFor="cost" className="text-blue-900 dark:text-blue-100">
+                            Costo operativo ($)
+                          </Label>
+                          <Input
+                            id="cost"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={formData.cost}
+                            onChange={(e) => setFormData({ ...formData, cost: parseFloat(e.target.value) })}
+                            placeholder="Ej: 20"
+                            className="bg-white dark:bg-gray-950"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <Label htmlFor="price">Precio ($) *</Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
+                      required
+                      placeholder="Precio que paga el cliente"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {getBusinessContextText(businessType, 'service').description}
+                    </p>
+                  </div>
 
-              <div>
-                <Label htmlFor="cost">Costo ($)</Label>
-                <Input
-                  id="cost"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.cost}
-                  onChange={(e) => setFormData({ ...formData, cost: parseFloat(e.target.value) })}
-                />
-              </div>
+                  <div>
+                    <Label htmlFor="cost">Costo ($)</Label>
+                    <Input
+                      id="cost"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.cost}
+                      onChange={(e) => setFormData({ ...formData, cost: parseFloat(e.target.value) })}
+                      placeholder="Costo operativo"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Para calcular rentabilidad
+                    </p>
+                  </div>
+                </>
+              )}
 
               <div>
                 <Label htmlFor="bufferTimeBefore">Preparación (min)</Label>
@@ -498,6 +575,53 @@ function ServicesManagement() {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Resource Type Selector */}
+            <div className="space-y-3">
+              <div>
+                <h3 className="text-lg font-semibold">Tipos de recursos permitidos</h3>
+                <p className="text-sm text-muted-foreground">
+                  Selecciona qué tipos de recursos pueden realizar este servicio
+                </p>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 border rounded-lg bg-gray-50 dark:bg-slate-900/40">
+                {RESOURCE_TYPES.map((resourceType) => {
+                  const Icon = resourceType.icon;
+                  return (
+                    <div
+                      key={resourceType.value}
+                      className="flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-slate-800"
+                    >
+                      <Checkbox
+                        id={`resource-type-${resourceType.value}`}
+                        checked={formData.allowedResourceTypes.includes(resourceType.value)}
+                        onCheckedChange={(checked) => {
+                          const isChecked = checked === true || checked === 'indeterminate';
+                          setFormData((prev) => ({
+                            ...prev,
+                            allowedResourceTypes: isChecked
+                              ? [...prev.allowedResourceTypes, resourceType.value]
+                              : prev.allowedResourceTypes.filter((type) => type !== resourceType.value),
+                          }));
+                        }}
+                      />
+                      <Label
+                        htmlFor={`resource-type-${resourceType.value}`}
+                        className="flex items-center gap-2 cursor-pointer font-normal"
+                      >
+                        <Icon className="h-4 w-4 text-gray-500" />
+                        <span>{resourceType.label}</span>
+                      </Label>
+                    </div>
+                  );
+                })}
+              </div>
+              {formData.allowedResourceTypes.length === 0 && (
+                <p className="text-xs text-amber-600 dark:text-amber-500">
+                  Si no seleccionas ningún tipo, todos los tipos de recursos podrán realizar este servicio.
+                </p>
+              )}
             </div>
 
             <DialogFooter>

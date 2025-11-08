@@ -13,6 +13,7 @@ import {
   IsArray,
   ValidateNested,
   IsObject,
+  IsISO8601,
 } from "class-validator";
 
 class AppointmentParticipantDto {
@@ -85,9 +86,12 @@ export class CreateAppointmentDto {
   @ApiProperty({
     description: "ID del servicio",
     example: "507f1f77bcf86cd799439012",
+    required: false,
+    nullable: true,
   })
+  @IsOptional()
   @IsMongoId()
-  serviceId: string;
+  serviceId?: string;
 
   @ApiProperty({
     description: "ID de la ubicación/sede (opcional)",
@@ -261,7 +265,7 @@ export class UpdateAppointmentDto {
   @IsOptional()
   customerId?: string;
 
-  @ApiProperty({ description: "ID del servicio", required: false })
+  @ApiProperty({ description: "ID del servicio", required: false, nullable: true })
   @IsMongoId()
   @IsOptional()
   serviceId?: string;
@@ -552,7 +556,8 @@ export class CheckAvailabilityDto {
   resourceId?: string;
 
   @ApiProperty({
-    description: "IDs de recursos adicionales para chequear disponibilidad conjunta",
+    description:
+      "IDs de recursos adicionales para chequear disponibilidad conjunta",
     required: false,
     example: ["507f1f77bcf86cd799439014"],
   })
@@ -640,7 +645,10 @@ export class CreateAppointmentSeriesDto {
 }
 
 class GroupAttendeeDto {
-  @ApiProperty({ description: "ID del cliente", example: "507f1f77bcf86cd799439022" })
+  @ApiProperty({
+    description: "ID del cliente",
+    example: "507f1f77bcf86cd799439022",
+  })
   @IsMongoId()
   customerId: string;
 
@@ -777,6 +785,36 @@ export class CreateManualDepositDto {
   @IsString()
   @MaxLength(50)
   method?: string;
+
+  @ApiProperty({
+    description: "Estado inicial del depósito",
+    enum: ["submitted", "confirmed"],
+    required: false,
+    default: "submitted",
+  })
+  @IsOptional()
+  @IsEnum(["submitted", "confirmed"])
+  status?: "submitted" | "confirmed";
+
+  @ApiProperty({
+    description:
+      "Monto confirmado si se registra como confirmado inmediatamente",
+    required: false,
+    example: 50,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  confirmedAmount?: number;
+
+  @ApiProperty({
+    description: "Fecha de la transacción (ISO 8601)",
+    required: false,
+    example: "2024-02-20T14:30:00.000Z",
+  })
+  @IsOptional()
+  @IsISO8601()
+  transactionDate?: string;
 
   @ApiProperty({
     description: "Monto equivalente en USD (opcional)",

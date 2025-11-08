@@ -13,6 +13,8 @@ import {
   Min,
   ArrayMinSize,
   IsMongoId,
+  IsDateString,
+  IsIn,
 } from "class-validator";
 import { Type } from "class-transformer";
 
@@ -80,6 +82,165 @@ class UnavailableDateDto {
   @IsString()
   @IsOptional()
   reason?: string;
+}
+
+const WEEKDAY_VALUES = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+];
+
+class ResourceBaseRateDto {
+  @ApiProperty({ description: "Monto base", example: 120 })
+  @IsNumber()
+  @Min(0)
+  amount: number;
+
+  @ApiProperty({ description: "Moneda", example: "USD" })
+  @IsString()
+  @MaxLength(10)
+  currency: string;
+
+  @ApiProperty({ description: "Descripción", required: false })
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  description?: string;
+}
+
+class ResourcePricingTierDto {
+  @ApiProperty({ description: "Etiqueta de la tarifa", example: "Temporada alta" })
+  @IsString()
+  @MaxLength(120)
+  label: string;
+
+  @ApiProperty({ description: "Monto", example: 180 })
+  @IsNumber()
+  @Min(0)
+  amount: number;
+
+  @ApiProperty({ description: "Moneda", example: "USD", required: false })
+  @IsString()
+  @IsOptional()
+  @MaxLength(10)
+  currency?: string;
+
+  @ApiProperty({ description: "Fecha de inicio", example: "2025-07-01", required: false })
+  @IsDateString()
+  @IsOptional()
+  startDate?: string;
+
+  @ApiProperty({ description: "Fecha de fin", example: "2025-09-01", required: false })
+  @IsDateString()
+  @IsOptional()
+  endDate?: string;
+
+  @ApiProperty({
+    description: "Días de la semana",
+    enum: WEEKDAY_VALUES,
+    isArray: true,
+    required: false,
+  })
+  @IsArray()
+  @IsIn(WEEKDAY_VALUES, { each: true })
+  @IsOptional()
+  daysOfWeek?: string[];
+
+  @ApiProperty({ description: "Estadía mínima", example: 2, required: false })
+  @IsNumber()
+  @IsOptional()
+  @Min(1)
+  minNights?: number;
+
+  @ApiProperty({ description: "Estadía máxima", example: 7, required: false })
+  @IsNumber()
+  @IsOptional()
+  @Min(1)
+  maxNights?: number;
+
+  @ApiProperty({ description: "Tarifa por defecto", required: false })
+  @IsBoolean()
+  @IsOptional()
+  isDefault?: boolean;
+
+  @ApiProperty({ description: "Canal de venta", example: "Website", required: false })
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  channel?: string;
+}
+
+class ResourcePromotionDto {
+  @ApiProperty({ description: "Nombre de la promoción", example: "Promo verano" })
+  @IsString()
+  @MaxLength(120)
+  name: string;
+
+  @ApiProperty({
+    description: "Tipo de promoción",
+    enum: ["percentage", "fixed"],
+    default: "percentage",
+  })
+  @IsEnum(["percentage", "fixed"])
+  type: "percentage" | "fixed";
+
+  @ApiProperty({ description: "Valor de la promoción", example: 15 })
+  @IsNumber()
+  @Min(0)
+  value: number;
+
+  @ApiProperty({ description: "Descripción", required: false })
+  @IsString()
+  @IsOptional()
+  @MaxLength(200)
+  description?: string;
+
+  @ApiProperty({ description: "Fecha de inicio", required: false })
+  @IsDateString()
+  @IsOptional()
+  startDate?: string;
+
+  @ApiProperty({ description: "Fecha de fin", required: false })
+  @IsDateString()
+  @IsOptional()
+  endDate?: string;
+
+  @ApiProperty({ description: "Estadía mínima", required: false })
+  @IsNumber()
+  @IsOptional()
+  @Min(1)
+  minNights?: number;
+
+  @ApiProperty({ description: "Estadía máxima", required: false })
+  @IsNumber()
+  @IsOptional()
+  @Min(1)
+  maxNights?: number;
+
+  @ApiProperty({ description: "Inicio ventana de reserva", required: false })
+  @IsDateString()
+  @IsOptional()
+  bookingWindowStart?: string;
+
+  @ApiProperty({ description: "Fin ventana de reserva", required: false })
+  @IsDateString()
+  @IsOptional()
+  bookingWindowEnd?: string;
+
+  @ApiProperty({ description: "¿Es acumulable?", required: false })
+  @IsBoolean()
+  @IsOptional()
+  stackable?: boolean;
+
+  @ApiProperty({ description: "Código promocional", required: false })
+  @IsString()
+  @IsOptional()
+  @MaxLength(50)
+  code?: string;
 }
 
 export class CreateResourceDto {
@@ -235,6 +396,34 @@ export class CreateResourceDto {
   @IsString({ each: true })
   @IsOptional()
   locationTags?: string[];
+
+  @ApiProperty({ description: "Tarifa base", required: false, type: ResourceBaseRateDto })
+  @ValidateNested()
+  @Type(() => ResourceBaseRateDto)
+  @IsOptional()
+  baseRate?: ResourceBaseRateDto;
+
+  @ApiProperty({
+    description: "Tarifas estacionales o personalizadas",
+    required: false,
+    type: [ResourcePricingTierDto],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ResourcePricingTierDto)
+  @IsOptional()
+  pricing?: ResourcePricingTierDto[];
+
+  @ApiProperty({
+    description: "Promociones aplicables al recurso",
+    required: false,
+    type: [ResourcePromotionDto],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ResourcePromotionDto)
+  @IsOptional()
+  promotions?: ResourcePromotionDto[];
 }
 
 export class UpdateResourceDto {
@@ -364,6 +553,34 @@ export class UpdateResourceDto {
   @IsString({ each: true })
   @IsOptional()
   locationTags?: string[];
+
+  @ApiProperty({ description: "Tarifa base", required: false, type: ResourceBaseRateDto })
+  @ValidateNested()
+  @Type(() => ResourceBaseRateDto)
+  @IsOptional()
+  baseRate?: ResourceBaseRateDto;
+
+  @ApiProperty({
+    description: "Tarifas estacionales o personalizadas",
+    required: false,
+    type: [ResourcePricingTierDto],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ResourcePricingTierDto)
+  @IsOptional()
+  pricing?: ResourcePricingTierDto[];
+
+  @ApiProperty({
+    description: "Promociones aplicables al recurso",
+    required: false,
+    type: [ResourcePromotionDto],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ResourcePromotionDto)
+  @IsOptional()
+  promotions?: ResourcePromotionDto[];
 }
 
 export class ResourceLayoutItemDto {

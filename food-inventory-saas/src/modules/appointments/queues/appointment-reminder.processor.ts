@@ -36,7 +36,8 @@ export class AppointmentReminderProcessor extends WorkerHost {
    * Más adelante se integrará con mailer/SMS/WhatsApp.
    */
   async process(job: Job<ReminderJobPayload>): Promise<void> {
-    const { appointmentId, tenantId, reminderAt, channels, metadata } = job.data;
+    const { appointmentId, tenantId, reminderAt, channels, metadata } =
+      job.data;
 
     if (job.name === APPOINTMENT_DEPOSIT_ALERT_JOB) {
       this.logger.log(
@@ -72,9 +73,7 @@ export class AppointmentReminderProcessor extends WorkerHost {
 
   @OnWorkerEvent("completed")
   onCompleted(job: Job<ReminderJobPayload>) {
-    this.logger.debug(
-      `Reminder job ${job.id} (${job.name}) completed`,
-    );
+    this.logger.debug(`Reminder job ${job.id} (${job.name}) completed`);
   }
 
   @OnWorkerEvent("failed")
@@ -135,15 +134,17 @@ export class AppointmentReminderProcessor extends WorkerHost {
     fallback: string[],
   ): NotificationChannel[] {
     const normalized = new Set<string>();
-    (requested && requested.length ? requested : fallback).forEach((channel) => {
-      if (!channel) {
-        return;
-      }
-      const lower = channel.toLowerCase();
-      if (["email", "sms", "whatsapp"].includes(lower)) {
-        normalized.add(lower);
-      }
-    });
+    (requested && requested.length ? requested : fallback).forEach(
+      (channel) => {
+        if (!channel) {
+          return;
+        }
+        const lower = channel.toLowerCase();
+        if (["email", "sms", "whatsapp"].includes(lower)) {
+          normalized.add(lower);
+        }
+      },
+    );
     if (normalized.size === 0) {
       return ["email", "whatsapp"];
     }

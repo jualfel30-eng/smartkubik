@@ -32,8 +32,8 @@ export class Appointment {
   customerEmail?: string; // Email del huésped para búsquedas públicas
 
   // Servicio
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Service", required: true })
-  serviceId: MongooseSchema.Types.ObjectId;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Service" })
+  serviceId?: MongooseSchema.Types.ObjectId;
 
   @Prop({ trim: true })
   serviceName: string; // Denormalizado

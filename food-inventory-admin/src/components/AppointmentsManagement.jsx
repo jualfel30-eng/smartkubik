@@ -9,11 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx';
+import { SearchableSelect } from '@/components/orders/v2/custom/SearchableSelect.jsx';
 import { toast } from 'sonner';
 import { fetchApi } from '../lib/api';
 import { useModuleAccess } from '../hooks/useModuleAccess';
 import ModuleAccessDenied from './ModuleAccessDenied';
 import { HotelCalendar } from './hospitality/HotelCalendar.jsx';
+import { AppointmentsPaymentDialog } from './hospitality/AppointmentsPaymentDialog.jsx';
 import {
   Plus,
   Calendar,
@@ -31,8 +33,11 @@ import {
 
 const UNASSIGNED_RESOURCE = '__UNASSIGNED__';
 
+const SERVICE_UNSET_VALUE = '__NO_SERVICE__';
+
 const initialAppointmentState = {
   customerId: '',
+  customerName: '',
   serviceId: '',
   resourceId: UNASSIGNED_RESOURCE,
   startTime: '',
@@ -60,6 +65,8 @@ const initialBlockState = {
   reason: '',
 };
 
+const UNASSIGNED_BANK_ACCOUNT = '__UNASSIGNED_BANK_ACCOUNT__';
+
 const initialDepositFormState = {
   amount: '',
   currency: 'VES',
@@ -67,7 +74,7 @@ const initialDepositFormState = {
   proofUrl: '',
   notes: '',
   method: 'transferencia',
-  bankAccountId: '',
+  bankAccountId: UNASSIGNED_BANK_ACCOUNT,
   proofFileName: '',
   proofMimeType: '',
   proofBase64: '',
@@ -78,7 +85,7 @@ const initialDepositFormState = {
 
 const initialDepositActionState = {
   status: 'confirmed',
-  bankAccountId: '',
+  bankAccountId: UNASSIGNED_BANK_ACCOUNT,
   confirmedAmount: '',
   notes: '',
   decisionNotes: '',
@@ -92,6 +99,14 @@ const initialDepositActionState = {
   amountVes: '',
   exchangeRate: '',
   transactionDate: '',
+};
+
+const initialCustomerProfile = {
+  taxType: 'V',
+  taxId: '',
+  taxName: '',
+  phone: '',
+  email: '',
 };
 
 const DEPOSIT_METHOD_OPTIONS = [
@@ -145,6 +160,12 @@ const formatCurrency = (value, currency = 'VES') => {
   }
 };
 
+const sanitizeTextValue = (value = '') => value.trim();
+const sanitizeTaxIdValue = (value = '') => sanitizeTextValue(value).toUpperCase();
+const sanitizeEmailValue = (value = '') => sanitizeTextValue(value).toLowerCase();
+const sanitizePhoneValue = (value = '') =>
+  sanitizeTextValue(value).replace(/[^\d+]/g, '');
+
 const STATUS_CONFIG = {
   pending: { label: 'Pendiente', variant: 'secondary', icon: AlertCircle },
   confirmed: { label: 'Confirmada', variant: 'default', icon: CheckCircle },
@@ -152,6 +173,27 @@ const STATUS_CONFIG = {
   completed: { label: 'Completada', variant: 'success', icon: CheckCircle },
   cancelled: { label: 'Cancelada', variant: 'destructive', icon: XCircle },
   no_show: { label: 'No asistió', variant: 'destructive', icon: XCircle },
+};
+
+const normalizeId = (value) => {
+  if (!value) {
+    return '';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'object') {
+    if (typeof value.toHexString === 'function') {
+      return value.toHexString();
+    }
+    if (typeof value.toString === 'function') {
+      const candidate = value.toString();
+      if (candidate && candidate !== '[object Object]') {
+        return candidate;
+      }
+    }
+  }
+  return '';
 };
 
 function AppointmentsManagement() {
@@ -166,6 +208,273 @@ function AppointmentsManagement() {
   const [editingAppointment, setEditingAppointment] = useState(null);
   const [formData, setFormData] = useState({ ...initialAppointmentState });
   const [loading, setLoading] = useState(false);
+  const [customerProfile, setCustomerProfile] = useState({ ...initialCustomerProfile });
+  const [selectedCustomerRecord, setSelectedCustomerRecord] = useState(null);
+  const [customerDetailLoading, setCustomerDetailLoading] = useState(false);
+  const normalizeCustomerRecord = useCallback((record) => {
+    if (!record) {
+      return null;
+    }
+    const normalizedId = normalizeId(record._id || record.id || record.customerId);
+    if (!normalizedId) {
+      return null;
+    }
+    const contacts = Array.isArray(record.contacts)
+      ? record.contacts.map((contact) => ({
+          ...contact,
+          type: contact?.type,
+          value: contact?.value,
+          isPrimary: Boolean(contact?.isPrimary),
+        }))
+      : [];
+
+    return {
+      ...record,
+      _id: normalizedId,
+      contacts,
+      taxInfo: {
+        ...(record.taxInfo || {}),
+      },
+    };
+  }, []);
+
+  const deriveProfileFromCustomer = useCallback((customer) => {
+    if (!customer) {
+      return { ...initialCustomerProfile };
+    }
+    const contacts = Array.isArray(customer.contacts) ? customer.contacts : [];
+    const phoneContact = contacts.find((contact) => contact?.type === 'phone');
+    const emailContact = contacts.find((contact) => contact?.type === 'email');
+    return {
+      taxType: customer.taxInfo?.taxType || initialCustomerProfile.taxType,
+      taxId: customer.taxInfo?.taxId || '',
+      taxName: customer.taxInfo?.taxName || customer.name || '',
+      phone: phoneContact?.value || '',
+      email: emailContact?.value || '',
+    };
+  }, []);
+
+  const fetchCustomerDetail = useCallback(
+    async (customerId) => {
+      if (!customerId) {
+        return null;
+      }
+      try {
+        const response = await fetchApi(`/customers/${customerId}`);
+        const record = response?.data || response?.customer || response;
+        return normalizeCustomerRecord(record);
+      } catch (error) {
+        console.error('Error loading customer detail:', error);
+        throw error;
+      }
+    },
+    [normalizeCustomerRecord],
+  );
+
+  const upsertCustomerInList = useCallback(
+    (record) => {
+      if (!record?._id) {
+        return;
+      }
+      setCustomers((prev) => {
+        const list = Array.isArray(prev) ? [...prev] : [];
+        const index = list.findIndex((item) => item._id === record._id);
+        if (index >= 0) {
+          list[index] = { ...list[index], ...record };
+          return list;
+        }
+        return [...list, record];
+      });
+    },
+    [setCustomers],
+  );
+
+  const applyCustomerDetailFromAppointment = useCallback(
+    async (detail) => {
+      if (!detail) {
+        setSelectedCustomerRecord(null);
+        setCustomerProfile({ ...initialCustomerProfile });
+        return;
+      }
+
+      const candidate = detail.customer || detail.customerId;
+      const candidateId =
+        normalizeId(candidate?._id) || normalizeId(candidate);
+
+      let hydratedCustomer = null;
+
+      if (candidate && candidate.contacts) {
+        hydratedCustomer = normalizeCustomerRecord(candidate);
+      } else if (candidateId) {
+        try {
+          hydratedCustomer = await fetchCustomerDetail(candidateId);
+        } catch (error) {
+          console.error('Error loading customer profile:', error);
+        }
+      }
+
+      if (hydratedCustomer) {
+        upsertCustomerInList(hydratedCustomer);
+        setSelectedCustomerRecord(hydratedCustomer);
+        setCustomerProfile(deriveProfileFromCustomer(hydratedCustomer));
+      } else {
+        setSelectedCustomerRecord(null);
+        setCustomerProfile({
+          ...initialCustomerProfile,
+          taxName: detail.customerName || detail.customer?.name || '',
+        });
+      }
+    },
+    [
+      deriveProfileFromCustomer,
+      fetchCustomerDetail,
+      normalizeCustomerRecord,
+      upsertCustomerInList,
+    ],
+  );
+
+  const syncCustomerProfile = useCallback(async () => {
+    if (!formData.customerId) {
+      return;
+    }
+
+    const targetCustomerId = formData.customerId;
+    const currentRecord = selectedCustomerRecord;
+
+    const preparedTaxId = sanitizeTaxIdValue(customerProfile.taxId);
+    const preparedTaxName =
+      sanitizeTextValue(customerProfile.taxName) || formData.customerName || '';
+    const preparedTaxType = customerProfile.taxType || initialCustomerProfile.taxType;
+
+    const updates = {};
+    const nextTaxInfo = {
+      ...(currentRecord?.taxInfo || {}),
+    };
+    let taxInfoChanged = false;
+
+    if (preparedTaxType && preparedTaxType !== (currentRecord?.taxInfo?.taxType || initialCustomerProfile.taxType)) {
+      nextTaxInfo.taxType = preparedTaxType;
+      taxInfoChanged = true;
+    }
+
+    if (preparedTaxId && preparedTaxId !== (currentRecord?.taxInfo?.taxId || '')) {
+      nextTaxInfo.taxId = preparedTaxId;
+      taxInfoChanged = true;
+    } else if (!currentRecord?.taxInfo?.taxId && preparedTaxId) {
+      nextTaxInfo.taxId = preparedTaxId;
+      taxInfoChanged = true;
+    }
+
+    if (preparedTaxName && preparedTaxName !== (currentRecord?.taxInfo?.taxName || currentRecord?.name || '')) {
+      nextTaxInfo.taxName = preparedTaxName;
+      taxInfoChanged = true;
+    } else if (!currentRecord?.taxInfo?.taxName && preparedTaxName) {
+      nextTaxInfo.taxName = preparedTaxName;
+      taxInfoChanged = true;
+    }
+
+    if (!currentRecord?.taxInfo && (preparedTaxId || preparedTaxName || preparedTaxType)) {
+      nextTaxInfo.taxType = preparedTaxType;
+      if (preparedTaxId) {
+        nextTaxInfo.taxId = preparedTaxId;
+      }
+      nextTaxInfo.taxName = preparedTaxName;
+      taxInfoChanged = true;
+    }
+
+    if (taxInfoChanged) {
+      updates.taxInfo = nextTaxInfo;
+    }
+
+    const existingContacts = Array.isArray(currentRecord?.contacts)
+      ? currentRecord.contacts
+      : [];
+    const existingPhoneContact = existingContacts.find((contact) => contact?.type === 'phone');
+    const existingEmailContact = existingContacts.find((contact) => contact?.type === 'email');
+
+    const sanitizedExistingPhone = sanitizePhoneValue(existingPhoneContact?.value || '');
+    const sanitizedExistingEmail = sanitizeEmailValue(existingEmailContact?.value || '');
+
+    const preparedPhone = sanitizePhoneValue(customerProfile.phone);
+    const preparedEmail = sanitizeEmailValue(customerProfile.email);
+
+    let contactsChanged = false;
+
+    if (preparedPhone && preparedPhone !== sanitizedExistingPhone) {
+      contactsChanged = true;
+    } else if (!sanitizedExistingPhone && preparedPhone) {
+      contactsChanged = true;
+    }
+
+    if (preparedEmail && preparedEmail !== sanitizedExistingEmail) {
+      contactsChanged = true;
+    } else if (!sanitizedExistingEmail && preparedEmail) {
+      contactsChanged = true;
+    }
+
+    if (!currentRecord && (preparedPhone || preparedEmail)) {
+      contactsChanged = true;
+    }
+
+    if (contactsChanged) {
+      const nextContacts = existingContacts
+        .filter(
+          (contact) => contact?.type !== 'phone' && contact?.type !== 'email',
+        )
+        .map((contact) => ({
+          ...contact,
+          type: contact?.type,
+          value: contact?.value,
+          isPrimary: Boolean(contact?.isPrimary),
+        }));
+
+      if (preparedPhone) {
+        nextContacts.push({
+          type: 'phone',
+          value: preparedPhone,
+          isPrimary: true,
+        });
+      }
+
+      if (preparedEmail) {
+        nextContacts.push({
+          type: 'email',
+          value: preparedEmail,
+          isPrimary: true,
+        });
+      }
+
+      updates.contacts = nextContacts;
+    }
+
+    if (!Object.keys(updates).length) {
+      return;
+    }
+
+    const response = await fetchApi(`/customers/${targetCustomerId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+
+    const updatedRecord =
+      normalizeCustomerRecord(
+        response?.data || response?.customer || response,
+      ) || currentRecord;
+
+    if (updatedRecord) {
+      upsertCustomerInList(updatedRecord);
+      setSelectedCustomerRecord(updatedRecord);
+      setCustomerProfile(deriveProfileFromCustomer(updatedRecord));
+    }
+  }, [
+    customerProfile,
+    deriveProfileFromCustomer,
+    formData.customerId,
+    formData.customerName,
+    normalizeCustomerRecord,
+    selectedCustomerRecord,
+    upsertCustomerInList,
+  ]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -189,6 +498,9 @@ function AppointmentsManagement() {
   const [depositActionSubmitting, setDepositActionSubmitting] = useState(false);
   const [receiptLoadingId, setReceiptLoadingId] = useState(null);
   const [auditTrail, setAuditTrail] = useState([]);
+  const [customerNameInput, setCustomerNameInput] = useState('');
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [paymentDialogAppointment, setPaymentDialogAppointment] = useState(null);
   const depositFileInputRef = useRef(null);
   const depositActionFileInputRef = useRef(null);
   const depositMethodOptions = useMemo(() => DEPOSIT_METHOD_OPTIONS, []);
@@ -244,6 +556,12 @@ function AppointmentsManagement() {
   }, [dateFrom, dateTo, statusFilter]);
 
   useEffect(() => {
+    if (!isDialogOpen) {
+      setCustomerNameInput('');
+    }
+  }, [isDialogOpen]);
+
+  useEffect(() => {
     if (!hasBankAccess) {
       setBankAccounts([]);
       return;
@@ -260,6 +578,21 @@ function AppointmentsManagement() {
 
     loadBankAccounts();
   }, [hasBankAccess]);
+
+  useEffect(() => {
+    if (!formData.customerName) {
+      return;
+    }
+    setCustomerProfile((prev) => {
+      if (prev.taxName) {
+        return prev;
+      }
+      return {
+        ...prev,
+        taxName: formData.customerName,
+      };
+    });
+  }, [formData.customerName]);
 
   const loadAppointments = async () => {
     try {
@@ -282,7 +615,24 @@ function AppointmentsManagement() {
   const loadServices = async () => {
     try {
       const data = await fetchApi('/services/active');
-      setServices(normalizeListResponse(data));
+      const items = normalizeListResponse(data)
+        .map((item) => {
+          const normalizedId =
+            normalizeId(item._id) ||
+            normalizeId(item.id) ||
+            normalizeId(item.serviceId);
+
+          if (!normalizedId || normalizedId === 'undefined') {
+            return null;
+          }
+
+          return {
+            ...item,
+            _id: normalizedId,
+          };
+        })
+        .filter(Boolean);
+      setServices(items);
     } catch (error) {
       console.error('Error loading services:', error);
       setServices([]);
@@ -292,7 +642,19 @@ function AppointmentsManagement() {
   const loadResources = async () => {
     try {
       const data = await fetchApi('/resources/active');
-      setResources(normalizeListResponse(data));
+      const items = normalizeListResponse(data)
+        .map((item) => {
+          const normalizedId = normalizeId(item._id) || normalizeId(item.id);
+          if (!normalizedId) {
+            return null;
+          }
+          return {
+            ...item,
+            _id: normalizedId,
+          };
+        })
+        .filter(Boolean);
+      setResources(items);
     } catch (error) {
       console.error('Error loading resources:', error);
       setResources([]);
@@ -302,29 +664,228 @@ function AppointmentsManagement() {
   const loadCustomers = async () => {
     try {
       const data = await fetchApi('/customers');
-      setCustomers(normalizeListResponse(data));
+      const items = normalizeListResponse(data)
+        .map((customer) => normalizeCustomerRecord(customer))
+        .filter(Boolean);
+      setCustomers(items);
     } catch (error) {
       console.error('Error loading customers:', error);
       setCustomers([]);
     }
   };
 
-  const getBankAccountLabel = useCallback(
-    (accountId) => {
-      if (!accountId) return 'Sin cuenta asignada';
-      const stringId = typeof accountId === 'string' ? accountId : accountId?._id || accountId?.toString?.();
-      const account = bankAccounts.find(
-        (item) => item._id === stringId || item._id?.toString?.() === stringId,
-      );
-      if (!account) return stringId || 'Sin cuenta asignada';
-
-      const suffix = account.accountNumber
-        ? ` · ****${account.accountNumber.slice(-4)}`
-        : '';
-      return `${account.bankName}${suffix}`;
-    },
-    [bankAccounts],
+  const customerOptions = useMemo(
+    () =>
+      (Array.isArray(customers) ? customers : []).map((customer) => ({
+        value: customer._id,
+        label: customer.name || 'Cliente sin nombre',
+        customer,
+      })),
+    [customers],
   );
+
+  const selectedCustomerOption = useMemo(() => {
+    if (formData.customerId) {
+      const matched = (Array.isArray(customers) ? customers : []).find(
+        (customer) => customer._id === formData.customerId,
+      );
+      if (matched) {
+        return { value: matched._id, label: matched.name || 'Cliente', customer: matched };
+      }
+    }
+    if (formData.customerName) {
+      return { value: formData.customerName, label: formData.customerName };
+    }
+    return null;
+  }, [customers, formData.customerId, formData.customerName]);
+
+  const createInlineCustomer = useCallback(
+    async (rawName) => {
+      const name = sanitizeTextValue(rawName || '');
+      if (!name) {
+        throw new Error('Ingresa un nombre válido para el cliente.');
+      }
+
+      const preparedTaxId = sanitizeTaxIdValue(customerProfile.taxId);
+      const preparedTaxName =
+        sanitizeTextValue(customerProfile.taxName) || name;
+      const preparedTaxType = customerProfile.taxType || 'V';
+
+      const contactsPayload = [];
+      const preparedPhone = sanitizePhoneValue(customerProfile.phone);
+      const preparedEmail = sanitizeEmailValue(customerProfile.email);
+
+      if (preparedPhone) {
+        contactsPayload.push({
+          type: 'phone',
+          value: preparedPhone,
+          isPrimary: true,
+        });
+      }
+      if (preparedEmail) {
+        contactsPayload.push({
+          type: 'email',
+          value: preparedEmail,
+          isPrimary: true,
+        });
+      }
+
+      const taxInfo = {
+        taxType: preparedTaxType,
+        taxName: preparedTaxName,
+      };
+      if (preparedTaxId) {
+        taxInfo.taxId = preparedTaxId;
+      }
+
+      const payload = {
+        name,
+        customerType: 'individual',
+        tags: ['hospitality', 'inline-created'],
+        taxInfo,
+      };
+
+      if (contactsPayload.length > 0) {
+        payload.contacts = contactsPayload;
+      }
+
+      const response = await fetchApi('/customers', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      const created =
+        response?.data ||
+        response?.customer ||
+        (Array.isArray(response) ? response[0] : response);
+
+      if (!created?._id) {
+        throw new Error('No se pudo crear el cliente.');
+      }
+
+      const normalized = normalizeCustomerRecord(created);
+      if (normalized) {
+        upsertCustomerInList(normalized);
+        setSelectedCustomerRecord(normalized);
+        setCustomerProfile(deriveProfileFromCustomer(normalized));
+      }
+
+      return normalized;
+    },
+    [
+      customerProfile,
+      deriveProfileFromCustomer,
+      normalizeCustomerRecord,
+      upsertCustomerInList,
+    ],
+  );
+
+  const handleCustomerInputChange = useCallback((value, actionMeta) => {
+    if (actionMeta?.action === 'input-change') {
+      setCustomerNameInput(value);
+    }
+    if (actionMeta?.action === 'clear' || actionMeta?.action === 'set-value') {
+      setCustomerNameInput('');
+    }
+  }, []);
+
+  const handleCustomerSelection = useCallback(
+    async (option) => {
+      if (!option) {
+        setFormData((prev) => ({
+          ...prev,
+          customerId: '',
+          customerName: '',
+        }));
+        setSelectedCustomerRecord(null);
+        setCustomerProfile({ ...initialCustomerProfile });
+        setCustomerNameInput('');
+        return;
+      }
+
+      if (option.__isNew__) {
+        try {
+          const created = await createInlineCustomer(option.value || option.label);
+          if (created?._id) {
+            setFormData((prev) => ({
+              ...prev,
+              customerId: created._id,
+              customerName: created.name || option.label,
+            }));
+            setSelectedCustomerRecord(created);
+            setCustomerProfile(deriveProfileFromCustomer(created));
+          }
+          setCustomerNameInput('');
+          toast.success('Cliente creado correctamente.');
+        } catch (error) {
+          console.error('Error creating customer:', error);
+          toast.error(error?.message || 'No pudimos crear el cliente.');
+        }
+        return;
+      }
+
+      const normalizedId = normalizeId(option.value);
+      const fallbackName = option.customer?.name || option.label || '';
+
+      setFormData((prev) => ({
+        ...prev,
+        customerId: normalizedId || '',
+        customerName: fallbackName,
+      }));
+      setCustomerNameInput('');
+      setSelectedCustomerRecord(null);
+      setCustomerProfile({ ...initialCustomerProfile, taxName: fallbackName });
+
+      if (!normalizedId) {
+        return;
+      }
+
+      setCustomerDetailLoading(true);
+      try {
+        const detail =
+          option.customer && option.customer.contacts
+            ? normalizeCustomerRecord(option.customer)
+            : await fetchCustomerDetail(normalizedId);
+
+        if (detail) {
+          upsertCustomerInList(detail);
+          setSelectedCustomerRecord(detail);
+          setCustomerProfile(deriveProfileFromCustomer(detail));
+        }
+      } catch (error) {
+        console.error('Error fetching customer detail:', error);
+        toast.error('No pudimos cargar los datos del cliente.');
+      } finally {
+        setCustomerDetailLoading(false);
+      }
+    },
+    [
+      createInlineCustomer,
+      deriveProfileFromCustomer,
+      fetchCustomerDetail,
+      normalizeCustomerRecord,
+      upsertCustomerInList,
+    ],
+  );
+
+const getBankAccountLabel = useCallback(
+  (accountId) => {
+    if (!accountId) return 'Sin cuenta asignada';
+    const stringId = typeof accountId === 'string' ? accountId : accountId?._id || accountId?.toString?.();
+    const account = bankAccounts.find(
+      (item) => item._id === stringId || item._id?.toString?.() === stringId,
+    );
+    if (!account) return stringId || 'Sin cuenta asignada';
+
+    const suffix = account.accountNumber
+      ? ` · ****${account.accountNumber.slice(-4)}`
+      : '';
+    return `${account.bankName}${suffix}`;
+  },
+  [bankAccounts],
+);
+const normalizeBankAccountSelection = (value) =>
+  value && value !== UNASSIGNED_BANK_ACCOUNT ? value : undefined;
 
   const openGroupDialog = () => {
     const today = new Date();
@@ -637,8 +1198,10 @@ function AppointmentsManagement() {
   };
 
   const submitDepositAction = async (event) => {
-    event.preventDefault();
-    if (!editingAppointment || !selectedDeposit) return;
+    event?.preventDefault?.();
+    if (!editingAppointment || !selectedDeposit) {
+      return;
+    }
 
     const payload = {
       status: depositActionForm.status,
@@ -647,7 +1210,9 @@ function AppointmentsManagement() {
       proofUrl: depositActionForm.proofUrl || undefined,
       method: depositActionForm.method || undefined,
       reference: depositActionForm.reference || undefined,
-      bankAccountId: depositActionForm.bankAccountId || undefined,
+      bankAccountId: normalizeBankAccountSelection(
+        depositActionForm.bankAccountId,
+      ),
       amountUsd: depositActionForm.amountUsd
         ? Number(depositActionForm.amountUsd)
         : undefined,
@@ -682,7 +1247,10 @@ function AppointmentsManagement() {
       }
       payload.confirmedAmount = confirmedAmount;
 
-      if (!depositActionForm.bankAccountId && hasBankAccess) {
+      if (
+        !normalizeBankAccountSelection(depositActionForm.bankAccountId) &&
+        hasBankAccess
+      ) {
         const continueWithoutAccount = window.confirm(
           'No seleccionaste una cuenta bancaria para registrar el depósito. ¿Deseas continuar de todas formas?',
         );
@@ -713,7 +1281,9 @@ function AppointmentsManagement() {
   };
 
   const handleDepositSubmit = async (event) => {
-    event.preventDefault();
+    if (event?.preventDefault) {
+      event.preventDefault();
+    }
     if (!editingAppointment) return;
 
     const amount = Number(depositForm.amount);
@@ -729,7 +1299,7 @@ function AppointmentsManagement() {
       proofUrl: depositForm.proofUrl || undefined,
       notes: depositForm.notes || undefined,
       method: depositForm.method || undefined,
-      bankAccountId: depositForm.bankAccountId || undefined,
+      bankAccountId: normalizeBankAccountSelection(depositForm.bankAccountId),
       amountUsd: depositForm.amountUsd ? Number(depositForm.amountUsd) : undefined,
       amountVes: depositForm.amountVes ? Number(depositForm.amountVes) : undefined,
       exchangeRate: depositForm.exchangeRate
@@ -780,6 +1350,8 @@ function AppointmentsManagement() {
   const openCreateDialog = () => {
     setEditingAppointment(null);
     setFormData({ ...initialAppointmentState });
+    setCustomerProfile({ ...initialCustomerProfile });
+    setSelectedCustomerRecord(null);
     setDepositRecords([]);
     setDepositForm({ ...initialDepositFormState });
     setDepositPreview('');
@@ -787,6 +1359,7 @@ function AppointmentsManagement() {
     setDepositActionForm({ ...initialDepositActionState });
     setDepositActionPreview('');
     setAuditTrail([]);
+    setCustomerNameInput('');
     if (depositFileInputRef.current) {
       depositFileInputRef.current.value = '';
     }
@@ -827,6 +1400,8 @@ function AppointmentsManagement() {
     try {
       setLoading(true);
       const detail = await fetchAppointmentDetail(appointment._id);
+      await applyCustomerDetailFromAppointment(detail);
+
       setEditingAppointment(detail);
       setDepositRecords(detail?.depositRecords || []);
       setDepositForm({ ...initialDepositFormState });
@@ -842,15 +1417,26 @@ function AppointmentsManagement() {
       }
       const audit = await fetchAppointmentAudit(appointment._id);
       setFormData({
-        customerId: detail.customerId?._id || detail.customerId,
-        serviceId: detail.serviceId?._id || detail.serviceId,
-        resourceId: detail.resourceId?._id || detail.resourceId || UNASSIGNED_RESOURCE,
+        customerId:
+          normalizeId(detail.customerId?._id) ||
+          normalizeId(detail.customerId) ||
+          '',
+        customerName: detail.customerName || detail.customer?.name || '',
+        serviceId:
+          normalizeId(detail.serviceId?._id) ||
+          normalizeId(detail.serviceId) ||
+          '',
+        resourceId:
+          normalizeId(detail.resourceId?._id) ||
+          normalizeId(detail.resourceId) ||
+          UNASSIGNED_RESOURCE,
         startTime: new Date(detail.startTime).toISOString().slice(0, 16),
         endTime: new Date(detail.endTime).toISOString().slice(0, 16),
         notes: detail.notes || '',
         status: detail.status,
       });
       setAuditTrail(audit);
+      setCustomerNameInput('');
       setIsDialogOpen(true);
     } catch (error) {
       console.error('Error loading appointment detail:', error);
@@ -864,6 +1450,7 @@ function AppointmentsManagement() {
     if (!editingAppointment) return;
     try {
       const detail = await fetchAppointmentDetail(editingAppointment._id);
+      await applyCustomerDetailFromAppointment(detail);
       setEditingAppointment(detail);
       setDepositRecords(detail?.depositRecords || []);
       const audit = await fetchAppointmentAudit(editingAppointment._id);
@@ -871,13 +1458,43 @@ function AppointmentsManagement() {
     } catch (error) {
       console.error('Error refreshing appointment detail:', error);
     }
-  }, [editingAppointment, fetchAppointmentDetail, fetchAppointmentAudit]);
+  }, [
+    applyCustomerDetailFromAppointment,
+    editingAppointment,
+    fetchAppointmentDetail,
+    fetchAppointmentAudit,
+  ]);
+
+  const handleOpenPaymentDialog = useCallback(
+    async (appointment) => {
+      const target = appointment || editingAppointment;
+      if (!target?._id) {
+        toast.error('Selecciona una cita para registrar el pago.');
+        return;
+      }
+      try {
+        const detail = await fetchAppointmentDetail(target._id);
+        setPaymentDialogAppointment(detail || target);
+      } catch (error) {
+        console.warn('No se pudo cargar el detalle antes de abrir el pago:', error);
+        setPaymentDialogAppointment(target);
+      }
+      setIsPaymentDialogOpen(true);
+    },
+    [editingAppointment, fetchAppointmentDetail],
+  );
 
   const handleServiceChange = (serviceId) => {
+    if (!serviceId || serviceId === SERVICE_UNSET_VALUE) {
+      setFormData((prev) => ({ ...prev, serviceId: '' }));
+      return;
+    }
+
     const serviceList = Array.isArray(services) ? services : [];
-    const service = serviceList.find(s => s._id === serviceId);
+    const normalizedId = normalizeId(serviceId) || serviceId;
+    const service = serviceList.find((s) => s._id === normalizedId);
     setFormData(prev => {
-      const next = { ...prev, serviceId };
+      const next = { ...prev, serviceId: normalizedId };
       if (prev.startTime && service?.duration) {
         const start = new Date(prev.startTime);
         if (!Number.isNaN(start.getTime())) {
@@ -910,11 +1527,33 @@ function AppointmentsManagement() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!formData.customerId) {
+      toast.error('Selecciona o crea un cliente antes de guardar la cita.');
+      return;
+    }
+
+    if (formData.serviceId && !/^[a-f\d]{24}$/i.test(formData.serviceId)) {
+      toast.error('El servicio seleccionado no es válido.');
+      return;
+    }
+
+    const serviceList = Array.isArray(services) ? services : [];
+    const selectedService = formData.serviceId
+      ? serviceList.find((service) => service._id === formData.serviceId)
+      : null;
+
+    if (formData.serviceId && !selectedService) {
+      toast.error('El servicio seleccionado ya no está disponible.');
+      return;
+    }
+
     try {
       setLoading(true);
+      await syncCustomerProfile();
 
+      const { customerName, ...formPayload } = formData;
       const payload = {
-        ...formData,
+        ...formPayload,
         startTime: new Date(formData.startTime).toISOString(),
         endTime: new Date(formData.endTime).toISOString(),
         resourceId:
@@ -923,21 +1562,39 @@ function AppointmentsManagement() {
             : formData.resourceId,
       };
 
+      if (!formPayload.serviceId) {
+        delete payload.serviceId;
+      }
+
+      let appointmentResult = null;
+
       if (editingAppointment) {
         await fetchApi(`/appointments/${editingAppointment._id}`, {
           method: 'PUT',
           body: JSON.stringify(payload),
         });
       } else {
-        await fetchApi('/appointments', {
+        const createResponse = await fetchApi('/appointments', {
           method: 'POST',
           body: JSON.stringify(payload),
         });
+        appointmentResult =
+          createResponse?.data || createResponse?.appointment || createResponse;
       }
 
       setIsDialogOpen(false);
       loadAppointments();
       await refreshEditingAppointment();
+
+      if (!editingAppointment && appointmentResult?._id) {
+        try {
+          const detailed = await fetchAppointmentDetail(appointmentResult._id);
+          setPaymentDialogAppointment(detailed || appointmentResult);
+          setIsPaymentDialogOpen(true);
+        } catch (detailError) {
+          console.warn('No se pudo cargar el detalle para el diálogo de pagos:', detailError);
+        }
+      }
     } catch (error) {
       console.error('Error saving appointment:', error);
       alert(error.message || 'Error al guardar la cita');
@@ -1127,7 +1784,9 @@ function AppointmentsManagement() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{apt.serviceName}</Badge>
+                          <Badge variant="outline">
+                            {apt.serviceName || 'Sin servicio'}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           {apt.resourceName || <span className="text-gray-400">-</span>}
@@ -1195,37 +1854,123 @@ function AppointmentsManagement() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
+              <div className="col-span-2 space-y-2">
                 <Label htmlFor="customerId">Cliente *</Label>
-                <Select
-                  value={formData.customerId}
-                  onValueChange={(value) => setFormData({ ...formData, customerId: value })}
-                  required
-                >
-                  <SelectTrigger id="customerId">
-                    <SelectValue placeholder="Selecciona un cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers.map((customer) => (
-                      <SelectItem key={customer._id} value={customer._id}>
-                        {customer.name} - {customer.phone}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={customerOptions}
+                  value={selectedCustomerOption}
+                  onSelection={handleCustomerSelection}
+                  onInputChange={handleCustomerInputChange}
+                  inputValue={customerNameInput}
+                  placeholder="Buscar o crear un cliente..."
+                  isDisabled={customerDetailLoading}
+                />
+              </div>
+
+              <div className="col-span-2 grid grid-cols-1 gap-3 md:grid-cols-4">
+                <div className="space-y-2">
+                  <Label htmlFor="customer-tax-type">Tipo de documento</Label>
+                  <Select
+                    value={customerProfile.taxType}
+                    onValueChange={(value) =>
+                      setCustomerProfile((prev) => ({ ...prev, taxType: value }))
+                    }
+                    disabled={customerDetailLoading}
+                  >
+                    <SelectTrigger id="customer-tax-type">
+                      <SelectValue placeholder="Tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="V">V</SelectItem>
+                      <SelectItem value="E">E</SelectItem>
+                      <SelectItem value="J">J</SelectItem>
+                      <SelectItem value="G">G</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="customer-tax-id">Nº C.I / RIF</Label>
+                  <Input
+                    id="customer-tax-id"
+                    value={customerProfile.taxId}
+                    onChange={(event) =>
+                      setCustomerProfile((prev) => ({ ...prev, taxId: event.target.value }))
+                    }
+                    placeholder="Ej: V-12345678"
+                    autoComplete="off"
+                    disabled={customerDetailLoading}
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="customer-tax-name">Nombre fiscal</Label>
+                  <Input
+                    id="customer-tax-name"
+                    value={customerProfile.taxName}
+                    onChange={(event) =>
+                      setCustomerProfile((prev) => ({ ...prev, taxName: event.target.value }))
+                    }
+                    placeholder="Razón social o nombre en factura"
+                    autoComplete="off"
+                    disabled={customerDetailLoading}
+                  />
+                </div>
+              </div>
+
+              <div className="col-span-2 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="customer-phone">Teléfono</Label>
+                  <Input
+                    id="customer-phone"
+                    type="tel"
+                    value={customerProfile.phone}
+                    onChange={(event) =>
+                      setCustomerProfile((prev) => ({ ...prev, phone: event.target.value }))
+                    }
+                    placeholder="Ej: +58 412 1234567"
+                    autoComplete="tel"
+                    disabled={customerDetailLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="customer-email">Correo electrónico</Label>
+                  <Input
+                    id="customer-email"
+                    type="email"
+                    value={customerProfile.email}
+                    onChange={(event) =>
+                      setCustomerProfile((prev) => ({ ...prev, email: event.target.value }))
+                    }
+                    placeholder="cliente@ejemplo.com"
+                    autoComplete="email"
+                    disabled={customerDetailLoading}
+                  />
+                </div>
+              </div>
+
+              <div className="col-span-2 text-xs text-muted-foreground flex items-center gap-2">
+                {customerDetailLoading ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>Cargando datos del cliente…</span>
+                  </>
+                ) : (
+                  <span>
+                    Los datos fiscales y de contacto se sincronizan con el CRM al guardar la cita.
+                  </span>
+                )}
               </div>
 
               <div>
-                <Label htmlFor="serviceId">Servicio *</Label>
+                <Label htmlFor="serviceId">Servicio</Label>
                 <Select
-                  value={formData.serviceId}
+                  value={formData.serviceId || SERVICE_UNSET_VALUE}
                   onValueChange={handleServiceChange}
-                  required
                 >
                   <SelectTrigger id="serviceId">
                     <SelectValue placeholder="Selecciona un servicio" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value={SERVICE_UNSET_VALUE}>Sin servicio adicional</SelectItem>
                     {(Array.isArray(services) ? services : []).map((service) => (
                       <SelectItem key={service._id} value={service._id}>
                         {service.name} ({service.duration} min)
@@ -1242,7 +1987,7 @@ function AppointmentsManagement() {
                   onValueChange={(value) =>
                     setFormData({
                       ...formData,
-                      resourceId: value || UNASSIGNED_RESOURCE,
+                      resourceId: value ? normalizeId(value) : UNASSIGNED_RESOURCE,
                     })
                   }
                 >
@@ -1296,11 +2041,22 @@ function AppointmentsManagement() {
 
             {editingAppointment && (
               <div className="space-y-4 border rounded-lg border-gray-200 p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <h3 className="text-sm font-semibold text-gray-700">Depósitos registrados</h3>
-                  <span className="text-xs text-gray-500">
-                    Estado de pago: {editingAppointment.paymentStatus || 'pending'} · Total confirmado ${editingAppointment.paidAmount || 0}
-                  </span>
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <span>
+                      Estado de pago: {editingAppointment.paymentStatus || 'pending'} · Total confirmado $
+                      {editingAppointment.paidAmount || 0}
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleOpenPaymentDialog(editingAppointment)}
+                    >
+                      Registrar pago/depósito
+                    </Button>
+                  </div>
                 </div>
 
                 {depositRecords.length === 0 ? (
@@ -1453,7 +2209,7 @@ function AppointmentsManagement() {
                   </div>
                 )}
 
-                <form className="grid md:grid-cols-3 gap-3" onSubmit={handleDepositSubmit}>
+                <div className="grid md:grid-cols-3 gap-3" role="group" aria-labelledby="deposit-form">
                   <div>
                     <Label>Monto *</Label>
                     <Input
@@ -1504,13 +2260,18 @@ function AppointmentsManagement() {
                       <Label>Cuenta bancaria destino</Label>
                       <Select
                         value={depositForm.bankAccountId}
-                        onValueChange={(value) => setDepositForm((prev) => ({ ...prev, bankAccountId: value }))}
+                        onValueChange={(value) =>
+                          setDepositForm((prev) => ({
+                            ...prev,
+                            bankAccountId: value || UNASSIGNED_BANK_ACCOUNT,
+                          }))
+                        }
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Selecciona cuenta" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Sin asignar</SelectItem>
+                          <SelectItem value={UNASSIGNED_BANK_ACCOUNT}>Sin asignar</SelectItem>
                           {bankAccounts.map((account) => (
                             <SelectItem key={account._id} value={account._id}>
                               {getBankAccountLabel(account._id)}
@@ -1611,11 +2372,15 @@ function AppointmentsManagement() {
                   </div>
 
                   <div className="md:col-span-3 text-right">
-                    <Button type="submit" disabled={depositSubmitting}>
+                    <Button
+                      type="button"
+                      disabled={depositSubmitting}
+                      onClick={() => handleDepositSubmit()}
+                    >
                       {depositSubmitting ? 'Registrando...' : 'Registrar depósito'}
                     </Button>
                   </div>
-                </form>
+                </div>
               </div>
             )}
 
@@ -1790,7 +2555,7 @@ function AppointmentsManagement() {
             </DialogDescription>
           </DialogHeader>
 
-          <form className="space-y-4" onSubmit={submitDepositAction}>
+          <div className="space-y-4">
             <div className="grid md:grid-cols-2 gap-3">
               <div>
                 <Label>Estado</Label>
@@ -1840,16 +2605,19 @@ function AppointmentsManagement() {
                   <div>
                     <Label>Cuenta bancaria</Label>
                     <Select
-                      value={depositActionForm.bankAccountId || ''}
+                      value={depositActionForm.bankAccountId || UNASSIGNED_BANK_ACCOUNT}
                       onValueChange={(value) =>
-                        setDepositActionForm((prev) => ({ ...prev, bankAccountId: value }))
+                        setDepositActionForm((prev) => ({
+                          ...prev,
+                          bankAccountId: value || UNASSIGNED_BANK_ACCOUNT,
+                        }))
                       }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecciona cuenta" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Sin asignar</SelectItem>
+                        <SelectItem value={UNASSIGNED_BANK_ACCOUNT}>Sin asignar</SelectItem>
                         {bankAccounts.map((account) => (
                           <SelectItem key={account._id} value={account._id}>
                             {getBankAccountLabel(account._id)}
@@ -2009,19 +2777,21 @@ function AppointmentsManagement() {
               />
             </div>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDepositActionDialog}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={depositActionSubmitting}>
-                {depositActionSubmitting
-                  ? 'Guardando...'
-                  : depositActionForm.status === 'rejected'
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closeDepositActionDialog}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={submitDepositAction} disabled={depositActionSubmitting}>
+              {depositActionSubmitting
+                ? 'Guardando...'
+                : depositActionForm.status === 'rejected'
                     ? 'Registrar rechazo'
                     : 'Confirmar depósito'}
-              </Button>
-            </DialogFooter>
-          </form>
+            </Button>
+          </DialogFooter>
+
         </DialogContent>
       </Dialog>
 
@@ -2218,6 +2988,21 @@ function AppointmentsManagement() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AppointmentsPaymentDialog
+        isOpen={isPaymentDialogOpen}
+        appointment={paymentDialogAppointment}
+        onClose={() => {
+          setIsPaymentDialogOpen(false);
+          setPaymentDialogAppointment(null);
+        }}
+        onPaymentSuccess={async () => {
+          await refreshEditingAppointment();
+          await loadAppointments();
+          setIsPaymentDialogOpen(false);
+          setPaymentDialogAppointment(null);
+        }}
+      />
     </div>
   );
 }

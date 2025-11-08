@@ -8,7 +8,11 @@ export class AppointmentAudit {
   @Prop({ type: String, required: true, index: true })
   tenantId: string;
 
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: "Appointment", required: true })
+  @Prop({
+    type: MongooseSchema.Types.ObjectId,
+    ref: "Appointment",
+    required: true,
+  })
   appointmentId: MongooseSchema.Types.ObjectId;
 
   @Prop({ type: String, required: true })

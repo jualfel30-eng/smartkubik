@@ -95,14 +95,18 @@ export class AppointmentsService {
 
   private mapMethodToChannel(
     method?: string,
-  ): "pago_movil" | "transferencia" | "pos" | "deposito_cajero" | "ajuste_manual" | "otros" {
+  ):
+    | "pago_movil"
+    | "transferencia"
+    | "pos"
+    | "deposito_cajero"
+    | "ajuste_manual"
+    | "otros" {
     if (!method) {
       return "otros";
     }
     const normalized = method.trim().toLowerCase();
-    if (
-      ["pago movil", "pagomovil", "pago_movil", "pm"].includes(normalized)
-    ) {
+    if (["pago movil", "pagomovil", "pago_movil", "pm"].includes(normalized)) {
       return "pago_movil";
     }
     if (
@@ -117,13 +121,15 @@ export class AppointmentsService {
     ) {
       return "transferencia";
     }
-    if (["pos", "punto", "tarjeta", "debito", "crédito", "credito"].includes(normalized)) {
+    if (
+      ["pos", "punto", "tarjeta", "debito", "crédito", "credito"].includes(
+        normalized,
+      )
+    ) {
       return "pos";
     }
     if (
-      ["deposito", "depósito", "deposito cajero", "cajero"].includes(
-        normalized,
-      )
+      ["deposito", "depósito", "deposito cajero", "cajero"].includes(normalized)
     ) {
       return "deposito_cajero";
     }
@@ -131,6 +137,128 @@ export class AppointmentsService {
       return "ajuste_manual";
     }
     return "otros";
+  }
+
+  private computeDepositUsd(
+    deposit: any,
+    appointment: AppointmentDocument,
+  ): number {
+    if (!deposit) {
+      return 0;
+    }
+
+    const confirmedAmount = Number(
+      deposit.confirmedAmount ?? deposit.amount ?? 0,
+    );
+    if (!Number.isFinite(confirmedAmount) || confirmedAmount <= 0) {
+      return 0;
+    }
+
+    const amountUsd = Number(deposit.amountUsd);
+    if (Number.isFinite(amountUsd) && amountUsd > 0) {
+      return amountUsd;
+    }
+
+    const currency = (deposit.currency || "USD").toString().toUpperCase();
+    if (currency === "USD") {
+      return confirmedAmount;
+    }
+
+    let exchangeRate = Number(deposit.exchangeRate);
+    if (!Number.isFinite(exchangeRate) || exchangeRate <= 0) {
+      const billingMetadata = (appointment.metadata as any)?.billing || {};
+      const metadataRate = Number(
+        billingMetadata.exchangeRate ??
+          billingMetadata.rate ??
+          billingMetadata.bcvRate,
+      );
+      if (Number.isFinite(metadataRate) && metadataRate > 0) {
+        exchangeRate = metadataRate;
+      } else {
+        const appointmentRate = Number((appointment as any)?.exchangeRate);
+        if (Number.isFinite(appointmentRate) && appointmentRate > 0) {
+          exchangeRate = appointmentRate;
+        }
+      }
+    }
+
+    if (
+      currency === "VES" &&
+      Number.isFinite(exchangeRate) &&
+      exchangeRate > 0
+    ) {
+      return confirmedAmount / exchangeRate;
+    }
+
+    return 0;
+  }
+
+  private async updateCustomerMetricsFromDeposit(
+    tenantId: string,
+    appointment: AppointmentDocument,
+    amountUsd: number,
+    depositDate?: Date,
+  ): Promise<void> {
+    if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
+      return;
+    }
+    const customerId = appointment.customerId;
+    if (!customerId) {
+      return;
+    }
+
+    const tenantCandidates = Types.ObjectId.isValid(tenantId)
+      ? [tenantId, new Types.ObjectId(tenantId)]
+      : [tenantId];
+    const customerRaw = customerId as any;
+    let customerObjectId: Types.ObjectId | string | null = null;
+    if (customerRaw instanceof Types.ObjectId) {
+      customerObjectId = customerRaw;
+    } else if (typeof customerRaw === "string") {
+      customerObjectId = this.toObjectIdOrValue(customerRaw);
+    } else if (customerRaw?._id) {
+      customerObjectId = this.toObjectIdOrValue(customerRaw._id);
+    }
+
+    if (!customerObjectId) {
+      return;
+    }
+
+    const effectiveDate =
+      depositDate instanceof Date && !Number.isNaN(depositDate.getTime())
+        ? depositDate
+        : new Date();
+
+    try {
+      await this.customerModel.findOneAndUpdate(
+        {
+          _id: customerObjectId,
+          tenantId: { $in: tenantCandidates },
+        },
+        {
+          $inc: {
+            "metrics.totalSpent": amountUsd,
+            "metrics.totalSpentUSD": amountUsd,
+            "metrics.lifetimeValue": amountUsd,
+            "metrics.totalDeposits": amountUsd,
+            "metrics.depositCount": 1,
+          },
+          $max: {
+            "metrics.lastOrderDate": effectiveDate,
+            "metrics.lastDepositDate": effectiveDate,
+          },
+          $setOnInsert: {
+            "metrics.firstOrderDate": new Date(),
+          },
+        },
+        { new: false },
+      );
+    } catch (error) {
+      this.logger.error(
+        `No pudimos actualizar las métricas del cliente ${customerId} tras el depósito confirmado`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
   }
 
   async create(
@@ -149,21 +277,24 @@ export class AppointmentsService {
       throw new NotFoundException("Cliente no encontrado");
     }
 
-    // Validate service
-    const service = await this.serviceModel
-      .findOne({ _id: createAppointmentDto.serviceId, tenantId })
-      .exec();
+    // Validate service when provided
+    let service: Service | null = null;
+    if (createAppointmentDto.serviceId) {
+      service = await this.serviceModel
+        .findOne({ _id: createAppointmentDto.serviceId, tenantId })
+        .exec();
 
-    if (!service) {
-      throw new NotFoundException("Servicio no encontrado");
-    }
+      if (!service) {
+        throw new NotFoundException("Servicio no encontrado");
+      }
 
-    if (service.status !== "active") {
-      throw new BadRequestException("El servicio no está activo");
+      if (service.status !== "active") {
+        throw new BadRequestException("El servicio no está activo");
+      }
     }
 
     // Validate resource (if provided)
-    let resource: any = null;
+    let resource: Resource | null = null;
     const primaryResourceId = createAppointmentDto.resourceId;
     if (primaryResourceId) {
       resource = await this.resourceModel
@@ -249,15 +380,61 @@ export class AppointmentsService {
       );
     }
 
-    const newAppointment = new this.appointmentModel({
+    const startTime = new Date(createAppointmentDto.startTime);
+    const endTime = new Date(createAppointmentDto.endTime);
+
+    const calculatedDuration =
+      startTime instanceof Date &&
+      endTime instanceof Date &&
+      !Number.isNaN(startTime.getTime()) &&
+      !Number.isNaN(endTime.getTime()) &&
+      endTime.getTime() > startTime.getTime()
+        ? Math.max(
+            1,
+            Math.round((endTime.getTime() - startTime.getTime()) / 60000),
+          )
+        : undefined;
+
+    const stayNights =
+      startTime instanceof Date &&
+      endTime instanceof Date &&
+      !Number.isNaN(startTime.getTime()) &&
+      !Number.isNaN(endTime.getTime()) &&
+      endTime.getTime() > startTime.getTime()
+        ? Math.max(
+            1,
+            Math.ceil(
+              (endTime.getTime() - startTime.getTime()) /
+                (1000 * 60 * 60 * 24),
+            ),
+          )
+        : 1;
+
+    const baseRateAmount = Number(resource?.baseRate?.amount ?? 0);
+    const baseRateCurrency = resource?.baseRate?.currency || "USD";
+    const resourceTotalAmount =
+      !service && baseRateAmount > 0 ? baseRateAmount * stayNights : 0;
+
+    const fallbackServiceName =
+      service?.name ||
+      resource?.name ||
+      createAppointmentDto.metadata?.label ||
+      "Reserva sin servicio";
+
+    const appointmentPayload: Record<string, any> = {
       ...createAppointmentDto,
       tenantId,
       customerName: customer.name,
       customerPhone: primaryPhone,
       customerEmail: primaryEmail,
-      serviceName: service.name,
-      serviceDuration: service.duration,
-      servicePrice: service.price,
+      serviceName: fallbackServiceName,
+      serviceDuration: service?.duration ?? calculatedDuration ?? 60,
+      servicePrice:
+        service?.price ??
+        (resourceTotalAmount > 0 &&
+        (!baseRateCurrency || baseRateCurrency.toUpperCase() === "USD")
+          ? resourceTotalAmount
+          : 0),
       resourceName: resource?.name,
       status: createAppointmentDto.status || "pending",
       capacityUsed: createAppointmentDto.capacityUsed ?? 1,
@@ -278,18 +455,45 @@ export class AppointmentsService {
       source: createAppointmentDto.source || "backoffice",
       additionalResourceIds,
       resourcesInvolved,
-    });
+    };
+
+    if (!service) {
+      delete appointmentPayload.serviceId;
+    }
+
+    const newAppointment = new this.appointmentModel(appointmentPayload);
+
+    if (resourceTotalAmount > 0) {
+      const existingMetadata =
+        (newAppointment.metadata || createAppointmentDto.metadata || {}) as Record<string, any>;
+      const existingBilling = (existingMetadata.billing || {}) as Record<string, any>;
+      const updatedBilling = {
+        ...existingBilling,
+        baseRateAmount,
+        baseRateCurrency,
+        nights: stayNights,
+        totalAmount: resourceTotalAmount,
+        totalCurrency: baseRateCurrency,
+        totalAmountUsd:
+          !baseRateCurrency || baseRateCurrency.toUpperCase() === "USD"
+            ? resourceTotalAmount
+            : existingBilling.totalAmountUsd,
+      };
+
+      newAppointment.metadata = {
+        ...existingMetadata,
+        billing: updatedBilling,
+      };
+    } else if (createAppointmentDto.metadata) {
+      newAppointment.metadata = {
+        ...(createAppointmentDto.metadata || {}),
+      };
+    }
 
     if (createAppointmentDto.externalId) {
       newAppointment.externalId = createAppointmentDto.externalId;
       newAppointment.externalSource =
         createAppointmentDto.externalSource || createAppointmentDto.source;
-    }
-
-    if (createAppointmentDto.metadata) {
-      newAppointment.metadata = {
-        ...(createAppointmentDto.metadata || {}),
-      };
     }
 
     const saved = await newAppointment.save();
@@ -301,6 +505,7 @@ export class AppointmentsService {
     await this.scheduleHousekeepingTask({
       appointment: saved,
       service,
+      resource,
       tenantId,
       userObjectId: housekeepingUserId,
     });
@@ -308,14 +513,16 @@ export class AppointmentsService {
     await this.scheduleDepositTask({
       appointment: saved,
       service,
+      resource,
       tenantId,
       userObjectId: housekeepingUserId,
     });
 
-    const calendarResult = await this.calendarIntegrationService.syncAppointment({
-      tenantId,
-      appointment: saved,
-    });
+    const calendarResult =
+      await this.calendarIntegrationService.syncAppointment({
+        tenantId,
+        appointment: saved,
+      });
 
     if (
       calendarResult &&
@@ -324,9 +531,11 @@ export class AppointmentsService {
       const calendarMetadata = {
         ...(saved.metadata?.calendar || {}),
         googleEventId:
-          calendarResult.googleEventId || saved.metadata?.calendar?.googleEventId,
+          calendarResult.googleEventId ||
+          saved.metadata?.calendar?.googleEventId,
         outlookEventId:
-          calendarResult.outlookEventId || saved.metadata?.calendar?.outlookEventId,
+          calendarResult.outlookEventId ||
+          saved.metadata?.calendar?.outlookEventId,
         icsPayload: calendarResult.icsPayload,
         lastSyncAt: new Date().toISOString(),
       };
@@ -347,7 +556,8 @@ export class AppointmentsService {
       appointmentId: saved._id,
       action: "create",
       performedBy: userId,
-      source: createAppointmentDto.externalSource || createAppointmentDto.source,
+      source:
+        createAppointmentDto.externalSource || createAppointmentDto.source,
       changes: createAppointmentDto,
     });
 
@@ -416,7 +626,9 @@ export class AppointmentsService {
         endTime: occurrence.end.toISOString(),
         seriesId,
         seriesOrder: order,
-        isSeriesMaster: markSeriesMaster ? order === 0 : baseAppointment.isSeriesMaster,
+        isSeriesMaster: markSeriesMaster
+          ? order === 0
+          : baseAppointment.isSeriesMaster,
       };
 
       const created = await this.create(tenantId, occurrenceDto, userId);
@@ -596,6 +808,8 @@ export class AppointmentsService {
     }
 
     const userObjectId = await this.resolveUserObjectId(userId, tenantId);
+    const targetStatus =
+      createManualDepositDto.status === "confirmed" ? "confirmed" : "submitted";
 
     const amount = Number(createManualDepositDto.amount ?? 0);
     if (Number.isNaN(amount) || amount <= 0) {
@@ -665,6 +879,49 @@ export class AppointmentsService {
       await this.todoModel.findOneAndUpdate(
         { _id: this.toObjectIdOrValue(depositTaskId) },
         { $set: { isCompleted: false } },
+      );
+    }
+
+    const createdDeposit =
+      appointment.depositRecords[appointment.depositRecords.length - 1];
+    const createdDepositId = createdDeposit?._id?.toString();
+
+    if (targetStatus === "confirmed" && createdDepositId) {
+      const confirmationPayload: UpdateManualDepositDto = {
+        status: "confirmed",
+        confirmedAmount: Number(
+          createManualDepositDto.confirmedAmount ?? amount,
+        ),
+      };
+
+      confirmationPayload.transactionDate =
+        createManualDepositDto.transactionDate || new Date().toISOString();
+
+      if (createManualDepositDto.bankAccountId) {
+        confirmationPayload.bankAccountId = createManualDepositDto.bankAccountId;
+      }
+      if (createManualDepositDto.amountUsd !== undefined) {
+        confirmationPayload.amountUsd = Number(
+          createManualDepositDto.amountUsd,
+        );
+      }
+      if (createManualDepositDto.amountVes !== undefined) {
+        confirmationPayload.amountVes = Number(
+          createManualDepositDto.amountVes,
+        );
+      }
+      if (createManualDepositDto.exchangeRate !== undefined) {
+        confirmationPayload.exchangeRate = Number(
+          createManualDepositDto.exchangeRate,
+        );
+      }
+
+      return this.updateManualDeposit(
+        tenantId,
+        appointmentId,
+        createdDepositId,
+        confirmationPayload,
+        userId,
       );
     }
 
@@ -774,9 +1031,7 @@ export class AppointmentsService {
         updateManualDepositDto.confirmedAmount ?? deposit.amount ?? 0,
       );
       if (Number.isNaN(confirmedAmount) || confirmedAmount <= 0) {
-        throw new BadRequestException(
-          "El monto confirmado debe ser mayor a 0",
-        );
+        throw new BadRequestException("El monto confirmado debe ser mayor a 0");
       }
 
       deposit.confirmedAmount = confirmedAmount;
@@ -801,14 +1056,13 @@ export class AppointmentsService {
 
         if (bankAccountId && !deposit.bankTransactionId) {
           try {
-            const updatedAccount =
-              await this.bankAccountsService.updateBalance(
-                bankAccountId,
-                confirmedAmount,
-                tenantId,
-                undefined,
-                { userId: userHexId },
-              );
+            const updatedAccount = await this.bankAccountsService.updateBalance(
+              bankAccountId,
+              confirmedAmount,
+              tenantId,
+              undefined,
+              { userId: userHexId },
+            );
 
             const descriptionParts = [
               "Depósito manual",
@@ -905,22 +1159,45 @@ export class AppointmentsService {
             error instanceof Error ? error.stack : undefined,
           );
         }
+
+        const effectiveDepositDate =
+          deposit.transactionDate instanceof Date
+            ? deposit.transactionDate
+            : deposit.transactionDate
+            ? new Date(deposit.transactionDate)
+            : now;
+        const depositUsd = this.computeDepositUsd(deposit, appointment);
+        if (depositUsd > 0) {
+          await this.updateCustomerMetricsFromDeposit(
+            tenantId,
+            appointment,
+            depositUsd,
+            effectiveDepositDate,
+          );
+        }
       }
 
       const confirmedTotal = (appointment.depositRecords || [])
         .filter((record) => record.status === "confirmed")
         .reduce(
-          (sum, record) =>
-            sum + (record.confirmedAmount ?? record.amount ?? 0),
+          (sum, record) => sum + (record.confirmedAmount ?? record.amount ?? 0),
           0,
         );
 
       appointment.paidAmount = confirmedTotal;
 
-      if (confirmedTotal >= (appointment.servicePrice || 0)) {
+      const expectedAmount = this.getExpectedPaymentAmount(
+        appointment as AppointmentDocument,
+      );
+      if (
+        expectedAmount !== null &&
+        confirmedTotal >= expectedAmount - 0.01
+      ) {
         appointment.paymentStatus = "paid";
       } else if (confirmedTotal > 0) {
         appointment.paymentStatus = "partial";
+      } else {
+        appointment.paymentStatus = "pending";
       }
 
       const depositTaskId = (appointment.metadata as any)?.depositTaskId;
@@ -938,14 +1215,24 @@ export class AppointmentsService {
         .filter((record) => record._id?.toString() !== depositId)
         .filter((record) => record.status === "confirmed")
         .reduce(
-          (sum, record) =>
-            sum + (record.confirmedAmount ?? record.amount ?? 0),
+          (sum, record) => sum + (record.confirmedAmount ?? record.amount ?? 0),
           0,
         );
 
       appointment.paidAmount = confirmedTotal;
-      appointment.paymentStatus =
-        confirmedTotal > 0 ? "partial" : "pending";
+      const expectedAmount = this.getExpectedPaymentAmount(
+        appointment as AppointmentDocument,
+      );
+      if (
+        expectedAmount !== null &&
+        confirmedTotal >= expectedAmount - 0.01
+      ) {
+        appointment.paymentStatus = "paid";
+      } else if (confirmedTotal > 0) {
+        appointment.paymentStatus = "partial";
+      } else {
+        appointment.paymentStatus = "pending";
+      }
 
       const depositTaskId = (appointment.metadata as any)?.depositTaskId;
       if (depositTaskId) {
@@ -962,9 +1249,7 @@ export class AppointmentsService {
     return this.findOne(tenantId, appointmentId);
   }
 
-  async getPendingDeposits(
-    tenantId: string,
-  ): Promise<{
+  async getPendingDeposits(tenantId: string): Promise<{
     summary: {
       total: number;
       byCurrency: Record<string, number>;
@@ -1342,8 +1627,16 @@ export class AppointmentsService {
       }
     }
 
+    const resolvedStartTime = updateAppointmentDto.startTime
+      ? new Date(updateAppointmentDto.startTime)
+      : new Date(existing.startTime);
+    const resolvedEndTime = updateAppointmentDto.endTime
+      ? new Date(updateAppointmentDto.endTime)
+      : new Date(existing.endTime);
+
     // Handle status changes
     const updateData: any = { ...updateAppointmentDto };
+    const unsetData: Record<string, 1> = {};
 
     if (updateAppointmentDto.metadata) {
       updateData.metadata = {
@@ -1415,10 +1708,58 @@ export class AppointmentsService {
       ].filter(Boolean);
     }
 
+    if (Object.prototype.hasOwnProperty.call(updateAppointmentDto, "serviceId")) {
+      if (updateAppointmentDto.serviceId) {
+        const nextService = await this.serviceModel
+          .findOne({ _id: updateAppointmentDto.serviceId, tenantId })
+          .exec();
+
+        if (!nextService) {
+          throw new NotFoundException("Servicio no encontrado");
+        }
+
+        if (nextService.status !== "active") {
+          throw new BadRequestException("El servicio no está activo");
+        }
+
+        updateData.serviceName = nextService.name;
+        updateData.serviceDuration = nextService.duration;
+        updateData.servicePrice = nextService.price;
+      } else {
+        unsetData.serviceId = 1;
+        delete updateData.serviceId;
+
+        const durationMinutes =
+          !Number.isNaN(resolvedStartTime.getTime()) &&
+          !Number.isNaN(resolvedEndTime.getTime()) &&
+          resolvedEndTime.getTime() > resolvedStartTime.getTime()
+            ? Math.max(
+                1,
+                Math.round(
+                  (resolvedEndTime.getTime() - resolvedStartTime.getTime()) /
+                    60000,
+                ),
+              )
+            : existing.serviceDuration ?? 60;
+
+        updateData.serviceName =
+          existing.resourceName ||
+          existing.locationName ||
+          "Reserva sin servicio";
+        updateData.serviceDuration = durationMinutes;
+        updateData.servicePrice = 0;
+      }
+    }
+
+    const updatePayload: Record<string, any> = { $set: updateData };
+    if (Object.keys(unsetData).length) {
+      updatePayload.$unset = unsetData;
+    }
+
     const updated = await this.appointmentModel
       .findOneAndUpdate(
         { _id: id, tenantId },
-        { $set: updateData },
+        updatePayload,
         { new: true },
       )
       .populate("customerId", "name contacts email")
@@ -1454,10 +1795,11 @@ export class AppointmentsService {
         },
       };
     } else {
-      const calendarResult = await this.calendarIntegrationService.syncAppointment({
-        tenantId,
-        appointment: updated,
-      });
+      const calendarResult =
+        await this.calendarIntegrationService.syncAppointment({
+          tenantId,
+          appointment: updated,
+        });
 
       if (
         calendarResult &&
@@ -1466,9 +1808,11 @@ export class AppointmentsService {
         const calendarMetadata = {
           ...(updated.metadata?.calendar || {}),
           googleEventId:
-            calendarResult.googleEventId || updated.metadata?.calendar?.googleEventId,
+            calendarResult.googleEventId ||
+            updated.metadata?.calendar?.googleEventId,
           outlookEventId:
-            calendarResult.outlookEventId || updated.metadata?.calendar?.outlookEventId,
+            calendarResult.outlookEventId ||
+            updated.metadata?.calendar?.outlookEventId,
           icsPayload: calendarResult.icsPayload,
           lastSyncAt: new Date().toISOString(),
         };
@@ -1625,11 +1969,15 @@ export class AppointmentsService {
       (service.bufferTimeAfter || 0) +
       addonExtraDuration;
 
-    const endTime = new Date(startTime.getTime() + totalDurationMinutes * 60000);
+    const endTime = new Date(
+      startTime.getTime() + totalDurationMinutes * 60000,
+    );
 
     const partySize = payload.partySize ?? 1;
     if (partySize < 1) {
-      throw new BadRequestException("La cantidad de huéspedes debe ser mayor a cero");
+      throw new BadRequestException(
+        "La cantidad de huéspedes debe ser mayor a cero",
+      );
     }
     if (service.maxSimultaneous && partySize > service.maxSimultaneous) {
       throw new BadRequestException(
@@ -1739,7 +2087,8 @@ export class AppointmentsService {
       throw new NotFoundException("Reserva no encontrada");
     }
 
-    const metaCancellationCode = (appointment.metadata as any)?.cancellationCode;
+    const metaCancellationCode = (appointment.metadata as any)
+      ?.cancellationCode;
     if (!metaCancellationCode) {
       throw new ForbiddenException(
         "La reserva no admite cancelaciones por el portal",
@@ -1796,9 +2145,7 @@ export class AppointmentsService {
     };
   }
 
-  async lookupPublic(
-    payload: PublicAppointmentLookupDto,
-  ): Promise<
+  async lookupPublic(payload: PublicAppointmentLookupDto): Promise<
     Array<{
       appointmentId: string;
       serviceId: string | null;
@@ -1918,6 +2265,12 @@ export class AppointmentsService {
     if (newStart.getTime() <= now.getTime()) {
       throw new BadRequestException(
         "El nuevo horario debe ser posterior al momento actual",
+      );
+    }
+
+    if (!appointment.serviceId) {
+      throw new BadRequestException(
+        "La reserva no tiene un servicio asociado para reprogramar.",
       );
     }
 
@@ -2087,10 +2440,7 @@ export class AppointmentsService {
     }
 
     if (locationId) {
-      query.$and = [
-        ...(query.$and || []),
-        { locationId },
-      ];
+      query.$and = [...(query.$and || []), { locationId }];
     }
 
     if (excludeAppointmentId) {
@@ -2167,9 +2517,7 @@ export class AppointmentsService {
 
       const baseWeekStart = new Date(baseStart);
       baseWeekStart.setHours(0, 0, 0, 0);
-      baseWeekStart.setDate(
-        baseWeekStart.getDate() - baseWeekStart.getDay(),
-      ); // domingo
+      baseWeekStart.setDate(baseWeekStart.getDate() - baseWeekStart.getDay()); // domingo
 
       const baseDayStart = new Date(baseStart.getTime());
       baseDayStart.setHours(0, 0, 0, 0);
@@ -2210,9 +2558,7 @@ export class AppointmentsService {
 
         if (untilDate) {
           const nextWeekStart = new Date(baseWeekStart);
-          nextWeekStart.setDate(
-            baseWeekStart.getDate() + weekOffset * 7,
-          );
+          nextWeekStart.setDate(baseWeekStart.getDate() + weekOffset * 7);
           if (nextWeekStart > untilDate) {
             break;
           }
@@ -2446,12 +2792,17 @@ export class AppointmentsService {
 
   private async scheduleHousekeepingTask(params: {
     appointment: AppointmentDocument;
-    service: Pick<Service, "serviceType" | "bufferTimeAfter" | "name">;
+    service?: Pick<Service, "serviceType" | "bufferTimeAfter" | "name"> | null;
+    resource?: Pick<Resource, "type" | "name" | "metadata"> | null;
     tenantId: string;
     userObjectId: Types.ObjectId;
   }): Promise<void> {
-    const { appointment, service, tenantId, userObjectId } = params;
-    if (service.serviceType !== "room") {
+    const { appointment, service, resource, tenantId, userObjectId } = params;
+    const serviceType =
+      service?.serviceType ||
+      (resource?.type === "room" ? "room" : undefined);
+
+    if (serviceType !== "room") {
       return;
     }
 
@@ -2470,20 +2821,34 @@ export class AppointmentsService {
     }
 
     const cleanupStart = new Date(endTime);
-    const bufferAfter = Number(service.bufferTimeAfter ?? 0);
+    const bufferAfter = Number(
+      service?.bufferTimeAfter ??
+        (resource?.metadata?.housekeeping?.bufferTimeAfter ?? 0),
+    );
     cleanupStart.setMinutes(cleanupStart.getMinutes() + bufferAfter);
 
     const todo = new this.todoModel({
       title:
         appointment.locationName ||
         appointment.resourceName ||
-        `Housekeeping - ${service.name}`,
+        resource?.name ||
+        (service?.name ? `Housekeeping - ${service.name}` : "Housekeeping"),
       isCompleted: false,
       dueDate: cleanupStart,
       tags: ["housekeeping", "mantenimiento"],
       priority: "medium",
       createdBy: userObjectId,
       tenantId: this.toObjectIdOrValue(tenantId) as Types.ObjectId,
+      resourceId:
+        appointment.resourceId instanceof Types.ObjectId
+          ? appointment.resourceId.toHexString()
+          : appointment.resourceId
+            ? appointment.resourceId.toString()
+            : appointment.resourcesInvolved &&
+                appointment.resourcesInvolved.length
+              ? String(appointment.resourcesInvolved[0])
+              : undefined,
+      appointmentId: appointment._id.toHexString(),
     });
 
     try {
@@ -2506,23 +2871,83 @@ export class AppointmentsService {
 
   private async scheduleDepositTask(params: {
     appointment: AppointmentDocument;
-    service: Pick<
+    service?: Pick<
       Service,
       "requiresDeposit" | "depositAmount" | "depositType" | "name" | "metadata"
-    >;
+    > | null;
+    resource?: Pick<Resource, "name" | "metadata" | "baseRate"> | null;
     tenantId: string;
     userObjectId: Types.ObjectId;
   }): Promise<void> {
-    const { appointment, service, tenantId, userObjectId } = params;
+    const { appointment, service, resource, tenantId, userObjectId } = params;
 
-    if (!service.requiresDeposit || (service.depositAmount ?? 0) <= 0) {
+    if (
+      !service ||
+      !service.requiresDeposit ||
+      (service.depositAmount ?? 0) <= 0
+    ) {
       return;
     }
 
-    const basePrice = appointment.servicePrice ?? service["price"] ?? 0;
+    // Obtener tenant para determinar modelo de negocio
+    const tenant = await this.tenantModel.findById(tenantId).lean();
+    const businessType = tenant?.businessType || "";
+
+    // Mapeo de businessType a pricing model
+    const RESOURCE_CENTRIC_TYPES = [
+      "Hotel",
+      "Posada",
+      "Hostal",
+      "Apart-hotel",
+      "Resort",
+    ];
+    const isResourceCentric = RESOURCE_CENTRIC_TYPES.includes(businessType);
+    const isHybrid = tenant?.vertical === "HYBRID";
+
+    // Calcular basePrice según el modelo de negocio
+    let basePrice = 0;
+
+    if (isResourceCentric && !isHybrid && resource?.baseRate?.amount) {
+      // Para hoteles: usar precio del recurso (habitación) multiplicado por noches
+      const start = appointment.startTime
+        ? new Date(appointment.startTime)
+        : null;
+      const end = appointment.endTime ? new Date(appointment.endTime) : null;
+
+      let nights = 1;
+      if (
+        start instanceof Date &&
+        end instanceof Date &&
+        !Number.isNaN(start.getTime()) &&
+        !Number.isNaN(end.getTime())
+      ) {
+        const diffMs = Math.max(end.getTime() - start.getTime(), 0);
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+        nights = Math.max(1, Math.ceil(diffDays || 1));
+      }
+
+      // Usar metadata.billing.nights si está disponible
+      const metadata = (appointment.metadata || {}) as Record<string, any>;
+      const billing = (metadata.billing || {}) as Record<string, any>;
+      if (billing.nights && Number(billing.nights) > 0) {
+        nights = Number(billing.nights);
+      }
+
+      const baseRateAmount = Number(resource.baseRate.amount) || 0;
+      basePrice = baseRateAmount * nights;
+
+      this.logger.log(
+        `Resource-centric deposit calculation for ${businessType}: ${baseRateAmount}/night × ${nights} nights = $${basePrice}`,
+      );
+    } else {
+      // Para spas y otros: usar precio del servicio
+      basePrice = appointment.servicePrice ?? service["price"] ?? 0;
+    }
+
+    // Calcular monto del depósito
     let depositAmount = Number(service.depositAmount ?? 0);
     if (service.depositType === "percentage") {
-      depositAmount = Math.round(((depositAmount / 100) * basePrice) * 100) / 100;
+      depositAmount = Math.round((depositAmount / 100) * basePrice * 100) / 100;
     }
 
     if (depositAmount <= 0) {
@@ -2558,7 +2983,8 @@ export class AppointmentsService {
 
     appointment.depositRecords = appointment.depositRecords || [];
     const hasPendingDeposit = appointment.depositRecords.some(
-      (record) => record.status === "requested" || record.status === "submitted",
+      (record) =>
+        record.status === "requested" || record.status === "submitted",
     );
 
     if (!hasPendingDeposit) {
@@ -2595,6 +3021,40 @@ export class AppointmentsService {
         });
       }
     }
+  }
+
+  private getExpectedPaymentAmount(appointment: AppointmentDocument): number | null {
+    if (!appointment) {
+      return null;
+    }
+
+    const metadata = (appointment.metadata || {}) as Record<string, any>;
+    const billing = (metadata.billing || {}) as Record<string, any>;
+
+    const totalAmountUsd = Number(billing.totalAmountUsd);
+    if (Number.isFinite(totalAmountUsd) && totalAmountUsd > 0) {
+      return totalAmountUsd;
+    }
+
+    const totalAmount = Number(billing.totalAmount);
+    const totalCurrency = (billing.totalCurrency || billing.currency || "USD")
+      .toString()
+      .toUpperCase();
+
+    if (
+      Number.isFinite(totalAmount) &&
+      totalAmount > 0 &&
+      (!totalCurrency || totalCurrency === "USD")
+    ) {
+      return totalAmount;
+    }
+
+    const servicePriceValue = Number(appointment.servicePrice);
+    if (Number.isFinite(servicePriceValue) && servicePriceValue > 0) {
+      return servicePriceValue;
+    }
+
+    return null;
   }
 
   private async schedulePendingDepositReminder(params: {
@@ -2686,7 +3146,10 @@ export class AppointmentsService {
       return;
     }
 
-    if (depositRecord.status !== "requested" && depositRecord.status !== "submitted") {
+    if (
+      depositRecord.status !== "requested" &&
+      depositRecord.status !== "submitted"
+    ) {
       return;
     }
 
@@ -2707,7 +3170,9 @@ export class AppointmentsService {
         .exec();
       if (todo) {
         todo.priority = "high";
-        todo.tags = Array.from(new Set([...(todo.tags || []), "deposito", "followup"]));
+        todo.tags = Array.from(
+          new Set([...(todo.tags || []), "deposito", "followup"]),
+        );
         await todo.save();
       }
     } else {
@@ -2734,7 +3199,9 @@ export class AppointmentsService {
     }
   }
 
-  private async generateDepositReceiptNumber(tenantId: string): Promise<string> {
+  private async generateDepositReceiptNumber(
+    tenantId: string,
+  ): Promise<string> {
     const year = new Date().getFullYear();
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const candidate = `DP-${year}-${randomUUID().slice(0, 8).toUpperCase()}`;
@@ -2780,7 +3247,8 @@ export class AppointmentsService {
 
     const featureFlagEnabled =
       isFeatureEnabled("SERVICE_BOOKING_PORTAL") ||
-      this.configService.get<string>("ENABLE_SERVICE_BOOKING_PORTAL") === "true";
+      this.configService.get<string>("ENABLE_SERVICE_BOOKING_PORTAL") ===
+        "true";
 
     if (!featureFlagEnabled) {
       throw new ForbiddenException(
@@ -2797,7 +3265,10 @@ export class AppointmentsService {
       throw new NotFoundException("Tenant no encontrado");
     }
 
-    if (!tenant.enabledModules?.appointments || !tenant.enabledModules?.booking) {
+    if (
+      !tenant.enabledModules?.appointments ||
+      !tenant.enabledModules?.booking
+    ) {
       throw new ForbiddenException(
         "El portal de reservas no está habilitado para este tenant",
       );
@@ -2806,9 +3277,7 @@ export class AppointmentsService {
     return tenant;
   }
 
-  private async resolveSystemUserId(
-    tenantId: string,
-  ): Promise<Types.ObjectId> {
+  private async resolveSystemUserId(tenantId: string): Promise<Types.ObjectId> {
     const tenantValue = this.toObjectIdOrValue(tenantId);
 
     const user = await this.userModel
@@ -2931,7 +3400,9 @@ export class AppointmentsService {
     }
     if (payload.customer.phone) {
       orConditions.push({
-        contacts: { $elemMatch: { type: "phone", value: payload.customer.phone } },
+        contacts: {
+          $elemMatch: { type: "phone", value: payload.customer.phone },
+        },
       });
     }
 
@@ -2964,7 +3435,8 @@ export class AppointmentsService {
       if (payload.customer.phone) {
         const hasPhone = (customer.contacts || []).some(
           (contact: any) =>
-            contact.type === "phone" && contact.value === payload.customer.phone,
+            contact.type === "phone" &&
+            contact.value === payload.customer.phone,
         );
         if (!hasPhone) {
           customer.contacts = customer.contacts || [];
@@ -2978,7 +3450,8 @@ export class AppointmentsService {
         }
       }
 
-      const fullName = `${payload.customer.firstName} ${payload.customer.lastName || ""}`.trim();
+      const fullName =
+        `${payload.customer.firstName} ${payload.customer.lastName || ""}`.trim();
       if (fullName && customer.name !== fullName) {
         customer.name = fullName;
         shouldSave = true;
@@ -2991,7 +3464,8 @@ export class AppointmentsService {
       return customer;
     }
 
-    const fullName = `${payload.customer.firstName} ${payload.customer.lastName || ""}`.trim();
+    const fullName =
+      `${payload.customer.firstName} ${payload.customer.lastName || ""}`.trim();
     const tenantObjectId = this.toObjectIdOrValue(tenantId);
     if (!(tenantObjectId instanceof Types.ObjectId)) {
       throw new BadRequestException(
@@ -3066,7 +3540,10 @@ export class AppointmentsService {
     const appointments = await this.appointmentModel
       .find(query)
       .sort({ startTime: 1 })
-      .populate("serviceId", "name serviceType color bufferTimeAfter bufferTimeBefore")
+      .populate(
+        "serviceId",
+        "name serviceType color bufferTimeAfter bufferTimeBefore",
+      )
       .populate("resourceId", "name type color")
       .populate("additionalResourceIds", "name type color")
       .lean();
@@ -3200,8 +3677,12 @@ export class AppointmentsService {
     }
 
     const customerDoc = appointment.customerId as unknown as CustomerDocument;
-    const serviceDoc = appointment.serviceId as unknown as ServiceDocument | undefined;
-    const resourceDoc = appointment.resourceId as unknown as ResourceDocument | undefined;
+    const serviceDoc = appointment.serviceId as unknown as
+      | ServiceDocument
+      | undefined;
+    const resourceDoc = appointment.resourceId as unknown as
+      | ResourceDocument
+      | undefined;
 
     const tenant = await this.tenantModel
       .findById(this.toObjectIdOrValue(tenantId))
@@ -3210,7 +3691,11 @@ export class AppointmentsService {
 
     const hotelName = tenant?.name || "Tu hotel";
     const tenantTimezone = tenant?.timezone || "America/Caracas";
-    const tenantLanguage = ((tenant as Record<string, any> | undefined)?.settings?.language || tenant?.language || "es").toLowerCase();
+    const tenantLanguage = (
+      (tenant as Record<string, any> | undefined)?.settings?.language ||
+      tenant?.language ||
+      "es"
+    ).toLowerCase();
     const locale = tenantLanguage === "en" ? "en-US" : "es-VE";
 
     const startDate =
@@ -3252,11 +3737,12 @@ export class AppointmentsService {
     );
 
     const metadata = appointment.metadata || {};
-    const policySettings = (tenant?.settings?.hospitalityPolicies || {}) as Record<string, any>;
+    const policySettings = (tenant?.settings?.hospitalityPolicies ||
+      {}) as Record<string, any>;
     const arrivalLeadMinutes =
       typeof policySettings.arrivalLeadMinutes === "number"
         ? policySettings.arrivalLeadMinutes
-        : metadata?.arrivalLeadMinutes ?? 15;
+        : (metadata?.arrivalLeadMinutes ?? 15);
 
     const portalBase =
       this.configService.get<string>("BOOKING_PORTAL_URL") ||
@@ -3265,7 +3751,10 @@ export class AppointmentsService {
 
     const selfServiceUrl = `${portalBase}/reservations/${appointment._id}?tenant=${tenantId}`;
 
-    const customerPreferences = (customerDoc?.preferences || {}) as Record<string, any>;
+    const customerPreferences = (customerDoc?.preferences || {}) as Record<
+      string,
+      any
+    >;
     const preferredChannels: string[] = [];
     if (customerPreferences.communicationChannel) {
       preferredChannels.push(customerPreferences.communicationChannel);
@@ -3305,8 +3794,7 @@ export class AppointmentsService {
         serviceDoc?.metadata?.hospitality?.upsellCopy ||
         "Completa tu experiencia con nuestro circuito de spa",
       upsellShort:
-        serviceDoc?.metadata?.hospitality?.upsellShort ||
-        "un masaje relajante",
+        serviceDoc?.metadata?.hospitality?.upsellShort || "un masaje relajante",
       arrivalLead: `${arrivalLeadMinutes} minutos`,
       locationInstructions:
         serviceDoc?.metadata?.hospitality?.locationInstructions ||
@@ -3314,7 +3802,9 @@ export class AppointmentsService {
       contactPhone:
         customerDoc?.contacts?.find(
           (contact: any) => contact.type === "phone" && contact.isPrimary,
-        )?.value || metadata?.contactPhone || appointment.customerPhone,
+        )?.value ||
+        metadata?.contactPhone ||
+        appointment.customerPhone,
       selfServiceUrl,
       selfServiceShortUrl: metadata?.selfServiceShortUrl || selfServiceUrl,
       loyaltyOffer:
@@ -3338,7 +3828,8 @@ export class AppointmentsService {
         appointment.customerPhone ||
         customerDoc?.contacts?.find((contact: any) => contact.type === "phone")
           ?.value,
-      whatsappChatId: customerDoc?.whatsappChatId || customerDoc?.whatsappNumber,
+      whatsappChatId:
+        customerDoc?.whatsappChatId || customerDoc?.whatsappNumber,
       language: customerPreferences.language || tenantLanguage,
       templateContext,
       preferredChannels,
@@ -3416,12 +3907,17 @@ export class AppointmentsService {
       { offsetMinutes: 120, templateId: "hospitality_reminder_2h" },
     ];
 
-    if (!reminderCandidates.some((candidate) => candidate.offsetMinutes === sanitizedOffset)) {
+    if (
+      !reminderCandidates.some(
+        (candidate) => candidate.offsetMinutes === sanitizedOffset,
+      )
+    ) {
       reminderCandidates.push({
         offsetMinutes: sanitizedOffset,
-        templateId: sanitizedOffset <= 150
-          ? "hospitality_reminder_2h"
-          : "hospitality_reminder_24h",
+        templateId:
+          sanitizedOffset <= 150
+            ? "hospitality_reminder_2h"
+            : "hospitality_reminder_24h",
       });
     }
 
@@ -3453,5 +3949,342 @@ export class AppointmentsService {
         );
       }
     }
+  }
+
+  /**
+   * Obtiene todos los pagos confirmados (depositRecords con status='confirmed')
+   */
+  async getConfirmedPayments(
+    tenantId: string,
+    filters: {
+      startDate?: string;
+      endDate?: string;
+      page?: number;
+      limit?: number;
+    },
+  ): Promise<any> {
+    const page = filters.page || 1;
+    const limit = filters.limit || 50;
+    const skip = (page - 1) * limit;
+
+    const matchStage: any = {
+      tenantId,
+      depositRecords: { $exists: true, $ne: [] },
+    };
+
+    if (filters.startDate || filters.endDate) {
+      matchStage.startTime = {};
+      if (filters.startDate) {
+        matchStage.startTime.$gte = new Date(filters.startDate);
+      }
+      if (filters.endDate) {
+        matchStage.startTime.$lte = new Date(filters.endDate);
+      }
+    }
+
+    const appointments: any[] = await this.appointmentModel
+      .find(matchStage)
+      .select(
+        "appointmentNumber customerName customerPhone customerEmail serviceName startTime endTime depositRecords servicePrice totalCost",
+      )
+      .sort({ startTime: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean()
+      .exec();
+
+    const confirmedPayments: any[] = [];
+    for (const apt of appointments) {
+      const confirmed = (apt.depositRecords || []).filter(
+        (record: any) => record.status === "confirmed",
+      );
+      for (const payment of confirmed) {
+        confirmedPayments.push({
+          appointmentId: apt._id,
+          appointmentNumber: apt.appointmentNumber,
+          customerName: apt.customerName,
+          customerPhone: apt.customerPhone,
+          customerEmail: apt.customerEmail,
+          serviceName: apt.serviceName,
+          appointmentDate: apt.startTime,
+          paymentDate: payment.confirmedAt || payment.createdAt,
+          amount: payment.amount,
+          currency: payment.currency,
+          method: payment.method,
+          reference: payment.reference,
+          receiptNumber: payment.receiptNumber,
+          bankAccountId: payment.bankAccountId,
+          bankTransactionId: payment.bankTransactionId,
+          journalEntryId: payment.journalEntryId,
+          notes: payment.notes,
+        });
+      }
+    }
+
+    const total = await this.appointmentModel.countDocuments(matchStage);
+
+    return {
+      data: confirmedPayments,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Obtiene todos los pagos de un cliente específico
+   */
+  async getPaymentsByCustomer(
+    tenantId: string,
+    customerId: string,
+  ): Promise<any> {
+    const appointments: any[] = await this.appointmentModel
+      .find({
+        tenantId,
+        customerId: this.toObjectIdOrValue(customerId),
+      })
+      .select(
+        "appointmentNumber serviceName startTime endTime status depositRecords servicePrice totalCost",
+      )
+      .sort({ startTime: -1 })
+      .lean()
+      .exec();
+
+    let totalPaid = 0;
+    let totalPending = 0;
+    let totalAppointments = appointments.length;
+
+    const appointmentsWithPayments = appointments.map((apt: any) => {
+      const confirmedPayments = (apt.depositRecords || []).filter(
+        (record: any) => record.status === "confirmed",
+      );
+      const paidAmount = confirmedPayments.reduce(
+        (sum: number, record: any) => sum + (Number(record.amount) || 0),
+        0,
+      );
+      const totalAmount = Number(apt.totalCost) || Number(apt.servicePrice) || 0;
+      const pendingAmount = Math.max(0, totalAmount - paidAmount);
+
+      totalPaid += paidAmount;
+      totalPending += pendingAmount;
+
+      return {
+        appointmentId: apt._id,
+        appointmentNumber: apt.appointmentNumber,
+        serviceName: apt.serviceName,
+        startTime: apt.startTime,
+        endTime: apt.endTime,
+        status: apt.status,
+        totalAmount,
+        paidAmount,
+        pendingAmount,
+        payments: confirmedPayments.map((payment: any) => ({
+          date: payment.confirmedAt || payment.createdAt,
+          amount: payment.amount,
+          currency: payment.currency,
+          method: payment.method,
+          reference: payment.reference,
+          receiptNumber: payment.receiptNumber,
+        })),
+      };
+    });
+
+    return {
+      customerId,
+      totalAppointments,
+      totalPaid,
+      totalPending,
+      appointments: appointmentsWithPayments,
+    };
+  }
+
+  /**
+   * Obtiene cuentas por cobrar (appointments con saldo pendiente)
+   */
+  async getReceivables(tenantId: string): Promise<any> {
+    const appointments: any[] = await this.appointmentModel
+      .find({
+        tenantId,
+        status: { $in: ["confirmed", "completed"] },
+        $or: [
+          { depositRecords: { $exists: false } },
+          { depositRecords: { $eq: [] } },
+          { depositRecords: { $ne: [] } },
+        ],
+      })
+      .select(
+        "appointmentNumber customerName customerPhone customerEmail customerId serviceName startTime depositRecords servicePrice totalCost createdAt",
+      )
+      .sort({ startTime: 1 })
+      .lean()
+      .exec();
+
+    const receivables: any[] = [];
+    let totalReceivable = 0;
+
+    for (const apt of appointments) {
+      const confirmedPayments = (apt.depositRecords || []).filter(
+        (record: any) => record.status === "confirmed",
+      );
+      const paidAmount = confirmedPayments.reduce(
+        (sum: number, record: any) => sum + (Number(record.amount) || 0),
+        0,
+      );
+      const totalAmount = Number(apt.totalCost) || Number(apt.servicePrice) || 0;
+      const pendingAmount = totalAmount - paidAmount;
+
+      if (pendingAmount > 0) {
+        const now = new Date();
+        const appointmentDate = new Date(apt.startTime);
+        const daysPastDue = Math.floor(
+          (now.getTime() - appointmentDate.getTime()) / (1000 * 60 * 60 * 24),
+        );
+
+        let agingBucket = "current";
+        if (daysPastDue > 90) agingBucket = "90+";
+        else if (daysPastDue > 60) agingBucket = "60-90";
+        else if (daysPastDue > 30) agingBucket = "30-60";
+        else if (daysPastDue > 0) agingBucket = "1-30";
+
+        receivables.push({
+          appointmentId: apt._id,
+          appointmentNumber: apt.appointmentNumber,
+          customerName: apt.customerName,
+          customerPhone: apt.customerPhone,
+          customerEmail: apt.customerEmail,
+          customerId: apt.customerId,
+          serviceName: apt.serviceName,
+          appointmentDate: apt.startTime,
+          totalAmount,
+          paidAmount,
+          pendingAmount,
+          daysPastDue,
+          agingBucket,
+        });
+
+        totalReceivable += pendingAmount;
+      }
+    }
+
+    const agingReport: Record<string, number> = {
+      current: 0,
+      "1-30": 0,
+      "30-60": 0,
+      "60-90": 0,
+      "90+": 0,
+    };
+
+    receivables.forEach((item: any) => {
+      agingReport[item.agingBucket] += item.pendingAmount;
+    });
+
+    return {
+      totalReceivable,
+      totalAccounts: receivables.length,
+      agingReport,
+      receivables,
+    };
+  }
+
+  /**
+   * Genera reporte de ingresos con estadísticas
+   */
+  async getRevenueReport(
+    tenantId: string,
+    filters: {
+      startDate?: string;
+      endDate?: string;
+      groupBy?: string;
+    },
+  ): Promise<any> {
+    const groupBy = filters.groupBy || "day";
+    const matchStage: any = {
+      tenantId,
+      depositRecords: { $exists: true, $ne: [] },
+    };
+
+    if (filters.startDate || filters.endDate) {
+      matchStage.startTime = {};
+      if (filters.startDate) {
+        matchStage.startTime.$gte = new Date(filters.startDate);
+      }
+      if (filters.endDate) {
+        matchStage.startTime.$lte = new Date(filters.endDate);
+      }
+    }
+
+    const appointments = await this.appointmentModel
+      .find(matchStage)
+      .select("depositRecords startTime serviceName")
+      .lean()
+      .exec();
+
+    let totalRevenue = 0;
+    let totalTransactions = 0;
+    const revenueByMethod: Record<string, number> = {};
+    const revenueByPeriod: Record<string, number> = {};
+    const revenueByService: Record<string, number> = {};
+
+    for (const apt of appointments) {
+      const confirmed = (apt.depositRecords || []).filter(
+        (record: any) => record.status === "confirmed",
+      );
+
+      for (const payment of confirmed) {
+        const amount = Number(payment.amount) || 0;
+        totalRevenue += amount;
+        totalTransactions++;
+
+        const method = payment.method || "unknown";
+        revenueByMethod[method] = (revenueByMethod[method] || 0) + amount;
+
+        const service = apt.serviceName || "unknown";
+        revenueByService[service] = (revenueByService[service] || 0) + amount;
+
+        const date = new Date(payment.confirmedAt || payment.createdAt);
+        let periodKey = "";
+
+        if (groupBy === "day") {
+          periodKey = date.toISOString().split("T")[0];
+        } else if (groupBy === "week") {
+          const weekStart = new Date(date);
+          weekStart.setDate(date.getDate() - date.getDay());
+          periodKey = weekStart.toISOString().split("T")[0];
+        } else if (groupBy === "month") {
+          periodKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+        } else if (groupBy === "year") {
+          periodKey = `${date.getFullYear()}`;
+        }
+
+        revenueByPeriod[periodKey] = (revenueByPeriod[periodKey] || 0) + amount;
+      }
+    }
+
+    return {
+      summary: {
+        totalRevenue,
+        totalTransactions,
+        averageTransaction:
+          totalTransactions > 0 ? totalRevenue / totalTransactions : 0,
+      },
+      byMethod: Object.entries(revenueByMethod).map(([method, amount]) => ({
+        method,
+        amount,
+        percentage: totalRevenue > 0 ? (amount / totalRevenue) * 100 : 0,
+      })),
+      byService: Object.entries(revenueByService)
+        .map(([service, amount]) => ({
+          service,
+          amount,
+          percentage: totalRevenue > 0 ? (amount / totalRevenue) * 100 : 0,
+        }))
+        .sort((a, b) => b.amount - a.amount),
+      byPeriod: Object.entries(revenueByPeriod)
+        .map(([period, amount]) => ({ period, amount }))
+        .sort((a, b) => a.period.localeCompare(b.period)),
+    };
   }
 }

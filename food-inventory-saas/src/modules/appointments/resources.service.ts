@@ -40,6 +40,7 @@ export class ResourcesService {
   async findAll(
     tenantId: string,
     filters?: { status?: string; type?: string },
+    options?: { includePricing?: boolean },
   ): Promise<Resource[]> {
     const query: any = { tenantId };
 
@@ -51,10 +52,16 @@ export class ResourcesService {
       query.type = filters.type;
     }
 
-    return this.resourceModel
+    const mongoQuery = this.resourceModel
       .find(query)
-      .sort({ type: 1, floor: 1, sortIndex: 1, name: 1 })
-      .exec();
+      .sort({ type: 1, floor: 1, sortIndex: 1, name: 1 });
+
+    if (!options?.includePricing) {
+      mongoQuery.select("-pricing -promotions");
+    }
+
+    const results = await mongoQuery.lean({ getters: true }).exec();
+    return results as Resource[];
   }
 
   async findOne(tenantId: string, id: string): Promise<Resource> {

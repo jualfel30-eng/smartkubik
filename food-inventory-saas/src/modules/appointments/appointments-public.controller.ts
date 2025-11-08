@@ -1,10 +1,5 @@
 import { Body, Controller, Param, Post } from "@nestjs/common";
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiParam,
-} from "@nestjs/swagger";
+import { ApiTags, ApiOperation, ApiResponse, ApiParam } from "@nestjs/swagger";
 import { Public } from "../../decorators/public.decorator";
 import { AppointmentsService } from "./appointments.service";
 import {

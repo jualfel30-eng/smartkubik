@@ -48,8 +48,14 @@ export class ResourcesController {
     @Request() req,
     @Query("status") status?: string,
     @Query("type") type?: string,
+    @Query("includePricing") includePricing?: string,
   ) {
-    return this.resourcesService.findAll(req.user.tenantId, { status, type });
+    const includePricingFlag = includePricing === "true";
+    return this.resourcesService.findAll(
+      req.user.tenantId,
+      { status, type },
+      { includePricing: includePricingFlag },
+    );
   }
 
   @Get("active")

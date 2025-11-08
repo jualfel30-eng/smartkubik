@@ -176,6 +176,77 @@ export class AppointmentsController {
     return this.appointmentsService.getPendingDeposits(req.user.tenantId);
   }
 
+  @Get("payments/confirmed")
+  @ApiOperation({
+    summary: "Listar todos los pagos confirmados",
+    description: "Obtiene todos los depositRecords con status 'confirmed'",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Lista de pagos confirmados",
+  })
+  async getConfirmedPayments(
+    @Request() req,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+    @Query("page") page?: number,
+    @Query("limit") limit?: number,
+  ) {
+    return this.appointmentsService.getConfirmedPayments(
+      req.user.tenantId,
+      {
+        startDate,
+        endDate,
+        page: page || 1,
+        limit: limit || 50,
+      },
+    );
+  }
+
+  @Get("payments/by-customer/:customerId")
+  @ApiOperation({
+    summary: "Obtener pagos de un cliente específico",
+    description:
+      "Retorna todas las citas y pagos asociados a un cliente con balance total",
+  })
+  async getPaymentsByCustomer(
+    @Request() req,
+    @Param("customerId") customerId: string,
+  ) {
+    return this.appointmentsService.getPaymentsByCustomer(
+      req.user.tenantId,
+      customerId,
+    );
+  }
+
+  @Get("payments/receivables")
+  @ApiOperation({
+    summary: "Obtener cuentas por cobrar",
+    description:
+      "Lista de citas confirmadas con saldo pendiente de pago (aging report)",
+  })
+  async getReceivables(@Request() req) {
+    return this.appointmentsService.getReceivables(req.user.tenantId);
+  }
+
+  @Get("payments/reports/revenue")
+  @ApiOperation({
+    summary: "Reporte de ingresos",
+    description: "Estadísticas de ingresos por período, método de pago, etc.",
+  })
+  async getRevenueReport(
+    @Request() req,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+    @Query("groupBy") groupBy?: string,
+  ) {
+    return this.appointmentsService.getRevenueReport(req.user.tenantId, {
+      startDate,
+      endDate,
+      groupBy: groupBy || "day",
+    });
+  }
+
   @Get("calendar")
   @ApiOperation({ summary: "Obtener citas para vista de calendario" })
   @ApiResponse({
