@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   fetchApi,
   getPayables,
@@ -1146,10 +1147,26 @@ const PaymentHistory = () => {
 
 
 const PayablesManagement = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'monthly');
   const [payables, setPayables] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Sincronizar activeTab con searchParams cuando cambia la URL
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams]);
+
+  // Manejador para cambiar tabs (actualiza estado y URL)
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    setSearchParams({ tab: newTab }, { replace: true });
+  };
 
   const fetchPayables = useCallback(async () => {
     try {
@@ -1193,13 +1210,13 @@ const PayablesManagement = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Módulo de Pagos</CardTitle>
+        <CardTitle>Cuentas por Pagar (AP)</CardTitle>
         <CardDescription>
-          Gestiona tus cuentas por pagar, pagos recurrentes y consulta el historial de pagos.
+          Gestiona facturas de proveedores, pagos recurrentes y consulta el historial de cuentas por pagar.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="monthly" className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="monthly">Cuentas por Pagar</TabsTrigger>
             <TabsTrigger value="recurring">Pagos Recurrentes</TabsTrigger>

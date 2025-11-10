@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
@@ -77,7 +77,8 @@ const buildWhatsAppMessage = (deposit) => {
 };
 
 export default function PaymentsManagementDashboard() {
-  const [activeTab, setActiveTab] = useState('pending');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'pending');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [pendingItems, setPendingItems] = useState([]);
@@ -101,6 +102,20 @@ export default function PaymentsManagementDashboard() {
   const [reportPeriod, setReportPeriod] = useState('month');
 
   const navigate = useNavigate();
+
+  // Sincronizar activeTab con searchParams cuando cambia la URL
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams]);
+
+  // Manejador para cambiar tabs (actualiza estado y URL)
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    setSearchParams({ tab: newTab }, { replace: true });
+  };
 
   const loadPendingDeposits = async () => {
     setIsLoading(true);
@@ -519,7 +534,7 @@ export default function PaymentsManagementDashboard() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="pending">
               <Calendar className="h-4 w-4 mr-2" />
