@@ -11,6 +11,29 @@ import { AnalyticsPeriodQueryDto } from "../../dto/analytics.dto";
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
+  @Get("debug-permissions")
+  async debugPermissions(@Req() req) {
+    // Endpoint temporal de debug - ELIMINAR en producción final
+    return {
+      user: {
+        userId: req.user?.userId,
+        email: req.user?.email,
+        tenantId: req.user?.tenantId,
+        role: {
+          _id: req.user?.role?._id,
+          name: req.user?.role?.name,
+          description: req.user?.role?.description,
+          permissionsCount: req.user?.role?.permissions?.length || 0,
+          permissions: req.user?.role?.permissions || [],
+          permissionsType: typeof req.user?.role?.permissions,
+          isArray: Array.isArray(req.user?.role?.permissions),
+        },
+      },
+      hasReportsRead: req.user?.role?.permissions?.includes('reports_read'),
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   @Get("performance")
   @Permissions("reports_read")
   async getPerformanceReport(
