@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense, lazy } from 'react';
+import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -33,13 +33,21 @@ import {
   ChefHat,
   MessageSquare, // Icono añadido para WhatsApp
   PiggyBank,
+  ChevronRight,
+  Clock,
+  CheckCircle2,
+  TrendingUp,
+  FileText,
+  Box,
+  List,
+  Receipt,
+  RefreshCw,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import './App.css';
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CrmProvider } from './context/CrmContext.jsx';
-import { FormStateProvider } from './context/FormStateContext.jsx';
 import { AccountingProvider } from './context/AccountingContext.jsx';
 import { TenantPickerDialog } from '@/components/auth/TenantPickerDialog.jsx';
 import {
@@ -51,11 +59,19 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar.jsx';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible.jsx';
 
 // Lazy load the components
 const CRMManagement = lazy(() => import('@/components/CRMManagement.jsx'));
@@ -72,7 +88,8 @@ const OrganizationSelector = lazy(() => import('./pages/OrganizationSelector'));
 const DashboardView = lazy(() => import('./components/DashboardView.jsx'));
 const SettingsPage = lazy(() => import('./components/SettingsPage.jsx'));
 const InventoryDashboard = lazy(() => import('@/components/InventoryDashboard.jsx'));
-const AccountingDashboard = lazy(() => import('@/components/AccountingDashboard.jsx'));
+const PayablesManagement = lazy(() => import('@/components/PayablesManagement.jsx'));
+const AccountingManagement = lazy(() => import('@/components/AccountingManagement.jsx'));
 const AccountsReceivableReport = lazy(() => import('@/components/AccountsReceivableReport.jsx'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage.jsx'));
 const SuperAdminLayout = lazy(() => import('./layouts/SuperAdminLayout'));
@@ -136,13 +153,15 @@ function TenantLayout() {
   useEffect(() => {
     const currentPath = location.pathname.substring(1);
     const defaultTab = 'dashboard';
-    const tab = currentPath.split('/')[0] || defaultTab;
+    // Incluir query params en activeTab para mantener sincronización con navegación
+    const fullPath = currentPath + location.search;
+    const tab = fullPath || defaultTab;
     setActiveTab(tab);
 
     if (tenant && location.pathname) {
       saveLastLocation(location.pathname);
     }
-  }, [location.pathname, tenant, saveLastLocation]);
+  }, [location.pathname, location.search, tenant, saveLastLocation]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -237,19 +256,84 @@ function TenantLayout() {
   const navLinks = [
     { name: 'Panel de Control', href: 'dashboard', icon: LayoutDashboard, permission: 'dashboard_read' },
     { name: 'Órdenes', href: 'orders', icon: ShoppingCart, permission: 'orders_read' },
-    { name: 'WhatsApp', href: 'whatsapp', icon: MessageSquare, permission: 'chat_read' }, // <-- Enlace de WhatsApp añadido
-    { name: 'Inventario', href: 'inventory-management', icon: Package, permission: 'inventory_read' },
+    { name: 'WhatsApp', href: 'whatsapp', icon: MessageSquare, permission: 'chat_read' },
+    {
+      name: 'Inventario',
+      href: 'inventory-management',
+      icon: Package,
+      permission: 'inventory_read',
+      children: [
+        { name: 'Productos', href: 'inventory-management?tab=products', icon: Box },
+        { name: 'Inventario', href: 'inventory-management?tab=inventory', icon: List },
+        { name: 'Compras', href: 'inventory-management?tab=purchases', icon: Truck },
+      ]
+    },
     { name: 'Mi Storefront', href: 'storefront', icon: Store, permission: 'dashboard_read', requiresModule: 'ecommerce' },
     { name: 'Mesas', href: 'restaurant/floor-plan', icon: Utensils, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Cocina (KDS)', href: 'restaurant/kitchen-display', icon: ChefHat, permission: 'restaurant_read', requiresModule: 'restaurant' },
-    { name: 'Contabilidad', href: 'accounting-management', icon: BookCopy, permission: 'accounting_read' },
+    {
+      name: 'Cuentas por Pagar',
+      href: 'accounts-payable',
+      icon: Receipt,
+      permission: 'accounting_read',
+      children: [
+        { name: 'Cuentas por Pagar', href: 'accounts-payable?tab=monthly', icon: Receipt },
+        { name: 'Pagos Recurrentes', href: 'accounts-payable?tab=recurring', icon: RefreshCw },
+        { name: 'Historial', href: 'accounts-payable?tab=history', icon: List },
+      ]
+    },
+    {
+      name: 'Contabilidad General',
+      href: 'accounting',
+      icon: BookCopy,
+      permission: 'accounting_read',
+      children: [
+        { name: 'Libro Diario', href: 'accounting?tab=journal', icon: FileText },
+        { name: 'Plan de Cuentas', href: 'accounting?tab=chart-of-accounts', icon: List },
+        { name: 'Estado de Resultados', href: 'accounting?tab=profit-loss', icon: TrendingUp },
+        { name: 'Balance General', href: 'accounting?tab=balance-sheet', icon: AreaChart },
+        { name: 'Informes', href: 'accounting?tab=reports', icon: FileText },
+      ]
+    },
     { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: CreditCard, permission: 'accounting_read', requiresModule: 'bankAccounts' },
-    { name: 'CRM', href: 'crm', icon: Users, permission: 'customers_read' },
+    {
+      name: 'CRM',
+      href: 'crm',
+      icon: Users,
+      permission: 'customers_read',
+      children: [
+        { name: 'Todos', href: 'crm?tab=all', icon: Users },
+        { name: 'Clientes', href: 'crm?tab=business', icon: Users },
+        { name: 'Proveedores', href: 'crm?tab=supplier', icon: Truck },
+        { name: 'Empleados', href: 'crm?tab=employee', icon: UserSquare },
+      ]
+    },
     { name: 'Compras', href: 'purchases', icon: Truck, permission: 'purchases_read' },
-    { name: 'Citas', href: 'appointments', icon: Calendar, permission: 'appointments_read' },
+    {
+      name: 'Citas',
+      href: 'appointments',
+      icon: Calendar,
+      permission: 'appointments_read',
+      children: [
+        { name: 'Lista', href: 'appointments?tab=list', icon: List },
+        { name: 'Calendario hotel', href: 'appointments?tab=calendar', icon: Calendar },
+      ]
+    },
     { name: 'Servicios', href: 'services', icon: Briefcase, permission: 'appointments_read' },
     { name: 'Recursos', href: 'resources', icon: UserSquare, permission: 'appointments_read' },
-    { name: 'Cobros', href: 'hospitality/deposits', icon: PiggyBank, permission: 'appointments_read', requiresModule: 'appointments' },
+    {
+      name: 'Cobros',
+      href: 'hospitality/deposits',
+      icon: PiggyBank,
+      permission: 'appointments_read',
+      requiresModule: 'appointments',
+      children: [
+        { name: 'Pendientes', href: 'hospitality/deposits?tab=pending', icon: Clock },
+        { name: 'Confirmados', href: 'hospitality/deposits?tab=confirmed', icon: CheckCircle2 },
+        { name: 'Por cliente', href: 'hospitality/deposits?tab=customers', icon: Users },
+        { name: 'Reportes', href: 'hospitality/deposits?tab=reports', icon: TrendingUp },
+      ]
+    },
     { name: 'Operaciones Hotel', href: 'hospitality/operations', icon: Building2, permission: 'appointments_read', requiresModule: 'appointments' },
     { name: 'Plano Hotel', href: 'hospitality/floor-plan', icon: Building, permission: 'appointments_read', requiresModule: 'appointments' },
     { name: 'Calendario', href: 'calendar', icon: CalendarDays, permission: 'events_read' },
@@ -258,6 +342,117 @@ function TenantLayout() {
 
   const SidebarNavigation = () => {
     const { state, setOpen, isMobile, setOpenMobile } = useSidebar();
+
+    // Memoizar la ruta base actual para evitar recalcular constantemente
+    const currentBasePath = useMemo(() => activeTab.split('?')[0], [activeTab]);
+
+    // Función optimizada para verificar si una ruta está activa
+    const isRouteActive = useCallback((itemHref) => {
+      if (!itemHref) return false;
+      if (activeTab === itemHref) return true;
+
+      const itemBasePath = itemHref.split('?')[0];
+      return itemBasePath === currentBasePath;
+    }, [activeTab, currentBasePath]);
+
+    // Función helper para verificar si un item tiene hijos activos (sin recursión innecesaria)
+    const hasActiveChild = useCallback((item) => {
+      if (!item.children) return false;
+
+      return item.children.some(child => {
+        const childBasePath = child.href.split('?')[0];
+        if (childBasePath === currentBasePath) return true;
+
+        // Solo verificar nietos si el child tiene children
+        if (child.children) {
+          return child.children.some(grandchild => {
+            return grandchild.href.split('?')[0] === currentBasePath;
+          });
+        }
+        return false;
+      });
+    }, [currentBasePath]);
+
+    // Inicializar openMenus - solo calcular una vez al montar
+    const [openMenus, setOpenMenus] = useState(() => {
+      const initial = {};
+      const basePath = activeTab.split('?')[0];
+
+      navLinks.forEach(item => {
+        if (item.children && item.children.length > 0) {
+          const parentBasePath = item.href.split('?')[0];
+          const isActive = parentBasePath === basePath ||
+            item.children.some(child => {
+              const childBasePath = child.href.split('?')[0];
+              if (childBasePath === basePath) return true;
+              if (child.children) {
+                return child.children.some(gc => gc.href.split('?')[0] === basePath);
+              }
+              return false;
+            });
+          initial[item.href] = isActive;
+
+          // Para children con hijos también
+          if (isActive) {
+            item.children.forEach(child => {
+              if (child.children) {
+                const childBasePath = child.href.split('?')[0];
+                const childActive = childBasePath === basePath ||
+                  child.children.some(gc => gc.href.split('?')[0] === basePath);
+                initial[child.href] = childActive;
+              }
+            });
+          }
+        }
+      });
+      return initial;
+    });
+
+    // Auto-expandir cuando cambia el activeTab - OPTIMIZADO
+    useEffect(() => {
+      setOpenMenus(prev => {
+        const menusToOpen = {};
+        let hasChanges = false;
+
+        navLinks.forEach(item => {
+          if (item.children && item.children.length > 0) {
+            const parentBasePath = item.href.split('?')[0];
+            const shouldBeOpen = parentBasePath === currentBasePath ||
+              item.children.some(child => {
+                const childBasePath = child.href.split('?')[0];
+                if (childBasePath === currentBasePath) return true;
+                if (child.children) {
+                  return child.children.some(gc => gc.href.split('?')[0] === currentBasePath);
+                }
+                return false;
+              });
+
+            if (shouldBeOpen && prev[item.href] !== true) {
+              menusToOpen[item.href] = true;
+              hasChanges = true;
+            }
+
+            // Para children con sub-items
+            if (shouldBeOpen && item.children) {
+              item.children.forEach(child => {
+                if (child.children) {
+                  const childBasePath = child.href.split('?')[0];
+                  const childShouldOpen = childBasePath === currentBasePath ||
+                    child.children.some(gc => gc.href.split('?')[0] === currentBasePath);
+                  if (childShouldOpen && prev[child.href] !== true) {
+                    menusToOpen[child.href] = true;
+                    hasChanges = true;
+                  }
+                }
+              });
+            }
+          }
+        });
+
+        // Solo actualizar si hay cambios
+        return hasChanges ? { ...prev, ...menusToOpen } : prev;
+      });
+    }, [currentBasePath]);
 
     const handleNavigationClick = (href) => {
       if (!href) return;
@@ -273,37 +468,167 @@ function TenantLayout() {
       }
     };
 
+    // Crear un mapa de items para búsqueda O(1) - memoizado
+    const itemsMap = useMemo(() => {
+      const map = new Map();
+      const buildMap = (items) => {
+        items.forEach(item => {
+          map.set(item.href, item);
+          if (item.children) {
+            buildMap(item.children);
+          }
+        });
+      };
+      buildMap(navLinks);
+      return map;
+    }, []);
+
+    const toggleMenu = useCallback((href, requestedState) => {
+      setOpenMenus(prev => {
+        // Toggle simple
+        if (requestedState === undefined) {
+          return { ...prev, [href]: !prev[href] };
+        }
+
+        // Si se solicita cerrar, verificar si hay hijos activos usando el helper memoizado
+        if (requestedState === false) {
+          const menuItem = itemsMap.get(href);
+          if (menuItem && hasActiveChild(menuItem)) {
+            return prev; // Mantener abierto si hay hijos activos
+          }
+        }
+
+        // Aplicar el estado solicitado
+        return { ...prev, [href]: requestedState };
+      });
+    }, [itemsMap, hasActiveChild]);
+
+    // Función recursiva para renderizar items con múltiples niveles de anidación
+    const renderMenuItem = (item, level = 0) => {
+      if (item.requiresModule) {
+        if (item.requiresModule === 'restaurant' && !restaurantModuleEnabled) {
+          return null;
+        }
+        if (item.requiresModule !== 'restaurant' && !tenant?.enabledModules?.[item.requiresModule]) {
+          return null;
+        }
+      }
+
+      if (item.permission && !hasPermission(item.permission)) {
+        return null;
+      }
+
+      const hasChildren = item.children && item.children.length > 0;
+
+      // Usar funciones memoizadas para determinar si está activo - OPTIMIZADO
+      const isItemActive = isRouteActive(item.href) || (hasChildren && hasActiveChild(item));
+
+      if (hasChildren) {
+        // Si tiene hijos, renderizar como collapsible
+        if (level === 0) {
+          // Nivel 1: Menu principal
+          return (
+            <Collapsible
+              key={item.href}
+              open={openMenus[item.href]}
+              onOpenChange={(open) => toggleMenu(item.href, open)}
+              asChild
+            >
+              <SidebarMenuItem>
+                <CollapsibleTrigger asChild>
+                  <SidebarMenuButton
+                    tooltip={item.name}
+                    isActive={isItemActive}
+                    className="gap-3 justify-start"
+                    aria-label={item.name}
+                  >
+                    <item.icon strokeWidth={1.25} />
+                    <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">{item.name}</span>
+                    <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[collapsible=icon]:hidden"
+                      style={{ transform: openMenus[item.href] ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                    />
+                  </SidebarMenuButton>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarMenuSub>
+                    {item.children.map(child => renderMenuItem(child, level + 1))}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuItem>
+            </Collapsible>
+          );
+        } else {
+          // Nivel 2+: Sub-menu con collapsible anidado
+          return (
+            <Collapsible
+              key={item.href}
+              open={openMenus[item.href]}
+              onOpenChange={(open) => toggleMenu(item.href, open)}
+              asChild
+            >
+              <SidebarMenuSubItem>
+                <CollapsibleTrigger asChild>
+                  <SidebarMenuSubButton
+                    isActive={isItemActive}
+                    className="w-full"
+                  >
+                    <item.icon strokeWidth={1.25} />
+                    <span>{item.name}</span>
+                    <ChevronRight className="ml-auto h-3 w-3 transition-transform duration-200"
+                      style={{ transform: openMenus[item.href] ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                    />
+                  </SidebarMenuSubButton>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarMenuSub className="ml-3">
+                    {item.children.map(child => renderMenuItem(child, level + 1))}
+                  </SidebarMenuSub>
+                </CollapsibleContent>
+              </SidebarMenuSubItem>
+            </Collapsible>
+          );
+        }
+      }
+
+      // Si no tiene hijos, renderizar como item simple
+      if (level === 0) {
+        return (
+          <SidebarMenuItem key={item.href}>
+            <SidebarMenuButton
+              tooltip={item.name}
+              isActive={activeTab === item.href}
+              className="gap-3 justify-start"
+              aria-label={item.name}
+              onClick={() => handleNavigationClick(item.href)}
+            >
+              <item.icon strokeWidth={1.25} />
+              <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">{item.name}</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        );
+      } else {
+        return (
+          <SidebarMenuSubItem key={item.href}>
+            <SidebarMenuSubButton
+              asChild
+              isActive={activeTab === item.href}
+            >
+              <button
+                onClick={() => handleNavigationClick(item.href)}
+                className="w-full"
+              >
+                <item.icon strokeWidth={1.25} />
+                <span>{item.name}</span>
+              </button>
+            </SidebarMenuSubButton>
+          </SidebarMenuSubItem>
+        );
+      }
+    };
+
     return (
       <SidebarMenu>
-        {navLinks.map(link => {
-          if (link.requiresModule) {
-            if (link.requiresModule === 'restaurant' && !restaurantModuleEnabled) {
-              return null;
-            }
-            if (link.requiresModule !== 'restaurant' && !tenant?.enabledModules?.[link.requiresModule]) {
-              return null;
-            }
-          }
-
-          if (!hasPermission(link.permission)) {
-            return null;
-          }
-
-          return (
-            <SidebarMenuItem key={link.href}>
-              <SidebarMenuButton
-                tooltip={link.name}
-                isActive={activeTab === link.href}
-                className="gap-3 justify-start"
-                aria-label={link.name}
-                onClick={() => handleNavigationClick(link.href)}
-              >
-                <link.icon strokeWidth={1.25} />
-                <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">{link.name}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          );
-        })}
+        {navLinks.map(link => renderMenuItem(link))}
       </SidebarMenu>
     );
   };
@@ -471,19 +796,36 @@ function TenantLayout() {
                       : <Navigate to="/dashboard" replace />
                   }
                 />
-                <Route path="crm" element={<CRMManagement />} />
-                <Route path="orders" element={<OrdersManagement />} />
+                <Route path="crm" element={
+                  <CrmProvider>
+                    <CRMManagement />
+                  </CrmProvider>
+                } />
+                <Route path="orders" element={
+                  <CrmProvider>
+                    <OrdersManagement />
+                  </CrmProvider>
+                } />
                 <Route path="whatsapp" element={<WhatsAppInbox />} /> {/* <-- Ruta de WhatsApp añadida */}
                 <Route path="purchases" element={<ComprasManagement />} />
-                <Route path="accounting-management" element={<AccountingDashboard />} />
+                <Route path="accounts-payable" element={<PayablesManagement />} />
+                <Route path="accounting" element={<AccountingManagement />} />
                 <Route path="accounting/reports/accounts-receivable" element={<AccountsReceivableReport />} />
                 <Route path="bank-accounts" element={<BankAccountsManagement />} />
                 <Route path="bank-accounts/:accountId/reconciliation" element={<BankReconciliationView />} />
                 <Route path="organizations" element={<OrganizationsManagement />} />
-                <Route path="appointments" element={<AppointmentsManagement />} />
+                <Route path="appointments" element={
+                  <CrmProvider>
+                    <AppointmentsManagement />
+                  </CrmProvider>
+                } />
                 <Route path="services" element={<ServicesManagement />} />
                 <Route path="resources" element={<ResourcesManagement />} />
-                <Route path="hospitality/deposits" element={<PaymentsManagementDashboard />} />
+                <Route path="hospitality/deposits" element={
+                  <CrmProvider>
+                    <PaymentsManagementDashboard />
+                  </CrmProvider>
+                } />
                 <Route path="hospitality/operations" element={<HospitalityOperationsDashboard />} />
                 <Route path="hospitality/floor-plan" element={<HotelFloorPlanPage />} />
                 <Route path="calendar" element={<CalendarView />} />
@@ -548,15 +890,11 @@ function AppContent() {
             path="/*"
             element={
               <ProtectedRoute requireOrganization>
-                  <FormStateProvider>
-                    <CrmProvider>
-                      <ShiftProvider>
-                        <AccountingProvider>
-                          <TenantLayout />
-                        </AccountingProvider>
-                      </ShiftProvider>
-                    </CrmProvider>
-                  </FormStateProvider>
+                <ShiftProvider>
+                  <AccountingProvider>
+                    <TenantLayout />
+                  </AccountingProvider>
+                </ShiftProvider>
               </ProtectedRoute>
             }
           />

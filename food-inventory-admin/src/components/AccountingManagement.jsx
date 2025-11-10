@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Card,
   CardContent,
@@ -20,16 +20,33 @@ import ProfitLossView from './ProfitLossView';
 import BalanceSheetView from './BalanceSheetView';
 
 const AccountingManagement = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'journal');
+
+  // Sincronizar activeTab con searchParams cuando cambia la URL
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams]);
+
+  // Manejador para cambiar tabs (actualiza estado y URL)
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    setSearchParams({ tab: newTab }, { replace: true });
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Módulo de Contabilidad</CardTitle>
+        <CardTitle>Contabilidad General (GL)</CardTitle>
         <CardDescription>
-          Aquí puedes ver los registros contables, gestionar el plan de cuentas y generar informes.
+          Gestiona el libro diario, plan de cuentas y genera estados financieros de tu empresa.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="journal">
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="grid h-auto w-full grid-cols-3 md:h-10 md:grid-cols-5">
             <TabsTrigger value="journal">Libro Diario</TabsTrigger>
             <TabsTrigger value="chart-of-accounts">Plan de Cuentas</TabsTrigger>

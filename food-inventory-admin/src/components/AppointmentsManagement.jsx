@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -197,15 +198,30 @@ const normalizeId = (value) => {
 };
 
 function AppointmentsManagement() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const hasAccess = useModuleAccess('appointments');
   const hasBankAccess = useModuleAccess('bankAccounts');
   const [appointments, setAppointments] = useState([]);
   const [services, setServices] = useState([]);
   const [resources, setResources] = useState([]);
   const [customers, setCustomers] = useState([]);
-  const [activeTab, setActiveTab] = useState('list');
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'list');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState(null);
+
+  // Sincronizar activeTab con searchParams cuando cambia la URL
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams]);
+
+  // Manejador para cambiar tabs (actualiza estado y URL)
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    setSearchParams({ tab: newTab }, { replace: true });
+  };
   const [formData, setFormData] = useState({ ...initialAppointmentState });
   const [loading, setLoading] = useState(false);
   const [customerProfile, setCustomerProfile] = useState({ ...initialCustomerProfile });
@@ -1669,7 +1685,7 @@ const normalizeBankAccountSelection = (value) =>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList>
           <TabsTrigger value="list">Lista</TabsTrigger>
           <TabsTrigger value="calendar">Calendario hotel</TabsTrigger>

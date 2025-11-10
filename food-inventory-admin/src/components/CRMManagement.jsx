@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -50,14 +51,29 @@ const initialNewContactState = {
 };
 
 function CRMManagement() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { crmData, loading, error, addCustomer, updateCustomer, deleteCustomer, loadCustomers, currentPage, pageLimit, totalCustomers, totalPages, setCurrentPage, setPageLimit } = useCRM();
   const [filteredData, setFilteredData] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
+  const [filterType, setFilterType] = useState(searchParams.get('tab') || 'all');
   const [filterTier, setFilterTier] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [committedSearch, setCommittedSearch] = useState('');
+
+  // Sincronizar filterType con searchParams cuando cambia la URL
+  useEffect(() => {
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl && tabFromUrl !== filterType) {
+      setFilterType(tabFromUrl);
+    }
+  }, [searchParams]);
+
+  // Manejador para cambiar tabs (actualiza estado y URL)
+  const handleTabChange = (newTab) => {
+    setFilterType(newTab);
+    setSearchParams({ tab: newTab }, { replace: true });
+  };
   const manualPageLimitRef = useRef(DEFAULT_PAGE_LIMIT);
   const lastQueryRef = useRef({
     search: null,
@@ -459,7 +475,7 @@ function CRMManagement() {
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-            <Tabs value={filterType} onValueChange={setFilterType} className="w-full overflow-x-auto sm:w-auto">
+            <Tabs value={filterType} onValueChange={handleTabChange} className="w-full overflow-x-auto sm:w-auto">
               <TabsList>
                 <TabsTrigger value="all">Todos</TabsTrigger>
                 <TabsTrigger value="business">Clientes</TabsTrigger>
