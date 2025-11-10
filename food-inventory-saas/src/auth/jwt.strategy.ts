@@ -5,6 +5,7 @@ import { Model } from "mongoose";
 import { ExtractJwt, Strategy } from "passport-jwt";
 import { ConfigService } from "@nestjs/config";
 import { User, UserDocument } from "../schemas/user.schema";
+import { Role, RoleDocument } from "../schemas/role.schema";
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -12,6 +13,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Role.name) private roleModel: Model<RoleDocument>,
     private configService: ConfigService,
   ) {
     super({
@@ -40,12 +42,39 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException("Usuario inactivo");
     }
 
+    // Cargar el rol completo con permisos desde la base de datos
+    let roleWithPermissions = payload.role;
+
+    if (payload.role && payload.role._id) {
+      const fullRole = await this.roleModel
+        .findById(payload.role._id)
+        .populate('permissions')
+        .exec();
+
+      if (fullRole) {
+        // Extraer solo los nombres de los permisos para el PermissionsGuard
+        const permissionNames = (fullRole.permissions || []).map((p: any) =>
+          typeof p === 'string' ? p : p.name
+        );
+
+        roleWithPermissions = {
+          _id: fullRole._id,
+          name: fullRole.name,
+          description: fullRole.description,
+          permissions: permissionNames
+        };
+
+        this.logger.debug(`Role loaded with ${permissionNames.length} permissions for user`);
+      }
+    }
+
     const userObject = {
+      userId: user._id,
       id: user._id,
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
-      role: payload.role,
+      role: roleWithPermissions,
       tenantId: payload.tenantId ?? user.tenantId,
       membershipId: payload.membershipId ?? null,
     };
