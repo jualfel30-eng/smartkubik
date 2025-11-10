@@ -254,3 +254,8 @@ ProductSchema.index({ "variants.sku": 1, tenantId: 1 });
 ProductSchema.index({ "variants.barcode": 1, tenantId: 1 });
 ProductSchema.index({ isPerishable: 1, tenantId: 1 });
 ProductSchema.index({ createdAt: -1, tenantId: 1 });
+
+// PERFORMANCE OPTIMIZATION: Compound indexes for common query patterns
+ProductSchema.index({ tenantId: 1, category: 1 });  // Category filtering
+ProductSchema.index({ tenantId: 1, isActive: 1, createdAt: -1 });  // Active products sorted by date
+ProductSchema.index({ tenantId: 1, subcategory: 1 });  // Subcategory filtering
