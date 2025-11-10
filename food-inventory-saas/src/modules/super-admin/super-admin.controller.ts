@@ -133,6 +133,27 @@ export class SuperAdminController {
     return this.superAdminService.updateSetting(body.key, body.value);
   }
 
+  @Get("feature-flags")
+  @ApiOperation({ summary: "[SUPER ADMIN] Get all feature flags status" })
+  @ApiResponse({
+    status: 200,
+    description: "Feature flags retrieved successfully.",
+  })
+  async getFeatureFlags() {
+    const flags = await this.superAdminService.getFeatureFlags();
+    return { data: flags };
+  }
+
+  @Post("feature-flags")
+  @ApiOperation({ summary: "[SUPER ADMIN] Update multiple feature flags" })
+  @ApiResponse({
+    status: 200,
+    description: "Feature flags updated successfully.",
+  })
+  async updateFeatureFlags(@Body() body: { flags: Record<string, boolean> }) {
+    return this.superAdminService.updateFeatureFlags(body.flags);
+  }
+
   @Patch("tenants/:tenantId/modules")
   @ApiOperation({
     summary: "[SUPER ADMIN] Update enabled modules for a tenant",

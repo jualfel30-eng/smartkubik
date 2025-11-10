@@ -87,6 +87,59 @@ export class SuperAdminService {
       .exec();
   }
 
+  async getFeatureFlags(): Promise<any> {
+    this.logger.log('Fetching all feature flags');
+
+    // Feature flags keys
+    const featureFlagKeys = [
+      'ENABLE_EMPLOYEE_PERFORMANCE',
+      'ENABLE_BANK_MOVEMENTS',
+      'ENABLE_BANK_RECONCILIATION',
+      'ENABLE_BANK_TRANSFERS',
+      'ENABLE_DASHBOARD_CHARTS',
+      'ENABLE_ADVANCED_REPORTS',
+      'ENABLE_PREDICTIVE_ANALYTICS',
+      'ENABLE_CUSTOMER_SEGMENTATION',
+      'ENABLE_MULTI_TENANT_LOGIN',
+      'ENABLE_SERVICE_BOOKING_PORTAL',
+      'ENABLE_APPOINTMENT_REMINDERS',
+    ];
+
+    const settings = await this.globalSettingModel
+      .find({ key: { $in: featureFlagKeys } })
+      .exec();
+
+    // Create a map of existing settings
+    const settingsMap = {};
+    settings.forEach((setting) => {
+      settingsMap[setting.key] = setting.value === 'true';
+    });
+
+    // Return all flags with defaults for missing ones
+    const result = {};
+    featureFlagKeys.forEach((key) => {
+      result[key] = settingsMap[key] !== undefined ? settingsMap[key] : false;
+    });
+
+    return result;
+  }
+
+  async updateFeatureFlags(flags: Record<string, boolean>): Promise<any> {
+    this.logger.log('Updating feature flags', flags);
+
+    const updates = Object.entries(flags).map(([key, value]) => ({
+      updateOne: {
+        filter: { key },
+        update: { $set: { key, value: String(value) } },
+        upsert: true,
+      },
+    }));
+
+    await this.globalSettingModel.bulkWrite(updates);
+
+    return { success: true, updated: Object.keys(flags).length };
+  }
+
   async getTenants(page = 1, limit = 10, search = ""): Promise<any> {
     this.logger.log(
       `Fetching tenants for Super Admin: page=${page}, limit=${limit}, search=${search}`,
