@@ -5,17 +5,22 @@ import { TenantGuard } from "../../guards/tenant.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
 import { Permissions } from "../../decorators/permissions.decorator";
 import { AnalyticsPeriodQueryDto } from "../../dto/analytics.dto";
+import { Public } from "../../decorators/public.decorator";
 
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 @Controller("analytics")
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
+  @Public()
   @Get("debug-permissions")
+  @UseGuards(JwtAuthGuard)
   async debugPermissions(@Req() req) {
     // Endpoint temporal de debug - ELIMINAR en producción final
+    // Solo requiere JWT, sin tenant ni permisos
     return {
-      user: {
+      hasUser: !!req.user,
+      user: req.user ? {
         userId: req.user?.userId,
         email: req.user?.email,
         tenantId: req.user?.tenantId,
@@ -28,7 +33,7 @@ export class AnalyticsController {
           permissionsType: typeof req.user?.role?.permissions,
           isArray: Array.isArray(req.user?.role?.permissions),
         },
-      },
+      } : null,
       hasReportsRead: req.user?.role?.permissions?.includes('reports_read'),
       timestamp: new Date().toISOString(),
     };
