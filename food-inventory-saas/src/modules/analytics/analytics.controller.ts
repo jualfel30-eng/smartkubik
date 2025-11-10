@@ -5,19 +5,17 @@ import { TenantGuard } from "../../guards/tenant.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
 import { Permissions } from "../../decorators/permissions.decorator";
 import { AnalyticsPeriodQueryDto } from "../../dto/analytics.dto";
-import { Public } from "../../decorators/public.decorator";
 
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 @Controller("analytics")
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
-  @Public()
   @Get("debug-permissions")
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, TenantGuard)
   async debugPermissions(@Req() req) {
     // Endpoint temporal de debug - ELIMINAR en producción final
-    // Solo requiere JWT, sin tenant ni permisos
+    // Requiere JWT y tenant, pero NO permisos (sin @Permissions decorator)
     return {
       hasUser: !!req.user,
       user: req.user ? {
