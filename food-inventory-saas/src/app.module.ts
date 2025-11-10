@@ -66,6 +66,7 @@ import {
   GlobalSettingDocument,
   GlobalSettingSchema,
 } from "./schemas/global-settings.schema";
+import { FeatureFlagsModule } from "./config/feature-flags.module";
 
 @Module({
   imports: [
@@ -258,6 +259,7 @@ import {
             inject: [ConfigService, getModelToken(GlobalSetting.name)],
           }),
         ]),
+    FeatureFlagsModule,
     AuthModule,
     OnboardingModule,
     ProductsModule,

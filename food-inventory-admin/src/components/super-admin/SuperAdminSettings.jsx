@@ -197,7 +197,7 @@ const SuperAdminSettings = () => {
         body: JSON.stringify({ flags: featureFlags }),
       });
       toast.success('Feature flags guardados exitosamente.', {
-        description: 'Los cambios se aplicarán después de reiniciar el servidor.',
+        description: 'Los cambios se aplicarán automáticamente en los próximos 5 minutos.',
       });
     } catch (error) {
       toast.error('Error al guardar los feature flags', { description: error.message });
@@ -262,7 +262,7 @@ const SuperAdminSettings = () => {
                   {savingFeatureFlags ? 'Guardando...' : 'Guardar Feature Flags'}
                 </Button>
                 <p className="text-sm text-muted-foreground text-center">
-                  ⚠️ Después de guardar, reinicia el servidor backend para aplicar los cambios.
+                  💡 Los cambios se aplicarán automáticamente en los próximos 5 minutos. El caché se actualiza periódicamente.
                 </p>
             </CardContent>
         </Card>

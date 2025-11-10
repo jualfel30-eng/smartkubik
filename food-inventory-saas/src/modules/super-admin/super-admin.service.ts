@@ -11,6 +11,7 @@ import {
   GlobalSettingDocument,
 } from "../../schemas/global-settings.schema";
 import { AuthService } from "../../auth/auth.service";
+import { FeatureFlagsService } from "../../config/feature-flags.service";
 
 @Injectable()
 export class SuperAdminService {
@@ -58,6 +59,7 @@ export class SuperAdminService {
     @InjectModel(GlobalSetting.name)
     private readonly globalSettingModel: Model<GlobalSettingDocument>,
     private readonly authService: AuthService,
+    private readonly featureFlagsService: FeatureFlagsService,
   ) {}
 
   async impersonateUser(
@@ -137,7 +139,27 @@ export class SuperAdminService {
 
     await this.globalSettingModel.bulkWrite(updates);
 
+    // Invalidar el caché de feature flags para forzar recarga
+    this.featureFlagsService.invalidateCache();
+    this.logger.log('Feature flags cache invalidated - changes will take effect immediately');
+
     return { success: true, updated: Object.keys(flags).length };
+  }
+
+  async reloadFeatureFlags(): Promise<any> {
+    this.logger.log('Manual reload of feature flags requested');
+
+    // Forzar recarga desde MongoDB
+    await this.featureFlagsService.reloadFromDatabase();
+
+    // Obtener los flags actualizados
+    const flags = await this.featureFlagsService.getFeatureFlags();
+
+    return {
+      success: true,
+      message: 'Feature flags reloaded from database',
+      flags
+    };
   }
 
   async getTenants(page = 1, limit = 10, search = ""): Promise<any> {

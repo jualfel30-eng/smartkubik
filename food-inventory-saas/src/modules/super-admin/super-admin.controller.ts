@@ -154,6 +154,18 @@ export class SuperAdminController {
     return this.superAdminService.updateFeatureFlags(body.flags);
   }
 
+  @Post("feature-flags/reload")
+  @ApiOperation({
+    summary: "[SUPER ADMIN] Force reload of feature flags from database",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Feature flags reloaded successfully.",
+  })
+  async reloadFeatureFlags() {
+    return this.superAdminService.reloadFeatureFlags();
+  }
+
   @Patch("tenants/:tenantId/modules")
   @ApiOperation({
     summary: "[SUPER ADMIN] Update enabled modules for a tenant",
