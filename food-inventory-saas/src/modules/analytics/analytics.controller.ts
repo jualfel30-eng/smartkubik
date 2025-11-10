@@ -1,15 +1,29 @@
-import { Controller, Get, Query, UseGuards, Req } from "@nestjs/common";
+import { Controller, Get, Query, UseGuards, Req, Headers } from "@nestjs/common";
 import { AnalyticsService } from "./analytics.service";
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
 import { Permissions } from "../../decorators/permissions.decorator";
 import { AnalyticsPeriodQueryDto } from "../../dto/analytics.dto";
+import { Public } from "../../decorators/public.decorator";
 
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 @Controller("analytics")
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
+
+  @Public()
+  @Get("debug-status")
+  async debugStatus(@Headers('authorization') authHeader: string) {
+    // Endpoint TOTALMENTE público - sin guards
+    return {
+      message: "Backend funcionando correctamente",
+      timestamp: new Date().toISOString(),
+      hasAuthHeader: !!authHeader,
+      authHeaderPreview: authHeader ? authHeader.substring(0, 20) + '...' : null,
+      instructions: "Si ves este mensaje, el backend está desplegado. Ahora cierra sesión, vuelve a entrar, y accede a /analytics/debug-permissions"
+    };
+  }
 
   @Get("debug-permissions")
   @UseGuards(JwtAuthGuard, TenantGuard)
