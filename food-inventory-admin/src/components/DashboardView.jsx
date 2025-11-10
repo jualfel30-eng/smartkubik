@@ -31,7 +31,7 @@ import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { ChartSkeleton } from '@/components/charts/BaseChart.jsx';
-import { FEATURES } from '@/config/features.js';
+import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
 import { useDashboardCharts } from '@/hooks/use-dashboard-charts.js';
 import { SalesTrendChart } from '@/components/charts/SalesTrendChart.jsx';
 import { SalesByCategoryChart } from '@/components/charts/SalesByCategoryChart.jsx';
@@ -62,6 +62,7 @@ const getStatusBadge = (status) => {
 };
 
 function DashboardView() {
+  const { flags } = useFeatureFlags();
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -166,7 +167,7 @@ function DashboardView() {
         </Card>
       </div>
 
-      {FEATURES.DASHBOARD_CHARTS ? (
+      {flags.DASHBOARD_CHARTS ? (
         <div className="space-y-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -227,7 +228,7 @@ function DashboardView() {
                 />
               ) : null}
 
-              {FEATURES.ADVANCED_REPORTS ? (
+              {flags.ADVANCED_REPORTS ? (
                 <div className="space-y-6">
                   <ProfitAndLossChart data={chartData.advanced.pnl} />
                   <div className="grid gap-6 lg:grid-cols-2">
@@ -243,8 +244,8 @@ function DashboardView() {
         <Alert>
           <AlertTitle>Gráficas desactivadas</AlertTitle>
           <AlertDescription>
-            Activa la variable <code>VITE_ENABLE_DASHBOARD_CHARTS</code> para habilitar las visualizaciones
-            avanzadas del dashboard.
+            Las visualizaciones avanzadas del dashboard están desactivadas.
+            Un administrador puede activarlas desde el panel de configuración de Super Admin.
           </AlertDescription>
         </Alert>
       )}

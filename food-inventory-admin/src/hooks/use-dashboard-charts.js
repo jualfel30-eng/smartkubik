@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchApi } from '@/lib/api';
-import { FEATURES } from '@/config/features.js';
+import { useFeatureFlags } from './use-feature-flags';
 
 const EMPTY_SALES = {
   trend: [],
@@ -42,12 +42,13 @@ const INITIAL_STATE = {
 };
 
 export function useDashboardCharts(period = '30d') {
+  const { flags } = useFeatureFlags();
   const [data, setData] = useState(INITIAL_STATE);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!FEATURES.DASHBOARD_CHARTS) {
+    if (!flags.DASHBOARD_CHARTS) {
       setData(INITIAL_STATE);
       setLoading(false);
       setError(null);
@@ -72,7 +73,7 @@ export function useDashboardCharts(period = '30d') {
           fetchApi(`/analytics/performance?period=${period}`),
         ];
 
-        if (FEATURES.ADVANCED_REPORTS) {
+        if (flags.ADVANCED_REPORTS) {
           requests.push(fetchApi(`/analytics/profit-and-loss?period=${period}`));
           requests.push(fetchApi('/analytics/customer-segmentation'));
         }
@@ -121,11 +122,11 @@ export function useDashboardCharts(period = '30d') {
           performanceRes.status === 'fulfilled' ? performanceRes.value?.data : [];
 
         const pnlData =
-          FEATURES.ADVANCED_REPORTS && pnlRes?.status === 'fulfilled'
+          flags.ADVANCED_REPORTS && pnlRes?.status === 'fulfilled'
             ? pnlRes.value?.data
             : EMPTY_ADVANCED.pnl;
         const segmentationData =
-          FEATURES.ADVANCED_REPORTS && segmentationRes?.status === 'fulfilled'
+          flags.ADVANCED_REPORTS && segmentationRes?.status === 'fulfilled'
             ? segmentationRes.value?.data
             : [];
 
@@ -156,7 +157,7 @@ export function useDashboardCharts(period = '30d') {
     return () => {
       active = false;
     };
-  }, [period]);
+  }, [period, flags.DASHBOARD_CHARTS, flags.ADVANCED_REPORTS]);
 
   return { data, loading, error };
 }

@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from './hooks/use-auth.jsx';
+import { FeatureFlagsProvider } from './hooks/use-feature-flags.jsx';
 import { ThemeProvider } from '@/components/ThemeProvider.jsx';
 import './index.css';
 import './custom.css';
@@ -11,7 +12,9 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
       <AuthProvider>
-        <App />
+        <FeatureFlagsProvider>
+          <App />
+        </FeatureFlagsProvider>
       </AuthProvider>
     </ThemeProvider>
   </StrictMode>,
