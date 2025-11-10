@@ -10,12 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs.jsx";
-import { 
-  Plus, 
-  Search, 
-  Edit, 
-  Trash2, 
-  Users, 
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  Users,
   Phone,
   Mail,
   MapPin,
@@ -29,6 +29,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { useCRM } from '@/hooks/use-crm.js';
+import { useAuth } from '@/hooks/use-auth';
 import { LocationPicker } from '@/components/ui/LocationPicker.jsx';
 
 const DEFAULT_PAGE_LIMIT = 25;
@@ -52,6 +53,7 @@ const initialNewContactState = {
 
 function CRMManagement() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { tenant } = useAuth();
   const { crmData, loading, error, addCustomer, updateCustomer, deleteCustomer, loadCustomers, currentPage, pageLimit, totalCustomers, totalPages, setCurrentPage, setPageLimit } = useCRM();
   const [filteredData, setFilteredData] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -164,6 +166,93 @@ function CRMManagement() {
     const typeInfo = typeMap[type] || { label: type, className: 'bg-gray-200' };
     return <Badge className={typeInfo.className}>{typeInfo.label}</Badge>;
   };
+
+  // --- LÓGICA DE INTELIGENCIA DE COMUNICACIONES ---
+  // Determinar si mostrar el componente de comunicaciones (solo SERVICES y FOOD_SERVICE)
+  const showCommunicationsIntelligence = useMemo(() => {
+    if (!tenant?.vertical) return false;
+    return tenant.vertical === 'SERVICES' || tenant.vertical === 'FOOD_SERVICE';
+  }, [tenant?.vertical]);
+
+  // Obtener texto adaptado según categoría de negocio
+  const communicationsDescription = useMemo(() => {
+    const businessType = tenant?.businessType?.toLowerCase() || '';
+
+    // Mapeo de categorías de negocio a términos apropiados
+    const customerTermMap = {
+      // Hotelería y hospitalidad
+      'hotel': 'huéspedes',
+      'hostel': 'huéspedes',
+      'resort': 'huéspedes',
+      'motel': 'huéspedes',
+      'posada': 'huéspedes',
+      'hospedaje': 'huéspedes',
+
+      // Salud
+      'clínica': 'pacientes',
+      'clinica': 'pacientes',
+      'hospital': 'pacientes',
+      'consultorio': 'pacientes',
+      'médico': 'pacientes',
+      'medico': 'pacientes',
+      'odontología': 'pacientes',
+      'odontologia': 'pacientes',
+      'veterinaria': 'pacientes',
+
+      // Educación
+      'escuela': 'estudiantes',
+      'colegio': 'estudiantes',
+      'academia': 'estudiantes',
+      'instituto': 'estudiantes',
+      'universidad': 'estudiantes',
+      'centro de formación': 'estudiantes',
+
+      // Spa y belleza
+      'spa': 'clientes',
+      'salón': 'clientes',
+      'salon': 'clientes',
+      'peluquería': 'clientes',
+      'peluqueria': 'clientes',
+      'barbería': 'clientes',
+      'barberia': 'clientes',
+      'estética': 'clientes',
+      'estetica': 'clientes',
+
+      // Restaurantes
+      'restaurante': 'comensales',
+      'restaurant': 'comensales',
+      'cafetería': 'clientes',
+      'cafeteria': 'clientes',
+      'bar': 'clientes',
+      'pub': 'clientes',
+      'food truck': 'clientes',
+
+      // Gimnasios y fitness
+      'gimnasio': 'miembros',
+      'gym': 'miembros',
+      'fitness': 'miembros',
+      'crossfit': 'miembros',
+      'yoga': 'participantes',
+      'pilates': 'participantes',
+
+      // Eventos y entretenimiento
+      'teatro': 'asistentes',
+      'cine': 'espectadores',
+      'museo': 'visitantes',
+      'galería': 'visitantes',
+      'galeria': 'visitantes',
+    };
+
+    // Buscar coincidencia en el businessType
+    for (const [key, value] of Object.entries(customerTermMap)) {
+      if (businessType.includes(key)) {
+        return `Seguimiento de recordatorios automatizados y respuesta de ${value} a través de correo, SMS y WhatsApp.`;
+      }
+    }
+
+    // Fallback genérico
+    return 'Seguimiento de recordatorios automatizados y respuesta de clientes a través de correo, SMS y WhatsApp.';
+  }, [tenant?.businessType]);
 
   // --- FILTRADO DE DATOS ---
   useEffect(() => {
@@ -342,14 +431,15 @@ function CRMManagement() {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Inteligencia de comunicaciones</CardTitle>
-          <CardDescription>
-            Seguimiento de recordatorios automatizados y respuesta de huéspedes a través de correo, SMS y WhatsApp.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      {showCommunicationsIntelligence && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Inteligencia de comunicaciones</CardTitle>
+            <CardDescription>
+              {communicationsDescription}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card className="border-none bg-muted/40 shadow-none">
               <CardHeader className="pb-2">
@@ -435,8 +525,8 @@ function CRMManagement() {
           </div>
         </CardContent>
       </Card>
+      )}
 
-      {/* ... (Stats cards remain the same) ... */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <h2 className="text-3xl font-bold text-foreground">Gestión de Contactos</h2>
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
@@ -478,7 +568,7 @@ function CRMManagement() {
             <Tabs value={filterType} onValueChange={handleTabChange} className="w-full overflow-x-auto sm:w-auto">
               <TabsList>
                 <TabsTrigger value="all">Todos</TabsTrigger>
-                <TabsTrigger value="business">Clientes</TabsTrigger>
+                <TabsTrigger value="individual">Clientes</TabsTrigger>
                 <TabsTrigger value="supplier">Proveedores</TabsTrigger>
                 <TabsTrigger value="employee">Empleados</TabsTrigger>
               </TabsList>
