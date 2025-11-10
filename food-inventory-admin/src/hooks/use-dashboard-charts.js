@@ -48,12 +48,21 @@ export function useDashboardCharts(period = '30d') {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    console.log('📊 useDashboardCharts effect running with flags:', {
+      DASHBOARD_CHARTS: flags.DASHBOARD_CHARTS,
+      ADVANCED_REPORTS: flags.ADVANCED_REPORTS,
+      period
+    });
+
     if (!flags.DASHBOARD_CHARTS) {
+      console.log('⚠️ DASHBOARD_CHARTS is disabled, returning early');
       setData(INITIAL_STATE);
       setLoading(false);
       setError(null);
       return;
     }
+
+    console.log('✅ DASHBOARD_CHARTS is enabled, loading charts...');
 
     let active = true;
 

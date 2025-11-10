@@ -23,15 +23,20 @@ export const FeatureFlagsProvider = ({ children }) => {
 
         // Si el cache es válido (menos de 5 minutos), usarlo
         if (now - timestamp < CACHE_DURATION) {
+          console.log('📦 Using cached feature flags:', data);
           return data;
+        } else {
+          console.log('⏰ Cache expired, will fetch from backend');
         }
+      } else {
+        console.log('🆕 No cache found, will fetch from backend');
       }
     } catch (error) {
       console.error('Error loading feature flags from cache:', error);
     }
 
     // Fallback a variables de entorno mientras carga
-    return {
+    const envFlags = {
       EMPLOYEE_PERFORMANCE_TRACKING: import.meta.env.VITE_ENABLE_EMPLOYEE_PERFORMANCE === 'true',
       BANK_ACCOUNTS_MOVEMENTS: import.meta.env.VITE_ENABLE_BANK_MOVEMENTS === 'true',
       BANK_ACCOUNTS_RECONCILIATION: import.meta.env.VITE_ENABLE_BANK_RECONCILIATION === 'true',
@@ -44,6 +49,8 @@ export const FeatureFlagsProvider = ({ children }) => {
       SERVICE_BOOKING_PORTAL: import.meta.env.VITE_ENABLE_SERVICE_BOOKING_PORTAL === 'true',
       APPOINTMENT_REMINDERS: import.meta.env.VITE_ENABLE_APPOINTMENT_REMINDERS === 'true',
     };
+    console.log('🔧 Using env vars as initial flags:', envFlags);
+    return envFlags;
   });
 
   const [loading, setLoading] = useState(true);
@@ -55,7 +62,9 @@ export const FeatureFlagsProvider = ({ children }) => {
         setLoading(true);
         setError(null);
 
+        console.log('📡 Fetching feature flags from backend...');
         const response = await fetchApi('/feature-flags');
+        console.log('📦 Backend response:', response);
 
         if (response?.data) {
           const newFlags = response.data;
@@ -69,12 +78,13 @@ export const FeatureFlagsProvider = ({ children }) => {
           setFlags(newFlags);
 
           // Log en desarrollo
-          if (import.meta.env.DEV) {
-            console.log('🎛️  Feature Flags loaded from backend:', newFlags);
-          }
+          console.log('🎛️  Feature Flags loaded from backend:', newFlags);
+          console.log('✅ DASHBOARD_CHARTS flag:', newFlags.DASHBOARD_CHARTS);
+        } else {
+          console.warn('⚠️ No data in response:', response);
         }
       } catch (err) {
-        console.error('Error loading feature flags from backend:', err);
+        console.error('❌ Error loading feature flags from backend:', err);
         setError(err.message);
 
         // En caso de error, mantener los flags actuales (cache o env vars)
@@ -123,6 +133,19 @@ export const useFeatureFlags = () => {
 
   return context;
 };
+
+/**
+ * Limpia el caché de feature flags (útil para debugging)
+ */
+export const clearFeatureFlagsCache = () => {
+  localStorage.removeItem(STORAGE_KEY);
+  console.log('🗑️ Feature flags cache cleared. Reload the page to fetch fresh flags.');
+};
+
+// Exponer función en window para debugging en consola
+if (typeof window !== 'undefined') {
+  window.clearFeatureFlagsCache = clearFeatureFlagsCache;
+}
 
 /**
  * Función helper standalone (compatible con código existente)
