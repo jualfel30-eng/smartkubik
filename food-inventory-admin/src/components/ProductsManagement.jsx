@@ -33,6 +33,85 @@ const UNASSIGNED_SELECT_VALUE = '__UNASSIGNED__';
 const DEFAULT_PAGE_LIMIT = 25;
 const SEARCH_PAGE_LIMIT = 100;
 
+// ============================================================================
+// IMAGE COMPRESSION UTILITY
+// ============================================================================
+/**
+ * Compresses and optimizes an image file before upload
+ * - Resizes to max 800x800px
+ * - Converts to JPEG at 80% quality
+ * - Returns base64 string
+ * - Max size after compression: 500KB
+ */
+const compressAndConvertImage = (file) => {
+  return new Promise((resolve, reject) => {
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      reject(new Error('Solo se permiten imágenes JPEG, PNG o WebP'));
+      return;
+    }
+
+    // Validate file size (max 10MB before compression)
+    const maxSizeBytes = 10 * 1024 * 1024;
+    if (file.size > maxSizeBytes) {
+      reject(new Error('La imagen es demasiado grande. Máximo 10MB'));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+
+          // Calculate new dimensions (max 800x800, maintain aspect ratio)
+          let width = img.width;
+          let height = img.height;
+          const maxSize = 800;
+
+          if (width > maxSize || height > maxSize) {
+            if (width > height) {
+              height = (height / width) * maxSize;
+              width = maxSize;
+            } else {
+              width = (width / height) * maxSize;
+              height = maxSize;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          // Draw image with high quality
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Convert to JPEG at 80% quality
+          const base64 = canvas.toDataURL('image/jpeg', 0.8);
+
+          // Check size limit (500KB after compression)
+          const sizeInKB = (base64.length * 3) / 4 / 1024;
+          if (sizeInKB > 500) {
+            reject(new Error(`Imagen demasiado grande después de compresión: ${sizeInKB.toFixed(0)}KB. Máximo: 500KB`));
+          } else {
+            resolve(base64);
+          }
+        } catch (error) {
+          reject(new Error(`Error al procesar imagen: ${error.message}`));
+        }
+      };
+      img.onerror = () => reject(new Error('Error al cargar la imagen'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('Error al leer el archivo'));
+    reader.readAsDataURL(file);
+  });
+};
+
 // Tag Input Component for categories/subcategories
 const TagInput = ({ value = [], onChange, placeholder, id, helpText }) => {
   const [inputValue, setInputValue] = useState('');
@@ -300,6 +379,10 @@ function ProductsManagement() {
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewData, setPreviewData] = useState([]);
   const [previewHeaders, setPreviewHeaders] = useState([]);
+
+  // Estados para preview de imágenes
+  const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
+  const [previewImageSrc, setPreviewImageSrc] = useState('');
   const verticalConfig = useVerticalConfig();
   const productAttributes = useMemo(
     () => (verticalConfig?.attributeSchema || []).filter((attr) => attr.scope === 'product'),
@@ -463,38 +546,40 @@ useEffect(() => {
   }, []);
 
   // Load products when filters change - debounce search
+  // OPTIMIZED: Consolidate all data loading into single useEffect to prevent cascade
   useEffect(() => {
-    setCurrentPage(1); // Reset to page 1 when filters change
+    // Auto-adjust page limit based on search (sync, no separate effect)
+    const trimmed = searchTerm.trim();
+    const targetLimit = trimmed ? SEARCH_PAGE_LIMIT : (manualPageLimitRef.current || DEFAULT_PAGE_LIMIT);
 
-    // Debounce search input to avoid making requests while typing
+    // Determine if we need to load data
+    const isFilterChange = statusFilter || searchTerm || filterCategory;
+    const page = isFilterChange ? 1 : currentPage;
+
+    // Debounce only for search, instant for other changes
+    const delay = searchTerm && isFilterChange ? 800 : 0;
+
     const timeoutId = setTimeout(() => {
-      loadProducts(1, pageLimit, statusFilter, searchTerm, filterCategory);
-    }, searchTerm ? 800 : 0); // 800ms debounce for search, instant for other filters
+      // Only sync pageLimit if it actually changed (prevents unnecessary re-render)
+      if (pageLimit !== targetLimit) {
+        setPageLimit(targetLimit);
+      }
+
+      // Reset to page 1 for filter changes
+      if (isFilterChange && currentPage !== 1) {
+        setCurrentPage(1);
+      }
+
+      loadProducts(page, targetLimit, statusFilter, searchTerm, filterCategory);
+    }, delay);
 
     return () => clearTimeout(timeoutId);
-  }, [statusFilter, pageLimit, searchTerm, filterCategory]);
+  }, [currentPage, statusFilter, searchTerm, filterCategory]); // pageLimit removed from deps!
 
-  // Load products when page changes (only when currentPage changes, not on initial load)
-  useEffect(() => {
-    if (currentPage > 1) {
-      loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory);
-    }
-  }, [currentPage]);
-
-  // Now products === filteredProducts since filtering is done in backend
+  // Sync filtered products (keep this simple one)
   useEffect(() => {
     setFilteredProducts(products);
   }, [products]);
-
-  // Expand the page size automatically when the search bar is in use so tenants see broad matches without touching pagination.
-  useEffect(() => {
-    const trimmed = searchTerm.trim();
-    if (trimmed) {
-      setPageLimit((prev) => (prev >= SEARCH_PAGE_LIMIT ? prev : SEARCH_PAGE_LIMIT));
-    } else {
-      setPageLimit(manualPageLimitRef.current || DEFAULT_PAGE_LIMIT);
-    }
-  }, [searchTerm]);
 
   const categories = [...new Set(products.flatMap(p => Array.isArray(p.category) ? p.category : [p.category]).filter(Boolean))];
 
@@ -898,11 +983,19 @@ useEffect(() => {
     }
 
     try {
-      await fetchApi('/products', { method: 'POST', body: JSON.stringify(payload) });
+      // OPTIMIZED: Add new product to list instead of reloading everything
+      const response = await fetchApi('/products', { method: 'POST', body: JSON.stringify(payload) });
+      const newProduct = await response.json();
+
+      // 1. Add to local state immediately
+      setProducts(prev => [newProduct, ...prev]);
+
+      // 2. Close dialog
       document.dispatchEvent(new CustomEvent('product-form-success'));
       setIsAddDialogOpen(false);
       setAdditionalVariants([]);
-      loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory);
+
+      // No need to reload - already added to list!
     } catch (err) {
       const errorMessage =
         typeof err?.message === 'string' && err.message.includes('duplicate key')
@@ -985,45 +1078,89 @@ useEffect(() => {
       payload.attributes = {};
     }
 
+    // OPTIMISTIC UPDATE: Update UI immediately, save in background
+    const previousProducts = products; // Store for rollback
+    const updatedProduct = { ...editingProduct, ...payload };
+
     try {
+      // 1. Update local state immediately (optimistic)
+      setProducts(prev => prev.map(p =>
+        p._id === editingProduct._id ? updatedProduct : p
+      ));
+
+      // 2. Close dialog immediately (better UX)
+      setIsEditDialogOpen(false);
+      setEditingProduct(null);
+
+      // 3. Save to backend in background
       await fetchApi(`/products/${editingProduct._id}`, {
         method: 'PATCH',
         body: JSON.stringify(payload),
       });
-      setIsEditDialogOpen(false);
-      setEditingProduct(null);
-      loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory);
+
+      // Success - no need to reload, already updated!
     } catch (err) {
+      // 4. Rollback on error
+      setProducts(previousProducts);
       alert(`Error al actualizar el producto: ${err.message}`);
+
+      // Optionally reload to ensure consistency
+      loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory);
     }
   };
 
   const handleDeleteProduct = async (productId) => {
     if (window.confirm('¿Estás seguro de que quieres eliminar este producto?')) {
+      // OPTIMISTIC UPDATE: Remove from UI immediately
+      const previousProducts = products;
+
       try {
+        // 1. Remove from UI immediately
+        setProducts(prev => prev.filter(p => p._id !== productId));
+
+        // 2. Delete from backend
         await fetchApi(`/products/${productId}`, { method: 'DELETE' });
-        loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory);
+
+        // Success - already removed from UI!
       } catch (err) {
+        // 3. Rollback on error
+        setProducts(previousProducts);
         alert(`Error: ${err.message}`);
       }
     }
   };
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
     const currentImages = newProduct.variant.images || [];
+
     if (currentImages.length + files.length > 3) {
       alert("Puedes subir un máximo de 3 imágenes.");
       return;
     }
-    const newImages = files.map(file => URL.createObjectURL(file));
-    setNewProduct({
-      ...newProduct,
-      variant: {
-        ...newProduct.variant,
-        images: [...currentImages, ...newImages]
-      }
-    });
+
+    try {
+      // Show loading state
+      const loadingMessage = `Comprimiendo ${files.length} imagen(es)...`;
+      console.log(loadingMessage);
+
+      // Compress and convert all images to optimized base64
+      const newImages = await Promise.all(
+        files.map(file => compressAndConvertImage(file))
+      );
+
+      setNewProduct({
+        ...newProduct,
+        variant: {
+          ...newProduct.variant,
+          images: [...currentImages, ...newImages]
+        }
+      });
+
+      console.log(`✓ ${files.length} imagen(es) comprimida(s) exitosamente`);
+    } catch (error) {
+      alert(`Error al procesar imágenes: ${error.message}`);
+    }
   };
 
   const handleRemoveImage = (index) => {
@@ -1045,24 +1182,43 @@ useEffect(() => {
     });
   };
 
-  const handleEditImageUpload = (variantIndex, e) => {
+  const handleEditImageUpload = async (variantIndex, e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) {
       return;
     }
 
-    updateEditingVariant(variantIndex, (variant) => {
-      const currentImages = Array.isArray(variant.images) ? variant.images : [];
-      if (currentImages.length + files.length > 3) {
-        alert("Puedes subir un máximo de 3 imágenes.");
-        return variant;
-      }
-      const newImages = files.map((file) => URL.createObjectURL(file));
-      return {
-        ...variant,
-        images: [...currentImages, ...newImages],
-      };
-    });
+    // Get current images to check limit before processing
+    const currentVariant = editingProduct.variants[variantIndex];
+    const currentImages = Array.isArray(currentVariant.images) ? currentVariant.images : [];
+
+    if (currentImages.length + files.length > 3) {
+      alert("Puedes subir un máximo de 3 imágenes.");
+      return;
+    }
+
+    try {
+      // Show loading state
+      const loadingMessage = `Comprimiendo ${files.length} imagen(es)...`;
+      console.log(loadingMessage);
+
+      // Compress and convert all images to optimized base64
+      const newImages = await Promise.all(
+        files.map(file => compressAndConvertImage(file))
+      );
+
+      // Update variant with compressed images
+      updateEditingVariant(variantIndex, (variant) => {
+        return {
+          ...variant,
+          images: [...currentImages, ...newImages],
+        };
+      });
+
+      console.log(`✓ ${files.length} imagen(es) comprimida(s) exitosamente`);
+    } catch (error) {
+      alert(`Error al procesar imágenes: ${error.message}`);
+    }
   };
 
   const handleEditRemoveImage = (variantIndex, imageIndex) => {
@@ -1461,7 +1617,15 @@ useEffect(() => {
                     <Label>Imágenes (máx. 3)</Label>
                     <label htmlFor="images" className="cursor-pointer flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted/50">
                       {newProduct.variant.images && newProduct.variant.images.length > 0 ? (
-                         <img src={newProduct.variant.images[selectedImageIndex]} alt={`product-image-${selectedImageIndex}`} className="h-full w-full object-cover rounded-lg" />
+                         <img
+                          src={newProduct.variant.images[selectedImageIndex]}
+                          alt={`product-image-${selectedImageIndex}`}
+                          className="h-full w-full object-cover rounded-lg"
+                          onError={(e) => {
+                            e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5Y2EzYWYiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIj5JbWFnZW48L3RleHQ+PC9zdmc+';
+                            e.target.onerror = null;
+                          }}
+                         />
                       ) : (
                         <div className="text-center">
                           <Package className="mx-auto h-8 w-8" />
@@ -1486,11 +1650,24 @@ useEffect(() => {
                                     Portada
                                 </Badge>
                                 )}
-                                <img 
-                                src={image} 
-                                alt={`product-thumb-${index}`} 
-                                className={`w-14 h-14 object-cover rounded cursor-pointer hover:opacity-80 ${selectedImageIndex === index ? 'ring-2 ring-primary ring-offset-2' : ''}`}
-                                onClick={() => setSelectedImageIndex(index)}
+                                <img
+                                src={image}
+                                alt={`product-thumb-${index}`}
+                                className={`w-14 h-14 object-cover rounded cursor-pointer hover:opacity-80 hover:ring-2 hover:ring-primary/50 transition-all ${selectedImageIndex === index ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+                                onClick={(e) => {
+                                  if (e.detail === 1) {
+                                    // Single click - select image
+                                    setSelectedImageIndex(index);
+                                  } else if (e.detail === 2) {
+                                    // Double click - open preview
+                                    setPreviewImageSrc(image);
+                                    setIsImagePreviewOpen(true);
+                                  }
+                                }}
+                                onError={(e) => {
+                                  e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5Y2EzYWYiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIj5JbWFnZW48L3RleHQ+PC9zdmc+';
+                                  e.target.onerror = null;
+                                }}
                                 />
                                 <Button 
                                 variant="destructive" 
@@ -3693,7 +3870,16 @@ useEffect(() => {
                             <img
                               src={image}
                               alt={`variant-${index}-image-${imageIdx}`}
-                              className="w-20 h-20 object-cover rounded"
+                              className="w-20 h-20 object-cover rounded cursor-pointer hover:opacity-80 hover:ring-2 hover:ring-primary/50 transition-all"
+                              onClick={() => {
+                                setPreviewImageSrc(image);
+                                setIsImagePreviewOpen(true);
+                              }}
+                              onError={(e) => {
+                                // Fallback to placeholder if image fails to load
+                                e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5Y2EzYWYiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIj5JbWFnZW48L3RleHQ+PC9zdmc+';
+                                e.target.onerror = null; // Prevent infinite loop
+                              }}
                             />
                             <Button
                               variant="destructive"
@@ -3748,6 +3934,29 @@ useEffect(() => {
             <Button variant="outline" onClick={() => setIsPreviewDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleConfirmImport}>Confirmar Importación</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de Preview de Imagen */}
+      <Dialog open={isImagePreviewOpen} onOpenChange={setIsImagePreviewOpen}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-4">
+            <DialogTitle>Vista Previa de Imagen</DialogTitle>
+            <DialogDescription>
+              Haz click fuera de la imagen o presiona ESC para cerrar
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-center p-6 pt-0 max-h-[80vh]">
+            <img
+              src={previewImageSrc}
+              alt="Vista previa"
+              className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg"
+              onError={(e) => {
+                e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI2YzZjRmNiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOWNhM2FmIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIyNCI+SW1hZ2VuIG5vIGRpc3BvbmlibGU8L3RleHQ+PC9zdmc+';
+                e.target.onerror = null;
+              }}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </div>
