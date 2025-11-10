@@ -189,8 +189,9 @@ export class OrdersService {
       }
 
       // ======== DISCOUNT CALCULATION ========
+      // OPTIMIZED: Pass product object instead of ID to avoid redundant DB query
       const discountResult = await this.discountService.calculateBestDiscount(
-        product._id.toString(),
+        product,  // Pass full product object (already loaded)
         itemDto.quantity,
         originalUnitPrice,
       );
@@ -386,19 +387,22 @@ export class OrdersService {
       $inc: { "usage.currentOrders": 1 },
     });
 
+    // OPTIMIZED: Parallelize payment creation instead of sequential loop
     if (payments && payments.length > 0) {
-      for (const p of payments) {
-        const paymentDto: CreatePaymentDto = {
-          paymentType: "sale",
-          orderId: savedOrder._id.toString(),
-          amount: p.amount,
-          method: p.method,
-          date: p.date.toISOString(),
-          currency: p.method.includes("_usd") ? "USD" : "VES",
-          reference: p.reference,
-        };
-        await this.paymentsService.create(paymentDto, user);
-      }
+      await Promise.all(
+        payments.map(p => {
+          const paymentDto: CreatePaymentDto = {
+            paymentType: "sale",
+            orderId: savedOrder._id.toString(),
+            amount: p.amount,
+            method: p.method,
+            date: p.date.toISOString(),
+            currency: p.method.includes("_usd") ? "USD" : "VES",
+            reference: p.reference,
+          };
+          return this.paymentsService.create(paymentDto, user);
+        })
+      );
     }
 
     // Ejecutar contabilidad de forma asíncrona (no bloquear la respuesta)
@@ -491,8 +495,9 @@ export class OrdersService {
       }
 
       // ======== DISCOUNT CALCULATION ========
+      // OPTIMIZED: Pass product object instead of ID to avoid redundant DB query
       const discountResult = await this.discountService.calculateBestDiscount(
-        product._id.toString(),
+        product,  // Pass full product object (already loaded)
         itemDto.quantity,
         originalUnitPrice,
       );

@@ -24,35 +24,44 @@ export class DiscountService {
 
   /**
    * Calculate and apply bulk discount based on product's bulkDiscountRules
-   * @param productId - Product ID
+   * OPTIMIZED: Accept product object directly to avoid redundant database queries
+   * @param product - Product object OR Product ID (for backwards compatibility)
    * @param quantity - Quantity being ordered
    * @param unitPrice - Original unit price
    * @returns Discount result with applied percentage and new price
    */
   async calculateBulkDiscount(
-    productId: string,
+    product: Product | string,
     quantity: number,
     unitPrice: number,
   ): Promise<BulkDiscountResult> {
     try {
-      // Fetch product with discount rules
-      const product = await this.productModel.findById(productId).exec();
+      // OPTIMIZED: If product object is passed, use it directly (no query needed!)
+      let productObj: Product | null;
 
-      if (!product) {
-        this.logger.warn(`Product not found: ${productId}`);
-        return {
-          applied: false,
-          discountPercentage: 0,
-          originalPrice: unitPrice,
-          discountedPrice: unitPrice,
-        };
+      if (typeof product === 'string') {
+        // Backwards compatibility: if string (ID) is passed, fetch from DB
+        productObj = await this.productModel.findById(product).exec();
+
+        if (!productObj) {
+          this.logger.warn(`Product not found: ${product}`);
+          return {
+            applied: false,
+            discountPercentage: 0,
+            originalPrice: unitPrice,
+            discountedPrice: unitPrice,
+          };
+        }
+      } else {
+        // New optimized path: use the product object directly
+        productObj = product;
       }
 
       // Check if bulk discounts are enabled
       if (
-        !product.pricingRules?.bulkDiscountEnabled ||
-        !product.pricingRules?.bulkDiscountRules ||
-        product.pricingRules.bulkDiscountRules.length === 0
+        !productObj.pricingRules?.bulkDiscountEnabled ||
+        !productObj.pricingRules?.bulkDiscountRules ||
+        productObj.pricingRules.bulkDiscountRules.length === 0
       ) {
         return {
           applied: false,
@@ -64,7 +73,7 @@ export class DiscountService {
 
       // Find the highest applicable discount rule
       // Rules are sorted by minQuantity descending to apply the best discount
-      const sortedRules = [...product.pricingRules.bulkDiscountRules].sort(
+      const sortedRules = [...productObj.pricingRules.bulkDiscountRules].sort(
         (a, b) => b.minQuantity - a.minQuantity,
       );
 
@@ -93,7 +102,7 @@ export class DiscountService {
       const discountedPrice = unitPrice * (1 - discountPercentage / 100);
 
       this.logger.log(
-        `Bulk discount applied: ${discountPercentage}% for ${quantity} units of product ${product.name}`,
+        `Bulk discount applied: ${discountPercentage}% for ${quantity} units of product ${productObj.name}`,
       );
 
       return {
@@ -119,31 +128,42 @@ export class DiscountService {
 
   /**
    * Calculate promotional discount for a product
-   * @param productId - Product ID
+   * OPTIMIZED: Accept product object directly to avoid redundant database queries
+   * @param product - Product object OR Product ID (for backwards compatibility)
    * @param unitPrice - Original unit price
    * @returns Discount result with applied percentage and new price
    */
   async calculatePromotionalDiscount(
-    productId: string,
+    product: Product | string,
     unitPrice: number,
   ): Promise<BulkDiscountResult> {
     try {
-      const product = await this.productModel.findById(productId).exec();
+      // OPTIMIZED: If product object is passed, use it directly (no query needed!)
+      let productObj: Product | null;
 
-      if (!product) {
-        return {
-          applied: false,
-          discountPercentage: 0,
-          originalPrice: unitPrice,
-          discountedPrice: unitPrice,
-        };
+      if (typeof product === 'string') {
+        // Backwards compatibility: if string (ID) is passed, fetch from DB
+        productObj = await this.productModel.findById(product).exec();
+
+        if (!productObj) {
+          this.logger.warn(`Product not found: ${product}`);
+          return {
+            applied: false,
+            discountPercentage: 0,
+            originalPrice: unitPrice,
+            discountedPrice: unitPrice,
+          };
+        }
+      } else {
+        // New optimized path: use the product object directly
+        productObj = product;
       }
 
       // Check if promotion is active
       if (
-        !product.hasActivePromotion ||
-        !product.promotion?.isActive ||
-        !product.promotion?.discountPercentage
+        !productObj.hasActivePromotion ||
+        !productObj.promotion?.isActive ||
+        !productObj.promotion?.discountPercentage
       ) {
         return {
           applied: false,
@@ -155,8 +175,8 @@ export class DiscountService {
 
       // Check promotion dates
       const now = new Date();
-      const startDate = new Date(product.promotion.startDate);
-      const endDate = new Date(product.promotion.endDate);
+      const startDate = new Date(productObj.promotion.startDate);
+      const endDate = new Date(productObj.promotion.endDate);
 
       // Set end date to end of day to be inclusive
       endDate.setHours(23, 59, 59, 999);
@@ -171,11 +191,11 @@ export class DiscountService {
       }
 
       // Calculate discounted price
-      const discountPercentage = product.promotion.discountPercentage;
+      const discountPercentage = productObj.promotion.discountPercentage;
       const discountedPrice = unitPrice * (1 - discountPercentage / 100);
 
       this.logger.log(
-        `Promotional discount applied: ${discountPercentage}% for product ${product.name}`,
+        `Promotional discount applied: ${discountPercentage}% for product ${productObj.name}`,
       );
 
       return {
@@ -203,14 +223,23 @@ export class DiscountService {
    * @param unitPrice - Original unit price
    * @returns Best discount result
    */
+  /**
+   * Calculate the best discount (bulk or promotional)
+   * OPTIMIZED: Accept product object directly to avoid redundant database queries
+   * @param product - Product object OR Product ID (for backwards compatibility)
+   * @param quantity - Quantity being ordered
+   * @param unitPrice - Original unit price
+   * @returns The best discount result
+   */
   async calculateBestDiscount(
-    productId: string,
+    product: Product | string,
     quantity: number,
     unitPrice: number,
   ): Promise<BulkDiscountResult> {
+    // OPTIMIZED: Pass product object to child methods - they'll use it directly
     const [bulkDiscount, promoDiscount] = await Promise.all([
-      this.calculateBulkDiscount(productId, quantity, unitPrice),
-      this.calculatePromotionalDiscount(productId, unitPrice),
+      this.calculateBulkDiscount(product, quantity, unitPrice),
+      this.calculatePromotionalDiscount(product, unitPrice),
     ]);
 
     // Return the discount that gives the lowest price

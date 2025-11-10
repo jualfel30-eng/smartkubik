@@ -63,8 +63,9 @@ export class ModifierGroupsService {
   async findAllGroups(tenantId: string): Promise<ModifierGroup[]> {
     return this.modifierGroupModel
       .find({ tenantId, isDeleted: false })
-      .populate("applicableProducts")
+      .populate("applicableProducts", "name sku category isActive")  // OPTIMIZED: Only load needed fields
       .sort({ sortOrder: 1, createdAt: 1 })
+      .lean()  // OPTIMIZED: Faster read-only operation
       .exec();
   }
 
@@ -74,7 +75,8 @@ export class ModifierGroupsService {
   async findGroupById(id: string, tenantId: string): Promise<ModifierGroup> {
     const group = await this.modifierGroupModel
       .findOne({ _id: id, tenantId, isDeleted: false })
-      .populate("applicableProducts")
+      .populate("applicableProducts", "name sku category isActive")  // OPTIMIZED: Only load needed fields
+      .lean()  // OPTIMIZED: Faster read-only operation
       .exec();
 
     if (!group) {
@@ -93,6 +95,7 @@ export class ModifierGroupsService {
   ): Promise<ModifierGroup[]> {
     const productObjectId = new Types.ObjectId(productId);
 
+    // OPTIMIZED: Single query for all groups
     const groups = await this.modifierGroupModel
       .find({
         tenantId,
@@ -101,27 +104,41 @@ export class ModifierGroupsService {
         applicableProducts: productObjectId,
       })
       .sort({ sortOrder: 1 })
+      .lean()  // Faster read-only
       .exec();
 
-    // Para cada grupo, cargar sus modificadores
-    const groupsWithModifiers = await Promise.all(
-      groups.map(async (group) => {
-        const modifiers = await this.modifierModel
-          .find({
-            tenantId,
-            groupId: group._id,
-            isDeleted: false,
-            available: true,
-          })
-          .sort({ sortOrder: 1 })
-          .exec();
+    if (groups.length === 0) {
+      return [];
+    }
 
-        return {
-          ...group.toObject(),
-          modifiers,
-        };
-      }),
-    );
+    // OPTIMIZED: Single batch query for ALL modifiers instead of N queries
+    const groupIds = groups.map(g => g._id);
+    const allModifiers = await this.modifierModel
+      .find({
+        tenantId,
+        groupId: { $in: groupIds },
+        isDeleted: false,
+        available: true,
+      })
+      .sort({ sortOrder: 1 })
+      .lean()  // Faster read-only
+      .exec();
+
+    // Group modifiers by groupId in memory (O(n) operation, much faster than N queries)
+    const modifiersByGroup = new Map();
+    allModifiers.forEach(modifier => {
+      const groupId = modifier.groupId.toString();
+      if (!modifiersByGroup.has(groupId)) {
+        modifiersByGroup.set(groupId, []);
+      }
+      modifiersByGroup.get(groupId).push(modifier);
+    });
+
+    // Attach modifiers to their groups
+    const groupsWithModifiers = groups.map(group => ({
+      ...group,
+      modifiers: modifiersByGroup.get(group._id.toString()) || [],
+    }));
 
     return groupsWithModifiers as any;
   }
