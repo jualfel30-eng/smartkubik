@@ -3,6 +3,12 @@ import { Document, Types } from "mongoose";
 
 export type ProductDocument = Product & Document;
 
+export enum ProductType {
+  SIMPLE = "simple",
+  CONSUMABLE = "consumable",
+  SUPPLY = "supply",
+}
+
 @Schema()
 export class ProductVariant {
   readonly _id?: Types.ObjectId;
@@ -113,6 +119,17 @@ const SellingUnitSchema = SchemaFactory.createForClass(SellingUnit);
 export class Product {
   @Prop({ type: String, required: true, unique: true })
   sku: string;
+
+  @Prop({
+    type: String,
+    enum: ProductType,
+    default: ProductType.SIMPLE,
+    index: true,
+  })
+  productType: ProductType;
+
+  @Prop({ type: Types.ObjectId, required: false })
+  typeConfigId?: Types.ObjectId;
 
   @Prop({ type: String, required: true })
   name: string;
@@ -256,6 +273,7 @@ ProductSchema.index({ isPerishable: 1, tenantId: 1 });
 ProductSchema.index({ createdAt: -1, tenantId: 1 });
 
 // PERFORMANCE OPTIMIZATION: Compound indexes for common query patterns
-ProductSchema.index({ tenantId: 1, category: 1 });  // Category filtering
-ProductSchema.index({ tenantId: 1, isActive: 1, createdAt: -1 });  // Active products sorted by date
-ProductSchema.index({ tenantId: 1, subcategory: 1 });  // Subcategory filtering
+ProductSchema.index({ tenantId: 1, category: 1 }); // Category filtering
+ProductSchema.index({ tenantId: 1, isActive: 1, createdAt: -1 }); // Active products sorted by date
+ProductSchema.index({ tenantId: 1, subcategory: 1 }); // Subcategory filtering
+ProductSchema.index({ tenantId: 1, productType: 1 }); // Product type filtering

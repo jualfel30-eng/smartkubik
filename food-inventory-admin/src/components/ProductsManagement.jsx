@@ -16,6 +16,11 @@ import { Switch } from '@/components/ui/switch.jsx';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip.jsx';
 import { fetchApi } from '../lib/api';
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
+import { useConsumables } from '@/hooks/useConsumables';
+import { useSupplies } from '@/hooks/useSupplies';
+import { useUnitConversions } from '@/hooks/useUnitConversions';
+import { UnitConversionDialog } from './UnitConversionDialog';
+import { CONSUMABLE_TYPES, SUPPLY_CATEGORIES } from '@/types/consumables';
 import {
   Plus,
   Search,
@@ -26,7 +31,11 @@ import {
   XCircle,
   Download,
   Upload,
-  X
+  X,
+  Layers,
+  Wrench,
+  Calculator,
+  Settings2
 } from 'lucide-react';
 
 const UNASSIGNED_SELECT_VALUE = '__UNASSIGNED__';
@@ -303,6 +312,7 @@ const sanitizeSellingUnitsForPayload = (units = []) =>
   });
 
 const initialNewProductState = {
+  productType: 'simple', // 'simple', 'consumable', 'supply'
   sku: '',
   name: '',
   category: [],
@@ -320,6 +330,30 @@ const initialNewProductState = {
   hasMultipleSellingUnits: false,
   sellingUnits: [],
   attributes: {},
+  // Consumable-specific fields
+  consumableConfig: {
+    consumableType: 'container',
+    isReusable: false,
+    isAutoDeducted: true,
+    defaultQuantityPerUse: 1,
+    notes: '',
+  },
+  // Supply-specific fields
+  supplyConfig: {
+    supplyCategory: 'cleaning',
+    supplySubcategory: '',
+    requiresTracking: false,
+    requiresAuthorization: false,
+    usageDepartment: '',
+    estimatedMonthlyConsumption: 0,
+    safetyInfo: {
+      requiresPPE: false,
+      isHazardous: false,
+      storageRequirements: '',
+      handlingInstructions: '',
+    },
+    notes: '',
+  },
   inventoryConfig: {
     minimumStock: 10,
     maximumStock: 100,
@@ -383,7 +417,16 @@ function ProductsManagement() {
   // Estados para preview de imágenes
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [previewImageSrc, setPreviewImageSrc] = useState('');
+
+  // Estados para diálogo de unidades de medida
+  const [isUnitDialogOpen, setIsUnitDialogOpen] = useState(false);
+  const [unitConfig, setUnitConfig] = useState(null);
+  const [productForUnits, setProductForUnits] = useState(null);
+
   const verticalConfig = useVerticalConfig();
+  const { createConsumableConfig } = useConsumables();
+  const { createSupplyConfig } = useSupplies();
+  const { getConfigByProductId, createConfig, updateConfig } = useUnitConversions();
   const productAttributes = useMemo(
     () => (verticalConfig?.attributeSchema || []).filter((attr) => attr.scope === 'product'),
     [verticalConfig],
@@ -396,7 +439,7 @@ function ProductsManagement() {
     const defaults = Array.isArray(verticalConfig?.defaultUnits)
       ? verticalConfig.defaultUnits
       : [];
-    const fallback = ['unidad', 'kg', 'gramos', 'lb', 'litros', 'ml'];
+    const fallback = ['unidad', 'kg', 'gramos', 'lb', 'litros', 'ml', 'galones', 'paquete', 'caja'];
     const combined = [...defaults, ...fallback.filter((unit) => !defaults.includes(unit))];
     return combined;
   }, [verticalConfig]);
@@ -406,6 +449,35 @@ function ProductsManagement() {
     (key, fallback) => (placeholders[key] && placeholders[key].trim() !== '' ? placeholders[key] : fallback),
     [placeholders],
   );
+
+  // Dynamic placeholders based on product type
+  const getDynamicPlaceholder = useCallback((field, productType) => {
+    const placeholdersByType = {
+      simple: {
+        name: 'Ej: Arroz Blanco Premium',
+        brand: 'Ej: Diana',
+        sku: 'Ej: ARR-BLANCO-001',
+        description: 'Describe el producto, sus características y beneficios para el cliente',
+        unitOfMeasure: 'unidad',
+      },
+      consumable: {
+        name: 'Ej: Vaso Plástico 16oz',
+        brand: 'Ej: Dart',
+        sku: 'Ej: VASO-16OZ',
+        description: 'Especifica el tamaño, material y uso del consumible',
+        unitOfMeasure: 'unidad',
+      },
+      supply: {
+        name: 'Ej: Detergente Industrial',
+        brand: 'Ej: Clorox',
+        sku: 'Ej: DET-IND-5L',
+        description: 'Indica el uso, concentración y aplicaciones del suministro',
+        unitOfMeasure: 'litros',
+      },
+    };
+
+    return placeholdersByType[productType]?.[field] || placeholdersByType.simple[field];
+  }, []);
 
   const productAttributeColumns = useMemo(
     () =>
@@ -508,7 +580,8 @@ useEffect(() => {
 
       const params = new URLSearchParams({
         page: page.toString(),
-        limit: limit.toString()
+        limit: limit.toString(),
+        productType: 'simple' // Only show simple products (merchandise)
       });
 
       if (status === 'active') {
@@ -887,6 +960,62 @@ useEffect(() => {
     return Object.keys(result).length > 0 ? result : undefined;
   };
 
+  // Funciones para manejo de unidades de medida
+  const handleOpenUnitDialog = async () => {
+    if (!newProduct._id) {
+      // Si es un producto nuevo (aún no guardado), no tiene ID
+      // En este caso, guardaremos temporalmente el producto como mock
+      setProductForUnits({
+        _id: 'temp-id',
+        sku: newProduct.sku || 'TEMP-SKU',
+        name: newProduct.name || 'Nuevo Producto',
+      });
+      setUnitConfig(null);
+      setIsUnitDialogOpen(true);
+      return;
+    }
+
+    // Si el producto ya existe, cargar su configuración
+    try {
+      const config = await getConfigByProductId(newProduct._id);
+      setUnitConfig(config);
+      setProductForUnits({
+        _id: newProduct._id,
+        sku: newProduct.sku,
+        name: newProduct.name,
+      });
+      setIsUnitDialogOpen(true);
+    } catch (error) {
+      console.error('Error al cargar configuración de unidades:', error);
+      setUnitConfig(null);
+      setProductForUnits({
+        _id: newProduct._id,
+        sku: newProduct.sku,
+        name: newProduct.name,
+      });
+      setIsUnitDialogOpen(true);
+    }
+  };
+
+  const handleSaveUnitConfig = async (configData) => {
+    try {
+      if (unitConfig) {
+        // Actualizar configuración existente
+        await updateConfig(unitConfig._id, configData);
+      } else {
+        // Crear nueva configuración
+        await createConfig(configData);
+      }
+      // Cerrar diálogo
+      setIsUnitDialogOpen(false);
+      setUnitConfig(null);
+      setProductForUnits(null);
+    } catch (error) {
+      console.error('Error al guardar configuración de unidades:', error);
+      throw error;
+    }
+  };
+
   const handleAddProduct = async () => {
     const productAttributesPayload = serializeAttributes(
       newProduct.attributes,
@@ -982,17 +1111,71 @@ useEffect(() => {
       payload.sellingUnits = [];
     }
 
+    // Remove consumable/supply configs from payload - they'll be created separately
+    delete payload.consumableConfig;
+    delete payload.supplyConfig;
+
     try {
       // OPTIMIZED: Add new product to list instead of reloading everything
       const response = await fetchApi('/products', { method: 'POST', body: JSON.stringify(payload) });
-      const newProduct = await response.json();
+      const createdProduct = response.data || response;
+
+      console.log('🔍 DEBUG - Created Product:', createdProduct);
+      console.log('🔍 DEBUG - Product ID:', createdProduct._id);
+      console.log('🔍 DEBUG - Product Type:', newProduct.productType);
+
+      // If product is consumable or supply, create the corresponding config
+      if (newProduct.productType === 'consumable') {
+        console.log('🔍 DEBUG - Creating consumable config with productId:', createdProduct._id);
+        try {
+          const configResult = await createConsumableConfig({
+            productId: createdProduct._id,
+            consumableType: newProduct.consumableConfig.consumableType,
+            isReusable: newProduct.consumableConfig.isReusable,
+            isAutoDeducted: newProduct.consumableConfig.isAutoDeducted,
+            defaultQuantityPerUse: newProduct.consumableConfig.defaultQuantityPerUse,
+            unitOfMeasure: newProduct.unitOfMeasure || 'unidad',
+            notes: newProduct.consumableConfig.notes,
+            isActive: true,
+          });
+          console.log('✅ DEBUG - Consumable config result:', configResult);
+        } catch (configErr) {
+          console.error('❌ DEBUG - Error creating consumable config:', configErr);
+          console.error('❌ DEBUG - Error details:', {
+            message: configErr.message,
+            stack: configErr.stack,
+            productId: createdProduct._id,
+            productType: newProduct.productType,
+          });
+          alert('Producto creado, pero hubo un error al configurarlo como consumible. Por favor, configúralo manualmente desde la pestaña de Consumibles.');
+        }
+      } else if (newProduct.productType === 'supply') {
+        try {
+          await createSupplyConfig({
+            productId: createdProduct._id,
+            supplyCategory: newProduct.supplyConfig.supplyCategory,
+            supplySubcategory: newProduct.supplyConfig.supplySubcategory,
+            requiresTracking: newProduct.supplyConfig.requiresTracking,
+            requiresAuthorization: newProduct.supplyConfig.requiresAuthorization,
+            usageDepartment: newProduct.supplyConfig.usageDepartment,
+            estimatedMonthlyConsumption: newProduct.supplyConfig.estimatedMonthlyConsumption,
+            safetyInfo: newProduct.supplyConfig.safetyInfo,
+            notes: newProduct.supplyConfig.notes,
+            isActive: true,
+          });
+        } catch (configErr) {
+          console.error('Error creating supply config:', configErr);
+          alert('Producto creado, pero hubo un error al configurarlo como suministro. Por favor, configúralo manualmente desde la pestaña de Suministros.');
+        }
+      }
 
       // 1. Add to local state immediately
-      setProducts(prev => [newProduct, ...prev]);
+      setProducts(prev => [createdProduct, ...prev]);
 
-      // 2. Close dialog
+      // 2. Close dialog and reset state
       document.dispatchEvent(new CustomEvent('product-form-success'));
       setIsAddDialogOpen(false);
+      setNewProduct(initialNewProductState);
       setAdditionalVariants([]);
 
       // No need to reload - already added to list!
@@ -1611,6 +1794,54 @@ useEffect(() => {
                 <DialogTitle>Agregar Nuevo Producto</DialogTitle>
                 <DialogDescription>Completa la información para crear un nuevo producto en el catálogo.</DialogDescription>
               </DialogHeader>
+
+              {/* Product Type Selector */}
+              <div className="px-6 py-4 border-b bg-muted/30">
+                <div className="space-y-2">
+                  <Label htmlFor="productType" className="text-base font-semibold">Tipo de Producto *</Label>
+                  <Select
+                    value={newProduct.productType}
+                    onValueChange={(value) => setNewProduct({ ...newProduct, productType: value })}
+                  >
+                    <SelectTrigger id="productType" className="w-full">
+                      <SelectValue placeholder="Selecciona el tipo de producto" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="simple">
+                        <div className="flex items-center gap-2">
+                          <Package className="h-4 w-4" />
+                          <div>
+                            <div className="font-medium">Mercancía</div>
+                            <div className="text-xs text-muted-foreground">Productos para venta directa</div>
+                          </div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="consumable">
+                        <div className="flex items-center gap-2">
+                          <Layers className="h-4 w-4" />
+                          <div>
+                            <div className="font-medium">Consumible</div>
+                            <div className="text-xs text-muted-foreground">Vasos, bolsas, cubiertos, etc.</div>
+                          </div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="supply">
+                        <div className="flex items-center gap-2">
+                          <Wrench className="h-4 w-4" />
+                          <div>
+                            <div className="font-medium">Suministro</div>
+                            <div className="text-xs text-muted-foreground">Limpieza, oficina, mantenimiento</div>
+                          </div>
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Selecciona el tipo de producto para mostrar los campos relevantes
+                  </p>
+                </div>
+              </div>
+
               <div className="space-y-6 py-4 px-6 overflow-y-auto flex-grow">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8">
                   <div className="md:col-span-1 space-y-2">
@@ -1700,7 +1931,7 @@ useEffect(() => {
                       id="name"
                       value={newProduct.name}
                       onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                      placeholder={getPlaceholder('productName', 'Ej: Arroz Blanco')}
+                      placeholder={getDynamicPlaceholder('name', newProduct.productType)}
                     />
                     </div>
                     <div className="space-y-2">
@@ -1709,7 +1940,7 @@ useEffect(() => {
                       id="brand"
                       value={newProduct.brand}
                       onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })}
-                      placeholder={getPlaceholder('brand', 'Ej: Diana')}
+                      placeholder={getDynamicPlaceholder('brand', newProduct.productType)}
                     />
                     </div>
                     <div className="space-y-2">
@@ -1718,7 +1949,7 @@ useEffect(() => {
                       id="sku"
                       value={newProduct.sku}
                       onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })}
-                      placeholder={getPlaceholder('sku', 'Ej: ARR-BLANCO')}
+                      placeholder={getDynamicPlaceholder('sku', newProduct.productType)}
                     />
                     </div>
                     <div className="space-y-2">
@@ -1766,7 +1997,7 @@ useEffect(() => {
                       id="description"
                       value={newProduct.description}
                       onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
-                      placeholder={getPlaceholder('description', 'Descripción detallada del producto')}
+                      placeholder={getDynamicPlaceholder('description', newProduct.productType)}
                     />
                   </div>
                   <div className="col-span-2 space-y-2">
@@ -1834,7 +2065,7 @@ useEffect(() => {
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue />
+                          <SelectValue placeholder={getDynamicPlaceholder('unitOfMeasure', newProduct.productType)} />
                         </SelectTrigger>
                         <SelectContent>
                           {unitOptions.map((unit) => (
@@ -1849,7 +2080,8 @@ useEffect(() => {
                       </p>
                     </div>
                   )}
-                  {!isNonFoodRetailVertical && (
+                  {/* IVA solo para mercancía */}
+                  {!isNonFoodRetailVertical && newProduct.productType === 'simple' && (
                     <div className="flex items-center space-x-2 pt-2">
                       <Checkbox
                         id="ivaApplicable"
@@ -1908,6 +2140,50 @@ useEffect(() => {
                   </div>
                 )}
 
+                {/* Sección de Unidades de Medida - Para todos los tipos de producto */}
+                <div className="col-span-2 border-t pt-4 mt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Settings2 className="h-5 w-5 text-primary" />
+                      <h4 className="text-lg font-medium">Unidades de Medida</h4>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleOpenUnitDialog}
+                      className="gap-2"
+                    >
+                      <Calculator className="h-4 w-4" />
+                      Configurar Conversiones
+                    </Button>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Configura conversiones de unidades para este producto (ej: cajas a unidades, kg a gramos).
+                    Esto permite comprar en una unidad, almacenar en otra, y consumir en otra diferente.
+                  </p>
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <div className="text-blue-600 dark:text-blue-400 mt-0.5">
+                        <Calculator className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                          Sistema de Conversión de Unidades (UoM)
+                        </p>
+                        <p className="text-xs text-blue-800 dark:text-blue-300">
+                          <strong>Unidad Base:</strong> {newProduct.unitOfMeasure || 'unidad'} - Es la unidad más pequeña en la que se registra el inventario.
+                        </p>
+                        <p className="text-xs text-blue-800 dark:text-blue-300 mt-1">
+                          <strong>Ejemplos:</strong> Compra en "caja de 24", almacena en "unidad", consume en "paquete de 3".
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Descuentos solo para mercancía */}
+                {newProduct.productType === 'simple' && (
                 <div className="col-span-2 border-t pt-4 mt-4">
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-lg font-medium">Descuentos por Volumen</h4>
@@ -2008,8 +2284,10 @@ useEffect(() => {
                     </div>
                   )}
                 </div>
+                )}
 
-                {/* Sección de Promociones/Ofertas */}
+                {/* Promociones solo para mercancía */}
+                {newProduct.productType === 'simple' && (
                 <div className="col-span-2 border-t pt-4 mt-4">
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-lg font-medium">Promoción/Oferta Especial</h4>
@@ -2178,8 +2456,10 @@ useEffect(() => {
                     </div>
                   )}
                 </div>
+                )}
 
-                {!isNonFoodRetailVertical && (
+                {/* Unidades múltiples solo para mercancía en verticales de comida */}
+                {!isNonFoodRetailVertical && newProduct.productType === 'simple' && (
                 <div className="col-span-2 border-t pt-4 mt-4">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex-1">
@@ -2575,6 +2855,8 @@ useEffect(() => {
                         }}
                       />
                     </div>
+                    {/* Precio de Venta solo para mercancía */}
+                    {newProduct.productType === 'simple' && (
                     <div className="space-y-2">
                       <Label htmlFor="variantBasePrice">Precio de Venta ($)</Label>
                       <Input
@@ -2599,6 +2881,7 @@ useEffect(() => {
                         }}
                       />
                     </div>
+                    )}
                   </div>
                   {variantAttributes.length > 0 && (
                     <div className="border-t pt-4 mt-4">
@@ -2734,6 +3017,293 @@ useEffect(() => {
                     </div>
                   )}
                 </div>
+
+                {/* Configuración de Consumibles */}
+                {newProduct.productType === 'consumable' && (
+                <div className="col-span-2 border-t pt-4 mt-4">
+                  <h4 className="text-lg font-medium mb-4">Configuración de Consumible</h4>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="consumableType">Tipo de Consumible *</Label>
+                        <Select
+                          value={newProduct.consumableConfig.consumableType}
+                          onValueChange={(value) => setNewProduct({
+                            ...newProduct,
+                            consumableConfig: { ...newProduct.consumableConfig, consumableType: value }
+                          })}
+                        >
+                          <SelectTrigger id="consumableType">
+                            <SelectValue placeholder="Selecciona el tipo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {CONSUMABLE_TYPES.map(type => (
+                              <SelectItem key={type.value} value={type.value}>
+                                {type.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="defaultQuantityPerUse">Cantidad por Uso *</Label>
+                        <Input
+                          id="defaultQuantityPerUse"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={newProduct.consumableConfig.defaultQuantityPerUse}
+                          onChange={(e) => setNewProduct({
+                            ...newProduct,
+                            consumableConfig: {
+                              ...newProduct.consumableConfig,
+                              defaultQuantityPerUse: parseFloat(e.target.value) || 0
+                            }
+                          })}
+                          placeholder="Ej: 1"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="isReusable"
+                          checked={newProduct.consumableConfig.isReusable}
+                          onCheckedChange={(checked) => setNewProduct({
+                            ...newProduct,
+                            consumableConfig: { ...newProduct.consumableConfig, isReusable: checked }
+                          })}
+                        />
+                        <Label htmlFor="isReusable">¿Es Reusable?</Label>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="isAutoDeducted"
+                          checked={newProduct.consumableConfig.isAutoDeducted}
+                          onCheckedChange={(checked) => setNewProduct({
+                            ...newProduct,
+                            consumableConfig: { ...newProduct.consumableConfig, isAutoDeducted: checked }
+                          })}
+                        />
+                        <Label htmlFor="isAutoDeducted">Deducción Automática</Label>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="consumableNotes">Notas (Opcional)</Label>
+                      <Textarea
+                        id="consumableNotes"
+                        value={newProduct.consumableConfig.notes}
+                        onChange={(e) => setNewProduct({
+                          ...newProduct,
+                          consumableConfig: { ...newProduct.consumableConfig, notes: e.target.value }
+                        })}
+                        placeholder="Notas adicionales sobre el consumible"
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                </div>
+                )}
+
+                {/* Configuración de Suministros */}
+                {newProduct.productType === 'supply' && (
+                <div className="col-span-2 border-t pt-4 mt-4">
+                  <h4 className="text-lg font-medium mb-4">Configuración de Suministro</h4>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="supplyCategory">Categoría *</Label>
+                        <Select
+                          value={newProduct.supplyConfig.supplyCategory}
+                          onValueChange={(value) => setNewProduct({
+                            ...newProduct,
+                            supplyConfig: { ...newProduct.supplyConfig, supplyCategory: value }
+                          })}
+                        >
+                          <SelectTrigger id="supplyCategory">
+                            <SelectValue placeholder="Selecciona la categoría" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SUPPLY_CATEGORIES.map(cat => (
+                              <SelectItem key={cat.value} value={cat.value}>
+                                {cat.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="supplySubcategory">Subcategoría</Label>
+                        <Input
+                          id="supplySubcategory"
+                          value={newProduct.supplyConfig.supplySubcategory}
+                          onChange={(e) => setNewProduct({
+                            ...newProduct,
+                            supplyConfig: { ...newProduct.supplyConfig, supplySubcategory: e.target.value }
+                          })}
+                          placeholder="Ej: Detergentes"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="usageDepartment">Departamento de Uso</Label>
+                        <Input
+                          id="usageDepartment"
+                          value={newProduct.supplyConfig.usageDepartment}
+                          onChange={(e) => setNewProduct({
+                            ...newProduct,
+                            supplyConfig: { ...newProduct.supplyConfig, usageDepartment: e.target.value }
+                          })}
+                          placeholder="Ej: Cocina, Limpieza, Administración"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="estimatedMonthlyConsumption">Consumo Mensual Estimado</Label>
+                        <Input
+                          id="estimatedMonthlyConsumption"
+                          type="number"
+                          min="0"
+                          value={newProduct.supplyConfig.estimatedMonthlyConsumption}
+                          onChange={(e) => setNewProduct({
+                            ...newProduct,
+                            supplyConfig: {
+                              ...newProduct.supplyConfig,
+                              estimatedMonthlyConsumption: parseFloat(e.target.value) || 0
+                            }
+                          })}
+                          placeholder="Ej: 10"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="requiresTracking"
+                          checked={newProduct.supplyConfig.requiresTracking}
+                          onCheckedChange={(checked) => setNewProduct({
+                            ...newProduct,
+                            supplyConfig: { ...newProduct.supplyConfig, requiresTracking: checked }
+                          })}
+                        />
+                        <Label htmlFor="requiresTracking">Requiere Seguimiento</Label>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="requiresAuthorization"
+                          checked={newProduct.supplyConfig.requiresAuthorization}
+                          onCheckedChange={(checked) => setNewProduct({
+                            ...newProduct,
+                            supplyConfig: { ...newProduct.supplyConfig, requiresAuthorization: checked }
+                          })}
+                        />
+                        <Label htmlFor="requiresAuthorization">Requiere Autorización</Label>
+                      </div>
+                    </div>
+
+                    {/* Safety Information */}
+                    <div className="border-t pt-4 mt-4">
+                      <h5 className="text-base font-medium mb-3">Información de Seguridad</h5>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="requiresPPE"
+                              checked={newProduct.supplyConfig.safetyInfo.requiresPPE}
+                              onCheckedChange={(checked) => setNewProduct({
+                                ...newProduct,
+                                supplyConfig: {
+                                  ...newProduct.supplyConfig,
+                                  safetyInfo: { ...newProduct.supplyConfig.safetyInfo, requiresPPE: checked }
+                                }
+                              })}
+                            />
+                            <Label htmlFor="requiresPPE">Requiere EPP (Equipo de Protección Personal)</Label>
+                          </div>
+
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="isHazardous"
+                              checked={newProduct.supplyConfig.safetyInfo.isHazardous}
+                              onCheckedChange={(checked) => setNewProduct({
+                                ...newProduct,
+                                supplyConfig: {
+                                  ...newProduct.supplyConfig,
+                                  safetyInfo: { ...newProduct.supplyConfig.safetyInfo, isHazardous: checked }
+                                }
+                              })}
+                            />
+                            <Label htmlFor="isHazardous">Material Peligroso</Label>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="storageRequirements">Requisitos de Almacenamiento</Label>
+                          <Textarea
+                            id="storageRequirements"
+                            value={newProduct.supplyConfig.safetyInfo.storageRequirements}
+                            onChange={(e) => setNewProduct({
+                              ...newProduct,
+                              supplyConfig: {
+                                ...newProduct.supplyConfig,
+                                safetyInfo: {
+                                  ...newProduct.supplyConfig.safetyInfo,
+                                  storageRequirements: e.target.value
+                                }
+                              }
+                            })}
+                            placeholder="Ej: Mantener en lugar fresco y seco, alejado de fuentes de calor"
+                            rows={2}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="handlingInstructions">Instrucciones de Manejo</Label>
+                          <Textarea
+                            id="handlingInstructions"
+                            value={newProduct.supplyConfig.safetyInfo.handlingInstructions}
+                            onChange={(e) => setNewProduct({
+                              ...newProduct,
+                              supplyConfig: {
+                                ...newProduct.supplyConfig,
+                                safetyInfo: {
+                                  ...newProduct.supplyConfig.safetyInfo,
+                                  handlingInstructions: e.target.value
+                                }
+                              }
+                            })}
+                            placeholder="Ej: Usar guantes al manipular, evitar contacto con la piel"
+                            rows={2}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="supplyNotes">Notas (Opcional)</Label>
+                      <Textarea
+                        id="supplyNotes"
+                        value={newProduct.supplyConfig.notes}
+                        onChange={(e) => setNewProduct({
+                          ...newProduct,
+                          supplyConfig: { ...newProduct.supplyConfig, notes: e.target.value }
+                        })}
+                        placeholder="Notas adicionales sobre el suministro"
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                </div>
+                )}
               </div>
               <DialogFooter className="px-6 pb-6 pt-4 border-t">
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
@@ -2741,6 +3311,21 @@ useEffect(() => {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          {/* Diálogo de Configuración de Unidades */}
+          {productForUnits && (
+            <UnitConversionDialog
+              isOpen={isUnitDialogOpen}
+              onClose={() => {
+                setIsUnitDialogOpen(false);
+                setUnitConfig(null);
+                setProductForUnits(null);
+              }}
+              product={productForUnits}
+              existingConfig={unitConfig}
+              onSave={handleSaveUnitConfig}
+            />
+          )}
       </div>
       <Card>
         <CardHeader />
