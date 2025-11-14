@@ -5,6 +5,7 @@ import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { APP_GUARD } from "@nestjs/core";
 import { WinstonModule } from "nest-winston";
 import { BullModule } from "@nestjs/bullmq";
+import { EventEmitterModule } from "@nestjs/event-emitter";
 import { Model } from "mongoose";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
@@ -55,11 +56,23 @@ import { VectorDbModule } from "./modules/vector-db/vector-db.module";
 import { KnowledgeBaseModule } from "./modules/knowledge-base/knowledge-base.module";
 import { AssistantModule } from "./modules/assistant/assistant.module";
 import { BankReconciliationModule } from "./modules/bank-reconciliation/bank-reconciliation.module";
+import { PayrollModule } from "./modules/payroll/payroll.module";
+import { PayrollEmployeesModule } from "./modules/payroll-employees/payroll-employees.module";
 import { WhapiModule } from "./modules/whapi/whapi.module";
 import { ServicePackagesModule } from "./modules/service-packages/service-packages.module";
 import { LoyaltyModule } from "./modules/loyalty/loyalty.module";
 import { HospitalityIntegrationsModule } from "./modules/hospitality-integrations/hospitality-integrations.module";
 import { LocationsModule } from "./modules/locations/locations.module";
+import { HealthModule } from "./modules/health/health.module";
+import { ConsumablesModule } from "./modules/consumables/consumables.module";
+import { SuppliesModule } from "./modules/supplies/supplies.module";
+import { UnitConversionsModule } from "./modules/unit-conversions/unit-conversions.module";
+import { BillOfMaterialsModule } from "./modules/production/bill-of-materials.module";
+import { WorkCenterModule } from "./modules/production/work-center.module";
+import { RoutingModule } from "./modules/production/routing.module";
+import { ProductionVersionModule } from "./modules/production/production-version.module";
+import { ManufacturingOrderModule } from "./modules/production/manufacturing-order.module";
+import { QualityControlModule } from "./modules/production/quality-control.module";
 import { createWinstonLoggerOptions } from "./config/logger.config";
 import {
   GlobalSetting,
@@ -73,6 +86,15 @@ import { FeatureFlagsModule } from "./modules/feature-flags/feature-flags.module
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+    }),
+    EventEmitterModule.forRoot({
+      wildcard: false,
+      delimiter: ".",
+      newListener: false,
+      removeListener: false,
+      maxListeners: 10,
+      verboseMemoryLeak: false,
+      ignoreErrors: false,
     }),
     WinstonModule.forRootAsync({
       useFactory: () => createWinstonLoggerOptions(),
@@ -109,17 +131,17 @@ import { FeatureFlagsModule } from "./modules/feature-flags/feature-flags.module
       {
         name: "short",
         ttl: 60000, // 1 minuto
-        limit: 10, // 10 requests por minuto
+        limit: process.env.NODE_ENV === "production" ? 50 : 200, // 200 requests/min en dev, 50 en prod
       },
       {
         name: "medium",
         ttl: 600000, // 10 minutos
-        limit: 100, // 100 requests por 10 minutos
+        limit: process.env.NODE_ENV === "production" ? 300 : 1000, // 1000 requests/10min en dev, 300 en prod
       },
       {
         name: "long",
         ttl: 3600000, // 1 hora
-        limit: 500, // 500 requests por hora
+        limit: process.env.NODE_ENV === "production" ? 1000 : 3000, // 3000 requests/hora en dev, 1000 en prod
       },
     ]),
     ...(process.env.DISABLE_BULLMQ === "true"
@@ -262,10 +284,20 @@ import { FeatureFlagsModule } from "./modules/feature-flags/feature-flags.module
         ]),
     FeatureFlagsGlobalModule,
     FeatureFlagsModule,
+    HealthModule,
     AuthModule,
     OnboardingModule,
     ProductsModule,
     InventoryModule,
+    ConsumablesModule,
+    SuppliesModule,
+    UnitConversionsModule,
+    BillOfMaterialsModule,
+    WorkCenterModule,
+    RoutingModule,
+    ProductionVersionModule,
+    ManufacturingOrderModule,
+    QualityControlModule,
     OrdersModule,
     CustomersModule,
     PricingModule,
@@ -294,6 +326,8 @@ import { FeatureFlagsModule } from "./modules/feature-flags/feature-flags.module
     ExchangeRateModule,
     BankAccountsModule,
     BankReconciliationModule,
+    PayrollModule,
+    PayrollEmployeesModule,
     AppointmentsModule,
     ServicePackagesModule,
     LoyaltyModule,

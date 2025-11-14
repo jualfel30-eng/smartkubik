@@ -42,6 +42,13 @@ import {
   List,
   Receipt,
   RefreshCw,
+  Coffee,
+  Wrench,
+  Factory,
+  BarChart3,
+  GitBranch,
+  Layers,
+  UserCog,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import './App.css';
@@ -112,6 +119,9 @@ const AssistantChatWidget = lazy(() => import('@/components/AssistantChatWidget.
 const PaymentsManagementDashboard = lazy(() => import('@/components/hospitality/PaymentsManagementDashboard.jsx'));
 const HospitalityOperationsDashboard = lazy(() => import('@/components/hospitality/HospitalityOperationsDashboard.jsx'));
 const HotelFloorPlanPage = lazy(() => import('@/components/hospitality/HotelFloorPlanPage.jsx'));
+const ProductionManagement = lazy(() => import('@/components/production/ProductionManagement.jsx'));
+const PayrollRunsDashboard = lazy(() => import('@/components/payroll/PayrollRunsDashboard.jsx'));
+const PayrollStructuresManager = lazy(() => import('@/components/payroll/PayrollStructuresManager.jsx'));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -264,8 +274,24 @@ function TenantLayout() {
       permission: 'inventory_read',
       children: [
         { name: 'Productos', href: 'inventory-management?tab=products', icon: Box },
+        { name: 'Consumibles', href: 'inventory-management?tab=consumables', icon: Coffee },
+        { name: 'Suministros', href: 'inventory-management?tab=supplies', icon: Wrench },
         { name: 'Inventario', href: 'inventory-management?tab=inventory', icon: List },
         { name: 'Compras', href: 'inventory-management?tab=purchases', icon: Truck },
+      ]
+    },
+    {
+      name: 'Producción',
+      href: 'production',
+      icon: Factory,
+      permission: 'inventory_read',
+      children: [
+        { name: 'Dashboard', href: 'production?tab=dashboard', icon: BarChart3 },
+        { name: 'Órdenes', href: 'production?tab=orders', icon: Factory },
+        { name: 'BOMs', href: 'production?tab=boms', icon: FileText },
+        { name: 'Centros de Trabajo', href: 'production?tab=workcenters', icon: Settings },
+        { name: 'Rutas', href: 'production?tab=routings', icon: GitBranch },
+        { name: 'Versiones', href: 'production?tab=versions', icon: Layers },
       ]
     },
     { name: 'Mi Storefront', href: 'storefront', icon: Store, permission: 'dashboard_read', requiresModule: 'ecommerce' },
@@ -303,10 +329,22 @@ function TenantLayout() {
       permission: 'customers_read',
       children: [
         { name: 'Todos', href: 'crm?tab=all', icon: Users },
-        { name: 'Clientes', href: 'crm?tab=business', icon: Users },
+        { name: 'Clientes', href: 'crm?tab=individual', icon: Users },
         { name: 'Proveedores', href: 'crm?tab=supplier', icon: Truck },
         { name: 'Empleados', href: 'crm?tab=employee', icon: UserSquare },
       ]
+    },
+    {
+      name: 'Recursos Humanos',
+      href: 'payroll/runs',
+      icon: UserCog,
+      permission: 'payroll_employees_read',
+      requiresModule: 'payroll',
+      children: [
+        { name: 'Nómina', href: 'payroll/runs', icon: BarChart3 },
+        { name: 'Estructuras', href: 'payroll/structures', icon: Layers },
+        { name: 'Empleados', href: 'crm?tab=employee', icon: Users },
+      ],
     },
     { name: 'Compras', href: 'purchases', icon: Truck, permission: 'purchases_read' },
     {
@@ -801,6 +839,22 @@ function TenantLayout() {
                     <CRMManagement />
                   </CrmProvider>
                 } />
+                <Route
+                  path="payroll/runs"
+                  element={
+                    tenant?.enabledModules?.payroll
+                      ? <PayrollRunsDashboard />
+                      : <Navigate to="/dashboard" replace />
+                  }
+                />
+                <Route
+                  path="payroll/structures"
+                  element={
+                    tenant?.enabledModules?.payroll
+                      ? <PayrollStructuresManager />
+                      : <Navigate to="/dashboard" replace />
+                  }
+                />
                 <Route path="orders" element={
                   <CrmProvider>
                     <OrdersManagement />
@@ -829,6 +883,7 @@ function TenantLayout() {
                 <Route path="hospitality/operations" element={<HospitalityOperationsDashboard />} />
                 <Route path="hospitality/floor-plan" element={<HotelFloorPlanPage />} />
                 <Route path="calendar" element={<CalendarView />} />
+                <Route path="production" element={<ProductionManagement />} />
                 <Route path="restaurant/floor-plan" element={<FloorPlan />} />
                 <Route path="restaurant/kitchen-display" element={<KitchenDisplay />} />
                 <Route path="settings" element={<SettingsPage />} />

@@ -1,0 +1,190 @@
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Package, Wrench, DollarSign, Info, Calculator } from 'lucide-react';
+import { WorkOrdersKanban } from './WorkOrdersKanban';
+import { ProductionCostingView } from './ProductionCostingView';
+import { MRPView } from './MRPView';
+
+export function ManufacturingOrderDetails({ order, open, onClose }) {
+  if (!order) return null;
+
+  const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleString('es-ES');
+  };
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'USD' }).format(amount || 0);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Detalles de Orden de Manufactura: {order.orderNumber}</DialogTitle>
+        </DialogHeader>
+
+        <Tabs defaultValue="info" className="w-full">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="info">
+              <Info className="h-4 w-4 mr-2" />
+              Información
+            </TabsTrigger>
+            <TabsTrigger value="components">
+              <Package className="h-4 w-4 mr-2" />
+              Componentes
+            </TabsTrigger>
+            <TabsTrigger value="operations">
+              <Wrench className="h-4 w-4 mr-2" />
+              Operaciones
+            </TabsTrigger>
+            <TabsTrigger value="costs">
+              <DollarSign className="h-4 w-4 mr-2" />
+              Costos
+            </TabsTrigger>
+            <TabsTrigger value="mrp">
+              <Calculator className="h-4 w-4 mr-2" />
+              MRP
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Info Tab */}
+          <TabsContent value="info">
+            <Card>
+              <CardHeader>
+                <CardTitle>Información General</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Número de Orden</p>
+                    <p className="text-lg font-semibold">{order.orderNumber}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Estado</p>
+                    <Badge className="mt-1">{order.status}</Badge>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Producto</p>
+                    <p>{order.product?.name || order.productId}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Cantidad a Producir</p>
+                    <p>{order.quantityToProduce} {order.product?.baseUnit || 'unidades'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Prioridad</p>
+                    <p className="capitalize">{order.priority || 'normal'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Referencia</p>
+                    <p>{order.reference || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Fecha Inicio Planificada</p>
+                    <p>{formatDate(order.plannedStartDate)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Fecha Fin Planificada</p>
+                    <p>{formatDate(order.plannedCompletionDate)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Fecha Inicio Real</p>
+                    <p>{formatDate(order.actualStartDate)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Fecha Fin Real</p>
+                    <p>{formatDate(order.actualCompletionDate)}</p>
+                  </div>
+                </div>
+                {order.notes && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Notas</p>
+                    <p className="text-sm">{order.notes}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Components Tab */}
+          <TabsContent value="components">
+            <Card>
+              <CardHeader>
+                <CardTitle>Componentes / Materiales</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {order.components && order.components.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Producto</TableHead>
+                        <TableHead>Cantidad Requerida</TableHead>
+                        <TableHead>Cantidad Consumida</TableHead>
+                        <TableHead>Unidad</TableHead>
+                        <TableHead>Costo Unitario</TableHead>
+                        <TableHead>Costo Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {order.components.map((component, index) => {
+                        const consumed = component.consumedQuantity || component.requiredQuantity;
+                        const unitCost = component.unitCost || 0;
+                        const totalCost = consumed * unitCost;
+
+                        return (
+                          <TableRow key={index}>
+                            <TableCell>{component.product?.name || component.productId}</TableCell>
+                            <TableCell>{component.requiredQuantity}</TableCell>
+                            <TableCell>
+                              {component.consumedQuantity || '-'}
+                              {component.consumedQuantity && component.consumedQuantity !== component.requiredQuantity && (
+                                <Badge variant="outline" className="ml-2">Ajustado</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>{component.unit}</TableCell>
+                            <TableCell>{formatCurrency(unitCost)}</TableCell>
+                            <TableCell>{formatCurrency(totalCost)}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-center text-muted-foreground py-4">No hay componentes registrados</p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Operations Tab */}
+          <TabsContent value="operations">
+            <WorkOrdersKanban
+              operations={order.operations || []}
+            />
+          </TabsContent>
+
+          {/* Costs Tab */}
+          <TabsContent value="costs">
+            <ProductionCostingView order={order} />
+          </TabsContent>
+
+          {/* MRP Tab */}
+          <TabsContent value="mrp">
+            <MRPView orderId={order._id} />
+          </TabsContent>
+        </Tabs>
+
+        <div className="flex justify-end mt-4">
+          <DialogClose asChild>
+            <Button variant="secondary">Cerrar</Button>
+          </DialogClose>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
