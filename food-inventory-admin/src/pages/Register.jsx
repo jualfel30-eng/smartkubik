@@ -46,6 +46,21 @@ const businessVerticals = [
     categories: ['Almacén', 'Centro de Distribución', 'Transporte Refrigerado'],
   },
   {
+    name: 'Fabricantes / Manufactura',
+    value: 'MANUFACTURING',
+    categories: [
+      'Alimentos y Bebidas',
+      'Química y Cosméticos',
+      'Farmacéutica y Suplementos',
+      'Metalmecánica',
+      'Textil y Confección',
+      'Plásticos y Empaques',
+      'Electrónica',
+      'Muebles y Madera',
+      'Otro',
+    ],
+  },
+  {
     name: 'Mixta (Multi-vertical)',
     value: 'HYBRID',
     categories: [

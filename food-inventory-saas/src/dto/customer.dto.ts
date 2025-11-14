@@ -311,6 +311,15 @@ export class UpdateCustomerDto {
   @IsString()
   @SanitizeText()
   notes?: string;
+
+  @ApiPropertyOptional({
+    description: "Información fiscal",
+    type: CustomerTaxInfoDto,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CustomerTaxInfoDto)
+  taxInfo?: CustomerTaxInfoDto;
 }
 
 export class CustomerQueryDto {

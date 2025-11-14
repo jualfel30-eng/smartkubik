@@ -311,7 +311,9 @@ export class CustomersService {
                           {
                             $and: [
                               { $eq: [{ $type: "$tenantId" }, "objectId"] },
-                              { $eq: [{ $type: "$$currentTenantId" }, "string"] },
+                              {
+                                $eq: [{ $type: "$$currentTenantId" }, "string"],
+                              },
                               {
                                 $eq: [
                                   "$tenantId",
@@ -412,7 +414,9 @@ export class CustomersService {
                 $group: {
                   _id: null,
                   totalAmount: { $sum: { $ifNull: ["$depositAmount", 0] } },
-                  totalAmountUsd: { $sum: { $ifNull: ["$depositAmountUsd", 0] } },
+                  totalAmountUsd: {
+                    $sum: { $ifNull: ["$depositAmountUsd", 0] },
+                  },
                   lastDepositAt: { $max: "$depositRecords.confirmedAt" },
                   depositCount: { $sum: 1 },
                 },
@@ -518,10 +522,7 @@ export class CustomersService {
                     vars: {
                       lastOrderDate: { $max: "$customerOrders.createdAt" },
                       lastDepositDate: {
-                        $arrayElemAt: [
-                          "$appointmentDeposits.lastDepositAt",
-                          0,
-                        ],
+                        $arrayElemAt: ["$appointmentDeposits.lastDepositAt", 0],
                       },
                     },
                     in: {
@@ -529,7 +530,9 @@ export class CustomersService {
                         {
                           $gt: [
                             "$$lastOrderDate",
-                            { $ifNull: ["$$lastDepositDate", "$$lastOrderDate"] },
+                            {
+                              $ifNull: ["$$lastDepositDate", "$$lastOrderDate"],
+                            },
                           ],
                         },
                         "$$lastOrderDate",
@@ -541,10 +544,7 @@ export class CustomersService {
                 else: {
                   $ifNull: [
                     {
-                      $arrayElemAt: [
-                        "$appointmentDeposits.lastDepositAt",
-                        0,
-                      ],
+                      $arrayElemAt: ["$appointmentDeposits.lastDepositAt", 0],
                     },
                     "$metrics.lastOrderDate",
                   ],

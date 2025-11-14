@@ -83,6 +83,11 @@ export class PermissionsSeed {
       description: "Eliminar productos",
       category: "products",
     },
+    {
+      name: "products_write",
+      description: "Crear y modificar configuraciones de productos",
+      category: "products",
+    },
 
     // Inventory
     {
@@ -93,6 +98,11 @@ export class PermissionsSeed {
     {
       name: "inventory_update",
       description: "Actualizar inventario",
+      category: "inventory",
+    },
+    {
+      name: "inventory_write",
+      description: "Registrar movimientos y consumos de inventario",
       category: "inventory",
     },
 

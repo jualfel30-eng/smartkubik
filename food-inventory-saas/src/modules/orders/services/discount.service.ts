@@ -39,7 +39,7 @@ export class DiscountService {
       // OPTIMIZED: If product object is passed, use it directly (no query needed!)
       let productObj: Product | null;
 
-      if (typeof product === 'string') {
+      if (typeof product === "string") {
         // Backwards compatibility: if string (ID) is passed, fetch from DB
         productObj = await this.productModel.findById(product).exec();
 
@@ -141,7 +141,7 @@ export class DiscountService {
       // OPTIMIZED: If product object is passed, use it directly (no query needed!)
       let productObj: Product | null;
 
-      if (typeof product === 'string') {
+      if (typeof product === "string") {
         // Backwards compatibility: if string (ID) is passed, fetch from DB
         productObj = await this.productModel.findById(product).exec();
 

@@ -31,6 +31,7 @@ const JournalEntryForm = ({ onSuccess }) => {
         const formattedAccounts = fetchedAccounts.data.map(acc => ({ value: acc._id, label: `${acc.code} - ${acc.name}` }));
         setAccounts(formattedAccounts);
       } catch (err) {
+        console.error('Error loading chart of accounts', err);
         setError('Error al cargar las cuentas. Por favor, intente de nuevo.');
       }
     };

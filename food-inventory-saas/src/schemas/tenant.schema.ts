@@ -101,6 +101,25 @@ export class TenantSettings {
   };
 
   @Prop({ type: Object })
+  payroll?: {
+    baseCurrency?: string;
+    defaultPaySchedule?: "monthly" | "biweekly" | "weekly";
+    defaultPayDay?: number;
+    allowCustomFrequencies?: boolean;
+    thirteenthMonthPolicy?: {
+      enabled: boolean;
+      calculationMethod?: "full_salary" | "proportional";
+      referenceDays?: number;
+    };
+    statutoryContributions?: {
+      ivssRate?: number;
+      paroForzosoRate?: number;
+      faovRate?: number;
+      housingPolicyRate?: number;
+    };
+  };
+
+  @Prop({ type: Object })
   integrations?: {
     calendar?: {
       timezone?: string;
@@ -143,7 +162,7 @@ export class Tenant {
 
   @Prop({
     type: String,
-    enum: ["FOOD_SERVICE", "RETAIL", "SERVICES", "LOGISTICS", "HYBRID"],
+    enum: ["FOOD_SERVICE", "RETAIL", "SERVICES", "LOGISTICS", "HYBRID", "MANUFACTURING"],
     default: "FOOD_SERVICE",
     required: true,
   })
@@ -182,6 +201,10 @@ export class Tenant {
     suppliers?: boolean;
     reports?: boolean;
     accounting?: boolean;
+    payroll?: boolean;
+    bankAccounts?: boolean;
+    hrCore?: boolean;
+    timeAndAttendance?: boolean;
 
     // Communication modules
     chat?: boolean;
@@ -211,6 +234,22 @@ export class Tenant {
     fleet?: boolean;
     warehousing?: boolean;
     dispatch?: boolean;
+
+    // MANUFACTURING specific modules
+    production?: boolean;
+    bom?: boolean;
+    routing?: boolean;
+    workCenters?: boolean;
+    mrp?: boolean;
+    qualityControl?: boolean;
+    maintenance?: boolean;
+    productionScheduling?: boolean;
+    shopFloorControl?: boolean;
+    traceability?: boolean;
+    costing?: boolean;
+    plm?: boolean;
+    capacityPlanning?: boolean;
+    compliance?: boolean;
   };
 
   @Prop({ type: String, required: true, default: "trial" })

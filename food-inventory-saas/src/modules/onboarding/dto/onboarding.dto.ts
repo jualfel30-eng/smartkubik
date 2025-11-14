@@ -30,11 +30,11 @@ export class CreateTenantWithAdminDto {
 
   @ApiProperty({
     description: "Vertical del negocio",
-    enum: ["FOOD_SERVICE", "RETAIL", "SERVICES", "LOGISTICS", "HYBRID"],
+    enum: ["FOOD_SERVICE", "RETAIL", "SERVICES", "LOGISTICS", "HYBRID", "MANUFACTURING"],
     example: "FOOD_SERVICE",
     required: false,
   })
-  @IsEnum(["FOOD_SERVICE", "RETAIL", "SERVICES", "LOGISTICS", "HYBRID"])
+  @IsEnum(["FOOD_SERVICE", "RETAIL", "SERVICES", "LOGISTICS", "HYBRID", "MANUFACTURING"])
   @IsOptional()
   vertical?: string;
 

@@ -15,7 +15,8 @@ import ModuleAccessDenied from './ModuleAccessDenied';
  *   element: <ModuleProtectedRoute component={TablesManagement} requiredModule="tables" />
  * }
  */
-export default function ModuleProtectedRoute({ component: Component, requiredModule }) {
+export default function ModuleProtectedRoute(props) {
+  const { component: ProtectedComponent, requiredModule } = props;
   const hasAccess = useModuleAccess(requiredModule);
   const vertical = useVertical();
 
@@ -23,5 +24,5 @@ export default function ModuleProtectedRoute({ component: Component, requiredMod
     return <ModuleAccessDenied moduleName={requiredModule} vertical={vertical} />;
   }
 
-  return <Component />;
+  return <ProtectedComponent />;
 }

@@ -27,6 +27,15 @@ export class ChartOfAccounts {
 
   @Prop({ type: String, required: true, index: true })
   tenantId: string;
+
+  @Prop({ type: Boolean, default: false })
+  isSystemAccount?: boolean;
+
+  @Prop({ type: Boolean, default: true })
+  isEditable?: boolean;
+
+  @Prop({ type: Object })
+  metadata?: Record<string, any>;
 }
 
 export const ChartOfAccountsSchema =

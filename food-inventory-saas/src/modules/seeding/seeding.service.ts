@@ -8,6 +8,7 @@ import {
 import { Service, ServiceDocument } from "../../schemas/service.schema";
 import { Resource, ResourceDocument } from "../../schemas/resource.schema";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
+import { PAYROLL_SYSTEM_ACCOUNTS } from "../../config/payroll-system-accounts.config";
 
 @Injectable()
 export class SeedingService {
@@ -29,7 +30,7 @@ export class SeedingService {
       `Iniciando seeding del plan de cuentas para el tenant: ${tenantId}`,
     );
 
-    const accountsToCreate = [
+    const baseAccounts = [
       {
         code: "1101",
         name: "Efectivo y Equivalentes",
@@ -115,6 +116,7 @@ export class SeedingService {
         isSystemAccount: false,
       },
     ];
+    const accountsToCreate = [...baseAccounts, ...PAYROLL_SYSTEM_ACCOUNTS];
 
     try {
       for (const acc of accountsToCreate) {

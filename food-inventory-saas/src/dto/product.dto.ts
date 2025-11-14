@@ -190,6 +190,15 @@ export class CreateProductSupplierDto {
 }
 
 export class CreateProductDto {
+  @ApiPropertyOptional({
+    description: "Tipo de producto",
+    enum: ["simple", "consumable", "supply"],
+    default: "simple",
+  })
+  @IsOptional()
+  @IsEnum(["simple", "consumable", "supply"])
+  productType?: string;
+
   @ApiProperty({ description: "SKU único del producto" })
   @IsString()
   @IsNotEmpty()
@@ -566,6 +575,14 @@ export class ProductQueryDto {
   @IsOptional()
   @IsString()
   brand?: string;
+
+  @ApiPropertyOptional({
+    description: "Tipo de producto",
+    enum: ["simple", "consumable", "supply"],
+  })
+  @IsOptional()
+  @IsEnum(["simple", "consumable", "supply"])
+  productType?: string;
 
   @ApiPropertyOptional({ description: "Solo productos activos", default: true })
   @IsOptional()

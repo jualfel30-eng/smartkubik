@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { InjectModel, InjectConnection } from "@nestjs/mongoose";
 import { Model, Types, Connection } from "mongoose";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Order, OrderDocument, OrderItem } from "../../schemas/order.schema";
 import { Customer, CustomerDocument } from "../../schemas/customer.schema";
 import { Product, ProductDocument } from "../../schemas/product.schema";
@@ -53,6 +54,7 @@ export class OrdersService {
     private readonly exchangeRateService: ExchangeRateService,
     private readonly shiftsService: ShiftsService,
     private readonly discountService: DiscountService,
+    private readonly eventEmitter: EventEmitter2,
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
@@ -191,7 +193,7 @@ export class OrdersService {
       // ======== DISCOUNT CALCULATION ========
       // OPTIMIZED: Pass product object instead of ID to avoid redundant DB query
       const discountResult = await this.discountService.calculateBestDiscount(
-        product,  // Pass full product object (already loaded)
+        product, // Pass full product object (already loaded)
         itemDto.quantity,
         originalUnitPrice,
       );
@@ -387,10 +389,22 @@ export class OrdersService {
       $inc: { "usage.currentOrders": 1 },
     });
 
+    // Emit order.created event for consumables automatic deduction
+    this.eventEmitter.emit("order.created", {
+      orderId: savedOrder._id.toString(),
+      tenantId: user.tenantId,
+      items: savedOrder.items.map((item) => ({
+        productId: item.productId.toString(),
+        quantity: item.quantityInBaseUnit ?? item.quantity,
+      })),
+      orderType: createOrderDto.deliveryMethod || "always",
+      userId: user.id,
+    });
+
     // OPTIMIZED: Parallelize payment creation instead of sequential loop
     if (payments && payments.length > 0) {
       await Promise.all(
-        payments.map(p => {
+        payments.map((p) => {
           const paymentDto: CreatePaymentDto = {
             paymentType: "sale",
             orderId: savedOrder._id.toString(),
@@ -401,7 +415,7 @@ export class OrdersService {
             reference: p.reference,
           };
           return this.paymentsService.create(paymentDto, user);
-        })
+        }),
       );
     }
 
@@ -497,7 +511,7 @@ export class OrdersService {
       // ======== DISCOUNT CALCULATION ========
       // OPTIMIZED: Pass product object instead of ID to avoid redundant DB query
       const discountResult = await this.discountService.calculateBestDiscount(
-        product,  // Pass full product object (already loaded)
+        product, // Pass full product object (already loaded)
         itemDto.quantity,
         originalUnitPrice,
       );

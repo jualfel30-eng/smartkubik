@@ -5,8 +5,9 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
+import { Model } from "mongoose";
 import * as moment from "moment-timezone";
+import { format } from "date-fns";
 import {
   ChartOfAccounts,
   ChartOfAccountsDocument,
@@ -21,8 +22,10 @@ import {
 } from "../../dto/accounting.dto";
 import { Order, OrderDocument } from "../../schemas/order.schema"; // <-- FIXED
 import { PurchaseOrderDocument } from "../../schemas/purchase-order.schema";
-import { Payment, PaymentDocument } from "../../schemas/payment.schema";
+import { PaymentDocument } from "../../schemas/payment.schema";
 import { Payable, PayableDocument } from "../../schemas/payable.schema";
+import { PayrollConcept } from "../../schemas/payroll-concept.schema";
+import { PayrollRunDocument } from "../../schemas/payroll-run.schema";
 
 @Injectable()
 export class AccountingService {
@@ -188,6 +191,74 @@ export class AccountingService {
     });
 
     return newJournalEntry.save();
+  }
+  async createJournalEntryForPayrollRun(params: {
+    run: PayrollRunDocument;
+    conceptMap: Map<string, PayrollConcept>;
+    tenantId: string;
+  }) {
+    const { run, conceptMap, tenantId } = params;
+    if (!run.entries?.length) {
+      return null;
+    }
+    const aggregate = new Map<
+      string,
+      {
+        debitAccountId: string;
+        creditAccountId: string;
+        amount: number;
+        description: string;
+      }
+    >();
+    run.entries.forEach((entry) => {
+      const concept = conceptMap.get(entry.conceptCode);
+      if (!concept?.debitAccountId || !concept?.creditAccountId) {
+        return;
+      }
+      const debitAccountId = concept.debitAccountId.toString();
+      const creditAccountId = concept.creditAccountId.toString();
+      const key = `${debitAccountId}:${creditAccountId}`;
+      const record = aggregate.get(key) || {
+        debitAccountId,
+        creditAccountId,
+        amount: 0,
+        description: concept.name || entry.conceptCode,
+      };
+      record.amount += entry.amount;
+      aggregate.set(key, record);
+    });
+    if (!aggregate.size) {
+      return null;
+    }
+    const lines: CreateJournalEntryDto["lines"] = [];
+    aggregate.forEach((record) => {
+      const amount = Number(record.amount.toFixed(2));
+      if (amount <= 0) return;
+      lines.push({
+        accountId: record.debitAccountId,
+        debit: amount,
+        credit: 0,
+        description: record.description,
+      });
+      lines.push({
+        accountId: record.creditAccountId,
+        debit: 0,
+        credit: amount,
+        description: record.description,
+      });
+    });
+    if (!lines.length) {
+      return null;
+    }
+    const payload: CreateJournalEntryDto = {
+      date: (run.periodEnd || run.createdAt || new Date()).toISOString(),
+      description:
+        run.label ||
+        `Nómina ${format(run.periodEnd || new Date(), "dd/MM/yyyy")}`,
+      lines,
+    };
+    const entry = await this.createJournalEntry(payload, tenantId);
+    return entry._id.toString();
   }
 
   private async findAccountByCode(

@@ -25,19 +25,19 @@ const BUSINESS_VERTICALS = {
     label: 'Restaurantes y Servicios de Comida',
     description: 'Restaurantes, cafeterías, catering, food trucks',
     icon: '🍽️',
-    recommendedModules: ['restaurant', 'tables', 'kitchenDisplay', 'menuEngineering', 'orders', 'inventory', 'customers']
+    recommendedModules: ['restaurant', 'tables', 'kitchenDisplay', 'menuEngineering', 'orders', 'inventory', 'customers', 'payroll']
   },
   RETAIL: {
     label: 'Retail / Tiendas',
     description: 'Tiendas minoristas, supermercados, comercios',
     icon: '🏪',
-    recommendedModules: ['pos', 'variants', 'ecommerce', 'inventory', 'orders', 'customers']
+    recommendedModules: ['pos', 'variants', 'ecommerce', 'inventory', 'orders', 'customers', 'payroll']
   },
   SERVICES: {
     label: 'Servicios Profesionales',
     description: 'Salones de belleza, spas, consultorios, talleres',
     icon: '💼',
-    recommendedModules: ['appointments', 'resources', 'booking', 'servicePackages', 'customers']
+    recommendedModules: ['appointments', 'resources', 'booking', 'servicePackages', 'customers', 'payroll', 'hr_core', 'time_and_attendance']
   },
   LOGISTICS: {
     label: 'Logística y Distribución',
@@ -83,6 +83,11 @@ const MODULE_GROUPS = {
     title: 'Logística',
     description: 'Para empresas de transporte y distribución',
     modules: ['shipments', 'tracking', 'routes', 'fleet', 'warehousing', 'dispatch']
+  },
+  hr: {
+    title: 'RRHH & Nómina',
+    description: 'Gestión de colaboradores, contratos y asistencia',
+    modules: ['payroll', 'hr_core', 'time_and_attendance']
   }
 };
 
@@ -114,7 +119,10 @@ const MODULE_LABELS = {
   fleet: 'Flota',
   warehousing: 'Almacenamiento',
   dispatch: 'Despacho',
-  chat: 'WhatsApp Chat'
+  chat: 'WhatsApp Chat',
+  payroll: 'Nómina',
+  hr_core: 'Core de RRHH',
+  time_and_attendance: 'Tiempo y Asistencia'
 };
 
 const RESTAURANT_MODULES_PRESET = [
@@ -136,6 +144,13 @@ const RESTAURANT_PERMISSION_NAMES = [
   'orders_write',
   'inventory_read',
   'inventory_update',
+];
+
+const PAYROLL_MODULES = ['payroll', 'hr_core', 'time_and_attendance'];
+
+const PAYROLL_PERMISSION_NAMES = [
+  'payroll_employees_read',
+  'payroll_employees_write',
 ];
 
 export default function TenantConfigurationEdit() {
@@ -266,6 +281,14 @@ export default function TenantConfigurationEdit() {
     );
   };
 
+  const selectAllRoles = () => {
+    if (selectedPresetRoles.length === roles.length) {
+      setSelectedPresetRoles([]);
+    } else {
+      setSelectedPresetRoles(roles.map((role) => role._id));
+    }
+  };
+
   const applyRestaurantPreset = () => {
     if (selectedPresetRoles.length === 0) {
       toast.error('Selecciona al menos un rol para aplicar el preset.');
@@ -308,6 +331,56 @@ export default function TenantConfigurationEdit() {
     } else {
       toast.success('Preset de restaurante aplicado. Recuerda guardar los cambios.');
     }
+  };
+
+  const applyPayrollPreset = () => {
+    if (selectedPresetRoles.length === 0) {
+      toast.error('Selecciona al menos un rol antes de activar nómina.');
+      return;
+    }
+
+    setEnabledModules((prev) => {
+      const updated = { ...prev };
+      PAYROLL_MODULES.forEach((module) => {
+        updated[module] = true;
+      });
+      return updated;
+    });
+
+    const missingPermissions = new Set();
+    const updatedRolePermissions = { ...rolePermissions };
+
+    selectedPresetRoles.forEach((roleId) => {
+      const currentPermissions = new Set(updatedRolePermissions[roleId] || []);
+      PAYROLL_PERMISSION_NAMES.forEach((permissionName) => {
+        const permissionId = permissionIdByName.get(permissionName);
+        if (permissionId) {
+          currentPermissions.add(permissionId);
+        } else {
+          missingPermissions.add(permissionName);
+        }
+      });
+      updatedRolePermissions[roleId] = Array.from(currentPermissions);
+    });
+
+    setRolePermissions(updatedRolePermissions);
+
+    if (missingPermissions.size > 0) {
+      toast.warning(
+        `Faltan los permisos: ${Array.from(missingPermissions).join(', ')}. Ejecuta "npm run seed:permissions" si es necesario.`
+      );
+    } else {
+      toast.success('Nómina y RRHH activados en los roles seleccionados. Recuerda guardar los cambios.');
+    }
+  };
+
+  const toggleAllPermissionsForRole = (roleId) => {
+    const totalPermissions = allPermissions.map((permission) => permission._id);
+    const hasAll = (rolePermissions[roleId] || []).length === totalPermissions.length;
+    setRolePermissions((prev) => ({
+      ...prev,
+      [roleId]: hasAll ? [] : totalPermissions,
+    }));
   };
 
   if (loading) {
@@ -416,7 +489,15 @@ export default function TenantConfigurationEdit() {
               flujo completo de pedidos con cocina.
             </p>
           </div>
-          <Button onClick={() => setPresetDialogOpen(true)}>Activar vertical restaurante</Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button variant="outline" onClick={selectAllRoles}>
+              Seleccionar todos los roles
+            </Button>
+            <Button variant="outline" onClick={applyPayrollPreset}>
+              Activar nómina & RRHH
+            </Button>
+            <Button onClick={() => setPresetDialogOpen(true)}>Activar vertical restaurante</Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -476,10 +557,21 @@ export default function TenantConfigurationEdit() {
           {roles.map(role => (
             <div key={role._id}>
               <div className="mb-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  {role.name}
-                  <Badge variant="outline">{rolePermissions[role._id]?.length || 0} permisos</Badge>
-                </h3>
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    {role.name}
+                    <Badge variant="outline">{rolePermissions[role._id]?.length || 0} permisos</Badge>
+                  </h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleAllPermissionsForRole(role._id)}
+                  >
+                    {(rolePermissions[role._id] || []).length === allPermissions.length
+                      ? 'Quitar todos'
+                      : 'Marcar todos'}
+                  </Button>
+                </div>
               </div>
 
               {/* Group permissions by module */}
@@ -535,6 +627,9 @@ export default function TenantConfigurationEdit() {
               permisos manualmente antes de guardar.
             </p>
             <div className="border rounded-md p-3 space-y-2">
+              <Button variant="ghost" size="sm" onClick={selectAllRoles}>
+                {selectedPresetRoles.length === roles.length ? 'Deseleccionar roles' : 'Seleccionar todos los roles'}
+              </Button>
               {roles.map((role) => (
                 <label
                   key={role._id}

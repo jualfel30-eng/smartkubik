@@ -4,6 +4,7 @@ import {
   ConflictException,
   BadRequestException,
   UnsupportedMediaTypeException,
+  Logger,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
@@ -12,6 +13,7 @@ import { Tenant, TenantDocument } from "./schemas/tenant.schema";
 import { User, UserDocument } from "./schemas/user.schema";
 import { Customer, CustomerDocument } from "./schemas/customer.schema"; // Importar Customer
 import { MailService } from "./modules/mail/mail.service";
+import { PayrollEmployeesService } from "./modules/payroll-employees/payroll-employees.service";
 import {
   UpdateTenantSettingsDto,
   InviteUserDto,
@@ -21,11 +23,14 @@ import { verticalProfileKeys } from "./config/vertical-profiles";
 
 @Injectable()
 export class TenantService {
+  private readonly logger = new Logger(TenantService.name);
+
   constructor(
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>, // Inyectar CustomerModel
     private readonly mailService: MailService,
+    private readonly payrollEmployeesService: PayrollEmployeesService,
   ) {}
 
   async uploadLogo(
@@ -311,6 +316,22 @@ export class TenantService {
       status: "active",
     });
     await newCustomer.save();
+
+    try {
+      await this.payrollEmployeesService.ensureProfileForCustomer(
+        newCustomer._id.toString(),
+        tenantId,
+        {
+          userId: savedUser._id.toString(),
+          status: "active",
+          hireDate: new Date().toISOString(),
+        },
+      );
+    } catch (error) {
+      this.logger?.error?.(
+        `Failed to ensure employee profile for ${savedUser.email}: ${error.message}`,
+      );
+    }
 
     // Enviar el correo de bienvenida
     try {

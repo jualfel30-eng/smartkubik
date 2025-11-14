@@ -90,21 +90,21 @@ export class SuperAdminService {
   }
 
   async getFeatureFlags(): Promise<any> {
-    this.logger.log('Fetching all feature flags');
+    this.logger.log("Fetching all feature flags");
 
     // Feature flags keys
     const featureFlagKeys = [
-      'ENABLE_EMPLOYEE_PERFORMANCE',
-      'ENABLE_BANK_MOVEMENTS',
-      'ENABLE_BANK_RECONCILIATION',
-      'ENABLE_BANK_TRANSFERS',
-      'ENABLE_DASHBOARD_CHARTS',
-      'ENABLE_ADVANCED_REPORTS',
-      'ENABLE_PREDICTIVE_ANALYTICS',
-      'ENABLE_CUSTOMER_SEGMENTATION',
-      'ENABLE_MULTI_TENANT_LOGIN',
-      'ENABLE_SERVICE_BOOKING_PORTAL',
-      'ENABLE_APPOINTMENT_REMINDERS',
+      "ENABLE_EMPLOYEE_PERFORMANCE",
+      "ENABLE_BANK_MOVEMENTS",
+      "ENABLE_BANK_RECONCILIATION",
+      "ENABLE_BANK_TRANSFERS",
+      "ENABLE_DASHBOARD_CHARTS",
+      "ENABLE_ADVANCED_REPORTS",
+      "ENABLE_PREDICTIVE_ANALYTICS",
+      "ENABLE_CUSTOMER_SEGMENTATION",
+      "ENABLE_MULTI_TENANT_LOGIN",
+      "ENABLE_SERVICE_BOOKING_PORTAL",
+      "ENABLE_APPOINTMENT_REMINDERS",
     ];
 
     const settings = await this.globalSettingModel
@@ -114,7 +114,7 @@ export class SuperAdminService {
     // Create a map of existing settings
     const settingsMap = {};
     settings.forEach((setting) => {
-      settingsMap[setting.key] = setting.value === 'true';
+      settingsMap[setting.key] = setting.value === "true";
     });
 
     // Return all flags with defaults for missing ones
@@ -127,7 +127,7 @@ export class SuperAdminService {
   }
 
   async updateFeatureFlags(flags: Record<string, boolean>): Promise<any> {
-    this.logger.log('Updating feature flags', flags);
+    this.logger.log("Updating feature flags", flags);
 
     const updates = Object.entries(flags).map(([key, value]) => ({
       updateOne: {
@@ -141,13 +141,15 @@ export class SuperAdminService {
 
     // Invalidar el caché de feature flags para forzar recarga
     this.featureFlagsService.invalidateCache();
-    this.logger.log('Feature flags cache invalidated - changes will take effect immediately');
+    this.logger.log(
+      "Feature flags cache invalidated - changes will take effect immediately",
+    );
 
     return { success: true, updated: Object.keys(flags).length };
   }
 
   async reloadFeatureFlags(): Promise<any> {
-    this.logger.log('Manual reload of feature flags requested');
+    this.logger.log("Manual reload of feature flags requested");
 
     // Forzar recarga desde MongoDB
     await this.featureFlagsService.reloadFromDatabase();
@@ -157,8 +159,8 @@ export class SuperAdminService {
 
     return {
       success: true,
-      message: 'Feature flags reloaded from database',
-      flags
+      message: "Feature flags reloaded from database",
+      flags,
     };
   }
 

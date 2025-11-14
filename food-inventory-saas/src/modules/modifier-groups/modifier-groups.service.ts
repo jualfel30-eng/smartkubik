@@ -63,9 +63,9 @@ export class ModifierGroupsService {
   async findAllGroups(tenantId: string): Promise<ModifierGroup[]> {
     return this.modifierGroupModel
       .find({ tenantId, isDeleted: false })
-      .populate("applicableProducts", "name sku category isActive")  // OPTIMIZED: Only load needed fields
+      .populate("applicableProducts", "name sku category isActive") // OPTIMIZED: Only load needed fields
       .sort({ sortOrder: 1, createdAt: 1 })
-      .lean()  // OPTIMIZED: Faster read-only operation
+      .lean() // OPTIMIZED: Faster read-only operation
       .exec();
   }
 
@@ -75,8 +75,8 @@ export class ModifierGroupsService {
   async findGroupById(id: string, tenantId: string): Promise<ModifierGroup> {
     const group = await this.modifierGroupModel
       .findOne({ _id: id, tenantId, isDeleted: false })
-      .populate("applicableProducts", "name sku category isActive")  // OPTIMIZED: Only load needed fields
-      .lean()  // OPTIMIZED: Faster read-only operation
+      .populate("applicableProducts", "name sku category isActive") // OPTIMIZED: Only load needed fields
+      .lean() // OPTIMIZED: Faster read-only operation
       .exec();
 
     if (!group) {
@@ -104,7 +104,7 @@ export class ModifierGroupsService {
         applicableProducts: productObjectId,
       })
       .sort({ sortOrder: 1 })
-      .lean()  // Faster read-only
+      .lean() // Faster read-only
       .exec();
 
     if (groups.length === 0) {
@@ -112,7 +112,7 @@ export class ModifierGroupsService {
     }
 
     // OPTIMIZED: Single batch query for ALL modifiers instead of N queries
-    const groupIds = groups.map(g => g._id);
+    const groupIds = groups.map((g) => g._id);
     const allModifiers = await this.modifierModel
       .find({
         tenantId,
@@ -121,12 +121,12 @@ export class ModifierGroupsService {
         available: true,
       })
       .sort({ sortOrder: 1 })
-      .lean()  // Faster read-only
+      .lean() // Faster read-only
       .exec();
 
     // Group modifiers by groupId in memory (O(n) operation, much faster than N queries)
     const modifiersByGroup = new Map();
-    allModifiers.forEach(modifier => {
+    allModifiers.forEach((modifier) => {
       const groupId = modifier.groupId.toString();
       if (!modifiersByGroup.has(groupId)) {
         modifiersByGroup.set(groupId, []);
@@ -135,7 +135,7 @@ export class ModifierGroupsService {
     });
 
     // Attach modifiers to their groups
-    const groupsWithModifiers = groups.map(group => ({
+    const groupsWithModifiers = groups.map((group) => ({
       ...group,
       modifiers: modifiersByGroup.get(group._id.toString()) || [],
     }));

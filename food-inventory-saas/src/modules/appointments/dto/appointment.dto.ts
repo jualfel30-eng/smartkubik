@@ -265,7 +265,11 @@ export class UpdateAppointmentDto {
   @IsOptional()
   customerId?: string;
 
-  @ApiProperty({ description: "ID del servicio", required: false, nullable: true })
+  @ApiProperty({
+    description: "ID del servicio",
+    required: false,
+    nullable: true,
+  })
   @IsMongoId()
   @IsOptional()
   serviceId?: string;

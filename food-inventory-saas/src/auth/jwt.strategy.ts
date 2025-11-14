@@ -52,29 +52,35 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
       const fullRole = await this.roleModel
         .findById(payload.role._id)
-        .populate('permissions')
+        .populate("permissions")
         .exec();
 
-      this.logger.debug(`📦 Full role loaded: ${fullRole ? 'YES' : 'NO'}`);
+      this.logger.debug(`📦 Full role loaded: ${fullRole ? "YES" : "NO"}`);
 
       if (fullRole) {
-        this.logger.debug(`🔑 Raw permissions from DB: ${JSON.stringify(fullRole.permissions)}`);
+        this.logger.debug(
+          `🔑 Raw permissions from DB: ${JSON.stringify(fullRole.permissions)}`,
+        );
 
         // Extraer solo los nombres de los permisos para el PermissionsGuard
         const permissionNames = (fullRole.permissions || []).map((p: any) =>
-          typeof p === 'string' ? p : p.name
+          typeof p === "string" ? p : p.name,
         );
 
-        this.logger.debug(`✅ Extracted permission names: ${JSON.stringify(permissionNames)}`);
+        this.logger.debug(
+          `✅ Extracted permission names: ${JSON.stringify(permissionNames)}`,
+        );
 
         roleWithPermissions = {
           _id: fullRole._id,
           name: fullRole.name,
           description: fullRole.description,
-          permissions: permissionNames
+          permissions: permissionNames,
         };
 
-        this.logger.debug(`🎯 Role loaded with ${permissionNames.length} permissions for user`);
+        this.logger.debug(
+          `🎯 Role loaded with ${permissionNames.length} permissions for user`,
+        );
       } else {
         this.logger.warn(`⚠️ Role not found in DB, using payload role`);
       }

@@ -188,7 +188,8 @@ export class FeatureFlagsService {
       MULTI_TENANT_LOGIN: process.env.ENABLE_MULTI_TENANT_LOGIN === "true",
       SERVICE_BOOKING_PORTAL:
         process.env.ENABLE_SERVICE_BOOKING_PORTAL === "true",
-      APPOINTMENT_REMINDERS: process.env.ENABLE_APPOINTMENT_REMINDERS === "true",
+      APPOINTMENT_REMINDERS:
+        process.env.ENABLE_APPOINTMENT_REMINDERS === "true",
     };
   }
 

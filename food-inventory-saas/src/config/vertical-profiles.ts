@@ -12,7 +12,8 @@ export type VerticalKey =
   | "retail-footwear"
   | "retail-hardware"
   | "retail-tech"
-  | "retail-toys";
+  | "retail-toys"
+  | "manufacturing";
 
 export interface AttributeDescriptor {
   key: string;
@@ -43,7 +44,7 @@ export interface OrderLineDescriptor {
 export interface VerticalProfile {
   key: VerticalKey;
   label: string;
-  baseVertical: "FOOD_SERVICE" | "RETAIL" | "SERVICES" | "LOGISTICS";
+  baseVertical: "FOOD_SERVICE" | "RETAIL" | "SERVICES" | "LOGISTICS" | "MANUFACTURING";
 
   allowsWeight: boolean;
   hasSizeMatrix: boolean;
@@ -306,6 +307,68 @@ export const verticalProfiles: Record<VerticalKey, VerticalProfile> = {
     orderLine: {
       requireAttributesOnAdd: false,
       notesPlaceholder: "Notas para envoltura o armado",
+    },
+  },
+  manufacturing: {
+    key: "manufacturing",
+    label: "Manufactura",
+    baseVertical: "MANUFACTURING",
+    allowsWeight: true,
+    hasSizeMatrix: false,
+    requiresSerial: false,
+    supportsVariants: true,
+    defaultUnits: ["kg", "unidad", "litro", "batch", "m²", "m³"],
+    attributeSchema: [
+      {
+        key: "productionBatch",
+        label: "Lote de Producción",
+        type: "string",
+        scope: "inventory",
+        required: true,
+      },
+      {
+        key: "manufacturingDate",
+        label: "Fecha de Fabricación",
+        type: "string",
+        scope: "inventory",
+      },
+      {
+        key: "expirationDate",
+        label: "Fecha de Vencimiento",
+        type: "string",
+        scope: "inventory",
+      },
+      {
+        key: "certifications",
+        label: "Certificaciones",
+        type: "string",
+        scope: "product",
+        ui: { widget: "textarea", helperText: "ISO, FDA, INVIMA, etc." },
+      },
+      {
+        key: "formula",
+        label: "Fórmula/Composición",
+        type: "string",
+        scope: "product",
+        ui: { widget: "textarea" },
+      },
+      {
+        key: "productionTime",
+        label: "Tiempo de Producción (horas)",
+        type: "number",
+        scope: "product",
+      },
+    ],
+    inventory: {
+      supportsLots: true,
+      supportsAttributeMatrix: false,
+      requiresSerialTracking: false,
+      alerts: ["lowStock", "nearExpiration"],
+    },
+    orderLine: {
+      requireAttributesOnAdd: false,
+      allowCustomPrice: true,
+      notesPlaceholder: "Especificaciones técnicas o requerimientos especiales",
     },
   },
 };

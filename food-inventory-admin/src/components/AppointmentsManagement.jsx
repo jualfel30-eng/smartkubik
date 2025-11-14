@@ -156,7 +156,7 @@ const formatCurrency = (value, currency = 'VES') => {
       currency,
       minimumFractionDigits: 2,
     }).format(numeric);
-  } catch (error) {
+  } catch {
     return `${currency} ${numeric.toFixed(2)}`;
   }
 };
@@ -215,7 +215,7 @@ function AppointmentsManagement() {
     if (tabFromUrl && tabFromUrl !== activeTab) {
       setActiveTab(tabFromUrl);
     }
-  }, [searchParams]);
+  }, [searchParams, activeTab]);
 
   // Manejador para cambiar tabs (actualiza estado y URL)
   const handleTabChange = (newTab) => {
@@ -531,11 +531,10 @@ function AppointmentsManagement() {
     return [];
   };
 
-  if (!hasAccess) {
-    return <ModuleAccessDenied moduleName="appointments" />;
-  }
-
   useEffect(() => {
+    if (!hasAccess) {
+      return;
+    }
     // Set default date range (current week)
     const today = new Date();
     const weekStart = new Date(today);
@@ -563,13 +562,16 @@ function AppointmentsManagement() {
     loadServices();
     loadResources();
     loadCustomers();
-  }, []);
+  }, [hasAccess]);
 
   useEffect(() => {
+    if (!hasAccess) {
+      return;
+    }
     if (dateFrom && dateTo) {
       loadAppointments();
     }
-  }, [dateFrom, dateTo, statusFilter]);
+  }, [hasAccess, dateFrom, dateTo, statusFilter]);
 
   useEffect(() => {
     if (!isDialogOpen) {
@@ -578,7 +580,7 @@ function AppointmentsManagement() {
   }, [isDialogOpen]);
 
   useEffect(() => {
-    if (!hasBankAccess) {
+    if (!hasAccess || !hasBankAccess) {
       setBankAccounts([]);
       return;
     }
@@ -593,10 +595,10 @@ function AppointmentsManagement() {
     };
 
     loadBankAccounts();
-  }, [hasBankAccess]);
+  }, [hasAccess, hasBankAccess]);
 
   useEffect(() => {
-    if (!formData.customerName) {
+    if (!hasAccess || !formData.customerName) {
       return;
     }
     setCustomerProfile((prev) => {
@@ -608,7 +610,7 @@ function AppointmentsManagement() {
         taxName: formData.customerName,
       };
     });
-  }, [formData.customerName]);
+  }, [hasAccess, formData.customerName]);
 
   const loadAppointments = async () => {
     try {
@@ -1567,7 +1569,7 @@ const normalizeBankAccountSelection = (value) =>
       setLoading(true);
       await syncCustomerProfile();
 
-      const { customerName, ...formPayload } = formData;
+      const { customerName: _customerName, ...formPayload } = formData;
       const payload = {
         ...formPayload,
         startTime: new Date(formData.startTime).toISOString(),
@@ -1661,6 +1663,10 @@ const normalizeBankAccountSelection = (value) =>
       </Badge>
     );
   };
+
+  if (!hasAccess) {
+    return <ModuleAccessDenied moduleName="appointments" />;
+  }
 
   return (
     <div className="p-6 space-y-6">

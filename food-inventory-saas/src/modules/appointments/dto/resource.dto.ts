@@ -113,7 +113,10 @@ class ResourceBaseRateDto {
 }
 
 class ResourcePricingTierDto {
-  @ApiProperty({ description: "Etiqueta de la tarifa", example: "Temporada alta" })
+  @ApiProperty({
+    description: "Etiqueta de la tarifa",
+    example: "Temporada alta",
+  })
   @IsString()
   @MaxLength(120)
   label: string;
@@ -129,12 +132,20 @@ class ResourcePricingTierDto {
   @MaxLength(10)
   currency?: string;
 
-  @ApiProperty({ description: "Fecha de inicio", example: "2025-07-01", required: false })
+  @ApiProperty({
+    description: "Fecha de inicio",
+    example: "2025-07-01",
+    required: false,
+  })
   @IsDateString()
   @IsOptional()
   startDate?: string;
 
-  @ApiProperty({ description: "Fecha de fin", example: "2025-09-01", required: false })
+  @ApiProperty({
+    description: "Fecha de fin",
+    example: "2025-09-01",
+    required: false,
+  })
   @IsDateString()
   @IsOptional()
   endDate?: string;
@@ -167,7 +178,11 @@ class ResourcePricingTierDto {
   @IsOptional()
   isDefault?: boolean;
 
-  @ApiProperty({ description: "Canal de venta", example: "Website", required: false })
+  @ApiProperty({
+    description: "Canal de venta",
+    example: "Website",
+    required: false,
+  })
   @IsString()
   @IsOptional()
   @MaxLength(100)
@@ -175,7 +190,10 @@ class ResourcePricingTierDto {
 }
 
 class ResourcePromotionDto {
-  @ApiProperty({ description: "Nombre de la promoción", example: "Promo verano" })
+  @ApiProperty({
+    description: "Nombre de la promoción",
+    example: "Promo verano",
+  })
   @IsString()
   @MaxLength(120)
   name: string;
@@ -397,7 +415,11 @@ export class CreateResourceDto {
   @IsOptional()
   locationTags?: string[];
 
-  @ApiProperty({ description: "Tarifa base", required: false, type: ResourceBaseRateDto })
+  @ApiProperty({
+    description: "Tarifa base",
+    required: false,
+    type: ResourceBaseRateDto,
+  })
   @ValidateNested()
   @Type(() => ResourceBaseRateDto)
   @IsOptional()
@@ -554,7 +576,11 @@ export class UpdateResourceDto {
   @IsOptional()
   locationTags?: string[];
 
-  @ApiProperty({ description: "Tarifa base", required: false, type: ResourceBaseRateDto })
+  @ApiProperty({
+    description: "Tarifa base",
+    required: false,
+    type: ResourceBaseRateDto,
+  })
   @ValidateNested()
   @Type(() => ResourceBaseRateDto)
   @IsOptional()

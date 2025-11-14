@@ -8,6 +8,7 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { Model, Types } from "mongoose";
 import { FEATURES, FeatureFlags } from "../../config/features.config";
+import { FeatureFlagsService } from "../../config/feature-flags.service";
 import { getVerticalProfile } from "../../config/vertical-profiles";
 import {
   PerformanceKpi,
@@ -78,6 +79,7 @@ export class AnalyticsService {
     private readonly resourceModel: Model<ResourceDocument>,
     @InjectModel(Customer.name)
     private readonly customerModel: Model<CustomerDocument>,
+    private readonly featureFlagsService: FeatureFlagsService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM, {
@@ -280,7 +282,7 @@ export class AnalyticsService {
   }
 
   async getPerformanceSummary(tenantId: string, period?: string) {
-    this.ensureFeature(
+    await this.ensureFeature(
       "DASHBOARD_CHARTS",
       "Performance summary feature disabled",
     );
@@ -340,7 +342,10 @@ export class AnalyticsService {
   }
 
   async getSalesTrend(tenantId: string, period?: string) {
-    this.ensureFeature("DASHBOARD_CHARTS", "Dashboard charts feature disabled");
+    await this.ensureFeature(
+      "DASHBOARD_CHARTS",
+      "Dashboard charts feature disabled",
+    );
     const { key: tenantKey } = this.normalizeTenantIdentifiers(tenantId);
     const { from, to, groupBy } = this.buildDateRange(period);
 
@@ -464,7 +469,10 @@ export class AnalyticsService {
   }
 
   async getInventoryStatus(tenantId: string, period?: string) {
-    this.ensureFeature("DASHBOARD_CHARTS", "Dashboard charts feature disabled");
+    await this.ensureFeature(
+      "DASHBOARD_CHARTS",
+      "Dashboard charts feature disabled",
+    );
     const { objectId: tenantObjectId, key: tenantKey } =
       this.normalizeTenantIdentifiers(tenantId);
     const { from, to } = this.buildDateRange(period);
@@ -796,7 +804,10 @@ export class AnalyticsService {
   }
 
   async getProfitAndLoss(tenantId: string, period?: string) {
-    this.ensureFeature("ADVANCED_REPORTS", "Advanced reports feature disabled");
+    await this.ensureFeature(
+      "ADVANCED_REPORTS",
+      "Advanced reports feature disabled",
+    );
     const { objectId: tenantObjectId, key: tenantKey } =
       this.normalizeTenantIdentifiers(tenantId);
     const { from, to, groupBy } = this.buildDateRange(period);
@@ -872,7 +883,10 @@ export class AnalyticsService {
   }
 
   async getCustomerSegmentation(tenantId: string, limit = 100) {
-    this.ensureFeature("ADVANCED_REPORTS", "Advanced reports feature disabled");
+    await this.ensureFeature(
+      "ADVANCED_REPORTS",
+      "Advanced reports feature disabled",
+    );
     const { key: tenantKey } = this.normalizeTenantIdentifiers(tenantId);
 
     const now = new Date();
@@ -1332,8 +1346,12 @@ export class AnalyticsService {
     throw new BadRequestException(`Invalid ${resource} id received`);
   }
 
-  private ensureFeature(feature: keyof FeatureFlags, message: string): void {
-    if (!FEATURES[feature]) {
+  private async ensureFeature(
+    feature: keyof FeatureFlags,
+    message: string,
+  ): Promise<void> {
+    const flags = await this.featureFlagsService.getFeatureFlags();
+    if (!flags[feature]) {
       throw new ForbiddenException(message);
     }
   }

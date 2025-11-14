@@ -192,15 +192,12 @@ export class AppointmentsController {
     @Query("page") page?: number,
     @Query("limit") limit?: number,
   ) {
-    return this.appointmentsService.getConfirmedPayments(
-      req.user.tenantId,
-      {
-        startDate,
-        endDate,
-        page: page || 1,
-        limit: limit || 50,
-      },
-    );
+    return this.appointmentsService.getConfirmedPayments(req.user.tenantId, {
+      startDate,
+      endDate,
+      page: page || 1,
+      limit: limit || 50,
+    });
   }
 
   @Get("payments/by-customer/:customerId")

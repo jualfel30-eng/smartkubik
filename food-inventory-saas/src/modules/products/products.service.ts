@@ -335,6 +335,7 @@ export class ProductsService {
       search,
       category,
       brand,
+      productType,
       isActive = true,
       includeInactive = false,
     } = query;
@@ -355,6 +356,9 @@ export class ProductsService {
     }
     if (brand) {
       filter.brand = brand;
+    }
+    if (productType) {
+      filter.productType = productType;
     }
     if (isSearching) {
       const regex = new RegExp(this.escapeRegExp(searchTerm), "i");

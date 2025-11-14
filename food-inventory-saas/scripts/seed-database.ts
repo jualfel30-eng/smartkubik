@@ -6,6 +6,7 @@ import { Role, RoleSchema } from '../src/schemas/role.schema';
 import { ChartOfAccounts, ChartOfAccountsSchema } from '../src/schemas/chart-of-accounts.schema';
 import { ALL_PERMISSIONS } from '../src/modules/permissions/constants';
 import { getDefaultModulesForVertical } from '../src/config/vertical-features.config';
+import { PAYROLL_SYSTEM_ACCOUNTS } from '../src/config/payroll-system-accounts.config';
 
 async function seedDatabase() {
   const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/food-inventory-saas';
@@ -112,7 +113,7 @@ async function seedDatabase() {
 
   // 4. Create Chart of Accounts for the Tenant
   console.log('Creating default chart of accounts...');
-  const accountsToCreate = [
+  const baseAccounts = [
     { code: '1101', name: 'Efectivo y Equivalentes', type: 'Activo', isSystemAccount: true },
     { code: '1102', name: 'Cuentas por Cobrar', type: 'Activo', isSystemAccount: true },
     { code: '1103', name: 'Inventario', type: 'Activo', isSystemAccount: true },
@@ -128,6 +129,7 @@ async function seedDatabase() {
     { code: '5203', name: 'Imprevistos', type: 'Gasto', isSystemAccount: false },
     { code: '5204', name: 'Inversión', type: 'Gasto', isSystemAccount: false },
   ];
+  const accountsToCreate = [...baseAccounts, ...PAYROLL_SYSTEM_ACCOUNTS];
 
   for (const acc of accountsToCreate) {
     await ChartOfAccountsModel.create({

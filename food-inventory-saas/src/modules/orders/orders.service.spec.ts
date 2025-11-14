@@ -120,6 +120,7 @@ describe("OrdersService - Employee Assignment", () => {
       {} as any, // exchangeRateService
       shiftsService as any,
       {} as any, // discountService
+      { emit: jest.fn() } as any, // eventEmitter
       {} as any, // connection
     );
 

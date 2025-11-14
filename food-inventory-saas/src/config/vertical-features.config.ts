@@ -14,7 +14,10 @@ export const VERTICAL_FEATURES = {
     suppliers: true,
     reports: true,
     accounting: true,
+    payroll: true,
     bankAccounts: true,
+    hrCore: false,
+    timeAndAttendance: false,
 
     // Food service specific
     restaurant: true, // This flag enables the whole restaurant section in the frontend
@@ -48,7 +51,10 @@ export const VERTICAL_FEATURES = {
     suppliers: true,
     reports: true,
     accounting: true,
+    payroll: true,
     bankAccounts: true,
+    hrCore: false,
+    timeAndAttendance: false,
 
     // Retail specific
     pos: true,
@@ -81,7 +87,10 @@ export const VERTICAL_FEATURES = {
     suppliers: true,
     reports: true,
     accounting: true,
+    payroll: true,
     bankAccounts: true,
+    hrCore: false,
+    timeAndAttendance: false,
 
     // Services specific
     appointments: true,
@@ -114,7 +123,10 @@ export const VERTICAL_FEATURES = {
     suppliers: true,
     reports: true,
     accounting: true,
+    payroll: true,
     bankAccounts: true,
+    hrCore: false,
+    timeAndAttendance: false,
 
     // Logistics specific
     shipments: true,
@@ -147,7 +159,10 @@ export const VERTICAL_FEATURES = {
     suppliers: true,
     reports: true,
     accounting: true,
+    payroll: true,
     bankAccounts: true,
+    hrCore: true,
+    timeAndAttendance: true,
 
     // All vertical-specific modules enabled (admin decides which to use)
     tables: true,
@@ -168,6 +183,58 @@ export const VERTICAL_FEATURES = {
     fleet: true,
     warehousing: true,
     dispatch: true,
+  },
+
+  MANUFACTURING: {
+    // Core modules
+    inventory: true,
+    orders: true,
+    customers: true,
+    suppliers: true,
+    reports: true,
+    accounting: true,
+    payroll: true,
+    bankAccounts: true,
+    hrCore: false,
+    timeAndAttendance: false,
+
+    // Production modules (already implemented in Phases 1-8)
+    production: true,
+    bom: true,
+    routing: true,
+    workCenters: true,
+    mrp: true,
+
+    // Manufacturing specific (to be implemented)
+    qualityControl: false,
+    maintenance: false,
+    productionScheduling: false,
+    shopFloorControl: false,
+    traceability: false,
+    costing: false,
+    plm: false,
+    capacityPlanning: false,
+    compliance: false,
+
+    // Disabled for manufacturing
+    tables: false,
+    recipes: false,
+    kitchenDisplay: false,
+    menuEngineering: false,
+    pos: false,
+    variants: false,
+    ecommerce: false,
+    loyaltyProgram: false,
+    appointments: false,
+    resources: false,
+    booking: false,
+    servicePackages: false,
+    shipments: false,
+    tracking: false,
+    routes: false,
+    fleet: false,
+    warehousing: false,
+    dispatch: false,
   },
 };
 

@@ -195,6 +195,97 @@ class HospitalityPoliciesSettingsDto {
   manualNotes?: string;
 }
 
+class PayrollThirteenthMonthSettingsDto {
+  @ApiProperty({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @ApiProperty({
+    example: "proportional",
+    enum: ["full_salary", "proportional"],
+  })
+  @IsOptional()
+  @IsIn(["full_salary", "proportional"])
+  calculationMethod?: "full_salary" | "proportional";
+
+  @ApiProperty({ example: 30 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  referenceDays?: number;
+}
+
+class PayrollContributionSettingsDto {
+  @ApiProperty({ example: 0.12 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  ivssRate?: number;
+
+  @ApiProperty({ example: 0.02 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  paroForzosoRate?: number;
+
+  @ApiProperty({ example: 0.01 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  faovRate?: number;
+
+  @ApiProperty({ example: 0.02 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  housingPolicyRate?: number;
+}
+
+class PayrollSettingsDto {
+  @ApiProperty({ example: "VES" })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  baseCurrency?: string;
+
+  @ApiProperty({
+    example: "monthly",
+    enum: ["monthly", "biweekly", "weekly"],
+  })
+  @IsOptional()
+  @IsIn(["monthly", "biweekly", "weekly"])
+  defaultPaySchedule?: "monthly" | "biweekly" | "weekly";
+
+  @ApiProperty({ example: 15 })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(31)
+  defaultPayDay?: number;
+
+  @ApiProperty({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  allowCustomFrequencies?: boolean;
+
+  @ApiProperty({ type: PayrollThirteenthMonthSettingsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PayrollThirteenthMonthSettingsDto)
+  thirteenthMonthPolicy?: PayrollThirteenthMonthSettingsDto;
+
+  @ApiProperty({ type: PayrollContributionSettingsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PayrollContributionSettingsDto)
+  statutoryContributions?: PayrollContributionSettingsDto;
+}
+
 class VerticalProfileSettingsDto {
   @ApiProperty({ enum: verticalProfileKeys })
   @IsString()
@@ -281,6 +372,12 @@ class OperationalSettingsDto {
   @ValidateNested()
   @Type(() => HospitalityPoliciesSettingsDto)
   hospitalityPolicies?: HospitalityPoliciesSettingsDto;
+
+  @ApiProperty({ type: PayrollSettingsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PayrollSettingsDto)
+  payroll?: PayrollSettingsDto;
 }
 
 export class UpdateTenantSettingsDto {

@@ -32,7 +32,7 @@ export class UpdateTenantDto {
   @IsOptional()
   businessType?: string;
 
-  @IsEnum(["FOOD_SERVICE", "RETAIL", "SERVICES", "LOGISTICS", "HYBRID"])
+  @IsEnum(["FOOD_SERVICE", "RETAIL", "SERVICES", "LOGISTICS", "HYBRID", "MANUFACTURING"])
   @IsOptional()
   vertical?: string;
 
@@ -45,6 +45,10 @@ export class UpdateTenantDto {
     suppliers?: boolean;
     reports?: boolean;
     accounting?: boolean;
+    payroll?: boolean;
+    bankAccounts?: boolean;
+    hrCore?: boolean;
+    timeAndAttendance?: boolean;
     tables?: boolean;
     recipes?: boolean;
     kitchenDisplay?: boolean;

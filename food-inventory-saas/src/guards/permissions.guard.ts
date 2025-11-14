@@ -26,11 +26,15 @@ export class PermissionsGuard implements CanActivate {
 
     const { user } = context.switchToHttp().getRequest();
 
-    this.logger.debug(`🔐 PermissionsGuard: Required permissions: ${JSON.stringify(requiredPermissions)}`);
-    this.logger.debug(`👤 User info: ${JSON.stringify({ email: user?.email, role: user?.role?.name })}`);
+    this.logger.debug(
+      `🔐 PermissionsGuard: Required permissions: ${JSON.stringify(requiredPermissions)}`,
+    );
+    this.logger.debug(
+      `👤 User info: ${JSON.stringify({ email: user?.email, role: user?.role?.name })}`,
+    );
 
     if (!user || !user.role) {
-      this.logger.warn(`❌ No user or role found`);
+      this.logger.debug(`❌ No user or role found`);
       throw new ForbiddenException(
         "You do not have the necessary permissions.",
       );
@@ -38,12 +42,16 @@ export class PermissionsGuard implements CanActivate {
 
     const userRole = user.role;
     if (!userRole) {
-      this.logger.warn(`❌ Invalid role`);
+      this.logger.debug(`❌ Invalid role`);
       throw new ForbiddenException("Invalid role.");
     }
 
-    this.logger.debug(`🔑 User permissions: ${JSON.stringify(userRole.permissions)}`);
-    this.logger.debug(`📊 Permissions type: ${typeof userRole.permissions}, is array: ${Array.isArray(userRole.permissions)}`);
+    this.logger.debug(
+      `🔑 User permissions: ${JSON.stringify(userRole.permissions)}`,
+    );
+    this.logger.debug(
+      `📊 Permissions type: ${typeof userRole.permissions}, is array: ${Array.isArray(userRole.permissions)}`,
+    );
 
     const hasAllPermissions = requiredPermissions.every((permission) =>
       userRole.permissions.includes(permission),
@@ -51,9 +59,11 @@ export class PermissionsGuard implements CanActivate {
 
     if (!hasAllPermissions) {
       const missingPermissions = requiredPermissions.filter(
-        (permission) => !userRole.permissions.includes(permission)
+        (permission) => !userRole.permissions.includes(permission),
       );
-      this.logger.warn(`❌ Missing permissions: ${JSON.stringify(missingPermissions)}`);
+      this.logger.debug(
+        `❌ Missing permissions: ${JSON.stringify(missingPermissions)}`,
+      );
       throw new ForbiddenException(
         "You do not have the necessary permissions.",
       );

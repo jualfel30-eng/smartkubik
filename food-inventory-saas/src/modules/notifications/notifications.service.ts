@@ -19,17 +19,20 @@ import {
 
 export type NotificationChannel = "email" | "sms" | "whatsapp";
 
-export interface AppointmentNotificationTarget {
+export interface TemplateNotificationTarget {
   tenantId: string;
-  appointmentId: string;
   customerId: string;
+  templateId: string;
+  channels: NotificationChannel[];
+  context: Record<string, any>;
   customerEmail?: string | null;
   customerPhone?: string | null;
   whatsappChatId?: string | null;
   language?: string;
-  templateId: string;
-  channels: NotificationChannel[];
-  context: Record<string, any>;
+}
+
+export interface AppointmentNotificationTarget extends TemplateNotificationTarget {
+  appointmentId: string;
 }
 
 export interface DispatchResult {
@@ -67,6 +70,15 @@ export class NotificationsService {
   async sendAppointmentNotification(
     payload: AppointmentNotificationTarget,
   ): Promise<DispatchResult[]> {
+    return this.sendTemplateNotification(payload, {
+      appointmentId: payload.appointmentId,
+    });
+  }
+
+  async sendTemplateNotification(
+    payload: TemplateNotificationTarget,
+    options?: { appointmentId?: string; engagementDelta?: number },
+  ): Promise<DispatchResult[]> {
     const template = await this.templateLoader.load(payload.templateId);
     const language = (payload.language || "es").toLowerCase().startsWith("en")
       ? "en"
@@ -85,7 +97,7 @@ export class NotificationsService {
       } catch (error) {
         const message = error instanceof Error ? error.message : `${error}`;
         this.logger.error(
-          `Failed to send ${channel} notification for appointment ${payload.appointmentId}: ${message}`,
+          `Failed to send ${channel} notification for template ${payload.templateId}: ${message}`,
         );
         results.push({ channel, success: false, error: message });
       }
@@ -96,16 +108,17 @@ export class NotificationsService {
         tenantId: payload.tenantId,
         customerId: payload.customerId,
         event: {
-          appointmentId: payload.appointmentId,
+          appointmentId: options?.appointmentId,
           channels: payload.channels,
           templateId: payload.templateId,
           deliveredAt: new Date(),
           contextSnapshot: payload.context,
+          engagementDelta: options?.engagementDelta,
         },
       });
     } catch (error) {
       this.logger.warn(
-        `Unable to record CRM communication event for appointment ${payload.appointmentId}: ${error instanceof Error ? error.message : error}`,
+        `Unable to record CRM communication event for template ${payload.templateId}: ${error instanceof Error ? error.message : error}`,
       );
     }
 
@@ -116,7 +129,7 @@ export class NotificationsService {
     channel: NotificationChannel;
     template: Awaited<ReturnType<NotificationTemplateLoader["load"]>>;
     language: string;
-    payload: AppointmentNotificationTarget;
+    payload: TemplateNotificationTarget;
   }): Promise<void> {
     const { channel, template, language, payload } = params;
     const channelTemplate = template.channels[channel];

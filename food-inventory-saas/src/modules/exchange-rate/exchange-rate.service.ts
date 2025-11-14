@@ -1,4 +1,4 @@
-import { Injectable, Logger, HttpException, HttpStatus } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import axios from "axios";
 
 interface BCVRateResponse {
@@ -21,65 +21,86 @@ export class ExchangeRateService {
       return this.cachedRate;
     }
 
-    try {
-      this.logger.log("Fetching BCV rate from API...");
-      const response = await axios.get("https://bcvapi.tech/api/v1/dolar", {
-        timeout: 5000,
-      });
+    // Intentar múltiples APIs en orden
+    const apis = [
+      {
+        name: "DolarAPI Venezuela",
+        url: "https://ve.dolarapi.com/v1/dolares/oficial",
+        parser: (data: any) => ({
+          rate: parseFloat(data.promedio),
+          fecha: data.fechaActualizacion,
+        }),
+      },
+      {
+        name: "BCV Monitor",
+        url: "https://pydolarve.org/api/v1/dollar?page=bcv",
+        parser: (data: any) => ({
+          rate: parseFloat(data.monitors?.bcv?.price || data.price),
+          fecha: data.monitors?.bcv?.last_update || data.last_update,
+        }),
+      },
+    ];
 
-      this.logger.debug("API Response:", JSON.stringify(response.data));
+    for (const api of apis) {
+      try {
+        this.logger.log(`Fetching BCV rate from ${api.name}...`);
+        const response = await axios.get(api.url, {
+          timeout: 5000,
+        });
 
-      if (!response.data || !response.data.tasa) {
-        this.logger.error(
-          "Invalid API response structure:",
+        this.logger.debug(
+          `${api.name} Response:`,
           JSON.stringify(response.data),
         );
-        throw new Error("Invalid API response structure");
-      }
 
-      const rate = parseFloat(response.data.tasa);
-      const fecha = response.data.fecha;
+        const { rate, fecha } = api.parser(response.data);
 
-      if (isNaN(rate) || rate <= 0) {
-        this.logger.error("Invalid rate value:", rate);
-        throw new Error("Invalid rate value");
-      }
+        if (isNaN(rate) || rate <= 0) {
+          this.logger.warn(`Invalid rate from ${api.name}: ${rate}`);
+          continue;
+        }
 
-      // Actualizar cache
-      this.cachedRate = {
-        rate,
-        lastUpdate: new Date(fecha || new Date()),
-        source: "BCV (via bcvapi.tech)",
-      };
-      this.cacheExpiry = new Date(Date.now() + this.CACHE_DURATION_MS);
-
-      this.logger.log(`BCV rate updated: ${rate} Bs. (${fecha})`);
-      return this.cachedRate;
-    } catch (error) {
-      this.logger.error("Error fetching BCV rate:", error.message);
-
-      // Si tenemos cache antiguo, usarlo como fallback
-      if (this.cachedRate) {
-        this.logger.warn("Using stale cached rate as fallback");
-        return {
-          ...this.cachedRate,
-          source: "BCV (cached - error fetching new data)",
+        // Actualizar cache
+        this.cachedRate = {
+          rate,
+          lastUpdate: new Date(fecha || new Date()),
+          source: `BCV (via ${api.name})`,
         };
+        this.cacheExpiry = new Date(Date.now() + this.CACHE_DURATION_MS);
+
+        this.logger.log(
+          `BCV rate updated: ${rate} Bs. (${fecha}) from ${api.name}`,
+        );
+        return this.cachedRate;
+      } catch (error) {
+        this.logger.warn(`Error fetching from ${api.name}: ${error.message}`);
+        // Continuar con la siguiente API
       }
-
-      // Como último recurso, usar una tasa por defecto (actualizar manualmente)
-      this.logger.warn("Using default fallback rate");
-      const fallbackRate = {
-        rate: 52.0, // Actualizar este valor manualmente cuando sea necesario
-        lastUpdate: new Date(),
-        source: "BCV (fallback rate - API unavailable)",
-      };
-
-      // Guardar en cache por si acaso
-      this.cachedRate = fallbackRate;
-      this.cacheExpiry = new Date(Date.now() + this.CACHE_DURATION_MS);
-
-      return fallbackRate;
     }
+
+    // Si todas las APIs fallaron, usar cache antiguo o fallback
+    if (this.cachedRate) {
+      this.logger.warn("All APIs failed. Using stale cached rate as fallback");
+      return {
+        ...this.cachedRate,
+        source: "BCV (cached - all APIs unavailable)",
+      };
+    }
+
+    // Como último recurso, usar una tasa por defecto (actualizar manualmente)
+    this.logger.warn(
+      "All APIs failed and no cache available. Using default fallback rate",
+    );
+    const fallbackRate = {
+      rate: 52.0, // Actualizar este valor manualmente cuando sea necesario
+      lastUpdate: new Date(),
+      source: "BCV (fallback rate - all APIs unavailable)",
+    };
+
+    // Guardar en cache por si acaso
+    this.cachedRate = fallbackRate;
+    this.cacheExpiry = new Date(Date.now() + this.CACHE_DURATION_MS);
+
+    return fallbackRate;
   }
 }

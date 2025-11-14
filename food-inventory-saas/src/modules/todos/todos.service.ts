@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import {
@@ -29,7 +33,7 @@ export class TodosService {
     const createdBy =
       typeof user?.id === "string" && user.id.length
         ? user.id
-        : user?.sub ?? user?.userId;
+        : (user?.sub ?? user?.userId);
 
     if (!createdBy) {
       throw new BadRequestException(

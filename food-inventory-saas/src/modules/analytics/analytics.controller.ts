@@ -1,4 +1,11 @@
-import { Controller, Get, Query, UseGuards, Req, Headers } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Query,
+  UseGuards,
+  Req,
+  Headers,
+} from "@nestjs/common";
 import { AnalyticsService } from "./analytics.service";
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
@@ -14,39 +21,73 @@ export class AnalyticsController {
 
   @Public()
   @Get("debug-status")
-  async debugStatus(@Headers('authorization') authHeader: string) {
+  async debugStatus(@Headers("authorization") authHeader: string) {
     // Endpoint TOTALMENTE público - sin guards
+    let tokenInfo: any = null;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      try {
+        const token = authHeader.substring(7);
+        const decoded = this.decodeToken(token);
+        tokenInfo = {
+          hasRole: !!decoded?.role,
+          roleName: decoded?.role?.name,
+          hasPermissions: Array.isArray(decoded?.role?.permissions),
+          permissionsCount: decoded?.role?.permissions?.length || 0,
+          permissions: decoded?.role?.permissions || [],
+          email: decoded?.email,
+        };
+      } catch (error) {
+        tokenInfo = { error: "Invalid token" };
+      }
+    }
+
     return {
       message: "Backend funcionando correctamente",
       timestamp: new Date().toISOString(),
       hasAuthHeader: !!authHeader,
-      authHeaderPreview: authHeader ? authHeader.substring(0, 20) + '...' : null,
-      instructions: "Si ves este mensaje, el backend está desplegado. Ahora cierra sesión, vuelve a entrar, y accede a /analytics/debug-permissions"
+      authHeaderPreview: authHeader
+        ? authHeader.substring(0, 20) + "..."
+        : null,
+      tokenInfo,
+      instructions:
+        "Si ves este mensaje, el backend está desplegado. Envía tu token en el header Authorization: Bearer <token>",
     };
   }
 
+  private decodeToken(token: string): any {
+    try {
+      const parts = token.split(".");
+      if (parts.length !== 3) return null;
+      const payload = Buffer.from(parts[1], "base64").toString("utf8");
+      return JSON.parse(payload);
+    } catch {
+      return null;
+    }
+  }
+
   @Get("debug-permissions")
-  @UseGuards(JwtAuthGuard, TenantGuard)
   async debugPermissions(@Req() req) {
     // Endpoint temporal de debug - ELIMINAR en producción final
     // Requiere JWT y tenant, pero NO permisos (sin @Permissions decorator)
     return {
       hasUser: !!req.user,
-      user: req.user ? {
-        userId: req.user?.userId,
-        email: req.user?.email,
-        tenantId: req.user?.tenantId,
-        role: {
-          _id: req.user?.role?._id,
-          name: req.user?.role?.name,
-          description: req.user?.role?.description,
-          permissionsCount: req.user?.role?.permissions?.length || 0,
-          permissions: req.user?.role?.permissions || [],
-          permissionsType: typeof req.user?.role?.permissions,
-          isArray: Array.isArray(req.user?.role?.permissions),
-        },
-      } : null,
-      hasReportsRead: req.user?.role?.permissions?.includes('reports_read'),
+      user: req.user
+        ? {
+            userId: req.user?.userId,
+            email: req.user?.email,
+            tenantId: req.user?.tenantId,
+            role: {
+              _id: req.user?.role?._id,
+              name: req.user?.role?.name,
+              description: req.user?.role?.description,
+              permissionsCount: req.user?.role?.permissions?.length || 0,
+              permissions: req.user?.role?.permissions || [],
+              permissionsType: typeof req.user?.role?.permissions,
+              isArray: Array.isArray(req.user?.role?.permissions),
+            },
+          }
+        : null,
+      hasReportsRead: req.user?.role?.permissions?.includes("reports_read"),
       timestamp: new Date().toISOString(),
     };
   }

@@ -20,6 +20,7 @@ export const ALL_PERMISSIONS = [
   "inventory_read",
   "inventory_update",
   "inventory_delete",
+  "inventory_write",
   "orders_create",
   "orders_read",
   "orders_update",
@@ -34,6 +35,7 @@ export const ALL_PERMISSIONS = [
   "products_read",
   "products_update",
   "products_delete",
+  "products_write",
   "appointments_create",
   "appointments_read",
   "appointments_update",
@@ -60,4 +62,6 @@ export const ALL_PERMISSIONS = [
   "restaurant_write",
   "chat_read",
   "chat_write",
+  "payroll_employees_read",
+  "payroll_employees_write",
 ];

@@ -404,8 +404,7 @@ export class AppointmentsService {
         ? Math.max(
             1,
             Math.ceil(
-              (endTime.getTime() - startTime.getTime()) /
-                (1000 * 60 * 60 * 24),
+              (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60 * 24),
             ),
           )
         : 1;
@@ -464,9 +463,13 @@ export class AppointmentsService {
     const newAppointment = new this.appointmentModel(appointmentPayload);
 
     if (resourceTotalAmount > 0) {
-      const existingMetadata =
-        (newAppointment.metadata || createAppointmentDto.metadata || {}) as Record<string, any>;
-      const existingBilling = (existingMetadata.billing || {}) as Record<string, any>;
+      const existingMetadata = (newAppointment.metadata ||
+        createAppointmentDto.metadata ||
+        {}) as Record<string, any>;
+      const existingBilling = (existingMetadata.billing || {}) as Record<
+        string,
+        any
+      >;
       const updatedBilling = {
         ...existingBilling,
         baseRateAmount,
@@ -898,7 +901,8 @@ export class AppointmentsService {
         createManualDepositDto.transactionDate || new Date().toISOString();
 
       if (createManualDepositDto.bankAccountId) {
-        confirmationPayload.bankAccountId = createManualDepositDto.bankAccountId;
+        confirmationPayload.bankAccountId =
+          createManualDepositDto.bankAccountId;
       }
       if (createManualDepositDto.amountUsd !== undefined) {
         confirmationPayload.amountUsd = Number(
@@ -1164,8 +1168,8 @@ export class AppointmentsService {
           deposit.transactionDate instanceof Date
             ? deposit.transactionDate
             : deposit.transactionDate
-            ? new Date(deposit.transactionDate)
-            : now;
+              ? new Date(deposit.transactionDate)
+              : now;
         const depositUsd = this.computeDepositUsd(deposit, appointment);
         if (depositUsd > 0) {
           await this.updateCustomerMetricsFromDeposit(
@@ -1189,10 +1193,7 @@ export class AppointmentsService {
       const expectedAmount = this.getExpectedPaymentAmount(
         appointment as AppointmentDocument,
       );
-      if (
-        expectedAmount !== null &&
-        confirmedTotal >= expectedAmount - 0.01
-      ) {
+      if (expectedAmount !== null && confirmedTotal >= expectedAmount - 0.01) {
         appointment.paymentStatus = "paid";
       } else if (confirmedTotal > 0) {
         appointment.paymentStatus = "partial";
@@ -1223,10 +1224,7 @@ export class AppointmentsService {
       const expectedAmount = this.getExpectedPaymentAmount(
         appointment as AppointmentDocument,
       );
-      if (
-        expectedAmount !== null &&
-        confirmedTotal >= expectedAmount - 0.01
-      ) {
+      if (expectedAmount !== null && confirmedTotal >= expectedAmount - 0.01) {
         appointment.paymentStatus = "paid";
       } else if (confirmedTotal > 0) {
         appointment.paymentStatus = "partial";
@@ -1708,7 +1706,9 @@ export class AppointmentsService {
       ].filter(Boolean);
     }
 
-    if (Object.prototype.hasOwnProperty.call(updateAppointmentDto, "serviceId")) {
+    if (
+      Object.prototype.hasOwnProperty.call(updateAppointmentDto, "serviceId")
+    ) {
       if (updateAppointmentDto.serviceId) {
         const nextService = await this.serviceModel
           .findOne({ _id: updateAppointmentDto.serviceId, tenantId })
@@ -1740,7 +1740,7 @@ export class AppointmentsService {
                     60000,
                 ),
               )
-            : existing.serviceDuration ?? 60;
+            : (existing.serviceDuration ?? 60);
 
         updateData.serviceName =
           existing.resourceName ||
@@ -1757,11 +1757,7 @@ export class AppointmentsService {
     }
 
     const updated = await this.appointmentModel
-      .findOneAndUpdate(
-        { _id: id, tenantId },
-        updatePayload,
-        { new: true },
-      )
+      .findOneAndUpdate({ _id: id, tenantId }, updatePayload, { new: true })
       .populate("customerId", "name contacts email")
       .populate("serviceId", "name duration price")
       .populate("resourceId", "name type")
@@ -2799,8 +2795,7 @@ export class AppointmentsService {
   }): Promise<void> {
     const { appointment, service, resource, tenantId, userObjectId } = params;
     const serviceType =
-      service?.serviceType ||
-      (resource?.type === "room" ? "room" : undefined);
+      service?.serviceType || (resource?.type === "room" ? "room" : undefined);
 
     if (serviceType !== "room") {
       return;
@@ -2823,7 +2818,8 @@ export class AppointmentsService {
     const cleanupStart = new Date(endTime);
     const bufferAfter = Number(
       service?.bufferTimeAfter ??
-        (resource?.metadata?.housekeeping?.bufferTimeAfter ?? 0),
+        resource?.metadata?.housekeeping?.bufferTimeAfter ??
+        0,
     );
     cleanupStart.setMinutes(cleanupStart.getMinutes() + bufferAfter);
 
@@ -3023,7 +3019,9 @@ export class AppointmentsService {
     }
   }
 
-  private getExpectedPaymentAmount(appointment: AppointmentDocument): number | null {
+  private getExpectedPaymentAmount(
+    appointment: AppointmentDocument,
+  ): number | null {
     if (!appointment) {
       return null;
     }
@@ -4055,7 +4053,7 @@ export class AppointmentsService {
 
     let totalPaid = 0;
     let totalPending = 0;
-    let totalAppointments = appointments.length;
+    const totalAppointments = appointments.length;
 
     const appointmentsWithPayments = appointments.map((apt: any) => {
       const confirmedPayments = (apt.depositRecords || []).filter(
@@ -4065,7 +4063,8 @@ export class AppointmentsService {
         (sum: number, record: any) => sum + (Number(record.amount) || 0),
         0,
       );
-      const totalAmount = Number(apt.totalCost) || Number(apt.servicePrice) || 0;
+      const totalAmount =
+        Number(apt.totalCost) || Number(apt.servicePrice) || 0;
       const pendingAmount = Math.max(0, totalAmount - paidAmount);
 
       totalPaid += paidAmount;
@@ -4133,7 +4132,8 @@ export class AppointmentsService {
         (sum: number, record: any) => sum + (Number(record.amount) || 0),
         0,
       );
-      const totalAmount = Number(apt.totalCost) || Number(apt.servicePrice) || 0;
+      const totalAmount =
+        Number(apt.totalCost) || Number(apt.servicePrice) || 0;
       const pendingAmount = totalAmount - paidAmount;
 
       if (pendingAmount > 0) {
