@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Factory, Plus, Eye, Play, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { useManufacturingOrders } from '@/hooks/useManufacturingOrders';
 import { ManufacturingOrderDialog } from './ManufacturingOrderDialog';
+import { ManufacturingOrderWizard } from './ManufacturingOrderWizard';
 import { ManufacturingOrderDetails } from './ManufacturingOrderDetails';
 
 const statusConfig = {
@@ -32,6 +33,7 @@ export function ManufacturingOrdersList() {
   } = useManufacturingOrders();
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
@@ -41,7 +43,7 @@ export function ManufacturingOrdersList() {
 
   const handleCreate = () => {
     setSelectedOrder(null);
-    setDialogOpen(true);
+    setWizardOpen(true);
   };
 
   const handleEdit = (order) => {
@@ -65,6 +67,18 @@ export function ManufacturingOrdersList() {
       setSelectedOrder(null);
     } catch (err) {
       console.error('Error saving manufacturing order:', err);
+    }
+  };
+
+  const handleSaveWizard = async (orderData) => {
+    try {
+      await createManufacturingOrder(orderData);
+      setWizardOpen(false);
+      await loadManufacturingOrders();
+    } catch (err) {
+      console.error('Error creating manufacturing order:', err);
+      alert('Error al crear la orden de manufactura: ' + (err.message || 'Error desconocido'));
+      throw err;
     }
   };
 
@@ -237,6 +251,12 @@ export function ManufacturingOrdersList() {
           )}
         </CardContent>
       </Card>
+
+      <ManufacturingOrderWizard
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        onSave={handleSaveWizard}
+      />
 
       <ManufacturingOrderDialog
         open={dialogOpen}

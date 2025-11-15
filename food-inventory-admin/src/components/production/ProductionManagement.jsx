@@ -2,15 +2,16 @@ import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Factory, FileText, Settings, GitBranch, Layers, BarChart3 } from 'lucide-react';
+import { Factory, FileText, Settings, GitBranch, Layers, BarChart3, ShieldCheck } from 'lucide-react';
 import { ProductionDashboard } from './ProductionDashboard';
 import { ManufacturingOrdersList } from './ManufacturingOrdersList';
 import { BillOfMaterialsList } from './BillOfMaterialsList';
 import { WorkCentersList } from './WorkCentersList';
 import { RoutingsList } from './RoutingsList';
 import { ProductionVersionsList } from './ProductionVersionsList';
+import QualityControlManagement from './quality-control/QualityControlManagement';
 
-const TABS = ['dashboard', 'orders', 'boms', 'workcenters', 'routings', 'versions'];
+const TABS = ['dashboard', 'orders', 'boms', 'workcenters', 'routings', 'versions', 'quality-control'];
 
 export default function ProductionManagement() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -43,7 +44,7 @@ export default function ProductionManagement() {
         </CardHeader>
         <CardContent>
           <Tabs value={normalizedTab} onValueChange={handleTabChange}>
-            <TabsList className="grid w-full grid-cols-6">
+            <TabsList className="grid w-full grid-cols-7">
               <TabsTrigger value="dashboard" className="flex items-center gap-2">
                 <BarChart3 className="h-4 w-4" />
                 <span className="hidden sm:inline">Dashboard</span>
@@ -67,6 +68,10 @@ export default function ProductionManagement() {
               <TabsTrigger value="versions" className="flex items-center gap-2">
                 <Layers className="h-4 w-4" />
                 <span className="hidden sm:inline">Versiones</span>
+              </TabsTrigger>
+              <TabsTrigger value="quality-control" className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4" />
+                <span className="hidden sm:inline">Calidad</span>
               </TabsTrigger>
             </TabsList>
 
@@ -92,6 +97,10 @@ export default function ProductionManagement() {
 
             <TabsContent value="versions" className="mt-6">
               <ProductionVersionsList />
+            </TabsContent>
+
+            <TabsContent value="quality-control" className="mt-6">
+              <QualityControlManagement />
             </TabsContent>
           </Tabs>
         </CardContent>

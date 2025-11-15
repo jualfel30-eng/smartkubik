@@ -5,12 +5,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { CheckpointsBuilder } from './CheckpointsBuilder';
+import { Badge } from '@/components/ui/badge';
 
 export function QCPlanDialog({ plan, open, onClose, onSave, viewMode = false }) {
   const [planCode, setPlanCode] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [checkpoints, setCheckpoints] = useState([]);
+  const [inspectionStages, setInspectionStages] = useState({ receiving: true, in_process: false, final_inspection: false });
 
   useEffect(() => {
     if (plan) {
@@ -18,12 +22,22 @@ export function QCPlanDialog({ plan, open, onClose, onSave, viewMode = false }) 
       setName(plan.name || '');
       setDescription(plan.description || '');
       setIsActive(plan.isActive !== false);
+      setCheckpoints(plan.checkpoints || []);
+
+      // Convert inspectionStages array to object
+      const stages = { receiving: false, in_process: false, final_inspection: false };
+      (plan.inspectionStages || []).forEach(stage => {
+        stages[stage] = true;
+      });
+      setInspectionStages(stages);
     } else {
       // Reset form
       setPlanCode('');
       setName('');
       setDescription('');
       setIsActive(true);
+      setCheckpoints([]);
+      setInspectionStages({ receiving: true, in_process: false, final_inspection: false });
     }
   }, [plan, open]);
 
@@ -33,22 +47,38 @@ export function QCPlanDialog({ plan, open, onClose, onSave, viewMode = false }) 
       return;
     }
 
+    if (checkpoints.length === 0) {
+      alert('Debes agregar al menos un checkpoint');
+      return;
+    }
+
+    // Convert inspectionStages object to array
+    const selectedStages = Object.keys(inspectionStages).filter(stage => inspectionStages[stage]);
+    if (selectedStages.length === 0) {
+      alert('Debes seleccionar al menos una etapa de inspección');
+      return;
+    }
+
     const payload = {
       planCode,
       name,
       description: description || undefined,
       isActive,
-      checkpoints: plan?.checkpoints || [],
-      inspectionStages: plan?.inspectionStages || ['receiving'],
+      checkpoints,
+      inspectionStages: selectedStages,
       applicableProducts: plan?.applicableProducts || [],
     };
 
     onSave(payload);
   };
 
+  const handleStageToggle = (stage) => {
+    setInspectionStages(prev => ({ ...prev, [stage]: !prev[stage] }));
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[900px] max-h-[90vh]">
         <DialogHeader>
           <DialogTitle>
             {viewMode ? 'Detalle del Plan QC' : plan ? 'Editar Plan QC' : 'Crear Nuevo Plan QC'}
@@ -58,7 +88,7 @@ export function QCPlanDialog({ plan, open, onClose, onSave, viewMode = false }) 
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-4 py-4 overflow-y-auto max-h-[calc(90vh-200px)]">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="planCode" className="text-right">
               Código *
@@ -102,6 +132,45 @@ export function QCPlanDialog({ plan, open, onClose, onSave, viewMode = false }) 
             />
           </div>
 
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label className="text-right pt-2">Etapas de Inspección *</Label>
+            <div className="col-span-3 space-y-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="stage-receiving"
+                  checked={inspectionStages.receiving}
+                  onCheckedChange={() => handleStageToggle('receiving')}
+                  disabled={viewMode}
+                />
+                <label htmlFor="stage-receiving" className="text-sm font-medium">
+                  Recepción de Materias Primas
+                </label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="stage-in-process"
+                  checked={inspectionStages.in_process}
+                  onCheckedChange={() => handleStageToggle('in_process')}
+                  disabled={viewMode}
+                />
+                <label htmlFor="stage-in-process" className="text-sm font-medium">
+                  En Proceso de Producción
+                </label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="stage-final"
+                  checked={inspectionStages.final_inspection}
+                  onCheckedChange={() => handleStageToggle('final_inspection')}
+                  disabled={viewMode}
+                />
+                <label htmlFor="stage-final" className="text-sm font-medium">
+                  Inspección Final de Producto Terminado
+                </label>
+              </div>
+            </div>
+          </div>
+
           {!viewMode && (
             <div className="grid grid-cols-4 items-center gap-4">
               <Label className="text-right">Estado</Label>
@@ -114,21 +183,34 @@ export function QCPlanDialog({ plan, open, onClose, onSave, viewMode = false }) 
             </div>
           )}
 
-          {plan && plan.checkpoints && plan.checkpoints.length > 0 && (
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label className="text-right pt-2">Checkpoints</Label>
-              <div className="col-span-3 space-y-2">
-                {plan.checkpoints.map((checkpoint, index) => (
-                  <div key={index} className="p-2 border rounded text-sm">
-                    <div className="font-medium">{checkpoint.name}</div>
-                    <div className="text-muted-foreground text-xs">
-                      Tipo: {checkpoint.testType} | Severidad: {checkpoint.severity}
+          <div className="col-span-4">
+            {viewMode ? (
+              checkpoints.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Checkpoints ({checkpoints.length})</Label>
+                  {checkpoints.map((checkpoint, index) => (
+                    <div key={index} className="p-3 border rounded">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="outline">#{checkpoint.sequence}</Badge>
+                        <span className="font-medium">{checkpoint.name}</span>
+                        {checkpoint.mandatory && <Badge variant="outline">Obligatorio</Badge>}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Tipo: {checkpoint.testType} | Severidad: {checkpoint.severity}
+                        {checkpoint.testMethod && ` | Método: ${checkpoint.testMethod}`}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+                  ))}
+                </div>
+              )
+            ) : (
+              <CheckpointsBuilder
+                checkpoints={checkpoints}
+                onChange={setCheckpoints}
+                disabled={viewMode}
+              />
+            )}
+          </div>
         </div>
 
         <DialogFooter>

@@ -1,16 +1,30 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Wrench, DollarSign, Info, Calculator } from 'lucide-react';
-import { WorkOrdersKanban } from './WorkOrdersKanban';
-import { ProductionCostingView } from './ProductionCostingView';
-import { MRPView } from './MRPView';
+import { Package, Wrench, BarChart3, Info } from 'lucide-react';
+import { OperationsKanbanView } from './OperationsKanbanView';
+import { ProductionAnalysisDashboard } from './ProductionAnalysisDashboard';
+import { fetchApi } from '@/lib/api';
 
 export function ManufacturingOrderDetails({ order, open, onClose }) {
-  if (!order) return null;
+  const [currentOrder, setCurrentOrder] = useState(order);
+
+  if (!currentOrder) return null;
+
+  const handleRefresh = async () => {
+    try {
+      const response = await fetchApi(`/manufacturing-orders/${currentOrder._id}`);
+      if (response.success) {
+        setCurrentOrder(response.data);
+      }
+    } catch (error) {
+      console.error('Error refreshing order:', error);
+    }
+  };
 
   const formatDate = (dateString) => {
     if (!dateString) return '-';
@@ -25,11 +39,11 @@ export function ManufacturingOrderDetails({ order, open, onClose }) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Detalles de Orden de Manufactura: {order.orderNumber}</DialogTitle>
+          <DialogTitle>Detalles de Orden de Manufactura: {currentOrder.orderNumber}</DialogTitle>
         </DialogHeader>
 
         <Tabs defaultValue="info" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="info">
               <Info className="h-4 w-4 mr-2" />
               Información
@@ -42,13 +56,9 @@ export function ManufacturingOrderDetails({ order, open, onClose }) {
               <Wrench className="h-4 w-4 mr-2" />
               Operaciones
             </TabsTrigger>
-            <TabsTrigger value="costs">
-              <DollarSign className="h-4 w-4 mr-2" />
-              Costos
-            </TabsTrigger>
-            <TabsTrigger value="mrp">
-              <Calculator className="h-4 w-4 mr-2" />
-              MRP
+            <TabsTrigger value="analysis">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Análisis
             </TabsTrigger>
           </TabsList>
 
@@ -62,49 +72,49 @@ export function ManufacturingOrderDetails({ order, open, onClose }) {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Número de Orden</p>
-                    <p className="text-lg font-semibold">{order.orderNumber}</p>
+                    <p className="text-lg font-semibold">{currentOrder.orderNumber}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Estado</p>
-                    <Badge className="mt-1">{order.status}</Badge>
+                    <Badge className="mt-1">{currentOrder.status}</Badge>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Producto</p>
-                    <p>{order.product?.name || order.productId}</p>
+                    <p>{currentOrder.product?.name || currentOrder.productId}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Cantidad a Producir</p>
-                    <p>{order.quantityToProduce} {order.product?.baseUnit || 'unidades'}</p>
+                    <p>{currentOrder.quantityToProduce} {currentOrder.product?.baseUnit || 'unidades'}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Prioridad</p>
-                    <p className="capitalize">{order.priority || 'normal'}</p>
+                    <p className="capitalize">{currentOrder.priority || 'normal'}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Referencia</p>
-                    <p>{order.reference || '-'}</p>
+                    <p>{currentOrder.reference || '-'}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Fecha Inicio Planificada</p>
-                    <p>{formatDate(order.plannedStartDate)}</p>
+                    <p>{formatDate(currentOrder.plannedStartDate)}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Fecha Fin Planificada</p>
-                    <p>{formatDate(order.plannedCompletionDate)}</p>
+                    <p>{formatDate(currentOrder.plannedCompletionDate)}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Fecha Inicio Real</p>
-                    <p>{formatDate(order.actualStartDate)}</p>
+                    <p>{formatDate(currentOrder.actualStartDate)}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Fecha Fin Real</p>
-                    <p>{formatDate(order.actualCompletionDate)}</p>
+                    <p>{formatDate(currentOrder.actualCompletionDate)}</p>
                   </div>
                 </div>
-                {order.notes && (
+                {currentOrder.notes && (
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Notas</p>
-                    <p className="text-sm">{order.notes}</p>
+                    <p className="text-sm">{currentOrder.notes}</p>
                   </div>
                 )}
               </CardContent>
@@ -118,7 +128,7 @@ export function ManufacturingOrderDetails({ order, open, onClose }) {
                 <CardTitle>Componentes / Materiales</CardTitle>
               </CardHeader>
               <CardContent>
-                {order.components && order.components.length > 0 ? (
+                {currentOrder.components && currentOrder.components.length > 0 ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -131,7 +141,7 @@ export function ManufacturingOrderDetails({ order, open, onClose }) {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {order.components.map((component, index) => {
+                      {currentOrder.components.map((component, index) => {
                         const consumed = component.consumedQuantity || component.requiredQuantity;
                         const unitCost = component.unitCost || 0;
                         const totalCost = consumed * unitCost;
@@ -163,19 +173,16 @@ export function ManufacturingOrderDetails({ order, open, onClose }) {
 
           {/* Operations Tab */}
           <TabsContent value="operations">
-            <WorkOrdersKanban
-              operations={order.operations || []}
+            <OperationsKanbanView
+              manufacturingOrder={currentOrder}
+              onRefresh={handleRefresh}
+              onOperationUpdate={handleRefresh}
             />
           </TabsContent>
 
-          {/* Costs Tab */}
-          <TabsContent value="costs">
-            <ProductionCostingView order={order} />
-          </TabsContent>
-
-          {/* MRP Tab */}
-          <TabsContent value="mrp">
-            <MRPView orderId={order._id} />
+          {/* Analysis Tab */}
+          <TabsContent value="analysis">
+            <ProductionAnalysisDashboard order={currentOrder} />
           </TabsContent>
         </Tabs>
 

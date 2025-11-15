@@ -121,7 +121,10 @@ export class QualityInspection {
   totalCheckpoints: number;
 
   // No conformidades generadas
-  @Prop({ type: [{ type: Types.ObjectId, ref: "NonConformance" }], default: [] })
+  @Prop({
+    type: [{ type: Types.ObjectId, ref: "NonConformance" }],
+    default: [],
+  })
   nonConformances: Types.ObjectId[];
 
   // Attachments (fotos, documentos)

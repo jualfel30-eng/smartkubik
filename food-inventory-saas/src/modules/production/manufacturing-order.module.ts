@@ -20,6 +20,7 @@ import {
 } from "../../schemas/bill-of-materials.schema";
 import { Routing, RoutingSchema } from "../../schemas/routing.schema";
 import { WorkCenter, WorkCenterSchema } from "../../schemas/work-center.schema";
+import { Inventory, InventorySchema } from "../../schemas/inventory.schema";
 import { AuthModule } from "../../auth/auth.module";
 import { InventoryModule } from "../inventory/inventory.module";
 import { AccountingModule } from "../accounting/accounting.module";
@@ -33,6 +34,7 @@ import { AccountingModule } from "../accounting/accounting.module";
       { name: BillOfMaterials.name, schema: BillOfMaterialsSchema },
       { name: Routing.name, schema: RoutingSchema },
       { name: WorkCenter.name, schema: WorkCenterSchema },
+      { name: Inventory.name, schema: InventorySchema },
     ]),
     AuthModule,
     InventoryModule,

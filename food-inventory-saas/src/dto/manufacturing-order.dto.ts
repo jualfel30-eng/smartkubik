@@ -158,3 +158,37 @@ export class ConfirmManufacturingOrderDto {
   @IsBoolean()
   reserveMaterials?: boolean = true;
 }
+
+/**
+ * DTO para verificar disponibilidad de materiales
+ */
+export class CheckMaterialsDto {
+  @IsMongoId()
+  bomId: string;
+
+  @IsNumber()
+  @Min(0.001)
+  quantity: number;
+
+  @IsString()
+  unit: string;
+}
+
+/**
+ * DTO para estimar costos de producción
+ */
+export class EstimateCostDto {
+  @IsMongoId()
+  bomId: string;
+
+  @IsOptional()
+  @IsMongoId()
+  routingId?: string;
+
+  @IsNumber()
+  @Min(0.001)
+  quantity: number;
+
+  @IsString()
+  unit: string;
+}

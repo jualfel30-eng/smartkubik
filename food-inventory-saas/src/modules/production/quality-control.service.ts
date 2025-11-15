@@ -96,7 +96,11 @@ export class QualityControlService {
     return qcPlan;
   }
 
-  async updateQCPlan(id: string, dto: any, user: any): Promise<QualityControlPlan> {
+  async updateQCPlan(
+    id: string,
+    dto: any,
+    user: any,
+  ): Promise<QualityControlPlan> {
     const tenantId = new Types.ObjectId(user.tenantId);
 
     const updated = await this.qcPlanModel
@@ -126,7 +130,10 @@ export class QualityControlService {
     }
   }
 
-  async getQCPlansForProduct(productId: string, user: any): Promise<QualityControlPlan[]> {
+  async getQCPlansForProduct(
+    productId: string,
+    user: any,
+  ): Promise<QualityControlPlan[]> {
     const tenantId = new Types.ObjectId(user.tenantId);
 
     return this.qcPlanModel
@@ -165,7 +172,14 @@ export class QualityControlService {
 
   async findAllInspections(query: any, user: any) {
     const tenantId = new Types.ObjectId(user.tenantId);
-    const { page = 1, limit = 20, status, inspectionType, productId, lotNumber } = query;
+    const {
+      page = 1,
+      limit = 20,
+      status,
+      inspectionType,
+      productId,
+      lotNumber,
+    } = query;
 
     const filter: any = { tenantId };
     if (status) filter.status = status;
@@ -222,8 +236,8 @@ export class QualityControlService {
     const tenantId = new Types.ObjectId(user.tenantId);
 
     // Calcular resultados
-    const passedCheckpoints = results.filter(r => r.passed).length;
-    const failedCheckpoints = results.filter(r => !r.passed).length;
+    const passedCheckpoints = results.filter((r) => r.passed).length;
+    const failedCheckpoints = results.filter((r) => !r.passed).length;
     const overallResult = failedCheckpoints === 0;
 
     const updated = await this.inspectionModel
@@ -250,7 +264,7 @@ export class QualityControlService {
 
     // Si hubo fallas críticas, crear no conformidades automáticamente
     if (!overallResult) {
-      const failedResults = results.filter(r => !r.passed);
+      const failedResults = results.filter((r) => !r.passed);
       for (const result of failedResults) {
         await this.createNonConformance(
           {
@@ -335,7 +349,11 @@ export class QualityControlService {
     };
   }
 
-  async updateNonConformance(id: string, dto: any, user: any): Promise<NonConformance> {
+  async updateNonConformance(
+    id: string,
+    dto: any,
+    user: any,
+  ): Promise<NonConformance> {
     const tenantId = new Types.ObjectId(user.tenantId);
 
     const updated = await this.nonConformanceModel
@@ -382,7 +400,7 @@ export class QualityControlService {
       productSku: inspections[0].productSku,
       quantity: inspections[0].quantity,
       unit: inspections[0].unit,
-      inspections: inspections.map(insp => ({
+      inspections: inspections.map((insp) => ({
         inspectionNumber: insp.inspectionNumber,
         inspectionType: insp.inspectionType,
         inspectionDate: insp.inspectionDate,

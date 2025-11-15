@@ -2,21 +2,22 @@ import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ShieldCheck, FileText, AlertTriangle, Award } from 'lucide-react';
+import { ShieldCheck, FileText, AlertTriangle, Award, BarChart3 } from 'lucide-react';
 import { QCPlansList } from './QCPlansList';
 import { InspectionsList } from './InspectionsList';
 import { NonConformancesList } from './NonConformancesList';
+import { QualityControlDashboard } from './QualityControlDashboard';
 
-const TABS = ['plans', 'inspections', 'non-conformances'];
+const TABS = ['dashboard', 'plans', 'inspections', 'non-conformances'];
 
 export default function QualityControlManagement() {
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = searchParams.get('tab');
-  const normalizedTab = TABS.includes(currentTab) ? currentTab : 'plans';
+  const normalizedTab = TABS.includes(currentTab) ? currentTab : 'dashboard';
 
   useEffect(() => {
     if (!currentTab || !TABS.includes(currentTab)) {
-      setSearchParams({ tab: 'plans' }, { replace: true });
+      setSearchParams({ tab: 'dashboard' }, { replace: true });
     }
   }, [currentTab, setSearchParams]);
 
@@ -40,7 +41,11 @@ export default function QualityControlManagement() {
         </CardHeader>
         <CardContent>
           <Tabs value={normalizedTab} onValueChange={handleTabChange}>
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="dashboard" className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Dashboard</span>
+              </TabsTrigger>
               <TabsTrigger value="plans" className="flex items-center gap-2">
                 <FileText className="h-4 w-4" />
                 <span className="hidden sm:inline">Planes QC</span>
@@ -54,6 +59,10 @@ export default function QualityControlManagement() {
                 <span className="hidden sm:inline">No Conformidades</span>
               </TabsTrigger>
             </TabsList>
+
+            <TabsContent value="dashboard" className="mt-6">
+              <QualityControlDashboard />
+            </TabsContent>
 
             <TabsContent value="plans" className="mt-6">
               <QCPlansList />

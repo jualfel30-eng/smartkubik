@@ -38,7 +38,11 @@ export class QCCheckpoint {
   @Prop({ type: String })
   unit?: string; // Unidad de medida (°C, pH, etc.)
 
-  @Prop({ type: String, enum: ["minor", "major", "critical"], default: "major" })
+  @Prop({
+    type: String,
+    enum: ["minor", "major", "critical"],
+    default: "major",
+  })
   severity: string; // Severidad si falla
 
   @Prop({ type: Boolean, default: false })
@@ -124,10 +128,7 @@ export const QualityControlPlanSchema =
   SchemaFactory.createForClass(QualityControlPlan);
 
 // Índices
-QualityControlPlanSchema.index(
-  { planCode: 1, tenantId: 1 },
-  { unique: true },
-);
+QualityControlPlanSchema.index({ planCode: 1, tenantId: 1 }, { unique: true });
 QualityControlPlanSchema.index({ tenantId: 1, isActive: 1 });
 QualityControlPlanSchema.index({ applicableProducts: 1, tenantId: 1 });
 QualityControlPlanSchema.index({ applicableCategories: 1, tenantId: 1 });

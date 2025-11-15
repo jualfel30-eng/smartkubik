@@ -112,13 +112,19 @@ export class QualityControlController {
   // ==================== NON-CONFORMANCES ====================
 
   @Post("non-conformances")
-  async createNonConformance(@Body() dto: CreateNonConformanceDto, @Request() req) {
+  async createNonConformance(
+    @Body() dto: CreateNonConformanceDto,
+    @Request() req,
+  ) {
     const data = await this.qcService.createNonConformance(dto, req.user);
     return { success: true, data };
   }
 
   @Get("non-conformances")
-  async findAllNonConformances(@Query() query: NonConformanceQueryDto, @Request() req) {
+  async findAllNonConformances(
+    @Query() query: NonConformanceQueryDto,
+    @Request() req,
+  ) {
     const result = await this.qcService.findAllNonConformances(query, req.user);
     return { success: true, ...result };
   }
