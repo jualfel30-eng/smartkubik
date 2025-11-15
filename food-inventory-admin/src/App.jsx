@@ -122,6 +122,8 @@ const HotelFloorPlanPage = lazy(() => import('@/components/hospitality/HotelFloo
 const ProductionManagement = lazy(() => import('@/components/production/ProductionManagement.jsx'));
 const PayrollRunsDashboard = lazy(() => import('@/components/payroll/PayrollRunsDashboard.jsx'));
 const PayrollStructuresManager = lazy(() => import('@/components/payroll/PayrollStructuresManager.jsx'));
+const PayrollCalendarTimeline = lazy(() => import('@/components/payroll/PayrollCalendarTimeline.jsx'));
+const PayrollAbsencesManager = lazy(() => import('@/components/payroll/PayrollAbsencesManager.jsx'));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -343,6 +345,8 @@ function TenantLayout() {
       children: [
         { name: 'Nómina', href: 'payroll/runs', icon: BarChart3 },
         { name: 'Estructuras', href: 'payroll/structures', icon: Layers },
+        { name: 'Ausencias', href: 'payroll/absences', icon: CalendarDays },
+        { name: 'Calendario', href: 'payroll/calendar', icon: CalendarDays },
         { name: 'Empleados', href: 'crm?tab=employee', icon: Users },
       ],
     },
@@ -852,6 +856,22 @@ function TenantLayout() {
                   element={
                     tenant?.enabledModules?.payroll
                       ? <PayrollStructuresManager />
+                      : <Navigate to="/dashboard" replace />
+                  }
+                />
+                <Route
+                  path="payroll/calendar"
+                  element={
+                    tenant?.enabledModules?.payroll
+                      ? <PayrollCalendarTimeline />
+                      : <Navigate to="/dashboard" replace />
+                  }
+                />
+                <Route
+                  path="payroll/absences"
+                  element={
+                    tenant?.enabledModules?.payroll
+                      ? <PayrollAbsencesManager />
                       : <Navigate to="/dashboard" replace />
                   }
                 />
