@@ -360,31 +360,48 @@ export class ProductsService {
     if (productType) {
       filter.productType = productType;
     }
+    // PERFORMANCE OPTIMIZATION: Use text search instead of regex for better performance
     if (isSearching) {
-      const regex = new RegExp(this.escapeRegExp(searchTerm), "i");
-      filter.$or = [
-        { name: regex },
-        { sku: regex },
-        { brand: regex },
-        { description: regex },
-        { tags: regex },
-        { "variants.sku": regex },
-        { "variants.barcode": regex },
-      ];
+      // Check if search looks like a SKU or barcode (alphanumeric, no spaces)
+      const looksLikeCode = /^[A-Z0-9\-_]+$/i.test(searchTerm);
+
+      if (looksLikeCode) {
+        // For SKU/barcode searches, use optimized regex on indexed fields only
+        const regex = new RegExp(`^${this.escapeRegExp(searchTerm)}`, "i");
+        filter.$or = [
+          { sku: regex },
+          { "variants.sku": regex },
+          { "variants.barcode": regex },
+        ];
+      } else {
+        // For text searches, use MongoDB text search (much faster than regex)
+        // Text index covers: name, description, tags
+        filter.$text = { $search: searchTerm };
+      }
     }
 
     const skip = (pageNumber - 1) * limitNumber;
-    const sortOptions: Record<string, SortOrder> = isSearching
-      ? { name: "asc" }
-      : { createdAt: "desc" };
+
+    // Use text score for sorting when doing text search
+    const useTextSearch = isSearching && !(/^[A-Z0-9\-_]+$/i.test(searchTerm));
+    const sortOptions: Record<string, any> = useTextSearch
+      ? { score: { $meta: "textScore" }, createdAt: -1 }
+      : isSearching
+        ? { name: 1 }
+        : { createdAt: -1 };
+
+    // Build projection to include text score when doing text search
+    const projection = useTextSearch
+      ? { score: { $meta: "textScore" } }
+      : {};
 
     this.logger.debug(
-      `findAll -> tenantId=${tenantId}, includeInactive=${includeInactive}, isActive=${isActive}, page=${pageNumber}, limit=${limitNumber}, search=${searchTerm}, category=${category ?? ""}, brand=${brand ?? ""}, isSearching=${isSearching}`,
+      `findAll -> tenantId=${tenantId}, includeInactive=${includeInactive}, isActive=${isActive}, page=${pageNumber}, limit=${limitNumber}, search=${searchTerm}, category=${category ?? ""}, brand=${brand ?? ""}, isSearching=${isSearching}, useTextSearch=${useTextSearch}`,
     );
 
     const [products, total] = await Promise.all([
       this.productModel
-        .find(filter)
+        .find(filter, projection)
         .select("+isSoldByWeight +unitOfMeasure")
         .sort(sortOptions)
         .skip(skip)

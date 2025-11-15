@@ -22,11 +22,19 @@ export class EventsService {
     session?: ClientSession,
     options?: { syncTodo?: boolean },
   ): Promise<EventDocument> {
-    const eventData = {
+    const eventData: Record<string, any> = {
       ...createEventDto,
       createdBy: user.id,
       tenantId: user.tenantId,
     };
+    if (createEventDto.relatedPayrollCalendarId) {
+      eventData.relatedPayrollCalendarId = this.toObjectIdOrValue(
+        createEventDto.relatedPayrollCalendarId,
+      );
+    }
+    if (createEventDto.type) {
+      eventData.type = createEventDto.type;
+    }
     const createdEvent = new this.eventModel(eventData);
     const savedEvent = await createdEvent.save({ session });
 

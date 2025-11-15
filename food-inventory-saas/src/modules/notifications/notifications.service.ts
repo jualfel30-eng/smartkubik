@@ -31,7 +31,8 @@ export interface TemplateNotificationTarget {
   language?: string;
 }
 
-export interface AppointmentNotificationTarget extends TemplateNotificationTarget {
+export interface AppointmentNotificationTarget
+  extends TemplateNotificationTarget {
   appointmentId: string;
 }
 

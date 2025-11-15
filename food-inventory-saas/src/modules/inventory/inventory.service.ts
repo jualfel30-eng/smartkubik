@@ -1010,39 +1010,27 @@ export class InventoryService {
     if (minAvailable !== undefined) {
       filter.availableQuantity = { $gte: minAvailable };
     }
-    let brandProductIds: Types.ObjectId[] = [];
+    // PERFORMANCE OPTIMIZATION: Use indexed fields for search, avoid extra DB query
     if (isSearching) {
-      const regex = new RegExp(this.escapeRegExp(searchTerm), "i");
+      // Check if search looks like a SKU (alphanumeric, no spaces)
+      const looksLikeSku = /^[A-Z0-9\-_]+$/i.test(searchTerm);
 
-      const brandMatches = await this.productModel
-        .find(
-          {
-            tenantId: this.buildTenantFilter(tenantId),
-            brand: regex,
-          },
-          { _id: 1 },
-        )
-        .limit(200)
-        .lean();
-
-      if (brandMatches.length > 0) {
-        brandProductIds = brandMatches
-          .map((doc: any) =>
-            doc._id instanceof Types.ObjectId
-              ? doc._id
-              : new Types.ObjectId(doc._id),
-          )
-          .filter(Boolean);
+      if (looksLikeSku) {
+        // For SKU searches, use optimized regex on indexed fields only
+        const regex = new RegExp(`^${this.escapeRegExp(searchTerm)}`, "i");
+        filter.$or = [
+          { productSku: regex },
+          { variantSku: regex },
+        ];
+      } else {
+        // For text searches, use case-insensitive regex on indexed productName
+        // This avoids the expensive extra query to products collection
+        const regex = new RegExp(this.escapeRegExp(searchTerm), "i");
+        filter.$or = [
+          { productName: regex },
+          { productSku: regex },
+        ];
       }
-
-      filter.$or = [
-        { productSku: regex },
-        { productName: regex },
-        { variantSku: regex },
-        ...(brandProductIds.length > 0
-          ? [{ productId: { $in: brandProductIds } }]
-          : []),
-      ];
     }
     const sortField = sortBy || "lastUpdated";
     const sortDirection: SortOrder = sortOrder === "asc" ? "asc" : "desc";

@@ -5,6 +5,8 @@ import {
   IsOptional,
   IsNotEmpty,
   MaxLength,
+  IsIn,
+  IsMongoId,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import { SanitizeString, SanitizeText } from "../decorators/sanitize.decorator";
@@ -56,6 +58,22 @@ export class CreateEventDto {
   @MaxLength(20)
   @SanitizeString()
   color?: string;
+
+  @ApiPropertyOptional({
+    description: "Tipo del evento",
+    enum: ["manual", "purchase", "payment", "inventory", "payroll"],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(["manual", "purchase", "payment", "inventory", "payroll"])
+  type?: string;
+
+  @ApiPropertyOptional({
+    description: "ID del calendario de nómina relacionado",
+  })
+  @IsOptional()
+  @IsMongoId()
+  relatedPayrollCalendarId?: string;
 }
 
 export class UpdateEventDto {
@@ -103,4 +121,20 @@ export class UpdateEventDto {
   @MaxLength(20)
   @SanitizeString()
   color?: string;
+
+  @ApiPropertyOptional({
+    description: "Tipo del evento",
+    enum: ["manual", "purchase", "payment", "inventory", "payroll"],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(["manual", "purchase", "payment", "inventory", "payroll"])
+  type?: string;
+
+  @ApiPropertyOptional({
+    description: "ID del calendario de nómina relacionado",
+  })
+  @IsOptional()
+  @IsMongoId()
+  relatedPayrollCalendarId?: string;
 }

@@ -106,6 +106,7 @@ export class TenantSettings {
     defaultPaySchedule?: "monthly" | "biweekly" | "weekly";
     defaultPayDay?: number;
     allowCustomFrequencies?: boolean;
+    notificationEmails?: string[] | string;
     thirteenthMonthPolicy?: {
       enabled: boolean;
       calculationMethod?: "full_salary" | "proportional";
@@ -162,7 +163,14 @@ export class Tenant {
 
   @Prop({
     type: String,
-    enum: ["FOOD_SERVICE", "RETAIL", "SERVICES", "LOGISTICS", "HYBRID", "MANUFACTURING"],
+    enum: [
+      "FOOD_SERVICE",
+      "RETAIL",
+      "SERVICES",
+      "LOGISTICS",
+      "HYBRID",
+      "MANUFACTURING",
+    ],
     default: "FOOD_SERVICE",
     required: true,
   })

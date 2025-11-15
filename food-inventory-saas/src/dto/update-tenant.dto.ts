@@ -32,7 +32,14 @@ export class UpdateTenantDto {
   @IsOptional()
   businessType?: string;
 
-  @IsEnum(["FOOD_SERVICE", "RETAIL", "SERVICES", "LOGISTICS", "HYBRID", "MANUFACTURING"])
+  @IsEnum([
+    "FOOD_SERVICE",
+    "RETAIL",
+    "SERVICES",
+    "LOGISTICS",
+    "HYBRID",
+    "MANUFACTURING",
+  ])
   @IsOptional()
   vertical?: string;
 

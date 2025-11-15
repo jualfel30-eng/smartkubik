@@ -44,7 +44,12 @@ export interface OrderLineDescriptor {
 export interface VerticalProfile {
   key: VerticalKey;
   label: string;
-  baseVertical: "FOOD_SERVICE" | "RETAIL" | "SERVICES" | "LOGISTICS" | "MANUFACTURING";
+  baseVertical:
+    | "FOOD_SERVICE"
+    | "RETAIL"
+    | "SERVICES"
+    | "LOGISTICS"
+    | "MANUFACTURING";
 
   allowsWeight: boolean;
   hasSizeMatrix: boolean;

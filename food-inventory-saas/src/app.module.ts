@@ -81,6 +81,7 @@ import {
 } from "./schemas/global-settings.schema";
 import { FeatureFlagsModule as FeatureFlagsGlobalModule } from "./config/feature-flags.module";
 import { FeatureFlagsModule } from "./modules/feature-flags/feature-flags.module";
+import { PayrollCalendarModule } from "./modules/payroll-calendar/payroll-calendar.module";
 
 @Module({
   imports: [
@@ -346,6 +347,7 @@ import { FeatureFlagsModule } from "./modules/feature-flags/feature-flags.module
     AssistantModule,
     WhapiModule,
     LocationsModule,
+    PayrollCalendarModule,
   ],
   controllers: [AppController, TenantController],
   providers: [

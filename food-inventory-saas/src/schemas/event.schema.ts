@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document, Types } from "mongoose";
+import { PayrollCalendar } from "./payroll-calendar.schema";
 
 export type EventDocument = Event & Document;
 
@@ -25,7 +26,7 @@ export class Event {
 
   @Prop({
     type: String,
-    enum: ["manual", "purchase", "payment", "inventory"],
+    enum: ["manual", "purchase", "payment", "inventory", "payroll"],
     default: "manual",
   })
   type: string;
@@ -38,6 +39,9 @@ export class Event {
 
   @Prop({ type: String })
   relatedInventoryId?: string;
+
+  @Prop({ type: Types.ObjectId, ref: PayrollCalendar.name })
+  relatedPayrollCalendarId?: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;

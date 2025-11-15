@@ -29,6 +29,7 @@
     "db:migrate:vertical": "ts-node -r dotenv/config scripts/migrate-tenants-vertical.ts",
     "db:migrate:hospitality-hand-off": "ts-node -r dotenv/config scripts/migrate-hospitality-hand-off.ts",
     "db:migrate:payroll-structures": "ts-node -r dotenv/config scripts/migrate-payroll-structures-scope.ts",
+    "db:migrate:product-types": "ts-node -r dotenv/config scripts/backup-and-migrate-products.ts",
     "seed:plans": "ts-node -r dotenv/config scripts/seed-subscription-plans.ts",
     "seed:restaurant": "ts-node -r dotenv/config scripts/seed-restaurant.ts",
     "seed:delivery-rates": "ts-node -r dotenv/config scripts/seed-delivery-rates.ts",
