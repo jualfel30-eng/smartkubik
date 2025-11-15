@@ -43,10 +43,7 @@ export class PayrollEmployeesController {
   @UseGuards(PermissionsGuard)
   @Permissions("payroll_employees_write")
   @ApiOperation({ summary: "Crear un nuevo perfil de empleado" })
-  async createProfile(
-    @Request() req,
-    @Body() dto: CreateEmployeeProfileDto,
-  ) {
+  async createProfile(@Request() req, @Body() dto: CreateEmployeeProfileDto) {
     const result = await this.payrollEmployeesService.createProfile(
       dto,
       req.user.tenantId,
@@ -184,10 +181,7 @@ export class PayrollEmployeesController {
   @UseGuards(PermissionsGuard)
   @Permissions("payroll_employees_write")
   @ApiOperation({ summary: "Actualizar el estado de múltiples empleados" })
-  async bulkStatus(
-    @Request() req,
-    @Body() dto: BulkUpdateEmployeeStatusDto,
-  ) {
+  async bulkStatus(@Request() req, @Body() dto: BulkUpdateEmployeeStatusDto) {
     const result = await this.payrollEmployeesService.bulkUpdateEmployeeStatus(
       req.user.tenantId,
       dto,
@@ -203,10 +197,11 @@ export class PayrollEmployeesController {
     @Request() req,
     @Body() dto: BulkAssignPayrollStructureDto,
   ) {
-    const result = await this.payrollEmployeesService.bulkAssignPayrollStructure(
-      req.user.tenantId,
-      dto,
-    );
+    const result =
+      await this.payrollEmployeesService.bulkAssignPayrollStructure(
+        req.user.tenantId,
+        dto,
+      );
     return { success: true, data: result };
   }
 
@@ -214,10 +209,7 @@ export class PayrollEmployeesController {
   @UseGuards(PermissionsGuard)
   @Permissions("payroll_employees_write")
   @ApiOperation({ summary: "Enviar notificaciones en lote a empleados" })
-  async batchNotify(
-    @Request() req,
-    @Body() dto: BatchNotifyEmployeesDto,
-  ) {
+  async batchNotify(@Request() req, @Body() dto: BatchNotifyEmployeesDto) {
     const result = await this.payrollEmployeesService.sendBatchNotifications(
       req.user.tenantId,
       dto,

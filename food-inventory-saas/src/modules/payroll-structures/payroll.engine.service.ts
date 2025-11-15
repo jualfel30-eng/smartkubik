@@ -324,8 +324,7 @@ export class PayrollEngineService {
   ) {
     switch (rule.calculationType) {
       case "percentage": {
-        const pct =
-          typeof rule.percentage === "number" ? rule.percentage : 0;
+        const pct = typeof rule.percentage === "number" ? rule.percentage : 0;
         return baseAmount * (pct / 100);
       }
       case "formula":
@@ -362,8 +361,6 @@ export class PayrollEngineService {
     } else {
       normalized = Math.max(0, normalized);
     }
-    return Number.isFinite(normalized)
-      ? Math.round(normalized * 100) / 100
-      : 0;
+    return Number.isFinite(normalized) ? Math.round(normalized * 100) / 100 : 0;
   }
 }

@@ -8,11 +8,7 @@ import {
 } from "class-validator";
 import { NotificationChannel } from "../../notifications/notifications.service";
 
-const SUPPORTED_CHANNELS: NotificationChannel[] = [
-  "email",
-  "sms",
-  "whatsapp",
-];
+const SUPPORTED_CHANNELS: NotificationChannel[] = ["email", "sms", "whatsapp"];
 
 export class BatchNotifyEmployeesDto {
   @IsArray()

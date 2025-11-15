@@ -6,10 +6,7 @@ import {
 } from "../../schemas/payroll-concept.schema";
 import { PayrollRunsService } from "./payroll-runs.service";
 import { PayrollRunsController } from "./payroll-runs.controller";
-import {
-  PayrollRun,
-  PayrollRunSchema,
-} from "../../schemas/payroll-run.schema";
+import { PayrollRun, PayrollRunSchema } from "../../schemas/payroll-run.schema";
 import {
   PayrollStructure,
   PayrollStructureSchema,
@@ -33,6 +30,10 @@ import {
 import { Customer, CustomerSchema } from "../../schemas/customer.schema";
 import { AccountingModule } from "../accounting/accounting.module";
 import { PayrollEngineService } from "../payroll-structures/payroll.engine.service";
+import {
+  PayrollCalendar,
+  PayrollCalendarSchema,
+} from "../../schemas/payroll-calendar.schema";
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { PayrollEngineService } from "../payroll-structures/payroll.engine.servi
       { name: EmployeeContract.name, schema: EmployeeContractSchema },
       { name: PayrollAuditLog.name, schema: PayrollAuditLogSchema },
       { name: Customer.name, schema: CustomerSchema },
+      { name: PayrollCalendar.name, schema: PayrollCalendarSchema },
     ]),
     AccountingModule,
   ],

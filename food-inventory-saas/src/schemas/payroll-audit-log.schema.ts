@@ -30,6 +30,12 @@ export class PayrollAuditLog {
   metadata?: Record<string, any>;
 }
 
-export const PayrollAuditLogSchema = SchemaFactory.createForClass(PayrollAuditLog);
+export const PayrollAuditLogSchema =
+  SchemaFactory.createForClass(PayrollAuditLog);
 
-PayrollAuditLogSchema.index({ tenantId: 1, entity: 1, entityId: 1, createdAt: -1 });
+PayrollAuditLogSchema.index({
+  tenantId: 1,
+  entity: 1,
+  entityId: 1,
+  createdAt: -1,
+});

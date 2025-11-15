@@ -1,4 +1,10 @@
-import { IsDateString, IsEnum, IsNumberString, IsOptional } from "class-validator";
+import {
+  IsDateString,
+  IsEnum,
+  IsMongoId,
+  IsNumberString,
+  IsOptional,
+} from "class-validator";
 
 export class PayrollRunFiltersDto {
   @IsOptional()
@@ -16,6 +22,10 @@ export class PayrollRunFiltersDto {
   @IsOptional()
   @IsDateString()
   endDate?: string;
+
+  @IsOptional()
+  @IsMongoId()
+  calendarId?: string;
 
   @IsOptional()
   @IsNumberString()

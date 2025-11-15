@@ -1,0 +1,16 @@
+{
+  "id": "payroll_cutoff_reminder",
+  "description": "Recordatorio de corte de nómina y ausencias pendientes",
+  "channels": {
+    "email": {
+      "subject": {
+        "es": "Recordatorio: prepara la nómina antes del {{cutoffDate}}",
+        "en": "Reminder: prepare payroll before {{cutoffDate}}"
+      },
+      "body": {
+        "es": "<p>Hola {{recipientName}}:</p><p>El período de nómina <strong>{{calendarName}}</strong> está próximo a su corte el <strong>{{cutoffDate}}</strong>.</p><ul><li>Ausencias pendientes: <a href=\"{{absencesUrl}}\">{{pendingAbsences}}</a></li><li>Turnos sin cerrar: {{pendingShifts}}</li><li>Contratos vencidos: {{expiredContracts}}</li></ul><p>Puedes revisar los runs asociados <a href=\"{{runsUrl}}\">aquí</a> y resolver ausencias <a href=\"{{absencesUrl}}\">desde esta pantalla</a>.</p>",
+        "en": "<p>Hello {{recipientName}},</p><p>The payroll period <strong>{{calendarName}}</strong> will close on <strong>{{cutoffDate}}</strong>.</p><ul><li>Pending absences: <a href=\"{{absencesUrl}}\">{{pendingAbsences}}</a></li><li>Open shifts: {{pendingShifts}}</li><li>Expired contracts: {{expiredContracts}}</li></ul><p>Review linked runs <a href=\"{{runsUrl}}\">here</a> and solve absences <a href=\"{{absencesUrl}}\">in this view</a>.</p>"
+      }
+    }
+  }
+}

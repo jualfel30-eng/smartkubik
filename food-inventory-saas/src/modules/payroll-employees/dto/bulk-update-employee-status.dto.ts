@@ -1,9 +1,4 @@
-import {
-  ArrayNotEmpty,
-  IsArray,
-  IsEnum,
-  IsMongoId,
-} from "class-validator";
+import { ArrayNotEmpty, IsArray, IsEnum, IsMongoId } from "class-validator";
 
 const ALLOWED_STATUSES = [
   "draft",

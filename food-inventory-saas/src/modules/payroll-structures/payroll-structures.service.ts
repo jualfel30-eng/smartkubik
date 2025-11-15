@@ -559,7 +559,9 @@ export class PayrollStructuresService {
       conceptMap.set(concept._id.toString(), concept as any);
     });
     const preview = this.engine.previewStructure(
-      (structure as any).toObject ? (structure as any).toObject() : (structure as any),
+      (structure as any).toObject
+        ? (structure as any).toObject()
+        : (structure as any),
       rules as any,
       {
         baseSalary: 1000,
@@ -575,7 +577,9 @@ export class PayrollStructuresService {
       deductions: 0,
       netPay: 0,
     };
-    const imbalance = Math.abs(totals.netPay - (totals.earnings - totals.deductions));
+    const imbalance = Math.abs(
+      totals.netPay - (totals.earnings - totals.deductions),
+    );
     if (imbalance > 0.01) {
       throw new BadRequestException(
         "La estructura no está balanceada: el neto debe ser igual a devengos menos deducciones.",

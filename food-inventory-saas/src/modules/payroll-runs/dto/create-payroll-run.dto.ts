@@ -50,4 +50,8 @@ export class CreatePayrollRunDto {
   @ValidateNested({ each: true })
   @Type(() => PayrollRunOverrideDto)
   overrides?: PayrollRunOverrideDto[];
+
+  @IsOptional()
+  @IsMongoId()
+  calendarId?: string;
 }

@@ -12,6 +12,8 @@ import {
 import { PayrollBootstrapService } from "./payroll-bootstrap.service";
 import { PayrollRunsModule } from "../payroll-runs/payroll-runs.module";
 import { PayrollStructuresModule } from "../payroll-structures/payroll-structures.module";
+import { PayrollCalendarModule } from "../payroll-calendar/payroll-calendar.module";
+import { PayrollAbsencesModule } from "../payroll-absences/payroll-absences.module";
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { PayrollStructuresModule } from "../payroll-structures/payroll-structure
     ]),
     PayrollRunsModule,
     PayrollStructuresModule,
+    PayrollCalendarModule,
+    PayrollAbsencesModule,
   ],
   providers: [PayrollBootstrapService],
 })

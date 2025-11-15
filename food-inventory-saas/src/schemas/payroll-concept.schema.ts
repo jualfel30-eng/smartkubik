@@ -70,7 +70,8 @@ export class PayrollConcept {
   metadata?: Record<string, any>;
 }
 
-export const PayrollConceptSchema = SchemaFactory.createForClass(PayrollConcept);
+export const PayrollConceptSchema =
+  SchemaFactory.createForClass(PayrollConcept);
 
 PayrollConceptSchema.index(
   { tenantId: 1, code: 1 },

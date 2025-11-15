@@ -35,7 +35,11 @@ export class PayrollRunsController {
   @Permissions("payroll_employees_write")
   @ApiOperation({ summary: "Crear concepto de nómina" })
   async createConcept(@Req() req, @Body() dto: CreatePayrollConceptDto) {
-    return this.payrollRunsService.createConcept(req.user.tenantId, dto, req.user.id);
+    return this.payrollRunsService.createConcept(
+      req.user.tenantId,
+      dto,
+      req.user.id,
+    );
   }
 
   @Patch("concepts/:id")
@@ -46,16 +50,18 @@ export class PayrollRunsController {
     @Param("id") id: string,
     @Body() dto: UpdatePayrollConceptDto,
   ) {
-    return this.payrollRunsService.updateConcept(req.user.tenantId, id, dto, req.user.id);
+    return this.payrollRunsService.updateConcept(
+      req.user.tenantId,
+      id,
+      dto,
+      req.user.id,
+    );
   }
 
   @Get("concepts")
   @Permissions("payroll_employees_read")
   @ApiOperation({ summary: "Listar conceptos" })
-  async listConcepts(
-    @Req() req,
-    @Query() filters: PayrollConceptFiltersDto,
-  ) {
+  async listConcepts(@Req() req, @Query() filters: PayrollConceptFiltersDto) {
     return this.payrollRunsService.listConcepts(req.user.tenantId, filters);
   }
 
@@ -70,7 +76,11 @@ export class PayrollRunsController {
   @Permissions("payroll_employees_write")
   @ApiOperation({ summary: "Crear / calcular una nómina" })
   async createRun(@Req() req, @Body() dto: CreatePayrollRunDto) {
-    return this.payrollRunsService.createRun(req.user.tenantId, dto, req.user.id);
+    return this.payrollRunsService.createRun(
+      req.user.tenantId,
+      dto,
+      req.user.id,
+    );
   }
 
   @Get("runs/:id")
@@ -96,7 +106,10 @@ export class PayrollRunsController {
     );
     res
       .setHeader("Content-Type", file.contentType)
-      .setHeader("Content-Disposition", `attachment; filename=\"${file.filename}\"`)
+      .setHeader(
+        "Content-Disposition",
+        `attachment; filename=\"${file.filename}\"`,
+      )
       .send(file.buffer);
   }
 

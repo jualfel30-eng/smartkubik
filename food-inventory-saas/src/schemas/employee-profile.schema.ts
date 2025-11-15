@@ -95,4 +95,7 @@ export class EmployeeProfile {
 export const EmployeeProfileSchema =
   SchemaFactory.createForClass(EmployeeProfile);
 
-EmployeeProfileSchema.index({ tenantId: 1, employeeNumber: 1 }, { unique: true, sparse: true });
+EmployeeProfileSchema.index(
+  { tenantId: 1, employeeNumber: 1 },
+  { unique: true, sparse: true },
+);

@@ -36,6 +36,19 @@
 7. Arquitectura adaptable por país (núcleo + localizaciones).  
 8. UX de nivel ERP líder, minimizando retrabajos mediante investigación previa.
 
+## 2.1 Semáforo de fases (estado vivo)
+| Fase | Estado | Último entregable | Próximo foco |
+| --- | --- | --- | --- |
+| Fase 0 – Descubrimiento | ✅ Cerrada | Bootstrap de cuentas y settings base. | Sin pendientes. |
+| Fase 1 – Maestro de empleados | ✅ Cerrada | CRM + contratos + dashboards. | Sin pendientes. |
+| Fase 2 – Motor de estructuras | ✅ Cerrada | Builder + integración runs/contabilidad. | Sin pendientes. |
+| Fase 3 – Calendarios/Ausencias | 🟡 En progreso | Calendario + ausencias + recordatorios/notifs + drill-down parcial. | Consolidar drill-down total y validaciones avanzadas de horas. |
+| Fase 4 – Procesamiento de nómina | ⚪ No iniciado | N/A | Arrancar una vez terminada F3. |
+| Fase 5 – Pagos/Dispersión | ⚪ No iniciado | N/A | Depende de F4. |
+| Fase 6 – Integración contable avanzada | ⚪ No iniciado | N/A | Después de F5. |
+| Fase 7 – Liquidaciones/localización | ⚪ No iniciado | N/A | Post F6. |
+| Fase 8 – UX/Reporting | ⚪ Continuo | N/A | Se alimenta con entregables previos. |
+
 ## 3. Lineamientos de diseño
 - **Reutilizar antes de crear:** contratos y pagos deben terminar en `Payable`/`Payment` para aprovechar asientos y conciliaciones ya implementadas.  
 - **Motor declarativo:** representar reglas en colecciones (`payrollStructures`, `payrollRules`) en lugar de código hardcodeado, permitiendo actualizar tasas sin despliegues.  
@@ -106,7 +119,7 @@
    - [x] Endpoints para catálogo de conceptos reutilizable (`GET /payroll/concepts` con filtros por tipo, cuenta contable).
    - [x] Endpoint para sugerir estructuras según filtros (rol, departamento, contrato).
    - [x] Webhooks/eventos internos al activar estructuras (actualizar contratos afectados).
-   - [ ] Integración total con `PayrollRunsService`:
+   - [x] Integración total con `PayrollRunsService`:
      - [x] Elegir estructura por contrato o fallback a default por rol/departamento.
      - [x] Mezclar reglas legacy (conceptos sueltos) con estructuras si no hay cobertura del 100 %.
      - [x] Persistir metadata de cálculo (estructura utilizada, versión, resultados por regla).
@@ -115,7 +128,7 @@
 4. **UI Builder**
    - [x] Editor avanzado de reglas: chips por tipo, campos dependientes, preview de fórmulas (JSON logic asistido).
    - [x] Drag & drop / orden de prioridad con indicadores de ejecución.
-   - [ ] Gestión de versionado: duplicar, programar vigencia futura, histórico de cambios.
+  - [x] Gestión de versionado: duplicar, programar vigencia futura, histórico de cambios.
    - [x] Herramientas de depuración (mostrar contexto usado, resultado por regla, razones de exclusión).
    - [x] Selección de cuentas contables desde plan de cuentas + advertencias cuando faltan cuentas.
    - [x] Control de alcance: filtros por rol, departamento, tipo de contrato, tags personalizados con chips y sugerencias.
@@ -129,60 +142,104 @@
 6. **Validaciones / QA**
    - [x] Regla de balance: no permitir publicar estructura con neto ≠ devengos–deducciones (servidor y cliente).
    - [x] Tests unitarios para motor (escenarios edge, loops, formulas complejas).
-   - [ ] Lint y cobertura en componentes nuevos (builder + CRM updates).
-   - [ ] Documentar ejemplos de reglas y estructuras (manual interno).
+   - [x] Lint y cobertura en componentes nuevos (builder + CRM updates).
+   - [x] Documentar ejemplos de reglas y estructuras (manual interno). Ver `payroll-structure-examples.md`.
 
 7. **Documentación / Comunicación**
-   - [ ] Guía paso a paso para crear estructura, asignarla y correr nómina.
-   - [ ] Actualizar release notes con cambios relevantes (builder, motor, CRM).
-   - [ ] Sección de troubleshooting (errores comunes de fórmulas, cómo depurar warnings).
+   - [x] Guía paso a paso para crear estructura, asignarla y correr nómina (`STEP-BY-STEP-HR-GUIDE.md`).
+   - [x] Actualizar release notes con cambios relevantes (builder, motor, CRM) (`RELEASE-NOTES-PAYROLL-PHASE2.md`).
+   - [x] Sección de troubleshooting (errores comunes de fórmulas, cómo depurar warnings) incluida en la guía rápida.
 
 **Estado resumido**
-- Completado: puntos descritos en “Progreso actual (Sprint 1)”.
-- Pendiente: todos los items listados arriba (1–7). Estos reemplazan los bullets superficiales previos para dar visibilidad real del trabajo restante en Fase 2.
+- Completado: puntos descritos en “Progreso actual (Sprint 1)” más el backlog 1–7 arriba (todo marcado ✅).
+- Pendiente: sin items abiertos en Fase 2; se avanza a Fase 3 según el plan actualizado.
 
 ### Fase 3 – Calendarios, ausencias y provisiones (2 sprints)
-1. `PayrollCalendar` (por tenant) con períodos (mensual/quincenal) y fechas de corte/pago.  
-2. Integración con `ShiftsModule`/`AppointmentsModule` para leer horas trabajadas/ausencias; cuando no exista, permitir carga manual vía CSV.  
-3. `LeaveBalance` + `AbsenceRequest` conectados a nómina para disminuir días y reflejar pago/vacaciones (puede apoyarse en `EventsService` para recordatorios).  
-4. UI: timeline de períodos, indicadores de pendientes, alertas si falta firmar horas.
+**Progreso sprint actual**
+- Backend enlazado: `PayrollRun` acepta `calendarId`, valida fechas y bloquea períodos cerrados/posteados. Cada run actualiza el calendario con `structureSummary`, `runStats`, `lastRun*` y banderas `complianceFlags`. Intentos de cierre/publicación revisan automáticamente si existen ejecuciones pendientes.
+- Timeline de calendario operativo en UI con generación de períodos, alertas y botones para saltar a runs/ausencias.
+- Ausencias: API + vista `PayrollAbsencesManager` para registrar, aprobar y ajustar balances (`EmployeeAbsenceRequest`, `EmployeeLeaveBalance`).
+- Recordatorios automáticos: cron diario crea evento/tarea, alerta en timeline y email (`payroll_cutoff_reminder`) con links a runs/absences.
+
+**Checklist operativo (actualizado)**
+
+_Calendario & validaciones_
+- [x] CRUD completo (`/payroll/calendars`) con `close/reopen` y validación de períodos abiertos (`payroll-calendar.service.ts`).
+- [x] Sincronización con `PayrollRunsService` para reflejar `structureSummary`, `runStats`, `lastRun*` y `complianceFlags.pendingRuns`.
+- [x] Validaciones de cierre: runs pendientes, contratos vencidos, cobertura <100 %.
+- [ ] Validar horas aprobadas (Shifts) y ausencias registradas antes de permitir `close/post`; persistir bitácora de excepciones.
+
+_Ausencias & balances_
+- [x] Schemas `EmployeeAbsenceRequest`/`EmployeeLeaveBalance` + API de aprobaciones/ajustes.
+- [x] UI `PayrollAbsencesManager` con filtros por estado/empleado y acciones de aprobación.
+- [ ] Integrar automáticamente los días aprobados a balances y reflejar el impacto directo en el calendario (badge + tooltip con motivo).
+
+_UI y drill-down_
+- [x] Timeline con generación automática, alerts y botones para abrir runs/ausencias.
+- [x] Drawer CRM sugiere estructuras y expone vigencias; Payroll dashboard muestra estructura usada en cada run.
+- [ ] Drill-down completo: desde alertas/timeline/runs poder abrir registros específicos (runs, ausencias pendientes, balances) con query params (`calendarId`, `absenceId`, etc.) y CTA inverso desde dashboards.
+- [ ] Actualizar `PayrollRunsDashboard` con CTA directos a calendario, resumen de ausencias y logs (depende de los enlaces anteriores).
+
+_Recordatorios & comunicación_
+- [x] Job diario crea evento/tarea (EventsService) y correo usando `NotificationsService` y plantilla `payroll_cutoff_reminder`.
+- [ ] Registrar bitácora de envíos (quién recibió, cuándo) y exponerla en `metadata.reminders` para evitar duplicados/manual overrides.
+
+_Documentación / Release notes_
+- [x] Roadmap actualizado con entregables de ausencias, recordatorios y UI (este documento).
+- [ ] Release notes + guías rápidas deben incluir la nueva navegación (timeline + ausencias) y recomendaciones de operación diaria.
 
 ### Fase 4 – Procesamiento de nómina (3 sprints)
-**Backend**
-- Entidad `PayrollRun` (estado: draft → calculated → approved → paid), asociada a calendario y subconjunto de empleados.  
-- `PayrollLine` por colaborador con detalle de conceptos calculados, base, fórmulas y referencias a cuentas contables.  
-- API para recalcular, añadir ajustes manuales, congelar (write-once) y generar PDFs/recibos.  
-- Generación automática de `Payable` agregado (tipo payroll) o uno por empleado, según configuración.  
+**Estado**: ⚪ No iniciado (depende de completar las validaciones de Fase 3).
 
-**Frontend**
-- Wizard: seleccionar período, filtrar empleados, ejecutar cálculo, revisar diferencias vs período previo, aprobar.  
-- Vista de comparativos (neto, impuestos, horas) y alertas (tope de horas extra, vacaciones pendientes).  
+**Checklist planificada**
+
+_Backend_
+- [ ] Evolucionar `PayrollRun` con workflow completo (draft → calculated → approved → paid) vinculado a calendario y subconjuntos de empleados.
+- [ ] Crear `PayrollLine` por colaborador con snapshot de conceptos, fórmulas, referencias contables y validaciones por tipo de concepto.
+- [ ] APIs para recalcular, congelar resultados (write-once), aplicar ajustes manuales y generar PDFs/recibos listos para firma digital.
+- [ ] Generar `Payable` (uno agregado o uno por empleado, según setting) inmediatamente después de aprobar la run.
+
+_Frontend_
+- [ ] Wizard paso a paso: seleccionar período/calendario, filtrar empleados, ejecutar cálculo, comparar vs período previo y aprobar.
+- [ ] Comparativos visuales (neto, impuestos, horas) y alertas (tope de horas extra, vacaciones pendientes).
+- [ ] Integración del wizard con el timeline de calendario y con el CRM (desde empleado → runs asociados).
+
+_Pre-work / dependencias_
+- [ ] Analizar gaps en `PayrollRunsDashboard` para soportar wizard y comparativos (ver notas de Fase 3).
+- [ ] Definir trazabilidad y logs para cada recalculo (aprovechar `EventsService` + auditoría existene).
 
 ### Fase 5 – Pagos y dispersión (2 sprints)
-1. Integrar `PayrollRun` con `PaymentsService`: al aprobar, crear `PaymentBatch` con detalle de cuenta bancaria destino, monto neto, referencia.  
-2. Generar archivos bancarios (TXT/CSV según banco) usando `bankAccount.acceptedPaymentMethods` y plantilla configurable.  
-3. Registrar movimientos en `BankTransactionsService` igual que hoy se hace para payables (para conciliación inmediata).  
-4. UI: botón “Pagar nómina” que abre un diálogo similar a `PaymentDialogV2` pero en modo masivo (resumen por banco, totales USD/VES, IGTF).  
+**Estado**: ⚪ No iniciado (bloqueado hasta que existan runs aprobadas y payables generados en F4).  
+
+_Checklist_
+- [ ] Integrar `PayrollRun` aprobado con `PaymentsService` para crear `PaymentBatch` con destino bancario, monto neto y referencia de calendario.
+- [ ] Generar archivos bancarios TXT/CSV parametrizables usando `bankAccount.acceptedPaymentMethods` y plantillas por banco.
+- [ ] Registrar movimientos inmediatamente en `BankTransactionsService` (conciliación automática) y enlazar con `PaymentDialogV2`.
+- [ ] UI “Pagar nómina”: diálogo masivo con resumen por banco/moneda, IGTF y validaciones de cuentas activas.
+- [ ] Hooks de notificación: confirmar pagos a RRHH/Finanzas y opcionalmente al empleado con recibo adjunto.
 
 ### Fase 6 – Integración contable avanzada (1-2 sprints)
-1. Service `PayrollAccountingMapper` que genere asientos:  
-   - Devengos: Débito gasto (510x) / Crédito Sueldos por pagar (210x).  
-   - Aportes patronales: Débito gasto SS / Crédito pasivo SS.  
-   - Retenciones: Débito Sueldos por pagar / Crédito Impuestos por pagar.  
-2. Aprovechar `CreateJournalEntryDto` garantizando balance y usando `ChartOfAccounts` elegidos en las estructuras.  
-3. Reportes: variación de gasto vs presupuesto, provisión de vacaciones/aguinaldos.  
+**Estado**: ⚪ No iniciado (depende de runs pagadas y batches en producción).
+
+- [ ] Servicio `PayrollAccountingMapper` que convierta resultados por concepto en asientos (devengos, aportes, retenciones) usando `ChartOfAccounts`.
+- [ ] API para revisar/ajustar mapeos contables por concepto y validar balance (`CreateJournalEntryDto`).
+- [ ] Reportes de variación de gasto vs presupuesto, provisiones (vacaciones, aguinaldos) y alertas de diferencias contables.
 
 ### Fase 7 – Liquidaciones, aguinaldos y localización (3+ sprints)
-1. `SpecialPayrollRun` para aguinaldos / bonos / liquidaciones con estructuras específicas.  
-2. Motor de liquidaciones: calcula días pendientes, prestaciones acumuladas, indemnizaciones, etc., exponiendo fórmulas por país.  
-3. Paquetes de localización (p.ej. `payroll-ve`, `payroll-mx`) con tablas de tasas y reglas legales; instalables vía feature flags o `TenantSettings`.  
-4. Auto-actualizaciones: permitir subir nuevas tasas desde UI/CSV y versionarlas.  
+**Estado**: ⚪ No iniciado (requiere motor de runs estable).
+
+- [ ] `SpecialPayrollRun` para aguinaldos/bonos/liquidaciones con estructuras dedicadas.
+- [ ] Motor de liquidaciones por país: cálculo de prestaciones acumuladas, indemnizaciones, etc., versionable y auditable.
+- [ ] Paquetes de localización (`payroll-ve`, `payroll-mx`, …) con tablas de tasas y reglas legales activables por tenant.
+- [ ] Auto-actualizaciones: carga de nuevas tasas desde UI/CSV con versionado y aprobación.
 
 ### Fase 8 – UX, reporting y automatización (continuo)
-- Dashboards de nómina: costo por departamento, distribución de deducciones, KPIs de ausentismo.  
-- Integraciones: Webhooks/API para bancos o proveedores de beneficios.  
-- Auditoría completa (se apoya en `EventsService` + `AuditLog`).  
-- Documentos descargables (recibos, cartas de trabajo, constancias fiscales).
+**Estado**: ⚪ Plan continuo (se alimenta de entregables previos).
+
+- [ ] Dashboards de nómina: costo por departamento, distribución de deducciones, KPIs de ausentismo con drill-down.
+- [ ] Webhooks/API externos para bancos, beneficios y sistemas fiscales.
+- [ ] Auditoría extendida (EventsService + AuditLog) para todo el journey de nómina.
+- [ ] Documentos descargables: recibos individuales, cartas de trabajo, constancias fiscales con plantillas multi-idioma.
 
 ## 5. Riesgos y mitigaciones
 | Riesgo | Mitigación |

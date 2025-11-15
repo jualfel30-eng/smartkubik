@@ -14,6 +14,10 @@ import {
   PayrollRunDocument,
 } from "../../schemas/payroll-run.schema";
 import {
+  PayrollCalendar,
+  PayrollCalendarDocument,
+} from "../../schemas/payroll-calendar.schema";
+import {
   PayrollStructure,
   PayrollStructureDocument,
 } from "../../schemas/payroll-structure.schema";
@@ -106,6 +110,8 @@ export class PayrollRunsService {
     private readonly auditLogModel: Model<PayrollAuditLogDocument>,
     @InjectModel(Customer.name)
     private readonly customerModel: Model<CustomerDocument>,
+    @InjectModel(PayrollCalendar.name)
+    private readonly calendarModel: Model<PayrollCalendarDocument>,
     private readonly accountingService: AccountingService,
     private readonly payrollEngine: PayrollEngineService,
   ) {}
@@ -216,6 +222,9 @@ export class PayrollRunsService {
     };
     if (filters.status) query.status = filters.status;
     if (filters.periodType) query.periodType = filters.periodType;
+    if (filters.calendarId) {
+      query.calendarId = this.toObjectId(filters.calendarId);
+    }
     if (filters.startDate || filters.endDate) {
       query.periodStart = {};
       if (filters.startDate) {
@@ -260,8 +269,91 @@ export class PayrollRunsService {
     return run;
   }
 
+  private async syncCalendarFromRun(
+    tenantId: Types.ObjectId,
+    calendar: PayrollCalendarDocument,
+    run: PayrollRunDocument,
+    structureSummary: Record<string, any>,
+  ) {
+    const [totalRuns, pendingRuns] = await Promise.all([
+      this.runModel.countDocuments({
+        tenantId,
+        calendarId: calendar._id,
+      }),
+      this.runModel.countDocuments({
+        tenantId,
+        calendarId: calendar._id,
+        status: { $in: ["draft", "calculating", "calculated"] },
+      }),
+    ]);
+
+    const coveragePercent = structureSummary?.coveragePercent ?? 0;
+
+    const complianceFlags = {
+      ...(calendar.metadata?.complianceFlags || {}),
+      pendingRuns: pendingRuns > 0,
+      pendingRunCount: pendingRuns,
+      structureCoverageOk: coveragePercent >= 100,
+      structureCoveragePercent: coveragePercent,
+    };
+
+    await this.calendarModel.updateOne(
+      { _id: calendar._id, tenantId },
+      {
+        $set: {
+          "metadata.structureSummary": structureSummary,
+          "metadata.runStats": {
+            totalRuns,
+            pendingRuns,
+          },
+          "metadata.complianceFlags": complianceFlags,
+          "metadata.lastRunId": run._id,
+          "metadata.lastRunLabel": run.label,
+          "metadata.lastRunStatus": run.status,
+          "metadata.lastRunNetPay": run.netPay,
+          "metadata.lastRunAt": new Date(),
+        },
+      },
+    );
+  }
+
   async createRun(tenantId: string, dto: CreatePayrollRunDto, userId?: string) {
     const tenantObjectId = this.toObjectId(tenantId);
+    let calendar: PayrollCalendarDocument | null = null;
+    const requestedPeriodStart = new Date(dto.periodStart);
+    const requestedPeriodEnd = new Date(dto.periodEnd);
+
+    if (dto.calendarId) {
+      calendar = await this.calendarModel.findOne({
+        _id: this.toObjectId(dto.calendarId),
+        tenantId: tenantObjectId,
+      });
+      if (!calendar) {
+        throw new BadRequestException(
+          "Calendario no encontrado para el tenant.",
+        );
+      }
+      if (["closed", "posted"].includes(calendar.status)) {
+        throw new BadRequestException(
+          "El período seleccionado ya está cerrado/publicado.",
+        );
+      }
+      if (
+        calendar.periodStart.getTime() !== requestedPeriodStart.getTime() ||
+        calendar.periodEnd.getTime() !== requestedPeriodEnd.getTime()
+      ) {
+        throw new BadRequestException(
+          "Las fechas del calendario no coinciden con el rango solicitado.",
+        );
+      }
+    }
+
+    const periodStart = calendar
+      ? new Date(calendar.periodStart)
+      : requestedPeriodStart;
+    const periodEnd = calendar
+      ? new Date(calendar.periodEnd)
+      : requestedPeriodEnd;
     const employeeFilter: Record<string, any> = {
       tenantId: tenantObjectId,
     };
@@ -367,11 +459,13 @@ export class PayrollRunsService {
       employees.length,
     );
 
-    const runPayload = {
+    const runPayload: Partial<PayrollRun> & {
+      metadata: Record<string, any>;
+    } = {
       tenantId: tenantObjectId,
       periodType: dto.periodType,
-      periodStart: new Date(dto.periodStart),
-      periodEnd: new Date(dto.periodEnd),
+      periodStart,
+      periodEnd,
       label:
         dto.label ||
         `Nómina ${format(new Date(dto.periodEnd), "MMMM yyyy")}`.toLowerCase(),
@@ -390,6 +484,22 @@ export class PayrollRunsService {
       },
     };
 
+    if (calendar) {
+      runPayload.calendarId = calendar._id;
+      runPayload.metadata = {
+        ...(runPayload.metadata || {}),
+        calendarSnapshot: {
+          calendarId: calendar._id.toString(),
+          name: calendar.name,
+          status: calendar.status,
+          periodStart: calendar.periodStart,
+          periodEnd: calendar.periodEnd,
+          cutoffDate: calendar.cutoffDate,
+          payDate: calendar.payDate,
+        },
+      };
+    }
+
     const run = await this.runModel.create(runPayload);
 
     if (!dto.dryRun) {
@@ -405,6 +515,15 @@ export class PayrollRunsService {
         };
         await run.save();
       }
+    }
+
+    if (calendar) {
+      await this.syncCalendarFromRun(
+        tenantObjectId,
+        calendar,
+        run,
+        structureSummary,
+      );
     }
 
     await this.recordAudit({

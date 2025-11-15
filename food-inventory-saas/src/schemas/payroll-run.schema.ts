@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document, Types } from "mongoose";
+import { PayrollCalendar } from "./payroll-calendar.schema";
 
 export type PayrollRunDocument = PayrollRun & Document;
 
@@ -47,7 +48,11 @@ export class PayrollRun {
   @Prop({ type: Types.ObjectId, ref: "Tenant", required: true, index: true })
   tenantId: Types.ObjectId;
 
-  @Prop({ type: String, enum: ["monthly", "biweekly", "custom"], default: "monthly" })
+  @Prop({
+    type: String,
+    enum: ["monthly", "biweekly", "custom"],
+    default: "monthly",
+  })
   periodType: "monthly" | "biweekly" | "custom";
 
   @Prop({ type: Date, required: true })
@@ -58,6 +63,9 @@ export class PayrollRun {
 
   @Prop({ type: String })
   label?: string;
+
+  @Prop({ type: Types.ObjectId, ref: PayrollCalendar.name })
+  calendarId?: Types.ObjectId;
 
   @Prop({
     type: String,
@@ -97,3 +105,4 @@ export class PayrollRun {
 export const PayrollRunSchema = SchemaFactory.createForClass(PayrollRun);
 
 PayrollRunSchema.index({ tenantId: 1, periodStart: -1, periodEnd: -1 });
+PayrollRunSchema.index({ tenantId: 1, calendarId: 1 });
