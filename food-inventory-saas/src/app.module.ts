@@ -58,6 +58,7 @@ import { AssistantModule } from "./modules/assistant/assistant.module";
 import { BankReconciliationModule } from "./modules/bank-reconciliation/bank-reconciliation.module";
 import { PayrollModule } from "./modules/payroll/payroll.module";
 import { PayrollEmployeesModule } from "./modules/payroll-employees/payroll-employees.module";
+import { TipsModule } from "./modules/tips/tips.module";
 import { WhapiModule } from "./modules/whapi/whapi.module";
 import { ServicePackagesModule } from "./modules/service-packages/service-packages.module";
 import { LoyaltyModule } from "./modules/loyalty/loyalty.module";
@@ -329,6 +330,7 @@ import { PayrollCalendarModule } from "./modules/payroll-calendar/payroll-calend
     BankReconciliationModule,
     PayrollModule,
     PayrollEmployeesModule,
+    TipsModule,
     AppointmentsModule,
     ServicePackagesModule,
     LoyaltyModule,
