@@ -299,6 +299,87 @@ export const getPerformanceReport = (date) => {
   return fetchApi(`/analytics/performance?date=${isoDate}`);
 };
 
+export const getFoodCost = (period = '30d') => {
+  return fetchApi(`/analytics/food-cost?period=${period}`);
+};
+
+export const getTipsReport = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+  if (params.employeeId) queryParams.append('employeeId', params.employeeId);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/analytics/tips${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getMenuEngineering = (period = '30d') => {
+  return fetchApi(`/analytics/menu-engineering?period=${period}`);
+};
+
+// Tips Management - Phase 1.2
+export const createTipsDistributionRule = (ruleData) => {
+  return fetchApi('/tips/distribution-rules', {
+    method: 'POST',
+    body: JSON.stringify(ruleData),
+  });
+};
+
+export const getTipsDistributionRules = () => {
+  return fetchApi('/tips/distribution-rules');
+};
+
+export const getActiveTipsDistributionRule = () => {
+  return fetchApi('/tips/distribution-rules/active');
+};
+
+export const updateTipsDistributionRule = (id, ruleData) => {
+  return fetchApi(`/tips/distribution-rules/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(ruleData),
+  });
+};
+
+export const deleteTipsDistributionRule = (id) => {
+  return fetchApi(`/tips/distribution-rules/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+export const registerTipsOnOrder = (orderId, tipsData) => {
+  return fetchApi(`/tips/orders/${orderId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(tipsData),
+  });
+};
+
+export const distributeTips = (distributionData) => {
+  return fetchApi('/tips/distribute', {
+    method: 'POST',
+    body: JSON.stringify(distributionData),
+  });
+};
+
+export const getTipsReportForEmployee = (employeeId, params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.start) queryParams.append('start', params.start);
+  if (params.end) queryParams.append('end', params.end);
+  if (params.status) queryParams.append('status', params.status);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/tips/report/${employeeId}${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getConsolidatedTipsReport = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.period) queryParams.append('period', params.period);
+  if (params.start) queryParams.append('start', params.start);
+  if (params.end) queryParams.append('end', params.end);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/tips/consolidated${queryString ? `?${queryString}` : ''}`);
+};
+
 // Auth API
 export const changePassword = (passwordData) => {
   return fetchApi('/auth/change-password', {
