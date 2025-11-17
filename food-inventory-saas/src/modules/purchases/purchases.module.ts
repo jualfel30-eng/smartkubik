@@ -1,7 +1,9 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
+import { ScheduleModule } from "@nestjs/schedule";
 import { PurchasesController } from "./purchases.controller";
 import { PurchasesService } from "./purchases.service";
+import { AutoGeneratePOsJob } from "./auto-generate-pos.job";
 import { ProductsModule } from "../products/products.module";
 import {
   PurchaseOrder,
@@ -23,6 +25,7 @@ import { EventsModule } from "../events/events.module"; // Import EventsModule
       { name: Product.name, schema: ProductSchema },
       { name: Tenant.name, schema: TenantSchema },
     ]),
+    ScheduleModule.forRoot(),
     AuthModule,
     CustomersModule,
     forwardRef(() => ProductsModule),
@@ -32,7 +35,7 @@ import { EventsModule } from "../events/events.module"; // Import EventsModule
     EventsModule, // Add EventsModule here
   ],
   controllers: [PurchasesController],
-  providers: [PurchasesService],
+  providers: [PurchasesService, AutoGeneratePOsJob],
   exports: [PurchasesService],
 })
 export class PurchasesModule {}

@@ -375,6 +375,336 @@ export class PurchasesService {
     return savedPurchaseOrder;
   }
 
+  /**
+   * Approve a Purchase Order
+   * Phase 1.4: Approval Workflow
+   */
+  async approve(
+    id: string,
+    userId: string,
+    tenantId: string,
+    notes?: string,
+  ): Promise<PurchaseOrderDocument> {
+    const { Types } = require("mongoose");
+    const tenantObjectId = Types.ObjectId.isValid(tenantId)
+      ? new Types.ObjectId(tenantId)
+      : tenantId;
+
+    const po = await this.poModel.findOne({
+      _id: id,
+      tenantId: tenantObjectId,
+    });
+
+    if (!po) {
+      throw new NotFoundException(
+        `Purchase Order with ID "${id}" not found.`,
+      );
+    }
+
+    if (po.status !== "pending" && po.status !== "draft") {
+      throw new BadRequestException(
+        `Cannot approve PO in status: ${po.status}`,
+      );
+    }
+
+    po.status = "approved";
+    po.approvedBy = new Types.ObjectId(userId);
+    po.approvedAt = new Date();
+    if (notes) po.approvalNotes = notes;
+
+    po.history.push({
+      status: "approved",
+      changedAt: new Date(),
+      changedBy: new Types.ObjectId(userId),
+      notes: notes || "Purchase Order approved",
+    });
+
+    const saved = await po.save();
+    this.logger.log(`PO ${po.poNumber} approved by user ${userId}`);
+
+    // Emit event for notification
+    try {
+      await this.eventsService.create(
+        {
+          title: `PO Aprobada: ${po.poNumber}`,
+          description: `Orden de compra ${po.poNumber} para ${po.supplierName} aprobada. Monto: $${po.totalAmount}`,
+          start: new Date().toISOString(),
+          allDay: false,
+          type: "purchase",
+          color: "#22c55e",
+        },
+        { id: userId, tenantId },
+      );
+    } catch (eventError) {
+      this.logger.warn(`Failed to create event: ${eventError.message}`);
+    }
+
+    return saved;
+  }
+
+  /**
+   * Reject a Purchase Order
+   * Phase 1.4: Approval Workflow
+   */
+  async reject(
+    id: string,
+    userId: string,
+    tenantId: string,
+    reason: string,
+  ): Promise<PurchaseOrderDocument> {
+    const { Types } = require("mongoose");
+    const tenantObjectId = Types.ObjectId.isValid(tenantId)
+      ? new Types.ObjectId(tenantId)
+      : tenantId;
+
+    const po = await this.poModel.findOne({
+      _id: id,
+      tenantId: tenantObjectId,
+    });
+
+    if (!po) {
+      throw new NotFoundException(
+        `Purchase Order with ID "${id}" not found.`,
+      );
+    }
+
+    if (po.status !== "pending" && po.status !== "draft") {
+      throw new BadRequestException(
+        `Cannot reject PO in status: ${po.status}`,
+      );
+    }
+
+    po.status = "rejected";
+    po.rejectedBy = new Types.ObjectId(userId);
+    po.rejectedAt = new Date();
+    po.rejectionReason = reason;
+
+    po.history.push({
+      status: "rejected",
+      changedAt: new Date(),
+      changedBy: new Types.ObjectId(userId),
+      notes: `Rejected: ${reason}`,
+    });
+
+    const saved = await po.save();
+    this.logger.log(`PO ${po.poNumber} rejected by user ${userId}`);
+
+    try {
+      await this.eventsService.create(
+        {
+          title: `PO Rechazada: ${po.poNumber}`,
+          description: `Orden de compra ${po.poNumber} para ${po.supplierName} rechazada. Razón: ${reason}`,
+          start: new Date().toISOString(),
+          allDay: false,
+          type: "purchase",
+          color: "#ef4444",
+        },
+        { id: userId, tenantId },
+      );
+    } catch (eventError) {
+      this.logger.warn(`Failed to create event: ${eventError.message}`);
+    }
+
+    return saved;
+  }
+
+  /**
+   * Find Purchase Orders pending approval
+   * Phase 1.4: Approval Workflow
+   */
+  async findPendingApproval(tenantId: string): Promise<PurchaseOrderDocument[]> {
+    const { Types } = require("mongoose");
+    const tenantObjectId = Types.ObjectId.isValid(tenantId)
+      ? new Types.ObjectId(tenantId)
+      : tenantId;
+
+    return this.poModel
+      .find({
+        tenantId: tenantObjectId,
+        status: { $in: ["pending", "draft"] },
+      })
+      .populate("supplierId", "name companyName")
+      .populate("createdBy", "email name")
+      .sort({ createdAt: -1 })
+      .lean();
+  }
+
+  /**
+   * Auto-generate Purchase Orders based on low stock
+   * Phase 1.4: Auto-generation
+   */
+  async autoGeneratePOs(tenantId: string): Promise<PurchaseOrderDocument[]> {
+    const { Types } = require("mongoose");
+    const tenantObjectId = Types.ObjectId.isValid(tenantId)
+      ? new Types.ObjectId(tenantId)
+      : tenantId;
+
+    this.logger.log(`Auto-generating POs for tenant ${tenantId}`);
+
+    // 1. Get products with low stock
+    const lowStockAlerts = await this.inventoryService.getLowStockAlerts(
+      tenantId,
+    );
+
+    if (!lowStockAlerts || lowStockAlerts.length === 0) {
+      this.logger.log("No low stock products found");
+      return [];
+    }
+
+    this.logger.log(
+      `Found ${lowStockAlerts.length} products with low stock`,
+    );
+
+    // 2. Group by preferred supplier
+    const supplierGroups = new Map<string, any[]>();
+
+    for (const alert of lowStockAlerts) {
+      // Get product details including preferred supplier
+      const product = await this.productModel.findById(alert.productId);
+
+      if (!product || !(product as any).suppliers || (product as any).suppliers.length === 0) {
+        this.logger.warn(
+          `Product ${alert.productName || alert.productSku} has no suppliers configured`,
+        );
+        continue;
+      }
+
+      // Find preferred supplier or use first one
+      const suppliers = (product as any).suppliers;
+      const preferredSupplier = suppliers.find((s: any) => s.isPreferred) || suppliers[0];
+      const supplierId = preferredSupplier.supplierId?.toString();
+
+      if (!supplierId) {
+        this.logger.warn(`No valid supplier ID for product ${product.name}`);
+        continue;
+      }
+
+      if (!supplierGroups.has(supplierId)) {
+        supplierGroups.set(supplierId, []);
+      }
+
+      // Calculate quantity to order
+      const minimumStock = alert.minimumStock || 0;
+      const currentQty = alert.availableQuantity || 0;
+      const quantityToOrder = Math.max(
+        minimumStock - currentQty,
+        preferredSupplier.minimumOrderQuantity || 1,
+      );
+
+      supplierGroups.get(supplierId)!.push({
+        product,
+        alert,
+        quantityToOrder,
+        supplierPrice: preferredSupplier.costPrice || 0,
+        supplier: preferredSupplier,
+      });
+    }
+
+    this.logger.log(
+      `Grouped products into ${supplierGroups.size} supplier(s)`,
+    );
+
+    // 3. Create draft POs for each supplier
+    const createdPOs: PurchaseOrderDocument[] = [];
+
+    for (const [supplierId, items] of supplierGroups.entries()) {
+      // Get supplier details
+      const supplier = await this.customersService.findOne(
+        supplierId,
+        tenantId,
+      );
+
+      if (!supplier) {
+        this.logger.warn(`Supplier ${supplierId} not found`);
+        continue;
+      }
+
+      // Prepare PO items
+      const poItems = items.map((item) => ({
+        productId: item.product._id,
+        productName: item.product.name,
+        productSku: item.product.sku,
+        quantity: item.quantityToOrder,
+        costPrice: item.supplierPrice,
+        totalCost: item.quantityToOrder * item.supplierPrice,
+      }));
+
+      const totalAmount = poItems.reduce(
+        (sum, item) => sum + item.totalCost,
+        0,
+      );
+
+      // Calculate expected delivery date (default 7 days)
+      const expectedDeliveryDate = new Date();
+      const leadTimeDays = 7; // Default lead time
+      expectedDeliveryDate.setDate(
+        expectedDeliveryDate.getDate() + leadTimeDays,
+      );
+
+      // Create draft PO
+      const poNumber = await this.generatePoNumber(tenantId);
+
+      const po = new this.poModel({
+        poNumber,
+        supplierId: supplier._id,
+        supplierName: supplier.companyName || supplier.name,
+        purchaseDate: new Date(),
+        expectedDeliveryDate,
+        items: poItems,
+        totalAmount,
+        status: "draft",
+        autoGenerated: true,
+        notes: `Auto-generated PO based on low stock levels. ${items.length} products included.`,
+        history: [
+          {
+            status: "draft",
+            changedAt: new Date(),
+            changedBy: new Types.ObjectId("000000000000000000000000"), // System user
+            notes: "Auto-generated by system",
+          },
+        ],
+        paymentTerms: {
+          isCredit: false,
+          creditDays: 0,
+          paymentMethods: ["efectivo", "transferencia"],
+          requiresAdvancePayment: false,
+        },
+        createdBy: new Types.ObjectId("000000000000000000000000"), // System user
+        tenantId: tenantObjectId,
+      });
+
+      const saved = await po.save();
+      createdPOs.push(saved);
+
+      this.logger.log(
+        `Created auto-generated PO ${poNumber} for ${supplier.companyName || supplier.name} with ${items.length} items, total: $${totalAmount}`,
+      );
+
+      // Create event for notification
+      try {
+        await this.eventsService.create(
+          {
+            title: `PO Auto-generada: ${poNumber}`,
+            description: `Orden de compra ${poNumber} generada automáticamente para ${supplier.companyName || supplier.name}. ${items.length} productos, total: $${totalAmount}`,
+            start: new Date().toISOString(),
+            allDay: false,
+            type: "purchase",
+            color: "#3b82f6",
+          },
+          { id: "system", tenantId },
+        );
+      } catch (eventError) {
+        this.logger.warn(`Failed to create event: ${eventError.message}`);
+      }
+    }
+
+    this.logger.log(
+      `Successfully created ${createdPOs.length} auto-generated POs`,
+    );
+
+    return createdPOs;
+  }
+
   private async generatePoNumber(tenantId: string): Promise<string> {
     const now = new Date();
     const year = now.getFullYear().toString().slice(-2);

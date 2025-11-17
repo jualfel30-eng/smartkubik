@@ -115,6 +115,7 @@ const OrganizationsManagement = lazy(() => import('@/components/OrganizationsMan
 const FloorPlan = lazy(() => import('@/components/restaurant/FloorPlan.jsx').then(module => ({ default: module.FloorPlan })));
 const KitchenDisplay = lazy(() => import('@/components/restaurant/KitchenDisplay.jsx'));
 const ReservationsPage = lazy(() => import('./pages/ReservationsPage.jsx'));
+const PurchaseOrdersPage = lazy(() => import('./pages/PurchaseOrdersPage.jsx'));
 const WhatsAppInbox = lazy(() => import('./pages/WhatsAppInbox.jsx')); // <-- Componente de WhatsApp añadido
 const AssistantChatWidget = lazy(() => import('@/components/AssistantChatWidget.jsx'));
 const PaymentsManagementDashboard = lazy(() => import('@/components/hospitality/PaymentsManagementDashboard.jsx'));
@@ -302,6 +303,7 @@ function TenantLayout() {
     { name: 'Mesas', href: 'restaurant/floor-plan', icon: Utensils, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Cocina (KDS)', href: 'restaurant/kitchen-display', icon: ChefHat, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Reservas', href: 'restaurant/reservations', icon: Calendar, permission: 'restaurant_read', requiresModule: 'restaurant' },
+    { name: 'Órdenes de Compra', href: 'restaurant/purchase-orders', icon: FileText, permission: 'restaurant_read', requiresModule: 'restaurant' },
     {
       name: 'Cuentas por Pagar',
       href: 'accounts-payable',
@@ -918,6 +920,7 @@ function TenantLayout() {
                 <Route path="restaurant/floor-plan" element={<FloorPlan />} />
                 <Route path="restaurant/kitchen-display" element={<KitchenDisplay />} />
                 <Route path="restaurant/reservations" element={<ReservationsPage />} />
+                <Route path="restaurant/purchase-orders" element={<PurchaseOrdersPage />} />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="reports" element={<ReportsPage />} />
                 <Route path="*" element={<Navigate to="dashboard" />} />

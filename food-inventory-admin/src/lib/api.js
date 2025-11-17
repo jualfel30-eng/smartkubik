@@ -461,6 +461,66 @@ export const markReservationNoShow = (id) => {
   });
 };
 
+// Purchase Orders API - Phase 1.4: Approval Workflow & Auto-generation
+export const getPurchaseOrders = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.status) queryParams.append('status', params.status);
+  if (params.supplierId) queryParams.append('supplierId', params.supplierId);
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/purchases${queryString ? `?${queryString}` : ''}`);
+};
+
+export const createPurchaseOrder = (poData) => {
+  return fetchApi('/purchases', {
+    method: 'POST',
+    body: JSON.stringify(poData),
+  });
+};
+
+export const getPurchaseOrder = (id) => {
+  return fetchApi(`/purchases/${id}`);
+};
+
+export const updatePurchaseOrder = (id, poData) => {
+  return fetchApi(`/purchases/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(poData),
+  });
+};
+
+export const receivePurchaseOrder = (id) => {
+  return fetchApi(`/purchases/${id}/receive`, {
+    method: 'PATCH',
+  });
+};
+
+export const approvePurchaseOrder = (id, notes) => {
+  return fetchApi(`/purchases/${id}/approve`, {
+    method: 'PATCH',
+    body: JSON.stringify({ notes }),
+  });
+};
+
+export const rejectPurchaseOrder = (id, reason) => {
+  return fetchApi(`/purchases/${id}/reject`, {
+    method: 'PATCH',
+    body: JSON.stringify({ reason }),
+  });
+};
+
+export const getPendingApprovalPOs = () => {
+  return fetchApi('/purchases/pending-approval');
+};
+
+export const autoGeneratePurchaseOrders = () => {
+  return fetchApi('/purchases/auto-generate', {
+    method: 'POST',
+  });
+};
+
 // Auth API
 export const changePassword = (passwordData) => {
   return fetchApi('/auth/change-password', {
