@@ -114,6 +114,7 @@ const StorefrontSettings = lazy(() => import('@/components/StorefrontSettings'))
 const OrganizationsManagement = lazy(() => import('@/components/OrganizationsManagement.jsx'));
 const FloorPlan = lazy(() => import('@/components/restaurant/FloorPlan.jsx').then(module => ({ default: module.FloorPlan })));
 const KitchenDisplay = lazy(() => import('@/components/restaurant/KitchenDisplay.jsx'));
+const ReservationsPage = lazy(() => import('./pages/ReservationsPage.jsx'));
 const WhatsAppInbox = lazy(() => import('./pages/WhatsAppInbox.jsx')); // <-- Componente de WhatsApp añadido
 const AssistantChatWidget = lazy(() => import('@/components/AssistantChatWidget.jsx'));
 const PaymentsManagementDashboard = lazy(() => import('@/components/hospitality/PaymentsManagementDashboard.jsx'));
@@ -124,6 +125,7 @@ const PayrollRunsDashboard = lazy(() => import('@/components/payroll/PayrollRuns
 const PayrollStructuresManager = lazy(() => import('@/components/payroll/PayrollStructuresManager.jsx'));
 const PayrollCalendarTimeline = lazy(() => import('@/components/payroll/PayrollCalendarTimeline.jsx'));
 const PayrollAbsencesManager = lazy(() => import('@/components/payroll/PayrollAbsencesManager.jsx'));
+const PayrollRunWizard = lazy(() => import('@/components/payroll/PayrollRunWizard.jsx'));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -299,6 +301,7 @@ function TenantLayout() {
     { name: 'Mi Storefront', href: 'storefront', icon: Store, permission: 'dashboard_read', requiresModule: 'ecommerce' },
     { name: 'Mesas', href: 'restaurant/floor-plan', icon: Utensils, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Cocina (KDS)', href: 'restaurant/kitchen-display', icon: ChefHat, permission: 'restaurant_read', requiresModule: 'restaurant' },
+    { name: 'Reservas', href: 'restaurant/reservations', icon: Calendar, permission: 'restaurant_read', requiresModule: 'restaurant' },
     {
       name: 'Cuentas por Pagar',
       href: 'accounts-payable',
@@ -852,6 +855,14 @@ function TenantLayout() {
                   }
                 />
                 <Route
+                  path="payroll/runs/wizard"
+                  element={
+                    tenant?.enabledModules?.payroll
+                      ? <PayrollRunWizard />
+                      : <Navigate to="/dashboard" replace />
+                  }
+                />
+                <Route
                   path="payroll/structures"
                   element={
                     tenant?.enabledModules?.payroll
@@ -906,6 +917,7 @@ function TenantLayout() {
                 <Route path="production" element={<ProductionManagement />} />
                 <Route path="restaurant/floor-plan" element={<FloorPlan />} />
                 <Route path="restaurant/kitchen-display" element={<KitchenDisplay />} />
+                <Route path="restaurant/reservations" element={<ReservationsPage />} />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="reports" element={<ReportsPage />} />
                 <Route path="*" element={<Navigate to="dashboard" />} />

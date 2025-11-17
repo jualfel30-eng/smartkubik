@@ -380,6 +380,87 @@ export const getConsolidatedTipsReport = (params = {}) => {
   return fetchApi(`/tips/consolidated${queryString ? `?${queryString}` : ''}`);
 };
 
+// Reservations API - Phase 1.3
+export const getReservationSettings = () => {
+  return fetchApi('/reservations/settings');
+};
+
+export const updateReservationSettings = (settingsData) => {
+  return fetchApi('/reservations/settings', {
+    method: 'PUT',
+    body: JSON.stringify(settingsData),
+  });
+};
+
+export const checkReservationAvailability = (availabilityData) => {
+  return fetchApi('/reservations/check-availability', {
+    method: 'POST',
+    body: JSON.stringify(availabilityData),
+  });
+};
+
+export const createReservation = (reservationData) => {
+  return fetchApi('/reservations', {
+    method: 'POST',
+    body: JSON.stringify(reservationData),
+  });
+};
+
+export const getReservations = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.status) queryParams.append('status', params.status);
+  if (params.date) queryParams.append('date', params.date);
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+  if (params.guestName) queryParams.append('guestName', params.guestName);
+  if (params.page) queryParams.append('page', params.page);
+  if (params.limit) queryParams.append('limit', params.limit);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/reservations${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getReservationCalendar = (month) => {
+  return fetchApi(`/reservations/calendar?month=${month}`);
+};
+
+export const getReservation = (id) => {
+  return fetchApi(`/reservations/${id}`);
+};
+
+export const updateReservation = (id, reservationData) => {
+  return fetchApi(`/reservations/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(reservationData),
+  });
+};
+
+export const confirmReservation = (id) => {
+  return fetchApi(`/reservations/${id}/confirm`, {
+    method: 'PATCH',
+  });
+};
+
+export const seatReservation = (id, seatData) => {
+  return fetchApi(`/reservations/${id}/seat`, {
+    method: 'PATCH',
+    body: JSON.stringify(seatData),
+  });
+};
+
+export const cancelReservation = (id, cancelData) => {
+  return fetchApi(`/reservations/${id}`, {
+    method: 'DELETE',
+    body: JSON.stringify(cancelData),
+  });
+};
+
+export const markReservationNoShow = (id) => {
+  return fetchApi(`/reservations/${id}/no-show`, {
+    method: 'PATCH',
+  });
+};
+
 // Auth API
 export const changePassword = (passwordData) => {
   return fetchApi('/auth/change-password', {
