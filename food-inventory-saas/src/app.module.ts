@@ -84,6 +84,7 @@ import {
 import { FeatureFlagsModule as FeatureFlagsGlobalModule } from "./config/feature-flags.module";
 import { FeatureFlagsModule } from "./modules/feature-flags/feature-flags.module";
 import { PayrollCalendarModule } from "./modules/payroll-calendar/payroll-calendar.module";
+import { MenuEngineeringModule } from "./modules/menu-engineering/menu-engineering.module";
 
 @Module({
   imports: [
@@ -352,6 +353,7 @@ import { PayrollCalendarModule } from "./modules/payroll-calendar/payroll-calend
     WhapiModule,
     LocationsModule,
     PayrollCalendarModule,
+    MenuEngineeringModule,
   ],
   controllers: [AppController, TenantController],
   providers: [

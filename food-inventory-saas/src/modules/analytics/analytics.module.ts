@@ -26,10 +26,12 @@ import {
 import { Service, ServiceSchema } from "../../schemas/service.schema";
 import { Resource, ResourceSchema } from "../../schemas/resource.schema";
 import { Customer, CustomerSchema } from "../../schemas/customer.schema";
+import { MenuEngineeringModule } from "../menu-engineering/menu-engineering.module";
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
+    MenuEngineeringModule,
     MongooseModule.forFeature([
       { name: PerformanceKpi.name, schema: PerformanceKpiSchema },
       { name: Order.name, schema: OrderSchema },

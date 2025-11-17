@@ -33,6 +33,7 @@ import {
 import { Service, ServiceDocument } from "../../schemas/service.schema";
 import { Resource, ResourceDocument } from "../../schemas/resource.schema";
 import { Customer, CustomerDocument } from "../../schemas/customer.schema";
+import { MenuEngineeringService } from "../menu-engineering/menu-engineering.service";
 
 const SUPPORTED_PERIODS = new Set([
   "7d",
@@ -80,6 +81,7 @@ export class AnalyticsService {
     @InjectModel(Customer.name)
     private readonly customerModel: Model<CustomerDocument>,
     private readonly featureFlagsService: FeatureFlagsService,
+    private readonly menuEngineeringService: MenuEngineeringService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM, {
@@ -924,6 +926,475 @@ export class AnalyticsService {
         monetary: item.monetary ?? 0,
       };
     });
+  }
+
+  /**
+   * QUICK WIN #3: Tips Report
+   * Reporte de propinas por empleado
+   */
+  async getTipsReport(
+    tenantId: string,
+    params: { startDate?: string; endDate?: string; employeeId?: string },
+  ) {
+    const { objectId: tenantObjectId, key: tenantKey } =
+      this.normalizeTenantIdentifiers(tenantId);
+
+    // Construir rango de fechas
+    let from: Date;
+    let to: Date;
+
+    if (params.startDate && params.endDate) {
+      from = new Date(params.startDate);
+      to = new Date(params.endDate);
+    } else {
+      // Por defecto: últimos 30 días
+      to = new Date();
+      from = new Date();
+      from.setDate(from.getDate() - 30);
+    }
+
+    // Set to start and end of day
+    from.setHours(0, 0, 0, 0);
+    to.setHours(23, 59, 59, 999);
+
+    // Obtener todas las órdenes con propinas
+    const ordersWithTips = await this.orderModel
+      .find({
+        tenantId: tenantKey,
+        createdAt: { $gte: from, $lte: to },
+        tipsRecords: { $exists: true, $ne: [] },
+      })
+      .select("orderNumber tipsRecords totalTipsAmount createdAt createdBy")
+      .populate("createdBy", "name email")
+      .lean()
+      .exec();
+
+    // Procesar propinas por empleado
+    const tipsByEmployee = new Map<
+      string,
+      {
+        employeeId: string;
+        employeeName: string;
+        totalTips: number;
+        tipsCount: number;
+        cashTips: number;
+        cardTips: number;
+        averageTip: number;
+        ordersServed: number;
+        tipsBreakdown: Array<{
+          orderNumber: string;
+          amount: number;
+          method: string;
+          date: Date;
+        }>;
+      }
+    >();
+
+    for (const order of ordersWithTips) {
+      for (const tip of order.tipsRecords) {
+        const empId = tip.employeeId?.toString() || "unassigned";
+        const empName = tip.employeeName || "Sin asignar";
+
+        if (!tipsByEmployee.has(empId)) {
+          tipsByEmployee.set(empId, {
+            employeeId: empId,
+            employeeName: empName,
+            totalTips: 0,
+            tipsCount: 0,
+            cashTips: 0,
+            cardTips: 0,
+            averageTip: 0,
+            ordersServed: 0,
+            tipsBreakdown: [],
+          });
+        }
+
+        const empData = tipsByEmployee.get(empId)!;
+        empData.totalTips += tip.amount;
+        empData.tipsCount++;
+        empData.ordersServed++;
+
+        if (tip.method === "cash") {
+          empData.cashTips += tip.amount;
+        } else if (tip.method === "card") {
+          empData.cardTips += tip.amount;
+        }
+
+        empData.tipsBreakdown.push({
+          orderNumber: order.orderNumber,
+          amount: tip.amount,
+          method: tip.method,
+          date: order.createdAt || new Date(),
+        });
+      }
+    }
+
+    // Calcular promedios y convertir a array
+    const tipsReport = Array.from(tipsByEmployee.values()).map((emp) => ({
+      ...emp,
+      averageTip: emp.tipsCount > 0 ? emp.totalTips / emp.tipsCount : 0,
+      tipsBreakdown: emp.tipsBreakdown
+        .sort((a, b) => b.date.getTime() - a.date.getTime())
+        .slice(0, 10), // Últimas 10 propinas
+    }));
+
+    // Ordenar por total de propinas descendente
+    tipsReport.sort((a, b) => b.totalTips - a.totalTips);
+
+    // Calcular totales generales
+    const totalTipsAllEmployees = tipsReport.reduce(
+      (sum, emp) => sum + emp.totalTips,
+      0,
+    );
+    const totalOrdersWithTips = ordersWithTips.length;
+    const averageTipPerOrder =
+      totalOrdersWithTips > 0
+        ? totalTipsAllEmployees / totalOrdersWithTips
+        : 0;
+
+    return {
+      period: {
+        from: from.toISOString(),
+        to: to.toISOString(),
+      },
+      summary: {
+        totalTips: totalTipsAllEmployees,
+        totalOrders: totalOrdersWithTips,
+        averageTipPerOrder,
+        employeesCount: tipsReport.length,
+      },
+      employees: tipsReport,
+    };
+  }
+
+  /**
+   * QUICK WIN #4: Menu Engineering
+   * Matriz de análisis de menú (Popularidad vs Rentabilidad)
+   */
+  async getMenuEngineering(tenantId: string, period?: string) {
+    // Delegate to MenuEngineeringService
+    return this.menuEngineeringService.analyze(
+      { period: period || "30d" },
+      tenantId,
+    );
+  }
+
+  /**
+   * @deprecated This method is replaced by MenuEngineeringService
+   */
+  async getMenuEngineeringOld(tenantId: string, period?: string) {
+    const { objectId: tenantObjectId, key: tenantKey } =
+      this.normalizeTenantIdentifiers(tenantId);
+    const { from, to } = this.buildDateRange(period);
+
+    // Obtener todas las órdenes del período
+    const orders = await this.orderModel
+      .find({
+        tenantId: tenantKey,
+        status: { $nin: ["draft", "cancelled", "refunded"] },
+        createdAt: { $gte: from, $lte: to },
+      })
+      .select("items totalAmount createdAt")
+      .lean()
+      .exec();
+
+    if (!orders.length) {
+      return {
+        period: {
+          from: from.toISOString(),
+          to: to.toISOString(),
+          label: period || "30d",
+        },
+        categories: {
+          stars: [],
+          plowhorses: [],
+          puzzles: [],
+          dogs: [],
+        },
+        summary: {
+          totalItems: 0,
+          avgPopularity: 0,
+          avgProfitability: 0,
+        },
+      };
+    }
+
+    // Agregar datos por producto
+    const productStats = new Map<
+      string,
+      {
+        productId: string;
+        productName: string;
+        quantitySold: number;
+        revenue: number;
+        cost: number;
+        orders: number;
+      }
+    >();
+
+    for (const order of orders) {
+      for (const item of order.items) {
+        const key = item.productId?.toString() || item.productName;
+        if (!productStats.has(key)) {
+          productStats.set(key, {
+            productId: key,
+            productName: item.productName,
+            quantitySold: 0,
+            revenue: 0,
+            cost: 0,
+            orders: 0,
+          });
+        }
+
+        const stats = productStats.get(key)!;
+        stats.quantitySold += item.quantity || 0;
+        stats.revenue += item.finalPrice || item.totalPrice || 0;
+        // Usar costPrice del item si existe
+        stats.cost += (item.costPrice || 0) * (item.quantity || 0);
+        stats.orders++;
+      }
+    }
+
+    // Calcular métricas por producto
+    const products = Array.from(productStats.values()).map((p) => ({
+      ...p,
+      contributionMargin: p.revenue - p.cost,
+      contributionMarginPercent:
+        p.revenue > 0 ? ((p.revenue - p.cost) / p.revenue) * 100 : 0,
+      avgPrice: p.quantitySold > 0 ? p.revenue / p.quantitySold : 0,
+      popularity: p.quantitySold,
+      profitability: p.revenue - p.cost,
+    }));
+
+    // Calcular promedios para clasificación
+    const totalQuantity = products.reduce(
+      (sum, p) => sum + p.quantitySold,
+      0,
+    );
+    const avgQuantity = totalQuantity / products.length;
+
+    const totalProfitability = products.reduce(
+      (sum, p) => sum + p.profitability,
+      0,
+    );
+    const avgProfitability = totalProfitability / products.length;
+
+    // Clasificar productos
+    const stars = products.filter(
+      (p) => p.popularity >= avgQuantity && p.profitability >= avgProfitability,
+    );
+    const plowhorses = products.filter(
+      (p) => p.popularity >= avgQuantity && p.profitability < avgProfitability,
+    );
+    const puzzles = products.filter(
+      (p) => p.popularity < avgQuantity && p.profitability >= avgProfitability,
+    );
+    const dogs = products.filter(
+      (p) => p.popularity < avgQuantity && p.profitability < avgProfitability,
+    );
+
+    return {
+      period: {
+        from: from.toISOString(),
+        to: to.toISOString(),
+        label: period || "30d",
+      },
+      categories: {
+        stars: stars
+          .sort((a, b) => b.profitability - a.profitability)
+          .map((p) => ({
+            productId: p.productId,
+            productName: p.productName,
+            quantitySold: p.quantitySold,
+            revenue: p.revenue,
+            cost: p.cost,
+            contributionMargin: p.contributionMargin,
+            contributionMarginPercent: Number(
+              p.contributionMarginPercent.toFixed(2),
+            ),
+            avgPrice: Number(p.avgPrice.toFixed(2)),
+            category: "star" as const,
+            recommendation:
+              "¡Platillo estrella! Mantén calidad, considera aumentar ligeramente el precio.",
+          })),
+        plowhorses: plowhorses
+          .sort((a, b) => b.popularity - a.popularity)
+          .map((p) => ({
+            productId: p.productId,
+            productName: p.productName,
+            quantitySold: p.quantitySold,
+            revenue: p.revenue,
+            cost: p.cost,
+            contributionMargin: p.contributionMargin,
+            contributionMarginPercent: Number(
+              p.contributionMarginPercent.toFixed(2),
+            ),
+            avgPrice: Number(p.avgPrice.toFixed(2)),
+            category: "plowhorse" as const,
+            recommendation:
+              "Popular pero poco rentable. Aumenta precio o reduce costo de ingredientes.",
+          })),
+        puzzles: puzzles
+          .sort((a, b) => b.profitability - a.profitability)
+          .map((p) => ({
+            productId: p.productId,
+            productName: p.productName,
+            quantitySold: p.quantitySold,
+            revenue: p.revenue,
+            cost: p.cost,
+            contributionMargin: p.contributionMargin,
+            contributionMarginPercent: Number(
+              p.contributionMarginPercent.toFixed(2),
+            ),
+            avgPrice: Number(p.avgPrice.toFixed(2)),
+            category: "puzzle" as const,
+            recommendation:
+              "Rentable pero poco popular. Mejora posicionamiento en menú o marketing.",
+          })),
+        dogs: dogs
+          .sort((a, b) => a.profitability - b.profitability)
+          .map((p) => ({
+            productId: p.productId,
+            productName: p.productName,
+            quantitySold: p.quantitySold,
+            revenue: p.revenue,
+            cost: p.cost,
+            contributionMargin: p.contributionMargin,
+            contributionMarginPercent: Number(
+              p.contributionMarginPercent.toFixed(2),
+            ),
+            avgPrice: Number(p.avgPrice.toFixed(2)),
+            category: "dog" as const,
+            recommendation:
+              "Ni popular ni rentable. Considera eliminar del menú o reformular completamente.",
+          })),
+      },
+      summary: {
+        totalItems: products.length,
+        avgPopularity: Number(avgQuantity.toFixed(2)),
+        avgProfitability: Number(avgProfitability.toFixed(2)),
+        totalRevenue: products.reduce((sum, p) => sum + p.revenue, 0),
+        totalCost: products.reduce((sum, p) => sum + p.cost, 0),
+        totalContributionMargin: products.reduce(
+          (sum, p) => sum + p.contributionMargin,
+          0,
+        ),
+      },
+      metrics: {
+        starsCount: stars.length,
+        plowhorsesCount: plowhorses.length,
+        puzzlesCount: puzzles.length,
+        dogsCount: dogs.length,
+        starsRevenue: stars.reduce((sum, p) => sum + p.revenue, 0),
+        plowhorsesRevenue: plowhorses.reduce((sum, p) => sum + p.revenue, 0),
+        puzzlesRevenue: puzzles.reduce((sum, p) => sum + p.revenue, 0),
+        dogsRevenue: dogs.reduce((sum, p) => sum + p.revenue, 0),
+      },
+    };
+  }
+
+  /**
+   * QUICK WIN: Food Cost Percentage
+   * KPI #1 para restaurantes
+   * Food Cost% = (Costo de ingredientes / Ventas) × 100
+   */
+  async getFoodCost(tenantId: string, period?: string) {
+    const { objectId: tenantObjectId, key: tenantKey } =
+      this.normalizeTenantIdentifiers(tenantId);
+    const { from, to } = this.buildDateRange(period);
+
+    // 1. Obtener ventas del período
+    const [salesResult] = await this.orderModel
+      .aggregate([
+        {
+          $match: {
+            tenantId: tenantKey,
+            status: { $nin: ["draft", "cancelled", "refunded"] },
+            createdAt: { $gte: from, $lte: to },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalSales: { $sum: "$totalAmount" },
+            orderCount: { $sum: 1 },
+          },
+        },
+      ])
+      .exec();
+
+    const totalSales = salesResult?.totalSales ?? 0;
+    const orderCount = salesResult?.orderCount ?? 0;
+
+    // 2. Obtener costo de ingredientes consumidos
+    // Movimientos de tipo 'out' con razón 'sale' o 'consumption'
+    const movements = await this.inventoryMovementModel
+      .aggregate([
+        {
+          $match: {
+            tenantId: tenantObjectId,
+            createdAt: { $gte: from, $lte: to },
+            movementType: "out",
+            reason: { $in: ["sale", "consumption", "production"] },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalCost: {
+              $sum: {
+                $multiply: ["$quantity", "$costPrice"],
+              },
+            },
+            totalQuantity: { $sum: "$quantity" },
+            movementCount: { $sum: 1 },
+          },
+        },
+      ])
+      .exec();
+
+    const totalCost = movements[0]?.totalCost ?? 0;
+    const totalQuantity = movements[0]?.totalQuantity ?? 0;
+    const movementCount = movements[0]?.movementCount ?? 0;
+
+    // 3. Calcular Food Cost %
+    const foodCostPercentage =
+      totalSales > 0 ? (totalCost / totalSales) * 100 : 0;
+
+    // 4. Determinar status (bueno/warning/danger)
+    // Benchmark ideal: 28-32%
+    let status: "good" | "warning" | "danger";
+    if (foodCostPercentage <= 32) {
+      status = "good";
+    } else if (foodCostPercentage <= 35) {
+      status = "warning";
+    } else {
+      status = "danger";
+    }
+
+    // 5. Calcular varianza vs benchmark (30%)
+    const benchmark = 30;
+    const variance = foodCostPercentage - benchmark;
+
+    return {
+      period: {
+        from: from.toISOString(),
+        to: to.toISOString(),
+        label: period || "30d",
+      },
+      totalSales,
+      totalCost,
+      foodCostPercentage: Number(foodCostPercentage.toFixed(2)),
+      status,
+      benchmark,
+      variance: Number(variance.toFixed(2)),
+      metrics: {
+        orderCount,
+        movementCount,
+        totalQuantity,
+        averageCostPerOrder: orderCount > 0 ? totalCost / orderCount : 0,
+      },
+    };
   }
 
   async getHospitalityOperations(
