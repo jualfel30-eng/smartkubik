@@ -112,7 +112,7 @@ const ResourcesManagement = lazy(() => import('@/components/ResourcesManagement.
 const AppointmentsManagement = lazy(() => import('@/components/AppointmentsManagement.jsx'));
 const StorefrontSettings = lazy(() => import('@/components/StorefrontSettings'));
 const OrganizationsManagement = lazy(() => import('@/components/OrganizationsManagement.jsx'));
-const FloorPlan = lazy(() => import('@/components/restaurant/FloorPlan.jsx').then(module => ({ default: module.FloorPlan })));
+const TablesPage = lazy(() => import('./pages/TablesPage.jsx'));
 const KitchenDisplay = lazy(() => import('@/components/restaurant/KitchenDisplay.jsx'));
 const ReservationsPage = lazy(() => import('./pages/ReservationsPage.jsx'));
 const PurchaseOrdersPage = lazy(() => import('./pages/PurchaseOrdersPage.jsx'));
@@ -917,7 +917,7 @@ function TenantLayout() {
                 <Route path="hospitality/floor-plan" element={<HotelFloorPlanPage />} />
                 <Route path="calendar" element={<CalendarView />} />
                 <Route path="production" element={<ProductionManagement />} />
-                <Route path="restaurant/floor-plan" element={<FloorPlan />} />
+                <Route path="restaurant/floor-plan" element={<TablesPage />} />
                 <Route path="restaurant/kitchen-display" element={<KitchenDisplay />} />
                 <Route path="restaurant/reservations" element={<ReservationsPage />} />
                 <Route path="restaurant/purchase-orders" element={<PurchaseOrdersPage />} />

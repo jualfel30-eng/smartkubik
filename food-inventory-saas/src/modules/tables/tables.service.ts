@@ -7,6 +7,13 @@ import {
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { Table } from "../../schemas/table.schema";
+import {
+  CreateTableDto,
+  UpdateTableDto,
+  SeatGuestsDto,
+  TransferTableDto,
+  CombineTablesDto,
+} from "../../dto/table.dto";
 
 @Injectable()
 export class TablesService {
@@ -17,7 +24,7 @@ export class TablesService {
     private tableModel: Model<Table>,
   ) {}
 
-  async create(dto: any, tenantId: string): Promise<Table> {
+  async create(dto: CreateTableDto, tenantId: string): Promise<Table> {
     // Validar que no exista una mesa con el mismo número en el mismo tenant
     const existing = await this.tableModel
       .findOne({
@@ -66,7 +73,7 @@ export class TablesService {
       .exec();
   }
 
-  async seatGuests(dto: any, tenantId: string): Promise<Table> {
+  async seatGuests(dto: SeatGuestsDto, tenantId: string): Promise<Table> {
     const table = await this.tableModel
       .findOne({ _id: dto.tableId, tenantId, isDeleted: false })
       .exec();
@@ -143,7 +150,7 @@ export class TablesService {
     return table;
   }
 
-  async transferTable(dto: any, tenantId: string): Promise<Table> {
+  async transferTable(dto: TransferTableDto, tenantId: string): Promise<Table> {
     const fromTable = await this.tableModel
       .findOne({ _id: dto.fromTableId, tenantId, isDeleted: false })
       .exec();
@@ -186,7 +193,7 @@ export class TablesService {
     return toTable;
   }
 
-  async combineTables(dto: any, tenantId: string): Promise<Table[]> {
+  async combineTables(dto: CombineTablesDto, tenantId: string): Promise<Table[]> {
     const tables = await this.tableModel
       .find({
         _id: { $in: dto.tableIds },
@@ -269,7 +276,7 @@ export class TablesService {
     };
   }
 
-  async update(id: string, dto: any, tenantId: string): Promise<Table> {
+  async update(id: string, dto: UpdateTableDto, tenantId: string): Promise<Table> {
     const table = await this.tableModel
       .findOneAndUpdate(
         { _id: id, tenantId, isDeleted: false },

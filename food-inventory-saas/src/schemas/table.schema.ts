@@ -1,6 +1,8 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document, Types } from "mongoose";
 
+export type TableDocument = Table & Document;
+
 @Schema({ timestamps: true })
 export class Table extends Document {
   @Prop({ required: true, trim: true })
@@ -8,6 +10,9 @@ export class Table extends Document {
 
   @Prop({ required: true, trim: true })
   section: string;
+
+  @Prop({ trim: true })
+  floor?: string;
 
   @Prop({ type: Object })
   position: { x: number; y: number };
@@ -51,6 +56,12 @@ export class Table extends Document {
 
   @Prop({ type: Types.ObjectId, ref: "Tenant", required: true, index: true })
   tenantId: Types.ObjectId;
+
+  @Prop({ default: true })
+  isActive: boolean;
+
+  @Prop({ trim: true })
+  notes?: string;
 
   @Prop({ default: false })
   isDeleted: boolean;

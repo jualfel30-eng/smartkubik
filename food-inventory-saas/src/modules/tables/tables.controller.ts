@@ -10,6 +10,13 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { TablesService } from "./tables.service";
+import {
+  CreateTableDto,
+  UpdateTableDto,
+  SeatGuestsDto,
+  TransferTableDto,
+  CombineTablesDto,
+} from "../../dto/table.dto";
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
@@ -22,7 +29,7 @@ export class TablesController {
 
   @Post()
   @Permissions("restaurant_write")
-  async create(@Body() dto: any, @Request() req) {
+  async create(@Body() dto: CreateTableDto, @Request() req) {
     return this.tablesService.create(dto, req.user.tenantId);
   }
 
@@ -52,7 +59,7 @@ export class TablesController {
 
   @Post("seat-guests")
   @Permissions("restaurant_write")
-  async seatGuests(@Body() dto: any, @Request() req) {
+  async seatGuests(@Body() dto: SeatGuestsDto, @Request() req) {
     return this.tablesService.seatGuests(dto, req.user.tenantId);
   }
 
@@ -64,19 +71,19 @@ export class TablesController {
 
   @Post("transfer")
   @Permissions("restaurant_write")
-  async transferTable(@Body() dto: any, @Request() req) {
+  async transferTable(@Body() dto: TransferTableDto, @Request() req) {
     return this.tablesService.transferTable(dto, req.user.tenantId);
   }
 
   @Post("combine")
   @Permissions("restaurant_write")
-  async combineTables(@Body() dto: any, @Request() req) {
+  async combineTables(@Body() dto: CombineTablesDto, @Request() req) {
     return this.tablesService.combineTables(dto, req.user.tenantId);
   }
 
   @Patch(":id")
   @Permissions("restaurant_write")
-  async update(@Param("id") id: string, @Body() dto: any, @Request() req) {
+  async update(@Param("id") id: string, @Body() dto: UpdateTableDto, @Request() req) {
     return this.tablesService.update(id, dto, req.user.tenantId);
   }
 
