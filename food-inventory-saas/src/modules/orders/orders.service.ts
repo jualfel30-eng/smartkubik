@@ -679,6 +679,21 @@ export class OrdersService {
       .exec();
   }
 
+  /**
+   * Find order by order number (public method for tracking)
+   */
+  async findByOrderNumber(
+    orderNumber: string,
+    tenantId: string,
+  ): Promise<OrderDocument | null> {
+    return this.orderModel
+      .findOne({ orderNumber, tenantId })
+      .select(
+        "orderNumber status createdAt confirmedAt shippedAt deliveredAt cancelledAt totalAmount items.productName items.quantity items.unitPrice shipping customerName customerEmail customerPhone",
+      )
+      .exec();
+  }
+
   async update(
     id: string,
     updateOrderDto: UpdateOrderDto,

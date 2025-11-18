@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { StorefrontConfig } from '@/types';
 import { ShoppingCart, Menu, X } from 'lucide-react';
+import { useCart } from '@/contexts/CartContext';
 
 interface HeaderProps {
   config: StorefrontConfig;
@@ -12,8 +13,29 @@ interface HeaderProps {
   cartItemsCount?: number;
 }
 
-export function Header({ config, domain, cartItemsCount = 0 }: HeaderProps) {
+export function Header({ config, domain, cartItemsCount: initialCartCount = 0 }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [cartItemsCount, setCartItemsCount] = useState(initialCartCount);
+  const { toggleCart } = useCart();
+
+  useEffect(() => {
+    // Update cart count from localStorage
+    const updateCartCount = () => {
+      const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+      setCartItemsCount(cart.length);
+    };
+
+    updateCartCount();
+
+    // Listen for cart updates
+    window.addEventListener('cartUpdated', updateCartCount);
+    window.addEventListener('storage', updateCartCount);
+
+    return () => {
+      window.removeEventListener('cartUpdated', updateCartCount);
+      window.removeEventListener('storage', updateCartCount);
+    };
+  }, []);
 
   const navigation = [
     { name: 'Inicio', href: `/${domain}` },
@@ -58,8 +80,8 @@ export function Header({ config, domain, cartItemsCount = 0 }: HeaderProps) {
 
           {/* Cart & Mobile Menu Button */}
           <div className="flex items-center space-x-4">
-            <Link
-              href={`/${domain}/carrito`}
+            <button
+              onClick={toggleCart}
               className="relative p-2 text-gray-700 hover:text-gray-900 transition"
             >
               <ShoppingCart className="h-6 w-6" />
@@ -68,7 +90,7 @@ export function Header({ config, domain, cartItemsCount = 0 }: HeaderProps) {
                   {cartItemsCount}
                 </span>
               )}
-            </Link>
+            </button>
 
             {/* Mobile menu button */}
             <button

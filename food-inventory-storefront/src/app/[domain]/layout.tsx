@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getStorefrontConfig } from '@/lib/api';
 import ThemeProvider from '@/components/ThemeProvider';
+import { ClientLayout } from '@/components/ClientLayout';
 
 interface DomainLayoutProps {
   children: React.ReactNode;
@@ -51,9 +52,11 @@ export default async function DomainLayout({
   params,
 }: DomainLayoutProps) {
   let config;
+  let domain: string;
 
   try {
-    const { domain } = await params;
+    const resolvedParams = await params;
+    domain = resolvedParams.domain;
     config = await getStorefrontConfig(domain);
 
     // Verificar que la tienda esté activa
@@ -72,38 +75,40 @@ export default async function DomainLayout({
       --primary-rgb: ${hexToRgb(config.theme?.primaryColor || '#fb923c')};
       --secondary-rgb: ${hexToRgb(config.theme?.secondaryColor || '#f97316')};
     }
-    
+
     /* Estilos base con colores del theme */
     .btn-primary {
       background-color: var(--primary-color);
       color: white;
     }
-    
+
     .btn-primary:hover {
       opacity: 0.9;
     }
-    
+
     .text-primary {
       color: var(--primary-color);
     }
-    
+
     .bg-primary {
       background-color: var(--primary-color);
     }
-    
+
     .border-primary {
       border-color: var(--primary-color);
     }
-    
+
     ${config.customCSS || ''}
   `;
 
   return (
     <ThemeProvider theme={config.theme}>
       <style dangerouslySetInnerHTML={{ __html: themeStyles }} />
-      <div className="min-h-screen bg-white">
-        {children}
-      </div>
+      <ClientLayout domain={domain}>
+        <div className="min-h-screen bg-white">
+          {children}
+        </div>
+      </ClientLayout>
     </ThemeProvider>
   );
 }

@@ -9,6 +9,7 @@ import { Footer } from '@/templates/ModernEcommerce/components/Footer';
 import { ProductCard } from '@/templates/ModernEcommerce/components/ProductCard';
 import { formatPrice, getImageUrl } from '@/lib/utils';
 import { ShoppingCart, Minus, Plus, Package, Tag } from 'lucide-react';
+import { useCart } from '@/contexts/CartContext';
 
 interface ProductDetailClientProps {
   config: StorefrontConfig;
@@ -23,25 +24,32 @@ export function ProductDetailClient({
 }: ProductDetailClientProps) {
   const [quantity, setQuantity] = useState(1);
   const [addedToCart, setAddedToCart] = useState(false);
+  const { openCart } = useCart();
 
   const handleAddToCart = () => {
     // Get existing cart from localStorage
     const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-    
+
     // Check if product already in cart
     const existingIndex = cart.findIndex((item: any) => item.product._id === product._id);
-    
+
     if (existingIndex >= 0) {
       cart[existingIndex].quantity += quantity;
     } else {
       cart.push({ product, quantity });
     }
-    
+
     localStorage.setItem('cart', JSON.stringify(cart));
-    
-    // Show feedback
+
+    // Dispatch custom event for cart updates
+    window.dispatchEvent(new Event('cartUpdated'));
+
+    // Show feedback briefly, then open cart sidebar
     setAddedToCart(true);
-    setTimeout(() => setAddedToCart(false), 2000);
+    setTimeout(() => {
+      setAddedToCart(false);
+      openCart();
+    }, 500);
   };
 
   const incrementQuantity = () => setQuantity((prev) => prev + 1);

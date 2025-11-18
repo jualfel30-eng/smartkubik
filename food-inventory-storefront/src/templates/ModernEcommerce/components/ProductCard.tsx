@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Product } from '@/types';
 import { formatPrice, getImageUrl } from '@/lib/utils';
 import { ShoppingCart } from 'lucide-react';
+import { useCart } from '@/contexts/CartContext';
 
 interface ProductCardProps {
   product: Product;
@@ -13,12 +14,35 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, domain, onAddToCart }: ProductCardProps) {
+  const { openCart } = useCart();
+
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // If custom handler provided, use it (for backward compatibility)
     if (onAddToCart) {
       onAddToCart(product);
+      return;
     }
+
+    // Default behavior: add to localStorage cart and open sidebar
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    const existingIndex = cart.findIndex((item: any) => item.product._id === product._id);
+
+    if (existingIndex >= 0) {
+      cart[existingIndex].quantity += 1;
+    } else {
+      cart.push({ product, quantity: 1 });
+    }
+
+    localStorage.setItem('cart', JSON.stringify(cart));
+
+    // Dispatch custom event for cart updates
+    window.dispatchEvent(new Event('cartUpdated'));
+
+    // Open cart sidebar
+    openCart();
   };
 
   return (

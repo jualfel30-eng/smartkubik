@@ -31,6 +31,7 @@ import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
 import { Permissions } from "../../decorators/permissions.decorator";
+import { Public } from "../../decorators/public.decorator";
 import { Response } from "express";
 
 @ApiTags("orders")
@@ -136,6 +137,47 @@ export class OrdersController {
       throw new HttpException(
         error.message || "Error al calcular los totales",
         HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Public()
+  @Get("track/:orderNumber")
+  @ApiOperation({ summary: "Rastrear orden por número (público)" })
+  @ApiResponse({ status: 200, description: "Orden encontrada" })
+  async trackOrder(
+    @Param("orderNumber") orderNumber: string,
+    @Query("tenantId") tenantId: string,
+  ) {
+    try {
+      if (!tenantId) {
+        throw new HttpException(
+          "tenantId es requerido",
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const order = await this.ordersService.findByOrderNumber(
+        orderNumber,
+        tenantId,
+      );
+
+      if (!order) {
+        throw new HttpException("Orden no encontrada", HttpStatus.NOT_FOUND);
+      }
+
+      return {
+        success: true,
+        message: "Orden encontrada",
+        data: order,
+      };
+    } catch (error) {
+      if (error.status === HttpStatus.NOT_FOUND) {
+        throw error;
+      }
+      throw new HttpException(
+        error.message || "Error al rastrear la orden",
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }

@@ -470,3 +470,31 @@ export async function createOrder(orderData: OrderData): Promise<Order> {
     throw error;
   }
 }
+
+/**
+ * Rastrea una orden por su número (endpoint público)
+ */
+export async function trackOrder(orderNumber: string, tenantId: string): Promise<Order> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/v1/orders/track/${orderNumber}?tenantId=${tenantId}`,
+      {
+        cache: 'no-store', // No cachear el tracking de órdenes
+      }
+    );
+
+    if (!res.ok) {
+      if (res.status === 404) {
+        throw new Error('Orden no encontrada');
+      }
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error al rastrear orden: ${res.status}`);
+    }
+
+    const data = await res.json();
+    return data.data; // El backend devuelve { success: true, data: order }
+  } catch (error) {
+    console.error('Error tracking order:', error);
+    throw error;
+  }
+}
