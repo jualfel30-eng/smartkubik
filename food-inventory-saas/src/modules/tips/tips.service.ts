@@ -603,10 +603,17 @@ export class TipsService {
 
     orders.forEach((order) => {
       if (order.assignedWaiterId) {
-        const empId = order.assignedWaiterId._id.toString();
+        const empId =
+          (order.assignedWaiterId as any)?._id?.toString?.() ||
+          order.assignedWaiterId.toString();
+        const waiterAny = order.assignedWaiterId as any;
+        const waiterName =
+          waiterAny?.firstName || waiterAny?.lastName
+            ? `${waiterAny.firstName || ""} ${waiterAny.lastName || ""}`.trim()
+            : "Mesero";
         if (!employeeMap.has(empId)) {
           employeeMap.set(empId, {
-            name: `${order.assignedWaiterId.firstName} ${order.assignedWaiterId.lastName}`,
+            name: waiterName,
             totalTips: 0,
             orders: 0,
           });
@@ -627,7 +634,7 @@ export class TipsService {
     // Por día
     const dayMap = new Map<string, { tips: number; orders: number }>();
     orders.forEach((order) => {
-      const day = order.createdAt.toISOString().split("T")[0];
+      const day = (order.createdAt || new Date()).toISOString().split("T")[0];
       if (!dayMap.has(day)) {
         dayMap.set(day, { tips: 0, orders: 0 });
       }
@@ -662,5 +669,269 @@ export class TipsService {
       byDay,
       byMethod: { cash, card, digital },
     };
+  }
+
+  // ========== PAYROLL INTEGRATION ==========
+
+  /**
+   * Exportar propinas a nómina como earnings
+   */
+  async exportToPayroll(
+    dto: any, // ExportTipsToPayrollDto
+    tenantId: string,
+  ): Promise<any> {
+    const startDate = new Date(dto.periodStart);
+    const endDate = new Date(dto.periodEnd);
+
+    // 1. Obtener reports de propinas del período
+    const query: any = {
+      tenantId: new Types.ObjectId(tenantId),
+      "period.start": { $gte: startDate },
+      "period.end": { $lte: endDate },
+      status: "distributed", // Solo distribuidas
+      exportedToPayroll: false, // Solo no exportadas
+    };
+
+    if (dto.employeeIds && dto.employeeIds.length > 0) {
+      query.employeeId = {
+        $in: dto.employeeIds.map((id: string) => new Types.ObjectId(id)),
+      };
+    }
+
+    const tipsReports = await this.tipsReportModel.find(query).exec();
+
+    if (tipsReports.length === 0) {
+      throw new BadRequestException(
+        "No hay propinas distribuidas para exportar en este período",
+      );
+    }
+
+    // 2. Calcular impuestos si se solicita
+    const calculateTaxes = dto.calculateTaxes ?? false;
+    const taxRate = dto.taxRate || 0;
+    const taxJurisdiction = dto.taxJurisdiction || "federal";
+
+    const exportedReports: any[] = [];
+    const employeeTips = new Map<string, number>();
+
+    for (const report of tipsReports) {
+      const employeeId = report.employeeId.toString();
+      const currentTotal = employeeTips.get(employeeId) || 0;
+      employeeTips.set(employeeId, currentTotal + report.totalTips);
+    }
+
+    // 3. Para cada empleado, agregar earning al PayrollRun
+    // Nota: Aquí necesitaríamos acceso al PayrollRun model
+    // Por ahora solo actualizo los TipsReports y devuelvo la data
+
+    let totalTaxWithholding = 0;
+
+    for (const [employeeId, tipsAmount] of employeeTips.entries()) {
+      let taxWithholding = 0;
+      let netTips = tipsAmount;
+
+      if (calculateTaxes && taxRate > 0) {
+        taxWithholding = (tipsAmount * taxRate) / 100;
+        netTips = tipsAmount - taxWithholding;
+        totalTaxWithholding += taxWithholding;
+      }
+
+      // Actualizar los reports de este empleado
+      await this.tipsReportModel
+        .updateMany(
+          {
+            tenantId: new Types.ObjectId(tenantId),
+            employeeId: new Types.ObjectId(employeeId),
+            "period.start": { $gte: startDate },
+            "period.end": { $lte: endDate },
+            exportedToPayroll: false,
+          },
+          {
+            $set: {
+              exportedToPayroll: true,
+              exportedAt: new Date(),
+              payrollRunId: new Types.ObjectId(dto.payrollRunId),
+              taxableAmount: tipsAmount,
+              estimatedTaxWithholding: taxWithholding,
+              ...(calculateTaxes && {
+                taxBreakdown: {
+                  jurisdiction: taxJurisdiction,
+                  rate: taxRate,
+                  amount: taxWithholding,
+                },
+              }),
+            },
+          },
+        )
+        .exec();
+
+      // Obtener nombre del empleado
+      const employee = await this.userModel
+        .findById(employeeId)
+        .select("firstName lastName")
+        .lean()
+        .exec();
+
+      const employeeName = employee
+        ? `${employee.firstName} ${employee.lastName}`
+        : "Empleado";
+
+      exportedReports.push({
+        employeeId,
+        employeeName,
+        tipsAmount,
+        taxWithholding,
+        netTips,
+      });
+    }
+
+    this.logger.log(
+      `Exported ${tipsReports.length} tips reports to payroll run ${dto.payrollRunId}`,
+    );
+
+    return {
+      success: true,
+      payrollRunId: dto.payrollRunId,
+      employeesProcessed: employeeTips.size,
+      totalTipsExported: Array.from(employeeTips.values()).reduce(
+        (sum, v) => sum + v,
+        0,
+      ),
+      totalTaxWithholding,
+      exportedReports,
+    };
+  }
+
+  /**
+   * Calcular impuestos sobre propinas
+   */
+  async calculateTipsTaxes(
+    dto: any, // CalculateTipsTaxesDto
+    tenantId: string,
+  ): Promise<any> {
+    const startDate = new Date(dto.periodStart);
+    const endDate = new Date(dto.periodEnd);
+
+    // Tasas default (pueden venir del tenant config)
+    const federalTaxRate = dto.federalTaxRate || 15; // 15% federal default
+    const stateTaxRate = dto.stateTaxRate || 5; // 5% estatal default
+    const localTaxRate = dto.localTaxRate || 2; // 2% local default
+
+    // Obtener propinas del período
+    const query: any = {
+      tenantId: new Types.ObjectId(tenantId),
+      "period.start": { $gte: startDate },
+      "period.end": { $lte: endDate },
+      status: { $in: ["distributed", "paid"] },
+    };
+
+    if (dto.employeeId) {
+      query.employeeId = new Types.ObjectId(dto.employeeId);
+    }
+
+    const tipsReports = await this.tipsReportModel
+      .find(query)
+      .populate("employeeId", "firstName lastName")
+      .exec();
+
+    if (tipsReports.length === 0) {
+      throw new BadRequestException("No hay propinas en este período");
+    }
+
+    // Agrupar por empleado
+    const employeeMap = new Map<
+      string,
+      { name: string; totalTips: number; reports: any[] }
+    >();
+
+    for (const report of tipsReports) {
+      const empId = (report.employeeId as any)?._id?.toString() || "";
+      const empData = report.employeeId as any;
+      const empName = empData?.firstName
+        ? `${empData.firstName} ${empData.lastName || ""}`
+        : "Empleado";
+
+      if (!employeeMap.has(empId)) {
+        employeeMap.set(empId, { name: empName, totalTips: 0, reports: [] });
+      }
+
+      const emp = employeeMap.get(empId)!;
+      emp.totalTips += report.totalTips;
+      emp.reports.push(report);
+    }
+
+    // Calcular impuestos por empleado
+    const calculations: any[] = [];
+    let totalTips = 0;
+    let totalTaxWithholding = 0;
+
+    for (const [employeeId, data] of employeeMap.entries()) {
+      const taxableAmount = data.totalTips; // Todas las propinas son gravables
+
+      const federalTax = (taxableAmount * federalTaxRate) / 100;
+      const stateTax = (taxableAmount * stateTaxRate) / 100;
+      const localTax = (taxableAmount * localTaxRate) / 100;
+      const totalTax = federalTax + stateTax + localTax;
+      const netTips = taxableAmount - totalTax;
+
+      totalTips += taxableAmount;
+      totalTaxWithholding += totalTax;
+
+      calculations.push({
+        employeeId,
+        employeeName: data.name,
+        totalTips: parseFloat(data.totalTips.toFixed(2)),
+        taxableAmount: parseFloat(taxableAmount.toFixed(2)),
+        federalTax: parseFloat(federalTax.toFixed(2)),
+        stateTax: parseFloat(stateTax.toFixed(2)),
+        localTax: parseFloat(localTax.toFixed(2)),
+        totalTax: parseFloat(totalTax.toFixed(2)),
+        netTips: parseFloat(netTips.toFixed(2)),
+      });
+    }
+
+    return {
+      period: {
+        start: startDate,
+        end: endDate,
+      },
+      calculations,
+      summary: {
+        totalEmployees: calculations.length,
+        totalTips: parseFloat(totalTips.toFixed(2)),
+        totalTaxableAmount: parseFloat(totalTips.toFixed(2)),
+        totalTaxWithholding: parseFloat(totalTaxWithholding.toFixed(2)),
+        totalNetTips: parseFloat((totalTips - totalTaxWithholding).toFixed(2)),
+      },
+    };
+  }
+
+  /**
+   * Marcar propinas como pagadas
+   */
+  async markAsPaid(
+    reportIds: string[],
+    payrollRunId: string,
+    tenantId: string,
+  ): Promise<void> {
+    await this.tipsReportModel
+      .updateMany(
+        {
+          _id: { $in: reportIds.map((id) => new Types.ObjectId(id)) },
+          tenantId: new Types.ObjectId(tenantId),
+        },
+        {
+          $set: {
+            status: "paid",
+            paidAt: new Date(),
+            payrollRunId: new Types.ObjectId(payrollRunId),
+          },
+        },
+      )
+      .exec();
+
+    this.logger.log(
+      `Marked ${reportIds.length} tips reports as paid for payroll run ${payrollRunId}`,
+    );
   }
 }

@@ -75,6 +75,36 @@ export class TipsReport {
 
   @Prop({ type: Types.ObjectId, ref: "PayrollRun" })
   payrollRunId?: Types.ObjectId; // Si se pagó vía nómina
+
+  // Tax tracking
+  @Prop({ type: Boolean, default: false })
+  exportedToPayroll: boolean; // Si ya se exportó a nómina
+
+  @Prop({ type: Date })
+  exportedAt?: Date; // Fecha de exportación
+
+  @Prop({ type: Number, default: 0 })
+  taxableAmount: number; // Monto gravable para impuestos
+
+  @Prop({ type: Number, default: 0 })
+  estimatedTaxWithholding: number; // Retención estimada de impuestos
+
+  @Prop({
+    type: {
+      jurisdiction: String, // "federal", "state", "local"
+      rate: Number, // Tasa de impuesto aplicable (%)
+      amount: Number, // Monto de impuesto calculado
+    },
+    default: {},
+  })
+  taxBreakdown?: {
+    jurisdiction: string;
+    rate: number;
+    amount: number;
+  };
+
+  @Prop({ type: String })
+  notes?: string; // Notas adicionales sobre esta distribución
 }
 
 export const TipsReportSchema = SchemaFactory.createForClass(TipsReport);

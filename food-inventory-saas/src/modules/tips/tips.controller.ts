@@ -19,6 +19,8 @@ import {
   RegisterTipsDto,
   TipsReportQueryDto,
   ConsolidatedTipsQueryDto,
+  ExportTipsToPayrollDto,
+  CalculateTipsTaxesDto,
 } from "../../dto/tips.dto";
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
@@ -156,5 +158,27 @@ export class TipsController {
       endDate,
       req.user.tenantId,
     );
+  }
+
+  // ========== PAYROLL INTEGRATION ==========
+
+  /**
+   * POST /tips/export-to-payroll
+   * Exportar propinas a nómina
+   */
+  @Post("export-to-payroll")
+  @Permissions("payroll_write", "tips_write")
+  async exportToPayroll(@Body() dto: ExportTipsToPayrollDto, @Req() req) {
+    return this.tipsService.exportToPayroll(dto, req.user.tenantId);
+  }
+
+  /**
+   * POST /tips/calculate-taxes
+   * Calcular impuestos sobre propinas
+   */
+  @Post("calculate-taxes")
+  @Permissions("payroll_read", "tips_read")
+  async calculateTaxes(@Body() dto: CalculateTipsTaxesDto, @Req() req) {
+    return this.tipsService.calculateTipsTaxes(dto, req.user.tenantId);
   }
 }

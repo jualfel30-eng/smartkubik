@@ -130,3 +130,107 @@ export class ConsolidatedTipsQueryDto {
   @IsDateString()
   end?: string;
 }
+
+// Exportar propinas a nómina
+export class ExportTipsToPayrollDto {
+  @IsMongoId()
+  payrollRunId: string; // ID del PayrollRun al que se exportarán las propinas
+
+  @IsDateString()
+  periodStart: string; // Período de propinas a exportar
+
+  @IsDateString()
+  periodEnd: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsMongoId({ each: true })
+  employeeIds?: string[]; // Opcional: solo exportar propinas de ciertos empleados
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  taxRate?: number; // Tasa de impuesto sobre propinas (default: 0)
+
+  @IsOptional()
+  @IsEnum(["federal", "state", "local"])
+  taxJurisdiction?: string; // Jurisdicción fiscal
+
+  @IsOptional()
+  @IsBoolean()
+  calculateTaxes?: boolean; // Si se debe calcular retención de impuestos
+}
+
+// Calcular impuestos sobre propinas
+export class CalculateTipsTaxesDto {
+  @IsDateString()
+  periodStart: string;
+
+  @IsDateString()
+  periodEnd: string;
+
+  @IsOptional()
+  @IsMongoId()
+  employeeId?: string; // Opcional: calcular solo para un empleado
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  federalTaxRate?: number; // Tasa federal (default: valor del tenant)
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  stateTaxRate?: number; // Tasa estatal
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  localTaxRate?: number; // Tasa local
+}
+
+// Response de exportación
+export interface ExportTipsToPayrollResponse {
+  success: boolean;
+  payrollRunId: string;
+  employeesProcessed: number;
+  totalTipsExported: number;
+  totalTaxWithholding: number;
+  exportedReports: Array<{
+    employeeId: string;
+    employeeName: string;
+    tipsAmount: number;
+    taxWithholding: number;
+    netTips: number;
+  }>;
+}
+
+// Response de cálculo de impuestos
+export interface TipsTaxCalculationResponse {
+  period: {
+    start: Date;
+    end: Date;
+  };
+  calculations: Array<{
+    employeeId: string;
+    employeeName: string;
+    totalTips: number;
+    taxableAmount: number;
+    federalTax: number;
+    stateTax: number;
+    localTax: number;
+    totalTax: number;
+    netTips: number;
+  }>;
+  summary: {
+    totalEmployees: number;
+    totalTips: number;
+    totalTaxableAmount: number;
+    totalTaxWithholding: number;
+    totalNetTips: number;
+  };
+}
