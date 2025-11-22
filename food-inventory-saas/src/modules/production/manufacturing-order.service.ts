@@ -993,9 +993,7 @@ export class ManufacturingOrderService {
       0,
     );
     mo.totalActualCost =
-      (mo.actualMaterialCost || 0) +
-      mo.actualLaborCost +
-      mo.actualOverheadCost;
+      (mo.actualMaterialCost || 0) + mo.actualLaborCost + mo.actualOverheadCost;
 
     await mo.save();
 
@@ -1279,7 +1277,8 @@ export class ManufacturingOrderService {
     }
 
     return {
-      hasConflicts: materialConflicts.length > 0 || capacityConflicts.length > 0,
+      hasConflicts:
+        materialConflicts.length > 0 || capacityConflicts.length > 0,
       materialConflicts,
       capacityConflicts,
     };
@@ -2166,7 +2165,9 @@ export class ManufacturingOrderService {
           new Date(orderAny.actualStartDate).getTime();
         const plannedTime =
           new Date(orderAny.scheduledEndDate).getTime() -
-          new Date(orderAny.scheduledStartDate || orderAny.actualStartDate).getTime();
+          new Date(
+            orderAny.scheduledStartDate || orderAny.actualStartDate,
+          ).getTime();
         stats.totalTimeVariance +=
           ((actualTime - plannedTime) / plannedTime) * 100;
       }
@@ -2194,8 +2195,10 @@ export class ManufacturingOrderService {
       productVariancesArray.push({
         productId,
         productName: stats.productName,
-        averageTimeVariance: stats.count > 0 ? stats.totalTimeVariance / stats.count : 0,
-        averageCostVariance: stats.count > 0 ? stats.totalCostVariance / stats.count : 0,
+        averageTimeVariance:
+          stats.count > 0 ? stats.totalTimeVariance / stats.count : 0,
+        averageCostVariance:
+          stats.count > 0 ? stats.totalCostVariance / stats.count : 0,
         orderCount: stats.count,
       });
     }

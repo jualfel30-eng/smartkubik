@@ -1,19 +1,19 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getModelToken } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { ManufacturingOrderService } from './manufacturing-order.service';
-import { ManufacturingOrder } from '../../schemas/manufacturing-order.schema';
-import { Product } from '../../schemas/product.schema';
-import { WorkCenter } from '../../schemas/work-center.schema';
-import { ProductionVersion } from '../../schemas/production-version.schema';
-import { BillOfMaterials } from '../../schemas/bill-of-materials.schema';
-import { Routing } from '../../schemas/routing.schema';
-import { Inventory } from '../../schemas/inventory.schema';
-import { InventoryService } from '../inventory/inventory.service';
-import { AccountingService } from '../accounting/accounting.service';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { Test, TestingModule } from "@nestjs/testing";
+import { getModelToken } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { ManufacturingOrderService } from "./manufacturing-order.service";
+import { ManufacturingOrder } from "../../schemas/manufacturing-order.schema";
+import { Product } from "../../schemas/product.schema";
+import { WorkCenter } from "../../schemas/work-center.schema";
+import { ProductionVersion } from "../../schemas/production-version.schema";
+import { BillOfMaterials } from "../../schemas/bill-of-materials.schema";
+import { Routing } from "../../schemas/routing.schema";
+import { Inventory } from "../../schemas/inventory.schema";
+import { InventoryService } from "../inventory/inventory.service";
+import { AccountingService } from "../accounting/accounting.service";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 
-describe('ManufacturingOrderService', () => {
+describe("ManufacturingOrderService", () => {
   let service: ManufacturingOrderService;
   let manufacturingOrderModel: Model<ManufacturingOrder>;
   let productModel: Model<Product>;
@@ -26,25 +26,25 @@ describe('ManufacturingOrderService', () => {
   const mockUser = {
     userId: new Types.ObjectId().toString(),
     tenantId: new Types.ObjectId().toString(),
-    email: 'test@test.com',
+    email: "test@test.com",
   };
 
   const mockProduct = {
     _id: new Types.ObjectId(),
-    name: 'Hamburguesa',
-    sku: 'BURGER-001',
+    name: "Hamburguesa",
+    sku: "BURGER-001",
     tenantId: mockUser.tenantId,
   };
 
   const mockBOM = {
     _id: new Types.ObjectId(),
-    code: 'BOM-001',
+    code: "BOM-001",
     productId: mockProduct._id,
     components: [
       {
         productId: new Types.ObjectId(),
         quantity: 1,
-        unit: 'kg',
+        unit: "kg",
         scrapPercentage: 5,
       },
     ],
@@ -53,12 +53,12 @@ describe('ManufacturingOrderService', () => {
 
   const mockRouting = {
     _id: new Types.ObjectId(),
-    code: 'RTG-001',
+    code: "RTG-001",
     productId: mockProduct._id,
     operations: [
       {
         sequence: 10,
-        name: 'Preparación',
+        name: "Preparación",
         workCenterId: new Types.ObjectId(),
         setupTime: 10,
         cycleTime: 5,
@@ -70,13 +70,13 @@ describe('ManufacturingOrderService', () => {
 
   const mockMO = {
     _id: new Types.ObjectId(),
-    code: 'MO-001',
+    code: "MO-001",
     productId: mockProduct._id,
     bomId: mockBOM._id,
     routingId: mockRouting._id,
     quantity: 100,
-    unit: 'unidades',
-    status: 'draft',
+    unit: "unidades",
+    status: "draft",
     tenantId: mockUser.tenantId,
     operations: [],
     createdAt: new Date(),
@@ -141,7 +141,7 @@ describe('ManufacturingOrderService', () => {
           },
         },
         {
-          provide: 'DatabaseConnection',
+          provide: "DatabaseConnection",
           useValue: {
             startSession: jest.fn().mockResolvedValue({
               startTransaction: jest.fn(),
@@ -177,30 +177,40 @@ describe('ManufacturingOrderService', () => {
       getModelToken(BillOfMaterials.name),
     );
     routingModel = module.get<Model<Routing>>(getModelToken(Routing.name));
-    inventoryModel = module.get<Model<Inventory>>(getModelToken(Inventory.name));
+    inventoryModel = module.get<Model<Inventory>>(
+      getModelToken(Inventory.name),
+    );
     inventoryService = module.get<InventoryService>(InventoryService);
     accountingService = module.get<AccountingService>(AccountingService);
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 
-  describe('create', () => {
-    it('should create a manufacturing order successfully', async () => {
+  describe("create", () => {
+    it("should create a manufacturing order successfully", async () => {
       const createDto = {
         productId: mockProduct._id.toString(),
         quantityToProduce: 100,
-        unit: 'unidades',
+        unit: "unidades",
         productionVersionId: new Types.ObjectId().toString(),
         scheduledStartDate: new Date().toISOString(),
       };
 
-      jest.spyOn(productModel, 'findById').mockResolvedValue(mockProduct as any);
-      jest.spyOn(billOfMaterialsModel, 'findOne').mockResolvedValue(mockBOM as any);
-      jest.spyOn(routingModel, 'findOne').mockResolvedValue(mockRouting as any);
-      jest.spyOn(manufacturingOrderModel, 'countDocuments').mockResolvedValue(0);
-      jest.spyOn(manufacturingOrderModel, 'create').mockResolvedValue([mockMO] as any);
+      jest
+        .spyOn(productModel, "findById")
+        .mockResolvedValue(mockProduct as any);
+      jest
+        .spyOn(billOfMaterialsModel, "findOne")
+        .mockResolvedValue(mockBOM as any);
+      jest.spyOn(routingModel, "findOne").mockResolvedValue(mockRouting as any);
+      jest
+        .spyOn(manufacturingOrderModel, "countDocuments")
+        .mockResolvedValue(0);
+      jest
+        .spyOn(manufacturingOrderModel, "create")
+        .mockResolvedValue([mockMO] as any);
 
       const result = await service.create(createDto, mockUser);
 
@@ -208,16 +218,16 @@ describe('ManufacturingOrderService', () => {
       expect(productModel.findById).toHaveBeenCalledWith(createDto.productId);
     });
 
-    it('should throw NotFoundException if product does not exist', async () => {
+    it("should throw NotFoundException if product does not exist", async () => {
       const createDto = {
         productId: new Types.ObjectId().toString(),
         quantityToProduce: 100,
-        unit: 'unidades',
+        unit: "unidades",
         productionVersionId: new Types.ObjectId().toString(),
         scheduledStartDate: new Date().toISOString(),
       };
 
-      jest.spyOn(productModel, 'findById').mockResolvedValue(null);
+      jest.spyOn(productModel, "findById").mockResolvedValue(null);
 
       await expect(service.create(createDto, mockUser)).rejects.toThrow(
         NotFoundException,
@@ -225,32 +235,30 @@ describe('ManufacturingOrderService', () => {
     });
   });
 
-  describe('checkMaterialsAvailability', () => {
-    it('should check materials availability correctly', async () => {
+  describe("checkMaterialsAvailability", () => {
+    it("should check materials availability correctly", async () => {
       const bomId = mockBOM._id.toString();
       const quantity = 100;
-      const unit = 'unidades';
+      const unit = "unidades";
 
       const mockBOMWithComponents = {
         ...mockBOM,
         components: [
           {
-            productId: { _id: new Types.ObjectId(), name: 'Ingredient 1' },
+            productId: { _id: new Types.ObjectId(), name: "Ingredient 1" },
             quantity: 1,
-            unit: 'kg',
+            unit: "kg",
             scrapPercentage: 5,
           },
         ],
         populate: jest.fn().mockReturnThis(),
       };
 
-      jest
-        .spyOn(billOfMaterialsModel, 'findById')
-        .mockReturnValue({
-          populate: jest.fn().mockResolvedValue(mockBOMWithComponents),
-        } as any);
+      jest.spyOn(billOfMaterialsModel, "findById").mockReturnValue({
+        populate: jest.fn().mockResolvedValue(mockBOMWithComponents),
+      } as any);
 
-      jest.spyOn(inventoryModel, 'findOne').mockResolvedValue({
+      jest.spyOn(inventoryModel, "findOne").mockResolvedValue({
         quantity: 200,
       } as any);
 
@@ -267,8 +275,8 @@ describe('ManufacturingOrderService', () => {
     });
   });
 
-  describe('confirm', () => {
-    it('should confirm a manufacturing order', async () => {
+  describe("confirm", () => {
+    it("should confirm a manufacturing order", async () => {
       const orderId = mockMO._id.toString();
       const confirmDto = {
         reserveMaterials: true,
@@ -276,24 +284,22 @@ describe('ManufacturingOrderService', () => {
 
       const mockMOToConfirm = {
         ...mockMO,
-        status: 'draft',
+        status: "draft",
         bomId: { components: mockBOM.components },
         save: jest.fn().mockResolvedValue(mockMO),
         populate: jest.fn().mockReturnThis(),
       };
 
-      jest
-        .spyOn(manufacturingOrderModel, 'findById')
-        .mockReturnValue({
-          populate: jest.fn().mockResolvedValue(mockMOToConfirm),
-        } as any);
+      jest.spyOn(manufacturingOrderModel, "findById").mockReturnValue({
+        populate: jest.fn().mockResolvedValue(mockMOToConfirm),
+      } as any);
 
       const result = await service.confirm(orderId, confirmDto, mockUser);
 
       expect(result).toBeDefined();
     });
 
-    it('should throw BadRequestException if order is not in draft status', async () => {
+    it("should throw BadRequestException if order is not in draft status", async () => {
       const orderId = mockMO._id.toString();
       const confirmDto = {
         reserveMaterials: true,
@@ -301,14 +307,12 @@ describe('ManufacturingOrderService', () => {
 
       const mockMOConfirmed = {
         ...mockMO,
-        status: 'confirmed',
+        status: "confirmed",
       };
 
-      jest
-        .spyOn(manufacturingOrderModel, 'findById')
-        .mockReturnValue({
-          populate: jest.fn().mockResolvedValue(mockMOConfirmed),
-        } as any);
+      jest.spyOn(manufacturingOrderModel, "findById").mockReturnValue({
+        populate: jest.fn().mockResolvedValue(mockMOConfirmed),
+      } as any);
 
       await expect(
         service.confirm(orderId, confirmDto, mockUser),
@@ -316,8 +320,8 @@ describe('ManufacturingOrderService', () => {
     });
   });
 
-  describe('calculateScheduledDates', () => {
-    it('should calculate scheduled dates based on work center capacity', async () => {
+  describe("calculateScheduledDates", () => {
+    it("should calculate scheduled dates based on work center capacity", async () => {
       const orderId = mockMO._id.toString();
       const startDate = new Date();
 
@@ -326,26 +330,24 @@ describe('ManufacturingOrderService', () => {
         operations: [
           {
             _id: new Types.ObjectId(),
-            name: 'Preparación',
+            name: "Preparación",
             workCenterId: {
               _id: new Types.ObjectId(),
-              name: 'Centro de Trabajo 1',
+              name: "Centro de Trabajo 1",
               capacity: 2,
               hoursPerDay: 8,
               efficiency: 100,
             },
             estimatedDuration: 60,
-            status: 'pending',
+            status: "pending",
           },
         ],
         populate: jest.fn().mockReturnThis(),
       };
 
-      jest
-        .spyOn(manufacturingOrderModel, 'findById')
-        .mockReturnValue({
-          populate: jest.fn().mockResolvedValue(mockMOWithOperations),
-        } as any);
+      jest.spyOn(manufacturingOrderModel, "findById").mockReturnValue({
+        populate: jest.fn().mockResolvedValue(mockMOWithOperations),
+      } as any);
 
       const result = await service.calculateScheduledDates(
         orderId,
@@ -360,8 +362,8 @@ describe('ManufacturingOrderService', () => {
     });
   });
 
-  describe('detectResourceConflicts', () => {
-    it('should detect material and capacity conflicts', async () => {
+  describe("detectResourceConflicts", () => {
+    it("should detect material and capacity conflicts", async () => {
       const orderId = mockMO._id.toString();
 
       const mockMOWithMaterials = {
@@ -369,9 +371,9 @@ describe('ManufacturingOrderService', () => {
         bomId: {
           components: [
             {
-              productId: { _id: new Types.ObjectId(), name: 'Material 1' },
+              productId: { _id: new Types.ObjectId(), name: "Material 1" },
               quantity: 100,
-              unit: 'kg',
+              unit: "kg",
             },
           ],
         },
@@ -380,13 +382,11 @@ describe('ManufacturingOrderService', () => {
         populate: jest.fn().mockReturnThis(),
       };
 
-      jest
-        .spyOn(manufacturingOrderModel, 'findById')
-        .mockReturnValue({
-          populate: jest.fn().mockResolvedValue(mockMOWithMaterials),
-        } as any);
+      jest.spyOn(manufacturingOrderModel, "findById").mockReturnValue({
+        populate: jest.fn().mockResolvedValue(mockMOWithMaterials),
+      } as any);
 
-      jest.spyOn(inventoryModel, 'findOne').mockResolvedValue({
+      jest.spyOn(inventoryModel, "findOne").mockResolvedValue({
         quantity: 50, // Stock insuficiente
       } as any);
 
@@ -398,8 +398,8 @@ describe('ManufacturingOrderService', () => {
     });
   });
 
-  describe('generatePurchaseRequisitions', () => {
-    it('should generate purchase requisitions for missing materials', async () => {
+  describe("generatePurchaseRequisitions", () => {
+    it("should generate purchase requisitions for missing materials", async () => {
       const orderId = mockMO._id.toString();
 
       const mockMOWithMaterials = {
@@ -409,19 +409,19 @@ describe('ManufacturingOrderService', () => {
             {
               productId: {
                 _id: new Types.ObjectId(),
-                name: 'Material 1',
-                sku: 'MAT-001',
+                name: "Material 1",
+                sku: "MAT-001",
                 unitCost: 10,
                 suppliers: [
                   {
-                    supplierId: 'SUPP-001',
+                    supplierId: "SUPP-001",
                     leadTimeDays: 7,
                     moq: 50,
                   },
                 ],
               },
               quantity: 100,
-              unit: 'kg',
+              unit: "kg",
             },
           ],
         },
@@ -429,13 +429,11 @@ describe('ManufacturingOrderService', () => {
         populate: jest.fn().mockReturnThis(),
       };
 
-      jest
-        .spyOn(manufacturingOrderModel, 'findById')
-        .mockReturnValue({
-          populate: jest.fn().mockResolvedValue(mockMOWithMaterials),
-        } as any);
+      jest.spyOn(manufacturingOrderModel, "findById").mockReturnValue({
+        populate: jest.fn().mockResolvedValue(mockMOWithMaterials),
+      } as any);
 
-      jest.spyOn(inventoryModel, 'findOne').mockResolvedValue({
+      jest.spyOn(inventoryModel, "findOne").mockResolvedValue({
         quantity: 30, // Stock menor al requerido
       } as any);
 
@@ -451,28 +449,26 @@ describe('ManufacturingOrderService', () => {
     });
   });
 
-  describe('getProductionEfficiencyDashboard', () => {
-    it('should return production efficiency metrics', async () => {
-      const startDate = new Date('2025-01-01');
-      const endDate = new Date('2025-01-31');
+  describe("getProductionEfficiencyDashboard", () => {
+    it("should return production efficiency metrics", async () => {
+      const startDate = new Date("2025-01-01");
+      const endDate = new Date("2025-01-31");
 
       const mockOrders = [
         {
           _id: new Types.ObjectId(),
-          status: 'completed',
-          actualStartDate: new Date('2025-01-10'),
-          actualEndDate: new Date('2025-01-15'),
-          scheduledEndDate: new Date('2025-01-14'),
+          status: "completed",
+          actualStartDate: new Date("2025-01-10"),
+          actualEndDate: new Date("2025-01-15"),
+          scheduledEndDate: new Date("2025-01-14"),
           operations: [],
         },
       ];
 
-      jest
-        .spyOn(manufacturingOrderModel, 'find')
-        .mockReturnValue({
-          populate: jest.fn().mockReturnThis(),
-          lean: jest.fn().mockResolvedValue(mockOrders),
-        } as any);
+      jest.spyOn(manufacturingOrderModel, "find").mockReturnValue({
+        populate: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockResolvedValue(mockOrders),
+      } as any);
 
       const result = await service.getProductionEfficiencyDashboard(
         startDate,
@@ -487,27 +483,25 @@ describe('ManufacturingOrderService', () => {
     });
   });
 
-  describe('getProductionCostsDashboard', () => {
-    it('should return production costs analysis', async () => {
-      const startDate = new Date('2025-01-01');
-      const endDate = new Date('2025-01-31');
+  describe("getProductionCostsDashboard", () => {
+    it("should return production costs analysis", async () => {
+      const startDate = new Date("2025-01-01");
+      const endDate = new Date("2025-01-31");
 
       const mockOrders = [
         {
           _id: new Types.ObjectId(),
-          code: 'MO-001',
-          productId: { name: 'Product 1' },
+          code: "MO-001",
+          productId: { name: "Product 1" },
           estimatedCost: 1000,
           actualCost: 1100,
         },
       ];
 
-      jest
-        .spyOn(manufacturingOrderModel, 'find')
-        .mockReturnValue({
-          populate: jest.fn().mockReturnThis(),
-          lean: jest.fn().mockResolvedValue(mockOrders),
-        } as any);
+      jest.spyOn(manufacturingOrderModel, "find").mockReturnValue({
+        populate: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockResolvedValue(mockOrders),
+      } as any);
 
       const result = await service.getProductionCostsDashboard(
         startDate,

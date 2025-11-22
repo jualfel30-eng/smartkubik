@@ -1,13 +1,13 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getModelToken } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { RoutingService } from './routing.service';
-import { Routing } from '../../schemas/routing.schema';
-import { Product } from '../../schemas/product.schema';
-import { WorkCenter } from '../../schemas/work-center.schema';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { Test, TestingModule } from "@nestjs/testing";
+import { getModelToken } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { RoutingService } from "./routing.service";
+import { Routing } from "../../schemas/routing.schema";
+import { Product } from "../../schemas/product.schema";
+import { WorkCenter } from "../../schemas/work-center.schema";
+import { NotFoundException, BadRequestException } from "@nestjs/common";
 
-describe('RoutingService', () => {
+describe("RoutingService", () => {
   let service: RoutingService;
   let routingModel: Model<Routing>;
   let productModel: Model<Product>;
@@ -16,20 +16,20 @@ describe('RoutingService', () => {
   const mockUser = {
     userId: new Types.ObjectId().toString(),
     tenantId: new Types.ObjectId().toString(),
-    email: 'test@test.com',
+    email: "test@test.com",
   };
 
   const mockProduct = {
     _id: new Types.ObjectId(),
-    name: 'Hamburguesa',
-    sku: 'BURGER-001',
+    name: "Hamburguesa",
+    sku: "BURGER-001",
     tenantId: mockUser.tenantId,
   };
 
   const mockWorkCenter = {
     _id: new Types.ObjectId(),
-    name: 'Centro de Preparación',
-    code: 'WC-001',
+    name: "Centro de Preparación",
+    code: "WC-001",
     capacity: 2,
     hoursPerDay: 8,
     costPerHour: 15,
@@ -39,14 +39,14 @@ describe('RoutingService', () => {
 
   const mockRouting = {
     _id: new Types.ObjectId(),
-    code: 'RTG-001',
-    name: 'Ruta Hamburguesa',
+    code: "RTG-001",
+    name: "Ruta Hamburguesa",
     productId: mockProduct._id,
     operations: [
       {
         _id: new Types.ObjectId(),
         sequence: 10,
-        name: 'Preparación',
+        name: "Preparación",
         workCenterId: mockWorkCenter._id,
         setupTime: 10,
         cycleTime: 5,
@@ -57,7 +57,7 @@ describe('RoutingService', () => {
       {
         _id: new Types.ObjectId(),
         sequence: 20,
-        name: 'Cocción',
+        name: "Cocción",
         workCenterId: mockWorkCenter._id,
         setupTime: 5,
         cycleTime: 10,
@@ -112,18 +112,18 @@ describe('RoutingService', () => {
     );
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 
-  describe('create', () => {
-    it('should create a routing successfully', async () => {
+  describe("create", () => {
+    it("should create a routing successfully", async () => {
       const createDto = {
         productId: mockProduct._id.toString(),
         operations: [
           {
             sequence: 10,
-            name: 'Preparación',
+            name: "Preparación",
             workCenterId: mockWorkCenter._id.toString(),
             setupTime: 10,
             cycleTime: 5,
@@ -132,12 +132,16 @@ describe('RoutingService', () => {
         ],
       };
 
-      jest.spyOn(productModel, 'findById').mockResolvedValue(mockProduct as any);
       jest
-        .spyOn(workCenterModel, 'findById')
+        .spyOn(productModel, "findById")
+        .mockResolvedValue(mockProduct as any);
+      jest
+        .spyOn(workCenterModel, "findById")
         .mockResolvedValue(mockWorkCenter as any);
-      jest.spyOn(routingModel, 'countDocuments').mockResolvedValue(0);
-      jest.spyOn(routingModel, 'create').mockResolvedValue([mockRouting] as any);
+      jest.spyOn(routingModel, "countDocuments").mockResolvedValue(0);
+      jest
+        .spyOn(routingModel, "create")
+        .mockResolvedValue([mockRouting] as any);
 
       const result = await service.create(createDto, mockUser);
 
@@ -146,26 +150,26 @@ describe('RoutingService', () => {
       expect(workCenterModel.findById).toHaveBeenCalled();
     });
 
-    it('should throw NotFoundException if product does not exist', async () => {
+    it("should throw NotFoundException if product does not exist", async () => {
       const createDto = {
         productId: new Types.ObjectId().toString(),
         operations: [],
       };
 
-      jest.spyOn(productModel, 'findById').mockResolvedValue(null);
+      jest.spyOn(productModel, "findById").mockResolvedValue(null);
 
       await expect(service.create(createDto, mockUser)).rejects.toThrow(
         NotFoundException,
       );
     });
 
-    it('should validate operation sequences are unique', async () => {
+    it("should validate operation sequences are unique", async () => {
       const createDto = {
         productId: mockProduct._id.toString(),
         operations: [
           {
             sequence: 10,
-            name: 'Op 1',
+            name: "Op 1",
             workCenterId: mockWorkCenter._id.toString(),
             setupTime: 10,
             cycleTime: 5,
@@ -173,7 +177,7 @@ describe('RoutingService', () => {
           },
           {
             sequence: 10, // Duplicado
-            name: 'Op 2',
+            name: "Op 2",
             workCenterId: mockWorkCenter._id.toString(),
             setupTime: 10,
             cycleTime: 5,
@@ -182,7 +186,9 @@ describe('RoutingService', () => {
         ],
       };
 
-      jest.spyOn(productModel, 'findById').mockResolvedValue(mockProduct as any);
+      jest
+        .spyOn(productModel, "findById")
+        .mockResolvedValue(mockProduct as any);
 
       await expect(service.create(createDto, mockUser)).rejects.toThrow(
         BadRequestException,
@@ -190,8 +196,8 @@ describe('RoutingService', () => {
     });
   });
 
-  describe('calculateTotalOperationCost', () => {
-    it('should calculate total operation cost correctly', async () => {
+  describe("calculateTotalOperationCost", () => {
+    it("should calculate total operation cost correctly", async () => {
       const routingId = mockRouting._id.toString();
       const quantity = 100;
 
@@ -209,11 +215,9 @@ describe('RoutingService', () => {
         ],
       };
 
-      jest
-        .spyOn(routingModel, 'findById')
-        .mockReturnValue({
-          populate: jest.fn().mockResolvedValue(mockRoutingWithWorkCenters),
-        } as any);
+      jest.spyOn(routingModel, "findById").mockReturnValue({
+        populate: jest.fn().mockResolvedValue(mockRoutingWithWorkCenters),
+      } as any);
 
       const result = await service.calculateTotalOperationCost(
         routingId,
@@ -229,16 +233,14 @@ describe('RoutingService', () => {
     });
   });
 
-  describe('calculateTotalProductionTime', () => {
-    it('should calculate total production time correctly', async () => {
+  describe("calculateTotalProductionTime", () => {
+    it("should calculate total production time correctly", async () => {
       const routingId = mockRouting._id.toString();
       const quantity = 100;
 
-      jest
-        .spyOn(routingModel, 'findById')
-        .mockReturnValue({
-          populate: jest.fn().mockResolvedValue(mockRouting),
-        } as any);
+      jest.spyOn(routingModel, "findById").mockReturnValue({
+        populate: jest.fn().mockResolvedValue(mockRouting),
+      } as any);
 
       const result = await service.calculateTotalProductionTime(
         routingId,
@@ -253,13 +255,13 @@ describe('RoutingService', () => {
     });
   });
 
-  describe('validateWorkCenterAvailability', () => {
-    it('should validate work center is active and available', async () => {
+  describe("validateWorkCenterAvailability", () => {
+    it("should validate work center is active and available", async () => {
       const workCenterId = mockWorkCenter._id.toString();
 
       jest
-        .spyOn(workCenterModel, 'findById')
-        .mockResolvedValue({ ...mockWorkCenter, status: 'active' } as any);
+        .spyOn(workCenterModel, "findById")
+        .mockResolvedValue({ ...mockWorkCenter, status: "active" } as any);
 
       const result = await service.validateWorkCenterAvailability(
         workCenterId,
@@ -269,12 +271,12 @@ describe('RoutingService', () => {
       expect(result).toBe(true);
     });
 
-    it('should return false if work center is inactive', async () => {
+    it("should return false if work center is inactive", async () => {
       const workCenterId = mockWorkCenter._id.toString();
 
       jest
-        .spyOn(workCenterModel, 'findById')
-        .mockResolvedValue({ ...mockWorkCenter, status: 'inactive' } as any);
+        .spyOn(workCenterModel, "findById")
+        .mockResolvedValue({ ...mockWorkCenter, status: "inactive" } as any);
 
       const result = await service.validateWorkCenterAvailability(
         workCenterId,
@@ -285,8 +287,8 @@ describe('RoutingService', () => {
     });
   });
 
-  describe('getRoutingEfficiency', () => {
-    it('should calculate routing efficiency metrics', async () => {
+  describe("getRoutingEfficiency", () => {
+    it("should calculate routing efficiency metrics", async () => {
       const routingId = mockRouting._id.toString();
 
       const mockRoutingWithMetrics = {
@@ -300,11 +302,9 @@ describe('RoutingService', () => {
         })),
       };
 
-      jest
-        .spyOn(routingModel, 'findById')
-        .mockReturnValue({
-          populate: jest.fn().mockResolvedValue(mockRoutingWithMetrics),
-        } as any);
+      jest.spyOn(routingModel, "findById").mockReturnValue({
+        populate: jest.fn().mockResolvedValue(mockRoutingWithMetrics),
+      } as any);
 
       const result = await service.getRoutingEfficiency(routingId, mockUser);
 

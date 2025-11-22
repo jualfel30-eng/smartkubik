@@ -6,11 +6,9 @@ import {
   IsEnum,
   IsDateString,
   Min,
-  IsArray,
-  ValidateNested,
   IsBoolean,
 } from "class-validator";
-import { Type, Transform } from "class-transformer";
+import { Transform } from "class-transformer";
 
 /**
  * DTO para crear una Manufacturing Order

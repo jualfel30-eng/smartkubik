@@ -1,13 +1,13 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getModelToken } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { BillOfMaterialsService } from './bill-of-materials.service';
-import { BillOfMaterials } from '../../schemas/bill-of-materials.schema';
-import { Product } from '../../schemas/product.schema';
-import { Inventory } from '../../schemas/inventory.schema';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { Test, TestingModule } from "@nestjs/testing";
+import { getModelToken } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { BillOfMaterialsService } from "./bill-of-materials.service";
+import { BillOfMaterials } from "../../schemas/bill-of-materials.schema";
+import { Product } from "../../schemas/product.schema";
+import { Inventory } from "../../schemas/inventory.schema";
+import { NotFoundException, BadRequestException } from "@nestjs/common";
 
-describe('BillOfMaterialsService', () => {
+describe("BillOfMaterialsService", () => {
   let service: BillOfMaterialsService;
   let bomModel: Model<BillOfMaterials>;
   let productModel: Model<Product>;
@@ -16,33 +16,33 @@ describe('BillOfMaterialsService', () => {
   const mockUser = {
     userId: new Types.ObjectId().toString(),
     tenantId: new Types.ObjectId().toString(),
-    email: 'test@test.com',
+    email: "test@test.com",
   };
 
   const mockProduct = {
     _id: new Types.ObjectId(),
-    name: 'Hamburguesa',
-    sku: 'BURGER-001',
+    name: "Hamburguesa",
+    sku: "BURGER-001",
     tenantId: mockUser.tenantId,
   };
 
   const mockComponent = {
     _id: new Types.ObjectId(),
-    name: 'Pan',
-    sku: 'BREAD-001',
+    name: "Pan",
+    sku: "BREAD-001",
     unitCost: 5,
     tenantId: mockUser.tenantId,
   };
 
   const mockBOM = {
     _id: new Types.ObjectId(),
-    code: 'BOM-001',
+    code: "BOM-001",
     productId: mockProduct._id,
     components: [
       {
         productId: mockComponent._id,
         quantity: 2,
-        unit: 'unidades',
+        unit: "unidades",
         scrapPercentage: 5,
       },
     ],
@@ -89,30 +89,34 @@ describe('BillOfMaterialsService', () => {
       getModelToken(BillOfMaterials.name),
     );
     productModel = module.get<Model<Product>>(getModelToken(Product.name));
-    inventoryModel = module.get<Model<Inventory>>(getModelToken(Inventory.name));
+    inventoryModel = module.get<Model<Inventory>>(
+      getModelToken(Inventory.name),
+    );
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 
-  describe('create', () => {
-    it('should create a BOM successfully', async () => {
+  describe("create", () => {
+    it("should create a BOM successfully", async () => {
       const createDto = {
         productId: mockProduct._id.toString(),
         components: [
           {
             productId: mockComponent._id.toString(),
             quantity: 2,
-            unit: 'unidades',
+            unit: "unidades",
             scrapPercentage: 5,
           },
         ],
       };
 
-      jest.spyOn(productModel, 'findById').mockResolvedValue(mockProduct as any);
-      jest.spyOn(bomModel, 'countDocuments').mockResolvedValue(0);
-      jest.spyOn(bomModel, 'create').mockResolvedValue([mockBOM] as any);
+      jest
+        .spyOn(productModel, "findById")
+        .mockResolvedValue(mockProduct as any);
+      jest.spyOn(bomModel, "countDocuments").mockResolvedValue(0);
+      jest.spyOn(bomModel, "create").mockResolvedValue([mockBOM] as any);
 
       const result = await service.create(createDto, mockUser);
 
@@ -120,32 +124,34 @@ describe('BillOfMaterialsService', () => {
       expect(productModel.findById).toHaveBeenCalledWith(createDto.productId);
     });
 
-    it('should throw NotFoundException if product does not exist', async () => {
+    it("should throw NotFoundException if product does not exist", async () => {
       const createDto = {
         productId: new Types.ObjectId().toString(),
         components: [],
       };
 
-      jest.spyOn(productModel, 'findById').mockResolvedValue(null);
+      jest.spyOn(productModel, "findById").mockResolvedValue(null);
 
       await expect(service.create(createDto, mockUser)).rejects.toThrow(
         NotFoundException,
       );
     });
 
-    it('should prevent circular dependencies', async () => {
+    it("should prevent circular dependencies", async () => {
       const createDto = {
         productId: mockProduct._id.toString(),
         components: [
           {
             productId: mockProduct._id.toString(), // Mismo producto
             quantity: 1,
-            unit: 'unidades',
+            unit: "unidades",
           },
         ],
       };
 
-      jest.spyOn(productModel, 'findById').mockResolvedValue(mockProduct as any);
+      jest
+        .spyOn(productModel, "findById")
+        .mockResolvedValue(mockProduct as any);
 
       await expect(service.create(createDto, mockUser)).rejects.toThrow(
         BadRequestException,
@@ -153,8 +159,8 @@ describe('BillOfMaterialsService', () => {
     });
   });
 
-  describe('calculateTotalMaterialCost', () => {
-    it('should calculate total material cost correctly', async () => {
+  describe("calculateTotalMaterialCost", () => {
+    it("should calculate total material cost correctly", async () => {
       const bomId = mockBOM._id.toString();
 
       const mockBOMWithCosts = {
@@ -163,17 +169,15 @@ describe('BillOfMaterialsService', () => {
           {
             productId: { ...mockComponent, unitCost: 5 },
             quantity: 2,
-            unit: 'unidades',
+            unit: "unidades",
             scrapPercentage: 10,
           },
         ],
       };
 
-      jest
-        .spyOn(bomModel, 'findById')
-        .mockReturnValue({
-          populate: jest.fn().mockResolvedValue(mockBOMWithCosts),
-        } as any);
+      jest.spyOn(bomModel, "findById").mockReturnValue({
+        populate: jest.fn().mockResolvedValue(mockBOMWithCosts),
+      } as any);
 
       const result = await service.calculateTotalMaterialCost(bomId, mockUser);
 
@@ -182,14 +186,12 @@ describe('BillOfMaterialsService', () => {
       expect(result).toBe(11);
     });
 
-    it('should throw NotFoundException if BOM does not exist', async () => {
+    it("should throw NotFoundException if BOM does not exist", async () => {
       const bomId = new Types.ObjectId().toString();
 
-      jest
-        .spyOn(bomModel, 'findById')
-        .mockReturnValue({
-          populate: jest.fn().mockResolvedValue(null),
-        } as any);
+      jest.spyOn(bomModel, "findById").mockReturnValue({
+        populate: jest.fn().mockResolvedValue(null),
+      } as any);
 
       await expect(
         service.calculateTotalMaterialCost(bomId, mockUser),
@@ -197,8 +199,8 @@ describe('BillOfMaterialsService', () => {
     });
   });
 
-  describe('checkComponentsAvailability', () => {
-    it('should check components availability correctly', async () => {
+  describe("checkComponentsAvailability", () => {
+    it("should check components availability correctly", async () => {
       const bomId = mockBOM._id.toString();
       const quantity = 10;
 
@@ -208,19 +210,17 @@ describe('BillOfMaterialsService', () => {
           {
             productId: mockComponent,
             quantity: 2,
-            unit: 'unidades',
+            unit: "unidades",
             scrapPercentage: 5,
           },
         ],
       };
 
-      jest
-        .spyOn(bomModel, 'findById')
-        .mockReturnValue({
-          populate: jest.fn().mockResolvedValue(mockBOMWithComponents),
-        } as any);
+      jest.spyOn(bomModel, "findById").mockReturnValue({
+        populate: jest.fn().mockResolvedValue(mockBOMWithComponents),
+      } as any);
 
-      jest.spyOn(inventoryModel, 'findOne').mockResolvedValue({
+      jest.spyOn(inventoryModel, "findOne").mockResolvedValue({
         quantity: 100,
       } as any);
 
@@ -236,7 +236,7 @@ describe('BillOfMaterialsService', () => {
       expect(result.components[0].available).toBeGreaterThan(0);
     });
 
-    it('should detect insufficient stock', async () => {
+    it("should detect insufficient stock", async () => {
       const bomId = mockBOM._id.toString();
       const quantity = 100;
 
@@ -246,19 +246,17 @@ describe('BillOfMaterialsService', () => {
           {
             productId: mockComponent,
             quantity: 2,
-            unit: 'unidades',
+            unit: "unidades",
             scrapPercentage: 5,
           },
         ],
       };
 
-      jest
-        .spyOn(bomModel, 'findById')
-        .mockReturnValue({
-          populate: jest.fn().mockResolvedValue(mockBOMWithComponents),
-        } as any);
+      jest.spyOn(bomModel, "findById").mockReturnValue({
+        populate: jest.fn().mockResolvedValue(mockBOMWithComponents),
+      } as any);
 
-      jest.spyOn(inventoryModel, 'findOne').mockResolvedValue({
+      jest.spyOn(inventoryModel, "findOne").mockResolvedValue({
         quantity: 10, // Stock insuficiente
       } as any);
 
@@ -274,8 +272,8 @@ describe('BillOfMaterialsService', () => {
     });
   });
 
-  describe('explodeBOM', () => {
-    it('should explode BOM recursively for multi-level BOMs', async () => {
+  describe("explodeBOM", () => {
+    it("should explode BOM recursively for multi-level BOMs", async () => {
       const bomId = mockBOM._id.toString();
       const quantity = 10;
 
@@ -283,14 +281,14 @@ describe('BillOfMaterialsService', () => {
       // Hamburguesa -> Pan (sub-ensamble) -> Harina
       const mockSubassembly = {
         _id: new Types.ObjectId(),
-        name: 'Pan',
-        sku: 'BREAD-001',
+        name: "Pan",
+        sku: "BREAD-001",
       };
 
       const mockRawMaterial = {
         _id: new Types.ObjectId(),
-        name: 'Harina',
-        sku: 'FLOUR-001',
+        name: "Harina",
+        sku: "FLOUR-001",
       };
 
       const mockSubBOM = {
@@ -300,7 +298,7 @@ describe('BillOfMaterialsService', () => {
           {
             productId: mockRawMaterial,
             quantity: 0.5,
-            unit: 'kg',
+            unit: "kg",
             scrapPercentage: 0,
           },
         ],
@@ -312,28 +310,24 @@ describe('BillOfMaterialsService', () => {
           {
             productId: mockSubassembly,
             quantity: 2,
-            unit: 'unidades',
+            unit: "unidades",
             scrapPercentage: 5,
           },
         ],
       };
 
-      jest
-        .spyOn(bomModel, 'findById')
-        .mockImplementation((id) => {
-          if (id.toString() === bomId) {
-            return {
-              populate: jest.fn().mockResolvedValue(mockMainBOM),
-            } as any;
-          }
+      jest.spyOn(bomModel, "findById").mockImplementation((id) => {
+        if (id.toString() === bomId) {
           return {
-            populate: jest.fn().mockResolvedValue(mockSubBOM),
+            populate: jest.fn().mockResolvedValue(mockMainBOM),
           } as any;
-        });
+        }
+        return {
+          populate: jest.fn().mockResolvedValue(mockSubBOM),
+        } as any;
+      });
 
-      jest
-        .spyOn(bomModel, 'findOne')
-        .mockResolvedValue(mockSubBOM as any);
+      jest.spyOn(bomModel, "findOne").mockResolvedValue(mockSubBOM as any);
 
       const result = await service.explodeBOM(bomId, quantity, mockUser);
 
@@ -343,19 +337,19 @@ describe('BillOfMaterialsService', () => {
       expect(result.totalLevels).toBeGreaterThan(0);
     });
 
-    it('should detect circular dependencies in multi-level BOMs', async () => {
+    it("should detect circular dependencies in multi-level BOMs", async () => {
       const bomId = mockBOM._id.toString();
       const quantity = 10;
 
       // Crear dependencia circular: A -> B -> A
       const productA = {
         _id: new Types.ObjectId(),
-        name: 'Product A',
+        name: "Product A",
       };
 
       const productB = {
         _id: new Types.ObjectId(),
-        name: 'Product B',
+        name: "Product B",
       };
 
       const bomA = {
@@ -365,7 +359,7 @@ describe('BillOfMaterialsService', () => {
           {
             productId: productB,
             quantity: 1,
-            unit: 'unidades',
+            unit: "unidades",
           },
         ],
       };
@@ -377,36 +371,32 @@ describe('BillOfMaterialsService', () => {
           {
             productId: productA, // Circular!
             quantity: 1,
-            unit: 'unidades',
+            unit: "unidades",
           },
         ],
       };
 
-      jest
-        .spyOn(bomModel, 'findById')
-        .mockImplementation((id) => {
-          if (id.toString() === bomId) {
-            return {
-              populate: jest.fn().mockResolvedValue(bomA),
-            } as any;
-          }
+      jest.spyOn(bomModel, "findById").mockImplementation((id) => {
+        if (id.toString() === bomId) {
           return {
-            populate: jest.fn().mockResolvedValue(bomB),
+            populate: jest.fn().mockResolvedValue(bomA),
           } as any;
-        });
+        }
+        return {
+          populate: jest.fn().mockResolvedValue(bomB),
+        } as any;
+      });
 
-      jest
-        .spyOn(bomModel, 'findOne')
-        .mockResolvedValue(bomB as any);
+      jest.spyOn(bomModel, "findOne").mockResolvedValue(bomB as any);
 
-      await expect(service.explodeBOM(bomId, quantity, mockUser)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.explodeBOM(bomId, quantity, mockUser),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
-  describe('getBOMStructure', () => {
-    it('should return hierarchical BOM structure', async () => {
+  describe("getBOMStructure", () => {
+    it("should return hierarchical BOM structure", async () => {
       const bomId = mockBOM._id.toString();
 
       const mockBOMWithStructure = {
@@ -416,19 +406,17 @@ describe('BillOfMaterialsService', () => {
           {
             productId: mockComponent,
             quantity: 2,
-            unit: 'unidades',
+            unit: "unidades",
             scrapPercentage: 5,
           },
         ],
       };
 
-      jest
-        .spyOn(bomModel, 'findById')
-        .mockReturnValue({
-          populate: jest.fn().mockResolvedValue(mockBOMWithStructure),
-        } as any);
+      jest.spyOn(bomModel, "findById").mockReturnValue({
+        populate: jest.fn().mockResolvedValue(mockBOMWithStructure),
+      } as any);
 
-      jest.spyOn(bomModel, 'findOne').mockResolvedValue(null);
+      jest.spyOn(bomModel, "findOne").mockResolvedValue(null);
 
       const result = await service.getBOMStructure(bomId, mockUser);
 
@@ -439,27 +427,25 @@ describe('BillOfMaterialsService', () => {
     });
   });
 
-  describe('unit conversions', () => {
-    it('should handle unit conversions correctly in cost calculations', async () => {
+  describe("unit conversions", () => {
+    it("should handle unit conversions correctly in cost calculations", async () => {
       const bomId = mockBOM._id.toString();
 
       const mockBOMWithDifferentUnits = {
         ...mockBOM,
         components: [
           {
-            productId: { ...mockComponent, unitCost: 10, unit: 'kg' },
+            productId: { ...mockComponent, unitCost: 10, unit: "kg" },
             quantity: 1000, // gramos
-            unit: 'g',
+            unit: "g",
             scrapPercentage: 0,
           },
         ],
       };
 
-      jest
-        .spyOn(bomModel, 'findById')
-        .mockReturnValue({
-          populate: jest.fn().mockResolvedValue(mockBOMWithDifferentUnits),
-        } as any);
+      jest.spyOn(bomModel, "findById").mockReturnValue({
+        populate: jest.fn().mockResolvedValue(mockBOMWithDifferentUnits),
+      } as any);
 
       const result = await service.calculateTotalMaterialCost(bomId, mockUser);
 
