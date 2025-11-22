@@ -234,11 +234,7 @@ export class MenuEngineeringService {
       const isProfitable =
         item.contributionMarginPercent >= avgContributionMarginPercent;
 
-      let category:
-        | "star"
-        | "plowhorse"
-        | "puzzle"
-        | "dog" = "dog";
+      let category: "star" | "plowhorse" | "puzzle" | "dog" = "dog";
       let recommendation = "";
 
       if (isPopular && isProfitable) {
@@ -258,8 +254,7 @@ export class MenuEngineeringService {
         puzzles.push(this.mapToAnalysis(item, category, recommendation));
       } else {
         category = "dog";
-        recommendation =
-          "Evalúa eliminar del menú o reformular completamente";
+        recommendation = "Evalúa eliminar del menú o reformular completamente";
         dogs.push(this.mapToAnalysis(item, category, recommendation));
       }
     }
@@ -587,7 +582,9 @@ export class MenuEngineeringService {
       suggestions.push(bundleSuggestion);
     }
 
-    const highPriority = suggestions.filter((s) => s.priority === "high").length;
+    const highPriority = suggestions.filter(
+      (s) => s.priority === "high",
+    ).length;
 
     return {
       suggestions,
@@ -668,9 +665,7 @@ export class MenuEngineeringService {
       const firstWeekAvg =
         dailySales.slice(0, 7).reduce((sum, d) => sum + d.quantity, 0) / 7;
       const lastWeekAvg =
-        dailySales
-          .slice(-7)
-          .reduce((sum, d) => sum + (d.quantity || 0), 0) / 7;
+        dailySales.slice(-7).reduce((sum, d) => sum + (d.quantity || 0), 0) / 7;
 
       if (lastWeekAvg > firstWeekAvg * 1.1) trend = "increasing";
       else if (lastWeekAvg < firstWeekAvg * 0.9) trend = "decreasing";
@@ -802,7 +797,7 @@ Responde en formato JSON:
   ): Promise<PriceOptimizationSuggestion | null> {
     // Lógica de optimización
     let suggestedPrice = item.avgPrice;
-    let reasoning: string[] = [];
+    const reasoning: string[] = [];
     let riskLevel: "low" | "medium" | "high" = "low";
 
     if (item.category === "plowhorse") {
@@ -830,9 +825,7 @@ Responde en formato JSON:
       reasoning.push(
         `Producto muy popular pero poco rentable - mejorar margen`,
       );
-      reasoning.push(
-        `Elasticidad de demanda baja debido a alta popularidad`,
-      );
+      reasoning.push(`Elasticidad de demanda baja debido a alta popularidad`);
     } else if (item.category === "puzzle") {
       // Puzzles: reducir precio levemente para aumentar demanda
       suggestedPrice = item.avgPrice * 0.9;
@@ -852,7 +845,8 @@ Responde en formato JSON:
       ((suggestedPrice - item.cost / item.quantitySold) / suggestedPrice) * 100;
 
     // Estimaciones de impacto
-    const priceChange = ((suggestedPrice - item.avgPrice) / item.avgPrice) * 100;
+    const priceChange =
+      ((suggestedPrice - item.avgPrice) / item.avgPrice) * 100;
     let volumeChange = 0;
 
     if (priceChange > 0) {
@@ -866,9 +860,11 @@ Responde en formato JSON:
     const newVolume = item.quantitySold * (1 + volumeChange / 100);
     const newRevenue = newVolume * suggestedPrice;
     const currentRevenue = item.revenue;
-    const revenueChange = ((newRevenue - currentRevenue) / currentRevenue) * 100;
+    const revenueChange =
+      ((newRevenue - currentRevenue) / currentRevenue) * 100;
 
-    const newProfit = newVolume * (suggestedPrice - item.cost / item.quantitySold);
+    const newProfit =
+      newVolume * (suggestedPrice - item.cost / item.quantitySold);
     const currentProfit = item.contributionMargin;
     const profitChange = newProfit - currentProfit;
 
@@ -960,7 +956,10 @@ Responde en formato JSON:
         "Considerar reformulación con ingredientes más económicos",
         "Analizar feedback de clientes antes de decisión final",
       ],
-      estimatedROI: dogs.reduce((sum, d) => sum + Math.abs(d.contributionMargin), 0),
+      estimatedROI: dogs.reduce(
+        (sum, d) => sum + Math.abs(d.contributionMargin),
+        0,
+      ),
     };
   }
 
@@ -1005,8 +1004,7 @@ Responde en formato JSON:
         "Sustituir ingredientes costosos por alternativas similares",
         "Crear versión premium con mayor margen",
       ],
-      estimatedROI:
-        plowhorses.reduce((sum, p) => sum + p.revenue, 0) * 0.08,
+      estimatedROI: plowhorses.reduce((sum, p) => sum + p.revenue, 0) * 0.08,
     };
   }
 
@@ -1028,7 +1026,8 @@ Responde en formato JSON:
         "Usar como ancla para upselling de acompañamientos",
         "Destacar en marketing y redes sociales",
       ],
-      estimatedROI: stars.reduce((sum, s) => sum + s.contributionMargin, 0) * 0.15,
+      estimatedROI:
+        stars.reduce((sum, s) => sum + s.contributionMargin, 0) * 0.15,
     };
   }
 

@@ -19,7 +19,6 @@ import {
   UpdateInventoryLotsDto,
 } from "../../dto/inventory.dto";
 import { EventsService } from "../events/events.service";
-import { CreateEventDto } from "../../dto/event.dto";
 import { BulkAdjustInventoryDto } from "./dto/bulk-adjust-inventory.dto";
 
 @Injectable()
@@ -1018,18 +1017,12 @@ export class InventoryService {
       if (looksLikeSku) {
         // For SKU searches, use optimized regex on indexed fields only
         const regex = new RegExp(`^${this.escapeRegExp(searchTerm)}`, "i");
-        filter.$or = [
-          { productSku: regex },
-          { variantSku: regex },
-        ];
+        filter.$or = [{ productSku: regex }, { variantSku: regex }];
       } else {
         // For text searches, use case-insensitive regex on indexed productName
         // This avoids the expensive extra query to products collection
         const regex = new RegExp(this.escapeRegExp(searchTerm), "i");
-        filter.$or = [
-          { productName: regex },
-          { productSku: regex },
-        ];
+        filter.$or = [{ productName: regex }, { productSku: regex }];
       }
     }
     const sortField = sortBy || "lastUpdated";

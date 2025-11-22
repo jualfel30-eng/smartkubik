@@ -15,7 +15,6 @@ import {
   CreateOrganizationDto,
   UpdateOrganizationDto,
   AddMemberDto,
-  RemoveMemberDto,
 } from "../../dto/organization.dto";
 
 @Controller("organizations")

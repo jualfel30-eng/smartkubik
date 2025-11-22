@@ -5,6 +5,7 @@ import * as express from "express";
 import { WINSTON_MODULE_NEST_PROVIDER } from "nest-winston";
 import { ConfigService } from "@nestjs/config";
 import { IoAdapter } from "@nestjs/platform-socket.io";
+import { join } from "path";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -32,6 +33,9 @@ async function bootstrap() {
       },
     }),
   );
+
+  // Serve static files for uploads
+  app.use("/uploads", express.static(join(__dirname, "..", "uploads")));
 
   await configureApp(app, {
     includeSwagger: true,

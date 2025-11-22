@@ -17,7 +17,6 @@ import { FileInterceptor } from "@nestjs/platform-express";
 import { StorefrontConfigService } from "./storefront-config.service";
 import {
   CreateStorefrontConfigDto,
-  UpdateStorefrontConfigDto,
   UpdateThemeDto,
 } from "./dto/create-storefront-config.dto";
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";

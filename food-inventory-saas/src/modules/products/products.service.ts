@@ -383,7 +383,7 @@ export class ProductsService {
     const skip = (pageNumber - 1) * limitNumber;
 
     // Use text score for sorting when doing text search
-    const useTextSearch = isSearching && !(/^[A-Z0-9\-_]+$/i.test(searchTerm));
+    const useTextSearch = isSearching && !/^[A-Z0-9\-_]+$/i.test(searchTerm);
     const sortOptions: Record<string, any> = useTextSearch
       ? { score: { $meta: "textScore" }, createdAt: -1 }
       : isSearching
@@ -391,9 +391,7 @@ export class ProductsService {
         : { createdAt: -1 };
 
     // Build projection to include text score when doing text search
-    const projection = useTextSearch
-      ? { score: { $meta: "textScore" } }
-      : {};
+    const projection = useTextSearch ? { score: { $meta: "textScore" } } : {};
 
     this.logger.debug(
       `findAll -> tenantId=${tenantId}, includeInactive=${includeInactive}, isActive=${isActive}, page=${pageNumber}, limit=${limitNumber}, search=${searchTerm}, category=${category ?? ""}, brand=${brand ?? ""}, isSearching=${isSearching}, useTextSearch=${useTextSearch}`,

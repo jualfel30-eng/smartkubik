@@ -5,7 +5,7 @@ import { Connection } from "mongoose";
 interface Permission {
   name: string;
   description: string;
-  category: string;
+  module: string;
 }
 
 @Injectable()
@@ -18,225 +18,390 @@ export class PermissionsSeed {
     {
       name: "dashboard_read",
       description: "Ver dashboard",
-      category: "dashboard",
+      module: "dashboard",
     },
 
     // Customers
     {
       name: "customers_read",
       description: "Ver clientes",
-      category: "customers",
+      module: "customers",
     },
     {
       name: "customers_create",
       description: "Crear clientes",
-      category: "customers",
+      module: "customers",
     },
     {
       name: "customers_update",
       description: "Actualizar clientes",
-      category: "customers",
+      module: "customers",
     },
     {
       name: "customers_delete",
       description: "Eliminar clientes",
-      category: "customers",
+      module: "customers",
     },
 
     // Orders
-    { name: "orders_read", description: "Ver órdenes", category: "orders" },
-    { name: "orders_create", description: "Crear órdenes", category: "orders" },
+    { name: "orders_read", description: "Ver órdenes", module: "orders" },
+    { name: "orders_create", description: "Crear órdenes", module: "orders" },
     {
       name: "orders_update",
       description: "Actualizar órdenes",
-      category: "orders",
+      module: "orders",
     },
     {
       name: "orders_delete",
       description: "Eliminar órdenes",
-      category: "orders",
+      module: "orders",
     },
     {
       name: "apply_discounts",
       description: "Aplicar descuentos a productos y órdenes",
-      category: "orders",
+      module: "orders",
     },
 
     // Products
     {
       name: "products_read",
       description: "Ver productos",
-      category: "products",
+      module: "products",
     },
     {
       name: "products_create",
       description: "Crear productos",
-      category: "products",
+      module: "products",
     },
     {
       name: "products_update",
       description: "Actualizar productos",
-      category: "products",
+      module: "products",
     },
     {
       name: "products_delete",
       description: "Eliminar productos",
-      category: "products",
+      module: "products",
     },
     {
       name: "products_write",
       description: "Crear y modificar configuraciones de productos",
-      category: "products",
+      module: "products",
     },
 
     // Inventory
     {
       name: "inventory_read",
       description: "Ver inventario",
-      category: "inventory",
+      module: "inventory",
     },
     {
       name: "inventory_update",
       description: "Actualizar inventario",
-      category: "inventory",
+      module: "inventory",
     },
     {
       name: "inventory_write",
       description: "Registrar movimientos y consumos de inventario",
-      category: "inventory",
+      module: "inventory",
     },
 
     // Users
-    { name: "users_read", description: "Ver usuarios", category: "users" },
-    { name: "users_create", description: "Crear usuarios", category: "users" },
+    { name: "users_read", description: "Ver usuarios", module: "users" },
+    { name: "users_create", description: "Crear usuarios", module: "users" },
     {
       name: "users_update",
       description: "Actualizar usuarios",
-      category: "users",
+      module: "users",
     },
     {
       name: "users_delete",
       description: "Eliminar usuarios",
-      category: "users",
+      module: "users",
     },
 
     // Roles
-    { name: "roles_read", description: "Ver roles", category: "roles" },
-    { name: "roles_create", description: "Crear roles", category: "roles" },
+    { name: "roles_read", description: "Ver roles", module: "roles" },
+    { name: "roles_create", description: "Crear roles", module: "roles" },
     {
       name: "roles_update",
       description: "Actualizar roles",
-      category: "roles",
+      module: "roles",
     },
-    { name: "roles_delete", description: "Eliminar roles", category: "roles" },
+    { name: "roles_delete", description: "Eliminar roles", module: "roles" },
 
     // Reports
-    { name: "reports_read", description: "Ver reportes", category: "reports" },
+    { name: "reports_read", description: "Ver reportes", module: "reports" },
 
     // Settings
     {
       name: "settings_read",
       description: "Ver configuración",
-      category: "settings",
+      module: "settings",
     },
     {
       name: "settings_update",
       description: "Actualizar configuración",
-      category: "settings",
+      module: "settings",
     },
     {
       name: "tenant_settings_read",
       description: "Ver configuración del tenant",
-      category: "settings",
+      module: "settings",
     },
     {
       name: "tenant_settings_update",
       description: "Actualizar configuración del tenant",
-      category: "settings",
+      module: "settings",
     },
 
     // Accounting
     {
       name: "accounting_read",
       description: "Ver contabilidad",
-      category: "accounting",
+      module: "accounting",
     },
     {
       name: "accounting_create",
       description: "Crear registros contables",
-      category: "accounting",
+      module: "accounting",
     },
     {
       name: "accounting_update",
       description: "Actualizar registros contables",
-      category: "accounting",
+      module: "accounting",
     },
     {
       name: "accounting_delete",
       description: "Eliminar registros contables",
-      category: "accounting",
+      module: "accounting",
     },
 
     // Purchases
     {
       name: "purchases_read",
       description: "Ver compras",
-      category: "purchases",
+      module: "purchases",
     },
     {
       name: "purchases_create",
       description: "Crear compras",
-      category: "purchases",
+      module: "purchases",
     },
     {
       name: "purchases_update",
       description: "Actualizar compras",
-      category: "purchases",
+      module: "purchases",
     },
     {
       name: "purchases_delete",
       description: "Eliminar compras",
-      category: "purchases",
+      module: "purchases",
     },
 
     // Events/Calendar
     {
       name: "events_read",
       description: "Ver eventos/calendario",
-      category: "events",
+      module: "events",
     },
-    { name: "events_create", description: "Crear eventos", category: "events" },
+    { name: "events_create", description: "Crear eventos", module: "events" },
     {
       name: "events_update",
       description: "Actualizar eventos",
-      category: "events",
+      module: "events",
     },
     {
       name: "events_delete",
       description: "Eliminar eventos",
-      category: "events",
+      module: "events",
     },
 
     // Payables
     {
       name: "payables_read",
       description: "Ver cuentas por pagar",
-      category: "payables",
+      module: "payables",
     },
     {
       name: "payables_create",
       description: "Crear cuentas por pagar",
-      category: "payables",
+      module: "payables",
     },
     {
       name: "payables_update",
       description: "Actualizar cuentas por pagar",
-      category: "payables",
+      module: "payables",
     },
     {
       name: "payables_delete",
       description: "Eliminar cuentas por pagar",
-      category: "payables",
+      module: "payables",
+    },
+
+    // Production Module (Manufacturing vertical)
+    {
+      name: "production_read",
+      description: "Ver módulo de producción",
+      module: "production",
+    },
+    {
+      name: "production_orders_read",
+      description: "Ver órdenes de producción",
+      module: "production",
+    },
+    {
+      name: "production_orders_create",
+      description: "Crear órdenes de producción",
+      module: "production",
+    },
+    {
+      name: "production_orders_update",
+      description: "Actualizar órdenes de producción",
+      module: "production",
+    },
+    {
+      name: "production_orders_delete",
+      description: "Eliminar órdenes de producción",
+      module: "production",
+    },
+    {
+      name: "production_orders_start",
+      description: "Iniciar órdenes de producción",
+      module: "production",
+    },
+    {
+      name: "production_orders_complete",
+      description: "Completar órdenes de producción",
+      module: "production",
+    },
+    {
+      name: "production_orders_cancel",
+      description: "Cancelar órdenes de producción",
+      module: "production",
+    },
+    {
+      name: "bom_read",
+      description: "Ver listas de materiales (BOM)",
+      module: "production",
+    },
+    {
+      name: "bom_create",
+      description: "Crear BOMs",
+      module: "production",
+    },
+    {
+      name: "bom_update",
+      description: "Actualizar BOMs",
+      module: "production",
+    },
+    {
+      name: "bom_delete",
+      description: "Eliminar BOMs",
+      module: "production",
+    },
+    {
+      name: "routing_read",
+      description: "Ver rutas de producción",
+      module: "production",
+    },
+    {
+      name: "routing_create",
+      description: "Crear rutas de producción",
+      module: "production",
+    },
+    {
+      name: "routing_update",
+      description: "Actualizar rutas de producción",
+      module: "production",
+    },
+    {
+      name: "routing_delete",
+      description: "Eliminar rutas de producción",
+      module: "production",
+    },
+    {
+      name: "work_centers_read",
+      description: "Ver centros de trabajo",
+      module: "production",
+    },
+    {
+      name: "work_centers_create",
+      description: "Crear centros de trabajo",
+      module: "production",
+    },
+    {
+      name: "work_centers_update",
+      description: "Actualizar centros de trabajo",
+      module: "production",
+    },
+    {
+      name: "work_centers_delete",
+      description: "Eliminar centros de trabajo",
+      module: "production",
+    },
+    {
+      name: "mrp_read",
+      description: "Ver planificación de materiales (MRP)",
+      module: "production",
+    },
+    {
+      name: "mrp_run",
+      description: "Ejecutar MRP",
+      module: "production",
+    },
+    {
+      name: "mrp_write",
+      description: "Crear/actualizar registros MRP",
+      module: "production",
+    },
+
+    // Restaurant Module
+    {
+      name: "restaurant_read",
+      description: "Ver módulo de restaurante",
+      module: "restaurant",
+    },
+    {
+      name: "restaurant_write",
+      description: "Gestionar módulo de restaurante",
+      module: "restaurant",
+    },
+
+    // Chat Module
+    {
+      name: "chat_read",
+      description: "Ver conversaciones y mensajes",
+      module: "communication",
+    },
+    {
+      name: "chat_write",
+      description: "Enviar mensajes y gestionar conversaciones",
+      module: "communication",
+    },
+
+    // Marketing Module
+    {
+      name: "marketing_read",
+      description: "Ver campañas de marketing y analíticas",
+      module: "marketing",
+    },
+    {
+      name: "marketing_write",
+      description: "Crear y gestionar campañas de marketing",
+      module: "marketing",
+    },
+
+    // Payroll Module
+    {
+      name: "payroll_employees_read",
+      description: "Ver información de nómina de empleados",
+      module: "payroll",
+    },
+    {
+      name: "payroll_employees_write",
+      description: "Gestionar nómina de empleados",
+      module: "payroll",
     },
   ];
 
@@ -259,11 +424,18 @@ export class PermissionsSeed {
 
       this.logger.log(`🌱 Seeding ${this.permissions.length} permissions...`);
 
-      const permissionsToInsert = this.permissions.map((p) => ({
-        ...p,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }));
+      const permissionsToInsert = this.permissions.map((p) => {
+        // Extract action from permission name (e.g., "dashboard_read" -> "read")
+        const parts = p.name.split("_");
+        const action = parts[parts.length - 1]; // Last part is the action
+
+        return {
+          ...p,
+          action,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+      });
 
       await permissionsCollection.insertMany(permissionsToInsert);
 

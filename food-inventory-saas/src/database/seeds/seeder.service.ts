@@ -4,6 +4,7 @@ import { Connection } from "mongoose";
 import { PermissionsSeed } from "./permissions.seed";
 import { RolesSeed } from "./roles.seed";
 import { addApplyDiscountsPermission } from "../migrations/add-apply-discounts-permission";
+import { addProductionModulePermissions } from "../migrations/add-production-module-permissions";
 
 @Injectable()
 export class SeederService {
@@ -57,6 +58,7 @@ export class SeederService {
       this.logger.log("🔄 Running database migrations...");
 
       await addApplyDiscountsPermission(this.connection);
+      await addProductionModulePermissions(this.connection);
 
       this.logger.log("✅ Migrations completed successfully");
     } catch (error) {

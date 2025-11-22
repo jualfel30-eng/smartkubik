@@ -68,14 +68,11 @@ export class AutoGeneratePOsJob {
             continue;
           }
 
-          this.logger.log(
-            `Processing tenant: ${tenant.name} (${tenantId})`,
-          );
+          this.logger.log(`Processing tenant: ${tenant.name} (${tenantId})`);
 
           // Generate POs for this tenant
-          const generatedPOs = await this.purchasesService.autoGeneratePOs(
-            tenantId,
-          );
+          const generatedPOs =
+            await this.purchasesService.autoGeneratePOs(tenantId);
 
           if (generatedPOs && generatedPOs.length > 0) {
             this.logger.log(

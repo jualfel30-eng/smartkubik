@@ -21,6 +21,7 @@ import { PaymentsModule } from "../payments/payments.module";
 import { DeliveryModule } from "../delivery/delivery.module";
 import { ShiftsModule } from "../shifts/shifts.module";
 import { ExchangeRateModule } from "../exchange-rate/exchange-rate.module";
+import { TransactionHistoryModule } from "../transaction-history/transaction-history.module";
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { ExchangeRateModule } from "../exchange-rate/exchange-rate.module";
     DeliveryModule,
     ShiftsModule,
     ExchangeRateModule,
+    TransactionHistoryModule,
     MongooseModule.forFeature([
       { name: Order.name, schema: OrderSchema },
       { name: Customer.name, schema: CustomerSchema },

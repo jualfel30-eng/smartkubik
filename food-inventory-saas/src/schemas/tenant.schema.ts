@@ -106,6 +106,7 @@ export class TenantSettings {
     defaultPaySchedule?: "monthly" | "biweekly" | "weekly";
     defaultPayDay?: number;
     allowCustomFrequencies?: boolean;
+    payablesMode?: "aggregated" | "per_employee";
     notificationEmails?: string[] | string;
     thirteenthMonthPolicy?: {
       enabled: boolean;
@@ -214,8 +215,9 @@ export class Tenant {
     hrCore?: boolean;
     timeAndAttendance?: boolean;
 
-    // Communication modules
+    // Communication & Marketing modules
     chat?: boolean;
+    marketing?: boolean;
 
     // FOOD_SERVICE specific modules
     tables?: boolean;

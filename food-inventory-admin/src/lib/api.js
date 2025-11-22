@@ -2,6 +2,16 @@ const getAuthToken = () => {
   return localStorage.getItem('accessToken');
 };
 
+export const getApiBaseUrl = () => {
+  if (typeof window === 'undefined') {
+    return 'https://api.smartkubik.com';
+  }
+  const devHostnames = ['localhost', '127.0.0.1'];
+  return devHostnames.includes(window.location.hostname)
+    ? 'http://localhost:3000'
+    : 'https://api.smartkubik.com';
+};
+
 // Updated fetchApi to handle FormData for file uploads
 export const fetchApi = async (url, options = {}) => {
   const token = getAuthToken();
@@ -22,8 +32,7 @@ export const fetchApi = async (url, options = {}) => {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const baseUrl = isDevelopment ? 'http://localhost:3000' : 'https://api.smartkubik.com';
+  const baseUrl = getApiBaseUrl();
 
   const response = await fetch(`${baseUrl}/api/v1${url}`, {
     ...options,
@@ -458,6 +467,601 @@ export const cancelReservation = (id, cancelData) => {
 export const markReservationNoShow = (id) => {
   return fetchApi(`/reservations/${id}/no-show`, {
     method: 'PATCH',
+  });
+};
+
+// Tables API
+export const getTables = () => {
+  return fetchApi('/tables');
+};
+
+export const getFloorPlan = () => {
+  return fetchApi('/tables/floor-plan');
+};
+
+export const getAvailableTables = () => {
+  return fetchApi('/tables/available');
+};
+
+// Wait List API - Phase 2
+export const getWaitListEntries = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.status) queryParams.append('status', params.status);
+  if (params.date) queryParams.append('date', params.date);
+  if (params.activeOnly !== undefined) queryParams.append('activeOnly', params.activeOnly);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/wait-list${queryString ? `?${queryString}` : ''}`);
+};
+
+export const createWaitListEntry = (entryData) => {
+  return fetchApi('/wait-list', {
+    method: 'POST',
+    body: JSON.stringify(entryData),
+  });
+};
+
+export const updateWaitListEntry = (id, entryData) => {
+  return fetchApi(`/wait-list/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(entryData),
+  });
+};
+
+export const updateWaitListStatus = (id, statusData) => {
+  return fetchApi(`/wait-list/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify(statusData),
+  });
+};
+
+export const notifyWaitListCustomer = (notifyData) => {
+  return fetchApi('/wait-list/notify', {
+    method: 'POST',
+    body: JSON.stringify(notifyData),
+  });
+};
+
+export const seatFromWaitList = (seatData) => {
+  return fetchApi('/wait-list/seat', {
+    method: 'POST',
+    body: JSON.stringify(seatData),
+  });
+};
+
+export const deleteWaitListEntry = (id) => {
+  return fetchApi(`/wait-list/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+export const getWaitListStats = () => {
+  return fetchApi('/wait-list/stats/overview');
+};
+
+export const estimateWaitTime = (partySize) => {
+  return fetchApi(`/wait-list/estimate/${partySize}`);
+};
+
+// Waste Management API - Phase 2
+export const getWasteEntries = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+  if (params.productId) queryParams.append('productId', params.productId);
+  if (params.category) queryParams.append('category', params.category);
+  if (params.reason) queryParams.append('reason', params.reason);
+  if (params.location) queryParams.append('location', params.location);
+  if (params.isPreventable !== undefined) queryParams.append('isPreventable', params.isPreventable);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/waste${queryString ? `?${queryString}` : ''}`);
+};
+
+export const createWasteEntry = (entryData) => {
+  return fetchApi('/waste', {
+    method: 'POST',
+    body: JSON.stringify(entryData),
+  });
+};
+
+export const updateWasteEntry = (id, entryData) => {
+  return fetchApi(`/waste/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(entryData),
+  });
+};
+
+export const deleteWasteEntry = (id) => {
+  return fetchApi(`/waste/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+export const getWasteAnalytics = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/waste/analytics/overview${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getWasteTrends = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/waste/analytics/trends${queryString ? `?${queryString}` : ''}`);
+};
+
+// Server Performance API - Phase 2
+export const getServerPerformance = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+  if (params.serverId) queryParams.append('serverId', params.serverId);
+  if (params.shiftId) queryParams.append('shiftId', params.shiftId);
+  if (params.performanceGrade) queryParams.append('performanceGrade', params.performanceGrade);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/server-performance${queryString ? `?${queryString}` : ''}`);
+};
+
+export const createServerPerformance = (data) => {
+  return fetchApi('/server-performance', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const updateServerPerformance = (id, data) => {
+  return fetchApi(`/server-performance/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteServerPerformance = (id) => {
+  return fetchApi(`/server-performance/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+export const calculateServerPerformance = (serverId, date) => {
+  const queryParams = new URLSearchParams();
+  if (date) queryParams.append('date', date);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/server-performance/calculate/${serverId}${queryString ? `?${queryString}` : ''}`, {
+    method: 'POST',
+  });
+};
+
+export const getServerPerformanceAnalytics = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+  if (params.serverId) queryParams.append('serverId', params.serverId);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/server-performance/analytics/overview${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getServerPerformanceComparison = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/server-performance/analytics/comparison${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getServerPerformanceLeaderboard = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/server-performance/analytics/leaderboard${queryString ? `?${queryString}` : ''}`);
+};
+
+export const setServerGoals = (data) => {
+  return fetchApi('/server-performance/goals', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+// ==================== Reviews & Feedback API ====================
+export const getReviews = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.source) queryParams.append('source', params.source);
+  if (params.status) queryParams.append('status', params.status);
+  if (params.sentiment) queryParams.append('sentiment', params.sentiment);
+  if (params.minRating) queryParams.append('minRating', params.minRating);
+  if (params.maxRating) queryParams.append('maxRating', params.maxRating);
+  if (params.isResponded !== undefined) queryParams.append('isResponded', params.isResponded);
+  if (params.isFlagged !== undefined) queryParams.append('isFlagged', params.isFlagged);
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+  if (params.search) queryParams.append('search', params.search);
+  if (params.page) queryParams.append('page', params.page);
+  if (params.limit) queryParams.append('limit', params.limit);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/reviews${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getReview = (id) => {
+  return fetchApi(`/reviews/${id}`);
+};
+
+export const createReview = (data) => {
+  return fetchApi('/reviews', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const updateReview = (id, data) => {
+  return fetchApi(`/reviews/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteReview = (id) => {
+  return fetchApi(`/reviews/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+export const respondToReview = (id, response) => {
+  return fetchApi(`/reviews/${id}/respond`, {
+    method: 'POST',
+    body: JSON.stringify({ response }),
+  });
+};
+
+export const flagReview = (id, reason) => {
+  return fetchApi(`/reviews/${id}/flag`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+};
+
+export const getReviewsAnalytics = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/reviews/analytics${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getReviewsComparison = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.currentStart) queryParams.append('currentStart', params.currentStart);
+  if (params.currentEnd) queryParams.append('currentEnd', params.currentEnd);
+  if (params.previousStart) queryParams.append('previousStart', params.previousStart);
+  if (params.previousEnd) queryParams.append('previousEnd', params.previousEnd);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/reviews/comparison${queryString ? `?${queryString}` : ''}`);
+};
+
+// ==================== Marketing Campaigns API ====================
+export const getMarketingCampaigns = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.channel) queryParams.append('channel', params.channel);
+  if (params.type) queryParams.append('type', params.type);
+  if (params.status) queryParams.append('status', params.status);
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+  if (params.search) queryParams.append('search', params.search);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/marketing/campaigns${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getMarketingCampaign = (id) => {
+  return fetchApi(`/marketing/campaigns/${id}`);
+};
+
+export const createMarketingCampaign = (data) => {
+  return fetchApi('/marketing/campaigns', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const updateMarketingCampaign = (id, data) => {
+  return fetchApi(`/marketing/campaigns/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteMarketingCampaign = (id) => {
+  return fetchApi(`/marketing/campaigns/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+export const launchMarketingCampaign = (id) => {
+  return fetchApi(`/marketing/campaigns/${id}/launch`, {
+    method: 'POST',
+  });
+};
+
+export const pauseMarketingCampaign = (id) => {
+  return fetchApi(`/marketing/campaigns/${id}/pause`, {
+    method: 'POST',
+  });
+};
+
+export const getMarketingAnalytics = () => {
+  return fetchApi('/marketing/campaigns/analytics');
+};
+
+// ==================== Marketing Triggers API (Phase 3) ====================
+export const getMarketingTriggers = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.eventType) queryParams.append('eventType', params.eventType);
+  if (params.status) queryParams.append('status', params.status);
+  if (params.campaignId) queryParams.append('campaignId', params.campaignId);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/marketing/triggers${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getMarketingTrigger = (id) => {
+  return fetchApi(`/marketing/triggers/${id}`);
+};
+
+export const createMarketingTrigger = (data) => {
+  return fetchApi('/marketing/triggers', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const updateMarketingTrigger = (id, data) => {
+  return fetchApi(`/marketing/triggers/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteMarketingTrigger = (id) => {
+  return fetchApi(`/marketing/triggers/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+export const activateMarketingTrigger = (id) => {
+  return fetchApi(`/marketing/triggers/${id}/activate`, {
+    method: 'PUT',
+  });
+};
+
+export const pauseMarketingTrigger = (id) => {
+  return fetchApi(`/marketing/triggers/${id}/pause`, {
+    method: 'PUT',
+  });
+};
+
+export const getTriggerExecutionLogs = (id, limit = 50) => {
+  return fetchApi(`/marketing/triggers/${id}/executions?limit=${limit}`);
+};
+
+export const getTriggerAnalytics = () => {
+  return fetchApi('/marketing/triggers/analytics');
+};
+
+// ==================== Marketing Analytics API (Phase 4) ====================
+export const getCampaignPerformanceOverTime = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+  if (params.channel) queryParams.append('channel', params.channel);
+  if (params.granularity) queryParams.append('granularity', params.granularity);
+  if (params.campaignIds && params.campaignIds.length > 0) {
+    params.campaignIds.forEach(id => queryParams.append('campaignIds[]', id));
+  }
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/marketing/campaigns/analytics/performance-over-time${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getConversionFunnel = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.campaignId) queryParams.append('campaignId', params.campaignId);
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/marketing/campaigns/analytics/conversion-funnel${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getCohortAnalysis = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+  if (params.segmentBy) queryParams.append('segmentBy', params.segmentBy);
+  if (params.metric) queryParams.append('metric', params.metric);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/marketing/campaigns/analytics/cohort-analysis${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getRevenueAttribution = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+  if (params.attributionModel) queryParams.append('attributionModel', params.attributionModel);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/marketing/campaigns/analytics/revenue-attribution${queryString ? `?${queryString}` : ''}`);
+};
+
+export const comparePerformancePeriods = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.currentStart) queryParams.append('currentStart', params.currentStart);
+  if (params.currentEnd) queryParams.append('currentEnd', params.currentEnd);
+  if (params.previousStart) queryParams.append('previousStart', params.previousStart);
+  if (params.previousEnd) queryParams.append('previousEnd', params.previousEnd);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/marketing/campaigns/analytics/compare-periods${queryString ? `?${queryString}` : ''}`);
+};
+
+// A/B Testing API - Phase 5
+export const createABTest = (campaignId, testData) => {
+  return fetchApi(`/marketing/campaigns/${campaignId}/ab-test`, {
+    method: 'POST',
+    body: JSON.stringify(testData),
+  });
+};
+
+export const getCampaignVariants = (campaignId) => {
+  return fetchApi(`/marketing/campaigns/${campaignId}/variants`);
+};
+
+export const getVariant = (variantId) => {
+  return fetchApi(`/marketing/variants/${variantId}`);
+};
+
+export const updateVariant = (variantId, variantData) => {
+  return fetchApi(`/marketing/variants/${variantId}`, {
+    method: 'PUT',
+    body: JSON.stringify(variantData),
+  });
+};
+
+export const deleteVariant = (variantId) => {
+  return fetchApi(`/marketing/variants/${variantId}`, {
+    method: 'DELETE',
+  });
+};
+
+export const getABTestResults = (campaignId) => {
+  return fetchApi(`/marketing/campaigns/${campaignId}/ab-results`);
+};
+
+export const declareWinner = (campaignId, winnerId, reason) => {
+  return fetchApi(`/marketing/campaigns/${campaignId}/declare-winner`, {
+    method: 'POST',
+    body: JSON.stringify({ variantId: winnerId, reason }),
+  });
+};
+
+export const autoSelectWinner = (campaignId) => {
+  return fetchApi(`/marketing/campaigns/${campaignId}/auto-select-winner`, {
+    method: 'POST',
+  });
+};
+
+// Campaign Scheduling API - Phase 6
+export const createSchedule = (scheduleData) => {
+  return fetchApi('/marketing/schedules', {
+    method: 'POST',
+    body: JSON.stringify(scheduleData),
+  });
+};
+
+export const getSchedules = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.campaignId) queryParams.append('campaignId', params.campaignId);
+  if (params.status) queryParams.append('status', params.status);
+  if (params.type) queryParams.append('type', params.type);
+  if (params.enabled !== undefined) queryParams.append('enabled', params.enabled);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/marketing/schedules${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getSchedule = (scheduleId) => {
+  return fetchApi(`/marketing/schedules/${scheduleId}`);
+};
+
+export const updateSchedule = (scheduleId, scheduleData) => {
+  return fetchApi(`/marketing/schedules/${scheduleId}`, {
+    method: 'PUT',
+    body: JSON.stringify(scheduleData),
+  });
+};
+
+export const deleteSchedule = (scheduleId) => {
+  return fetchApi(`/marketing/schedules/${scheduleId}`, {
+    method: 'DELETE',
+  });
+};
+
+export const pauseSchedule = (scheduleId) => {
+  return fetchApi(`/marketing/schedules/${scheduleId}/pause`, {
+    method: 'POST',
+  });
+};
+
+export const resumeSchedule = (scheduleId) => {
+  return fetchApi(`/marketing/schedules/${scheduleId}/resume`, {
+    method: 'POST',
+  });
+};
+
+// Marketing Workflows API - Phase 6
+export const createWorkflow = (workflowData) => {
+  return fetchApi('/marketing/workflows', {
+    method: 'POST',
+    body: JSON.stringify(workflowData),
+  });
+};
+
+export const getWorkflows = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.status) queryParams.append('status', params.status);
+  if (params.triggerType) queryParams.append('triggerType', params.triggerType);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/marketing/workflows${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getWorkflow = (workflowId) => {
+  return fetchApi(`/marketing/workflows/${workflowId}`);
+};
+
+export const updateWorkflow = (workflowId, workflowData) => {
+  return fetchApi(`/marketing/workflows/${workflowId}`, {
+    method: 'PUT',
+    body: JSON.stringify(workflowData),
+  });
+};
+
+export const deleteWorkflow = (workflowId) => {
+  return fetchApi(`/marketing/workflows/${workflowId}`, {
+    method: 'DELETE',
+  });
+};
+
+export const activateWorkflow = (workflowId) => {
+  return fetchApi(`/marketing/workflows/${workflowId}/activate`, {
+    method: 'POST',
+  });
+};
+
+export const pauseWorkflow = (workflowId) => {
+  return fetchApi(`/marketing/workflows/${workflowId}/pause`, {
+    method: 'POST',
+  });
+};
+
+export const enrollCustomerInWorkflow = (workflowId, customerId, contextData = {}) => {
+  return fetchApi('/marketing/workflows/enroll', {
+    method: 'POST',
+    body: JSON.stringify({ workflowId, customerId, contextData }),
   });
 };
 

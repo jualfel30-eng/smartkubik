@@ -69,6 +69,7 @@ import { HealthModule } from "./modules/health/health.module";
 import { ConsumablesModule } from "./modules/consumables/consumables.module";
 import { SuppliesModule } from "./modules/supplies/supplies.module";
 import { UnitConversionsModule } from "./modules/unit-conversions/unit-conversions.module";
+import { LiquidationsModule } from "./modules/liquidations/liquidations.module";
 import { BillOfMaterialsModule } from "./modules/production/bill-of-materials.module";
 import { WorkCenterModule } from "./modules/production/work-center.module";
 import { RoutingModule } from "./modules/production/routing.module";
@@ -85,6 +86,19 @@ import { FeatureFlagsModule as FeatureFlagsGlobalModule } from "./config/feature
 import { FeatureFlagsModule } from "./modules/feature-flags/feature-flags.module";
 import { PayrollCalendarModule } from "./modules/payroll-calendar/payroll-calendar.module";
 import { MenuEngineeringModule } from "./modules/menu-engineering/menu-engineering.module";
+import { WaitListModule } from "./modules/wait-list/wait-list.module";
+import { WasteModule } from "./modules/waste/waste.module";
+import { ServerPerformanceModule } from "./modules/server-performance/server-performance.module";
+import { ReviewsModule } from "./modules/reviews/reviews.module";
+import { MarketingModule } from "./modules/marketing/marketing.module";
+import { MigrationsModule } from "./database/migrations/migrations.module";
+import { UploadsModule } from "./modules/uploads/uploads.module";
+import { PayrollLocalizationsModule } from "./modules/payroll-localizations/payroll-localizations.module";
+import { TransactionHistoryModule } from "./modules/transaction-history/transaction-history.module";
+import { ProductAffinityModule } from "./modules/product-affinity/product-affinity.module";
+import { ProductCampaignModule } from "./modules/product-campaign/product-campaign.module";
+import { PayrollReportsModule } from "./modules/payroll-reports/payroll-reports.module";
+import { PayrollWebhooksModule } from "./modules/payroll-webhooks/payroll-webhooks.module";
 
 @Module({
   imports: [
@@ -330,6 +344,7 @@ import { MenuEngineeringModule } from "./modules/menu-engineering/menu-engineeri
     ExchangeRateModule,
     BankAccountsModule,
     BankReconciliationModule,
+    LiquidationsModule,
     PayrollModule,
     PayrollEmployeesModule,
     TipsModule,
@@ -354,6 +369,19 @@ import { MenuEngineeringModule } from "./modules/menu-engineering/menu-engineeri
     LocationsModule,
     PayrollCalendarModule,
     MenuEngineeringModule,
+    WaitListModule,
+    WasteModule,
+    ServerPerformanceModule,
+    ReviewsModule,
+    MarketingModule,
+    UploadsModule,
+    PayrollLocalizationsModule,
+    PayrollWebhooksModule,
+    PayrollReportsModule,
+    MigrationsModule,
+    TransactionHistoryModule,
+    ProductAffinityModule,
+    ProductCampaignModule,
   ],
   controllers: [AppController, TenantController],
   providers: [

@@ -2,7 +2,6 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
-  BadRequestException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
@@ -12,7 +11,6 @@ import {
 } from "../../schemas/storefront-config.schema";
 import {
   CreateStorefrontConfigDto,
-  UpdateStorefrontConfigDto,
   UpdateThemeDto,
 } from "./dto/create-storefront-config.dto";
 

@@ -21,7 +21,6 @@ import {
   OrderQueryDto,
   OrderCalculationDto,
   BulkRegisterPaymentsDto,
-  RegisterPaymentDto,
   CreateOrderItemDto,
 } from "../../dto/order.dto";
 import { InventoryService } from "../inventory/inventory.service";
@@ -35,6 +34,7 @@ import { ShiftsService } from "../shifts/shifts.service";
 import { FEATURES } from "../../config/features.config";
 import { getVerticalProfile } from "../../config/vertical-profiles";
 import { DiscountService } from "./services/discount.service";
+import { TransactionHistoryService } from "../../services/transaction-history.service";
 
 @Injectable()
 export class OrdersService {
@@ -54,6 +54,7 @@ export class OrdersService {
     private readonly exchangeRateService: ExchangeRateService,
     private readonly shiftsService: ShiftsService,
     private readonly discountService: DiscountService,
+    private readonly transactionHistoryService: TransactionHistoryService,
     private readonly eventEmitter: EventEmitter2,
     @InjectConnection() private readonly connection: Connection,
   ) {}
@@ -435,6 +436,24 @@ export class OrdersService {
           `Error en la contabilidad automática para la orden ${savedOrder.orderNumber}`,
           accountingError.stack,
         );
+      }
+
+      // Record transaction history if order is PAID (venta = pago)
+      if (savedOrder.paymentStatus === "paid") {
+        try {
+          await this.transactionHistoryService.recordCustomerTransaction(
+            savedOrder._id.toString(),
+            user.tenantId,
+          );
+          this.logger.log(
+            `Transaction history recorded for order ${savedOrder.orderNumber}`,
+          );
+        } catch (transactionError) {
+          this.logger.error(
+            `Error recording transaction history for order ${savedOrder.orderNumber}`,
+            transactionError.stack,
+          );
+        }
       }
     });
 

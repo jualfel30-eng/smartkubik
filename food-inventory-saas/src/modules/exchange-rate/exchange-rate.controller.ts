@@ -8,7 +8,7 @@ export class ExchangeRateController {
   constructor(private readonly exchangeRateService: ExchangeRateService) {}
 
   @Get("bcv")
-  async getBCVRate() {
+  async getBCVRate(): Promise<any> {
     return this.exchangeRateService.getBCVRate();
   }
 }

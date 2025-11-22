@@ -156,7 +156,8 @@ export class LoyaltyService {
       {
         $set: {
           loyaltyScore,
-          "loyalty.tier": tier,
+          tier, // Update root tier field (used by marketing filters)
+          "loyalty.tier": tier, // Also update subdocument for consistency
         },
       },
       { upsert: false },

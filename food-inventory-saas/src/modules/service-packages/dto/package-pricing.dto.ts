@@ -1,10 +1,4 @@
-import {
-  IsISO8601,
-  IsNotEmpty,
-  IsNumber,
-  IsOptional,
-  IsString,
-} from "class-validator";
+import { IsISO8601, IsNumber, IsOptional, IsString } from "class-validator";
 
 export class PackagePricingDto {
   @IsOptional()

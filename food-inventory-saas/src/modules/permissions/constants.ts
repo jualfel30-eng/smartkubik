@@ -64,4 +64,6 @@ export const ALL_PERMISSIONS = [
   "chat_write",
   "payroll_employees_read",
   "payroll_employees_write",
+  "marketing_read",
+  "marketing_write",
 ];

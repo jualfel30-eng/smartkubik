@@ -23,6 +23,7 @@ export class MailService {
     subject: string;
     html: string;
     text?: string;
+    attachments?: nodemailer.SendMailOptions["attachments"];
   }): Promise<void> {
     const mailOptions = {
       from: this.configService.get<string>("SMTP_FROM"),
@@ -30,6 +31,7 @@ export class MailService {
       subject: options.subject,
       html: options.html,
       text: options.text,
+      attachments: options.attachments,
     };
 
     await this.transporter.sendMail(mailOptions);

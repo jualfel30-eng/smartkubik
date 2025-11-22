@@ -10,7 +10,7 @@ describe("AssistantToolsService hospitality flows", () => {
     locationId: new Types.ObjectId(),
   } as any;
 
-  const buildLean = <T,>(value: T) => ({
+  const buildLean = <T>(value: T) => ({
     lean: jest.fn().mockResolvedValue(value),
   });
 

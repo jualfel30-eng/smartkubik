@@ -93,9 +93,6 @@ export class PmsIntegrationService {
       guest: reservation.guest,
     });
 
-    const startTime = new Date(reservation.startTime);
-    const endTime = new Date(reservation.endTime);
-
     const existing = await this.appointmentsService.findByExternalId(
       tenantId,
       reservation.reservationId,

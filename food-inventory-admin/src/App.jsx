@@ -49,6 +49,7 @@ import {
   GitBranch,
   Layers,
   UserCog,
+  Mail,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import './App.css';
@@ -116,6 +117,7 @@ const TablesPage = lazy(() => import('./pages/TablesPage.jsx'));
 const KitchenDisplay = lazy(() => import('@/components/restaurant/KitchenDisplay.jsx'));
 const ReservationsPage = lazy(() => import('./pages/ReservationsPage.jsx'));
 const PurchaseOrdersPage = lazy(() => import('./pages/PurchaseOrdersPage.jsx'));
+const MarketingPage = lazy(() => import('./pages/MarketingPage.jsx'));
 const WhatsAppInbox = lazy(() => import('./pages/WhatsAppInbox.jsx')); // <-- Componente de WhatsApp añadido
 const AssistantChatWidget = lazy(() => import('@/components/AssistantChatWidget.jsx'));
 const PaymentsManagementDashboard = lazy(() => import('@/components/hospitality/PaymentsManagementDashboard.jsx'));
@@ -304,6 +306,7 @@ function TenantLayout() {
     { name: 'Cocina (KDS)', href: 'restaurant/kitchen-display', icon: ChefHat, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Reservas', href: 'restaurant/reservations', icon: Calendar, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Órdenes de Compra', href: 'restaurant/purchase-orders', icon: FileText, permission: 'restaurant_read', requiresModule: 'restaurant' },
+    { name: 'Marketing', href: 'marketing', icon: Mail, permission: 'marketing_read', requiresModule: 'marketing' },
     {
       name: 'Cuentas por Pagar',
       href: 'accounts-payable',
@@ -338,7 +341,6 @@ function TenantLayout() {
         { name: 'Todos', href: 'crm?tab=all', icon: Users },
         { name: 'Clientes', href: 'crm?tab=individual', icon: Users },
         { name: 'Proveedores', href: 'crm?tab=supplier', icon: Truck },
-        { name: 'Empleados', href: 'crm?tab=employee', icon: UserSquare },
       ]
     },
     {
@@ -352,7 +354,7 @@ function TenantLayout() {
         { name: 'Estructuras', href: 'payroll/structures', icon: Layers },
         { name: 'Ausencias', href: 'payroll/absences', icon: CalendarDays },
         { name: 'Calendario', href: 'payroll/calendar', icon: CalendarDays },
-        { name: 'Empleados', href: 'crm?tab=employee', icon: Users },
+        { name: 'Empleados', href: 'payroll/employees', icon: Users },
       ],
     },
     { name: 'Compras', href: 'purchases', icon: Truck, permission: 'purchases_read' },
@@ -845,9 +847,21 @@ function TenantLayout() {
                 />
                 <Route path="crm" element={
                   <CrmProvider>
-                    <CRMManagement />
+                    <CRMManagement hideEmployeeTab />
                   </CrmProvider>
                 } />
+                <Route
+                  path="payroll/employees"
+                  element={
+                    tenant?.enabledModules?.payroll ? (
+                      <CrmProvider>
+                        <CRMManagement forceEmployeeTab />
+                      </CrmProvider>
+                    ) : (
+                      <Navigate to="/dashboard" replace />
+                    )
+                  }
+                />
                 <Route
                   path="payroll/runs"
                   element={
@@ -921,6 +935,7 @@ function TenantLayout() {
                 <Route path="restaurant/kitchen-display" element={<KitchenDisplay />} />
                 <Route path="restaurant/reservations" element={<ReservationsPage />} />
                 <Route path="restaurant/purchase-orders" element={<PurchaseOrdersPage />} />
+                <Route path="marketing" element={<MarketingPage />} />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="reports" element={<ReportsPage />} />
                 <Route path="*" element={<Navigate to="dashboard" />} />

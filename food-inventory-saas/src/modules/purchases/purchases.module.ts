@@ -17,6 +17,7 @@ import { InventoryModule } from "../inventory/inventory.module";
 import { AccountingModule } from "../accounting/accounting.module";
 import { PayablesModule } from "../payables/payables.module"; // Import PayablesModule
 import { EventsModule } from "../events/events.module"; // Import EventsModule
+import { TransactionHistoryModule } from "../transaction-history/transaction-history.module"; // Import TransactionHistoryModule
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { EventsModule } from "../events/events.module"; // Import EventsModule
     AccountingModule,
     PayablesModule, // Add PayablesModule here
     EventsModule, // Add EventsModule here
+    TransactionHistoryModule, // Add TransactionHistoryModule here
   ],
   controllers: [PurchasesController],
   providers: [PurchasesService, AutoGeneratePOsJob],

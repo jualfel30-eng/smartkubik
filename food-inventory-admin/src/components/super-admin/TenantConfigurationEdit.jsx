@@ -45,6 +45,12 @@ const BUSINESS_VERTICALS = {
     icon: '🚚',
     recommendedModules: ['shipments', 'tracking', 'routes', 'fleet', 'warehousing', 'dispatch', 'inventory']
   },
+  MANUFACTURING: {
+    label: 'Fabricantes / Manufactura',
+    description: 'Empresas de fabricación, producción industrial',
+    icon: '🏭',
+    recommendedModules: ['production', 'bom', 'routing', 'workCenters', 'mrp', 'inventory', 'orders', 'customers', 'suppliers', 'accounting']
+  },
   MIXED: {
     label: 'Mixto / Personalizado',
     description: 'Combinación de múltiples verticales',
@@ -60,9 +66,9 @@ const MODULE_GROUPS = {
     modules: ['inventory', 'orders', 'customers', 'suppliers', 'reports', 'accounting', 'bankAccounts']
   },
   communication: {
-    title: 'Comunicación',
-    description: 'Módulos para la interacción con clientes',
-    modules: ['chat']
+    title: 'Comunicación & Marketing',
+    description: 'Módulos para la interacción con clientes y campañas de marketing',
+    modules: ['chat', 'marketing']
   },
   food_service: {
     title: 'Restaurantes',
@@ -83,6 +89,11 @@ const MODULE_GROUPS = {
     title: 'Logística',
     description: 'Para empresas de transporte y distribución',
     modules: ['shipments', 'tracking', 'routes', 'fleet', 'warehousing', 'dispatch']
+  },
+  manufacturing: {
+    title: 'Producción / Manufactura',
+    description: 'Para empresas fabricantes (exclusivo vertical Manufactura)',
+    modules: ['production', 'bom', 'routing', 'workCenters', 'mrp', 'qualityControl', 'maintenance', 'productionScheduling', 'shopFloorControl', 'traceability', 'costing', 'plm', 'capacityPlanning', 'compliance']
   },
   hr: {
     title: 'RRHH & Nómina',
@@ -120,9 +131,25 @@ const MODULE_LABELS = {
   warehousing: 'Almacenamiento',
   dispatch: 'Despacho',
   chat: 'WhatsApp Chat',
+  marketing: 'Marketing',
   payroll: 'Nómina',
   hr_core: 'Core de RRHH',
-  time_and_attendance: 'Tiempo y Asistencia'
+  time_and_attendance: 'Tiempo y Asistencia',
+  // Manufacturing modules
+  production: 'Órdenes de Producción',
+  bom: 'Listas de Materiales (BOM)',
+  routing: 'Rutas de Producción',
+  workCenters: 'Centros de Trabajo',
+  mrp: 'Planificación de Materiales (MRP)',
+  qualityControl: 'Control de Calidad',
+  maintenance: 'Mantenimiento',
+  productionScheduling: 'Programación de Producción',
+  shopFloorControl: 'Control de Planta',
+  traceability: 'Trazabilidad',
+  costing: 'Costeo',
+  plm: 'Gestión del Ciclo de Vida (PLM)',
+  capacityPlanning: 'Planificación de Capacidad',
+  compliance: 'Cumplimiento Normativo'
 };
 
 const RESTAURANT_MODULES_PRESET = [

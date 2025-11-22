@@ -21,6 +21,7 @@ import {
   CreatePayableDto,
 } from "../payables/payables.service"; // Import PayablesService and DTO
 import { EventsService } from "../events/events.service"; // Import EventsService
+import { TransactionHistoryService } from "../../services/transaction-history.service"; // Import TransactionHistoryService
 
 @Injectable()
 export class PurchasesService {
@@ -35,6 +36,7 @@ export class PurchasesService {
     private readonly accountingService: AccountingService,
     private readonly payablesService: PayablesService, // Inject PayablesService
     private readonly eventsService: EventsService, // Inject EventsService
+    private readonly transactionHistoryService: TransactionHistoryService, // Inject TransactionHistoryService
   ) {}
 
   async create(
@@ -372,6 +374,23 @@ export class PurchasesService {
       // Do not re-throw, as the main operation (receiving stock) was successful
     }
 
+    // --- Record Supplier Transaction History ---
+    try {
+      await this.transactionHistoryService.recordSupplierTransaction(
+        savedPurchaseOrder._id.toString(),
+        user.tenantId,
+      );
+      this.logger.log(
+        `Supplier transaction recorded for PO ${savedPurchaseOrder.poNumber}`,
+      );
+    } catch (transactionError) {
+      this.logger.error(
+        `Failed to record supplier transaction for PO ${savedPurchaseOrder.poNumber}. The purchase was processed correctly, but transaction history was not recorded.`,
+        transactionError.stack,
+      );
+      // Do not re-throw - transaction history failure shouldn't block the main operation
+    }
+
     return savedPurchaseOrder;
   }
 
@@ -396,9 +415,7 @@ export class PurchasesService {
     });
 
     if (!po) {
-      throw new NotFoundException(
-        `Purchase Order with ID "${id}" not found.`,
-      );
+      throw new NotFoundException(`Purchase Order with ID "${id}" not found.`);
     }
 
     if (po.status !== "pending" && po.status !== "draft") {
@@ -463,15 +480,11 @@ export class PurchasesService {
     });
 
     if (!po) {
-      throw new NotFoundException(
-        `Purchase Order with ID "${id}" not found.`,
-      );
+      throw new NotFoundException(`Purchase Order with ID "${id}" not found.`);
     }
 
     if (po.status !== "pending" && po.status !== "draft") {
-      throw new BadRequestException(
-        `Cannot reject PO in status: ${po.status}`,
-      );
+      throw new BadRequestException(`Cannot reject PO in status: ${po.status}`);
     }
 
     po.status = "rejected";
@@ -512,7 +525,9 @@ export class PurchasesService {
    * Find Purchase Orders pending approval
    * Phase 1.4: Approval Workflow
    */
-  async findPendingApproval(tenantId: string): Promise<PurchaseOrderDocument[]> {
+  async findPendingApproval(
+    tenantId: string,
+  ): Promise<PurchaseOrderDocument[]> {
     const { Types } = require("mongoose");
     const tenantObjectId = Types.ObjectId.isValid(tenantId)
       ? new Types.ObjectId(tenantId)
@@ -542,18 +557,15 @@ export class PurchasesService {
     this.logger.log(`Auto-generating POs for tenant ${tenantId}`);
 
     // 1. Get products with low stock
-    const lowStockAlerts = await this.inventoryService.getLowStockAlerts(
-      tenantId,
-    );
+    const lowStockAlerts =
+      await this.inventoryService.getLowStockAlerts(tenantId);
 
     if (!lowStockAlerts || lowStockAlerts.length === 0) {
       this.logger.log("No low stock products found");
       return [];
     }
 
-    this.logger.log(
-      `Found ${lowStockAlerts.length} products with low stock`,
-    );
+    this.logger.log(`Found ${lowStockAlerts.length} products with low stock`);
 
     // 2. Group by preferred supplier
     const supplierGroups = new Map<string, any[]>();
@@ -562,7 +574,11 @@ export class PurchasesService {
       // Get product details including preferred supplier
       const product = await this.productModel.findById(alert.productId);
 
-      if (!product || !(product as any).suppliers || (product as any).suppliers.length === 0) {
+      if (
+        !product ||
+        !(product as any).suppliers ||
+        (product as any).suppliers.length === 0
+      ) {
         this.logger.warn(
           `Product ${alert.productName || alert.productSku} has no suppliers configured`,
         );
@@ -571,7 +587,8 @@ export class PurchasesService {
 
       // Find preferred supplier or use first one
       const suppliers = (product as any).suppliers;
-      const preferredSupplier = suppliers.find((s: any) => s.isPreferred) || suppliers[0];
+      const preferredSupplier =
+        suppliers.find((s: any) => s.isPreferred) || suppliers[0];
       const supplierId = preferredSupplier.supplierId?.toString();
 
       if (!supplierId) {
@@ -600,9 +617,7 @@ export class PurchasesService {
       });
     }
 
-    this.logger.log(
-      `Grouped products into ${supplierGroups.size} supplier(s)`,
-    );
+    this.logger.log(`Grouped products into ${supplierGroups.size} supplier(s)`);
 
     // 3. Create draft POs for each supplier
     const createdPOs: PurchaseOrderDocument[] = [];

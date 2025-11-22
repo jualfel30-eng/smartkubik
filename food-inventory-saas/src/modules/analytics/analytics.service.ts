@@ -7,7 +7,7 @@ import {
 import { InjectModel } from "@nestjs/mongoose";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { Model, Types } from "mongoose";
-import { FEATURES, FeatureFlags } from "../../config/features.config";
+import { FeatureFlags } from "../../config/features.config";
 import { FeatureFlagsService } from "../../config/feature-flags.service";
 import { getVerticalProfile } from "../../config/vertical-profiles";
 import {
@@ -810,8 +810,7 @@ export class AnalyticsService {
       "ADVANCED_REPORTS",
       "Advanced reports feature disabled",
     );
-    const { objectId: tenantObjectId, key: tenantKey } =
-      this.normalizeTenantIdentifiers(tenantId);
+    const { key: tenantKey } = this.normalizeTenantIdentifiers(tenantId);
     const { from, to, groupBy } = this.buildDateRange(period);
 
     const format = groupBy === "day" ? "%Y-%m-%d" : "%Y-%m";
@@ -936,8 +935,7 @@ export class AnalyticsService {
     tenantId: string,
     params: { startDate?: string; endDate?: string; employeeId?: string },
   ) {
-    const { objectId: tenantObjectId, key: tenantKey } =
-      this.normalizeTenantIdentifiers(tenantId);
+    const { key: tenantKey } = this.normalizeTenantIdentifiers(tenantId);
 
     // Construir rango de fechas
     let from: Date;
@@ -1048,9 +1046,7 @@ export class AnalyticsService {
     );
     const totalOrdersWithTips = ordersWithTips.length;
     const averageTipPerOrder =
-      totalOrdersWithTips > 0
-        ? totalTipsAllEmployees / totalOrdersWithTips
-        : 0;
+      totalOrdersWithTips > 0 ? totalTipsAllEmployees / totalOrdersWithTips : 0;
 
     return {
       period: {
@@ -1083,8 +1079,7 @@ export class AnalyticsService {
    * @deprecated This method is replaced by MenuEngineeringService
    */
   async getMenuEngineeringOld(tenantId: string, period?: string) {
-    const { objectId: tenantObjectId, key: tenantKey } =
-      this.normalizeTenantIdentifiers(tenantId);
+    const { key: tenantKey } = this.normalizeTenantIdentifiers(tenantId);
     const { from, to } = this.buildDateRange(period);
 
     // Obtener todas las órdenes del período
@@ -1167,10 +1162,7 @@ export class AnalyticsService {
     }));
 
     // Calcular promedios para clasificación
-    const totalQuantity = products.reduce(
-      (sum, p) => sum + p.quantitySold,
-      0,
-    );
+    const totalQuantity = products.reduce((sum, p) => sum + p.quantitySold, 0);
     const avgQuantity = totalQuantity / products.length;
 
     const totalProfitability = products.reduce(

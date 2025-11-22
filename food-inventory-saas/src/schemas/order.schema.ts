@@ -285,6 +285,31 @@ export class Order {
   @Prop({ type: Number, default: 0 })
   totalTipsAmount: number; // Total de propinas agregadas
 
+  // QUICK WIN #3: Tips tracking
+  @Prop({
+    type: [
+      {
+        amount: Number,
+        percentage: Number,
+        method: String, // 'cash', 'card', 'percentage'
+        employeeId: { type: Types.ObjectId, ref: "User" },
+        employeeName: String,
+        distributedAt: Date,
+        notes: String,
+      },
+    ],
+    default: [],
+  })
+  tipsRecords: Array<{
+    amount: number;
+    percentage?: number;
+    method: string;
+    employeeId?: Types.ObjectId;
+    employeeName?: string;
+    distributedAt?: Date;
+    notes?: string;
+  }>;
+
   @Prop({ type: Types.ObjectId, ref: "Table" })
   tableId?: Types.ObjectId; // Mesa asociada (para restaurantes)
 
@@ -348,6 +373,9 @@ export class Order {
 
   @Prop({ type: Types.ObjectId, ref: "User" })
   assignedTo?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: "User" })
+  assignedWaiterId?: Types.ObjectId;
 
   @Prop({ type: String, ref: "Tenant", required: true })
   tenantId: string;

@@ -25,7 +25,7 @@ export class DeliveryController {
       orderAmount?: number;
     },
     @Request() req,
-  ) {
+  ): Promise<any> {
     return this.deliveryService.calculateDeliveryCost({
       tenantId: req.user.tenantId,
       ...body,
@@ -33,12 +33,12 @@ export class DeliveryController {
   }
 
   @Get("rates")
-  async getDeliveryRates(@Request() req) {
+  async getDeliveryRates(@Request() req): Promise<any> {
     return this.deliveryService.getDeliveryRates(req.user.tenantId);
   }
 
   @Post("rates")
-  async upsertDeliveryRates(@Request() req, @Body() body: any) {
+  async upsertDeliveryRates(@Request() req, @Body() body: any): Promise<any> {
     return this.deliveryService.upsertDeliveryRates(
       req.user.tenantId,
       body,

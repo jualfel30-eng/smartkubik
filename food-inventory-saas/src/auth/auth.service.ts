@@ -23,10 +23,9 @@ import {
   ResetPasswordDto,
 } from "../dto/auth.dto";
 import { RolesService } from "../modules/roles/roles.service";
-import { Role, RoleDocument } from "../schemas/role.schema";
+import { RoleDocument } from "../schemas/role.schema";
 import { MailService } from "../modules/mail/mail.service";
 import { TokenService } from "./token.service";
-import { isFeatureEnabled } from "../config/features.config";
 import {
   MembershipsService,
   MembershipSummary,

@@ -9,12 +9,7 @@ import {
   Request,
   UseGuards,
 } from "@nestjs/common";
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from "@nestjs/swagger";
+import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { ModuleAccessGuard } from "../../guards/module-access.guard";
 import { RequireModule } from "../../decorators/require-module.decorator";

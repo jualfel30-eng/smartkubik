@@ -156,6 +156,59 @@ export class AnalyticsController {
     return { success: true, data };
   }
 
+  /**
+   * QUICK WIN: Food Cost Percentage
+   * KPI #1 para restaurantes - Costo de ingredientes vs ventas
+   */
+  @Get("food-cost")
+  @Permissions("reports_read")
+  async getFoodCost(@Req() req, @Query() query: AnalyticsPeriodQueryDto) {
+    const data = await this.analyticsService.getFoodCost(
+      req.user.tenantId,
+      query.period,
+    );
+    return { success: true, data };
+  }
+
+  /**
+   * QUICK WIN #3: Tips Report
+   * Reporte de propinas por empleado
+   */
+  @Get("tips")
+  @Permissions("reports_read")
+  async getTipsReport(
+    @Req() req,
+    @Query()
+    query: {
+      startDate?: string;
+      endDate?: string;
+      employeeId?: string;
+    },
+  ) {
+    const data = await this.analyticsService.getTipsReport(
+      req.user.tenantId,
+      query,
+    );
+    return { success: true, data };
+  }
+
+  /**
+   * QUICK WIN #4: Menu Engineering
+   * Análisis de matriz de menú (Popularidad vs Rentabilidad)
+   */
+  @Get("menu-engineering")
+  @Permissions("reports_read")
+  async getMenuEngineering(
+    @Req() req,
+    @Query() query: AnalyticsPeriodQueryDto,
+  ) {
+    const data = await this.analyticsService.getMenuEngineering(
+      req.user.tenantId,
+      query.period,
+    );
+    return { success: true, data };
+  }
+
   @Get("hospitality/hotel-ops")
   @Permissions("reports_read")
   async getHospitalityOperations(

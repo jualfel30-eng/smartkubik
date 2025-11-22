@@ -46,7 +46,7 @@ export class BankTransfersService {
         session,
       );
 
-      const destinationAccount = await this.bankAccountsService.findOne(
+      await this.bankAccountsService.findOne(
         dto.destinationAccountId,
         tenantId,
         session,

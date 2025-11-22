@@ -19,6 +19,10 @@ export const VERTICAL_FEATURES = {
     hrCore: false,
     timeAndAttendance: false,
 
+    // Communication & Marketing (opt-in modules)
+    chat: false,
+    marketing: false,
+
     // Food service specific
     restaurant: true, // This flag enables the whole restaurant section in the frontend
     tables: true,
@@ -56,6 +60,10 @@ export const VERTICAL_FEATURES = {
     hrCore: false,
     timeAndAttendance: false,
 
+    // Communication & Marketing (opt-in modules)
+    chat: false,
+    marketing: false,
+
     // Retail specific
     pos: true,
     variants: true,
@@ -91,6 +99,10 @@ export const VERTICAL_FEATURES = {
     bankAccounts: true,
     hrCore: false,
     timeAndAttendance: false,
+
+    // Communication & Marketing (opt-in modules)
+    chat: false,
+    marketing: false,
 
     // Services specific
     appointments: true,
@@ -128,6 +140,10 @@ export const VERTICAL_FEATURES = {
     hrCore: false,
     timeAndAttendance: false,
 
+    // Communication & Marketing (opt-in modules)
+    chat: false,
+    marketing: false,
+
     // Logistics specific
     shipments: true,
     tracking: true,
@@ -164,6 +180,10 @@ export const VERTICAL_FEATURES = {
     hrCore: true,
     timeAndAttendance: true,
 
+    // Communication & Marketing (opt-in modules - even for HYBRID)
+    chat: false,
+    marketing: false,
+
     // All vertical-specific modules enabled (admin decides which to use)
     tables: true,
     recipes: true,
@@ -197,6 +217,10 @@ export const VERTICAL_FEATURES = {
     bankAccounts: true,
     hrCore: false,
     timeAndAttendance: false,
+
+    // Communication & Marketing (opt-in modules)
+    chat: false,
+    marketing: false,
 
     // Production modules (already implemented in Phases 1-8)
     production: true,

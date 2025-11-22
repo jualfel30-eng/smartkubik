@@ -1,4 +1,4 @@
-import { Controller, Post, Param } from "@nestjs/common";
+import { Controller, Post } from "@nestjs/common";
 import { SeederService } from "../../database/seeds/seeder.service";
 
 @Controller("api/v1/seeding")

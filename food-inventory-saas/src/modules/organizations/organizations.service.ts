@@ -125,6 +125,7 @@ export class OrganizationsService {
 
     // Clonar cada producto
     const clonedProducts = sourceProducts.map((product) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { _id, createdAt, updatedAt, __v, ...productData } = product as any;
 
       return {

@@ -708,20 +708,12 @@ export class AssistantToolsService {
     }
 
     let availableQuantity = inventory.availableQuantity;
-    let reservedQuantity = inventory.reservedQuantity;
-    let committedQuantity = inventory.committedQuantity;
-    let totalQuantity = inventory.totalQuantity;
     let averageCostPrice = inventory.averageCostPrice;
     const lastCostPrice = inventory.lastCostPrice;
 
     if (attributeCombination) {
       availableQuantity =
         attributeCombination.availableQuantity ?? availableQuantity;
-      reservedQuantity =
-        attributeCombination.reservedQuantity ?? reservedQuantity;
-      committedQuantity =
-        attributeCombination.committedQuantity ?? committedQuantity;
-      totalQuantity = attributeCombination.totalQuantity ?? totalQuantity;
       averageCostPrice =
         attributeCombination.averageCostPrice ?? averageCostPrice;
     }

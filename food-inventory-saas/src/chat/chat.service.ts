@@ -283,7 +283,6 @@ export class ChatService {
         // Handle location sharing
         if (msg.type === "location" && msg.location && msg.from) {
           try {
-            const chatId = msg.chat_id || msg.chatId || msg.from;
             const customer =
               await this.whapiService.getCustomerByWhatsAppNumber(
                 msg.from,

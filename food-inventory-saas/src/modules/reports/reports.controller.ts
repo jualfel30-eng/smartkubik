@@ -16,7 +16,7 @@ export class ReportsController {
   getAccountsReceivableReport(
     @Req() req,
     @Query() query: AccountsReceivableReportQueryDto,
-  ) {
+  ): Promise<any> {
     return this.reportsService.generateAccountsReceivableAging(
       req.tenantId,
       query.asOfDate,
@@ -27,7 +27,7 @@ export class ReportsController {
   exportHospitalityAppointments(
     @Req() req,
     @Query() query: HospitalityAppointmentsReportQueryDto,
-  ) {
+  ): Promise<any> {
     return this.reportsService.exportHospitalityAppointments(req.tenantId, {
       startDate: query.startDate,
       endDate: query.endDate,
