@@ -109,9 +109,8 @@ export class ReservationSettings {
   noShowGracePeriodMinutes: number; // Marcar no-show después de X minutos
 }
 
-export const ReservationSettingsSchema = SchemaFactory.createForClass(
-  ReservationSettings,
-);
+export const ReservationSettingsSchema =
+  SchemaFactory.createForClass(ReservationSettings);
 
 // Índice
 ReservationSettingsSchema.index({ tenantId: 1 });

@@ -3,7 +3,19 @@ import { fetchApi } from '../../lib/api';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
-import { Plus, Users, Clock, ArrowRightLeft, Link2 } from 'lucide-react';
+import {
+  Plus,
+  Users,
+  Clock,
+  ArrowRightLeft,
+  Link2,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Sparkles,
+  Timer,
+  DollarSign
+} from 'lucide-react';
 import SeatGuestsModal from './SeatGuestsModal';
 import TableConfigModal from './TableConfigModal';
 
@@ -34,24 +46,48 @@ export function FloorPlan() {
 
   const getStatusColor = (status) => {
     const colors = {
-      available: 'bg-green-500 hover:bg-green-600',
-      occupied: 'bg-red-500 hover:bg-red-600',
-      reserved: 'bg-blue-500 hover:bg-blue-600',
-      cleaning: 'bg-yellow-500 hover:bg-yellow-600',
-      'out-of-service': 'bg-gray-500 hover:bg-gray-600',
+      available: 'bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-md',
+      occupied: 'bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 shadow-md',
+      reserved: 'bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-md',
+      cleaning: 'bg-gradient-to-br from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 shadow-md',
+      'out-of-service': 'bg-gradient-to-br from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 shadow-md',
     };
     return colors[status] || 'bg-gray-300';
   };
 
   const getStatusBadgeColor = (status) => {
     const colors = {
-      available: 'bg-green-100 text-green-800',
-      occupied: 'bg-red-100 text-red-800',
-      reserved: 'bg-blue-100 text-blue-800',
-      cleaning: 'bg-yellow-100 text-yellow-800',
-      'out-of-service': 'bg-gray-100 text-gray-800',
+      available: 'bg-green-100 text-green-800 border-green-300',
+      occupied: 'bg-red-100 text-red-800 border-red-300',
+      reserved: 'bg-blue-100 text-blue-800 border-blue-300',
+      cleaning: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+      'out-of-service': 'bg-gray-100 text-gray-800 border-gray-300',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getStatusIcon = (status) => {
+    const icons = {
+      available: <CheckCircle className="w-4 h-4" />,
+      occupied: <Users className="w-4 h-4" />,
+      reserved: <Clock className="w-4 h-4" />,
+      cleaning: <Sparkles className="w-4 h-4" />,
+      'out-of-service': <XCircle className="w-4 h-4" />,
+    };
+    return icons[status] || null;
+  };
+
+  const getSectionColor = (sectionName) => {
+    const colors = [
+      'border-blue-300 bg-blue-50',
+      'border-purple-300 bg-purple-50',
+      'border-pink-300 bg-pink-50',
+      'border-orange-300 bg-orange-50',
+      'border-teal-300 bg-teal-50',
+      'border-indigo-300 bg-indigo-50',
+    ];
+    const hash = sectionName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return colors[hash % colors.length];
   };
 
   const handleSeatGuests = () => {
@@ -190,14 +226,28 @@ export function FloorPlan() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Plano de Mesas */}
         <div className="lg:col-span-3">
-          <Card className="p-6">
+          <Card className="p-6 bg-gray-50">
             <div className="space-y-6">
               {filteredSections.map((section) => (
-                <div key={section.section}>
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    {section.section}
-                    <Badge variant="outline">{section.tables.length} mesas</Badge>
-                  </h3>
+                <div
+                  key={section.section}
+                  className={`p-4 rounded-lg border-2 ${getSectionColor(section.section)}`}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold flex items-center gap-2">
+                      {section.section}
+                      <Badge variant="outline" className="font-normal">
+                        {section.tables.length} mesas
+                      </Badge>
+                    </h3>
+                    <div className="flex gap-2 text-sm">
+                      <span className="text-gray-600">
+                        Disponibles: <span className="font-semibold text-green-600">
+                          {section.tables.filter(t => t.status === 'available').length}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
                   <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
                     {section.tables.map((table) => (
                       <button
@@ -205,21 +255,34 @@ export function FloorPlan() {
                         onClick={() => setSelectedTable(table)}
                         className={`
                           ${getStatusColor(table.status)}
-                          ${selectedTable?._id === table._id ? 'ring-4 ring-blue-400' : ''}
-                          text-white p-4 rounded-lg transition-all duration-200
+                          ${selectedTable?._id === table._id ? 'ring-4 ring-yellow-400 scale-105' : ''}
+                          text-white p-4 rounded-xl transition-all duration-200
                           flex flex-col items-center justify-center
-                          min-h-[80px] relative
+                          min-h-[90px] relative transform hover:scale-105
                         `}
                       >
-                        <span className="text-lg font-bold">{table.tableNumber}</span>
-                        {table.guestCount && (
-                          <span className="text-xs mt-1 flex items-center gap-1">
-                            <Users className="w-3 h-3" />
-                            {table.guestCount}
-                          </span>
-                        )}
+                        <div className="absolute top-2 left-2">
+                          {getStatusIcon(table.status)}
+                        </div>
+                        <span className="text-xl font-bold mb-1">{table.tableNumber}</span>
+                        <div className="flex flex-col items-center gap-1">
+                          {table.guestCount && (
+                            <span className="text-xs flex items-center gap-1 bg-white/20 px-2 py-0.5 rounded">
+                              <Users className="w-3 h-3" />
+                              {table.guestCount}/{table.maxCapacity}
+                            </span>
+                          )}
+                          {table.seatedAt && table.status === 'occupied' && (
+                            <span className="text-xs flex items-center gap-1 bg-white/20 px-2 py-0.5 rounded">
+                              <Timer className="w-3 h-3" />
+                              {Math.floor((Date.now() - new Date(table.seatedAt)) / 60000)}m
+                            </span>
+                          )}
+                        </div>
                         {table.combinesWith && table.combinesWith.length > 0 && (
-                          <Link2 className="w-3 h-3 absolute top-1 right-1" />
+                          <div className="absolute top-2 right-2 bg-white/30 rounded-full p-1">
+                            <Link2 className="w-3 h-3" />
+                          </div>
                         )}
                       </button>
                     ))}
@@ -241,64 +304,92 @@ export function FloorPlan() {
 
         {/* Sidebar: Detalles de Mesa Seleccionada */}
         <div className="lg:col-span-1">
-          <Card className="p-4 sticky top-4">
+          <Card className="p-4 sticky top-4 shadow-lg">
             {selectedTable ? (
               <div className="space-y-4">
-                <div>
-                  <h3 className="text-xl font-bold">Mesa {selectedTable.tableNumber}</h3>
-                  <Badge className={`mt-2 ${getStatusBadgeColor(selectedTable.status)}`}>
+                <div className="border-b pb-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-2xl font-bold">Mesa {selectedTable.tableNumber}</h3>
+                    <div className={`p-2 rounded-full ${getStatusColor(selectedTable.status).split(' ')[0]}`}>
+                      {getStatusIcon(selectedTable.status)}
+                    </div>
+                  </div>
+                  <Badge className={`${getStatusBadgeColor(selectedTable.status)} border`}>
                     {selectedTable.status.replace('-', ' ').toUpperCase()}
                   </Badge>
                 </div>
 
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Sección:</span>
-                    <span className="font-medium">{selectedTable.section}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Capacidad:</span>
-                    <span className="font-medium">
-                      {selectedTable.minCapacity}-{selectedTable.maxCapacity}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Forma:</span>
-                    <span className="font-medium capitalize">{selectedTable.shape}</span>
+                <div className="space-y-3 text-sm">
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="flex justify-between mb-2">
+                      <span className="text-gray-600 font-medium">Sección:</span>
+                      <span className="font-bold">{selectedTable.section}</span>
+                    </div>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-gray-600 font-medium">Capacidad:</span>
+                      <span className="font-bold">
+                        {selectedTable.minCapacity}-{selectedTable.maxCapacity} personas
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 font-medium">Forma:</span>
+                      <span className="font-bold capitalize">{selectedTable.shape}</span>
+                    </div>
                   </div>
 
-                  {selectedTable.guestCount && (
-                    <>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Comensales:</span>
-                        <span className="font-medium">{selectedTable.guestCount}</span>
+                  {selectedTable.status === 'occupied' && (
+                    <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Users className="w-4 h-4 text-red-600" />
+                        <span className="font-semibold text-red-900">Mesa Ocupada</span>
                       </div>
-                      {selectedTable.seatedAt && (
+                      <div className="space-y-2">
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Sentados hace:</span>
-                          <span className="font-medium">
-                            {Math.floor((Date.now() - new Date(selectedTable.seatedAt)) / 60000)} min
-                          </span>
+                          <span className="text-gray-700">Comensales:</span>
+                          <span className="font-bold text-red-900">{selectedTable.guestCount}</span>
                         </div>
-                      )}
-                    </>
+                        {selectedTable.seatedAt && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-700">Tiempo:</span>
+                            <span className="font-bold text-red-900 flex items-center gap-1">
+                              <Timer className="w-3 h-3" />
+                              {Math.floor((Date.now() - new Date(selectedTable.seatedAt)) / 60000)} min
+                            </span>
+                          </div>
+                        )}
+                        {selectedTable.currentOrderId && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-700">Orden activa:</span>
+                            <span className="font-bold text-red-900 flex items-center gap-1">
+                              <DollarSign className="w-3 h-3" />
+                              Sí
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   )}
 
                   {selectedTable.assignedServerId && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Mesero:</span>
-                      <span className="font-medium">
-                        {selectedTable.assignedServerId.name || 'Asignado'}
-                      </span>
+                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                      <div className="flex justify-between items-center">
+                        <span className="text-blue-700 font-medium">Mesero Asignado:</span>
+                        <span className="font-bold text-blue-900">
+                          {selectedTable.assignedServerId.name || 'Asignado'}
+                        </span>
+                      </div>
                     </div>
                   )}
 
                   {selectedTable.combinesWith && selectedTable.combinesWith.length > 0 && (
-                    <div className="pt-2 border-t">
-                      <span className="text-gray-600 text-xs">Combinada con:</span>
-                      <div className="flex gap-1 mt-1 flex-wrap">
+                    <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Link2 className="w-4 h-4 text-purple-600" />
+                        <span className="font-semibold text-purple-900">Mesa Combinada</span>
+                      </div>
+                      <div className="flex gap-1 mt-2 flex-wrap">
                         {selectedTable.combinesWith.map((id) => (
-                          <Badge key={id} variant="outline" className="text-xs">
+                          <Badge key={id} variant="outline" className="text-xs bg-white border-purple-300">
                             Mesa {id}
                           </Badge>
                         ))}

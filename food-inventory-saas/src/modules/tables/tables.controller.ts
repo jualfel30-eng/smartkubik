@@ -83,7 +83,11 @@ export class TablesController {
 
   @Patch(":id")
   @Permissions("restaurant_write")
-  async update(@Param("id") id: string, @Body() dto: UpdateTableDto, @Request() req) {
+  async update(
+    @Param("id") id: string,
+    @Body() dto: UpdateTableDto,
+    @Request() req,
+  ) {
     return this.tablesService.update(id, dto, req.user.tenantId);
   }
 

@@ -41,12 +41,12 @@ const STATUS_CONFIG = {
   'no-show': { label: 'No Show', color: 'bg-orange-100 text-orange-800 border-orange-300', icon: AlertCircle },
 };
 
-const ReservationsList = () => {
+const ReservationsList = ({ initialDate = '' }) => {
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState({
     status: 'all',
-    date: '',
+    date: initialDate,
     search: '',
   });
   const [showForm, setShowForm] = useState(false);
@@ -88,6 +88,13 @@ const ReservationsList = () => {
   useEffect(() => {
     fetchTables();
   }, [fetchTables]);
+
+  // Update filter when initialDate changes (from calendar click)
+  useEffect(() => {
+    if (initialDate) {
+      setFilter(prev => ({ ...prev, date: initialDate }));
+    }
+  }, [initialDate]);
 
   const handleConfirm = async (id) => {
     try {

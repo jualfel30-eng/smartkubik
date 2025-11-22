@@ -26,8 +26,9 @@ export class TipsDistributionRules {
   poolTips: boolean; // true = poolear todas las propinas
 }
 
-const TipsDistributionRulesSchema =
-  SchemaFactory.createForClass(TipsDistributionRules);
+const TipsDistributionRulesSchema = SchemaFactory.createForClass(
+  TipsDistributionRules,
+);
 
 @Schema({ timestamps: true })
 export class TipsDistributionRule {
@@ -54,9 +55,8 @@ export class TipsDistributionRule {
   createdBy?: Types.ObjectId;
 }
 
-export const TipsDistributionRuleSchema = SchemaFactory.createForClass(
-  TipsDistributionRule,
-);
+export const TipsDistributionRuleSchema =
+  SchemaFactory.createForClass(TipsDistributionRule);
 
 // Índices
 TipsDistributionRuleSchema.index({ tenantId: 1, isActive: 1 });

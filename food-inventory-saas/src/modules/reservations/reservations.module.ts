@@ -12,7 +12,6 @@ import {
 } from "../../schemas/reservation-settings.schema";
 import { Table, TableSchema } from "../../schemas/table.schema";
 import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
-import { AuthModule } from "../auth/auth.module";
 import { PermissionsModule } from "../permissions/permissions.module";
 
 @Module({
@@ -23,7 +22,6 @@ import { PermissionsModule } from "../permissions/permissions.module";
       { name: Table.name, schema: TableSchema },
       { name: Tenant.name, schema: TenantSchema },
     ]),
-    AuthModule,
     PermissionsModule,
   ],
   controllers: [ReservationsController],

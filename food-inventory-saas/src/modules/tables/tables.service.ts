@@ -193,7 +193,10 @@ export class TablesService {
     return toTable;
   }
 
-  async combineTables(dto: CombineTablesDto, tenantId: string): Promise<Table[]> {
+  async combineTables(
+    dto: CombineTablesDto,
+    tenantId: string,
+  ): Promise<Table[]> {
     const tables = await this.tableModel
       .find({
         _id: { $in: dto.tableIds },
@@ -276,7 +279,11 @@ export class TablesService {
     };
   }
 
-  async update(id: string, dto: UpdateTableDto, tenantId: string): Promise<Table> {
+  async update(
+    id: string,
+    dto: UpdateTableDto,
+    tenantId: string,
+  ): Promise<Table> {
     const table = await this.tableModel
       .findOneAndUpdate(
         { _id: id, tenantId, isDeleted: false },

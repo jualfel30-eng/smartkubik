@@ -13,14 +13,14 @@ import {
 import { toast } from 'sonner';
 import { Calendar, Clock, Users, Phone, Mail, AlertCircle, Check } from 'lucide-react';
 
-const ReservationForm = ({ reservation, onClose }) => {
+const ReservationForm = ({ reservation, initialDate, onClose }) => {
   const isEditing = !!reservation;
 
   const [formData, setFormData] = useState({
     guestName: '',
     guestEmail: '',
     guestPhone: '',
-    date: '',
+    date: initialDate || '',
     time: '',
     partySize: 2,
     specialRequests: '',
@@ -42,8 +42,10 @@ const ReservationForm = ({ reservation, onClose }) => {
         partySize: reservation.partySize || 2,
         specialRequests: reservation.specialRequests || '',
       });
+    } else if (initialDate) {
+      setFormData(prev => ({ ...prev, date: initialDate }));
     }
-  }, [reservation]);
+  }, [reservation, initialDate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

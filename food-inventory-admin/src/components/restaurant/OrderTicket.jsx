@@ -14,9 +14,9 @@ import {
 } from 'lucide-react';
 
 /**
- * OrderTicket Component
+ * OrderTicket Component - QUICK WIN #1 Enhanced
  * Ticket individual de orden en Kitchen Display System
- * Muestra items, timers, y permite tracking granular
+ * Mejoras: Colores por urgencia, mejor información visual
  */
 export default function OrderTicket({
   order,
@@ -25,6 +25,8 @@ export default function OrderTicket({
   onMarkUrgent,
   onCancel,
   elapsedTime,
+  urgencyHighlight = 'border-gray-700',
+  darkMode = true,
 }) {
   const [showActions, setShowActions] = useState(false);
   const [currentElapsed, setCurrentElapsed] = useState(elapsedTime);
@@ -59,15 +61,6 @@ export default function OrderTicket({
     return texts[status] || status;
   };
 
-  const getPriorityBorder = (priority) => {
-    const borders = {
-      normal: 'border-gray-700',
-      urgent: 'border-orange-500',
-      asap: 'border-red-500',
-    };
-    return borders[priority] || 'border-gray-700';
-  };
-
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -75,9 +68,22 @@ export default function OrderTicket({
   };
 
   const getTimerColor = (elapsed, estimated) => {
-    if (elapsed < estimated * 60) return 'text-green-400';
-    if (elapsed < estimated * 60 * 1.2) return 'text-yellow-400';
-    return 'text-red-400';
+    if (elapsed < estimated * 60) return 'text-green-500';
+    if (elapsed < estimated * 60 * 1.2) return 'text-yellow-500';
+    return 'text-red-500';
+  };
+
+  const getItemStatusBg = (status) => {
+    switch (status) {
+      case 'pending':
+        return darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-100 border-gray-300';
+      case 'preparing':
+        return 'bg-yellow-500/20 border-yellow-500';
+      case 'ready':
+        return 'bg-green-500/20 border-green-500';
+      default:
+        return darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-100 border-gray-300';
+    }
   };
 
   const handleItemClick = (item) => {
@@ -94,20 +100,18 @@ export default function OrderTicket({
 
   return (
     <Card
-      className={`bg-gray-800 border-2 ${getPriorityBorder(order.priority)} ${
-        order.isUrgent ? 'shadow-lg shadow-red-500/50 animate-pulse' : ''
-      }`}
+      className={`${darkMode ? 'bg-gray-800' : 'bg-white'} border-2 ${urgencyHighlight}`}
     >
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="text-xl font-bold text-white flex items-center gap-2">
+            <CardTitle className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'} flex items-center gap-2`}>
               #{order.orderNumber}
               {order.isUrgent && (
                 <AlertTriangle className="w-5 h-5 text-red-500 animate-pulse" />
               )}
             </CardTitle>
-            <div className="flex items-center gap-2 mt-1 text-sm text-gray-400">
+            <div className={`flex items-center gap-2 mt-1 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
               <Badge className={getStatusColor(order.status)}>
                 {order.status.toUpperCase()}
               </Badge>
@@ -117,7 +121,7 @@ export default function OrderTicket({
 
           <button
             onClick={() => setShowActions(!showActions)}
-            className="text-gray-400 hover:text-white"
+            className={`${darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}
           >
             <MoreVertical className="w-5 h-5" />
           </button>
@@ -125,13 +129,13 @@ export default function OrderTicket({
 
         {/* Dropdown de acciones */}
         {showActions && (
-          <div className="absolute right-4 top-16 bg-gray-900 border border-gray-700 rounded-lg shadow-xl z-10 min-w-[160px]">
+          <div className={`absolute right-4 top-16 ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-300'} border rounded-lg shadow-xl z-10 min-w-[160px]`}>
             <button
               onClick={() => {
                 onMarkUrgent(order._id, !order.isUrgent);
                 setShowActions(false);
               }}
-              className="w-full text-left px-4 py-2 hover:bg-gray-800 text-sm"
+              className={`w-full text-left px-4 py-2 ${darkMode ? 'hover:bg-gray-800 text-white' : 'hover:bg-gray-100 text-gray-900'} text-sm`}
             >
               {order.isUrgent ? 'Quitar urgente' : 'Marcar urgente'}
             </button>
@@ -140,7 +144,7 @@ export default function OrderTicket({
                 onCancel(order._id, 'Cancelado desde KDS');
                 setShowActions(false);
               }}
-              className="w-full text-left px-4 py-2 hover:bg-gray-800 text-sm text-red-400"
+              className={`w-full text-left px-4 py-2 ${darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'} text-sm text-red-500`}
             >
               Cancelar orden
             </button>
@@ -150,19 +154,19 @@ export default function OrderTicket({
         {/* Info adicional */}
         <div className="mt-3 space-y-1 text-sm">
           {order.tableNumber && (
-            <div className="flex items-center gap-2 text-gray-300">
+            <div className={`flex items-center gap-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               <MapPin className="w-4 h-4" />
               <span>Mesa {order.tableNumber}</span>
             </div>
           )}
           {order.customerName && (
-            <div className="flex items-center gap-2 text-gray-300">
+            <div className={`flex items-center gap-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               <User className="w-4 h-4" />
               <span>{order.customerName}</span>
             </div>
           )}
           {order.station && (
-            <div className="flex items-center gap-2 text-gray-300">
+            <div className={`flex items-center gap-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               <Utensils className="w-4 h-4" />
               <span>Estación: {order.station}</span>
             </div>
@@ -172,10 +176,10 @@ export default function OrderTicket({
 
       <CardContent className="space-y-3">
         {/* Timer principal */}
-        <div className="bg-gray-900 rounded-lg p-3 flex justify-between items-center">
+        <div className={`${darkMode ? 'bg-gray-900' : 'bg-gray-100'} rounded-lg p-3 flex justify-between items-center`}>
           <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-blue-400" />
-            <span className="text-sm text-gray-400">Tiempo transcurrido:</span>
+            <Clock className="w-5 h-5 text-blue-500" />
+            <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Tiempo transcurrido:</span>
           </div>
           <span
             className={`text-2xl font-bold ${getTimerColor(
@@ -188,41 +192,32 @@ export default function OrderTicket({
         </div>
 
         {/* Tiempo estimado */}
-        <div className="text-xs text-gray-500 text-center">
+        <div className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-600'} text-center`}>
           Estimado: {order.estimatedPrepTime} min
         </div>
 
         {/* Items */}
         <div className="space-y-2">
-          {order.items.map((item, index) => (
+          {order.items.map((item) => (
             <div
               key={item.itemId}
               onClick={() => handleItemClick(item)}
-              className={`
-                p-3 rounded-lg border-2 cursor-pointer transition-all
-                ${
-                  item.status === 'pending'
-                    ? 'bg-gray-900 border-gray-700 hover:border-blue-500'
-                    : item.status === 'preparing'
-                    ? 'bg-yellow-900/20 border-yellow-500 hover:border-yellow-400'
-                    : item.status === 'ready'
-                    ? 'bg-green-900/20 border-green-500'
-                    : 'bg-gray-900 border-gray-700'
-                }
-              `}
+              className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${getItemStatusBg(item.status)} ${
+                item.status === 'pending' ? 'hover:border-blue-500' : item.status === 'preparing' ? 'hover:border-yellow-400' : ''
+              }`}
             >
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-white">
+                    <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                       {item.quantity}x
                     </span>
-                    <span className="text-white">{item.productName}</span>
+                    <span className={darkMode ? 'text-white' : 'text-gray-900'}>{item.productName}</span>
                   </div>
 
                   {/* Modifiers */}
                   {item.modifiers && item.modifiers.length > 0 && (
-                    <div className="mt-1 ml-6 text-sm text-gray-400">
+                    <div className={`mt-1 ml-6 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                       {item.modifiers.map((mod, i) => (
                         <div key={i}>• {mod}</div>
                       ))}
@@ -231,14 +226,14 @@ export default function OrderTicket({
 
                   {/* Special Instructions */}
                   {item.specialInstructions && (
-                    <div className="mt-1 ml-6 text-sm text-orange-400 italic">
+                    <div className="mt-1 ml-6 text-sm text-orange-500 italic font-semibold">
                       ⚠ {item.specialInstructions}
                     </div>
                   )}
 
                   {/* Item timer */}
                   {item.startedAt && (
-                    <div className="mt-1 ml-6 text-xs text-gray-500">
+                    <div className={`mt-1 ml-6 text-xs ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
                       Iniciado:{' '}
                       {new Date(item.startedAt).toLocaleTimeString('es-ES', {
                         hour: '2-digit',
@@ -261,7 +256,7 @@ export default function OrderTicket({
                     {getStatusText(item.status)}
                   </Badge>
                   {item.status === 'ready' && (
-                    <CheckCircle className="w-5 h-5 text-green-400 mt-1" />
+                    <CheckCircle className="w-5 h-5 text-green-500 mt-1" />
                   )}
                 </div>
               </div>
@@ -271,9 +266,9 @@ export default function OrderTicket({
 
         {/* Notas */}
         {order.notes && (
-          <div className="bg-gray-900 rounded-lg p-3 text-sm">
-            <span className="text-gray-400">Notas:</span>
-            <p className="text-white mt-1">{order.notes}</p>
+          <div className={`${darkMode ? 'bg-gray-900' : 'bg-gray-100'} rounded-lg p-3 text-sm`}>
+            <span className={darkMode ? 'text-gray-400' : 'text-gray-600'}>Notas:</span>
+            <p className={`${darkMode ? 'text-white' : 'text-gray-900'} mt-1`}>{order.notes}</p>
           </div>
         )}
 
@@ -281,10 +276,12 @@ export default function OrderTicket({
         <Button
           onClick={() => onBump(order._id)}
           disabled={!canBump()}
-          className={`w-full ${
+          className={`w-full font-bold ${
             canBump()
-              ? 'bg-green-600 hover:bg-green-700'
-              : 'bg-gray-700 cursor-not-allowed'
+              ? 'bg-green-600 hover:bg-green-700 text-white'
+              : darkMode
+                ? 'bg-gray-700 cursor-not-allowed text-gray-400'
+                : 'bg-gray-300 cursor-not-allowed text-gray-500'
           }`}
         >
           <CheckCircle className="w-4 h-4 mr-2" />

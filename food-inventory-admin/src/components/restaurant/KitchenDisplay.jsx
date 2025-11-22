@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { Switch } from '../ui/switch';
+import { Label } from '../ui/label';
 import {
   Clock,
   ChefHat,
@@ -10,13 +12,17 @@ import {
   XCircle,
   RefreshCw,
   Filter,
+  Volume2,
+  VolumeX,
+  Settings,
 } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 import OrderTicket from './OrderTicket';
 
 /**
- * Kitchen Display System (KDS)
+ * Kitchen Display System (KDS) - QUICK WIN #1
  * Pantalla principal de cocina con tracking de órdenes en tiempo real
+ * Mejoras: Alertas sonoras, tema oscuro, colores por urgencia
  */
 export default function KitchenDisplay() {
   const [orders, setOrders] = useState([]);
@@ -28,11 +34,83 @@ export default function KitchenDisplay() {
     priority: null,
     isUrgent: null,
   });
+  const [settings, setSettings] = useState({
+    soundEnabled: true,
+    darkMode: true,
+    autoRefresh: true,
+    urgentAlertInterval: 30, // segundos
+  });
+  const [showSettings, setShowSettings] = useState(false);
+  const audioContextRef = useRef(null);
+  const lastAlertTimeRef = useRef(Date.now());
+
+  // Función para reproducir sonido de alerta
+  const playAlertSound = (type = 'new') => {
+    if (!settings.soundEnabled) return;
+
+    try {
+      // Crear contexto de audio si no existe
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      const audioContext = audioContextRef.current;
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      // Configurar tono según tipo
+      if (type === 'urgent') {
+        oscillator.frequency.value = 880; // A5 - tono alto y urgente
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.1);
+
+        // Repetir 3 veces para urgentes
+        setTimeout(() => {
+          const osc2 = audioContext.createOscillator();
+          const gain2 = audioContext.createGain();
+          osc2.connect(gain2);
+          gain2.connect(audioContext.destination);
+          osc2.frequency.value = 880;
+          gain2.gain.setValueAtTime(0.3, audioContext.currentTime);
+          osc2.start();
+          osc2.stop(audioContext.currentTime + 0.1);
+        }, 200);
+      } else {
+        oscillator.frequency.value = 440; // A4 - tono normal
+        gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.15);
+      }
+    } catch (error) {
+      console.error('Error playing sound:', error);
+    }
+  };
+
+  // Detectar nuevas órdenes y reproducir alerta
+  useEffect(() => {
+    if (orders.length > 0 && settings.soundEnabled) {
+      const urgentOrders = orders.filter(o => o.isUrgent);
+      const now = Date.now();
+
+      // Alerta para órdenes urgentes cada X segundos
+      if (urgentOrders.length > 0 &&
+          now - lastAlertTimeRef.current > settings.urgentAlertInterval * 1000) {
+        playAlertSound('urgent');
+        lastAlertTimeRef.current = now;
+      }
+    }
+  }, [orders, settings.soundEnabled, settings.urgentAlertInterval]);
 
   // Auto-refresh cada 10 segundos
   useEffect(() => {
     loadOrders();
     loadStats();
+
+    if (!settings.autoRefresh) return;
 
     const interval = setInterval(() => {
       loadOrders();
@@ -40,7 +118,7 @@ export default function KitchenDisplay() {
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [filters]);
+  }, [filters, settings.autoRefresh]);
 
   const loadOrders = async () => {
     try {
@@ -128,24 +206,29 @@ export default function KitchenDisplay() {
     }
   };
 
-  const getStatusColor = (status) => {
+  const getStatusBgColor = (status) => {
     const colors = {
-      new: 'bg-blue-500',
-      preparing: 'bg-yellow-500',
-      ready: 'bg-green-500',
-      completed: 'bg-gray-400',
-      cancelled: 'bg-red-500',
+      new: 'bg-blue-500/90',
+      preparing: 'bg-yellow-500/90',
+      ready: 'bg-green-500/90',
+      completed: 'bg-gray-400/90',
+      cancelled: 'bg-red-500/90',
     };
-    return colors[status] || 'bg-gray-300';
+    return colors[status] || 'bg-gray-300/90';
   };
 
-  const getPriorityColor = (priority) => {
-    const colors = {
-      normal: 'border-gray-300',
-      urgent: 'border-orange-500',
-      asap: 'border-red-500',
-    };
-    return colors[priority] || 'border-gray-300';
+  const getUrgencyHighlight = (order) => {
+    const elapsed = calculateElapsedTime(order.receivedAt);
+    const estimatedSeconds = order.estimatedPrepTime * 60;
+
+    if (order.isUrgent || elapsed > estimatedSeconds * 1.5) {
+      return 'border-red-500 shadow-lg shadow-red-500/50 animate-pulse';
+    } else if (elapsed > estimatedSeconds * 1.2) {
+      return 'border-orange-500 shadow-md shadow-orange-500/30';
+    } else if (elapsed > estimatedSeconds) {
+      return 'border-yellow-500 shadow-sm shadow-yellow-500/20';
+    }
+    return 'border-gray-700';
   };
 
   const formatTime = (seconds) => {
@@ -175,67 +258,137 @@ export default function KitchenDisplay() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4">
+    <div className={`min-h-screen ${settings.darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'} p-4`}>
       {/* Header con estadísticas */}
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-3">
             <ChefHat className="w-8 h-8 text-orange-400" />
             <h1 className="text-3xl font-bold">Kitchen Display System</h1>
+            {orders.filter(o => o.isUrgent).length > 0 && (
+              <div className="flex items-center gap-2 bg-red-500/20 border border-red-500 rounded-lg px-3 py-1 animate-pulse">
+                <AlertTriangle className="w-5 h-5 text-red-500" />
+                <span className="text-red-500 font-bold">
+                  {orders.filter(o => o.isUrgent).length} Urgente(s)
+                </span>
+              </div>
+            )}
           </div>
-          <Button
-            onClick={loadOrders}
-            variant="outline"
-            className="bg-gray-800 border-gray-700"
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Actualizar
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => setShowSettings(!showSettings)}
+              variant="outline"
+              className={settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Configuración
+            </Button>
+            <Button
+              onClick={loadOrders}
+              variant="outline"
+              className={settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Actualizar
+            </Button>
+          </div>
         </div>
+
+        {/* Settings Panel */}
+        {showSettings && (
+          <Card className={`mb-4 ${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="sound"
+                    checked={settings.soundEnabled}
+                    onCheckedChange={(checked) =>
+                      setSettings({ ...settings, soundEnabled: checked })
+                    }
+                  />
+                  <Label htmlFor="sound" className="flex items-center gap-2">
+                    {settings.soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                    Sonido
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="dark-mode"
+                    checked={settings.darkMode}
+                    onCheckedChange={(checked) =>
+                      setSettings({ ...settings, darkMode: checked })
+                    }
+                  />
+                  <Label htmlFor="dark-mode">Modo Oscuro</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="auto-refresh"
+                    checked={settings.autoRefresh}
+                    onCheckedChange={(checked) =>
+                      setSettings({ ...settings, autoRefresh: checked })
+                    }
+                  />
+                  <Label htmlFor="auto-refresh">Auto-actualizar</Label>
+                </div>
+                <div className={`text-sm ${settings.darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Alerta cada {settings.urgentAlertInterval}s
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Stats */}
         {stats && (
           <div className="grid grid-cols-4 gap-4">
-            <Card className="bg-gray-800 border-gray-700">
+            <Card className={settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}>
               <CardContent className="pt-6">
                 <div className="text-center">
                   <p className="text-3xl font-bold text-blue-400">
                     {stats.totalOrders}
                   </p>
-                  <p className="text-sm text-gray-400 mt-1">Órdenes Hoy</p>
+                  <p className={`text-sm mt-1 ${settings.darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Órdenes Hoy
+                  </p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-gray-800 border-gray-700">
+            <Card className={settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}>
               <CardContent className="pt-6">
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-yellow-400">
+                  <p className="text-3xl font-bold text-yellow-500">
                     {preparingOrders.length}
                   </p>
-                  <p className="text-sm text-gray-400 mt-1">En Preparación</p>
+                  <p className={`text-sm mt-1 ${settings.darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    En Preparación
+                  </p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-gray-800 border-gray-700">
+            <Card className={settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}>
               <CardContent className="pt-6">
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-green-400">
+                  <p className="text-3xl font-bold text-green-500">
                     {readyOrders.length}
                   </p>
-                  <p className="text-sm text-gray-400 mt-1">Listas</p>
+                  <p className={`text-sm mt-1 ${settings.darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Listas
+                  </p>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-gray-800 border-gray-700">
+            <Card className={settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}>
               <CardContent className="pt-6">
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-purple-400">
+                  <p className="text-3xl font-bold text-purple-500">
                     {stats.avgWaitTime ? formatTime(stats.avgWaitTime) : '0:00'}
                   </p>
-                  <p className="text-sm text-gray-400 mt-1">
+                  <p className={`text-sm mt-1 ${settings.darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                     Tiempo Promedio
                   </p>
                 </div>
@@ -245,12 +398,12 @@ export default function KitchenDisplay() {
         )}
 
         {/* Filtros rápidos */}
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex gap-2 flex-wrap">
           <Button
             onClick={() => setFilters({ ...filters, status: null })}
             variant={filters.status === null ? 'default' : 'outline'}
             size="sm"
-            className="bg-gray-800 border-gray-700"
+            className={settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}
           >
             Todas
           </Button>
@@ -258,24 +411,33 @@ export default function KitchenDisplay() {
             onClick={() => setFilters({ ...filters, status: 'new' })}
             variant={filters.status === 'new' ? 'default' : 'outline'}
             size="sm"
-            className="bg-gray-800 border-gray-700"
+            className={`${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'} ${
+              filters.status === 'new' ? 'bg-blue-500 hover:bg-blue-600' : ''
+            }`}
           >
+            <div className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
             Nuevas
           </Button>
           <Button
             onClick={() => setFilters({ ...filters, status: 'preparing' })}
             variant={filters.status === 'preparing' ? 'default' : 'outline'}
             size="sm"
-            className="bg-gray-800 border-gray-700"
+            className={`${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'} ${
+              filters.status === 'preparing' ? 'bg-yellow-500 hover:bg-yellow-600' : ''
+            }`}
           >
+            <div className="w-2 h-2 rounded-full bg-yellow-500 mr-2" />
             En Preparación
           </Button>
           <Button
             onClick={() => setFilters({ ...filters, status: 'ready' })}
             variant={filters.status === 'ready' ? 'default' : 'outline'}
             size="sm"
-            className="bg-gray-800 border-gray-700"
+            className={`${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'} ${
+              filters.status === 'ready' ? 'bg-green-500 hover:bg-green-600' : ''
+            }`}
           >
+            <div className="w-2 h-2 rounded-full bg-green-500 mr-2" />
             Listas
           </Button>
           <Button
@@ -284,10 +446,12 @@ export default function KitchenDisplay() {
             }
             variant={filters.isUrgent ? 'default' : 'outline'}
             size="sm"
-            className="bg-gray-800 border-gray-700"
+            className={`${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'} ${
+              filters.isUrgent ? 'bg-red-500 hover:bg-red-600 animate-pulse' : ''
+            }`}
           >
             <AlertTriangle className="w-4 h-4 mr-2" />
-            Urgentes
+            Urgentes ({orders.filter(o => o.isUrgent).length})
           </Button>
         </div>
       </div>
@@ -296,8 +460,8 @@ export default function KitchenDisplay() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {orders.length === 0 ? (
           <div className="col-span-full text-center py-12">
-            <ChefHat className="w-16 h-16 mx-auto text-gray-600 mb-4" />
-            <p className="text-gray-400 text-lg">
+            <ChefHat className={`w-16 h-16 mx-auto mb-4 ${settings.darkMode ? 'text-gray-600' : 'text-gray-400'}`} />
+            <p className={`text-lg ${settings.darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
               No hay órdenes activas en cocina
             </p>
           </div>
@@ -311,6 +475,8 @@ export default function KitchenDisplay() {
               onMarkUrgent={handleMarkUrgent}
               onCancel={handleCancelOrder}
               elapsedTime={calculateElapsedTime(order.receivedAt)}
+              urgencyHighlight={getUrgencyHighlight(order)}
+              darkMode={settings.darkMode}
             />
           ))
         )}

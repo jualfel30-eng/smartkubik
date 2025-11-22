@@ -188,9 +188,7 @@ export class TipsService {
       .exec();
 
     if (!orders.length) {
-      throw new BadRequestException(
-        "No orders with tips found in this period",
-      );
+      throw new BadRequestException("No orders with tips found in this period");
     }
 
     // 3. Calcular total de propinas
@@ -267,7 +265,9 @@ export class TipsService {
         );
 
       default:
-        throw new BadRequestException(`Unknown distribution type: ${rule.type}`);
+        throw new BadRequestException(
+          `Unknown distribution type: ${rule.type}`,
+        );
     }
 
     // 6. Actualizar órdenes con la distribución
@@ -448,7 +448,9 @@ export class TipsService {
 
     return employeeSales.map((emp) => ({
       ...emp,
-      amount: Number(((emp.salesGenerated / totalSales) * totalTips).toFixed(2)),
+      amount: Number(
+        ((emp.salesGenerated / totalSales) * totalTips).toFixed(2),
+      ),
     }));
   }
 
@@ -593,7 +595,10 @@ export class TipsService {
       0,
     );
     const totalOrders = orders.length;
-    const totalSales = orders.reduce((sum, order) => sum + order.totalAmount, 0);
+    const totalSales = orders.reduce(
+      (sum, order) => sum + order.totalAmount,
+      0,
+    );
 
     // Por empleado
     const employeeMap = new Map<

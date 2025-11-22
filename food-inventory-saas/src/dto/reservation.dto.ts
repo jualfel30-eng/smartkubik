@@ -7,7 +7,6 @@ import {
   IsMongoId,
   IsDateString,
   IsEmail,
-  IsPhoneNumber,
   Min,
   Max,
   Matches,

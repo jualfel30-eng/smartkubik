@@ -34,17 +34,14 @@ export class ReservationsController {
   // ========== Settings ==========
 
   @Get("settings")
-  @Permissions("restaurant_read", "reservations_read")
+  @Permissions("restaurant_read")
   async getSettings(@Req() req) {
     return this.reservationsService.getSettings(req.user.tenantId);
   }
 
   @Put("settings")
-  @Permissions("restaurant_write", "reservations_write")
-  async updateSettings(
-    @Body() dto: UpdateReservationSettingsDto,
-    @Req() req,
-  ) {
+  @Permissions("restaurant_write")
+  async updateSettings(@Body() dto: UpdateReservationSettingsDto, @Req() req) {
     return this.reservationsService.updateSettings(dto, req.user.tenantId);
   }
 
@@ -58,19 +55,19 @@ export class ReservationsController {
   // ========== CRUD ==========
 
   @Post()
-  @Permissions("restaurant_write", "reservations_write")
+  @Permissions("restaurant_write")
   async create(@Body() dto: CreateReservationDto, @Req() req) {
     return this.reservationsService.create(dto, req.user.tenantId);
   }
 
   @Get()
-  @Permissions("restaurant_read", "reservations_read")
+  @Permissions("restaurant_read")
   async findAll(@Query() query: ReservationQueryDto, @Req() req) {
     return this.reservationsService.findAll(query, req.user.tenantId);
   }
 
   @Get("calendar")
-  @Permissions("restaurant_read", "reservations_read")
+  @Permissions("restaurant_read")
   async getCalendar(@Query("month") month: string, @Req() req) {
     return this.reservationsService.getCalendar(
       month || new Date().toISOString().substr(0, 7),
@@ -79,13 +76,13 @@ export class ReservationsController {
   }
 
   @Get(":id")
-  @Permissions("restaurant_read", "reservations_read")
+  @Permissions("restaurant_read")
   async findOne(@Param("id") id: string, @Req() req) {
     return this.reservationsService.findOne(id, req.user.tenantId);
   }
 
   @Put(":id")
-  @Permissions("restaurant_write", "reservations_write")
+  @Permissions("restaurant_write")
   async update(
     @Param("id") id: string,
     @Body() dto: UpdateReservationDto,
@@ -97,13 +94,13 @@ export class ReservationsController {
   // ========== State Changes ==========
 
   @Patch(":id/confirm")
-  @Permissions("restaurant_write", "reservations_write")
+  @Permissions("restaurant_write")
   async confirm(@Param("id") id: string, @Req() req) {
     return this.reservationsService.confirm(id, req.user.tenantId);
   }
 
   @Patch(":id/seat")
-  @Permissions("restaurant_write", "reservations_write")
+  @Permissions("restaurant_write")
   async seat(
     @Param("id") id: string,
     @Body() dto: SeatReservationDto,
@@ -113,7 +110,7 @@ export class ReservationsController {
   }
 
   @Delete(":id")
-  @Permissions("restaurant_write", "reservations_write")
+  @Permissions("restaurant_write")
   async cancel(
     @Param("id") id: string,
     @Body() dto: CancelReservationDto,
@@ -123,7 +120,7 @@ export class ReservationsController {
   }
 
   @Patch(":id/no-show")
-  @Permissions("restaurant_write", "reservations_write")
+  @Permissions("restaurant_write")
   async markNoShow(@Param("id") id: string, @Req() req) {
     return this.reservationsService.markNoShow(id, req.user.tenantId);
   }

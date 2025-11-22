@@ -6,15 +6,11 @@ import {
   TipsDistributionRule,
   TipsDistributionRuleSchema,
 } from "../../schemas/tips-distribution-rule.schema";
-import {
-  TipsReport,
-  TipsReportSchema,
-} from "../../schemas/tips-report.schema";
+import { TipsReport, TipsReportSchema } from "../../schemas/tips-report.schema";
 import { Order, OrderSchema } from "../../schemas/order.schema";
 import { User, UserSchema } from "../../schemas/user.schema";
 import { Shift, ShiftSchema } from "../../schemas/shift.schema";
 import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
-import { AuthModule } from "../auth/auth.module";
 import { PermissionsModule } from "../permissions/permissions.module";
 
 @Module({
@@ -27,7 +23,6 @@ import { PermissionsModule } from "../permissions/permissions.module";
       { name: Shift.name, schema: ShiftSchema },
       { name: Tenant.name, schema: TenantSchema },
     ]),
-    AuthModule,
     PermissionsModule,
   ],
   controllers: [TipsController],

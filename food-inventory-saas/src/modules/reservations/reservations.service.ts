@@ -40,7 +40,7 @@ export class ReservationsService {
 
   // ========== Settings ==========
 
-  async getSettings(tenantId: string): Promise<ReservationSettings> {
+  async getSettings(tenantId: string): Promise<ReservationSettingsDocument> {
     let settings = await this.settingsModel
       .findOne({ tenantId: new Types.ObjectId(tenantId) })
       .exec();
@@ -59,8 +59,8 @@ export class ReservationsService {
   async updateSettings(
     dto: UpdateReservationSettingsDto,
     tenantId: string,
-  ): Promise<ReservationSettings> {
-    let settings = await this.getSettings(tenantId);
+  ): Promise<ReservationSettingsDocument> {
+    const settings = await this.getSettings(tenantId);
 
     Object.assign(settings, dto);
     return settings.save();
@@ -120,18 +120,13 @@ export class ReservationsService {
     // Check if requested time falls within a service shift
     const timeInShift = serviceHours.shifts.some(
       (shift) =>
-        shift.isActive &&
-        dto.time >= shift.start &&
-        dto.time <= shift.end,
+        shift.isActive && dto.time >= shift.start && dto.time <= shift.end,
     );
 
     if (!timeInShift) {
       return {
         available: false,
-        alternativeTimes: this.getSuggestedTimes(
-          serviceHours.shifts,
-          dto.time,
-        ),
+        alternativeTimes: this.getSuggestedTimes(serviceHours.shifts, dto.time),
         tablesAvailable: 0,
         message: "Requested time is outside service hours",
       };
@@ -259,7 +254,7 @@ export class ReservationsService {
   async create(
     dto: CreateReservationDto,
     tenantId: string,
-  ): Promise<Reservation> {
+  ): Promise<ReservationDocument> {
     const settings = await this.getSettings(tenantId);
 
     // Check availability first
@@ -314,10 +309,7 @@ export class ReservationsService {
 
     // If table assigned, mark it as reserved
     if (tableId) {
-      await this.tableModel.updateOne(
-        { _id: tableId },
-        { status: "reserved" },
-      );
+      await this.tableModel.updateOne({ _id: tableId }, { status: "reserved" });
     }
 
     return reservation;
@@ -326,7 +318,7 @@ export class ReservationsService {
   async findAll(
     query: ReservationQueryDto,
     tenantId: string,
-  ): Promise<Reservation[]> {
+  ): Promise<ReservationDocument[]> {
     const filter: any = { tenantId };
 
     if (query.date) {
@@ -360,7 +352,7 @@ export class ReservationsService {
       .exec();
   }
 
-  async findOne(id: string, tenantId: string): Promise<Reservation> {
+  async findOne(id: string, tenantId: string): Promise<ReservationDocument> {
     const reservation = await this.reservationModel
       .findOne({ _id: id, tenantId })
       .populate("tableId")
@@ -378,7 +370,7 @@ export class ReservationsService {
     id: string,
     dto: UpdateReservationDto,
     tenantId: string,
-  ): Promise<Reservation> {
+  ): Promise<ReservationDocument> {
     const reservation = await this.findOne(id, tenantId);
 
     // If changing date/time/party size, check availability
@@ -405,11 +397,13 @@ export class ReservationsService {
     return reservation.save();
   }
 
-  async confirm(id: string, tenantId: string): Promise<Reservation> {
+  async confirm(id: string, tenantId: string): Promise<ReservationDocument> {
     const reservation = await this.findOne(id, tenantId);
 
     if (reservation.status !== "pending") {
-      throw new BadRequestException("Only pending reservations can be confirmed");
+      throw new BadRequestException(
+        "Only pending reservations can be confirmed",
+      );
     }
 
     reservation.status = "confirmed";
@@ -422,10 +416,13 @@ export class ReservationsService {
     id: string,
     dto: SeatReservationDto,
     tenantId: string,
-  ): Promise<Reservation> {
+  ): Promise<ReservationDocument> {
     const reservation = await this.findOne(id, tenantId);
 
-    if (reservation.status !== "confirmed" && reservation.status !== "pending") {
+    if (
+      reservation.status !== "confirmed" &&
+      reservation.status !== "pending"
+    ) {
       throw new BadRequestException(
         "Only confirmed or pending reservations can be seated",
       );
@@ -463,7 +460,7 @@ export class ReservationsService {
     id: string,
     dto: CancelReservationDto,
     tenantId: string,
-  ): Promise<Reservation> {
+  ): Promise<ReservationDocument> {
     const reservation = await this.findOne(id, tenantId);
 
     if (
@@ -490,10 +487,13 @@ export class ReservationsService {
     return reservation.save();
   }
 
-  async markNoShow(id: string, tenantId: string): Promise<Reservation> {
+  async markNoShow(id: string, tenantId: string): Promise<ReservationDocument> {
     const reservation = await this.findOne(id, tenantId);
 
-    if (reservation.status !== "confirmed" && reservation.status !== "pending") {
+    if (
+      reservation.status !== "confirmed" &&
+      reservation.status !== "pending"
+    ) {
       throw new BadRequestException(
         "Only confirmed or pending reservations can be marked as no-show",
       );
@@ -517,7 +517,7 @@ export class ReservationsService {
   async getCalendar(
     month: string,
     tenantId: string,
-  ): Promise<Record<string, any>> {
+  ): Promise<ReservationDocument[]> {
     const [year, monthNum] = month.split("-").map(Number);
     const startDate = new Date(year, monthNum - 1, 1);
     const endDate = new Date(year, monthNum, 0, 23, 59, 59);
@@ -528,39 +528,18 @@ export class ReservationsService {
         date: { $gte: startDate, $lte: endDate },
         status: { $in: ["pending", "confirmed", "seated"] },
       })
+      .populate("tableId", "tableNumber section")
+      .sort({ date: 1, time: 1 })
       .exec();
 
-    const calendar: Record<string, any> = {};
-
-    reservations.forEach((res) => {
-      const dateKey = res.date.toISOString().split("T")[0];
-
-      if (!calendar[dateKey]) {
-        calendar[dateKey] = {
-          totalReservations: 0,
-          byStatus: {},
-          byShift: {},
-        };
-      }
-
-      calendar[dateKey].totalReservations++;
-
-      calendar[dateKey].byStatus[res.status] =
-        (calendar[dateKey].byStatus[res.status] || 0) + 1;
-
-      // Determine shift (simplified: before 17:00 = lunch, after = dinner)
-      const hour = parseInt(res.time.split(":")[0]);
-      const shift = hour < 17 ? "lunch" : "dinner";
-      calendar[dateKey].byShift[shift] =
-        (calendar[dateKey].byShift[shift] || 0) + 1;
-    });
-
-    return calendar;
+    return reservations;
   }
 
   // ========== Notifications (to be called by jobs) ==========
 
-  async getPendingConfirmations(tenantId: string): Promise<Reservation[]> {
+  async getPendingConfirmations(
+    tenantId: string,
+  ): Promise<ReservationDocument[]> {
     // Reservations created more than 5 minutes ago without confirmation sent
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
@@ -574,7 +553,7 @@ export class ReservationsService {
       .exec();
   }
 
-  async getPendingReminders(tenantId: string): Promise<Reservation[]> {
+  async getPendingReminders(tenantId: string): Promise<ReservationDocument[]> {
     const settings = await this.getSettings(tenantId);
     const reminderTime = new Date(
       Date.now() + settings.reminderHoursBefore * 60 * 60 * 1000,
@@ -593,7 +572,7 @@ export class ReservationsService {
       .exec();
   }
 
-  async getPotentialNoShows(tenantId: string): Promise<Reservation[]> {
+  async getPotentialNoShows(tenantId: string): Promise<ReservationDocument[]> {
     const settings = await this.getSettings(tenantId);
     const graceTime = new Date(
       Date.now() - settings.noShowGracePeriodMinutes * 60 * 1000,

@@ -62,11 +62,7 @@ export class TipsController {
     @Body() dto: UpdateTipsDistributionRuleDto,
     @Req() req,
   ) {
-    return this.tipsService.updateDistributionRule(
-      id,
-      dto,
-      req.user.tenantId,
-    );
+    return this.tipsService.updateDistributionRule(id, dto, req.user.tenantId);
   }
 
   @Delete("distribution-rules/:id")
@@ -109,7 +105,9 @@ export class TipsController {
     @Query() query: TipsReportQueryDto,
     @Req() req,
   ) {
-    const startDate = query.start ? new Date(query.start) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const startDate = query.start
+      ? new Date(query.start)
+      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const endDate = query.end ? new Date(query.end) : new Date();
 
     return this.tipsService.getTipsReportForEmployee(

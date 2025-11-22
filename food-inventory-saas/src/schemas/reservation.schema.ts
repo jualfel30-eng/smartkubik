@@ -127,7 +127,8 @@ ReservationSchema.pre("save", async function (next) {
   if (!this.reservationNumber) {
     const date = new Date();
     const year = date.getFullYear();
-    const count = await this.constructor.countDocuments({
+    const model = this.constructor as any;
+    const count = await model.countDocuments({
       tenantId: this.tenantId,
       createdAt: {
         $gte: new Date(year, 0, 1),
