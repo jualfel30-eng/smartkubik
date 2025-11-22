@@ -29,6 +29,7 @@ import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
 import { Permissions } from "../../decorators/permissions.decorator";
+import { TransactionHistoryService } from "../../services/transaction-history.service";
 
 @ApiTags("customers")
 @Controller("customers")
@@ -37,7 +38,10 @@ import { Permissions } from "../../decorators/permissions.decorator";
 export class CustomersController {
   private readonly logger = new Logger(CustomersController.name);
 
-  constructor(private readonly customersService: CustomersService) {}
+  constructor(
+    private readonly customersService: CustomersService,
+    private readonly transactionHistoryService: TransactionHistoryService,
+  ) {}
 
   @Post()
   @Permissions("customers_create")
@@ -118,6 +122,141 @@ export class CustomersController {
       }
       throw new HttpException(
         error.message || "Error al obtener el cliente",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get(":id/product-history")
+  @Permissions("customers_read")
+  @ApiOperation({
+    summary: "Obtener historial de productos comprados por un cliente",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Historial de productos obtenido exitosamente",
+  })
+  async getProductHistory(@Param("id") id: string, @Request() req) {
+    try {
+      const productHistory = await this.customersService.getProductHistory(
+        id,
+        req.user.tenantId,
+      );
+      return {
+        success: true,
+        message: "Historial de productos obtenido exitosamente",
+        data: productHistory,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al obtener el historial de productos",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get(":id/transactions")
+  @Permissions("customers_read")
+  @ApiOperation({
+    summary: "Obtener historial completo de transacciones de un cliente",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Historial de transacciones obtenido exitosamente",
+  })
+  async getTransactions(
+    @Param("id") id: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+    @Query("status") status?: string,
+    @Query("minAmount") minAmount?: number,
+    @Query("maxAmount") maxAmount?: number,
+    @Query("productId") productId?: string,
+    @Query("category") category?: string,
+    @Request() req?: any,
+  ) {
+    try {
+      // Sanitize numeric filters - prevent NaN values
+      const sanitizedMinAmount =
+        minAmount !== undefined && !isNaN(Number(minAmount))
+          ? Number(minAmount)
+          : undefined;
+      const sanitizedMaxAmount =
+        maxAmount !== undefined && !isNaN(Number(maxAmount))
+          ? Number(maxAmount)
+          : undefined;
+
+      const transactions =
+        await this.transactionHistoryService.getCustomerTransactionHistory(
+          id,
+          req.user.tenantId,
+          {
+            startDate,
+            endDate,
+            status,
+            minAmount: sanitizedMinAmount,
+            maxAmount: sanitizedMaxAmount,
+            productId,
+            category,
+          },
+        );
+
+      return {
+        success: true,
+        message: "Historial de transacciones obtenido exitosamente",
+        data: transactions,
+        count: transactions.length,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al obtener el historial de transacciones",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get(":id/transaction-stats")
+  @Permissions("customers_read")
+  @ApiOperation({
+    summary: "Obtener estadísticas de transacciones de un cliente",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Estadísticas obtenidas exitosamente",
+  })
+  async getTransactionStats(@Param("id") id: string, @Request() req) {
+    try {
+      const stats =
+        await this.transactionHistoryService.getCustomerTransactionStats(
+          id,
+          req.user.tenantId,
+        );
+
+      const topProducts =
+        await this.transactionHistoryService.getTopProductsByCustomer(
+          id,
+          req.user.tenantId,
+          5,
+        );
+
+      const avgOrderValue =
+        await this.transactionHistoryService.getAverageOrderValue(
+          id,
+          req.user.tenantId,
+        );
+
+      return {
+        success: true,
+        message: "Estadísticas obtenidas exitosamente",
+        data: {
+          ...stats,
+          averageOrderValue: avgOrderValue,
+          topProducts,
+        },
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al obtener las estadísticas",
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

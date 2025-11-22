@@ -1,0 +1,28 @@
+{
+  "id": "product-campaign",
+  "description": "Template para campañas de marketing basadas en productos con ofertas especiales",
+  "channels": {
+    "email": {
+      "subject": {
+        "es": "{{campaignSubject}} - {{hotelName}}",
+        "en": "{{campaignSubject}} - {{hotelName}}"
+      },
+      "body": {
+        "es": "Hola {{customerName}},<br/><br/>{{campaignMessage}}<br/><br/>{{#if offerPercentage}}<strong>¡Obtén {{offerPercentage}}% de descuento!</strong><br/>{{/if}}{{#if offerAmount}}<strong>¡Ahorra ${{offerAmount}}!</strong><br/>{{/if}}{{#if couponCode}}Usa el código <strong>{{couponCode}}</strong> en tu próxima compra.{{/if}}{{#if expiresAt}}<br/><br/>Válido hasta {{expiresAt}}.{{/if}}<br/><br/>¡No te lo pierdas!<br/><br/>Saludos,<br/>{{hotelName}}",
+        "en": "Hi {{customerName}},<br/><br/>{{campaignMessage}}<br/><br/>{{#if offerPercentage}}<strong>Get {{offerPercentage}}% off!</strong><br/>{{/if}}{{#if offerAmount}}<strong>Save ${{offerAmount}}!</strong><br/>{{/if}}{{#if couponCode}}Use code <strong>{{couponCode}}</strong> on your next purchase.{{/if}}{{#if expiresAt}}<br/><br/>Valid until {{expiresAt}}.{{/if}}<br/><br/>Don't miss it!<br/><br/>Best regards,<br/>{{hotelName}}"
+      }
+    },
+    "sms": {
+      "body": {
+        "es": "{{hotelName}}: ¡{{campaignName}}! {{#if offerPercentage}}{{offerPercentage}}% OFF{{/if}}{{#if offerAmount}}${{offerAmount}} OFF{{/if}} en {{productNames}}. {{#if couponCode}}Código: {{couponCode}}{{/if}}",
+        "en": "{{hotelName}}: {{campaignName}}! {{#if offerPercentage}}{{offerPercentage}}% OFF{{/if}}{{#if offerAmount}}${{offerAmount}} OFF{{/if}} on {{productNames}}. {{#if couponCode}}Code: {{couponCode}}{{/if}}"
+      }
+    },
+    "whatsapp": {
+      "body": {
+        "es": "Hola {{customerName}} 👋\n\n{{campaignMessage}}\n\n{{#if offerPercentage}}🎁 *{{offerPercentage}}% de descuento*\n{{/if}}{{#if offerAmount}}🎁 *Ahorra ${{offerAmount}}*\n{{/if}}{{#if couponCode}}Código: *{{couponCode}}*\n{{/if}}{{#if expiresAt}}Válido hasta {{expiresAt}}\n{{/if}}\n¡Aprovecha esta oferta especial!",
+        "en": "Hi {{customerName}} 👋\n\n{{campaignMessage}}\n\n{{#if offerPercentage}}🎁 *{{offerPercentage}}% off*\n{{/if}}{{#if offerAmount}}🎁 *Save ${{offerAmount}}*\n{{/if}}{{#if couponCode}}Code: *{{couponCode}}*\n{{/if}}{{#if expiresAt}}Valid until {{expiresAt}}\n{{/if}}\nDon't miss this special offer!"
+      }
+    }
+  }
+}

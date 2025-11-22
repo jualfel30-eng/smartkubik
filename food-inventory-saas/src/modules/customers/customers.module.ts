@@ -15,12 +15,14 @@ import {
 } from "../../schemas/purchase-order-rating.schema";
 import { RolesModule } from "../roles/roles.module";
 import { LoyaltyModule } from "../loyalty/loyalty.module";
+import { TransactionHistoryModule } from "../transaction-history/transaction-history.module";
 
 @Module({
   imports: [
     AuthModule,
     RolesModule,
     LoyaltyModule,
+    TransactionHistoryModule, // Import for transaction history integration
     MongooseModule.forFeature([
       { name: Customer.name, schema: CustomerSchema },
       { name: Order.name, schema: OrderSchema },

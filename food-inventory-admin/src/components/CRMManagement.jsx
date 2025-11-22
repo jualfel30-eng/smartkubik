@@ -30,11 +30,13 @@ import {
   CalendarClock,
   AlertTriangle,
   CheckCircle,
+  Eye,
 } from 'lucide-react';
 import { useCRM } from '@/hooks/use-crm.js';
 import { useAuth } from '@/hooks/use-auth';
 import { LocationPicker } from '@/components/ui/LocationPicker.jsx';
 import EmployeeDetailDrawer from '@/components/payroll/EmployeeDetailDrawer.jsx';
+import { CustomerDetailDialog } from '@/components/CustomerDetailDialog.jsx';
 import { toast } from 'sonner';
 import { fetchApi } from '@/lib/api';
 
@@ -98,7 +100,7 @@ const initialNewContactState = {
   primaryLocation: null
 };
 
-function CRMManagement() {
+function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const { tenant } = useAuth();
   const {
@@ -127,9 +129,11 @@ function CRMManagement() {
     bulkNotifyEmployees,
     reconcileEmployeeProfiles,
   } = useCRM();
+  const initialTabRaw = forceEmployeeTab ? 'employee' : searchParams.get('tab') || 'all';
+  const initialTab = hideEmployeeTab && initialTabRaw === 'employee' ? 'all' : initialTabRaw;
   const [filteredData, setFilteredData] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState(searchParams.get('tab') || 'all');
+  const [filterType, setFilterType] = useState(initialTab);
   const [filterTier] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -143,6 +147,10 @@ function CRMManagement() {
   const EMPLOYEE_PAGE_LIMIT = 25;
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState(() => new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+
+  // Customer Detail Dialog
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
   const [selectedEmployeeSnapshot, setSelectedEmployeeSnapshot] = useState(null);
   const [isEmployeeDrawerOpen, setIsEmployeeDrawerOpen] = useState(false);
@@ -170,14 +178,25 @@ function CRMManagement() {
 
   // Sincronizar filterType con searchParams cuando cambia la URL
   useEffect(() => {
+    if (forceEmployeeTab && filterType !== 'employee') {
+      setFilterType('employee');
+      setSearchParams({ tab: 'employee' }, { replace: true });
+      return;
+    }
     const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && tabFromUrl !== filterType) {
+    if (tabFromUrl && tabFromUrl !== filterType && !(hideEmployeeTab && tabFromUrl === 'employee')) {
       setFilterType(tabFromUrl);
     }
-  }, [searchParams, filterType]);
+    if (hideEmployeeTab && filterType === 'employee') {
+      setFilterType('all');
+      setSearchParams({ tab: 'all' }, { replace: true });
+    }
+  }, [searchParams, filterType, forceEmployeeTab, hideEmployeeTab, setSearchParams]);
 
   // Manejador para cambiar tabs (actualiza estado y URL)
   const handleTabChange = (newTab) => {
+    if (forceEmployeeTab) return;
+    if (hideEmployeeTab && newTab === 'employee') return;
     setFilterType(newTab);
     setSearchParams({ tab: newTab }, { replace: true });
   };
@@ -236,7 +255,8 @@ function CRMManagement() {
     );
   }, [structureOptions]);
 
-  const isEmployeeTab = filterType === 'employee';
+  const isEmployeeTab = forceEmployeeTab || filterType === 'employee';
+  const showEmployeeTab = forceEmployeeTab || !hideEmployeeTab;
   const selectedEmployees = useMemo(
     () => employeesData.filter((employee) => selectedEmployeeIds.has(employee._id)),
     [employeesData, selectedEmployeeIds],
@@ -314,6 +334,12 @@ function CRMManagement() {
   const currentSearchValue = isEmployeeTab ? employeeSearchTerm : searchTerm;
 
   useEffect(() => {
+    if (isEmployeeTab && newContact.customerType !== 'employee') {
+      setNewContact((prev) => ({ ...prev, customerType: 'employee' }));
+    }
+  }, [isEmployeeTab, newContact.customerType]);
+
+  useEffect(() => {
     if (!isEmployeeTab) return;
     loadEmployees(1, EMPLOYEE_PAGE_LIMIT, employeeFilters);
     setEmployeePage(1);
@@ -349,6 +375,22 @@ function CRMManagement() {
       setSelectedEmployeeIds(new Set());
     }
   }, [isEmployeeTab, selectedEmployeeIds.size]);
+
+  const getTierBadge = (tier) => {
+    const tierMap = {
+      diamante: { label: 'Diamante', icon: '💎', className: 'bg-blue-100 text-blue-800 border-blue-300' },
+      oro: { label: 'Oro', icon: '🥇', className: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
+      plata: { label: 'Plata', icon: '🥈', className: 'bg-gray-100 text-gray-800 border-gray-300' },
+      bronce: { label: 'Bronce', icon: '🥉', className: 'bg-amber-100 text-amber-800 border-amber-300' },
+    };
+    const tierInfo = tierMap[tier] || { label: tier || 'Sin tier', icon: '', className: 'bg-gray-50 text-gray-600 border-gray-200' };
+    return (
+      <Badge className={`${tierInfo.className} border`}>
+        {tierInfo.icon && <span className="mr-1">{tierInfo.icon}</span>}
+        {tierInfo.label}
+      </Badge>
+    );
+  };
 
   const getContactTypeBadge = (type) => {
     const typeMap = {
@@ -1327,38 +1369,151 @@ function CRMManagement() {
               Reconciliar duplicados
             </Button>
           )}
-          {!isEmployeeTab && (
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="w-full sm:w-auto">
-                  <Plus className="h-4 w-4 mr-2" /> Agregar Contacto
-                </Button>
-              </DialogTrigger>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button
+                className="w-full sm:w-auto"
+                onClick={() =>
+                  setNewContact({
+                    ...initialNewContactState,
+                    customerType: isEmployeeTab ? 'employee' : initialNewContactState.customerType,
+                  })
+                }
+              >
+                <Plus className="h-4 w-4 mr-2" /> {isEmployeeTab ? 'Crear empleado' : 'Agregar contacto'}
+              </Button>
+            </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>Agregar Nuevo Contacto</DialogTitle><DialogDescription>Completa los detalles para registrar un nuevo contacto en el sistema.</DialogDescription></DialogHeader>
-            <div className="grid grid-cols-2 gap-4 py-4">
-              <div className="space-y-2"><Label>Nombre</Label><Input value={newContact.name} onChange={(e) => setNewContact({...newContact, name: e.target.value})} /></div>
-              <div className="space-y-2"><Label>Tipo de Contacto</Label><Select value={newContact.customerType} onValueChange={(value) => setNewContact({...newContact, customerType: value})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="business">Cliente</SelectItem><SelectItem value="supplier">Proveedor</SelectItem><SelectItem value="employee">Empleado</SelectItem><SelectItem value="admin">Admin</SelectItem><SelectItem value="manager">Gestor</SelectItem><SelectItem value="Repartidor">Repartidor</SelectItem><SelectItem value="Cajero">Cajero</SelectItem><SelectItem value="Mesonero">Mesonero</SelectItem></SelectContent></Select></div>
-              <div className="space-y-2"><Label>Empresa</Label><Input value={newContact.companyName} onChange={(e) => setNewContact({...newContact, companyName: e.target.value})} /></div>
-              <div className="space-y-2"><Label>Email</Label><Input type="email" value={newContact.email} onChange={(e) => setNewContact({...newContact, email: e.target.value})} /></div>
-              <div className="space-y-2"><Label>Teléfono</Label><Input value={newContact.phone} onChange={(e) => setNewContact({...newContact, phone: e.target.value})} /></div>
-              <div className="col-span-2 space-y-2"><Label>Dirección</Label><Input value={newContact.address} onChange={(e) => setNewContact({...newContact, address: e.target.value})} /></div>
-              <div className="space-y-2"><Label>Ciudad</Label><Input value={newContact.city} onChange={(e) => setNewContact({...newContact, city: e.target.value})} /></div>
-              <div className="space-y-2"><Label>Estado</Label><Input value={newContact.state} onChange={(e) => setNewContact({...newContact, state: e.target.value})} /></div>
-              <div className="col-span-2 space-y-2"><Label>Identificación Fiscal</Label><div className="flex gap-2"><Select value={newContact.taxType} onValueChange={(value) => setNewContact({...newContact, taxType: value})}><SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="V">V</SelectItem><SelectItem value="E">E</SelectItem><SelectItem value="J">J</SelectItem><SelectItem value="G">G</SelectItem></SelectContent></Select><Input value={newContact.taxId} onChange={(e) => setNewContact({...newContact, taxId: e.target.value})} /></div></div>
-              <div className="col-span-2 space-y-2">
-                <LocationPicker
-                  label="Ubicación del Cliente"
-                  value={newContact.primaryLocation}
-                  onChange={(location) => setNewContact({...newContact, primaryLocation: location})}
-                />
+              <DialogHeader>
+                <DialogTitle>{isEmployeeTab ? 'Crear empleado' : 'Agregar nuevo contacto'}</DialogTitle>
+                <DialogDescription>
+                  {isEmployeeTab
+                    ? 'Registra un empleado con sus datos básicos de contacto.'
+                    : 'Completa los detalles para registrar un nuevo contacto en el sistema.'}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-4 py-4">
+                <div className="space-y-2">
+                  <Label>Nombre</Label>
+                  <Input value={newContact.name} onChange={(e) => setNewContact({ ...newContact, name: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tipo de Contacto</Label>
+                  <Select
+                    value={newContact.customerType}
+                    onValueChange={(value) => setNewContact({ ...newContact, customerType: value })}
+                    disabled={isEmployeeTab}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="business">Cliente</SelectItem>
+                      <SelectItem value="supplier">Proveedor</SelectItem>
+                      <SelectItem value="employee">Empleado</SelectItem>
+                      {!isEmployeeTab && (
+                        <>
+                          <SelectItem value="admin">Admin</SelectItem>
+                          <SelectItem value="manager">Gestor</SelectItem>
+                          <SelectItem value="Repartidor">Repartidor</SelectItem>
+                          <SelectItem value="Cajero">Cajero</SelectItem>
+                          <SelectItem value="Mesonero">Mesonero</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Empresa</Label>
+                  <Input
+                    value={newContact.companyName}
+                    onChange={(e) => setNewContact({ ...newContact, companyName: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input
+                    type="email"
+                    value={newContact.email}
+                    onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Teléfono</Label>
+                  <Input
+                    value={newContact.phone}
+                    onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
+                  />
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <Label>Dirección</Label>
+                  <Input
+                    value={newContact.address}
+                    onChange={(e) => setNewContact({ ...newContact, address: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Ciudad</Label>
+                  <Input
+                    value={newContact.city}
+                    onChange={(e) => setNewContact({ ...newContact, city: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Estado</Label>
+                  <Input
+                    value={newContact.state}
+                    onChange={(e) => setNewContact({ ...newContact, state: e.target.value })}
+                  />
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <Label>Identificación Fiscal</Label>
+                  <div className="flex gap-2">
+                    <Select
+                      value={newContact.taxType}
+                      onValueChange={(value) => setNewContact({ ...newContact, taxType: value })}
+                    >
+                      <SelectTrigger className="w-[100px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="V">V</SelectItem>
+                        <SelectItem value="E">E</SelectItem>
+                        <SelectItem value="J">J</SelectItem>
+                        <SelectItem value="G">G</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      value={newContact.taxId}
+                      onChange={(e) => setNewContact({ ...newContact, taxId: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <LocationPicker
+                    label="Ubicación del Cliente"
+                    value={newContact.primaryLocation}
+                    onChange={(location) => setNewContact({ ...newContact, primaryLocation: location })}
+                  />
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <Label>Notas</Label>
+                  <Textarea
+                    value={newContact.notes}
+                    onChange={(e) => setNewContact({ ...newContact, notes: e.target.value })}
+                  />
+                </div>
               </div>
-              <div className="col-span-2 space-y-2"><Label>Notas</Label><Textarea value={newContact.notes} onChange={(e) => setNewContact({...newContact, notes: e.target.value})} /></div>
-            </div>
-            <DialogFooter><Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button><Button onClick={handleAddContact}>Agregar Contacto</Button></DialogFooter>
-          </DialogContent>
-            </Dialog>
-          )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleAddContact}>
+                  {isEmployeeTab ? 'Crear empleado' : 'Agregar contacto'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
       {isEmployeeTab && (
@@ -1445,16 +1600,16 @@ function CRMManagement() {
       )}
 
       <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-            <Tabs value={filterType} onValueChange={handleTabChange} className="w-full overflow-x-auto sm:w-auto">
-              <TabsList>
-                <TabsTrigger value="all">Todos</TabsTrigger>
-                <TabsTrigger value="individual">Clientes</TabsTrigger>
-                <TabsTrigger value="supplier">Proveedores</TabsTrigger>
-                <TabsTrigger value="employee">Empleados</TabsTrigger>
-              </TabsList>
-            </Tabs>
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+              <Tabs value={filterType} onValueChange={handleTabChange} className="w-full overflow-x-auto sm:w-auto">
+                <TabsList>
+                  {!forceEmployeeTab && <TabsTrigger value="all">Todos</TabsTrigger>}
+                  {!forceEmployeeTab && <TabsTrigger value="individual">Clientes</TabsTrigger>}
+                  {!forceEmployeeTab && <TabsTrigger value="supplier">Proveedores</TabsTrigger>}
+                  {showEmployeeTab && <TabsTrigger value="employee">Empleados</TabsTrigger>}
+                </TabsList>
+              </Tabs>
             <div className="relative w-full sm:flex-1 sm:max-w-sm">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -1733,7 +1888,7 @@ function CRMManagement() {
             <>
               <div className="rounded-md border">
                 <Table>
-                  <TableHeader><TableRow><TableHead>Contacto</TableHead><TableHead>Tipo</TableHead><TableHead>Contacto Principal</TableHead><TableHead>Gastos Totales</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead>Contacto</TableHead><TableHead>Tier RFM</TableHead><TableHead>Tipo</TableHead><TableHead>Contacto Principal</TableHead><TableHead>Gastos Totales</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {filteredData.map((customer) => {
                       const primaryContact = customer.contacts?.find(c => c.isPrimary) || customer.contacts?.[0];
@@ -1743,6 +1898,7 @@ function CRMManagement() {
                             <div className="font-medium">{customer.name}</div>
                             <div className="text-sm text-muted-foreground">{customer.companyName}</div>
                           </TableCell>
+                          <TableCell>{getTierBadge(customer.tier)}</TableCell>
                           <TableCell>{getContactTypeBadge(customer.customerType)}</TableCell>
                           <TableCell>
                             {primaryContact?.value && <div className="text-sm flex items-center gap-2"><Mail className="h-3 w-3" /> {primaryContact.value}</div>}
@@ -1750,6 +1906,17 @@ function CRMManagement() {
                           <TableCell><div className="font-medium">${customer.metrics?.totalSpent?.toFixed(2) || '0.00'}</div></TableCell>
                           <TableCell>
                             <div className="flex space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedCustomer(customer);
+                                  setIsDetailDialogOpen(true);
+                                }}
+                                title="Ver detalles y historial"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
                               <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(customer)}><Edit className="h-4 w-4" /></Button>
                               <Button variant="outline" size="sm" onClick={() => handleDeleteContact(customer._id)} className="text-red-600"><Trash2 className="h-4 w-4" /></Button>
                             </div>
@@ -2038,6 +2205,18 @@ function CRMManagement() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Customer Detail Dialog */}
+      <CustomerDetailDialog
+        customer={selectedCustomer}
+        open={isDetailDialogOpen}
+        onOpenChange={(open) => {
+          setIsDetailDialogOpen(open);
+          if (!open) {
+            setSelectedCustomer(null);
+          }
+        }}
+      />
     </div>
   );
 }

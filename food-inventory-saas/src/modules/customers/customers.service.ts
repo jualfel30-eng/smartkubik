@@ -790,17 +790,25 @@ export class CustomersService {
     );
     const totalScoredCustomers = scoredCustomers.length;
 
-    const diamanteCutoff = Math.ceil(totalScoredCustomers * 0.05);
-    const oroCutoff = Math.ceil(totalScoredCustomers * 0.2);
-    const plataCutoff = Math.ceil(totalScoredCustomers * 0.5);
+    // Use RANGES instead of cumulative cutoffs to avoid overlap
+    // Top 5% = diamante, next 15% (5-20%) = oro, next 30% (20-50%) = plata, rest = bronce
+    const diamanteEnd = Math.max(1, Math.floor(totalScoredCustomers * 0.05));
+    const oroEnd = Math.max(
+      diamanteEnd + 1,
+      Math.floor(totalScoredCustomers * 0.2),
+    );
+    const plataEnd = Math.max(
+      oroEnd + 1,
+      Math.floor(totalScoredCustomers * 0.5),
+    );
 
     scoredCustomers.forEach((score, index) => {
       const rank = index + 1;
-      if (rank <= diamanteCutoff) {
+      if (rank <= diamanteEnd) {
         tierMap.set(score.customerId, "diamante");
-      } else if (rank <= oroCutoff) {
+      } else if (rank <= oroEnd) {
         tierMap.set(score.customerId, "oro");
-      } else if (rank <= plataCutoff) {
+      } else if (rank <= plataEnd) {
         tierMap.set(score.customerId, "plata");
       } else {
         tierMap.set(score.customerId, "bronce");
@@ -1056,6 +1064,64 @@ export class CustomersService {
     }
 
     customer.segments = segments;
+  }
+
+  async getProductHistory(
+    customerId: string,
+    tenantId: string,
+  ): Promise<any[]> {
+    this.logger.log(
+      `Getting product history for customer: ${customerId}, tenant: ${tenantId}`,
+    );
+
+    const tenantObjectId = Types.ObjectId.isValid(tenantId)
+      ? new Types.ObjectId(tenantId)
+      : tenantId;
+    const customerObjectId = Types.ObjectId.isValid(customerId)
+      ? new Types.ObjectId(customerId)
+      : customerId;
+
+    // Aggregate orders to get product purchase history
+    const productHistory = await this.orderModel.aggregate([
+      {
+        $match: {
+          customerId: customerObjectId,
+          tenantId: tenantObjectId,
+          status: { $in: ["delivered", "paid", "confirmed", "processing"] },
+        },
+      },
+      { $unwind: "$items" },
+      {
+        $group: {
+          _id: "$items.productId",
+          productName: { $first: "$items.name" },
+          category: { $first: "$items.category" },
+          purchaseCount: { $sum: "$items.quantity" },
+          orderCount: { $sum: 1 },
+          totalSpent: { $sum: "$items.total" },
+          lastPurchaseDate: { $max: "$createdAt" },
+          firstPurchaseDate: { $min: "$createdAt" },
+        },
+      },
+      { $sort: { purchaseCount: -1 } },
+    ]);
+
+    return productHistory.map((item) => ({
+      productId: item._id,
+      productName: item.productName,
+      category: item.category,
+      purchaseCount: item.purchaseCount,
+      orderCount: item.orderCount,
+      totalSpent: item.totalSpent,
+      lastPurchaseDate: item.lastPurchaseDate,
+      firstPurchaseDate: item.firstPurchaseDate,
+      daysSinceLastPurchase: item.lastPurchaseDate
+        ? Math.floor(
+            (Date.now() - new Date(item.lastPurchaseDate).getTime()) /
+              (1000 * 3600 * 24),
+          )
+        : null,
+    }));
   }
 
   private async generateCustomerNumber(tenantId: string): Promise<string> {

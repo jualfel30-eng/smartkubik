@@ -317,7 +317,16 @@ export class Customer {
   birthdayDate?: Date;
 
   @Prop({ type: Date })
+  dateOfBirth?: Date; // Alias for birthdayDate for marketing triggers
+
+  @Prop({ type: Date })
   anniversaryDate?: Date;
+
+  @Prop({ type: Date })
+  lastVisit?: Date; // Last time customer made an order/visit
+
+  @Prop({ type: Number, default: 0 })
+  visitCount?: number; // Total number of visits/orders
 
   // WhatsApp integration fields
   @Prop({ type: String })
@@ -334,6 +343,10 @@ export class Customer {
 
   @Prop({ type: Date })
   lastWhatsappInteraction?: Date; // Last time customer interacted via WhatsApp
+
+  // Timestamps (automatically added by Mongoose with timestamps: true)
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export const CustomerSchema = SchemaFactory.createForClass(Customer);
