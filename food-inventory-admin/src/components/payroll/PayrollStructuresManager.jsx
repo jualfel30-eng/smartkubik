@@ -57,6 +57,18 @@ const structureTemplate = {
   isActive: true,
 };
 
+const scopeDraftTemplate = {
+  appliesToRoles: '',
+  appliesToDepartments: '',
+  appliesToContractTypes: '',
+};
+
+const cloneScopeDraftTemplate = {
+  appliesToRoles: '',
+  appliesToDepartments: '',
+  appliesToContractTypes: '',
+};
+
 const ruleTemplate = {
   conceptId: '',
   conceptType: 'earning',
@@ -68,6 +80,19 @@ const ruleTemplate = {
   isActive: true,
   formula: '',
 };
+
+const mapStructureToForm = (structure = {}) => ({
+  _id: structure._id,
+  name: structure.name || '',
+  description: structure.description || '',
+  periodType: structure.periodType || 'monthly',
+  appliesToRoles: structure.appliesToRoles || [],
+  appliesToDepartments: structure.appliesToDepartments || [],
+  appliesToContractTypes: structure.appliesToContractTypes || [],
+  effectiveFrom: structure.effectiveFrom ? structure.effectiveFrom.slice(0, 10) : '',
+  effectiveTo: structure.effectiveTo ? structure.effectiveTo.slice(0, 10) : '',
+  isActive: structure.isActive ?? true,
+});
 
 const PayrollStructuresManager = () => {
   const { hasPermission, tenant } = useAuth();
@@ -82,7 +107,7 @@ const PayrollStructuresManager = () => {
   const [loadingRules, setLoadingRules] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [ruleDialogOpen, setRuleDialogOpen] = useState(false);
-  const [structureForm, setStructureForm] = useState(structureTemplate);
+  const [structureForm, setStructureForm] = useState(() => ({ ...structureTemplate }));
   const [ruleForm, setRuleForm] = useState(ruleTemplate);
   const [savingStructure, setSavingStructure] = useState(false);
   const [savingRule, setSavingRule] = useState(false);
@@ -93,7 +118,7 @@ const PayrollStructuresManager = () => {
   const [suggestionFilters, setSuggestionFilters] = useState({ role: '', department: '', contractType: '' });
   const [suggestions, setSuggestions] = useState(null);
   const [suggestionLoading, setSuggestionLoading] = useState(false);
-  const [scopeDrafts, setScopeDrafts] = useState({ appliesToRoles: '', appliesToDepartments: '', appliesToContractTypes: '' });
+  const [scopeDrafts, setScopeDrafts] = useState(() => ({ ...scopeDraftTemplate }));
   const [reorderingRuleId, setReorderingRuleId] = useState(null);
   const [baseCodeDraft, setBaseCodeDraft] = useState('');
   const [accounts, setAccounts] = useState([]);
@@ -114,11 +139,7 @@ const PayrollStructuresManager = () => {
     appliesToDepartments: [],
     appliesToContractTypes: [],
   });
-  const [cloneScopeDrafts, setCloneScopeDrafts] = useState({
-    appliesToRoles: '',
-    appliesToDepartments: '',
-    appliesToContractTypes: '',
-  });
+  const [cloneScopeDrafts, setCloneScopeDrafts] = useState(() => ({ ...cloneScopeDraftTemplate }));
 
   const currency = tenant?.currency || 'USD';
 
@@ -372,11 +393,7 @@ const PayrollStructuresManager = () => {
       appliesToDepartments: selectedStructure.appliesToDepartments || [],
       appliesToContractTypes: selectedStructure.appliesToContractTypes || [],
     });
-    setCloneScopeDrafts({
-      appliesToRoles: '',
-      appliesToDepartments: '',
-      appliesToContractTypes: '',
-    });
+    setCloneScopeDrafts({ ...cloneScopeDraftTemplate });
     setCloneDialogOpen(true);
   };
 
@@ -402,6 +419,23 @@ const PayrollStructuresManager = () => {
       loadStructures();
     } catch (error) {
       toast.error(error.message || 'No se pudo activar la estructura');
+    }
+  };
+
+  const handleDeactivateStructure = async (structureId) => {
+    if (!canWrite) {
+      toast.error('No tienes permisos para modificar estructuras');
+      return;
+    }
+    try {
+      await fetchApi(`/payroll/structures/${structureId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isActive: false }),
+      });
+      toast.success('Estructura pausada');
+      loadStructures();
+    } catch (error) {
+      toast.error(error.message || 'No se pudo pausar la estructura');
     }
   };
 
@@ -554,14 +588,20 @@ const PayrollStructuresManager = () => {
 
   useEffect(() => {
     if (filteredStructures.length === 0) {
-      setSelectedStructureId(null);
+      if (!structureMap.has(selectedStructureId)) {
+        setSelectedStructureId(null);
+      }
+      return;
+    }
+    if (!selectedStructureId) {
+      setSelectedStructureId(filteredStructures[0]._id);
       return;
     }
     const exists = filteredStructures.some((structure) => structure._id === selectedStructureId);
-    if (!exists) {
+    if (!exists && !structureMap.has(selectedStructureId)) {
       setSelectedStructureId(filteredStructures[0]._id);
     }
-  }, [filteredStructures, selectedStructureId]);
+  }, [filteredStructures, selectedStructureId, structureMap]);
 
   useEffect(() => {
     if (!ruleDialogOpen) {
@@ -587,6 +627,36 @@ const PayrollStructuresManager = () => {
   useEffect(() => {
     loadAccounts();
   }, [loadAccounts]);
+
+  const resetPreviewState = () => {
+    setPreviewPayload({ baseSalary: '', context: '{}' });
+    setPreviewResult(null);
+  };
+
+  const handleDialogToggle = (open) => {
+    if (!open) {
+      setStructureForm({ ...structureTemplate });
+      setScopeDrafts({ ...scopeDraftTemplate });
+      resetPreviewState();
+    }
+    setDialogOpen(open);
+  };
+
+  const openNewStructureDialog = () => {
+    setStructureForm({ ...structureTemplate });
+    setScopeDrafts({ ...scopeDraftTemplate });
+    resetPreviewState();
+    setDialogOpen(true);
+  };
+
+  const handleViewStructure = (structure) => {
+    if (!structure) return;
+    setSelectedStructureId(structure._id);
+    setStructureForm(mapStructureToForm(structure));
+    setScopeDrafts({ ...scopeDraftTemplate });
+    resetPreviewState();
+    setDialogOpen(true);
+  };
 
   const handleStructureSubmit = async () => {
     if (!canWrite) {
@@ -614,8 +684,7 @@ const PayrollStructuresManager = () => {
         body: JSON.stringify(structureForm),
       });
       toast.success(structureForm._id ? 'Estructura actualizada' : 'Estructura creada');
-      setDialogOpen(false);
-      setStructureForm(structureTemplate);
+      handleDialogToggle(false);
       loadStructures();
     } catch (error) {
       toast.error(error.message || 'No se pudo guardar la estructura');
@@ -713,14 +782,7 @@ const PayrollStructuresManager = () => {
             {loadingStructures ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Recargar
           </Button>
-          <Button
-            onClick={() => {
-              setStructureForm(structureTemplate);
-              setScopeDrafts({ appliesToRoles: '', appliesToDepartments: '', appliesToContractTypes: '' });
-              setDialogOpen(true);
-            }}
-            disabled={!canWrite}
-          >
+          <Button onClick={openNewStructureDialog} disabled={!canWrite}>
             <Plus className="mr-2 h-4 w-4" />
             Nueva estructura
           </Button>
@@ -973,12 +1035,16 @@ const PayrollStructuresManager = () => {
                             <Button
                               size="xs"
                               variant="outline"
-                              onClick={() => setSelectedStructureId(structure._id)}
+                              onClick={() => handleViewStructure(structure)}
                             >
                               Ver
                             </Button>
-                            {!structure.isActive && (
-                              <Button size="xs" onClick={() => handleActivateStructure(structure._id)}>
+                            {structure.isActive ? (
+                              <Button size="xs" variant="ghost" onClick={() => handleDeactivateStructure(structure._id)} disabled={!canWrite}>
+                                Pausar
+                              </Button>
+                            ) : (
+                              <Button size="xs" onClick={() => handleActivateStructure(structure._id)} disabled={!canWrite}>
                                 Activar
                               </Button>
                             )}
@@ -1270,7 +1336,7 @@ const PayrollStructuresManager = () => {
         </>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={handleDialogToggle}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{structureForm._id ? 'Editar estructura' : 'Nueva estructura'}</DialogTitle>
@@ -1332,7 +1398,7 @@ const PayrollStructuresManager = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button variant="outline" onClick={() => handleDialogToggle(false)}>
               Cancelar
             </Button>
             <Button onClick={handleStructureSubmit} disabled={savingStructure}>

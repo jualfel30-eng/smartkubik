@@ -4,7 +4,6 @@ import {
   IsEnum,
   IsMongoId,
   IsNumber,
-  IsObject,
   IsOptional,
   IsPositive,
   IsString,

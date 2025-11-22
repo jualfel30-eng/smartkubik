@@ -32,7 +32,10 @@ import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
       { name: PayrollRun.name, schema: PayrollRunSchema },
       { name: Shift.name, schema: ShiftSchema },
       { name: EmployeeContract.name, schema: EmployeeContractSchema },
-      { name: EmployeeAbsenceRequest.name, schema: EmployeeAbsenceRequestSchema },
+      {
+        name: EmployeeAbsenceRequest.name,
+        schema: EmployeeAbsenceRequestSchema,
+      },
       { name: EmployeeLeaveBalance.name, schema: EmployeeLeaveBalanceSchema },
       { name: Tenant.name, schema: TenantSchema },
     ]),

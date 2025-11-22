@@ -8,6 +8,7 @@ export type PayrollRunStatus =
   | "draft"
   | "calculating"
   | "calculated"
+  | "approved"
   | "posted"
   | "paid";
 
@@ -43,6 +44,91 @@ export class PayrollRunEntry {
 
 const PayrollRunEntrySchema = SchemaFactory.createForClass(PayrollRunEntry);
 
+@Schema({ _id: false })
+export class PayrollLine {
+  @Prop({ type: Types.ObjectId, ref: "EmployeeProfile" })
+  employeeId: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: "EmployeeContract" })
+  contractId?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: "PayrollStructure" })
+  structureId?: Types.ObjectId;
+
+  @Prop({ type: Number })
+  structureVersion?: number;
+
+  @Prop({ type: String })
+  employeeName?: string;
+
+  @Prop({ type: String })
+  department?: string;
+
+  @Prop({ type: Array, default: [] })
+  earnings?: Array<{
+    conceptCode: string;
+    conceptName?: string;
+    amount: number;
+    debitAccountId?: string;
+    creditAccountId?: string;
+    manual?: boolean;
+  }>;
+
+  @Prop({ type: Array, default: [] })
+  deductions?: Array<{
+    conceptCode: string;
+    conceptName?: string;
+    amount: number;
+    debitAccountId?: string;
+    creditAccountId?: string;
+    manual?: boolean;
+  }>;
+
+  @Prop({ type: Array, default: [] })
+  employerCosts?: Array<{
+    conceptCode: string;
+    conceptName?: string;
+    amount: number;
+    debitAccountId?: string;
+    creditAccountId?: string;
+    manual?: boolean;
+  }>;
+
+  @Prop({ type: Number, default: 0 })
+  grossPay?: number;
+
+  @Prop({ type: Number, default: 0 })
+  deductionsTotal?: number;
+
+  @Prop({ type: Number, default: 0 })
+  employerCostsTotal?: number;
+
+  @Prop({ type: Number, default: 0 })
+  netPay?: number;
+
+  @Prop({ type: Number, default: 0 })
+  hoursWorked?: number;
+
+  @Prop({ type: Number, default: 0 })
+  overtimeHours?: number;
+
+  @Prop({ type: Boolean, default: false })
+  manual?: boolean;
+
+  @Prop({ type: Array, default: [] })
+  evidences?: Array<{
+    type?: string;
+    reference?: string;
+    url?: string;
+    notes?: string;
+  }>;
+
+  @Prop({ type: Object })
+  calculationLog?: Record<string, any>;
+}
+
+const PayrollLineSchema = SchemaFactory.createForClass(PayrollLine);
+
 @Schema({ timestamps: true })
 export class PayrollRun {
   @Prop({ type: Types.ObjectId, ref: "Tenant", required: true, index: true })
@@ -69,7 +155,7 @@ export class PayrollRun {
 
   @Prop({
     type: String,
-    enum: ["draft", "calculating", "calculated", "posted", "paid"],
+    enum: ["draft", "calculating", "calculated", "approved", "posted", "paid"],
     default: "draft",
   })
   status: PayrollRunStatus;
@@ -91,6 +177,9 @@ export class PayrollRun {
 
   @Prop({ type: [PayrollRunEntrySchema], default: [] })
   entries: PayrollRunEntry[];
+
+  @Prop({ type: [PayrollLineSchema], default: [] })
+  lines?: PayrollLine[];
 
   @Prop({ type: Object })
   metadata?: Record<string, any>;

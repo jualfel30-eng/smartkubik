@@ -1,7 +1,20 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { PayrollAbsencesService } from "./payroll-absences.service";
-import { CreateAbsenceRequestDto, UpdateAbsenceStatusDto } from "./dto/create-absence-request.dto";
+import {
+  CreateAbsenceRequestDto,
+  UpdateAbsenceStatusDto,
+} from "./dto/create-absence-request.dto";
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
@@ -36,6 +49,11 @@ export class PayrollAbsencesController {
     @Param("id") id: string,
     @Body() dto: UpdateAbsenceStatusDto,
   ) {
-    return this.absencesService.updateStatus(req.user.tenantId, id, dto, req.user.id);
+    return this.absencesService.updateStatus(
+      req.user.tenantId,
+      id,
+      dto,
+      req.user.id,
+    );
   }
 }

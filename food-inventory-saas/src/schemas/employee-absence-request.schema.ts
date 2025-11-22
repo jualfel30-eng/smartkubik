@@ -61,8 +61,9 @@ export class EmployeeAbsenceRequest {
   metadata?: Record<string, any>;
 }
 
-export const EmployeeAbsenceRequestSchema =
-  SchemaFactory.createForClass(EmployeeAbsenceRequest);
+export const EmployeeAbsenceRequestSchema = SchemaFactory.createForClass(
+  EmployeeAbsenceRequest,
+);
 
 EmployeeAbsenceRequestSchema.index(
   { tenantId: 1, employeeId: 1, startDate: 1 },

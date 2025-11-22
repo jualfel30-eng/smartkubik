@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth.jsx';
 import { fetchApi } from '@/lib/api.js';
@@ -84,12 +85,15 @@ const formatDate = (value) => {
 
 export default function PayrollAbsencesManager() {
   const { tenant, hasPermission } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const payrollEnabled = Boolean(tenant?.enabledModules?.payroll);
   const canRead = hasPermission ? hasPermission('payroll_employees_read') : false;
   const canWrite = hasPermission ? hasPermission('payroll_employees_write') : false;
 
   const [requests, setRequests] = useState([]);
   const [statusFilter, setStatusFilter] = useState('pending');
+  const [calendarId, setCalendarId] = useState('');
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -105,6 +109,9 @@ export default function PayrollAbsencesManager() {
       if (statusFilter !== 'all') {
         params.append('status', statusFilter);
       }
+      if (calendarId) {
+        params.append('calendarId', calendarId);
+      }
       const query = params.toString() ? `?${params.toString()}` : '';
       const data = await fetchApi(`/payroll/absences/requests${query}`);
       setRequests(Array.isArray(data) ? data : []);
@@ -113,14 +120,20 @@ export default function PayrollAbsencesManager() {
     } finally {
       setLoading(false);
     }
-  }, [payrollEnabled, canRead, statusFilter]);
+  }, [payrollEnabled, canRead, statusFilter, calendarId]);
 
   const loadEmployees = useCallback(async () => {
     if (!payrollEnabled || !canRead) return;
     setLoadingEmployees(true);
     try {
-      const data = await fetchApi('/payroll/employees?limit=200&status=active');
-      const records = Array.isArray(data?.data) ? data.data : data?.success ? data.data : [];
+      // Backend caps limit at 100; request the max allowed to avoid 400
+      const data = await fetchApi('/payroll/employees?limit=100&status=active');
+      let records = Array.isArray(data?.data) ? data.data : data?.success ? data.data : [];
+      // If there are no active employees, fallback to all statuses to aid testing
+      if (!records.length) {
+        const allData = await fetchApi('/payroll/employees?limit=100');
+        records = Array.isArray(allData?.data) ? allData.data : allData?.success ? allData.data : [];
+      }
       setEmployees(records);
     } catch (error) {
       toast.error('No se pudieron cargar los empleados activos');
@@ -130,8 +143,13 @@ export default function PayrollAbsencesManager() {
   }, [payrollEnabled, canRead]);
 
   useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const queryCalendarId = params.get('calendarId') || '';
+    if (queryCalendarId) {
+      setCalendarId(queryCalendarId);
+    }
     loadEmployees();
-  }, [loadEmployees]);
+  }, [loadEmployees, location.search]);
 
   useEffect(() => {
     loadRequests();
@@ -161,9 +179,12 @@ export default function PayrollAbsencesManager() {
         method: 'POST',
         body: JSON.stringify({
           employeeId: form.employeeId,
-          employeeName: selectedEmployee?.firstName
-            ? `${selectedEmployee.firstName} ${selectedEmployee.lastName || ''}`.trim()
-            : selectedEmployee?.fullName,
+          employeeName:
+            selectedEmployee?.fullName ||
+            selectedEmployee?.name ||
+            `${selectedEmployee?.firstName ?? ''} ${selectedEmployee?.lastName ?? ''}`.trim() ||
+            selectedEmployee?.email ||
+            'Empleado sin nombre',
           leaveType: form.leaveType,
           startDate: form.startDate,
           endDate: form.endDate,
@@ -198,6 +219,16 @@ export default function PayrollAbsencesManager() {
     }
   };
 
+  const getEmployeeName = (employee) => {
+    if (!employee) return 'Empleado sin nombre';
+    const composedName = `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim();
+    return (
+      employee.fullName ||
+      employee.name ||
+      (composedName || employee.email || `ID: ${employee._id || employee.id || 'desconocido'}`)
+    );
+  };
+
   if (!payrollEnabled) {
     return (
       <Card>
@@ -229,6 +260,17 @@ export default function PayrollAbsencesManager() {
             Centraliza las solicitudes de ausencias y mantiene los balances actualizados antes de cada cierre.
           </p>
         </div>
+        {calendarId ? (
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <Badge variant="outline">Calendario: {calendarId.slice(-6)}</Badge>
+            <Button variant="ghost" size="sm" onClick={() => setCalendarId('')}>
+              Limpiar filtro
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/payroll/calendar?calendarId=${calendarId}`)}>
+              Ir al calendario
+            </Button>
+          </div>
+        ) : null}
         {canWrite && (
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
@@ -252,8 +294,8 @@ export default function PayrollAbsencesManager() {
                     </SelectTrigger>
                     <SelectContent className="max-h-72">
                       {employees.map((employee) => (
-                        <SelectItem key={employee._id} value={employee._id}>
-                          {employee.fullName || `${employee.firstName} ${employee.lastName || ''}`.trim()}
+                        <SelectItem key={employee._id || employee.id} value={employee._id || employee.id}>
+                          {getEmployeeName(employee)}
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -161,7 +161,7 @@ export class PayrollStructuresController {
     @Req() req,
     @Param("id") id: string,
     @Body() dto: PreviewPayrollStructureDto,
-  ) {
+  ): Promise<any> {
     return this.payrollStructuresService.previewStructure(
       req.user.tenantId,
       id,

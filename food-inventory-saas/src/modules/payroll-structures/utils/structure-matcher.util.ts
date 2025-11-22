@@ -13,6 +13,12 @@ function normalize(value?: string | null) {
   return (value || "").trim().toLowerCase();
 }
 
+function ensureArray(value?: string[] | string | null) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  return [value];
+}
+
 export function evaluateStructureMatch<
   T extends {
     appliesToRoles?: string[];
@@ -24,15 +30,15 @@ export function evaluateStructureMatch<
   const departmentValue = normalize(filters.department);
   const contractTypeValue = normalize(filters.contractType);
 
-  const structureRoles = (structure.appliesToRoles || []).map((role) =>
+  const structureRoles = ensureArray(structure.appliesToRoles).map((role) =>
     normalize(role),
   );
-  const structureDepartments = (structure.appliesToDepartments || []).map(
+  const structureDepartments = ensureArray(structure.appliesToDepartments).map(
     (dept) => normalize(dept),
   );
-  const structureContractTypes = (structure.appliesToContractTypes || []).map(
-    (type) => normalize(type),
-  );
+  const structureContractTypes = ensureArray(
+    structure.appliesToContractTypes,
+  ).map((type) => normalize(type));
 
   const roleMatch =
     structureRoles.length === 0 ||

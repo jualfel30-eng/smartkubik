@@ -1,10 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   IsDateString,
-  IsEnum,
   IsIn,
   IsMongoId,
-  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -23,7 +21,10 @@ export class CreateAbsenceRequestDto {
   @MaxLength(120)
   employeeName?: string;
 
-  @ApiProperty({ enum: ["vacation", "sick", "unpaid", "other"], default: "vacation" })
+  @ApiProperty({
+    enum: ["vacation", "sick", "unpaid", "other"],
+    default: "vacation",
+  })
   @IsString()
   @IsIn(["vacation", "sick", "unpaid", "other"])
   leaveType: string;

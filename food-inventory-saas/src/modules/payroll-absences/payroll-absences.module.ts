@@ -14,7 +14,10 @@ import {
 @Module({
   imports: [
     MongooseModule.forFeature([
-      { name: EmployeeAbsenceRequest.name, schema: EmployeeAbsenceRequestSchema },
+      {
+        name: EmployeeAbsenceRequest.name,
+        schema: EmployeeAbsenceRequestSchema,
+      },
       { name: EmployeeLeaveBalance.name, schema: EmployeeLeaveBalanceSchema },
     ]),
   ],

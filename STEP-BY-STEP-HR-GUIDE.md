@@ -31,17 +31,37 @@ Esta guía cubre el flujo end-to-end para crear la estructura de nómina, asigna
 5. Confirma. El CRM refresca automáticamente el dataset y guarda auditoría (quién aplicó la estructura y a cuántos empleados).
 6. Para asignaciones individuales, abre el drawer del empleado y edita el contrato → `Estructura de nómina`.
 
-## 3. Ejecutar una corrida de nómina
-1. Ve a **Recursos Humanos → Nómina** (`/payroll/runs`).
-2. En el dashboard:
-   - Usa filtros por frecuencia y estado para ver runs anteriores.
-   - Cada fila muestra la cobertura de estructuras y permite abrir la estructura asociada.
+## 3. Calendario de nómina, ausencias y corridas
+
+### 3.1 Calendario y validaciones
+1. Ve a **Recursos Humanos → Calendario de nómina** (`/payroll/calendar`).
+2. Genera períodos (mensual/quincenal/semanal) con el generador; se crean recordatorios automáticos antes del corte.
+3. El timeline muestra alertas operativas y bitácora de validaciones (runs pendientes, turnos sin clock-out, contratos vencidos, ausencias pendientes, cobertura, días pendientes/aprobados):
+   - Si alguna alerta está en rojo, el cierre/publicación se bloquea y el motivo queda registrado en la bitácora (tooltip).
+4. CTAs de drill-down:
+   - “Revisar runs” abre `/payroll/runs?calendarId=...`.
+   - “Revisar ausencias” abre `/payroll/absences?status=pending&calendarId=...`.
+   - Desde runs/ausencias hay botón de regreso al calendario.
+
+### 3.2 Gestionar ausencias y balances
+1. Ve a **Recursos Humanos → Ausencias** (`/payroll/absences`).
+2. Filtra por estado o `calendarId` si vienes desde el calendario.
+3. Al aprobar una ausencia:
+   - Se descuentan automáticamente los días de `EmployeeLeaveBalance` (takenDays) y se limpian los pendientes.
+   - El calendario refleja días pendientes/aprobados en sus alertas.
+4. Si rechazas, los días pendientes se liberan; si vuelves a “pendiente”, se recargan como pendientes de aprobación.
+
+### 3.3 Ejecutar una corrida de nómina
+1. Ve a **Recursos Humanos → Nómina** (`/payroll/runs`); si llegas desde el calendario, ya vendrá filtrado por `calendarId`.
+2. En el historial:
+   - Filtros por frecuencia/estado y badge con el calendario asociado (CTA para abrirlo).
+   - Cada fila muestra cobertura de estructuras y acceso al builder.
 3. Clic en **Nueva nómina**:
    - Define fechas (`periodStart`, `periodEnd`) y una etiqueta.
    - Activa “Simulación” si solo quieres validar reglas sin posteos contables.
 4. Al crear la nómina:
-   - El sistema selecciona para cada empleado la estructura asignada (o fallback) y mezcla reglas legacy cuando falten coberturas.
-   - Se genera `metadata.structureSummary` con cobertura por estructura para auditoría.
+   - Se elige estructura por contrato (fallback por rol/departamento) y se mezclan reglas legacy cuando falte cobertura.
+   - Se genera `metadata.structureSummary` para auditoría.
 5. En el drawer de detalles:
    - Revisa totales, deducciones, aportes y cobertura.
    - Descarga CSV/PDF o comparte por correo.
@@ -53,6 +73,7 @@ Esta guía cubre el flujo end-to-end para crear la estructura de nómina, asigna
 - **Empleado omitido:** visible en el modal de asignación (contrato inactivo o ya asignado). Activa el contrato o elimina la condición.
 - **Nómina con cobertura < 100 %:** en el historial la columna muestra cuántos empleados usaron reglas legacy; usa esa lista para crear nuevas estructuras o ampliar el alcance existente.
 - **Asiento contable no aparece:** la corrida debe estar en estado `posted`. Si falla, revisa `Logs` en el drawer y corrige cuentas en conceptos sin cuenta contable.
+- **Cierre bloqueado en calendario:** abre la bitácora (tooltip) y revisa runs pendientes, turnos sin clock-out, contratos vencidos, ausencias pendientes o cobertura <100 %. Sigue los CTAs para resolver y reintenta.
 
 ## 5. Release notes sugeridas
 - Builder: simulador con balance rule obligatoria antes de activar estructuras.

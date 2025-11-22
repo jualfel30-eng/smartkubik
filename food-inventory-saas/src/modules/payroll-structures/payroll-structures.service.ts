@@ -62,6 +62,9 @@ export class PayrollStructuresService {
 
   private toObjectId(id: string | Types.ObjectId) {
     if (id instanceof Types.ObjectId) return id;
+    if (!id || typeof id !== "string" || !Types.ObjectId.isValid(id)) {
+      throw new BadRequestException("Identificador inválido");
+    }
     return new Types.ObjectId(id);
   }
 
@@ -454,7 +457,7 @@ export class PayrollStructuresService {
     structureId: string,
     payload: PreviewPayrollStructureDto,
     user?: PreviewUserContext,
-  ) {
+  ): Promise<any> {
     const structure = await this.getStructure(tenantId, structureId);
     const rules = await this.listRules(tenantId, structureId);
     const conceptIds = rules

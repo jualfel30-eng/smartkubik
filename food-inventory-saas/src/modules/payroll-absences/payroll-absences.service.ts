@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import {
@@ -9,7 +13,10 @@ import {
   EmployeeLeaveBalance,
   EmployeeLeaveBalanceDocument,
 } from "../../schemas/employee-leave-balance.schema";
-import { CreateAbsenceRequestDto, UpdateAbsenceStatusDto } from "./dto/create-absence-request.dto";
+import {
+  CreateAbsenceRequestDto,
+  UpdateAbsenceStatusDto,
+} from "./dto/create-absence-request.dto";
 
 @Injectable()
 export class PayrollAbsencesService {
@@ -45,15 +52,13 @@ export class PayrollAbsencesService {
         query.startDate.$lte = new Date(filters.to);
       }
     }
-    return this.absenceModel
-      .find(query)
-      .sort({ startDate: -1 })
-      .lean();
+    return this.absenceModel.find(query).sort({ startDate: -1 }).lean();
   }
 
   async createRequest(tenantId: string, dto: CreateAbsenceRequestDto) {
     this.validateRange(dto.startDate, dto.endDate);
-    const totalDays = dto.totalDays ?? this.calculateDays(dto.startDate, dto.endDate);
+    const totalDays =
+      dto.totalDays ?? this.calculateDays(dto.startDate, dto.endDate);
     const request = await this.absenceModel.create({
       tenantId: this.toObjectId(tenantId),
       employeeId: this.toObjectId(dto.employeeId),
@@ -66,6 +71,9 @@ export class PayrollAbsencesService {
       status: "pending",
     });
     await this.ensureBalanceExists(tenantId, dto.employeeId);
+    await this.applyBalanceIncrement(tenantId, dto.employeeId, {
+      pendingApprovalDays: totalDays,
+    });
     return request;
   }
 
@@ -82,7 +90,8 @@ export class PayrollAbsencesService {
     if (!request) {
       throw new NotFoundException("Solicitud de ausencia no encontrada");
     }
-    if (request.status === dto.status) {
+    const previousStatus = request.status;
+    if (previousStatus === dto.status) {
       return request;
     }
     request.status = dto.status;
@@ -90,9 +99,31 @@ export class PayrollAbsencesService {
     if (dto.status === "approved") {
       request.approvedAt = new Date();
       request.rejectionReason = undefined;
-      await this.applyBalanceChange(tenantId, request.employeeId.toString(), request.totalDays);
-    } else {
+      if (previousStatus === "pending") {
+        await this.applyBalanceIncrement(
+          tenantId,
+          request.employeeId.toString(),
+          {
+            pendingApprovalDays: -request.totalDays,
+            takenDays: request.totalDays,
+          },
+        );
+      }
+    } else if (dto.status === "rejected") {
       request.rejectionReason = dto.rejectionReason;
+      if (previousStatus === "pending") {
+        await this.applyBalanceIncrement(
+          tenantId,
+          request.employeeId.toString(),
+          { pendingApprovalDays: -request.totalDays },
+        );
+      }
+    } else if (dto.status === "pending" && previousStatus === "rejected") {
+      await this.applyBalanceIncrement(
+        tenantId,
+        request.employeeId.toString(),
+        { pendingApprovalDays: request.totalDays },
+      );
     }
     await request.save();
     return request.toObject();
@@ -115,24 +146,37 @@ export class PayrollAbsencesService {
     }
   }
 
-  private async applyBalanceChange(tenantId: string, employeeId: string, days: number) {
-    const balance = await this.balanceModel.findOne({
-      tenantId: this.toObjectId(tenantId),
-      employeeId: this.toObjectId(employeeId),
-    });
-    if (!balance) {
+  private async applyBalanceIncrement(
+    tenantId: string,
+    employeeId: string,
+    deltas: { pendingApprovalDays?: number; takenDays?: number },
+  ) {
+    const update: Record<string, any> = { $inc: {} };
+    if (typeof deltas.pendingApprovalDays === "number") {
+      update.$inc["pendingApprovalDays"] = deltas.pendingApprovalDays;
+    }
+    if (typeof deltas.takenDays === "number") {
+      update.$inc["takenDays"] = deltas.takenDays;
+    }
+    const res = await this.balanceModel.updateOne(
+      {
+        tenantId: this.toObjectId(tenantId),
+        employeeId: this.toObjectId(employeeId),
+      },
+      update,
+    );
+    if (res.matchedCount === 0) {
       throw new BadRequestException("Balance de ausencias no encontrado");
     }
-    balance.takenDays = (balance.takenDays || 0) + days;
-    balance.pendingApprovalDays = Math.max(0, (balance.pendingApprovalDays || 0) - days);
-    await balance.save();
   }
 
   private validateRange(start: string | Date, end: string | Date) {
     const s = new Date(start);
     const e = new Date(end);
     if (s.getTime() > e.getTime()) {
-      throw new BadRequestException("La fecha fin debe ser posterior a la fecha inicio");
+      throw new BadRequestException(
+        "La fecha fin debe ser posterior a la fecha inicio",
+      );
     }
   }
 

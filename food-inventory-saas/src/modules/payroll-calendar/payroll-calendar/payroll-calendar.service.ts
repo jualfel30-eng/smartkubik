@@ -72,9 +72,15 @@ export class PayrollCalendarService {
     const enriched = await Promise.all(
       calendars.map(async (calendar) => {
         const mutableCalendar = calendar as Record<string, any>;
-        const metadata = (mutableCalendar.metadata || {}) as Record<string, any>;
+        const metadata = (mutableCalendar.metadata || {}) as Record<
+          string,
+          any
+        >;
         mutableCalendar.metadata = metadata;
-        const complianceFlags = (metadata.complianceFlags || {}) as Record<string, any>;
+        const complianceFlags = (metadata.complianceFlags || {}) as Record<
+          string,
+          any
+        >;
         metadata.complianceFlags = complianceFlags;
         if (["draft", "open"].includes(calendar.status)) {
           const ops = await this.countOperationalIssues(calendar as any);
@@ -235,7 +241,11 @@ export class PayrollCalendarService {
         dto.frequency,
         dto.payDateOffsetDays,
       );
-      await this.ensureNoOverlap(tenantObjectId, period.periodStart, period.periodEnd);
+      await this.ensureNoOverlap(
+        tenantObjectId,
+        period.periodStart,
+        period.periodEnd,
+      );
       const cutoff = subDays(
         period.payDate,
         dto.cutoffOffsetDays ?? Math.min(5, periodDurationDays(dto.frequency)),
@@ -261,7 +271,9 @@ export class PayrollCalendarService {
         periodEnd: period.periodEnd,
         cutoffDate: cutoff < period.periodStart ? period.periodStart : cutoff,
         payDate: period.payDate,
-        structureId: dto.structureId ? new Types.ObjectId(dto.structureId) : undefined,
+        structureId: dto.structureId
+          ? new Types.ObjectId(dto.structureId)
+          : undefined,
         status: "draft",
         metadata: {
           generatedBy: userId,
@@ -296,6 +308,8 @@ export class PayrollCalendarService {
     if (!["closed", "posted"].includes(nextStatus)) {
       return;
     }
+    const coveragePercent =
+      calendar.metadata?.structureSummary?.coveragePercent ?? 0;
     const [pendingRuns, operational] = await Promise.all([
       this.runModel.countDocuments({
         tenantId: calendar.tenantId,
@@ -304,54 +318,108 @@ export class PayrollCalendarService {
       }),
       this.countOperationalIssues(calendar),
     ]);
+    const snapshot = {
+      attemptedStatus: nextStatus,
+      at: new Date(),
+      pendingRuns,
+      pendingShifts: operational.pendingShifts,
+      approvedShifts: operational.approvedShifts,
+      expiredContracts: operational.expiredContracts,
+      pendingAbsences: operational.pendingAbsences,
+      pendingAbsenceDays: operational.pendingAbsenceDays,
+      approvedAbsenceDays: operational.approvedAbsenceDays,
+      structureCoveragePercent: coveragePercent,
+    };
+
     if (pendingRuns > 0) {
+      await this.recordValidationResult(
+        calendar._id,
+        snapshot,
+        false,
+        `Existen ${pendingRuns} ejecuciones de nómina pendientes o sin aprobar.`,
+      );
       throw new BadRequestException(
         `No se puede ${nextStatus === "closed" ? "cerrar" : "publicar"} el período: existen ${pendingRuns} ejecuciones de nómina pendientes o sin aprobar.`,
       );
     }
     if (operational.pendingShifts > 0) {
+      await this.recordValidationResult(
+        calendar._id,
+        snapshot,
+        false,
+        `${operational.pendingShifts} turnos sin aprobar (clock-out faltante).`,
+      );
       throw new BadRequestException(
         `No se puede ${nextStatus === "closed" ? "cerrar" : "publicar"} el período: hay ${operational.pendingShifts} turnos sin aprobar (clock-out faltante).`,
       );
     }
     if (operational.expiredContracts > 0) {
+      await this.recordValidationResult(
+        calendar._id,
+        snapshot,
+        false,
+        `${operational.expiredContracts} contratos aparecen vencidos dentro del rango pero siguen activos.`,
+      );
       throw new BadRequestException(
         `No se puede ${nextStatus === "closed" ? "cerrar" : "publicar"} el período: ${operational.expiredContracts} contratos aparecen vencidos dentro del rango pero siguen activos.`,
       );
     }
     if (operational.pendingAbsences > 0) {
+      await this.recordValidationResult(
+        calendar._id,
+        snapshot,
+        false,
+        `${operational.pendingAbsences} ausencias están pendientes de aprobación.`,
+      );
       throw new BadRequestException(
         `No se puede ${nextStatus === "closed" ? "cerrar" : "publicar"} el período: ${operational.pendingAbsences} ausencias están pendientes de aprobación.`,
       );
     }
-    const coveragePercent =
-      calendar.metadata?.structureSummary?.coveragePercent ?? 0;
     if (coveragePercent < 100) {
+      await this.recordValidationResult(
+        calendar._id,
+        snapshot,
+        false,
+        `Cobertura de estructuras incompleta (${coveragePercent}%).`,
+      );
       throw new BadRequestException(
         `Cobertura de estructuras incompleta (${coveragePercent}%); ejecuta o corrige la nómina antes de cerrar.`,
       );
     }
+
+    await this.recordValidationResult(calendar._id, snapshot, true);
   }
 
-  private async countOperationalIssues(
-    calendar: {
-      tenantId: Types.ObjectId | string;
-      periodStart: Date;
-      periodEnd: Date;
-      _id?: Types.ObjectId | string;
-    },
-  ): Promise<{
+  private async countOperationalIssues(calendar: {
+    tenantId: Types.ObjectId | string;
+    periodStart: Date;
+    periodEnd: Date;
+    _id?: Types.ObjectId | string;
+  }): Promise<{
     pendingShifts: number;
+    approvedShifts: number;
     expiredContracts: number;
     pendingAbsences: number;
+    pendingAbsenceDays: number;
+    approvedAbsenceDays: number;
   }> {
     const periodStart = new Date(calendar.periodStart);
     const periodEnd = new Date(calendar.periodEnd);
-    const [pendingShifts, expiredContracts, pendingAbsences] = await Promise.all([
+    const [
+      pendingShifts,
+      approvedShifts,
+      expiredContracts,
+      pendingAbsences,
+      absenceDayStats,
+    ] = await Promise.all([
       this.shiftModel.countDocuments({
         tenantId: calendar.tenantId,
         clockIn: { $lte: periodEnd, $gte: periodStart },
         $or: [{ clockOut: null }, { clockOut: { $exists: false } }],
+      }),
+      this.shiftModel.countDocuments({
+        tenantId: calendar.tenantId,
+        clockOut: { $lte: periodEnd, $gte: periodStart },
       }),
       this.contractModel.countDocuments({
         tenantId: calendar.tenantId,
@@ -369,8 +437,43 @@ export class PayrollCalendarService {
         startDate: { $lte: periodEnd },
         endDate: { $gte: periodStart },
       }),
+      this.absenceModel.aggregate([
+        {
+          $match: {
+            tenantId:
+              calendar.tenantId instanceof Types.ObjectId
+                ? calendar.tenantId
+                : new Types.ObjectId(calendar.tenantId),
+            status: { $in: ["pending", "approved"] },
+            startDate: { $lte: periodEnd },
+            endDate: { $gte: periodStart },
+          },
+        },
+        {
+          $group: {
+            _id: "$status",
+            totalDays: { $sum: "$totalDays" },
+          },
+        },
+      ]),
     ]);
-    return { pendingShifts, expiredContracts, pendingAbsences };
+
+    const absDaysByStatus = absenceDayStats.reduce<Record<string, number>>(
+      (acc, item) => {
+        acc[item._id] = item.totalDays;
+        return acc;
+      },
+      {},
+    );
+
+    return {
+      pendingShifts,
+      approvedShifts,
+      expiredContracts,
+      pendingAbsences,
+      pendingAbsenceDays: absDaysByStatus.pending || 0,
+      approvedAbsenceDays: absDaysByStatus.approved || 0,
+    };
   }
 
   private computePeriodRange(
@@ -419,6 +522,66 @@ export class PayrollCalendarService {
         "Ya existe un período que se traslapa con el rango solicitado.",
       );
     }
+  }
+
+  private async recordValidationResult(
+    calendarId: Types.ObjectId,
+    snapshot: {
+      attemptedStatus: PayrollCalendarStatus;
+      at: Date;
+      pendingRuns: number;
+      pendingShifts: number;
+      approvedShifts: number;
+      expiredContracts: number;
+      pendingAbsences: number;
+      pendingAbsenceDays: number;
+      approvedAbsenceDays: number;
+      structureCoveragePercent: number;
+    },
+    success: boolean,
+    message?: string,
+  ) {
+    const complianceFlags = {
+      pendingRuns: snapshot.pendingRuns > 0,
+      pendingRunCount: snapshot.pendingRuns,
+      pendingShifts: snapshot.pendingShifts > 0,
+      pendingShiftCount: snapshot.pendingShifts,
+      approvedShiftCount: snapshot.approvedShifts,
+      expiredContracts: snapshot.expiredContracts > 0,
+      expiredContractCount: snapshot.expiredContracts,
+      pendingAbsences: snapshot.pendingAbsences > 0,
+      pendingAbsenceCount: snapshot.pendingAbsences,
+      pendingAbsenceDays: snapshot.pendingAbsenceDays,
+      approvedAbsenceDays: snapshot.approvedAbsenceDays,
+      structureCoverageOk: snapshot.structureCoveragePercent >= 100,
+      structureCoveragePercent: snapshot.structureCoveragePercent,
+    };
+
+    await this.calendarModel.updateOne(
+      { _id: calendarId },
+      {
+        $set: {
+          "metadata.complianceFlags": complianceFlags,
+          "metadata.lastValidation": {
+            ...snapshot,
+            success,
+            message,
+          },
+        },
+        $push: {
+          "metadata.validationLog": {
+            $each: [
+              {
+                ...snapshot,
+                success,
+                message,
+              },
+            ],
+            $slice: -10,
+          },
+        },
+      },
+    );
   }
 }
 

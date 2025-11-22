@@ -23,7 +23,13 @@ import {
   SelectValue,
 } from '@/components/ui/select.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
-import { Bell, CalendarDays, CheckCircle2, Clock3, RefreshCw, TriangleAlert } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip.jsx';
+import { Bell, CalendarDays, CheckCircle2, Clock3, Info, RefreshCw, TriangleAlert } from 'lucide-react';
 
 const statusLabels = {
   draft: { label: 'Borrador', variant: 'outline' },
@@ -176,6 +182,10 @@ const PayrollCalendarTimeline = () => {
   }, [calendars, filters]);
 
   const latestCalendar = calendars[0];
+  const validationLogs =
+    Array.isArray(latestCalendar?.metadata?.validationLog) && latestCalendar?.metadata?.validationLog.length
+      ? latestCalendar?.metadata?.validationLog
+      : [];
 
   if (!payrollEnabled) {
     return (
@@ -200,7 +210,8 @@ const PayrollCalendarTimeline = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <TooltipProvider delayDuration={150}>
+      <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Calendario de Nómina</h1>
@@ -357,6 +368,11 @@ const PayrollCalendarTimeline = () => {
               const statusMeta = statusLabels[calendar.status] || statusLabels.draft;
               const compliance = calendar.metadata?.complianceFlags || {};
               const structureSummary = calendar.metadata?.structureSummary;
+              const reminders = calendar.metadata?.reminders || {};
+              const lastDispatch = reminders.lastDispatch;
+              const lastRecipients = Array.isArray(lastDispatch?.recipients)
+                ? lastDispatch.recipients
+                : [];
               const buttonsDisabled = mutatingId.startsWith(calendar._id);
               return (
                 <Card key={calendar._id} className="border-muted-foreground/20">
@@ -389,11 +405,23 @@ const PayrollCalendarTimeline = () => {
                           Última nómina: {calendar.metadata.lastRunLabel}
                         </div>
                       ) : null}
-                      <div className="flex items-center gap-1">
-                        <Bell className="size-4" />
-                        {calendar.metadata?.reminders?.cutoffReminderSentAt
-                          ? `Recordatorio enviado ${formatDateTime(calendar.metadata.reminders.cutoffReminderSentAt)}`
-                          : 'Recordatorio pendiente'}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center gap-1">
+                          <Bell className="size-4" />
+                          {reminders?.cutoffReminderSentAt
+                            ? `Recordatorio enviado ${formatDateTime(reminders.cutoffReminderSentAt)}`
+                            : 'Recordatorio pendiente'}
+                        </div>
+                        {lastRecipients.length ? (
+                          <Badge variant="outline" className="max-w-[260px] truncate">
+                            Destinatarios: {lastRecipients.join(', ')}
+                          </Badge>
+                        ) : null}
+                        {typeof lastDispatch?.successCount === 'number' ? (
+                          <Badge variant="outline">
+                            Entregados {lastDispatch?.successCount ?? 0} / {lastRecipients.length}
+                          </Badge>
+                        ) : null}
                       </div>
                     </div>
                   </CardHeader>
@@ -431,6 +459,11 @@ const PayrollCalendarTimeline = () => {
                             label="Turnos cerrados"
                             count={compliance.pendingShiftCount}
                           />
+                          {typeof compliance.approvedShiftCount === 'number' ? (
+                            <Badge variant="outline">
+                              Turnos aprobados: {compliance.approvedShiftCount}
+                            </Badge>
+                          ) : null}
                           <ComplianceBadge
                             ok={!compliance.expiredContracts}
                             label="Contratos vigentes"
@@ -441,6 +474,16 @@ const PayrollCalendarTimeline = () => {
                             label="Ausencias aprobadas"
                             count={compliance.pendingAbsenceCount}
                           />
+                          {typeof compliance.pendingAbsenceDays === 'number' && compliance.pendingAbsenceDays > 0 ? (
+                            <Badge variant="destructive" className="text-xs">
+                              Días pendientes: {compliance.pendingAbsenceDays}
+                            </Badge>
+                          ) : null}
+                          {typeof compliance.approvedAbsenceDays === 'number' && compliance.approvedAbsenceDays > 0 ? (
+                            <Badge variant="outline" className="text-xs">
+                              Días aprobados: {compliance.approvedAbsenceDays}
+                            </Badge>
+                          ) : null}
                           <ComplianceBadge
                             ok={compliance.structureCoverageOk !== false}
                             label="Cobertura 100%"
@@ -457,16 +500,18 @@ const PayrollCalendarTimeline = () => {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => navigate(`/payroll/runs?calendarId=${calendar._id}`)}
+                                onClick={() => navigate(`/payroll/runs/wizard?calendarId=${calendar._id}`)}
                               >
-                                Revisar runs
+                                Abrir wizard
                               </Button>
                             ) : null}
                             {compliance.pendingAbsences ? (
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => navigate('/payroll/absences?status=pending')}
+                                onClick={() =>
+                                  navigate(`/payroll/absences?status=pending&calendarId=${calendar._id}`)
+                                }
                               >
                                 Revisar ausencias
                               </Button>
@@ -474,7 +519,39 @@ const PayrollCalendarTimeline = () => {
                           </div>
                         ) : null}
                       </div>
-                    </div>
+                      </div>
+                    {calendar.metadata?.validationLog?.length ? (
+                      <div className="rounded-lg border border-dashed border-border/60 p-3">
+                        <div className="flex items-center gap-2 text-xs uppercase text-muted-foreground">
+                          <Info className="size-4" />
+                          Bitácora de validaciones recientes
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {calendar.metadata.validationLog
+                            .slice(-3)
+                            .reverse()
+                            .map((item, index) => (
+                              <Tooltip key={index}>
+                                <TooltipTrigger asChild>
+                                  <Badge
+                                    variant={item.success ? 'outline' : 'destructive'}
+                                    className="cursor-default"
+                                  >
+                                    {formatDateTime(item.at)} · {item.success ? 'OK' : 'Bloqueado'}
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs space-y-1 text-xs">
+                                  <div>{item.message || 'Validación ejecutada'}</div>
+                                  <div>
+                                    Runs pendientes: {item.pendingRuns} · Turnos pendientes: {item.pendingShifts} ·
+                                    Ausencias: {item.pendingAbsences} (días pend: {item.pendingAbsenceDays ?? 0} / aprob: {item.approvedAbsenceDays ?? 0}) · Cobertura: {item.structureCoveragePercent ?? 0}%
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </CardContent>
                   <CardFooter className="flex flex-col gap-3 border-t border-dashed border-border/60 p-4 md:flex-row md:items-center md:justify-between">
                     <div className="text-sm text-muted-foreground">
@@ -525,6 +602,7 @@ const PayrollCalendarTimeline = () => {
         </CardContent>
       </Card>
     </div>
+    </TooltipProvider>
   );
 };
 

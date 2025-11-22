@@ -28,12 +28,32 @@ import {
   PayrollAuditLogSchema,
 } from "../../schemas/payroll-audit-log.schema";
 import { Customer, CustomerSchema } from "../../schemas/customer.schema";
+import {
+  SpecialPayrollRun,
+  SpecialPayrollRunSchema,
+} from "../../schemas/special-payroll-run.schema";
 import { AccountingModule } from "../accounting/accounting.module";
 import { PayrollEngineService } from "../payroll-structures/payroll.engine.service";
 import {
   PayrollCalendar,
   PayrollCalendarSchema,
 } from "../../schemas/payroll-calendar.schema";
+import {
+  ChartOfAccounts,
+  ChartOfAccountsSchema,
+} from "../../schemas/chart-of-accounts.schema";
+import { PayablesService } from "../payables/payables.service";
+import { Payable, PayableSchema } from "../../schemas/payable.schema";
+import { EventsModule } from "../events/events.module";
+import { ExchangeRateModule } from "../exchange-rate/exchange-rate.module";
+import { PaymentsModule } from "../payments/payments.module";
+import { NotificationsModule } from "../notifications/notifications.module";
+import {
+  BankAccount,
+  BankAccountSchema,
+} from "../../schemas/bank-account.schema";
+import { MailModule } from "../mail/mail.module";
+import { PayrollWebhooksModule } from "../payroll-webhooks/payroll-webhooks.module";
 
 @Module({
   imports: [
@@ -47,11 +67,21 @@ import {
       { name: PayrollAuditLog.name, schema: PayrollAuditLogSchema },
       { name: Customer.name, schema: CustomerSchema },
       { name: PayrollCalendar.name, schema: PayrollCalendarSchema },
+      { name: ChartOfAccounts.name, schema: ChartOfAccountsSchema },
+      { name: Payable.name, schema: PayableSchema },
+      { name: BankAccount.name, schema: BankAccountSchema },
+      { name: SpecialPayrollRun.name, schema: SpecialPayrollRunSchema },
     ]),
     AccountingModule,
+    EventsModule,
+    ExchangeRateModule,
+    PaymentsModule,
+    NotificationsModule,
+    MailModule,
+    PayrollWebhooksModule,
   ],
   controllers: [PayrollRunsController],
-  providers: [PayrollRunsService, PayrollEngineService],
+  providers: [PayrollRunsService, PayrollEngineService, PayablesService],
   exports: [PayrollRunsService],
 })
 export class PayrollRunsModule {}

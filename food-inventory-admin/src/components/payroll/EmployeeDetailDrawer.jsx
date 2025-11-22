@@ -20,6 +20,7 @@ import {
   Sparkles,
   Info,
   Calendar,
+  FileDown,
 } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerClose } from '@/components/ui/drawer.jsx';
 import { Button } from '@/components/ui/button.jsx';
@@ -32,9 +33,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs.j
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { ScrollArea } from '@/components/ui/scroll-area.jsx';
 import { useCRM } from '@/hooks/use-crm.js';
-import { fetchApi } from '@/lib/api';
+import { fetchApi, getApiBaseUrl } from '@/lib/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert.jsx';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip.jsx';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover.jsx';
+import { Calendar as CalendarPicker } from '@/components/ui/calendar.jsx';
+import { cn } from '@/lib/utils.js';
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Activo' },
@@ -122,6 +126,8 @@ const createEmptyProfileForm = () => ({
   employeeNumber: '',
   position: '',
   department: '',
+  contactEmail: '',
+  contactPhone: '',
   status: 'active',
   hireDate: '',
   probationEndDate: '',
@@ -236,6 +242,7 @@ export function EmployeeDetailDrawer({
     listEmployeeContracts,
     createEmployeeContract,
     updateEmployeeContract,
+    updateCustomer,
     bulkReinviteEmployees,
   } = useCRM();
   const [activeTab, setActiveTab] = useState('profile');
@@ -244,6 +251,7 @@ export function EmployeeDetailDrawer({
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingContract, setSavingContract] = useState(false);
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [documentLoading, setDocumentLoading] = useState('');
   const [employee, setEmployee] = useState(initialEmployee);
   const [profileForm, setProfileForm] = useState(createEmptyProfileForm());
   const [documents, setDocuments] = useState([]);
@@ -259,6 +267,19 @@ export function EmployeeDetailDrawer({
   const [structureSuggestionsLoading, setStructureSuggestionsLoading] = useState(false);
   const [structureSuggestionError, setStructureSuggestionError] = useState(null);
   const autoStructureAppliedRef = useRef(false);
+  const [calendarMonths, setCalendarMonths] = useState({});
+  const [documentType, setDocumentType] = useState('employment_letter');
+  const [documentLang, setDocumentLang] = useState('es');
+  const [orgName, setOrgName] = useState('');
+  const [orgAddress, setOrgAddress] = useState('');
+  const [signerName, setSignerName] = useState('');
+  const [signerTitle, setSignerTitle] = useState('');
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const yearOptions = useMemo(() => {
+    const current = new Date().getFullYear();
+    const start = current - 30;
+    return Array.from({ length: 61 }, (_, idx) => start + idx);
+  }, []);
 
   const resolvedEmployee = employee || initialEmployee;
 
@@ -426,6 +447,8 @@ export function EmployeeDetailDrawer({
         employeeNumber: data.employeeNumber || '',
         position: data.position || '',
         department: data.department || '',
+        contactEmail: data.customer?.email || '',
+        contactPhone: data.customer?.phone || '',
         status: data.status || 'active',
         hireDate: data.hireDate ? data.hireDate.slice(0, 10) : '',
         probationEndDate: data.probationEndDate ? data.probationEndDate.slice(0, 10) : '',
@@ -656,6 +679,29 @@ export function EmployeeDetailDrawer({
     contractForm.payrollStructureId,
   ]);
 
+  useEffect(() => {
+    if (settingsLoaded) return;
+    const loadTenantSettings = async () => {
+      try {
+        const settings = await fetchApi('/tenant/settings');
+        if (settings?.payroll?.documents) {
+          const docs = settings.payroll.documents;
+          setOrgName((prev) => prev || docs.orgName || '');
+          setOrgAddress((prev) => prev || docs.orgAddress || '');
+          setSignerName((prev) => prev || docs.signerName || '');
+          setSignerTitle((prev) => prev || docs.signerTitle || '');
+        } else if (settings?.companyName) {
+          setOrgName((prev) => prev || settings.companyName);
+        }
+      } catch (err) {
+        // Silently ignore; user can type manual values
+      } finally {
+        setSettingsLoaded(true);
+      }
+    };
+    loadTenantSettings();
+  }, [settingsLoaded]);
+
   const buildProfilePayload = () => {
     const payload = {
       employeeNumber: profileForm.employeeNumber || undefined,
@@ -702,8 +748,25 @@ export function EmployeeDetailDrawer({
     }
     setSavingProfile(true);
     try {
+      // Actualiza contacto del empleado en CRM
+      if (resolvedEmployee?.customer?.id) {
+        const contactPayload = {};
+        if (profileForm.contactEmail !== undefined) contactPayload.email = profileForm.contactEmail || '';
+        if (profileForm.contactPhone !== undefined) contactPayload.phone = profileForm.contactPhone || '';
+        if (Object.keys(contactPayload).length > 0) {
+          await updateCustomer(resolvedEmployee.customer.id, contactPayload, {
+            skipCustomerReload: true,
+            refreshEmployees: true,
+          });
+        }
+      }
       const updated = await persistProfile(employeeId, buildProfilePayload());
-      setEmployee(updated);
+      const mergedCustomer = {
+        ...updated.customer,
+        email: profileForm.contactEmail || updated.customer?.email,
+        phone: profileForm.contactPhone || updated.customer?.phone,
+      };
+      setEmployee({ ...updated, customer: mergedCustomer });
       toast.success('Perfil actualizado correctamente');
       await loadProfile();
       onDataChanged?.();
@@ -728,6 +791,71 @@ export function EmployeeDetailDrawer({
     } finally {
       setSavingProfile(false);
     }
+  };
+
+  const renderDatePicker = (label, field) => {
+    const value = profileForm[field];
+    const selected = value ? new Date(value) : undefined;
+    const month = calendarMonths[field] || selected || new Date();
+    return (
+      <div className="space-y-2">
+        <Label>{label}</Label>
+        <div className="flex gap-2">
+          <Input
+            type="date"
+            value={value}
+            onChange={(e) => handleProfileInputChange(field, e.target.value)}
+            className="flex-1"
+            placeholder="YYYY-MM-DD"
+          />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="icon">
+                <Calendar className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <div className="flex items-center justify-between gap-2 px-3 py-2 border-b text-xs text-muted-foreground">
+                <select
+                  className="border rounded px-2 py-1 text-xs bg-background"
+                  value={month.getFullYear()}
+                  onChange={(e) =>
+                    setCalendarMonths((prev) => ({
+                      ...prev,
+                      [field]: new Date(Number(e.target.value), month.getMonth(), 1),
+                    }))
+                  }
+                >
+                  {yearOptions.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+                <span className="capitalize">
+                  {month.toLocaleString('es-VE', { month: 'long' })} {month.getFullYear()}
+                </span>
+              </div>
+              <CalendarPicker
+                mode="single"
+                month={month}
+                onMonthChange={(nextMonth) =>
+                  setCalendarMonths((prev) => ({ ...prev, [field]: nextMonth }))
+                }
+                selected={selected}
+                onSelect={(date) =>
+                  handleProfileInputChange(
+                    field,
+                    date ? date.toISOString().slice(0, 10) : '',
+                  )
+                }
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
+    );
   };
 
   const handleContractFieldChange = (field, value) => {
@@ -957,6 +1085,56 @@ export function EmployeeDetailDrawer({
     }
   };
 
+  const handleDownloadDocument = async (docType = documentType, lang = documentLang) => {
+    if (!resolvedEmployee?._id) {
+      toast.error('No se encontró el empleado');
+      return;
+    }
+    setDocumentLoading(docType);
+    try {
+      const baseUrl = getApiBaseUrl();
+      const token = localStorage.getItem('accessToken');
+      const res = await fetch(
+        `${baseUrl}/api/v1/payroll/employees/${resolvedEmployee._id}/documents?type=${docType}&lang=${lang}` +
+          `${orgName ? `&orgName=${encodeURIComponent(orgName)}` : ''}` +
+          `${orgAddress ? `&orgAddress=${encodeURIComponent(orgAddress)}` : ''}` +
+          `${signerName ? `&signerName=${encodeURIComponent(signerName)}` : ''}` +
+          `${signerTitle ? `&signerTitle=${encodeURIComponent(signerTitle)}` : ''}`,
+        {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            'Cache-Control': 'no-cache',
+          },
+        },
+      );
+      if (!res.ok) {
+        const message = await res.text();
+        throw new Error(message || 'Error al descargar el documento');
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download =
+        docType === 'income_certificate'
+          ? `constancia-ingresos-${resolvedEmployee._id}.pdf`
+          : docType === 'seniority_letter'
+            ? `constancia-antiguedad-${resolvedEmployee._id}.pdf`
+            : docType === 'fiscal_certificate'
+              ? `constancia-fiscal-${resolvedEmployee._id}.pdf`
+              : `carta-trabajo-${resolvedEmployee._id}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('Documento descargado');
+    } catch (err) {
+      toast.error(err.message || 'No se pudo descargar el documento');
+    } finally {
+      setDocumentLoading('');
+    }
+  };
+
   const closeDrawer = (nextState) => {
     if (!nextState) {
       onClose?.();
@@ -989,6 +1167,77 @@ export function EmployeeDetailDrawer({
 
   const actionButtons = (
     <div className="flex flex-wrap gap-2">
+      <Select value={documentType} onValueChange={setDocumentType}>
+        <SelectTrigger className="w-48">
+          <SelectValue placeholder="Tipo de documento" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="employment_letter">Carta de trabajo</SelectItem>
+          <SelectItem value="income_certificate">Constancia de ingresos</SelectItem>
+          <SelectItem value="seniority_letter">Constancia de antigüedad</SelectItem>
+          <SelectItem value="fiscal_certificate">Constancia fiscal</SelectItem>
+        </SelectContent>
+      </Select>
+      <Select value={documentLang} onValueChange={setDocumentLang}>
+        <SelectTrigger className="w-32">
+          <SelectValue placeholder="Idioma" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="es">Español</SelectItem>
+          <SelectItem value="en">English</SelectItem>
+        </SelectContent>
+      </Select>
+      <div className="flex flex-wrap gap-2">
+        <div className="space-y-1">
+          <Label className="text-xs">Empresa/Entidad</Label>
+          <Input
+            value={orgName}
+            onChange={(e) => setOrgName(e.target.value)}
+            placeholder="Acme Corp."
+            className="w-48"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Dirección</Label>
+          <Input
+            value={orgAddress}
+            onChange={(e) => setOrgAddress(e.target.value)}
+            placeholder="Dirección para el encabezado"
+            className="w-64"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Firmante</Label>
+          <Input
+            value={signerName}
+            onChange={(e) => setSignerName(e.target.value)}
+            placeholder="Nombre del firmante"
+            className="w-48"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs">Cargo firmante</Label>
+          <Input
+            value={signerTitle}
+            onChange={(e) => setSignerTitle(e.target.value)}
+            placeholder="Ej. Director RRHH"
+            className="w-48"
+          />
+        </div>
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => handleDownloadDocument(documentType, documentLang)}
+        disabled={documentLoading === documentType}
+      >
+        {documentLoading === documentType ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        ) : (
+          <FileDown className="mr-2 h-4 w-4" />
+        )}
+        Descargar
+      </Button>
       <Button
         variant="outline"
         size="sm"
@@ -1211,6 +1460,23 @@ export function EmployeeDetailDrawer({
                     />
                   </div>
                   <div className="space-y-2">
+                    <Label>Correo laboral</Label>
+                    <Input
+                      type="email"
+                      value={profileForm.contactEmail}
+                      onChange={(e) => handleProfileInputChange('contactEmail', e.target.value)}
+                      placeholder="nombre@compañia.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Teléfono</Label>
+                    <Input
+                      value={profileForm.contactPhone}
+                      onChange={(e) => handleProfileInputChange('contactPhone', e.target.value)}
+                      placeholder="+58 412..."
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label>Estado</Label>
                     <Select
                       value={profileForm.status}
@@ -1228,30 +1494,9 @@ export function EmployeeDetailDrawer({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Fecha de ingreso</Label>
-                    <Input
-                      type="date"
-                      value={profileForm.hireDate}
-                      onChange={(e) => handleProfileInputChange('hireDate', e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Fin de período de prueba</Label>
-                    <Input
-                      type="date"
-                      value={profileForm.probationEndDate}
-                      onChange={(e) => handleProfileInputChange('probationEndDate', e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Fecha de salida</Label>
-                    <Input
-                      type="date"
-                      value={profileForm.terminationDate}
-                      onChange={(e) => handleProfileInputChange('terminationDate', e.target.value)}
-                    />
-                  </div>
+                  <div className="space-y-2">{renderDatePicker('Fecha de ingreso', 'hireDate')}</div>
+                  <div className="space-y-2">{renderDatePicker('Fin de período de prueba', 'probationEndDate')}</div>
+                  <div className="space-y-2">{renderDatePicker('Fecha de salida', 'terminationDate')}</div>
                   <div className="space-y-2">
                     <Label>Ubicación / Sede</Label>
                     <Input
@@ -1539,14 +1784,19 @@ export function EmployeeDetailDrawer({
                         <Label>Estructura de nómina</Label>
                         <Select
                           value={contractForm.payrollStructureId}
-                          onValueChange={(value) => handleContractFieldChange('payrollStructureId', value)}
+                          onValueChange={(value) =>
+                            handleContractFieldChange(
+                              'payrollStructureId',
+                              value === 'none' ? '' : value
+                            )
+                          }
                           disabled={structuresLoading && !availableStructures.length}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder={structuresLoading ? 'Cargando...' : 'Sin estructura'} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Sin estructura</SelectItem>
+                            <SelectItem value="none">Sin estructura</SelectItem>
                             {availableStructures.map((structure) => (
                               <SelectItem key={structure._id} value={structure._id}>
                                 <div className="flex flex-col">

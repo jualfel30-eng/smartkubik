@@ -29,6 +29,7 @@ import { BatchNotifyEmployeesDto } from "./dto/batch-notify-employees.dto";
 import { BulkUpdateEmployeeStatusDto } from "./dto/bulk-update-employee-status.dto";
 import { BulkAssignPayrollStructureDto } from "./dto/bulk-assign-structure.dto";
 import { NotificationsService } from "../notifications/notifications.service";
+const PDFDocument = require("pdfkit");
 
 @Injectable()
 export class PayrollEmployeesService {
@@ -617,6 +618,148 @@ export class PayrollEmployeesService {
     }
 
     return profile;
+  }
+
+  async generateDocument(
+    tenantId: string,
+    employeeId: string,
+    type: string = "employment_letter",
+    language: string = "es",
+    options?: {
+      orgName?: string;
+      orgAddress?: string;
+      signerName?: string;
+      signerTitle?: string;
+    },
+  ) {
+    const employee = await this.findOne(employeeId, tenantId);
+    const doc = new PDFDocument({ margin: 50 });
+    const chunks: Buffer[] = [];
+
+    const titleMap: Record<string, { es: string; en: string }> = {
+      employment_letter: { es: "Carta de Trabajo", en: "Employment Letter" },
+      income_certificate: { es: "Constancia de Ingresos", en: "Income Certificate" },
+      seniority_letter: { es: "Constancia de Antigüedad", en: "Seniority Letter" },
+      fiscal_certificate: { es: "Constancia Fiscal", en: "Tax Certificate" },
+    };
+    const title =
+      titleMap[type]?.[language === "en" ? "en" : "es"] ||
+      titleMap.employment_letter[language === "en" ? "en" : "es"];
+
+    const today = new Date();
+    const formatDate = (date: Date) =>
+      date.toLocaleDateString(language === "en" ? "en-US" : "es-VE", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+
+    const contract = employee.currentContract || {};
+    const name = employee.customer?.name || "Empleado";
+    const position = employee.position || contract.position || "Cargo no asignado";
+    const department = employee.department || contract.department || "Departamento";
+    const startDate = contract.startDate
+      ? formatDate(new Date(contract.startDate))
+      : "Sin fecha";
+    const compensation =
+      contract.compensationAmount && contract.currency
+        ? `${contract.compensationAmount} ${contract.currency}`
+        : "No registrado";
+    const company =
+      options?.orgName ||
+      employee.customer?.companyName ||
+      employee.customer?.name ||
+      (language === "en" ? "The Company" : "La empresa");
+    const companyAddress =
+      options?.orgAddress ||
+      employee.customer?.address ||
+      (language === "en"
+        ? "Company address"
+        : "Dirección de la empresa");
+    const signer =
+      options?.signerName ||
+      (language === "en" ? "HR / Payroll" : "RRHH / Nómina");
+    const signerTitle =
+      options?.signerTitle ||
+      (language === "en" ? "Authorized Signatory" : "Firmante autorizado");
+
+    const tenureYears = contract.startDate
+      ? Math.max(
+          0,
+          Math.floor(
+            (today.getTime() - new Date(contract.startDate).getTime()) /
+              (1000 * 60 * 60 * 24 * 365),
+          ),
+        )
+      : 0;
+
+    return await new Promise((resolve) => {
+      doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+      doc.on("end", () => {
+        resolve({
+          buffer: Buffer.concat(chunks),
+          contentType: "application/pdf",
+          filename: `${type}-${employeeId}.pdf`,
+        });
+      });
+
+      doc.fontSize(16).text(company, { align: "left" });
+      doc.fontSize(10).fillColor("#555").text(companyAddress, { align: "left" });
+      doc.moveDown();
+      doc.fillColor("#000").fontSize(18).text(title, { align: "center" });
+      doc.moveDown();
+      doc.fontSize(11).text(formatDate(today), { align: "right" });
+      doc.moveDown();
+
+      doc.fontSize(12);
+      if (type === "income_certificate") {
+        doc.text(
+          language === "en"
+            ? `This is to certify that ${name} is employed by ${company} in the position of ${position} within the ${department} department since ${startDate}. The current compensation is ${compensation}.`
+            : `Por medio de la presente se certifica que ${name} labora en ${company} en la posición de ${position} dentro del departamento de ${department} desde el ${startDate}. Su compensación actual es ${compensation}.`,
+          { align: "justify" },
+        );
+      } else if (type === "seniority_letter") {
+        doc.text(
+          language === "en"
+            ? `${name} has been employed by ${company} since ${startDate}, currently holding the position of ${position} in the ${department} department. Tenure: ${tenureYears} years. Current compensation: ${compensation}.`
+            : `${name} labora en ${company} desde el ${startDate}, ocupando el cargo de ${position} en el departamento de ${department}. Antigüedad: ${tenureYears} años. Compensación actual: ${compensation}.`,
+          { align: "justify" },
+        );
+      } else if (type === "fiscal_certificate") {
+        doc.text(
+          language === "en"
+            ? `For fiscal purposes, it is certified that ${name} is employed by ${company} as ${position} in ${department}, with start date ${startDate}. Current compensation: ${compensation}.`
+            : `A efectos fiscales, se certifica que ${name} labora en ${company} como ${position} en ${department}, con fecha de ingreso ${startDate}. Compensación actual: ${compensation}.`,
+          { align: "justify" },
+        );
+      } else {
+        doc.text(
+          language === "en"
+            ? `This letter is to confirm that ${name} holds the position of ${position} in the ${department} department at ${company}. Employment start date: ${startDate}. Current compensation: ${compensation}.`
+            : `Por medio de la presente se hace constar que ${name} ocupa el cargo de ${position} en el departamento de ${department} de ${company}. Fecha de ingreso: ${startDate}. Compensación actual: ${compensation}.`,
+          { align: "justify" },
+        );
+      }
+
+      doc.moveDown();
+      doc
+        .fontSize(12)
+        .text(
+          language === "en"
+            ? "This document is issued at the request of the interested party."
+            : "Constancia emitida a petición de la parte interesada.",
+          { align: "justify" },
+        );
+
+      doc.moveDown(2);
+      doc.text(language === "en" ? "Sincerely," : "Atentamente,");
+      doc.moveDown(4);
+      doc.text("____________________________");
+      doc.text(signer);
+      doc.text(signerTitle);
+      doc.end();
+    });
   }
 
   async getSummary(tenantId: string) {

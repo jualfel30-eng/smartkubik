@@ -76,13 +76,33 @@ export class PayrollCalendarReminderService {
           undefined,
           { syncTodo: true },
         );
-        await this.dispatchNotification({ tenantId, calendar });
+        const reminderResult = await this.dispatchNotification({
+          tenantId,
+          calendar,
+          calendarId,
+        });
+        const now = new Date();
         await this.calendarModel.updateOne(
           { _id: calendarId },
           {
             $set: {
               "metadata.reminders.cutoffReminderSent": true,
-              "metadata.reminders.cutoffReminderSentAt": new Date(),
+              "metadata.reminders.cutoffReminderSentAt": now,
+              "metadata.reminders.lastRecipients":
+                reminderResult.recipients?.map((r) => r.email || r.phone) ?? [],
+              "metadata.reminders.lastDispatch": reminderResult,
+            },
+            $push: {
+              "metadata.reminders.history": {
+                sentAt: now,
+                channels: reminderResult.channels,
+                recipientCount: reminderResult.recipients?.length ?? 0,
+                successCount: reminderResult.successCount,
+                failureCount: reminderResult.failureCount,
+                recipients: reminderResult.recipients?.map(
+                  (r) => r.email || r.phone,
+                ),
+              },
             },
           },
         );
@@ -124,15 +144,24 @@ export class PayrollCalendarReminderService {
   private async dispatchNotification(params: {
     tenantId: string;
     calendar: PayrollCalendar;
-  }) {
-    const { tenantId, calendar } = params;
+    calendarId: string;
+  }): Promise<{
+    recipients: Array<{ email?: string; phone?: string; name?: string }>;
+    successCount: number;
+    failureCount: number;
+    channels: string[];
+  }> {
+    const { tenantId, calendar, calendarId } = params;
     const tenant = await this.tenantModel
       .findById(tenantId)
       .select(["name", "contactInfo", "settings.payroll"])
       .lean();
-    if (!tenant) return;
+    if (!tenant) {
+      return { recipients: [], successCount: 0, failureCount: 0, channels: [] };
+    }
 
-    const recipients: Array<{ email?: string; phone?: string; name?: string }> = [];
+    const recipients: Array<{ email?: string; phone?: string; name?: string }> =
+      [];
     if (tenant.contactInfo?.email) {
       recipients.push({ email: tenant.contactInfo.email, name: tenant.name });
     }
@@ -145,11 +174,12 @@ export class PayrollCalendarReminderService {
         .forEach((email) => recipients.push({ email, name: tenant.name }));
     }
     if (!recipients.length) {
-      return;
+      return { recipients: [], successCount: 0, failureCount: 0, channels: [] };
     }
 
     const compliance = (calendar.metadata as any)?.complianceFlags || {};
-    const calendarId = this.normalizeCalendarId(calendar) ?? "";
+    const normalizedCalendarId =
+      this.normalizeCalendarId(calendar) ?? calendarId;
     const context = {
       calendarName: calendar.name || this.formatRange(calendar),
       cutoffDate: this.formatDate(calendar.cutoffDate),
@@ -157,10 +187,10 @@ export class PayrollCalendarReminderService {
       pendingShifts: compliance.pendingShiftCount ?? 0,
       expiredContracts: compliance.expiredContractCount ?? 0,
       absencesUrl: `${process.env.FRONTEND_URL ?? "https://app.smartkubik.com"}/payroll/absences?status=pending`,
-      runsUrl: `${process.env.FRONTEND_URL ?? "https://app.smartkubik.com"}/payroll/runs${calendarId ? `?calendarId=${calendarId}` : ''}`,
+      runsUrl: `${process.env.FRONTEND_URL ?? "https://app.smartkubik.com"}/payroll/runs${normalizedCalendarId ? `?calendarId=${normalizedCalendarId}` : ""}`,
     };
 
-    await Promise.all(
+    const results = await Promise.all(
       recipients.map((recipient, index) =>
         this.notificationsService.sendTemplateNotification({
           tenantId,
@@ -176,5 +206,16 @@ export class PayrollCalendarReminderService {
         }),
       ),
     );
+
+    const flattened = results.flat();
+    const successCount = flattened.filter((r) => r.success).length;
+    const failureCount = flattened.length - successCount;
+
+    return {
+      recipients,
+      successCount,
+      failureCount,
+      channels: ["email"],
+    };
   }
 }

@@ -8,13 +8,9 @@ import {
   Query,
   Request,
   UseGuards,
+  Res,
 } from "@nestjs/common";
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from "@nestjs/swagger";
+import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { PayrollEmployeesService } from "./payroll-employees.service";
 import { CreateEmployeeProfileDto } from "./dto/create-employee-profile.dto";
 import { UpdateEmployeeProfileDto } from "./dto/update-employee-profile.dto";
@@ -29,6 +25,7 @@ import { PaginationDto } from "../../dto/pagination.dto";
 import { BatchNotifyEmployeesDto } from "./dto/batch-notify-employees.dto";
 import { BulkUpdateEmployeeStatusDto } from "./dto/bulk-update-employee-status.dto";
 import { BulkAssignPayrollStructureDto } from "./dto/bulk-assign-structure.dto";
+import { Response } from "express";
 
 @ApiTags("payroll-employees")
 @ApiBearerAuth()
@@ -94,6 +91,46 @@ export class PayrollEmployeesController {
       req.user.tenantId,
     );
     return { success: true, data: result };
+  }
+
+  @Get(":id/documents")
+  @UseGuards(PermissionsGuard)
+  @Permissions("payroll_employees_read")
+  @ApiOperation({ summary: "Descargar documento laboral (carta/ingresos) en PDF" })
+  async downloadDocument(
+    @Request() req,
+    @Param("id") employeeId: string,
+    @Query("type") type: string,
+    @Query("lang") lang: string,
+    @Res() res: Response,
+    @Query("orgName") orgName?: string,
+    @Query("orgAddress") orgAddress?: string,
+    @Query("signerName") signerName?: string,
+    @Query("signerTitle") signerTitle?: string,
+  ) {
+    const file = (await this.payrollEmployeesService.generateDocument(
+      req.user.tenantId,
+      employeeId,
+      type || "employment_letter",
+      lang || "es",
+      {
+        orgName,
+        orgAddress,
+        signerName,
+        signerTitle,
+      },
+    )) as {
+      buffer: Buffer;
+      contentType: string;
+      filename: string;
+    };
+    res
+      .setHeader("Content-Type", file.contentType)
+      .setHeader(
+        "Content-Disposition",
+        `attachment; filename=\"${file.filename}\"`,
+      )
+      .send(file.buffer);
   }
 
   @Patch(":id")
