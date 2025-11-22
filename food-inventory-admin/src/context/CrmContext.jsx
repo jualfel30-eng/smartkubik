@@ -1,4 +1,4 @@
-import { createContext, useState, useCallback, useContext, useRef } from 'react';
+import { createContext, useState, useCallback, useContext, useRef, useEffect } from 'react';
 import { fetchApi, inviteUser, getRoles } from '@/lib/api';
 
 // 1. Crear el Contexto
@@ -8,6 +8,7 @@ export const CrmContext = createContext();
 export const CrmProvider = ({ children }) => {
   const [crmData, setCrmData] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]); // New state for payment methods
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -121,8 +122,14 @@ export const CrmProvider = ({ children }) => {
     } catch (err) {
       console.error("Error loading payment methods:", err.message);
       setPaymentMethods([]);
+    } finally {
+      setPaymentMethodsLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    loadPaymentMethods();
+  }, [loadPaymentMethods]);
 
   const loadEmployees = useCallback(
     async (page = 1, limit = 25, filters = {}) => {
@@ -538,6 +545,7 @@ export const CrmProvider = ({ children }) => {
   const value = {
     crmData,
     paymentMethods, // Export payment methods
+    paymentMethodsLoading,
     loading,
     error,
     addCustomer,

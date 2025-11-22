@@ -11,7 +11,7 @@ import { X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
-  const { paymentMethods, loading: contextLoading } = useCrmContext();
+  const { paymentMethods, paymentMethodsLoading } = useCrmContext();
   const { triggerRefresh } = useAccountingContext();
 
   const [paymentMode, setPaymentMode] = useState('single');
@@ -300,7 +300,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
             <div className="p-4 border rounded-lg space-y-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="single-method" className="text-right">Método</Label>
-                <Select value={singlePayment.method} onValueChange={(v) => setSinglePayment(p => ({...p, method: v, bankAccountId: ''}))} disabled={contextLoading}>
+                <Select value={singlePayment.method} onValueChange={(v) => setSinglePayment(p => ({...p, method: v, bankAccountId: ''}))} disabled={paymentMethodsLoading}>
                     <SelectTrigger id="single-method" className="col-span-3"><SelectValue placeholder="Seleccione un método" /></SelectTrigger>
                     <SelectContent>{paymentMethods.map(m => m.id !== 'pago_mixto' && <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
                 </Select>

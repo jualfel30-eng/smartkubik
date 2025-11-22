@@ -590,6 +590,11 @@ function TenantLayout() {
                     isActive={isItemActive}
                     className="gap-3 justify-start"
                     aria-label={item.name}
+                    onClick={() => {
+                      if (state === 'collapsed') {
+                        setOpen(true);
+                      }
+                    }}
                   >
                     <item.icon strokeWidth={1.25} />
                     <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">{item.name}</span>
