@@ -134,6 +134,86 @@ const ProductPerformanceSchema =
   SchemaFactory.createForClass(ProductPerformance);
 
 /**
+ * Campaign Variant - Individual version of a campaign for A/B testing
+ * PHASE 4: A/B Testing & Campaign Optimization
+ */
+@Schema()
+export class CampaignVariant {
+  @Prop({ required: true })
+  variantName: string; // "A", "B", "Control", etc.
+
+  @Prop()
+  description?: string;
+
+  @Prop()
+  subject?: string; // Different subject for email
+
+  @Prop({ required: true })
+  message: string; // Different message
+
+  @Prop()
+  htmlContent?: string;
+
+  @Prop({ type: Object })
+  offer?: {
+    type: string; // 'percentage', 'fixed_amount', 'free_shipping', 'bogo'
+    value: number;
+    applicableProducts?: Types.ObjectId[];
+    expiresAt?: Date;
+    couponCode?: string;
+  };
+
+  // Traffic allocation (0-100%)
+  @Prop({ required: true, min: 0, max: 100, default: 50 })
+  trafficPercentage: number;
+
+  // Variant Status
+  @Prop({
+    enum: ["active", "paused", "winner", "loser"],
+    default: "active",
+  })
+  status: string;
+
+  // Performance metrics for this variant
+  @Prop({ default: 0 })
+  totalSent: number;
+
+  @Prop({ default: 0 })
+  totalDelivered: number;
+
+  @Prop({ default: 0 })
+  totalOpened: number;
+
+  @Prop({ default: 0 })
+  totalClicked: number;
+
+  @Prop({ default: 0 })
+  totalOrders: number;
+
+  @Prop({ default: 0 })
+  totalRevenue: number;
+
+  // Calculated rates (updated after each send)
+  @Prop({ default: 0 })
+  openRate: number; // %
+
+  @Prop({ default: 0 })
+  clickRate: number; // %
+
+  @Prop({ default: 0 })
+  conversionRate: number; // %
+
+  @Prop({ default: 0 })
+  revenuePerRecipient: number; // Total revenue / total sent
+
+  // Target customers assigned to this variant
+  @Prop({ type: [Types.ObjectId], ref: "Customer" })
+  assignedCustomerIds: Types.ObjectId[];
+}
+
+const CampaignVariantSchema = SchemaFactory.createForClass(CampaignVariant);
+
+/**
  * ProductCampaign - Marketing campaigns targeted by product purchase affinity
  *
  * This schema enables product-based customer segmentation using the ProductAffinity matrix.
@@ -144,6 +224,8 @@ const ProductPerformanceSchema =
  * - "Send discount on Aceite de Coco to all customers who bought it in last 3 months"
  * - "Promote new Miel flavor to customers who purchase Miel con panal regularly"
  * - "Re-engage customers who bought Beef Tallow but haven't ordered in 60 days"
+ *
+ * PHASE 4: Now supports A/B Testing with multiple campaign variants
  */
 @Schema({ timestamps: true })
 export class ProductCampaign {
@@ -300,6 +382,36 @@ export class ProductCampaign {
 
   @Prop({ default: 0 })
   predictedCustomersConverted: number; // Customers from predictive recommendations who converted
+
+  // === PHASE 4: A/B Testing & Campaign Optimization ===
+
+  // A/B Testing Configuration
+  @Prop({ type: Boolean, default: false })
+  isAbTest: boolean; // Whether this campaign uses A/B testing
+
+  @Prop({ type: [CampaignVariantSchema], default: [] })
+  variants: CampaignVariant[]; // Campaign variants for A/B testing
+
+  @Prop({ type: String })
+  winningVariantName?: string; // Name of the winning variant (after test completion)
+
+  @Prop({ type: String, enum: ["open_rate", "click_rate", "conversion_rate", "revenue"] })
+  testMetric?: string; // Metric used to determine winner
+
+  @Prop({ type: Number, min: 0, max: 100 })
+  testTrafficPercentage?: number; // % of audience to include in test (rest gets winner)
+
+  @Prop({ type: Date })
+  testStartDate?: Date; // When A/B test started
+
+  @Prop({ type: Date })
+  testEndDate?: Date; // When A/B test ended
+
+  @Prop({ type: Number })
+  minimumSampleSize?: number; // Minimum sends before declaring winner
+
+  @Prop({ type: Boolean, default: false })
+  autoSelectWinner: boolean; // Automatically select winner after criteria met
 
   // Link to Created Marketing Campaign
   @Prop({ type: Types.ObjectId, ref: "MarketingCampaign" })

@@ -283,4 +283,181 @@ export class ProductCampaignController {
       data: result,
     };
   }
+
+  // ========================================================================
+  // PHASE 4: A/B TESTING & CAMPAIGN OPTIMIZATION ENDPOINTS
+  // ========================================================================
+
+  /**
+   * POST /product-campaigns/ab-test
+   * Create an A/B test campaign with multiple variants
+   */
+  @Post("ab-test")
+  async createAbTestCampaign(@Body() createDto: any, @Request() req) {
+    const campaign = await this.productCampaignService.createAbTestCampaign(
+      createDto,
+      req.user.tenantId,
+      req.user.userId,
+    );
+
+    return {
+      success: true,
+      data: campaign,
+      message: `A/B test campaign created with ${campaign.variants.length} variants and ${campaign.estimatedReach} target customers`,
+    };
+  }
+
+  /**
+   * POST /product-campaigns/:id/variants
+   * Add a new variant to an existing A/B test campaign
+   */
+  @Post(":id/variants")
+  async addVariant(
+    @Param("id") id: string,
+    @Body() variantDto: any,
+    @Request() req,
+  ) {
+    const campaign = await this.productCampaignService.addVariant(
+      id,
+      req.user.tenantId,
+      variantDto,
+    );
+
+    return {
+      success: true,
+      data: campaign,
+      message: `Variant "${variantDto.variantName}" added successfully`,
+    };
+  }
+
+  /**
+   * PUT /product-campaigns/:id/variants/:variantName
+   * Update an existing variant
+   */
+  @Put(":id/variants/:variantName")
+  async updateVariant(
+    @Param("id") id: string,
+    @Param("variantName") variantName: string,
+    @Body() updateDto: any,
+    @Request() req,
+  ) {
+    const campaign = await this.productCampaignService.updateVariant(
+      id,
+      variantName,
+      req.user.tenantId,
+      updateDto,
+    );
+
+    return {
+      success: true,
+      data: campaign,
+      message: `Variant "${variantName}" updated successfully`,
+    };
+  }
+
+  /**
+   * DELETE /product-campaigns/:id/variants/:variantName
+   * Remove a variant from an A/B test campaign
+   */
+  @Delete(":id/variants/:variantName")
+  async removeVariant(
+    @Param("id") id: string,
+    @Param("variantName") variantName: string,
+    @Request() req,
+  ) {
+    const campaign = await this.productCampaignService.removeVariant(
+      id,
+      variantName,
+      req.user.tenantId,
+    );
+
+    return {
+      success: true,
+      data: campaign,
+      message: `Variant "${variantName}" removed successfully`,
+    };
+  }
+
+  /**
+   * POST /product-campaigns/:id/launch-ab-test
+   * Launch an A/B test campaign
+   */
+  @Post(":id/launch-ab-test")
+  async launchAbTestCampaign(@Param("id") id: string, @Request() req) {
+    const campaign = await this.productCampaignService.launchAbTestCampaign(
+      id,
+      req.user.tenantId,
+    );
+
+    return {
+      success: true,
+      data: campaign,
+      message: `A/B test campaign launched with ${campaign.variants.length} variants to ${campaign.estimatedReach} customers`,
+    };
+  }
+
+  /**
+   * POST /product-campaigns/:id/variants/:variantName/track
+   * Track performance metrics for a specific variant
+   */
+  @Post(":id/variants/:variantName/track")
+  async trackVariantPerformance(
+    @Param("id") id: string,
+    @Param("variantName") variantName: string,
+    @Body() metrics: any,
+    @Request() req,
+  ) {
+    const campaign = await this.productCampaignService.trackVariantPerformance(
+      id,
+      variantName,
+      req.user.tenantId,
+      metrics,
+    );
+
+    return {
+      success: true,
+      data: campaign,
+      message: `Variant "${variantName}" performance updated`,
+    };
+  }
+
+  /**
+   * POST /product-campaigns/:id/select-winner/:variantName
+   * Manually select a winner for an A/B test
+   */
+  @Post(":id/select-winner/:variantName")
+  async selectWinner(
+    @Param("id") id: string,
+    @Param("variantName") variantName: string,
+    @Request() req,
+  ) {
+    const campaign = await this.productCampaignService.selectWinner(
+      id,
+      variantName,
+      req.user.tenantId,
+    );
+
+    return {
+      success: true,
+      data: campaign,
+      message: `Variant "${variantName}" selected as winner`,
+    };
+  }
+
+  /**
+   * GET /product-campaigns/:id/ab-test-results
+   * Get A/B test results comparison
+   */
+  @Get(":id/ab-test-results")
+  async getAbTestResults(@Param("id") id: string, @Request() req) {
+    const results = await this.productCampaignService.getAbTestResults(
+      id,
+      req.user.tenantId,
+    );
+
+    return {
+      success: true,
+      data: results,
+    };
+  }
 }

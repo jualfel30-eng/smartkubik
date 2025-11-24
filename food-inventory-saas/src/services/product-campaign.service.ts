@@ -598,7 +598,7 @@ export class ProductCampaignService {
   async getCampaignById(
     campaignId: string,
     tenantId: string,
-  ): Promise<ProductCampaign> {
+  ): Promise<ProductCampaignDocument> {
     const campaign = await this.productCampaignModel
       .findOne({
         _id: new Types.ObjectId(campaignId),
@@ -1063,6 +1063,698 @@ export class ProductCampaignService {
       clickRate: clickRate.toFixed(2) + "%",
       conversionRate: conversionRate.toFixed(2) + "%",
       productPerformance: campaign.productPerformance,
+    };
+  }
+
+  // ========================================================================
+  // PHASE 4: A/B TESTING & CAMPAIGN OPTIMIZATION
+  // ========================================================================
+
+  /**
+   * Create A/B Test Campaign with variants
+   */
+  async createAbTestCampaign(
+    data: any,
+    tenantId: string,
+    createdBy?: string,
+  ): Promise<ProductCampaign> {
+    // Validate variants traffic percentages sum to 100
+    const totalTraffic = data.variants.reduce(
+      (sum: number, v: any) => sum + v.trafficPercentage,
+      0,
+    );
+
+    if (Math.abs(totalTraffic - 100) > 0.1) {
+      throw new Error(
+        `Variant traffic percentages must sum to 100% (currently ${totalTraffic}%)`,
+      );
+    }
+
+    // Create campaign with A/B test flag
+    const campaign = new this.productCampaignModel({
+      ...data,
+      tenantId: new Types.ObjectId(tenantId),
+      createdBy: createdBy ? new Types.ObjectId(createdBy) : undefined,
+      status: "draft",
+      isAbTest: true,
+      testStartDate: null,
+      testEndDate: null,
+    });
+
+    // Auto-generate target segment
+    await this.updateTargetSegment(campaign._id.toString(), tenantId);
+
+    // Assign customers to variants based on traffic percentages
+    await this.assignCustomersToVariants(campaign._id.toString(), tenantId);
+
+    return campaign.save();
+  }
+
+  /**
+   * Assign customers to variants based on traffic allocation
+   */
+  async assignCustomersToVariants(
+    campaignId: string,
+    tenantId: string,
+  ): Promise<void> {
+    const campaign = await this.productCampaignModel
+      .findOne({
+        _id: new Types.ObjectId(campaignId),
+        tenantId: new Types.ObjectId(tenantId),
+      })
+      .exec();
+
+    if (!campaign) {
+      throw new NotFoundException("Campaign not found");
+    }
+
+    if (!campaign.isAbTest || !campaign.variants || campaign.variants.length === 0) {
+      return;
+    }
+
+    const customerIds = campaign.targetCustomerIds;
+    if (!customerIds || customerIds.length === 0) {
+      this.logger.warn(`Campaign ${campaign.name} has no target customers`);
+      return;
+    }
+
+    // Shuffle customer IDs for random assignment
+    const shuffledIds = [...customerIds].sort(() => Math.random() - 0.5);
+
+    let assignedCount = 0;
+
+    // Assign customers to variants based on traffic percentages
+    for (const variant of campaign.variants) {
+      const variantSize = Math.floor(
+        (shuffledIds.length * variant.trafficPercentage) / 100,
+      );
+      const variantCustomers = shuffledIds.slice(
+        assignedCount,
+        assignedCount + variantSize,
+      );
+
+      variant.assignedCustomerIds = variantCustomers.map(
+        (id) => new Types.ObjectId(id),
+      );
+
+      assignedCount += variantSize;
+
+      this.logger.log(
+        `Assigned ${variantCustomers.length} customers to variant "${variant.variantName}"`,
+      );
+    }
+
+    // Assign remaining customers to last variant (due to rounding)
+    if (assignedCount < shuffledIds.length) {
+      const remaining = shuffledIds.slice(assignedCount);
+      const lastVariant = campaign.variants[campaign.variants.length - 1];
+      lastVariant.assignedCustomerIds.push(
+        ...remaining.map((id) => new Types.ObjectId(id)),
+      );
+
+      this.logger.log(
+        `Assigned ${remaining.length} remaining customers to variant "${lastVariant.variantName}"`,
+      );
+    }
+
+    await campaign.save();
+  }
+
+  /**
+   * Add a new variant to an existing A/B test campaign
+   */
+  async addVariant(
+    campaignId: string,
+    tenantId: string,
+    variantData: any,
+  ): Promise<ProductCampaign> {
+    const campaign = await this.getCampaignById(campaignId, tenantId);
+
+    if (!campaign.isAbTest) {
+      throw new Error("Can only add variants to A/B test campaigns");
+    }
+
+    if (campaign.status !== "draft") {
+      throw new Error("Can only add variants to draft campaigns");
+    }
+
+    // Check if variant name already exists
+    const existingVariant = campaign.variants.find(
+      (v) => v.variantName === variantData.variantName,
+    );
+
+    if (existingVariant) {
+      throw new Error(`Variant "${variantData.variantName}" already exists`);
+    }
+
+    // Validate new traffic allocation
+    const currentTotalTraffic = campaign.variants.reduce(
+      (sum, v) => sum + v.trafficPercentage,
+      0,
+    );
+    const newTotalTraffic = currentTotalTraffic + variantData.trafficPercentage;
+
+    if (newTotalTraffic > 100) {
+      throw new Error(
+        `Traffic allocation exceeds 100% (current: ${currentTotalTraffic}%, adding: ${variantData.trafficPercentage}%)`,
+      );
+    }
+
+    // Add variant
+    campaign.variants.push(variantData);
+    await campaign.save();
+
+    // Re-assign customers to variants
+    await this.assignCustomersToVariants(campaignId, tenantId);
+
+    return campaign;
+  }
+
+  /**
+   * Update an existing variant
+   */
+  async updateVariant(
+    campaignId: string,
+    variantName: string,
+    tenantId: string,
+    updates: any,
+  ): Promise<ProductCampaign> {
+    const campaign = await this.getCampaignById(campaignId, tenantId);
+
+    const variant = campaign.variants.find((v) => v.variantName === variantName);
+
+    if (!variant) {
+      throw new NotFoundException(`Variant "${variantName}" not found`);
+    }
+
+    if (campaign.status === "running" || campaign.status === "completed") {
+      // Only allow status updates for running/completed campaigns
+      if (Object.keys(updates).some((key) => key !== "status")) {
+        throw new Error(
+          "Can only update variant status for running or completed campaigns",
+        );
+      }
+    }
+
+    // Apply updates
+    Object.assign(variant, updates);
+
+    // If traffic percentage changed, re-assign customers
+    if (updates.trafficPercentage !== undefined) {
+      await this.assignCustomersToVariants(campaignId, tenantId);
+    }
+
+    await campaign.save();
+    return campaign;
+  }
+
+  /**
+   * Remove a variant from an A/B test campaign
+   */
+  async removeVariant(
+    campaignId: string,
+    variantName: string,
+    tenantId: string,
+  ): Promise<ProductCampaign> {
+    const campaign = await this.getCampaignById(campaignId, tenantId);
+
+    if (campaign.status !== "draft") {
+      throw new Error("Can only remove variants from draft campaigns");
+    }
+
+    const variantIndex = campaign.variants.findIndex(
+      (v) => v.variantName === variantName,
+    );
+
+    if (variantIndex === -1) {
+      throw new NotFoundException(`Variant "${variantName}" not found`);
+    }
+
+    if (campaign.variants.length <= 2) {
+      throw new Error("A/B test must have at least 2 variants");
+    }
+
+    campaign.variants.splice(variantIndex, 1);
+    await campaign.save();
+
+    // Re-assign customers to remaining variants
+    await this.assignCustomersToVariants(campaignId, tenantId);
+
+    return campaign;
+  }
+
+  /**
+   * Launch A/B test campaign (start sending to variants)
+   */
+  async launchAbTestCampaign(
+    campaignId: string,
+    tenantId: string,
+  ): Promise<ProductCampaign> {
+    const campaign = await this.getCampaignById(campaignId, tenantId);
+
+    if (!campaign.isAbTest) {
+      throw new Error("Campaign is not an A/B test");
+    }
+
+    if (campaign.status !== "draft" && campaign.status !== "scheduled") {
+      throw new Error("Campaign must be in draft or scheduled status to launch");
+    }
+
+    if (!campaign.variants || campaign.variants.length < 2) {
+      throw new Error("A/B test must have at least 2 variants");
+    }
+
+    // Refresh target segment and re-assign to variants
+    await this.updateTargetSegment(campaignId, tenantId);
+    await this.assignCustomersToVariants(campaignId, tenantId);
+
+    campaign.status = "running";
+    campaign.startedAt = new Date();
+    campaign.testStartDate = new Date();
+
+    await campaign.save();
+
+    this.logger.log(
+      `A/B Test Campaign ${campaign.name} launched with ${campaign.variants.length} variants`,
+    );
+
+    // Send campaign messages for each variant
+    await this.sendAbTestCampaignMessages(campaign, tenantId);
+
+    return campaign;
+  }
+
+  /**
+   * Send A/B test campaign messages to all variants
+   */
+  private async sendAbTestCampaignMessages(
+    campaign: ProductCampaign,
+    tenantId: string,
+  ): Promise<void> {
+    for (const variant of campaign.variants) {
+      if (variant.status !== "active") {
+        this.logger.log(
+          `Skipping variant "${variant.variantName}" (status: ${variant.status})`,
+        );
+        continue;
+      }
+
+      if (!variant.assignedCustomerIds || variant.assignedCustomerIds.length === 0) {
+        this.logger.warn(`Variant "${variant.variantName}" has no assigned customers`);
+        continue;
+      }
+
+      // Get customer contact information
+      const customers = await this.customerModel
+        .find({
+          _id: { $in: variant.assignedCustomerIds },
+          tenantId: new Types.ObjectId(tenantId),
+        })
+        .select("_id name contacts preferences whatsappChatId whatsappNumber")
+        .lean();
+
+      this.logger.log(
+        `Sending variant "${variant.variantName}" to ${customers.length} customers via ${campaign.channel}`,
+      );
+
+      let sentCount = 0;
+      let deliveredCount = 0;
+
+      // Send to each customer
+      for (const customer of customers) {
+        try {
+          const result = await this.sendVariantToCustomer(
+            campaign,
+            variant,
+            customer,
+            tenantId,
+          );
+
+          if (result.success) {
+            sentCount++;
+            if (result.delivered) deliveredCount++;
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          this.logger.error(
+            `Error sending variant "${variant.variantName}" to customer ${customer._id}: ${message}`,
+          );
+        }
+      }
+
+      // Update variant metrics
+      await this.trackVariantPerformance(
+        (campaign as any)._id.toString(),
+        variant.variantName,
+        tenantId,
+        {
+          sent: sentCount,
+          delivered: deliveredCount,
+        },
+      );
+
+      this.logger.log(
+        `Variant "${variant.variantName}" sent: ${sentCount}/${customers.length} messages delivered`,
+      );
+    }
+  }
+
+  /**
+   * Send variant to a single customer
+   */
+  private async sendVariantToCustomer(
+    campaign: ProductCampaign,
+    variant: any,
+    customer: any,
+    tenantId: string,
+  ): Promise<{ success: boolean; delivered: boolean; error?: string }> {
+    // Prepare variant message context
+    const context = this.prepareVariantContext(campaign, variant, customer);
+
+    // Type-safe channel validation
+    const validChannels = ["email", "sms", "whatsapp"] as const;
+    type ValidChannel = typeof validChannels[number];
+
+    if (!validChannels.includes(campaign.channel as ValidChannel)) {
+      return {
+        success: false,
+        delivered: false,
+        error: `Invalid channel: ${campaign.channel}`,
+      };
+    }
+
+    const channel = campaign.channel as ValidChannel;
+    const contact = this.getCustomerContact(customer, channel);
+
+    if (!contact) {
+      return {
+        success: false,
+        delivered: false,
+        error: `No ${channel} contact available`,
+      };
+    }
+
+    try {
+      const channels: Array<"email" | "sms" | "whatsapp"> = [channel];
+
+      const results = await this.notificationsService.sendTemplateNotification(
+        {
+          tenantId,
+          customerId: customer._id.toString(),
+          templateId: "product-campaign",
+          channels,
+          context,
+          customerEmail: channel === "email" ? contact : null,
+          customerPhone: channel === "sms" ? contact : null,
+          whatsappChatId:
+            channel === "whatsapp"
+              ? customer.whatsappChatId || contact
+              : null,
+        },
+        {
+          engagementDelta: 5,
+        },
+      );
+
+      const channelResult = results.find((r) => r.channel === channel);
+
+      if (channelResult && channelResult.success) {
+        return { success: true, delivered: true };
+      } else {
+        return {
+          success: false,
+          delivered: false,
+          error: channelResult?.error || "Unknown error",
+        };
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { success: false, delivered: false, error: message };
+    }
+  }
+
+  /**
+   * Prepare variant message context
+   */
+  private prepareVariantContext(
+    campaign: ProductCampaign,
+    variant: any,
+    customer: any,
+  ): Record<string, any> {
+    const productNames = campaign.productTargeting
+      .map((t) => t.productName)
+      .join(", ");
+
+    return {
+      customerName: customer.name || "Cliente",
+      campaignName: campaign.name,
+      variantName: variant.variantName,
+      campaignSubject: variant.subject || campaign.subject || `Oferta especial: ${productNames}`,
+      campaignMessage: variant.message || this.generateDefaultMessage(campaign),
+      productNames,
+      offerType: variant.offer?.type || campaign.offer?.type || "especial",
+      offerValue: variant.offer?.value || campaign.offer?.value || 0,
+      offerPercentage:
+        variant.offer?.type === "percentage"
+          ? variant.offer.value
+          : campaign.offer?.type === "percentage"
+            ? campaign.offer.value
+            : null,
+      offerAmount:
+        variant.offer?.type === "fixed_amount"
+          ? variant.offer.value
+          : campaign.offer?.type === "fixed_amount"
+            ? campaign.offer.value
+            : null,
+      couponCode: variant.offer?.couponCode || campaign.offer?.couponCode || null,
+      expiresAt: variant.offer?.expiresAt || campaign.offer?.expiresAt || null,
+      hotelName: "SmartKubik",
+    };
+  }
+
+  /**
+   * Track variant performance metrics
+   */
+  async trackVariantPerformance(
+    campaignId: string,
+    variantName: string,
+    tenantId: string,
+    metrics: {
+      sent?: number;
+      delivered?: number;
+      opened?: number;
+      clicked?: number;
+      orders?: number;
+      revenue?: number;
+    },
+  ): Promise<ProductCampaign> {
+    const campaign = await this.getCampaignById(campaignId, tenantId);
+
+    const variant = campaign.variants.find((v) => v.variantName === variantName);
+
+    if (!variant) {
+      throw new NotFoundException(`Variant "${variantName}" not found`);
+    }
+
+    // Update variant metrics
+    if (metrics.sent) variant.totalSent += metrics.sent;
+    if (metrics.delivered) variant.totalDelivered += metrics.delivered;
+    if (metrics.opened) variant.totalOpened += metrics.opened;
+    if (metrics.clicked) variant.totalClicked += metrics.clicked;
+    if (metrics.orders) variant.totalOrders += metrics.orders;
+    if (metrics.revenue) variant.totalRevenue += metrics.revenue;
+
+    // Calculate rates
+    variant.openRate =
+      variant.totalDelivered > 0
+        ? (variant.totalOpened / variant.totalDelivered) * 100
+        : 0;
+
+    variant.clickRate =
+      variant.totalOpened > 0
+        ? (variant.totalClicked / variant.totalOpened) * 100
+        : 0;
+
+    variant.conversionRate =
+      variant.totalDelivered > 0
+        ? (variant.totalOrders / variant.totalDelivered) * 100
+        : 0;
+
+    variant.revenuePerRecipient =
+      variant.totalSent > 0 ? variant.totalRevenue / variant.totalSent : 0;
+
+    await campaign.save();
+
+    // Check if we should auto-select winner
+    if (campaign.autoSelectWinner) {
+      await this.checkAndSelectWinner(campaignId, tenantId);
+    }
+
+    return campaign;
+  }
+
+  /**
+   * Check if winner should be selected and select it
+   */
+  async checkAndSelectWinner(
+    campaignId: string,
+    tenantId: string,
+  ): Promise<ProductCampaign | null> {
+    const campaign = await this.getCampaignById(campaignId, tenantId);
+
+    if (!campaign.isAbTest || campaign.winningVariantName) {
+      return null; // Already has a winner
+    }
+
+    // Check minimum sample size
+    const totalSent = campaign.variants.reduce((sum, v) => sum + v.totalSent, 0);
+
+    if (campaign.minimumSampleSize && totalSent < campaign.minimumSampleSize) {
+      return null; // Not enough data yet
+    }
+
+    // Select winner based on test metric
+    const metric = campaign.testMetric || "conversion_rate";
+    let bestVariant = campaign.variants[0];
+
+    for (const variant of campaign.variants) {
+      if (this.compareVariantsByMetric(variant, bestVariant, metric) > 0) {
+        bestVariant = variant;
+      }
+    }
+
+    // Mark winner
+    campaign.winningVariantName = bestVariant.variantName;
+    campaign.testEndDate = new Date();
+
+    for (const variant of campaign.variants) {
+      if (variant.variantName === bestVariant.variantName) {
+        variant.status = "winner";
+      } else {
+        variant.status = "loser";
+      }
+    }
+
+    await campaign.save();
+
+    this.logger.log(
+      `A/B Test completed for campaign "${campaign.name}". Winner: "${bestVariant.variantName}" (${metric}: ${this.getVariantMetricValue(bestVariant, metric).toFixed(2)})`,
+    );
+
+    return campaign;
+  }
+
+  /**
+   * Compare two variants by a specific metric
+   */
+  private compareVariantsByMetric(
+    variantA: any,
+    variantB: any,
+    metric: string,
+  ): number {
+    const valueA = this.getVariantMetricValue(variantA, metric);
+    const valueB = this.getVariantMetricValue(variantB, metric);
+
+    return valueA - valueB;
+  }
+
+  /**
+   * Get variant metric value
+   */
+  private getVariantMetricValue(variant: any, metric: string): number {
+    switch (metric) {
+      case "open_rate":
+        return variant.openRate || 0;
+      case "click_rate":
+        return variant.clickRate || 0;
+      case "conversion_rate":
+        return variant.conversionRate || 0;
+      case "revenue":
+        return variant.revenuePerRecipient || 0;
+      default:
+        return 0;
+    }
+  }
+
+  /**
+   * Manually select winner for an A/B test
+   */
+  async selectWinner(
+    campaignId: string,
+    variantName: string,
+    tenantId: string,
+  ): Promise<ProductCampaign> {
+    const campaign = await this.getCampaignById(campaignId, tenantId);
+
+    if (!campaign.isAbTest) {
+      throw new Error("Campaign is not an A/B test");
+    }
+
+    const winner = campaign.variants.find((v) => v.variantName === variantName);
+
+    if (!winner) {
+      throw new NotFoundException(`Variant "${variantName}" not found`);
+    }
+
+    campaign.winningVariantName = variantName;
+    campaign.testEndDate = new Date();
+
+    for (const variant of campaign.variants) {
+      if (variant.variantName === variantName) {
+        variant.status = "winner";
+      } else {
+        variant.status = "loser";
+      }
+    }
+
+    await campaign.save();
+
+    this.logger.log(
+      `Winner manually selected for campaign "${campaign.name}": "${variantName}"`,
+    );
+
+    return campaign;
+  }
+
+  /**
+   * Get A/B test results comparison
+   */
+  async getAbTestResults(campaignId: string, tenantId: string): Promise<any> {
+    const campaign = await this.getCampaignById(campaignId, tenantId);
+
+    if (!campaign.isAbTest) {
+      throw new Error("Campaign is not an A/B test");
+    }
+
+    const results = campaign.variants.map((variant) => ({
+      variantName: variant.variantName,
+      description: variant.description,
+      status: variant.status,
+      trafficPercentage: variant.trafficPercentage,
+      assignedCustomers: variant.assignedCustomerIds.length,
+      metrics: {
+        sent: variant.totalSent,
+        delivered: variant.totalDelivered,
+        opened: variant.totalOpened,
+        clicked: variant.totalClicked,
+        orders: variant.totalOrders,
+        revenue: variant.totalRevenue,
+        openRate: variant.openRate.toFixed(2) + "%",
+        clickRate: variant.clickRate.toFixed(2) + "%",
+        conversionRate: variant.conversionRate.toFixed(2) + "%",
+        revenuePerRecipient: variant.revenuePerRecipient.toFixed(2),
+      },
+    }));
+
+    return {
+      campaignId,
+      campaignName: campaign.name,
+      testMetric: campaign.testMetric,
+      isCompleted: !!campaign.winningVariantName,
+      winningVariantName: campaign.winningVariantName,
+      testStartDate: campaign.testStartDate,
+      testEndDate: campaign.testEndDate,
+      variants: results,
     };
   }
 }
