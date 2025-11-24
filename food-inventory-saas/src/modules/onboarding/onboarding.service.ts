@@ -28,6 +28,10 @@ import { getDefaultModulesForVertical } from "../../config/vertical-features.con
 import { TokenService } from "../../auth/token.service";
 import { MailService } from "../mail/mail.service";
 import { isTenantConfirmationEnforced } from "../../config/tenant-confirmation";
+import {
+  MembershipsService,
+  MembershipSummary,
+} from "../memberships/memberships.service";
 
 @Injectable()
 export class OnboardingService {
@@ -43,6 +47,7 @@ export class OnboardingService {
     private seedingService: SeedingService,
     private tokenService: TokenService,
     private mailService: MailService,
+    private membershipsService: MembershipsService,
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
@@ -60,6 +65,9 @@ export class OnboardingService {
 
     let savedTenant: TenantDocument | undefined;
     let savedUser: UserDocument | undefined;
+    let savedMembership:
+      | UserTenantMembershipDocument
+      | undefined;
 
     const session = await this.connection.startSession();
 
@@ -172,7 +180,7 @@ export class OnboardingService {
           status: "active",
           isDefault: true,
         });
-        await newMembership.save({ session });
+        savedMembership = await newMembership.save({ session });
         this.logger.log(
           `Paso 5/5: Membresía creada para el usuario en el tenant.`,
         );
@@ -220,6 +228,21 @@ export class OnboardingService {
         "[DEBUG] Tokens generated. Preparing final response object.",
       );
 
+      const memberships: MembershipSummary[] = [];
+      if (savedMembership) {
+        try {
+          const membershipSummary =
+            await this.membershipsService.buildMembershipSummary(
+              savedMembership,
+            );
+          memberships.push(membershipSummary);
+        } catch (membershipError) {
+          this.logger.warn(
+            `No se pudo construir el resumen de membresía: ${membershipError instanceof Error ? membershipError.message : membershipError}`,
+          );
+        }
+      }
+
       const finalResponse = {
         user: {
           id: userWithRole._id,
@@ -233,6 +256,7 @@ export class OnboardingService {
           name: tenantDoc.name,
           isConfirmed: tenantDoc.isConfirmed,
         },
+        memberships,
         ...tokens,
       };
 

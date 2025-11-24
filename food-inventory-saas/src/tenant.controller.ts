@@ -200,6 +200,36 @@ export class TenantController {
     }
   }
 
+  @Post("users/:userId/resend-invite")
+  @UseGuards(PermissionsGuard)
+  @Permissions("users_update")
+  @ApiOperation({ summary: "Reenviar invitación a un usuario del tenant" })
+  @ApiResponse({
+    status: 200,
+    description: "Invitación reenviada exitosamente",
+  })
+  async resendInvite(
+    @Request() req,
+    @Param("userId") userId: string,
+  ) {
+    try {
+      const result = await this.tenantService.resendUserInvite(
+        req.user.tenantId,
+        userId,
+      );
+      return {
+        success: true,
+        message: "Invitación reenviada exitosamente",
+        data: result,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al reenviar la invitación",
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
   @Delete("users/:userId")
   @UseGuards(PermissionsGuard)
   @Permissions("users_delete")

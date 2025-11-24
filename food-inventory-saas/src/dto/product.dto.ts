@@ -628,4 +628,20 @@ export class ProductQueryDto {
   @Transform(({ value }) => value === "true" || value === true)
   @IsBoolean()
   includeInactive?: boolean = false;
+
+  // Uso interno: excluir ciertos IDs (p.ej. productos marcados como consumibles)
+  @IsOptional()
+  excludeProductIds?: string[];
+
+  // Alias común de búsqueda (?q=) para compatibilidad con UI
+  @ApiPropertyOptional({ description: "Alias de búsqueda", name: "q" })
+  @IsOptional()
+  @IsString()
+  @Transform(({ value, obj }) => {
+    if (!obj.search && typeof value === "string" && value.trim().length > 0) {
+      obj.search = value;
+    }
+    return value;
+  })
+  q?: string;
 }

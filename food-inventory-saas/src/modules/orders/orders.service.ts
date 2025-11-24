@@ -52,11 +52,11 @@ export class OrdersService {
     private readonly paymentsService: PaymentsService,
     private readonly deliveryService: DeliveryService,
     private readonly exchangeRateService: ExchangeRateService,
-    private readonly shiftsService: ShiftsService,
-    private readonly discountService: DiscountService,
-    private readonly transactionHistoryService: TransactionHistoryService,
-    private readonly eventEmitter: EventEmitter2,
-    @InjectConnection() private readonly connection: Connection,
+  private readonly shiftsService: ShiftsService,
+  private readonly discountService: DiscountService,
+  private readonly transactionHistoryService: TransactionHistoryService,
+  private readonly eventEmitter: EventEmitter2,
+  @InjectConnection() private readonly connection: Connection,
   ) {}
 
   async getPaymentMethods(user: any): Promise<any> {
@@ -478,6 +478,234 @@ export class OrdersService {
 
     // Devolver la orden guardada directamente sin populate pesado
     return savedOrder.toObject();
+  }
+
+  /**
+   * Crear orden desde el storefront (público, sin autenticación)
+   * No reserva inventario ni procesa pagos, solo registra la orden.
+   */
+  async createPublicOrder(dto: {
+    tenantId: string;
+    customerName: string;
+    customerEmail: string;
+    customerPhone: string;
+    items: Array<{
+      productId: string;
+      variantId?: string;
+      variantSku?: string;
+      attributes?: Record<string, any>;
+      quantity: number;
+      unitPrice: number;
+    }>;
+    shippingMethod?: "pickup" | "delivery";
+    shippingAddress?: any;
+    notes?: string;
+    reservationMinutes?: number;
+  }): Promise<OrderDocument> {
+    const tenantObjectId = new Types.ObjectId(dto.tenantId);
+    const tenant = await this.tenantModel.findById(tenantObjectId);
+    if (!tenant) {
+      throw new BadRequestException("Tenant no encontrado");
+    }
+
+    if (!dto.items || dto.items.length === 0) {
+      throw new BadRequestException("La orden debe tener al menos un producto");
+    }
+
+    // Buscar o crear cliente básico
+    let customer = await this.customerModel.findOne({
+      tenantId: tenantObjectId,
+      $or: [
+        { "contacts.value": dto.customerEmail },
+        { "contacts.value": dto.customerPhone },
+      ],
+    });
+
+    if (!customer) {
+      customer = await new this.customerModel({
+        customerNumber: `WEB-${Date.now()}`,
+        name: dto.customerName,
+        customerType: "individual",
+        contacts: [
+          dto.customerEmail && {
+            type: "email",
+            value: dto.customerEmail,
+            isPrimary: true,
+          },
+          dto.customerPhone && {
+            type: "phone",
+            value: dto.customerPhone,
+            isPrimary: !dto.customerEmail,
+          },
+        ].filter(Boolean),
+        source: "storefront",
+        tier: "bronce",
+        tenantId: tenantObjectId,
+        createdBy: tenantObjectId, // placeholder; no user context in público
+        metrics: {
+          totalOrders: 0,
+          totalSpent: 0,
+          totalSpentUSD: 0,
+          averageOrderValue: 0,
+          orderFrequency: 0,
+          returnRate: 0,
+          cancellationRate: 0,
+          paymentDelayDays: 0,
+          totalDeposits: 0,
+          depositCount: 0,
+        },
+      }).save();
+    } else if (!customer.tier) {
+      await this.customerModel.findByIdAndUpdate(customer._id, {
+        tier: "bronce",
+      });
+    }
+
+    // Cargar productos para enriquecer items
+    const products = await this.productModel
+      .find({ _id: { $in: dto.items.map((i) => i.productId) } })
+      .lean();
+
+    // Reserva de inventario (con expiración)
+    const orderId = new Types.ObjectId();
+    const expirationMinutes = dto.reservationMinutes ?? 15;
+    const reservationUser = { tenantId: dto.tenantId };
+
+    await this.inventoryService.reserveInventory(
+      {
+        orderId: orderId.toString(),
+        expirationMinutes,
+        items: dto.items.map((item) => {
+          const product = products.find(
+            (p) => p._id.toString() === item.productId,
+          );
+          const variant = product?.variants?.find(
+            (v) =>
+              v._id?.toString() === item.variantId ||
+              v.sku === item.variantSku ||
+              false,
+          );
+          return {
+            productSku:
+              variant?.sku ||
+              product?.sku ||
+              item.variantSku ||
+              item.productId, // fallback para cumplir DTO
+            quantity: item.quantity,
+          };
+        }),
+      },
+      reservationUser,
+    );
+
+    const orderItems: OrderItem[] = dto.items.map((item) => {
+      const product = products.find(
+        (p) => p._id.toString() === item.productId,
+      );
+      const variant = product?.variants?.find(
+        (v) =>
+          v._id?.toString() === item.variantId ||
+          v.sku === item.variantSku ||
+          false,
+      );
+
+      return {
+        productId: new Types.ObjectId(item.productId),
+        productSku: product?.sku || item.variantSku || "N/A",
+        productName: product?.name || "Producto",
+        variantId: variant?._id,
+        variantSku: variant?.sku,
+        attributes: item.attributes,
+        attributeSummary: item.attributes
+          ? Object.entries(item.attributes)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(" | ")
+          : undefined,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.quantity * item.unitPrice,
+        costPrice: variant?.costPrice ?? 0,
+        ivaAmount: 0,
+        igtfAmount: 0,
+        finalPrice: item.quantity * item.unitPrice,
+        lots: [],
+        modifiers: [],
+        discountAmount: 0,
+        discountPercentage: 0,
+        status: "pending",
+        addedAt: new Date(),
+      };
+    });
+
+    const subtotal = orderItems.reduce((sum, i) => sum + i.totalPrice, 0);
+    const ivaTotal = 0;
+    const igtfTotal = 0;
+    const shippingCost = dto.shippingMethod === "delivery" ? 5 : 0;
+    const totalAmount = subtotal + ivaTotal + shippingCost;
+
+    const orderNumber = await this.generatePublicOrderNumber();
+    const expiresAt = new Date(Date.now() + expirationMinutes * 60_000);
+
+    const order = new this.orderModel({
+      _id: orderId,
+      orderNumber,
+      customerId: customer._id,
+      customerName: dto.customerName,
+      customerEmail: dto.customerEmail,
+      customerPhone: dto.customerPhone,
+      items: orderItems,
+      subtotal,
+      ivaTotal,
+      igtfTotal,
+      shippingCost,
+      discountAmount: 0,
+      totalAmount,
+      paymentStatus: "pending",
+      status: "pending",
+      channel: "storefront",
+      type: "retail",
+      shipping:
+        dto.shippingMethod || dto.shippingAddress
+          ? {
+              method: dto.shippingMethod || "pickup",
+              address: dto.shippingAddress,
+              cost: shippingCost,
+            }
+          : undefined,
+      notes: dto.notes,
+      inventoryReservation: {
+        isReserved: true,
+        reservationId: orderId.toString(),
+        expiresAt,
+      },
+      taxInfo: { invoiceRequired: false },
+      metrics: { totalMargin: 0, marginPercentage: 0 },
+      createdBy: tenantObjectId, // sin usuario autenticado
+      tenantId: dto.tenantId,
+    });
+
+    const saved = await order.save();
+
+    // Actualizar métricas básicas y tier al registrar la orden (aunque pago esté pendiente)
+    this.updateCustomerMetricsIncremental(customer._id, totalAmount).catch(
+      (err) =>
+        this.logger.warn(
+          `No se pudieron actualizar métricas del cliente ${customer._id}: ${err.message}`,
+        ),
+    );
+
+    return saved;
+  }
+
+  private async generatePublicOrderNumber(): Promise<string> {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const random = Math.floor(Math.random() * 9999)
+      .toString()
+      .padStart(4, "0");
+    return `ORD-${year}${month}${day}-${random}`;
   }
 
   async calculateTotals(calculationDto: OrderCalculationDto, user: any) {
@@ -974,8 +1202,7 @@ export class OrdersService {
     if (totalSpent >= 10000) return "diamante";
     if (totalSpent >= 5000) return "oro";
     if (totalSpent >= 2000) return "plata";
-    if (totalSpent > 0) return "bronce";
-    return "nuevo";
+    return "bronce"; // clientes nuevos o con bajo gasto caen en bronce
   }
 
   private buildOrderQuery(query: OrderQueryDto, tenantId: string) {

@@ -24,7 +24,7 @@ export class RolesController {
   @Post()
   @Permissions("roles_create")
   async create(@Body() createRoleDto: CreateRoleDto, @Req() req) {
-    const tenantId = req.user.tenantId;
+    const tenantId = req.tenant?._id || req.user.tenantId;
     const role = await this.rolesService.create(createRoleDto, tenantId);
     return { success: true, data: role };
   }
@@ -32,15 +32,15 @@ export class RolesController {
   @Get()
   @Permissions("roles_read")
   async findAll(@Req() req) {
-    const tenantId = req.user.tenantId;
-    const roles = await this.rolesService.findAll(tenantId);
-    return { success: true, data: roles };
+    const { roles, availablePermissions } =
+      await this.rolesService.findAllWithPermissionsAndMetadata(req.tenant);
+    return { success: true, data: roles, availablePermissions };
   }
 
   @Get(":id")
   @Permissions("roles_read")
   async findOne(@Param("id") id: string, @Req() req) {
-    const tenantId = req.user.tenantId;
+    const tenantId = req.tenant?._id || req.user.tenantId;
     const role = await this.rolesService.findOne(id, tenantId);
     return { success: true, data: role };
   }
@@ -52,7 +52,7 @@ export class RolesController {
     @Body() updateRoleDto: UpdateRoleDto,
     @Req() req,
   ) {
-    const tenantId = req.user.tenantId;
+    const tenantId = req.tenant?._id || req.user.tenantId;
     const role = await this.rolesService.update(id, updateRoleDto, tenantId);
     return { success: true, data: role };
   }
@@ -60,7 +60,7 @@ export class RolesController {
   @Delete(":id")
   @Permissions("roles_delete")
   async remove(@Param("id") id: string, @Req() req) {
-    const tenantId = req.user.tenantId;
+    const tenantId = req.tenant?._id || req.user.tenantId;
     await this.rolesService.remove(id, tenantId);
     return { success: true, message: "Rol eliminado correctamente" };
   }

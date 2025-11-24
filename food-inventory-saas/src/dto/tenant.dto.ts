@@ -1,4 +1,4 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 import {
   IsString,
   IsOptional,
@@ -461,10 +461,15 @@ export class InviteUserDto {
 }
 
 export class UpdateUserDto {
-  @ApiProperty({ example: "staff" })
+  @ApiPropertyOptional({ example: "staff" })
   @IsString()
   @IsOptional()
   role?: string;
+
+  @ApiPropertyOptional({ example: "nuevo.correo@example.com" })
+  @IsEmail()
+  @IsOptional()
+  email?: string;
 
   // Podríamos añadir más campos para actualizar en el futuro, como 'isActive'
 }

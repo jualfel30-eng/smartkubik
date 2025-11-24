@@ -117,9 +117,30 @@ export class SeedingService {
       },
     ];
     const accountsToCreate = [...baseAccounts, ...PAYROLL_SYSTEM_ACCOUNTS];
+    const uniqueAccountsMap = new Map<
+      string,
+      (typeof baseAccounts)[number] & { metadata?: Record<string, any> }
+    >();
+
+    for (const acc of accountsToCreate) {
+      const existing = uniqueAccountsMap.get(acc.code);
+      if (existing) {
+        this.logger.warn(
+          `Código de cuenta duplicado detectado durante el seeding (${acc.code}). Se conservará la primera definición y se fusionará la metadata.`,
+        );
+        uniqueAccountsMap.set(acc.code, {
+          ...existing,
+          metadata: { ...(existing.metadata || {}), ...(acc as any).metadata },
+        });
+      } else {
+        uniqueAccountsMap.set(acc.code, acc);
+      }
+    }
+
+    const uniqueAccounts = Array.from(uniqueAccountsMap.values());
 
     try {
-      for (const acc of accountsToCreate) {
+      for (const acc of uniqueAccounts) {
         const account = new this.chartOfAccountsModel({
           ...acc,
           tenantId: tenantId,

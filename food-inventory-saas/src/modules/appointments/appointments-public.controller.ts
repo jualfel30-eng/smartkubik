@@ -11,7 +11,8 @@ import {
 } from "./dto/public-appointment.dto";
 
 @ApiTags("Appointments Public")
-@Controller("api/v1/public/appointments")
+// Prefix global "api/v1" ya viene desde main.ts, aquí dejamos solo la ruta pública
+@Controller("public/appointments")
 export class AppointmentsPublicController {
   constructor(private readonly appointmentsService: AppointmentsService) {}
 

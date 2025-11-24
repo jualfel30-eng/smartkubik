@@ -2,24 +2,67 @@ import { Controller, Post, Body, BadRequestException } from "@nestjs/common";
 import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { OrdersService } from "./orders.service";
 import { Public } from "../../decorators/public.decorator";
+import {
+  IsString,
+  IsEmail,
+  IsOptional,
+  IsArray,
+  ValidateNested,
+  IsNumber,
+  Min,
+  IsEnum,
+} from "class-validator";
+import { Type } from "class-transformer";
 
 // DTO simplificado para órdenes públicas del storefront
 export class CreatePublicOrderItemDto {
+  @IsString()
   productId: string;
+
+  @IsOptional()
+  @IsString()
   variantId?: string;
+
+  @IsOptional()
+  @IsString()
   variantSku?: string;
+
+  @IsNumber()
+  @Min(1)
   quantity: number;
+
+  @IsNumber()
+  @Min(0)
   unitPrice: number;
+
+  @IsOptional()
   attributes?: Record<string, any>;
 }
 
 export class CreatePublicOrderDto {
+  @IsString()
   tenantId: string;
+
+  @IsString()
   customerName: string;
+
+  @IsEmail()
   customerEmail: string;
+
+  @IsString()
   customerPhone: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreatePublicOrderItemDto)
   items: CreatePublicOrderItemDto[];
+
+  @IsOptional()
+  @IsEnum(["pickup", "delivery"])
   shippingMethod?: "pickup" | "delivery";
+
+  @IsOptional()
+  @Type(() => Object)
   shippingAddress?: {
     street: string;
     city: string;
@@ -27,11 +70,15 @@ export class CreatePublicOrderDto {
     zipCode?: string;
     country: string;
   };
+
+  @IsOptional()
+  @IsString()
   notes?: string;
 }
 
-@ApiTags("Orders Public")
-@Controller("api/v1/public/orders")
+  @ApiTags("Orders Public")
+// Prefix global "api/v1" ya se aplica a toda la app en main.ts
+@Controller("public/orders")
 export class OrdersPublicController {
   constructor(private readonly ordersService: OrdersService) {}
 
@@ -86,102 +133,12 @@ export class OrdersPublicController {
       throw new BadRequestException("La orden debe tener al menos un producto");
     }
 
-    // Generar número de orden único
-    const orderNumber = await this.generateOrderNumber();
-
-    // Calcular totales
-    const subtotal = createDto.items.reduce(
-      (sum, item) => sum + item.quantity * item.unitPrice,
-      0,
-    );
-
-    const ivaTotal = subtotal * 0.16; // 16% IVA (ajustar según país)
-    const shippingCost = createDto.shippingMethod === "delivery" ? 5.0 : 0; // Costo fijo de ejemplo
-    const totalAmount = subtotal + ivaTotal + shippingCost;
-
-    // Crear la orden (simplificada para storefront público)
-    const orderData = {
-      orderNumber,
-      tenantId: createDto.tenantId,
-      customerName: createDto.customerName,
-      customerEmail: createDto.customerEmail,
-      customerPhone: createDto.customerPhone || "",
-      items: createDto.items.map((item) => ({
-        productId: item.productId,
-        variantId: item.variantId,
-        variantSku: item.variantSku,
-        attributes: item.attributes,
-        attributeSummary: item.attributes
-          ? Object.entries(item.attributes)
-              .map(([key, value]) => `${key}: ${value}`)
-              .join(" | ")
-          : undefined,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        totalPrice: item.quantity * item.unitPrice,
-        status: "pending",
-      })),
-      subtotal,
-      ivaTotal,
-      igtfTotal: 0,
-      shippingCost,
-      discountAmount: 0,
-      totalAmount,
-      status: "pending",
-      paymentStatus: "pending",
-      channel: "storefront",
-      type: "retail",
-      shipping: createDto.shippingMethod
-        ? {
-            method: createDto.shippingMethod,
-            address: createDto.shippingAddress,
-            cost: shippingCost,
-          }
-        : undefined,
-      notes: createDto.notes,
-      inventoryReservation: {
-        isReserved: false,
-      },
-      taxInfo: {
-        invoiceRequired: false,
-      },
-      metrics: {
-        totalMargin: 0,
-        marginPercentage: 0,
-      },
-    };
-
-    // Nota: En producción, aquí se debería:
-    // 1. Validar que los productos existan y tengan stock
-    // 2. Crear/buscar el cliente en la base de datos
-    // 3. Reservar inventario
-    // 4. Enviar notificaciones
-    // Por ahora retornamos una respuesta simulada
+    const order = await this.ordersService.createPublicOrder(createDto);
 
     return {
       success: true,
-      data: {
-        ...orderData,
-        _id: "temp-order-id",
-        createdAt: new Date().toISOString(),
-      },
-      message:
-        "Orden recibida exitosamente. Nos pondremos en contacto contigo pronto.",
+      data: order,
+      message: "Orden creada exitosamente",
     };
-  }
-
-  /**
-   * Generar número de orden único
-   */
-  private async generateOrderNumber(): Promise<string> {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const random = Math.floor(Math.random() * 9999)
-      .toString()
-      .padStart(4, "0");
-
-    return `ORD-${year}${month}${day}-${random}`;
   }
 }

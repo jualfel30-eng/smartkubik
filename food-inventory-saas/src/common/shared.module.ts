@@ -3,6 +3,10 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { Tenant, TenantSchema } from "../schemas/tenant.schema";
 import { User, UserSchema } from "../schemas/user.schema";
 import { Customer, CustomerSchema } from "../schemas/customer.schema";
+import {
+  UserTenantMembership,
+  UserTenantMembershipSchema,
+} from "../schemas/user-tenant-membership.schema";
 
 @Global()
 @Module({
@@ -11,6 +15,7 @@ import { Customer, CustomerSchema } from "../schemas/customer.schema";
       { name: Tenant.name, schema: TenantSchema },
       { name: User.name, schema: UserSchema },
       { name: Customer.name, schema: CustomerSchema },
+      { name: UserTenantMembership.name, schema: UserTenantMembershipSchema },
     ]),
   ],
   exports: [
@@ -18,6 +23,7 @@ import { Customer, CustomerSchema } from "../schemas/customer.schema";
       { name: Tenant.name, schema: TenantSchema },
       { name: User.name, schema: UserSchema },
       { name: Customer.name, schema: CustomerSchema },
+      { name: UserTenantMembership.name, schema: UserTenantMembershipSchema },
     ]),
   ],
 })

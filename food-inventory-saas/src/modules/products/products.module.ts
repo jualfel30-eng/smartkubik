@@ -6,6 +6,11 @@ import { ProductsService } from "./products.service";
 import { AuthModule } from "../../auth/auth.module";
 import { Product, ProductSchema } from "../../schemas/product.schema";
 import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
+import {
+  ProductConsumableConfig,
+  ProductConsumableConfigSchema,
+} from "../../schemas/product-consumable-config.schema";
+import { Inventory, InventorySchema } from "../../schemas/inventory.schema";
 import { CustomersModule } from "../customers/customers.module"; // Reemplazo
 import { InventoryModule } from "../inventory/inventory.module";
 import { PurchasesModule } from "../purchases/purchases.module";
@@ -18,6 +23,11 @@ import { RolesModule } from "../roles/roles.module";
     MongooseModule.forFeature([
       { name: Product.name, schema: ProductSchema },
       { name: Tenant.name, schema: TenantSchema },
+      {
+        name: ProductConsumableConfig.name,
+        schema: ProductConsumableConfigSchema,
+      },
+      { name: Inventory.name, schema: InventorySchema },
     ]),
     forwardRef(() => CustomersModule), // Reemplazo
     forwardRef(() => InventoryModule),

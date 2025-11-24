@@ -11,6 +11,10 @@ import { Model, Types } from "mongoose";
 import * as bcrypt from "bcrypt";
 import { Tenant, TenantDocument } from "./schemas/tenant.schema";
 import { User, UserDocument } from "./schemas/user.schema";
+import {
+  UserTenantMembership,
+  UserTenantMembershipDocument,
+} from "./schemas/user-tenant-membership.schema";
 import { Customer, CustomerDocument } from "./schemas/customer.schema"; // Importar Customer
 import { MailService } from "./modules/mail/mail.service";
 import { PayrollEmployeesService } from "./modules/payroll-employees/payroll-employees.service";
@@ -28,6 +32,8 @@ export class TenantService {
   constructor(
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(UserTenantMembership.name)
+    private userTenantMembershipModel: Model<UserTenantMembershipDocument>,
     @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>, // Inyectar CustomerModel
     private readonly mailService: MailService,
     private readonly payrollEmployeesService: PayrollEmployeesService,
@@ -256,6 +262,8 @@ export class TenantService {
     tenantId: string,
     inviteUserDto: InviteUserDto,
   ): Promise<Partial<User>> {
+    const tenantObjectId = new Types.ObjectId(tenantId);
+
     const tenant = await this.tenantModel.findById(tenantId);
     if (!tenant) {
       throw new NotFoundException("Tenant no encontrado");
@@ -270,7 +278,7 @@ export class TenantService {
     const existingUser = await this.userModel
       .findOne({
         email: inviteUserDto.email,
-        tenantId,
+        tenantId: tenantObjectId,
       })
       .exec();
 
@@ -286,7 +294,7 @@ export class TenantService {
 
     const newUser = new this.userModel({
       ...inviteUserDto,
-      tenantId: new Types.ObjectId(tenantId),
+      tenantId: tenantObjectId,
       password: hashedPassword,
       isEmailVerified: false, // El usuario deberá verificar su email
     });
@@ -316,6 +324,19 @@ export class TenantService {
       status: "active",
     });
     await newCustomer.save();
+
+    // Crear membresía activa para el usuario invitado
+    const defaultRoleId =
+      typeof inviteUserDto.role === "string"
+        ? new Types.ObjectId(inviteUserDto.role)
+        : inviteUserDto.role;
+    await this.userTenantMembershipModel.create({
+      userId: savedUser._id,
+      tenantId: tenantObjectId,
+      roleId: defaultRoleId,
+      status: "active",
+      isDefault: true,
+    });
 
     try {
       await this.payrollEmployeesService.ensureProfileForCustomer(
@@ -358,10 +379,63 @@ export class TenantService {
     userId: string,
     updateUserDto: UpdateUserDto,
   ): Promise<User> {
+    const tenantObjectId = new Types.ObjectId(tenantId);
+    const userObjectId = new Types.ObjectId(userId);
+    const updatePayload: Record<string, any> = {};
+
+    if (updateUserDto.role !== undefined) {
+      updatePayload.role = updateUserDto.role;
+    }
+
+    if (updateUserDto.email !== undefined) {
+      const trimmedEmail = updateUserDto.email.trim().toLowerCase();
+
+      const existingWithEmail = await this.userModel
+        .findOne({
+          email: trimmedEmail,
+          tenantId,
+          _id: { $ne: new Types.ObjectId(userId) },
+        })
+        .select("_id")
+        .lean()
+        .exec();
+
+      if (existingWithEmail) {
+        throw new ConflictException(
+          "El email ya está registrado en este tenant.",
+        );
+      }
+
+      updatePayload.email = trimmedEmail;
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+      throw new BadRequestException("No se proporcionaron cambios a aplicar.");
+    }
+
+    const userExists = await this.userModel
+      .findById(userObjectId)
+      .select("tenantId")
+      .lean()
+      .exec();
+
+    if (!userExists) {
+      throw new NotFoundException("Usuario no encontrado en este tenant");
+    }
+
+    if (
+      !userExists.tenantId ||
+      userExists.tenantId.toString() !== tenantObjectId.toString()
+    ) {
+      throw new ConflictException(
+        "El usuario no pertenece al tenant actual.",
+      );
+    }
+
     const user = await this.userModel
       .findOneAndUpdate(
-        { _id: userId, tenantId },
-        { $set: updateUserDto },
+        { _id: userObjectId, tenantId: tenantObjectId },
+        { $set: updatePayload },
         { new: true },
       )
       .select("-password")
@@ -372,6 +446,49 @@ export class TenantService {
     }
 
     return user;
+  }
+
+  async resendUserInvite(tenantId: string, userId: string) {
+    const tenantObjectId = new Types.ObjectId(tenantId);
+    const userObjectId = new Types.ObjectId(userId);
+
+    const user = await this.userModel
+      .findOne({ _id: userObjectId, tenantId: tenantObjectId })
+      .exec();
+
+    if (!user) {
+      throw new NotFoundException(
+        "Usuario no encontrado en este tenant o no pertenece a este tenant.",
+      );
+    }
+
+    const temporaryPassword = Math.random().toString(36).slice(-8);
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+
+    user.password = hashedPassword;
+    user.isEmailVerified = false;
+    await user.save();
+
+    try {
+      await this.mailService.sendUserWelcomeEmail(
+        user.email,
+        temporaryPassword,
+      );
+    } catch (error) {
+      this.logger.error(
+        `No se pudo reenviar la invitación a ${user.email}: ${
+          error instanceof Error ? error.message : error
+        }`,
+      );
+      throw new ConflictException(
+        "No se pudo reenviar el correo de invitación.",
+      );
+    }
+
+    return {
+      id: user._id,
+      email: user.email,
+    };
   }
 
   async deleteUser(tenantId: string, userId: string, requestingUserId: string) {

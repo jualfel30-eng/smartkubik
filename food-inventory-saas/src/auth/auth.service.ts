@@ -168,17 +168,95 @@ export class AuthService {
     const memberships: MembershipSummary[] =
       await this.membershipsService.findActiveMembershipsForUser(user._id);
 
+    // Si no hay memberships pero el usuario tiene tenantId (compatibilidad con invitaciones antiguas)
+    if ((!memberships || memberships.length === 0) && user.tenantId) {
+      this.logger.warn(
+        `User ${sanitizedEmailForLog.email} no tenía memberships activas; creando membresía por compatibilidad.`,
+      );
+      const newMembership = await this.membershipsService.createDefaultMembershipIfMissing(
+        user._id,
+        user.tenantId,
+        user.role,
+      );
+      if (newMembership) {
+        memberships.push(newMembership);
+      }
+    }
+
     if (!memberships.length) {
       this.logger.warn(
         `User ${sanitizedEmailForLog.email} has no active memberships`,
       );
     }
 
-    const tokens = await this.tokenService.generateTokens(user, null);
+    const defaultMembership =
+      memberships.find((m) => m.isDefault) || memberships[0] || null;
+    const shouldAutoSelectTenant =
+      !!defaultMembership && (memberships.length === 1 || defaultMembership.isDefault);
+
+    let tenantPayload = null as ReturnType<
+      AuthService["buildTenantPayload"]
+    > | null;
+    let membershipPayload: MembershipSummary | null = null;
+    let tokens:
+      | Awaited<ReturnType<TokenService["generateTokens"]>>
+      | null = null;
+
+    if (shouldAutoSelectTenant && defaultMembership) {
+      try {
+        const membershipDoc =
+          await this.membershipsService.getMembershipForUserOrFail(
+            defaultMembership.id,
+            user._id,
+          );
+        const [tenantDoc, roleDoc] = await Promise.all([
+          this.membershipsService.resolveTenantById(membershipDoc.tenantId),
+          this.membershipsService.resolveRoleById(membershipDoc.roleId),
+        ]);
+
+        if (!tenantDoc || tenantDoc.status !== "active" || !roleDoc) {
+          this.logger.warn(
+            `No se pudo auto-seleccionar tenant: tenant o rol inválido (tenant=${tenantDoc?._id}, rol=${roleDoc?._id})`,
+          );
+        } else {
+          tokens = await this.tokenService.generateTokens(user, tenantDoc, {
+            membershipId: membershipDoc._id.toString(),
+            roleOverride: roleDoc,
+          });
+
+          if (
+            !user.tenantId ||
+            user.tenantId.toString() !== tenantDoc._id.toString()
+          ) {
+            await this.userModel.updateOne(
+              { _id: user._id },
+              { $set: { tenantId: tenantDoc._id } },
+            );
+          }
+
+          membershipPayload =
+            await this.membershipsService.buildMembershipSummary(
+              membershipDoc,
+            );
+          tenantPayload = this.buildTenantPayload(tenantDoc);
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Auto-selection of default tenant failed: ${
+            error instanceof Error ? error.message : error
+          }`,
+        );
+      }
+    }
+
+    if (!tokens) {
+      tokens = await this.tokenService.generateTokens(user, null);
+    }
 
     return {
-      user: this.buildUserPayload(user, null),
-      tenant: null,
+      user: this.buildUserPayload(user, tenantPayload ? tenantPayload.id : null),
+      tenant: tenantPayload,
+      membership: membershipPayload,
       memberships,
       ...tokens,
     };

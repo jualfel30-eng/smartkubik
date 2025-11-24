@@ -12,6 +12,7 @@ import {
   Permission,
   PermissionDocument,
 } from "../../schemas/permission.schema";
+import { getEffectiveModulesForTenant } from "../../config/vertical-features.config";
 
 @Injectable()
 export class RolesService {
@@ -27,7 +28,10 @@ export class RolesService {
     tenantId: string,
   ): Promise<RoleDocument> {
     try {
-      const newRole = new this.roleModel({ ...createRoleDto, tenantId });
+      const newRole = new this.roleModel({
+        ...createRoleDto,
+        tenantId: new Types.ObjectId(tenantId),
+      });
       return await newRole.save();
     } catch (error) {
       if (error.code === 11000) {
@@ -41,8 +45,46 @@ export class RolesService {
     return this.roleModel.find({ tenantId }).exec();
   }
 
+  async findAllWithPermissionsAndMetadata(
+    tenant: { _id: Types.ObjectId; enabledModules?: Record<string, boolean>; vertical?: string },
+  ): Promise<{
+    roles: Array<Record<string, any>>;
+    availablePermissions: string[];
+  }> {
+    const roles = await this.roleModel
+      .find({ tenantId: tenant._id })
+      .populate({ path: "permissions", select: "name" })
+      .exec();
+
+    const normalizedRoles = roles.map((role) => {
+      const plain = role.toObject();
+      plain.permissions = (plain.permissions || [])
+        .map((p: any) => (typeof p === "string" ? p : p?.name))
+        .filter((p: any): p is string => Boolean(p));
+      return plain;
+    });
+
+    const effectiveModules = getEffectiveModulesForTenant(
+      tenant.vertical || "FOOD_SERVICE",
+      tenant.enabledModules || {},
+    );
+    const enabledModuleNames = Object.entries(effectiveModules)
+      .filter(([, isEnabled]) => isEnabled)
+      .map(([name]) => name);
+
+    const availablePermissions =
+      this.permissionsService.findByModules(enabledModuleNames);
+
+    return { roles: normalizedRoles, availablePermissions };
+  }
+
   async findOne(id: string, tenantId: string): Promise<RoleDocument> {
-    const role = await this.roleModel.findOne({ _id: id, tenantId }).exec();
+    const role = await this.roleModel
+      .findOne({
+        _id: new Types.ObjectId(id),
+        tenantId: new Types.ObjectId(tenantId),
+      })
+      .exec();
     if (!role) {
       throw new NotFoundException(`Role with ID "${id}" not found`);
     }
@@ -68,7 +110,7 @@ export class RolesService {
     tenantId: string,
   ): Promise<RoleDocument> {
     const existingRole = await this.roleModel.findOneAndUpdate(
-      { _id: id, tenantId },
+      { _id: new Types.ObjectId(id), tenantId: new Types.ObjectId(tenantId) },
       updateRoleDto,
       { new: true },
     );

@@ -14,12 +14,23 @@ import {
 } from "@nestjs/swagger";
 import { ProductsService } from "./products.service";
 import { Public } from "../../decorators/public.decorator";
-import { Types } from "mongoose";
+import { Types, Model } from "mongoose";
+import { ProductType } from "../../schemas/product.schema";
+import {
+  ProductConsumableConfig,
+  ProductConsumableConfigDocument,
+} from "../../schemas/product-consumable-config.schema";
+import { InjectModel } from "@nestjs/mongoose";
 
 @ApiTags("Products Public")
-@Controller("api/v1/public/products")
+// Nota: usamos prefix global "api/v1" en main.ts, por eso aquí solo se define la parte pública
+@Controller("public/products")
 export class ProductsPublicController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    @InjectModel(ProductConsumableConfig.name)
+    private readonly consumableConfigModel: Model<ProductConsumableConfigDocument>,
+  ) {}
 
   @Public()
   @Get()
@@ -126,8 +137,24 @@ export class ProductsPublicController {
       query.search = search;
     }
 
+    // Solo productos vendibles en storefront (excluir consumibles/suministros)
+    query.productType = ProductType.SIMPLE;
+    // Excluir productos configurados como consumibles (nueva capa de seguridad)
+    const consumableConfigs = await this.consumableConfigModel
+      .find({ tenantId: new Types.ObjectId(tenantId) })
+      .select("productId")
+      .lean();
+    if (consumableConfigs.length) {
+      query.excludeProductIds = consumableConfigs
+        .map((c) => c.productId?.toString?.())
+        .filter(Boolean);
+    }
+
     // Obtener productos
-    const result = await this.productsService.findAll(query, tenantId);
+    const result = await this.productsService.findAll(query, tenantId, {
+      includeInventory: true,
+      minAvailableQuantity: 1, // Solo mostrar productos con stock disponible
+    });
 
     return {
       success: true,
@@ -255,7 +282,10 @@ export class ProductsPublicController {
     }
 
     // Obtener categorías
-    const categories = await this.productsService.getCategories(tenantId);
+    const categories = await this.productsService.getCategories(tenantId, {
+      productTypes: [ProductType.SIMPLE],
+      onlyActive: true,
+    });
 
     return {
       success: true,

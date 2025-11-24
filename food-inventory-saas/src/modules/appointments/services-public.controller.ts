@@ -17,7 +17,8 @@ import { Public } from "../../decorators/public.decorator";
 import { ServicesService } from "./services.service";
 
 @ApiTags("Services Public")
-@Controller("api/v1/public/services")
+// Prefix global "api/v1" configurado en main.ts
+@Controller("public/services")
 export class ServicesPublicController {
   constructor(private readonly servicesService: ServicesService) {}
 

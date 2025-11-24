@@ -6,7 +6,15 @@ import {
 } from "@nestjs/common";
 import { InjectModel, InjectConnection } from "@nestjs/mongoose";
 import { Model, Types, Connection, SortOrder } from "mongoose";
-import { Product, ProductDocument } from "../../schemas/product.schema";
+import {
+  Product,
+  ProductDocument,
+  ProductType,
+} from "../../schemas/product.schema";
+import {
+  Inventory,
+  InventoryDocument,
+} from "../../schemas/inventory.schema";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import {
   CreateProductDto,
@@ -29,6 +37,8 @@ export class ProductsService {
 
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
+    @InjectModel(Inventory.name)
+    private inventoryModel: Model<InventoryDocument>,
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     private readonly customersService: CustomersService, // CHANGED
     private readonly inventoryService: InventoryService,
@@ -328,7 +338,11 @@ export class ProductsService {
     }
   }
 
-  async findAll(query: ProductQueryDto, tenantId: string) {
+  async findAll(
+    query: ProductQueryDto,
+    tenantId: string,
+    options?: { includeInventory?: boolean; minAvailableQuantity?: number },
+  ) {
     const {
       page = 1,
       limit = 20,
@@ -344,6 +358,8 @@ export class ProductsService {
     const limitNumber = Math.max(Number(limit) || 20, 1);
     const searchTerm = typeof search === "string" ? search.trim() : "";
     const isSearching = searchTerm.length > 0;
+    let looksLikeCode = false;
+    let useTextSearch = false;
 
     const filter: any = {
       tenantId: new Types.ObjectId(tenantId),
@@ -360,10 +376,20 @@ export class ProductsService {
     if (productType) {
       filter.productType = productType;
     }
+    if (query.excludeProductIds?.length) {
+      const ids = query.excludeProductIds
+        .filter((id) => Types.ObjectId.isValid(id))
+        .map((id) => new Types.ObjectId(id));
+      if (ids.length) {
+        filter._id = { $nin: ids };
+      }
+    }
     // PERFORMANCE OPTIMIZATION: Use text search instead of regex for better performance
     if (isSearching) {
       // Check if search looks like a SKU or barcode (alphanumeric, no spaces)
-      const looksLikeCode = /^[A-Z0-9\-_]+$/i.test(searchTerm);
+      // Treat as SKU/barcode only if it has alphanumerics AND a delimiter or digit
+      looksLikeCode =
+        /^[A-Z0-9\-_]+$/i.test(searchTerm) && /[0-9\-_]/.test(searchTerm);
 
       if (looksLikeCode) {
         // For SKU/barcode searches, use optimized regex on indexed fields only
@@ -374,21 +400,50 @@ export class ProductsService {
           { "variants.barcode": regex },
         ];
       } else {
-        // For text searches, use MongoDB text search (much faster than regex)
-        // Text index covers: name, description, tags
+        // Prefer MongoDB text search (leverages index on name/description/tags)
         filter.$text = { $search: searchTerm };
+        useTextSearch = true;
       }
     }
 
     const skip = (pageNumber - 1) * limitNumber;
 
+    // If caller requests only products with stock, pre-filter using inventory
+    if (options?.minAvailableQuantity !== undefined) {
+      const productIdsWithStock = await this.inventoryModel
+        .find({
+          tenantId: new Types.ObjectId(tenantId),
+          availableQuantity: { $gte: options.minAvailableQuantity },
+        })
+        .distinct("productId")
+        .exec();
+
+      if (!productIdsWithStock.length) {
+        return {
+          products: [],
+          page: pageNumber,
+          limit: limitNumber,
+          total: 0,
+          totalPages: 0,
+        };
+      }
+
+      filter._id = { $in: productIdsWithStock };
+    }
+
     // Use text score for sorting when doing text search
-    const useTextSearch = isSearching && !/^[A-Z0-9\-_]+$/i.test(searchTerm);
     const sortOptions: Record<string, any> = useTextSearch
       ? { score: { $meta: "textScore" }, createdAt: -1 }
       : isSearching
         ? { name: 1 }
         : { createdAt: -1 };
+
+    // Trim down fields for listing to reduce payload and speed up render
+    const listingFields =
+      "sku name brand description ingredients category subcategory productType isActive hasActivePromotion promotion " +
+      "unitOfMeasure isSoldByWeight hasMultipleSellingUnits " +
+      "price salePrice image imageUrl images " +
+      "variants.name variants.sku variants.isActive variants.barcode variants.basePrice variants.price variants.images";
 
     // Build projection to include text score when doing text search
     const projection = useTextSearch ? { score: { $meta: "textScore" } } : {};
@@ -400,6 +455,7 @@ export class ProductsService {
     const [products, total] = await Promise.all([
       this.productModel
         .find(filter, projection)
+        .select(listingFields)
         .select("+isSoldByWeight +unitOfMeasure")
         .sort(sortOptions)
         .skip(skip)
@@ -408,6 +464,47 @@ export class ProductsService {
         .exec(),
       this.productModel.countDocuments(filter),
     ]);
+
+    if (options?.includeInventory && products.length) {
+      const productIds = products.map((p: any) => p._id);
+      const inventories = await this.inventoryModel
+        .find({
+          tenantId: new Types.ObjectId(tenantId),
+          productId: { $in: productIds },
+        })
+        .select("productId availableQuantity totalQuantity lots")
+        .lean();
+
+      const inventoryMap = new Map(
+        inventories.map((inv) => [
+          inv.productId.toString(),
+          {
+            availableQuantity: inv.availableQuantity ?? 0,
+            totalQuantity: inv.totalQuantity ?? 0,
+            lots: inv.lots ?? [],
+          },
+        ]),
+      );
+
+      for (const product of products) {
+        const inv = inventoryMap.get(product._id.toString());
+        if (inv) {
+          (product as any).inventory = {
+            availableQuantity: inv.availableQuantity,
+            totalQuantity: inv.totalQuantity,
+            lots: inv.lots,
+          };
+          (product as any).availableQuantity = inv.availableQuantity;
+        } else {
+          (product as any).inventory = {
+            availableQuantity: 0,
+            totalQuantity: 0,
+            lots: [],
+          };
+          (product as any).availableQuantity = 0;
+        }
+      }
+    }
 
     return {
       products,
@@ -500,10 +597,27 @@ export class ProductsService {
     return result;
   }
 
-  async getCategories(tenantId: string): Promise<string[]> {
-    return this.productModel
-      .distinct("category", { tenantId: new Types.ObjectId(tenantId) })
-      .exec();
+  async getCategories(
+    tenantId: string,
+    options?: {
+      productTypes?: ProductType[];
+      onlyActive?: boolean;
+    },
+  ): Promise<string[]> {
+    const filter: any = { tenantId: new Types.ObjectId(tenantId) };
+
+    if (options?.productTypes?.length) {
+      filter.productType =
+        options.productTypes.length === 1
+          ? options.productTypes[0]
+          : { $in: options.productTypes };
+    }
+
+    if (options?.onlyActive) {
+      filter.isActive = true;
+    }
+
+    return this.productModel.distinct("category", filter).exec();
   }
 
   async getSubcategories(tenantId: string): Promise<string[]> {

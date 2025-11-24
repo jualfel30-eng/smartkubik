@@ -14,6 +14,7 @@ import { SeedingModule } from "../seeding/seeding.module";
 import { SubscriptionPlansModule } from "../subscription-plans/subscription-plans.module";
 import { AuthModule } from "../../auth/auth.module";
 import { MailModule } from "../mail/mail.module";
+import { MembershipsModule } from "../memberships/memberships.module";
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { MailModule } from "../mail/mail.module";
     SubscriptionPlansModule,
     AuthModule,
     MailModule,
+    MembershipsModule,
   ],
   controllers: [OnboardingController],
   providers: [OnboardingService],

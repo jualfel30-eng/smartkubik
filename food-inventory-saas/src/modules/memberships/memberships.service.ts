@@ -110,6 +110,33 @@ export class MembershipsService {
       .exec();
   }
 
+  async createDefaultMembershipIfMissing(
+    userId: Types.ObjectId | string,
+    tenantId: Types.ObjectId | string,
+    roleId: Types.ObjectId | string,
+  ): Promise<MembershipSummary | null> {
+    const membershipExists = await this.membershipModel
+      .findOne({
+        userId: this.toObjectId(userId),
+        tenantId: this.toObjectId(tenantId),
+      })
+      .exec();
+
+    if (membershipExists) {
+      return this.buildMembershipSummary(membershipExists);
+    }
+
+    const newMembership = await this.membershipModel.create({
+      userId: this.toObjectId(userId),
+      tenantId: this.toObjectId(tenantId),
+      roleId: this.toObjectId(roleId),
+      status: "active",
+      isDefault: true,
+    });
+
+    return this.buildMembershipSummary(newMembership);
+  }
+
   private async toMembershipSummary(
     membership: UserTenantMembershipDocument,
   ): Promise<MembershipSummary> {

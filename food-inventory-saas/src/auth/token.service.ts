@@ -29,6 +29,26 @@ export class TokenService {
     tenant: TenantDocument | null,
     options: TokenGenerationOptions = {},
   ) {
+    const defaultRolePermissions: Record<string, string[]> = {
+      vendedor: [
+        "orders_read",
+        "orders_create",
+        "orders_update",
+        "inventory_read",
+        "products_read",
+        "accounting_read",
+        "customers_read",
+      ],
+      vendedor_es: [
+        "orders_read",
+        "orders_create",
+        "orders_update",
+        "inventory_read",
+        "products_read",
+        "accounting_read",
+        "customers_read",
+      ],
+    };
     const rawRole =
       options.roleOverride ??
       (user.role as RoleDocument | Types.ObjectId | string | null | undefined);
@@ -63,13 +83,14 @@ export class TokenService {
       throw new Error("User role is not properly populated");
     }
 
+    // If permissions are missing or not populated, fetch a fresh populated role
     if (permissionNames.length === 0) {
-      resolvedRoleDoc =
-        resolvedRoleDoc ??
-        (await this.roleModel
-          .findById(roleId)
-          .populate({ path: "permissions", select: "name" })
-          .exec());
+      const populatedRole = await this.roleModel
+        .findById(roleId)
+        .populate({ path: "permissions", select: "name" })
+        .exec();
+
+      resolvedRoleDoc = populatedRole ?? resolvedRoleDoc;
 
       if (!resolvedRoleDoc) {
         throw new Error("Role associated to user not found");
@@ -80,7 +101,17 @@ export class TokenService {
             .map((permission) => permission?.name)
             .filter((name): name is string => Boolean(name))
         : [];
-      roleName = resolvedRoleDoc.name;
+      roleName = resolvedRoleDoc.name ?? roleName;
+    }
+
+    // Emergency fallback: if still empty, use defaults by role name or grant full set to admin
+    if (permissionNames.length === 0 && roleName) {
+      const key = roleName.toLowerCase();
+      if (key === "admin" || key === "super_admin" || key === "super-admin") {
+        permissionNames = this.permissionsService.findAll();
+      } else if (defaultRolePermissions[key]) {
+        permissionNames = defaultRolePermissions[key];
+      }
     }
 
     if (
@@ -92,20 +123,8 @@ export class TokenService {
       roleName = (rawRole as any).name;
     }
 
-    if (permissionNames.length === 0 && tenant) {
-      const effectiveModules = getEffectiveModulesForTenant(
-        tenant.vertical || "FOOD_SERVICE",
-        tenant.enabledModules,
-      );
-      const enabledModuleNames = Object.entries(effectiveModules)
-        .filter(([, isEnabled]) => isEnabled)
-        .map(([moduleName]) => moduleName);
-
-      if (enabledModuleNames.length > 0) {
-        permissionNames =
-          this.permissionsService.findByModules(enabledModuleNames);
-      }
-    }
+    // Seguridad: si el rol no trae permisos (caches vacíos o datos inconsistentes), no asignar permisos silenciosamente.
+    permissionNames = permissionNames.filter(Boolean);
 
     const confirmationEnforced = isTenantConfirmationEnforced();
 
