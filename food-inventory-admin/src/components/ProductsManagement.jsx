@@ -40,7 +40,7 @@ import {
 
 const UNASSIGNED_SELECT_VALUE = '__UNASSIGNED__';
 const DEFAULT_PAGE_LIMIT = 25;
-const SEARCH_PAGE_LIMIT = 100;
+const SEARCH_PAGE_LIMIT = 50;
 
 // ============================================================================
 // IMAGE COMPRESSION UTILITY
@@ -393,12 +393,14 @@ function ProductsManagement() {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
+  const productTypeFilter = 'simple'; // Solo mercancía en este módulo
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageLimit, setPageLimit] = useState(DEFAULT_PAGE_LIMIT);
   const [totalProducts, setTotalProducts] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const lastFetchRef = useRef({ filter: null, timestamp: 0 });
+  const lastFetchRef = useRef('');
+  const abortControllerRef = useRef(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newProduct, setNewProduct] = useState(initialNewProductState);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -573,7 +575,18 @@ useEffect(() => {
   }
 }, [isAddDialogOpen, unitOptions, isNonFoodRetailVertical]);
 
-  const loadProducts = useCallback(async (page = 1, limit = 25, status = 'all', search = '', category = 'all') => {
+  const loadProducts = useCallback(async (page = 1, limit = 25, status = 'all', search = '', category = 'all', productType = 'simple') => {
+    const trimmedSearch = (search || '').trim();
+    const requestKey = JSON.stringify({ page, limit, status, search: trimmedSearch, category, productType });
+
+    // Cancel any in-flight request to avoid stale results overriding new searches
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    lastFetchRef.current = requestKey;
+
     try {
       setLoading(true);
       setError(null);
@@ -581,7 +594,6 @@ useEffect(() => {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString(),
-        productType: 'simple' // Only show simple products (merchandise)
       });
 
       if (status === 'active') {
@@ -593,8 +605,8 @@ useEffect(() => {
       }
 
       // Add search parameter if provided
-      if (search && search.trim() !== '') {
-        params.set('search', search.trim());
+      if (trimmedSearch) {
+        params.set('search', trimmedSearch);
       }
 
       // Add category filter if not 'all'
@@ -602,19 +614,32 @@ useEffect(() => {
         params.set('category', category);
       }
 
-      const queryString = `?${params.toString()}`;
-      const response = await fetchApi(`/products${queryString}`);
+      // Force product type to simple (mercancía) in este módulo
+      if (productType) {
+        params.set('productType', productType);
+      }
 
+      const queryString = `?${params.toString()}`;
+      const response = await fetchApi(`/products${queryString}`, { signal: controller.signal });
+
+      if (lastFetchRef.current !== requestKey) {
+        return;
+      }
       setProducts(response.data || []);
       setTotalProducts(response.pagination?.total || 0);
       setTotalPages(response.pagination?.totalPages || 0);
     } catch (err) {
+      if (controller.signal.aborted || lastFetchRef.current !== requestKey) {
+        return;
+      }
       setError(err.message);
       setProducts([]);
       setTotalProducts(0);
       setTotalPages(0);
     } finally {
-      setLoading(false);
+      if (lastFetchRef.current === requestKey) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -622,32 +647,45 @@ useEffect(() => {
   // OPTIMIZED: Consolidate all data loading into single useEffect to prevent cascade
   useEffect(() => {
     // Auto-adjust page limit based on search (sync, no separate effect)
-    const trimmed = searchTerm.trim();
-    const targetLimit = trimmed ? SEARCH_PAGE_LIMIT : (manualPageLimitRef.current || DEFAULT_PAGE_LIMIT);
+    const trimmedSearch = searchTerm.trim();
+    const targetLimit = trimmedSearch ? SEARCH_PAGE_LIMIT : (manualPageLimitRef.current || DEFAULT_PAGE_LIMIT);
 
     // Determine if we need to load data
-    const isFilterChange = statusFilter || searchTerm || filterCategory;
-    const page = isFilterChange ? 1 : currentPage;
+    const hasFilters = trimmedSearch !== '' || statusFilter !== 'all' || filterCategory !== 'all';
+    const page = hasFilters ? 1 : currentPage;
 
     // Debounce only for search, instant for other changes
-    const delay = searchTerm && isFilterChange ? 800 : 0;
+    const delay = trimmedSearch ? 800 : 0;
+
+    // Keep limit in sync before fetching to avoid double requests
+    if (pageLimit !== targetLimit) {
+      setPageLimit(targetLimit);
+      if (hasFilters && currentPage !== 1) {
+        setCurrentPage(1);
+      }
+      return;
+    }
 
     const timeoutId = setTimeout(() => {
-      // Only sync pageLimit if it actually changed (prevents unnecessary re-render)
-      if (pageLimit !== targetLimit) {
-        setPageLimit(targetLimit);
-      }
-
       // Reset to page 1 for filter changes
-      if (isFilterChange && currentPage !== 1) {
+      if (hasFilters && currentPage !== 1) {
         setCurrentPage(1);
       }
 
-      loadProducts(page, targetLimit, statusFilter, searchTerm, filterCategory);
+      loadProducts(page, targetLimit, statusFilter, trimmedSearch, filterCategory, productTypeFilter);
     }, delay);
 
     return () => clearTimeout(timeoutId);
-  }, [currentPage, statusFilter, searchTerm, filterCategory]); // pageLimit removed from deps!
+  }, [currentPage, statusFilter, searchTerm, filterCategory, productTypeFilter, pageLimit, loadProducts]);
+
+  // Cancel any pending fetch when the component unmounts
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   // Sync filtered products (keep this simple one)
   useEffect(() => {
@@ -1288,7 +1326,7 @@ useEffect(() => {
       alert(`Error al actualizar el producto: ${err.message}`);
 
       // Optionally reload to ensure consistency
-      loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory);
+      loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory, productTypeFilter);
     }
   };
 
@@ -1636,7 +1674,7 @@ useEffect(() => {
 
       setIsPreviewDialogOpen(false);
       alert(`${payload.products.length} productos importados exitosamente.`);
-      loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory); // Recargar la lista de productos
+      loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory, productTypeFilter); // Recargar la lista de productos
 
     } catch (error) {
       alert(`Error al importar los productos: ${error.message}`);

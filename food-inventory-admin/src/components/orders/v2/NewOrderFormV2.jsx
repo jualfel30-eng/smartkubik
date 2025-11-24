@@ -74,6 +74,9 @@ export function NewOrderFormV2({ onOrderCreated }) {
   const [showGeneralDiscountDialog, setShowGeneralDiscountDialog] = useState(false);
   const [generalDiscountPercentage, setGeneralDiscountPercentage] = useState(0);
   const [generalDiscountReason, setGeneralDiscountReason] = useState('');
+  const [customerSearchResults, setCustomerSearchResults] = useState([]);
+  const [loadingCustomerSearch, setLoadingCustomerSearch] = useState(false);
+  const customerSearchTimeout = useRef(null);
   const restaurantEnabled = Boolean(
     tenant?.enabledModules?.restaurant ||
     tenant?.enabledModules?.tables ||
@@ -327,6 +330,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
 
   const handleCustomerNameInputChange = (inputValue) => {
     setCustomerNameInput(inputValue);
+    triggerCustomerSearch(inputValue);
     // Only update customerName if user is actually typing (not when clearing after selection)
     if (inputValue) {
       setNewOrder(prev => ({
@@ -339,6 +343,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
 
   const handleCustomerRifInputChange = (inputValue) => {
     setCustomerRifInput(inputValue);
+    triggerCustomerSearch(inputValue);
     // Only update customerRif if user is actually typing (not when clearing after selection)
     if (inputValue) {
       setNewOrder(prev => ({
@@ -347,6 +352,29 @@ export function NewOrderFormV2({ onOrderCreated }) {
         customerId: '' // Resetear ID cuando cambia el texto
       }));
     }
+  };
+
+  const triggerCustomerSearch = (term) => {
+    if (customerSearchTimeout.current) {
+      clearTimeout(customerSearchTimeout.current);
+    }
+    if (!term || term.length < 2) {
+      setCustomerSearchResults([]);
+      return;
+    }
+    customerSearchTimeout.current = setTimeout(async () => {
+      try {
+        setLoadingCustomerSearch(true);
+        const resp = await fetchApi(`/customers?search=${encodeURIComponent(term)}&limit=10`);
+        const list = resp?.data || resp?.customers || [];
+        setCustomerSearchResults(list);
+      } catch (error) {
+        console.error('Customer search failed:', error);
+        setCustomerSearchResults([]);
+      } finally {
+        setLoadingCustomerSearch(false);
+      }
+    }, 300);
   };
 
   const handleCustomerNameSelection = (selectedOption) => {
@@ -906,21 +934,27 @@ export function NewOrderFormV2({ onOrderCreated }) {
     }
   };
 
-  const customerOptions = useMemo(() =>
-    customers.map(customer => ({
+  const customerOptions = useMemo(() => {
+    const source =
+      customerSearchResults.length > 0 ? customerSearchResults : customers;
+    return source.map(customer => ({
       value: customer._id,
       label: `${customer.name} - ${customer.taxInfo?.taxId || 'N.A.'}`,
       customer: customer,
-    })),[customers]);
+    }));
+  }, [customers, customerSearchResults]);
 
-  const rifOptions = useMemo(() =>
-    customers
+  const rifOptions = useMemo(() => {
+    const source =
+      customerSearchResults.length > 0 ? customerSearchResults : customers;
+    return source
       .filter(customer => customer.taxInfo?.taxId)
       .map(customer => ({
         value: customer.taxInfo.taxId,
         label: customer.taxInfo.taxId,
         customer: customer,
-      })),[customers]);
+      }));
+  }, [customers, customerSearchResults]);
 
   const productOptions = useMemo(() => 
     products.map(p => ({ value: p._id, label: `${p.name} (${p.sku})` })), 

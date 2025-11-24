@@ -271,6 +271,7 @@ export const AuthProvider = ({ children }) => {
         user: userData,
         tenant: tenantData,
         memberships: membershipsData,
+        membership: activeMembership,
       } = data;
 
       localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
@@ -291,8 +292,26 @@ export const AuthProvider = ({ children }) => {
           JSON.stringify(sanitizedMemberships),
         );
 
-        localStorage.removeItem(STORAGE_KEYS.TENANT);
-        setTenant(null);
+        // Si backend devuelve tenant/membership activa, guardarla.
+        if (tenantData && (activeMembership?.id || sanitizedMemberships.length === 1)) {
+          const normalizedTenant = normalizeTenant(tenantData);
+          localStorage.setItem(STORAGE_KEYS.TENANT, JSON.stringify(normalizedTenant));
+          const membershipId =
+            activeMembership?.id ||
+            sanitizedMemberships.find((m) => m.isDefault)?.id ||
+            sanitizedMemberships[0]?.id ||
+            null;
+          if (membershipId) {
+            localStorage.setItem(STORAGE_KEYS.ACTIVE_MEMBERSHIP, membershipId);
+          }
+          setTenant(normalizedTenant);
+          setActiveMembershipId(membershipId);
+        } else {
+          localStorage.removeItem(STORAGE_KEYS.TENANT);
+          setTenant(null);
+          localStorage.removeItem(STORAGE_KEYS.ACTIVE_MEMBERSHIP);
+          setActiveMembershipId(null);
+        }
 
         return {
           success: true,
@@ -338,16 +357,21 @@ export const AuthProvider = ({ children }) => {
   };
 
   const permissions = useMemo(() => {
+    const normalizePerms = (perms) =>
+      (perms || [])
+        .map((p) => (typeof p === 'string' ? p : p?.name))
+        .filter(Boolean);
+
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
-        return payload.role?.permissions || [];
+        return normalizePerms(payload.role?.permissions);
       } catch (error) {
         console.error('Error parsing JWT:', error);
       }
     }
 
-    return user?.role?.permissions || [];
+    return normalizePerms(user?.role?.permissions);
   }, [token, user]);
 
   const hasPermission = (permission) => {

@@ -30,8 +30,30 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
 
   const remainingAmountVes = useMemo(() => {
     if (!order) return 0;
-    return (order.totalAmountVes || 0) - (order.paidAmountVes || 0);
-  }, [order]);
+
+    // Si la orden tiene totalAmountVes definido y mayor que 0, usarlo directamente
+    if (order.totalAmountVes && order.totalAmountVes > 0) {
+      return order.totalAmountVes - (order.paidAmountVes || 0);
+    }
+
+    // Fallback: Si totalAmountVes es 0 o undefined, calcular usando la tasa de cambio
+    // Primero intentar usar exchangeRate del BCV
+    let rate = exchangeRate;
+
+    // Si no hay exchangeRate del BCV, intentar derivarla de la orden (si tiene los valores)
+    if (!rate && order.totalAmount > 0 && order.totalAmountVes > 0) {
+      rate = order.totalAmountVes / order.totalAmount;
+    }
+
+    // Si no hay tasa disponible, retornar 0
+    if (!rate || rate === 0) return 0;
+
+    // Calcular el monto pendiente en VES
+    const totalAmountVesCalculated = (order.totalAmount || 0) * rate;
+    const paidAmountVesCalculated = (order.paidAmountVes || 0);
+
+    return totalAmountVesCalculated - paidAmountVesCalculated;
+  }, [order, exchangeRate]);
 
   // Effect to reset state when a new order is passed in
   useEffect(() => {
@@ -165,22 +187,25 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
     let igtf = 0;
     let totalVES = 0;
 
-    const rate = exchangeRate || (order?.totalAmountVes / order?.totalAmount) || 1;
+    const rate = exchangeRate || (order?.totalAmountVes / order?.totalAmount) || 0;
+    const safeRate = rate > 0 ? rate : null;
+    const rateForCalc = safeRate || 1;
 
     mixedPayments.forEach(payment => {
-      const amount = Number(payment.amount) || 0;
+      const rawAmount = Number(payment.amount) || 0;
       const isVes = isVesMethod(payment.method);
 
-      subtotalUSD += amount;
-
       if (isVes) {
-        // Método VES: calcular equivalente en VES
-        totalVES += amount * rate;
+        // Monto ingresado en VES, convertir a USD
+        const amountUSD = rawAmount / rateForCalc;
+        subtotalUSD += amountUSD;
+        totalVES += rawAmount;
       } else {
-        // Método USD: aplicar IGTF
-        const lineIgtf = amount * 0.03;
+        // Monto ingresado en USD, aplicar IGTF y convertir a VES
+        const lineIgtf = rawAmount * 0.03;
         igtf += lineIgtf;
-        totalVES += (amount + lineIgtf) * rate;
+        subtotalUSD += rawAmount;
+        totalVES += (rawAmount + lineIgtf) * rateForCalc;
       }
     });
 
@@ -202,11 +227,31 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
       }
       const isVes = isVesMethod(singlePayment.method);
       const rate = exchangeRate || (order?.totalAmountVes / order?.totalAmount) || 0;
+      const safeRate = rate > 0 ? rate : null;
+
+      if (isVes && !safeRate) {
+        toast.error('No se pudo obtener la tasa BCV para calcular el monto en Bs.');
+        return;
+      }
+
+      const rateForCalc = safeRate || 1;
+      const baseUSD =
+        remainingAmount && remainingAmount > 0
+          ? remainingAmount
+          : (remainingAmountVes && remainingAmountVes > 0
+              ? remainingAmountVes / rateForCalc
+              : 0);
+      const amountVes = isVes
+        ? (remainingAmountVes && remainingAmountVes > 0
+            ? remainingAmountVes
+            : baseUSD * rateForCalc)
+        : baseUSD * rateForCalc;
+      const amountUSD = isVes ? amountVes / rateForCalc : baseUSD;
 
       const singlePaymentPayload = {
-        amount: remainingAmount,
-        amountVes: remainingAmountVes,
-        exchangeRate: rate,
+        amount: amountUSD,
+        amountVes: amountVes,
+        exchangeRate: rateForCalc,
         currency: isVes ? 'VES' : 'USD',
         method: singlePayment.method,
         date: paymentDate,
@@ -229,17 +274,21 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
         return;
       }
 
-      const rate = exchangeRate || (order?.totalAmountVes / order?.totalAmount) || 1;
+      const rate = exchangeRate || (order?.totalAmountVes / order?.totalAmount) || 0;
+      const safeRate = rate > 0 ? rate : null;
+      const rateForCalc = safeRate || 1;
 
       paymentsPayload = mixedPayments.map(p => {
-        const amountUSD = Number(p.amount);
         const isVes = isVesMethod(p.method);
-        const amountVes = amountUSD * rate;
+        const rawAmount = Number(p.amount) || 0;
+
+        const amountUSD = isVes ? rawAmount / rateForCalc : rawAmount;
+        const amountVes = isVes ? rawAmount : rawAmount * rateForCalc;
 
         const payment = {
           amount: amountUSD,
           amountVes: amountVes,
-          exchangeRate: rate,
+          exchangeRate: rateForCalc,
           currency: isVes ? 'VES' : 'USD',
           method: p.method,
           date: paymentDate,
@@ -371,7 +420,9 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
                 const lineIsVes = isVesMethod(line.method);
                 const lineAmount = Number(line.amount) || 0;
                 const rate = exchangeRate || (order?.totalAmountVes / order?.totalAmount) || 1;
-                const lineAmountVes = lineAmount * rate;
+                // Si es VES, el monto ingresado ya está en Bs. Si es USD, convertir a Bs
+                const lineAmountVes = lineIsVes ? lineAmount : lineAmount * rate;
+                const lineAmountUsd = lineIsVes ? lineAmount / rate : lineAmount;
                 const lineIgtf = lineIsVes ? 0 : lineAmount * 0.03;
                 const filteredAccounts = bankAccounts.filter(account =>
                   account.acceptedPaymentMethods &&
@@ -430,15 +481,28 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
 
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-2">
-                        <Label>Monto en $</Label>
+                        <Label>{lineIsVes ? 'Monto en Bs' : 'Monto en $'}</Label>
                         <Input
                           type="number"
                           step="0.01"
-                          placeholder="0.00"
+                          placeholder={lineIsVes ? `Ej: ${remainingAmountVes.toFixed(2)}` : `Ej: ${remainingAmount.toFixed(2)}`}
                           value={line.amount}
                           onChange={(e) => handleUpdatePaymentLine(line.id, 'amount', e.target.value)}
                         />
+                        {line.method && lineAmount === 0 && (
+                          <p className="text-xs text-blue-600">
+                            {lineIsVes
+                              ? `Monto pendiente: Bs ${remainingAmountVes.toFixed(2)}`
+                              : `Monto pendiente: $${remainingAmount.toFixed(2)} USD`
+                            }
+                          </p>
+                        )}
                         {lineIsVes && lineAmount > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Equivalente: ${lineAmountUsd.toFixed(2)} USD
+                          </p>
+                        )}
+                        {!lineIsVes && lineAmount > 0 && (
                           <p className="text-xs text-muted-foreground">
                             Equivalente: Bs {lineAmountVes.toFixed(2)}
                           </p>

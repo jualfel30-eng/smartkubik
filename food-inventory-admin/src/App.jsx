@@ -292,6 +292,9 @@ function TenantLayout() {
       href: 'production',
       icon: Factory,
       permission: 'inventory_read',
+      requiresModule: 'production',
+      // Permitido por vertical nativa o por activación manual del super-admin
+      requiresVertical: ['MANUFACTURING', 'FOOD_SERVICE'],
       children: [
         { name: 'Dashboard', href: 'production?tab=dashboard', icon: BarChart3 },
         { name: 'Órdenes', href: 'production?tab=orders', icon: Factory },
@@ -558,9 +561,20 @@ function TenantLayout() {
         if (item.requiresModule === 'restaurant' && !restaurantModuleEnabled) {
           return null;
         }
-        if (item.requiresModule !== 'restaurant' && !tenant?.enabledModules?.[item.requiresModule]) {
+        if (
+          item.requiresModule !== 'restaurant' &&
+          !tenant?.enabledModules?.[item.requiresModule]
+        ) {
           return null;
         }
+      }
+
+      if (
+        item.requiresVertical &&
+        !item.requiresVertical.includes(tenant?.vertical) &&
+        !tenant?.enabledModules?.[item.requiresModule]
+      ) {
+        return null;
       }
 
       if (item.permission && !hasPermission(item.permission)) {

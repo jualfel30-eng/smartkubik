@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getTenantUsers, inviteUser, updateUser, deleteUser, getRoles } from '../lib/api';
+import { getTenantUsers, inviteUser, updateUser, deleteUser, getRoles, resendUserInvite } from '../lib/api';
 import { useAuth } from '../hooks/use-auth.jsx';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from './ui/table';
 import { Button } from './ui/button';
@@ -63,6 +63,11 @@ const UserManagement = () => {
     setUserToEdit(prev => ({ ...prev, role: roleId }));
   };
 
+  const handleUpdateEmailChange = (e) => {
+    const { value } = e.target;
+    setUserToEdit(prev => ({ ...prev, email: value }));
+  };
+
   const handleInviteSubmit = async (e) => {
     e.preventDefault();
     if (!newUserData.role) {
@@ -90,8 +95,16 @@ const UserManagement = () => {
     if (!userToEdit) return;
 
     try {
-      const { role } = userToEdit;
-      const response = await updateUser(userToEdit._id, { role });
+      const { role, email } = userToEdit;
+      if (!email) {
+        toast.error('El email no puede estar vacío');
+        return;
+      }
+
+      const response = await updateUser(userToEdit._id, {
+        role,
+        email: email.trim(),
+      });
       if (response.success) {
         toast.success('Usuario actualizado exitosamente');
         setUpdateModalOpen(false);
@@ -119,8 +132,25 @@ const UserManagement = () => {
     }
   };
 
+  const handleResendInvite = async (userId) => {
+    try {
+      const response = await resendUserInvite(userId);
+      if (response.success) {
+        toast.success('Invitación reenviada correctamente');
+      } else {
+        throw new Error(response.message || 'Error al reenviar la invitación');
+      }
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
   const openUpdateModal = (user) => {
-    setUserToEdit({ ...user, role: user.role?._id || user.role });
+    setUserToEdit({
+      ...user,
+      role: user.role?._id || user.role,
+      email: user.email || '',
+    });
     setUpdateModalOpen(true);
   }
 
@@ -203,11 +233,17 @@ const UserManagement = () => {
                 <TableCell>{user.firstName} {user.lastName}</TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell>{user.role ? (typeof user.role === 'object' ? user.role.name : getRoleName(user.role)) : 'No asignado'}</TableCell>
-                <TableCell className="text-right space-x-2">
+                <TableCell className="text-right">
+                  <div className="flex justify-end items-center gap-2">
                     {hasPermission('users_update') && (
+                      <>
                         <Button variant="outline" size="sm" onClick={() => openUpdateModal(user)}>
                             <Edit className="h-4 w-4" />
                         </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleResendInvite(user._id)}>
+                            Reenviar invitación
+                        </Button>
+                      </>
                     )}
                     {hasPermission('users_delete') && (
                         <AlertDialog>
@@ -230,6 +266,7 @@ const UserManagement = () => {
                             </AlertDialogContent>
                         </AlertDialog>
                     )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -242,9 +279,23 @@ const UserManagement = () => {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Actualizar Usuario</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Edita el email o rol asignado a este usuario.
+              </p>
             </DialogHeader>
             <form onSubmit={handleUpdateSubmit}>
               <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="update-email" className="text-right">Email</Label>
+                  <Input
+                    id="update-email"
+                    type="email"
+                    className="col-span-3"
+                    value={userToEdit.email}
+                    onChange={handleUpdateEmailChange}
+                    required
+                  />
+                </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="update-role" className="text-right">Rol</Label>
                   <Select onValueChange={handleUpdateRoleChange} value={userToEdit.role}>

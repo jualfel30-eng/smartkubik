@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { fetchApi } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -27,16 +28,10 @@ export function ProductionDashboard() {
   const loadKPIs = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/manufacturing-orders', {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-
-      const result = await response.json();
+      const result = await fetchApi('/manufacturing-orders');
       if (result.success) {
         // Calcular KPIs desde los datos de órdenes
-        const orders = result.data || [];
+        const orders = result.data || result?.data?.data || [];
 
         const totalOrders = orders.length;
         const draftOrders = orders.filter(o => o.status === 'draft').length;

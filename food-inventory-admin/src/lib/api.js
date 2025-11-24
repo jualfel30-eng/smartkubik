@@ -172,6 +172,12 @@ export const deleteUser = (userId) => {
     });
 };
 
+export const resendUserInvite = (userId) => {
+  return fetchApi(`/tenant/users/${userId}/resend-invite`, {
+    method: 'POST',
+  });
+};
+
 export const syncTenantMemberships = (tenantId) => {
   return fetchApi(`/super-admin/tenants/${tenantId}/sync-memberships`, {
     method: 'POST',
@@ -859,6 +865,129 @@ export const getTriggerExecutionLogs = (id, limit = 50) => {
 
 export const getTriggerAnalytics = () => {
   return fetchApi('/marketing/triggers/analytics');
+};
+
+// ==================== Product Campaigns API (Phase 3) ====================
+export const getProductCampaigns = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.status) queryParams.append('status', params.status);
+  if (params.productId) queryParams.append('productId', params.productId);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/product-campaigns${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getProductCampaign = (id) => {
+  return fetchApi(`/product-campaigns/${id}`);
+};
+
+export const createProductCampaign = (data) => {
+  return fetchApi('/product-campaigns', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const updateProductCampaign = (id, data) => {
+  return fetchApi(`/product-campaigns/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteProductCampaign = (id) => {
+  return fetchApi(`/product-campaigns/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+export const launchProductCampaign = (id) => {
+  return fetchApi(`/product-campaigns/${id}/launch`, {
+    method: 'POST',
+  });
+};
+
+export const refreshProductCampaignSegment = (id) => {
+  return fetchApi(`/product-campaigns/${id}/refresh-segment`, {
+    method: 'POST',
+  });
+};
+
+export const getProductCampaignInsights = (id) => {
+  return fetchApi(`/product-campaigns/${id}/insights`);
+};
+
+export const getProductCampaignPerformance = (id) => {
+  return fetchApi(`/product-campaigns/${id}/performance`);
+};
+
+export const testProductCampaignAudience = (data) => {
+  return fetchApi('/product-campaigns/test-audience', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const trackProductCampaignPerformance = (id, metrics) => {
+  return fetchApi(`/product-campaigns/${id}/track`, {
+    method: 'POST',
+    body: JSON.stringify(metrics),
+  });
+};
+
+export const previewProductCampaignSegment = (id) => {
+  return fetchApi(`/product-campaigns/${id}/preview-segment`);
+};
+
+// ==================== A/B Testing API (Phase 4) ====================
+export const createAbTestCampaign = (data) => {
+  return fetchApi('/product-campaigns/ab-test', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const addCampaignVariant = (campaignId, variantData) => {
+  return fetchApi(`/product-campaigns/${campaignId}/variants`, {
+    method: 'POST',
+    body: JSON.stringify(variantData),
+  });
+};
+
+export const updateCampaignVariant = (campaignId, variantName, data) => {
+  return fetchApi(`/product-campaigns/${campaignId}/variants/${variantName}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+};
+
+export const removeCampaignVariant = (campaignId, variantName) => {
+  return fetchApi(`/product-campaigns/${campaignId}/variants/${variantName}`, {
+    method: 'DELETE',
+  });
+};
+
+export const launchAbTestCampaign = (id) => {
+  return fetchApi(`/product-campaigns/${id}/launch-ab-test`, {
+    method: 'POST',
+  });
+};
+
+export const trackVariantPerformance = (campaignId, variantName, metrics) => {
+  return fetchApi(`/product-campaigns/${campaignId}/variants/${variantName}/track`, {
+    method: 'POST',
+    body: JSON.stringify(metrics),
+  });
+};
+
+export const selectAbTestWinner = (campaignId, variantName) => {
+  return fetchApi(`/product-campaigns/${campaignId}/select-winner/${variantName}`, {
+    method: 'POST',
+  });
+};
+
+export const getAbTestResults = (campaignId) => {
+  return fetchApi(`/product-campaigns/${campaignId}/ab-test-results`);
 };
 
 // ==================== Marketing Analytics API (Phase 4) ====================
