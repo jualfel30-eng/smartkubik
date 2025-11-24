@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Placeholder">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e5e7eb" />
+      <stop offset="100%" stop-color="#d1d5db" />
+    </linearGradient>
+  </defs>
+  <rect width="400" height="400" fill="url(#g)" />
+  <g fill="#9ca3af" font-family="Arial, sans-serif" font-size="32" text-anchor="middle">
+    <text x="200" y="210">Imagen</text>
+    <text x="200" y="250">no disponible</text>
+  </g>
+</svg>

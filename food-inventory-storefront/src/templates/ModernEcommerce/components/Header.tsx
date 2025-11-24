@@ -11,9 +11,11 @@ interface HeaderProps {
   config: StorefrontConfig;
   domain: string;
   cartItemsCount?: number;
+  isDarkMode?: boolean;
+  onToggleTheme?: () => void;
 }
 
-export function Header({ config, domain, cartItemsCount: initialCartCount = 0 }: HeaderProps) {
+export function Header({ config, domain, cartItemsCount: initialCartCount = 0, isDarkMode = false, onToggleTheme }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [cartItemsCount, setCartItemsCount] = useState(initialCartCount);
   const { toggleCart } = useCart();
@@ -44,7 +46,7 @@ export function Header({ config, domain, cartItemsCount: initialCartCount = 0 }:
   ];
 
   return (
-    <header className="sticky top-0 z-50 bg-white shadow-sm">
+    <header className={`sticky top-0 z-50 shadow-sm ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-900'}`}>
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
@@ -59,7 +61,7 @@ export function Header({ config, domain, cartItemsCount: initialCartCount = 0 }:
                 priority
               />
             ) : (
-              <span className="text-xl font-bold text-gray-900">
+              <span className="text-xl font-bold">
                 {config.seo.title}
               </span>
             )}
@@ -71,18 +73,24 @@ export function Header({ config, domain, cartItemsCount: initialCartCount = 0 }:
               <Link
                 key={item.name}
                 href={item.href}
-                className="text-gray-700 hover:text-gray-900 font-medium transition"
+                className={`${isDarkMode ? 'text-gray-200 hover:text-white' : 'text-gray-700 hover:text-gray-900'} font-medium transition`}
               >
                 {item.name}
               </Link>
             ))}
+            <button
+              onClick={() => onToggleTheme?.()}
+              className={`px-3 py-1 rounded-full text-sm font-medium border ${isDarkMode ? 'border-gray-700 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
+            >
+              {isDarkMode ? 'Modo claro' : 'Modo oscuro'}
+            </button>
           </div>
 
           {/* Cart & Mobile Menu Button */}
           <div className="flex items-center space-x-4">
             <button
               onClick={toggleCart}
-              className="relative p-2 text-gray-700 hover:text-gray-900 transition"
+              className={`relative p-2 ${isDarkMode ? 'text-gray-200 hover:text-white' : 'text-gray-700 hover:text-gray-900'} transition`}
             >
               <ShoppingCart className="h-6 w-6" />
               {cartItemsCount > 0 && (
@@ -95,7 +103,7 @@ export function Header({ config, domain, cartItemsCount: initialCartCount = 0 }:
             {/* Mobile menu button */}
             <button
               type="button"
-              className="md:hidden p-2 text-gray-700"
+              className={`md:hidden p-2 ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? (
@@ -109,18 +117,27 @@ export function Header({ config, domain, cartItemsCount: initialCartCount = 0 }:
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <div className="md:hidden py-4 border-t">
+          <div className={`md:hidden py-4 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
             <div className="flex flex-col space-y-4">
               {navigation.map((item) => (
                 <Link
                   key={item.name}
                   href={item.href}
-                  className="text-gray-700 hover:text-gray-900 font-medium transition"
+                  className={`${isDarkMode ? 'text-gray-200 hover:text-white' : 'text-gray-700 hover:text-gray-900'} font-medium transition`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {item.name}
                 </Link>
               ))}
+              <button
+                onClick={() => {
+                  onToggleTheme?.();
+                  setMobileMenuOpen(false);
+                }}
+                className={`px-3 py-2 rounded-lg text-sm font-medium border text-left ${isDarkMode ? 'border-gray-700 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
+              >
+                {isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+              </button>
             </div>
           </div>
         )}

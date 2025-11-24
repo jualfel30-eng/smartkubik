@@ -16,6 +16,7 @@ interface CartSidebarProps {
 export function CartSidebar({ isOpen, onClose, domain }: CartSidebarProps) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
     // Load cart from localStorage
@@ -46,6 +47,20 @@ export function CartSidebar({ isOpen, onClose, domain }: CartSidebarProps) {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('cartUpdated', handleCartUpdate);
     };
+  }, []);
+
+  // Sync theme with the rest of the site
+  useEffect(() => {
+    const stored = localStorage.getItem('storefront_theme');
+    if (stored) {
+      const val = stored === 'dark';
+      setIsDarkMode(val);
+      document.documentElement.classList.toggle('dark', val);
+      return;
+    }
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    setIsDarkMode(prefersDark);
+    document.documentElement.classList.toggle('dark', prefersDark);
   }, []);
 
   useEffect(() => {
@@ -109,23 +124,23 @@ export function CartSidebar({ isOpen, onClose, domain }: CartSidebarProps) {
 
       {/* Sidebar */}
       <div
-        className={`fixed right-0 top-0 h-full w-full sm:w-96 bg-white shadow-2xl z-50 flex flex-col transition-transform duration-300 ease-in-out ${
+        className={`fixed right-0 top-0 h-full w-full sm:w-96 shadow-2xl z-50 flex flex-col transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
+        } ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-900'}`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b bg-gray-50">
+        <div className={`flex items-center justify-between p-4 border-b ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-50'}`}>
           <div className="flex items-center gap-2">
-            <ShoppingCart className="h-5 w-5 text-gray-700" />
-            <h2 className="text-lg font-semibold text-gray-900">
+            <ShoppingCart className={`h-5 w-5 ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`} />
+            <h2 className="text-lg font-semibold">
               Carrito ({cartItems.length})
             </h2>
           </div>
           <button
             onClick={handleClose}
-            className="p-2 hover:bg-gray-200 rounded-full transition"
+            className={`p-2 rounded-full transition ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-200'}`}
           >
-            <X className="h-5 w-5 text-gray-600" />
+            <X className={`h-5 w-5 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`} />
           </button>
         </div>
 
@@ -133,9 +148,9 @@ export function CartSidebar({ isOpen, onClose, domain }: CartSidebarProps) {
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {cartItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center px-4">
-              <ShoppingCart className="h-16 w-16 text-gray-300 mb-4" />
-              <p className="text-gray-600 font-medium mb-2">Tu carrito está vacío</p>
-              <p className="text-sm text-gray-500 mb-4">
+              <ShoppingCart className={`h-16 w-16 mb-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-300'}`} />
+              <p className={`font-medium mb-2 ${isDarkMode ? 'text-gray-200' : 'text-gray-600'}`}>Tu carrito está vacío</p>
+              <p className={`text-sm mb-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                 Agrega productos para comenzar tu compra
               </p>
               <Link
@@ -151,27 +166,25 @@ export function CartSidebar({ isOpen, onClose, domain }: CartSidebarProps) {
             cartItems.map((item) => (
               <div
                 key={item.product._id}
-                className="flex gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
+                className={`flex gap-4 p-3 rounded-lg transition ${isDarkMode ? 'bg-gray-800 hover:bg-gray-750' : 'bg-gray-50 hover:bg-gray-100'}`}
               >
                 {/* Product Image */}
-                <div className="relative w-20 h-20 bg-white rounded-lg overflow-hidden flex-shrink-0">
-                  {item.product.images && item.product.images.length > 0 ? (
-                    <Image
-                      src={getImageUrl(item.product.images[0])}
-                      alt={item.product.name}
-                      fill
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                      <ShoppingCart className="h-8 w-8 text-gray-400" />
-                    </div>
-                  )}
+                <div className={`relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
+                  <Image
+                    src={getImageUrl(
+                      (item.product as any).image ||
+                        (item.product as any).imageUrl ||
+                        (item.product as any).images?.[0]
+                    )}
+                    alt={item.product.name}
+                    fill
+                    className="object-cover"
+                  />
                 </div>
 
                 {/* Product Info */}
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-gray-900 text-sm mb-1 truncate">
+                  <h3 className={`font-medium text-sm mb-1 truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                     {item.product.name}
                   </h3>
                   <p className="text-sm font-semibold text-[var(--primary-color)] mb-2">
@@ -182,23 +195,23 @@ export function CartSidebar({ isOpen, onClose, domain }: CartSidebarProps) {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => updateQuantity(item.product._id, -1)}
-                      className="p-1 rounded hover:bg-white transition"
+                      className={`p-1 rounded transition ${isDarkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-white text-gray-700'}`}
                       disabled={item.quantity <= 1}
                     >
-                      <Minus className="h-4 w-4 text-gray-600" />
+                      <Minus className={`h-4 w-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`} />
                     </button>
-                    <span className="text-sm font-medium min-w-[2rem] text-center">
+                    <span className={`text-sm font-medium min-w-[2rem] text-center ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
                       {item.quantity}
                     </span>
                     <button
                       onClick={() => updateQuantity(item.product._id, 1)}
-                      className="p-1 rounded hover:bg-white transition"
+                      className={`p-1 rounded transition ${isDarkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-white text-gray-700'}`}
                     >
-                      <Plus className="h-4 w-4 text-gray-600" />
+                      <Plus className={`h-4 w-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`} />
                     </button>
                     <button
                       onClick={() => removeItem(item.product._id)}
-                      className="ml-auto p-1 rounded hover:bg-red-50 transition"
+                      className={`ml-auto p-1 rounded transition ${isDarkMode ? 'hover:bg-red-900/20' : 'hover:bg-red-50'}`}
                     >
                       <Trash2 className="h-4 w-4 text-red-500" />
                     </button>
@@ -211,11 +224,11 @@ export function CartSidebar({ isOpen, onClose, domain }: CartSidebarProps) {
 
         {/* Footer with Total and Checkout */}
         {cartItems.length > 0 && (
-          <div className="border-t bg-white p-4 space-y-4">
+          <div className={`p-4 space-y-4 border-t ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white'}`}>
             {/* Subtotal */}
             <div className="flex items-center justify-between text-lg font-semibold">
-              <span className="text-gray-700">Subtotal</span>
-              <span className="text-gray-900">{formatPrice(calculateTotal())}</span>
+              <span className={isDarkMode ? 'text-gray-200' : 'text-gray-700'}>Subtotal</span>
+              <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>{formatPrice(calculateTotal())}</span>
             </div>
 
             {/* Buttons */}
@@ -230,7 +243,9 @@ export function CartSidebar({ isOpen, onClose, domain }: CartSidebarProps) {
               <Link
                 href={`/${domain}/carrito`}
                 onClick={handleClose}
-                className="block w-full py-3 bg-gray-100 text-gray-900 text-center font-medium rounded-lg hover:bg-gray-200 transition"
+                className={`block w-full py-3 text-center font-medium rounded-lg transition ${
+                  isDarkMode ? 'bg-gray-800 text-gray-200 hover:bg-gray-750' : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                }`}
               >
                 Ver Carrito Completo
               </Link>

@@ -7,13 +7,14 @@ interface ProductsGridProps {
   products: Product[];
   domain: string;
   onAddToCart?: (product: Product) => void;
+  isDarkMode?: boolean;
 }
 
-export function ProductsGrid({ products, domain, onAddToCart }: ProductsGridProps) {
+export function ProductsGrid({ products, domain, onAddToCart, isDarkMode = false }: ProductsGridProps) {
   if (products.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500 text-lg">No hay productos disponibles</p>
+        <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'} text-lg`}>No hay productos disponibles</p>
       </div>
     );
   }
@@ -26,6 +27,7 @@ export function ProductsGrid({ products, domain, onAddToCart }: ProductsGridProp
           product={product}
           domain={domain}
           onAddToCart={onAddToCart}
+          isDarkMode={isDarkMode}
         />
       ))}
     </div>

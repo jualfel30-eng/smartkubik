@@ -22,7 +22,24 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
  */
 function transformProduct(product: any): any {
   const firstVariant = product.variants?.[0];
-  const firstImage = firstVariant?.images?.[0];
+  const firstImage =
+    firstVariant?.images?.[0] ||
+    product.images?.[0] ||
+    product.image ||
+    product.imageUrl;
+  const stockFallback =
+    firstVariant?.stock ??
+    product.availableQuantity ??
+    product.inventory?.availableQuantity ??
+    product.stock ??
+    0;
+  const priceFallback =
+    firstVariant?.basePrice ??
+    product.price ??
+    firstVariant?.price ??
+    product.salePrice ??
+    product.attributes?.price ??
+    0;
 
   return {
     _id: product._id,
@@ -31,10 +48,11 @@ function transformProduct(product: any): any {
     sku: product.sku || firstVariant?.sku || '',
     category: product.category || 'Sin categoría',
     brand: product.brand || '',
-    price: firstVariant?.basePrice || 0,
+    price: priceFallback,
     imageUrl: firstImage || null,
     image: firstImage || null, // compatibility
-    stock: firstVariant?.stock || 0,
+    ingredients: product.ingredients || product.attributes?.ingredients || '',
+    stock: stockFallback,
     isActive: product.isActive,
     tenantId: product.tenantId,
   };
@@ -152,6 +170,7 @@ export async function getProducts(
     limit?: number;
     category?: string;
     search?: string;
+    productType?: string;
   }
 ): Promise<ProductsResponse> {
   try {
@@ -167,6 +186,10 @@ export async function getProducts(
 
     if (options?.search) {
       params.append('search', options.search);
+    }
+
+    if (options?.productType) {
+      params.append('productType', options.productType);
     }
 
     const res = await fetch(`${API_BASE}/api/v1/public/products?${params}`, {
@@ -449,7 +472,8 @@ export async function getCategories(tenantId: string): Promise<string[]> {
  */
 export async function createOrder(orderData: OrderData): Promise<Order> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/orders`, {
+    // Endpoint público para storefront
+    const res = await fetch(`${API_BASE}/api/v1/public/orders`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -464,7 +488,7 @@ export async function createOrder(orderData: OrderData): Promise<Order> {
     }
 
     const data = await res.json();
-    return data;
+    return data.data || data;
   } catch (error) {
     console.error('Error creating order:', error);
     throw error;

@@ -11,9 +11,10 @@ interface ProductCardProps {
   product: Product;
   domain: string;
   onAddToCart?: (product: Product) => void;
+  isDarkMode?: boolean;
 }
 
-export function ProductCard({ product, domain, onAddToCart }: ProductCardProps) {
+export function ProductCard({ product, domain, onAddToCart, isDarkMode = false }: ProductCardProps) {
   const { openCart } = useCart();
 
   const handleAddToCart = (e: React.MouseEvent) => {
@@ -47,11 +48,11 @@ export function ProductCard({ product, domain, onAddToCart }: ProductCardProps) 
 
   return (
     <Link href={`/${domain}/productos/${product._id}`}>
-      <div className="group relative bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden">
+      <div className={`group relative rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300 overflow-hidden ${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white'}`}>
         {/* Image */}
-        <div className="aspect-square overflow-hidden bg-gray-100">
+        <div className={`aspect-square overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
           <Image
-            src={getImageUrl(product.imageUrl)}
+            src={getImageUrl((product as any).imageUrl || (product as any).image)}
             alt={product.name}
             width={400}
             height={400}
@@ -63,24 +64,24 @@ export function ProductCard({ product, domain, onAddToCart }: ProductCardProps) 
         <div className="p-4">
           {/* Category */}
           {product.category && (
-            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
+            <p className={`text-xs uppercase tracking-wide mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
               {product.category}
             </p>
           )}
 
           {/* Name */}
-          <h3 className="text-base font-semibold text-gray-900 mb-2 line-clamp-2">
+          <h3 className={`text-base font-semibold mb-2 line-clamp-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             {product.name}
           </h3>
 
           {/* Brand */}
           {product.brand && (
-            <p className="text-sm text-gray-600 mb-2">{product.brand}</p>
+            <p className={`text-sm mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{product.brand}</p>
           )}
 
           {/* Price & Add to Cart */}
           <div className="flex items-center justify-between mt-4">
-            <p className="text-xl font-bold text-gray-900">
+            <p className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               {formatPrice(product.price)}
             </p>
             <button

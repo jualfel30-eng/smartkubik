@@ -36,6 +36,7 @@ export default async function ProductsPage({ params, searchParams }: ProductsPag
     limit: 20,
     category,
     search,
+    productType: 'simple',
   });
 
   // Fetch all categories for filter

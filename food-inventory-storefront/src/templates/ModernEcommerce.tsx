@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { StorefrontConfig } from '@/types';
+import { Footer } from './ModernEcommerce/components/Footer';
 
 interface ModernEcommerceProps {
   config: StorefrontConfig;
@@ -14,6 +15,27 @@ interface ModernEcommerceProps {
 
 export default function ModernEcommerce({ config, featuredProducts = [], categories: propCategories = [], domain }: ModernEcommerceProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+
+  useEffect(() => {
+    // Preferencia inicial: localStorage o media query
+    const stored = localStorage.getItem('storefront_theme');
+    if (stored) {
+      setIsDarkMode(stored === 'dark');
+      document.documentElement.classList.toggle('dark', stored === 'dark');
+      return;
+    }
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    setIsDarkMode(prefersDark);
+    document.documentElement.classList.toggle('dark', prefersDark);
+  }, []);
+
+  const toggleTheme = () => {
+    const next = !isDarkMode;
+    setIsDarkMode(next);
+    document.documentElement.classList.toggle('dark', next);
+    localStorage.setItem('storefront_theme', next ? 'dark' : 'light');
+  };
 
   // Usar productos pasados como prop o los del config como fallback
   const products = featuredProducts.length > 0 ? featuredProducts : ((config as any).products || []);
@@ -29,9 +51,9 @@ export default function ModernEcommerce({ config, featuredProducts = [], categor
     : products.filter((p: any) => p.category === selectedCategory);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className={`min-h-screen ${isDarkMode ? 'bg-gray-950 text-gray-100' : 'bg-gradient-to-br from-gray-50 to-gray-100 text-gray-900'}`}>
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+      <header className={`${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'} shadow-sm sticky top-0 z-50`}>
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -44,20 +66,30 @@ export default function ModernEcommerce({ config, featuredProducts = [], categor
                   className="h-12 w-auto rounded-lg"
                 />
               )}
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-3xl font-bold">
                 {config.seo?.title || config.domain}
               </h1>
             </div>
             <nav className="hidden md:flex space-x-8">
-              <a href="#inicio" className="text-gray-700 hover:text-blue-600 font-medium transition">
+              <a href="#inicio" className={`${isDarkMode ? 'text-gray-200 hover:text-white' : 'text-gray-700 hover:text-blue-600'} font-medium transition`}>
                 Inicio
               </a>
-              <a href="#productos" className="text-gray-700 hover:text-blue-600 font-medium transition">
+              <a href={`/${config.domain}/productos`} className={`${isDarkMode ? 'text-gray-200 hover:text-white' : 'text-gray-700 hover:text-blue-600'} font-medium transition`}>
                 Productos
               </a>
-              <a href="#contacto" className="text-gray-700 hover:text-blue-600 font-medium transition">
+              <a href="#contacto" className={`${isDarkMode ? 'text-gray-200 hover:text-white' : 'text-gray-700 hover:text-blue-600'} font-medium transition`}>
                 Contacto
               </a>
+              <button
+                onClick={toggleTheme}
+                className={`px-4 py-2 rounded-full text-sm font-semibold border transition ${
+                  isDarkMode
+                    ? 'border-gray-700 text-gray-200 hover:bg-gray-800'
+                    : 'border-gray-200 text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                {isDarkMode ? 'Modo claro' : 'Modo oscuro'}
+              </button>
             </nav>
           </div>
         </div>
@@ -67,24 +99,24 @@ export default function ModernEcommerce({ config, featuredProducts = [], categor
       <section id="inicio" className="py-20">
         <div className="container mx-auto px-4">
           <div className="text-center max-w-3xl mx-auto">
-            <h2 className="text-5xl font-bold text-gray-900 mb-6">
+            <h2 className={`text-5xl font-bold mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               Bienvenido a {config.seo?.title || config.domain}
             </h2>
             {config.seo?.description && (
-              <p className="text-xl text-gray-600 mb-8">
+              <p className={`text-xl mb-8 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                 {config.seo.description}
               </p>
             )}
             <div className="flex justify-center space-x-4">
               <a
-                href="#productos"
+                href={`/${config.domain}/productos`}
                 className="px-8 py-4 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl"
               >
                 Ver Productos
               </a>
               <a
                 href="#contacto"
-                className="px-8 py-4 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-50 transition-colors shadow-lg hover:shadow-xl border border-gray-200"
+                className={`px-8 py-4 rounded-lg font-semibold transition-colors shadow-lg hover:shadow-xl border ${isDarkMode ? 'bg-gray-900 text-gray-100 border-gray-700 hover:bg-gray-800' : 'bg-white text-gray-900 border-gray-200 hover:bg-gray-50'}`}
               >
                 Contáctanos
               </a>
@@ -94,48 +126,48 @@ export default function ModernEcommerce({ config, featuredProducts = [], categor
       </section>
 
       {/* Features Section */}
-      <section className="py-16 bg-white">
+      <section className={`py-16 ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
         <div className="container mx-auto px-4">
-          <h3 className="text-3xl font-bold text-center text-gray-900 mb-12">
+          <h3 className={`text-3xl font-bold text-center mb-12 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             ¿Por qué elegirnos?
           </h3>
           <div className="grid md:grid-cols-3 gap-8">
             <div className="text-center p-6">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${isDarkMode ? 'bg-blue-900/40' : 'bg-blue-100'}`}>
                 <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h4 className="text-xl font-semibold text-gray-900 mb-2">
+              <h4 className="text-xl font-semibold mb-2">
                 Calidad Garantizada
               </h4>
-              <p className="text-gray-600">
+              <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
                 Productos de la más alta calidad para tu satisfacción
               </p>
             </div>
             <div className="text-center p-6">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${isDarkMode ? 'bg-green-900/30' : 'bg-green-100'}`}>
                 <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h4 className="text-xl font-semibold text-gray-900 mb-2">
+              <h4 className={`text-xl font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 Entrega Rápida
               </h4>
-              <p className="text-gray-600">
+              <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
                 Recibe tus productos en tiempo récord
               </p>
             </div>
             <div className="text-center p-6">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${isDarkMode ? 'bg-purple-900/30' : 'bg-purple-100'}`}>
                 <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
               </div>
-              <h4 className="text-xl font-semibold text-gray-900 mb-2">
+              <h4 className={`text-xl font-semibold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 Atención Personalizada
               </h4>
-              <p className="text-gray-600">
+              <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
                 Soporte dedicado para todas tus necesidades
               </p>
             </div>
@@ -144,9 +176,9 @@ export default function ModernEcommerce({ config, featuredProducts = [], categor
       </section>
 
       {/* Products Section */}
-      <section id="productos" className="py-16 bg-gradient-to-br from-gray-50 to-gray-100">
+      <section id="productos" className={`py-16 ${isDarkMode ? 'bg-gray-950' : 'bg-gradient-to-br from-gray-50 to-gray-100'}`}>
         <div className="container mx-auto px-4">
-          <h3 className="text-4xl font-bold text-center text-gray-900 mb-12">
+          <h3 className={`text-4xl font-bold text-center mb-12 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             Nuestros Productos
           </h3>
 
@@ -160,7 +192,7 @@ export default function ModernEcommerce({ config, featuredProducts = [], categor
                   className={`px-6 py-2 rounded-full font-medium transition-all ${
                     selectedCategory === cat
                       ? 'bg-blue-600 text-white shadow-lg'
-                      : 'bg-white text-gray-700 hover:bg-gray-100 shadow'
+                      : `${isDarkMode ? 'bg-gray-900 text-gray-200 hover:bg-gray-800 shadow' : 'bg-white text-gray-700 hover:bg-gray-100 shadow'}`
                   }`}
                 >
                   {cat === 'all' ? 'Todos' : cat}
@@ -175,28 +207,28 @@ export default function ModernEcommerce({ config, featuredProducts = [], categor
               {filteredProducts.map((product: any) => (
                 <div 
                   key={product._id} 
-                  className="bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all transform hover:-translate-y-1"
+                  className={`${isDarkMode ? 'bg-gray-900' : 'bg-white'} rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all transform hover:-translate-y-1`}
                 >
                   {product.image && (
-                    <div className="relative h-64 bg-gray-200">
+                    <div className={`relative h-64 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
                       <Image
-                        src={product.image}
+                        src={getImageUrl((product as any).image || (product as any).imageUrl)}
                         alt={product.name}
                         fill
                         className="object-cover"
                       />
                     </div>
                   )}
-                  <div className="p-6">
+                    <div className="p-6">
                     <div className="flex justify-between items-start mb-2">
-                      <h4 className="text-xl font-bold text-gray-900">
+                      <h4 className="text-xl font-bold">
                         {product.name}
                       </h4>
-                      <span className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">
+                      <span className={`${isDarkMode ? 'bg-blue-900/40 text-blue-200' : 'bg-blue-100 text-blue-800'} text-sm px-3 py-1 rounded-full font-medium`}>
                         {product.category}
                       </span>
                     </div>
-                    <p className="text-gray-600 mb-4 line-clamp-2">
+                    <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} mb-4 line-clamp-2`}>
                       {product.description}
                     </p>
                     <div className="flex justify-between items-center">
@@ -205,7 +237,7 @@ export default function ModernEcommerce({ config, featuredProducts = [], categor
                           ${product.price?.toFixed(2)}
                         </span>
                         {product.stock !== undefined && (
-                          <p className="text-sm text-gray-500 mt-1">
+                          <p className={`text-sm mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                             {product.stock > 0 ? `${product.stock} disponibles` : 'Agotado'}
                           </p>
                         )}
@@ -232,7 +264,7 @@ export default function ModernEcommerce({ config, featuredProducts = [], categor
             </div>
           ) : (
             <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">
+              <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'} text-lg`}>
                 No hay productos disponibles en esta categoría
               </p>
             </div>
@@ -241,9 +273,9 @@ export default function ModernEcommerce({ config, featuredProducts = [], categor
       </section>
 
       {/* Contact Section */}
-      <section id="contacto" className="py-16 bg-white">
+      <section id="contacto" className={`py-16 ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-white'}`}>
         <div className="container mx-auto px-4 max-w-4xl">
-          <h3 className="text-4xl font-bold text-center text-gray-900 mb-12">
+          <h3 className={`text-4xl font-bold text-center mb-12 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             Contáctanos
           </h3>
           <div className="grid md:grid-cols-2 gap-12">
@@ -256,7 +288,7 @@ export default function ModernEcommerce({ config, featuredProducts = [], categor
                     <span className="text-blue-600 text-xl">📞</span>
                     <div>
                       <p className="font-medium">Teléfono</p>
-                      <a href={`tel:${config.contactInfo.phone}`} className="text-gray-600 hover:text-blue-600">
+                      <a href={`tel:${config.contactInfo.phone}`} className={`${isDarkMode ? 'text-gray-300 hover:text-blue-400' : 'text-gray-600 hover:text-blue-600'}`}>
                         {config.contactInfo.phone}
                       </a>
                     </div>
@@ -267,7 +299,7 @@ export default function ModernEcommerce({ config, featuredProducts = [], categor
                     <span className="text-blue-600 text-xl">✉️</span>
                     <div>
                       <p className="font-medium">Email</p>
-                      <a href={`mailto:${config.contactInfo.email}`} className="text-gray-600 hover:text-blue-600">
+                      <a href={`mailto:${config.contactInfo.email}`} className={`${isDarkMode ? 'text-gray-300 hover:text-blue-400' : 'text-gray-600 hover:text-blue-600'}`}>
                         {config.contactInfo.email}
                       </a>
                     </div>
@@ -278,7 +310,7 @@ export default function ModernEcommerce({ config, featuredProducts = [], categor
                     <span className="text-blue-600 text-xl">📍</span>
                     <div>
                       <p className="font-medium">Dirección</p>
-                      <p className="text-gray-600">
+                      <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
                         {typeof config.contactInfo.address === 'string'
                           ? config.contactInfo.address
                           : [
@@ -302,7 +334,11 @@ export default function ModernEcommerce({ config, featuredProducts = [], categor
                 <label className="block font-medium mb-2">Nombre</label>
                 <input 
                   type="text" 
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-4 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    isDarkMode
+                      ? 'bg-gray-800 border border-gray-700 text-gray-100'
+                      : 'bg-white border border-gray-300 text-gray-900'
+                  }`}
                   required
                 />
               </div>
@@ -310,7 +346,11 @@ export default function ModernEcommerce({ config, featuredProducts = [], categor
                 <label className="block font-medium mb-2">Email</label>
                 <input 
                   type="email" 
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-4 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    isDarkMode
+                      ? 'bg-gray-800 border border-gray-700 text-gray-100'
+                      : 'bg-white border border-gray-300 text-gray-900'
+                  }`}
                   required
                 />
               </div>
@@ -318,7 +358,11 @@ export default function ModernEcommerce({ config, featuredProducts = [], categor
                 <label className="block font-medium mb-2">Mensaje</label>
                 <textarea 
                   rows={4} 
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-4 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    isDarkMode
+                      ? 'bg-gray-800 border border-gray-700 text-gray-100'
+                      : 'bg-white border border-gray-300 text-gray-900'
+                  }`}
                   required
                 />
               </div>
@@ -334,32 +378,7 @@ export default function ModernEcommerce({ config, featuredProducts = [], categor
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
-        <div className="container mx-auto px-4">
-          <div className="text-center">
-            <h3 className="text-2xl font-bold mb-4">{config.seo?.title || config.domain}</h3>
-            <p className="text-gray-400 mb-6">
-              {config.seo?.description || 'Tu tienda de confianza'}
-            </p>
-            <div className="flex justify-center space-x-6">
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                Facebook
-              </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                Instagram
-              </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
-                Twitter
-              </a>
-            </div>
-            <div className="mt-8 pt-8 border-t border-gray-800">
-              <p className="text-gray-500 text-sm">
-                © {new Date().getFullYear()} {config.seo?.title || config.domain}. Todos los derechos reservados.
-              </p>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer config={config} domain={config.domain} isDarkMode={isDarkMode} />
     </div>
   );
 }

@@ -22,6 +22,7 @@ export default async function StorefrontPage({
   const { data: featuredProducts } = await getProducts(tenantId, {
     limit: 8,
     page: 1,
+    productType: 'simple',
   });
 
   // Fetch categories

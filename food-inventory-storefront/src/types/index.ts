@@ -53,6 +53,7 @@ export interface Product {
   brand?: string;
   price: number;
   imageUrl?: string;
+  ingredients?: string;
   isActive: boolean;
   tenantId: string;
 }

@@ -33,9 +33,26 @@ export function isValidUrl(url: string): boolean {
 /**
  * Obtiene la URL completa de una imagen o retorna un placeholder
  */
-export function getImageUrl(url: string | undefined, placeholder: string = '/placeholder-product.png'): string {
+export function getImageUrl(url: string | undefined, placeholder: string = '/placeholder-product.svg'): string {
   if (!url) return placeholder;
   if (isValidUrl(url)) return url;
+
+  // Soportar rutas relativas de uploads (ej: /uploads/xyz.jpg)
+  const apiBase =
+    (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000').replace(/\/$/, '');
+
+  if (url.startsWith('/uploads')) {
+    return `${apiBase}${url}`;
+  }
+  if (url.startsWith('uploads')) {
+    return `${apiBase}/${url}`;
+  }
+
+  // Permitir assets locales en /public
+  if (url.startsWith('/')) {
+    return url;
+  }
+
   return placeholder;
 }
 
