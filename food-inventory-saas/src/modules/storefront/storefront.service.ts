@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
-import * as sharp from "sharp";
+import sharp from "sharp";
 import * as fs from "fs/promises";
 import * as path from "path";
 import {
