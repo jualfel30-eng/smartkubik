@@ -9,13 +9,22 @@ import {
   Request,
   HttpCode,
   HttpStatus,
+  Query,
+  UseInterceptors,
+  UploadedFile,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
   ApiBody,
+  ApiConsumes,
+  ApiQuery,
 } from "@nestjs/swagger";
 import { StorefrontService } from "./storefront.service";
 import { CreateStorefrontConfigDto } from "./dto/create-storefront-config.dto";
@@ -170,6 +179,160 @@ export class StorefrontController {
       success: true,
       data: config,
       message: "Configuración reseteada a valores por defecto",
+    };
+  }
+
+  @Get("check-domain")
+  @Permissions("storefront_read")
+  @ApiOperation({
+    summary: "Verificar disponibilidad de dominio",
+    description:
+      "Verifica si un dominio está disponible para usar en el storefront",
+  })
+  @ApiQuery({ name: "domain", required: true, type: String })
+  @ApiResponse({
+    status: 200,
+    description: "Verificación completada",
+  })
+  async checkDomain(@Query("domain") domain: string, @Request() req) {
+    if (!domain) {
+      return {
+        success: false,
+        isAvailable: false,
+        message: "El dominio es requerido",
+      };
+    }
+
+    const isAvailable = await this.storefrontService.checkDomainAvailability(
+      domain,
+      req.user.tenantId,
+    );
+
+    return {
+      success: true,
+      isAvailable,
+      domain,
+      message: isAvailable
+        ? "Dominio disponible"
+        : "Dominio no disponible, ya está en uso",
+    };
+  }
+
+  @Post("upload-logo")
+  @Permissions("storefront_update")
+  @UseInterceptors(FileInterceptor("file"))
+  @ApiConsumes("multipart/form-data")
+  @ApiOperation({
+    summary: "Subir logo del storefront",
+    description:
+      "Sube y optimiza el logo del storefront. Formato recomendado: PNG o SVG, máximo 2MB",
+  })
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        file: {
+          type: "string",
+          format: "binary",
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Logo subido y optimizado exitosamente",
+  })
+  @ApiResponse({
+    status: 400,
+    description: "Archivo inválido o muy grande",
+  })
+  async uploadLogo(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 2 * 1024 * 1024 }), // 2MB
+          new FileTypeValidator({ fileType: /image\/(png|jpeg|jpg|svg\+xml|webp)/ }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+    @Request() req,
+  ) {
+    const result = await this.storefrontService.uploadLogo(
+      file,
+      req.user.tenantId,
+    );
+
+    // Actualizar configuración con el nuevo logo
+    await this.storefrontService.updatePartial(
+      { theme: { logo: result.logo } } as any,
+      req.user,
+    );
+
+    return {
+      success: true,
+      data: result,
+      message: "Logo subido y optimizado exitosamente",
+    };
+  }
+
+  @Post("upload-favicon")
+  @Permissions("storefront_update")
+  @UseInterceptors(FileInterceptor("file"))
+  @ApiConsumes("multipart/form-data")
+  @ApiOperation({
+    summary: "Subir favicon del storefront",
+    description:
+      "Sube y optimiza el favicon del storefront. Formato recomendado: ICO o PNG 32x32, máximo 500KB",
+  })
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        file: {
+          type: "string",
+          format: "binary",
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Favicon subido y optimizado exitosamente",
+  })
+  @ApiResponse({
+    status: 400,
+    description: "Archivo inválido o muy grande",
+  })
+  async uploadFavicon(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 500 * 1024 }), // 500KB
+          new FileTypeValidator({
+            fileType: /image\/(x-icon|png|vnd\.microsoft\.icon)/,
+          }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+    @Request() req,
+  ) {
+    const result = await this.storefrontService.uploadFavicon(
+      file,
+      req.user.tenantId,
+    );
+
+    // Actualizar configuración con el nuevo favicon
+    await this.storefrontService.updatePartial(
+      { theme: { favicon: result.favicon } } as any,
+      req.user,
+    );
+
+    return {
+      success: true,
+      data: result,
+      message: "Favicon subido y optimizado exitosamente",
     };
   }
 }

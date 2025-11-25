@@ -7,6 +7,9 @@ import {
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
+import * as sharp from "sharp";
+import * as fs from "fs/promises";
+import * as path from "path";
 import {
   StorefrontConfig,
   StorefrontConfigDocument,
@@ -88,7 +91,7 @@ export class StorefrontService {
   /**
    * Obtener configuración de storefront del tenant autenticado
    */
-  async findByTenant(tenantId: string): Promise<StorefrontConfigDocument> {
+  async findByTenant(tenantId: string): Promise<any> {
     this.logger.log(`Finding storefront config for tenant: ${tenantId}`);
 
     const config = await this.storefrontConfigModel
@@ -96,12 +99,19 @@ export class StorefrontService {
       .exec();
 
     if (!config) {
+      // Si no hay configuración, devolver dominio sugerido
+      const suggestedDomain = await this.getSuggestedDomain(tenantId);
       throw new NotFoundException(
-        "No se encontró configuración de storefront para este tenant",
+        JSON.stringify({ suggestedDomain }),
       );
     }
 
-    return config;
+    // Siempre incluir el dominio sugerido en la respuesta
+    const suggestedDomain = await this.getSuggestedDomain(tenantId);
+    return {
+      ...config.toObject(),
+      suggestedDomain,
+    };
   }
 
   /**
@@ -401,5 +411,156 @@ export class StorefrontService {
     this.logger.log(`Found ${domains.length} active domains`);
 
     return domains;
+  }
+
+  /**
+   * Sanitizar nombre para crear un dominio válido
+   */
+  private sanitizeDomainName(name: string): string {
+    return name
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // Remover acentos
+      .replace(/[^a-z0-9\s-]/g, "") // Solo letras, números, espacios y guiones
+      .trim()
+      .replace(/\s+/g, "-") // Espacios a guiones
+      .replace(/-+/g, "-") // Múltiples guiones a uno
+      .replace(/^-+|-+$/g, ""); // Remover guiones al inicio/fin
+  }
+
+  /**
+   * Obtener dominio sugerido basado en el nombre del tenant
+   */
+  async getSuggestedDomain(tenantId: string): Promise<string> {
+    const tenant = await this.tenantModel.findById(tenantId);
+    if (!tenant) {
+      throw new BadRequestException("Tenant no encontrado");
+    }
+
+    let baseDomain = this.sanitizeDomainName(tenant.name);
+    let suggestedDomain = baseDomain;
+    let counter = 1;
+
+    // Si el dominio base está en uso, agregar número
+    while (await this.isDomainTaken(suggestedDomain)) {
+      suggestedDomain = `${baseDomain}-${counter}`;
+      counter++;
+    }
+
+    return suggestedDomain;
+  }
+
+  /**
+   * Verificar si un dominio está en uso
+   */
+  private async isDomainTaken(domain: string): Promise<boolean> {
+    const existing = await this.storefrontConfigModel
+      .findOne({ domain })
+      .exec();
+    return !!existing;
+  }
+
+  /**
+   * Verificar disponibilidad de dominio
+   */
+  async checkDomainAvailability(
+    domain: string,
+    currentTenantId?: string,
+  ): Promise<boolean> {
+    const query: any = { domain };
+
+    // Si estamos verificando para un tenant específico, excluir su propia configuración
+    if (currentTenantId) {
+      query.tenantId = { $ne: currentTenantId };
+    }
+
+    const existing = await this.storefrontConfigModel.findOne(query).exec();
+    return !existing;
+  }
+
+  /**
+   * Subir y optimizar logo
+   */
+  async uploadLogo(
+    file: Express.Multer.File,
+    tenantId: string,
+  ): Promise<{ logo: string }> {
+    this.logger.log(`Uploading logo for tenant: ${tenantId}`);
+
+    try {
+      // Crear directorio si no existe
+      const uploadDir = path.join(process.cwd(), "uploads", "storefront");
+      await fs.mkdir(uploadDir, { recursive: true });
+
+      // Generar nombre único
+      const filename = `logo-${tenantId}-${Date.now()}.webp`;
+      const filepath = path.join(uploadDir, filename);
+
+      // Optimizar imagen
+      await sharp(file.buffer)
+        .resize(400, null, {
+          // Max 400px de ancho, mantener aspecto
+          withoutEnlargement: true,
+          fit: "inside",
+        })
+        .webp({ quality: 85 })
+        .toFile(filepath);
+
+      // Convertir a base64 para almacenar
+      const buffer = await fs.readFile(filepath);
+      const base64 = `data:image/webp;base64,${buffer.toString("base64")}`;
+
+      // Eliminar archivo temporal
+      await fs.unlink(filepath);
+
+      this.logger.log(`Logo uploaded successfully for tenant: ${tenantId}`);
+
+      return { logo: base64 };
+    } catch (error) {
+      this.logger.error(`Error uploading logo: ${error.message}`);
+      throw new BadRequestException("Error al procesar la imagen del logo");
+    }
+  }
+
+  /**
+   * Subir y optimizar favicon
+   */
+  async uploadFavicon(
+    file: Express.Multer.File,
+    tenantId: string,
+  ): Promise<{ favicon: string }> {
+    this.logger.log(`Uploading favicon for tenant: ${tenantId}`);
+
+    try {
+      // Crear directorio si no existe
+      const uploadDir = path.join(process.cwd(), "uploads", "storefront");
+      await fs.mkdir(uploadDir, { recursive: true });
+
+      // Generar nombre único
+      const filename = `favicon-${tenantId}-${Date.now()}.png`;
+      const filepath = path.join(uploadDir, filename);
+
+      // Optimizar imagen a 32x32
+      await sharp(file.buffer)
+        .resize(32, 32, {
+          fit: "cover",
+        })
+        .png({ quality: 90 })
+        .toFile(filepath);
+
+      // Convertir a base64
+      const buffer = await fs.readFile(filepath);
+      const base64 = `data:image/png;base64,${buffer.toString("base64")}`;
+
+      // Eliminar archivo temporal
+      await fs.unlink(filepath);
+
+      this.logger.log(`Favicon uploaded successfully for tenant: ${tenantId}`);
+
+      return { favicon: base64 };
+    } catch (error) {
+      this.logger.error(`Error uploading favicon: ${error.message}`);
+      throw new BadRequestException("Error al procesar la imagen del favicon");
+    }
   }
 }

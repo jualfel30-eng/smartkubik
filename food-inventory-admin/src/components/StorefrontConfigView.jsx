@@ -71,13 +71,27 @@ function StorefrontConfigView() {
     loadConfig();
   }, []);
 
+  // Debounce para validación automática de dominio
+  useEffect(() => {
+    if (!formData.domain) {
+      setDomainAvailable(null);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      checkDomainAvailability();
+    }, 500); // 500ms de debounce
+
+    return () => clearTimeout(timer);
+  }, [formData.domain]);
+
   const loadConfig = async () => {
     try {
       setLoading(true);
       const data = await fetchApi('/storefront/config');
       setConfig(data);
       setFormData({
-        domain: data.domain || '',
+        domain: data.domain || data.suggestedDomain || '',
         isActive: data.isActive || false,
         templateType: data.templateType || 'ecommerce',
         theme: {
@@ -103,12 +117,29 @@ function StorefrontConfigView() {
         },
         customCSS: data.customCSS || ''
       });
-    } catch (err) {
-      if (err.message.includes('No se encontró')) {
-        // No hay configuración aún, usar valores por defecto
-        toast.info('No hay configuración previa', { 
-          description: 'Crea tu primera configuración del storefront' 
+
+      // Si hay dominio sugerido, mostrarlo
+      if (data.suggestedDomain && !data.domain) {
+        toast.success('Dominio sugerido', {
+          description: `Se sugiere "${data.suggestedDomain}" basado en el nombre de tu negocio`
         });
+      }
+    } catch (err) {
+      if (err.message.includes('No se encontró') || err.message.includes('suggestedDomain')) {
+        // Intentar extraer el dominio sugerido del mensaje de error
+        try {
+          const parsed = JSON.parse(err.message);
+          if (parsed.suggestedDomain) {
+            setFormData(prev => ({ ...prev, domain: parsed.suggestedDomain }));
+            toast.info('No hay configuración previa', {
+              description: `Se sugiere el dominio "${parsed.suggestedDomain}"`
+            });
+          }
+        } catch {
+          toast.info('No hay configuración previa', {
+            description: 'Crea tu primera configuración del storefront'
+          });
+        }
       } else {
         toast.error('Error al cargar configuración', { description: err.message });
       }
@@ -164,9 +195,9 @@ function StorefrontConfigView() {
     }
   };
 
-  const checkDomainAvailability = async () => {
+  const checkDomainAvailability = async (showToast = false) => {
     if (!formData.domain) {
-      toast.error('Ingresa un dominio primero');
+      if (showToast) toast.error('Ingresa un dominio primero');
       return;
     }
 
@@ -174,14 +205,18 @@ function StorefrontConfigView() {
       setDomainChecking(true);
       const response = await fetchApi(`/storefront/check-domain?domain=${encodeURIComponent(formData.domain)}`);
       setDomainAvailable(response.isAvailable);
-      
-      if (response.isAvailable) {
-        toast.success('Dominio disponible', { description: 'Puedes usar este dominio' });
-      } else {
-        toast.error('Dominio no disponible', { description: 'Este dominio ya está en uso' });
+
+      if (showToast) {
+        if (response.isAvailable) {
+          toast.success('Dominio disponible', { description: 'Puedes usar este dominio' });
+        } else {
+          toast.error('Dominio no disponible', { description: 'Este dominio ya está en uso' });
+        }
       }
     } catch (err) {
-      toast.error('Error al verificar dominio', { description: err.message });
+      if (showToast) {
+        toast.error('Error al verificar dominio', { description: err.message });
+      }
     } finally {
       setDomainChecking(false);
     }
@@ -389,10 +424,11 @@ function StorefrontConfigView() {
                     value={formData.domain}
                     onChange={(e) => setFormData(prev => ({ ...prev, domain: e.target.value }))}
                   />
-                  <Button 
-                    variant="outline" 
-                    onClick={checkDomainAvailability}
+                  <Button
+                    variant="outline"
+                    onClick={() => checkDomainAvailability(true)}
                     disabled={domainChecking}
+                    title="Verificar disponibilidad"
                   >
                     {domainChecking ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
@@ -489,19 +525,24 @@ function StorefrontConfigView() {
 
               <div className="space-y-2">
                 <Label htmlFor="logo">Logo</Label>
-                <div className="flex items-center gap-4">
+                <div className="flex items-start gap-4">
                   {formData.theme.logo && (
-                    <img 
-                      src={formData.theme.logo} 
-                      alt="Logo" 
-                      className="h-16 w-auto object-contain border rounded"
-                    />
+                    <div className="relative group">
+                      <img
+                        src={formData.theme.logo}
+                        alt="Logo"
+                        className="h-24 w-auto max-w-[200px] object-contain border-2 rounded-lg p-2 bg-white"
+                      />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                        <p className="text-white text-xs px-2">Vista previa</p>
+                      </div>
+                    </div>
                   )}
                   <div className="flex-1">
                     <Input
                       id="logo-upload"
                       type="file"
-                      accept="image/*"
+                      accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
                       onChange={handleLogoUpload}
                       className="hidden"
                     />
@@ -509,32 +550,46 @@ function StorefrontConfigView() {
                       variant="outline"
                       onClick={() => document.getElementById('logo-upload').click()}
                       disabled={uploadingLogo}
+                      className="mb-2"
                     >
                       <Upload className="mr-2 h-4 w-4" />
-                      {uploadingLogo ? 'Subiendo...' : 'Subir Logo'}
+                      {uploadingLogo ? 'Subiendo...' : formData.theme.logo ? 'Cambiar Logo' : 'Subir Logo'}
                     </Button>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Recomendado: PNG o SVG, máximo 2MB
-                    </p>
+                    <div className="text-xs space-y-1">
+                      <p className="text-muted-foreground">
+                        <strong>Formato:</strong> PNG o SVG recomendado
+                      </p>
+                      <p className="text-muted-foreground">
+                        <strong>Tamaño máximo:</strong> 2MB
+                      </p>
+                      <p className="text-muted-foreground">
+                        <strong>Dimensiones:</strong> Se optimizará a máximo 400px de ancho
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="favicon">Favicon</Label>
-                <div className="flex items-center gap-4">
+                <div className="flex items-start gap-4">
                   {formData.theme.favicon && (
-                    <img 
-                      src={formData.theme.favicon} 
-                      alt="Favicon" 
-                      className="h-8 w-8 object-contain border rounded"
-                    />
+                    <div className="relative group">
+                      <img
+                        src={formData.theme.favicon}
+                        alt="Favicon"
+                        className="h-24 w-24 object-contain border-2 rounded-lg p-2 bg-white"
+                      />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                        <p className="text-white text-xs px-2">Vista previa</p>
+                      </div>
+                    </div>
                   )}
                   <div className="flex-1">
                     <Input
                       id="favicon-upload"
                       type="file"
-                      accept="image/*"
+                      accept="image/x-icon,image/png,image/vnd.microsoft.icon"
                       onChange={handleFaviconUpload}
                       className="hidden"
                     />
@@ -542,13 +597,22 @@ function StorefrontConfigView() {
                       variant="outline"
                       onClick={() => document.getElementById('favicon-upload').click()}
                       disabled={uploadingFavicon}
+                      className="mb-2"
                     >
                       <Upload className="mr-2 h-4 w-4" />
-                      {uploadingFavicon ? 'Subiendo...' : 'Subir Favicon'}
+                      {uploadingFavicon ? 'Subiendo...' : formData.theme.favicon ? 'Cambiar Favicon' : 'Subir Favicon'}
                     </Button>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Recomendado: ICO o PNG 32x32, máximo 500KB
-                    </p>
+                    <div className="text-xs space-y-1">
+                      <p className="text-muted-foreground">
+                        <strong>Formato:</strong> ICO o PNG recomendado
+                      </p>
+                      <p className="text-muted-foreground">
+                        <strong>Tamaño máximo:</strong> 500KB
+                      </p>
+                      <p className="text-muted-foreground">
+                        <strong>Dimensiones:</strong> Se optimizará a 32x32px
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
