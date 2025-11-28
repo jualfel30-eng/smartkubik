@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { StorefrontConfig } from '@/types';
 import { Footer } from './ModernEcommerce/components/Footer';
+import { getImageUrl } from '@/lib/utils';
 
 interface ModernEcommerceProps {
   config: StorefrontConfig;

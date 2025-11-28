@@ -28,12 +28,20 @@ export class CreatePublicOrderItemDto {
   variantSku?: string;
 
   @IsNumber()
-  @Min(1)
+  @Min(0.01) // Permitir decimales para productos por peso
   quantity: number;
 
   @IsNumber()
   @Min(0)
   unitPrice: number;
+
+  @IsOptional()
+  @IsString()
+  selectedUnit?: string; // "kg", "g", "lb" - Unidad seleccionada
+
+  @IsOptional()
+  @IsNumber()
+  conversionFactor?: number; // Factor de conversión usado
 
   @IsOptional()
   attributes?: Record<string, any>;

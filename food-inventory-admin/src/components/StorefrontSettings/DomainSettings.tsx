@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { StorefrontConfig } from './hooks/useStorefrontConfig';
+import { CheckCircle, XCircle, Loader } from 'lucide-react';
 
 interface DomainSettingsProps {
   config: StorefrontConfig;
@@ -12,8 +13,70 @@ export function DomainSettings({ config, onUpdate, onDelete, saving }: DomainSet
   const [domain, setDomain] = useState(config.domain);
   const [isActive, setIsActive] = useState(config.isActive);
   const [templateType, setTemplateType] = useState(config.templateType);
+  const [checkingDomain, setCheckingDomain] = useState(false);
+  const [domainAvailable, setDomainAvailable] = useState<boolean | null>(null);
+  const [suggestedDomain, setSuggestedDomain] = useState<string>('');
+  const debounceTimerRef = useRef<NodeJS.Timeout | undefined>(undefined);
+
+  // Check domain availability with debounce
+  useEffect(() => {
+    if (!domain || domain === config.domain) {
+      setDomainAvailable(null);
+      return;
+    }
+
+    // Clear previous timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    // Set new timer
+    debounceTimerRef.current = setTimeout(async () => {
+      setCheckingDomain(true);
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/v1/admin/storefront/check-domain?domain=${encodeURIComponent(domain)}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        );
+
+        if (!response.ok) throw new Error('Error al verificar dominio');
+
+        const data = await response.json();
+        setDomainAvailable(data.isAvailable);
+      } catch (error) {
+        console.error('Error checking domain:', error);
+        setDomainAvailable(null);
+      } finally {
+        setCheckingDomain(false);
+      }
+    }, 500); // 500ms debounce
+
+    // Cleanup
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [domain, config.domain]);
+
+  // Load suggested domain from config if available
+  useEffect(() => {
+    if (config.suggestedDomain) {
+      setSuggestedDomain(config.suggestedDomain);
+    }
+  }, [config.suggestedDomain]);
 
   const handleSave = async () => {
+    if (domainAvailable === false) {
+      alert('❌ El dominio no está disponible. Por favor elige otro.');
+      return;
+    }
+
     const result = await onUpdate({ domain, isActive, templateType });
     if (result.success) {
       alert('✅ Configuración actualizada correctamente');
@@ -29,6 +92,12 @@ export function DomainSettings({ config, onUpdate, onDelete, saving }: DomainSet
     }
   };
 
+  const useSuggestedDomain = () => {
+    if (suggestedDomain) {
+      setDomain(suggestedDomain);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -39,13 +108,52 @@ export function DomainSettings({ config, onUpdate, onDelete, saving }: DomainSet
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
             Dominio del Storefront
           </label>
-          <input
-            type="text"
-            value={domain}
-            onChange={(e) => setDomain(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-gray-100"
-            placeholder="mi-tienda"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              value={domain}
+              onChange={(e) => setDomain(e.target.value)}
+              className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-gray-100"
+              placeholder="mi-tienda"
+            />
+            {domain && domain !== config.domain && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                {checkingDomain ? (
+                  <Loader className="h-5 w-5 text-gray-400 animate-spin" />
+                ) : domainAvailable === true ? (
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                ) : domainAvailable === false ? (
+                  <XCircle className="h-5 w-5 text-red-500" />
+                ) : null}
+              </div>
+            )}
+          </div>
+
+          {/* Domain status message */}
+          {domain && domain !== config.domain && !checkingDomain && domainAvailable !== null && (
+            <p className={`mt-1 text-sm ${domainAvailable ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+              {domainAvailable
+                ? '✓ Dominio disponible'
+                : '✗ Dominio no disponible, ya está en uso'}
+            </p>
+          )}
+
+          {/* Suggested domain */}
+          {suggestedDomain && domain !== suggestedDomain && (
+            <div className="mt-2 flex items-center gap-2">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Dominio sugerido: <span className="font-medium">{suggestedDomain}</span>
+              </p>
+              <button
+                type="button"
+                onClick={useSuggestedDomain}
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Usar este dominio
+              </button>
+            </div>
+          )}
+
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             URL: <span className="font-medium">localhost:3001/{domain}</span>
           </p>

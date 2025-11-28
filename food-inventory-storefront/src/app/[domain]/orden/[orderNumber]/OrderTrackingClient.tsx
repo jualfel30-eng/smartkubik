@@ -27,7 +27,7 @@ interface StatusStep {
   key: string;
   label: string;
   icon: any;
-  date?: Date;
+  date?: Date | string;
   completed: boolean;
 }
 

@@ -10,6 +10,7 @@ export function SearchableSelect({
   placeholder = '',
   isCreatable = true,
   inputValue, // Opcional
+  isLoading = false, // Indicador de carga
   ...props
 }) {
   // Usar Select normal si no es creatable, CreatableSelect si lo es
@@ -52,6 +53,8 @@ export function SearchableSelect({
       classNames={classNames}
       formatCreateLabel={isCreatable ? (inputValue) => `Crear nuevo: "${inputValue}"` : undefined}
       noOptionsMessage={() => "No se encontraron resultados"}
+      isLoading={isLoading}
+      loadingMessage={() => "Buscando..."}
       {...props}
     />
   );

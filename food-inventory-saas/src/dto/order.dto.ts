@@ -222,6 +222,12 @@ export class CreateOrderDto {
   @IsNumber()
   discountAmount?: number;
 
+  @ApiPropertyOptional({ description: "Código de cupón a aplicar" })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  couponCode?: string;
+
   @ApiPropertyOptional({ description: "Monto total final de la orden" })
   @IsOptional()
   @IsNumber()

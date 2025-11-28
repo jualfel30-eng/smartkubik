@@ -55,6 +55,10 @@ function transformProduct(product: any): any {
     stock: stockFallback,
     isActive: product.isActive,
     tenantId: product.tenantId,
+    isSoldByWeight: product.isSoldByWeight || false,
+    hasMultipleSellingUnits: product.hasMultipleSellingUnits || false,
+    unitOfMeasure: product.unitOfMeasure || 'unidad',
+    sellingUnits: product.sellingUnits || [],
   };
 }
 

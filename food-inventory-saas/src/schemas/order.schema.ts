@@ -377,6 +377,39 @@ export class Order {
   @Prop({ type: Types.ObjectId, ref: "User" })
   assignedWaiterId?: Types.ObjectId;
 
+  // ========================================
+  // MARKETING: Cupones y Promociones
+  // ========================================
+
+  @Prop({ type: Object })
+  appliedCoupon?: {
+    couponId: Types.ObjectId;
+    code: string;
+    discountType: string;
+    discountValue: number;
+    discountAmount: number;
+  };
+
+  @Prop({
+    type: [
+      {
+        promotionId: { type: Types.ObjectId, ref: "Promotion" },
+        name: String,
+        type: String,
+        discountAmount: Number,
+        productsAffected: [String],
+      },
+    ],
+    default: [],
+  })
+  appliedPromotions?: Array<{
+    promotionId: Types.ObjectId;
+    name: string;
+    type: string;
+    discountAmount: number;
+    productsAffected: string[];
+  }>;
+
   @Prop({ type: String, ref: "Tenant", required: true })
   tenantId: string;
 

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StorefrontConfig } from './hooks/useStorefrontConfig';
+import { Upload } from 'lucide-react';
 
 interface ThemeEditorProps {
   config: StorefrontConfig;
@@ -9,11 +10,73 @@ interface ThemeEditorProps {
 
 export function ThemeEditor({ config, onUpdate, saving }: ThemeEditorProps) {
   const [theme, setTheme] = useState(config.theme);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingFavicon, setUploadingFavicon] = useState(false);
 
   const handleSave = async () => {
     const result = await onUpdate({ theme });
     if (result.success) {
       alert('✅ Tema actualizado correctamente');
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setUploadingLogo(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/v1/admin/storefront/upload-logo`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) throw new Error('Error al subir logo');
+
+      const data = await response.json();
+      setTheme({ ...theme, logo: data.data.logo });
+      alert('✅ Logo subido exitosamente');
+    } catch (error: any) {
+      alert('❌ Error al subir logo: ' + error.message);
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setUploadingFavicon(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/v1/admin/storefront/upload-favicon`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) throw new Error('Error al subir favicon');
+
+      const data = await response.json();
+      setTheme({ ...theme, favicon: data.data.favicon });
+      alert('✅ Favicon subido exitosamente');
+    } catch (error: any) {
+      alert('❌ Error al subir favicon: ' + error.message);
+    } finally {
+      setUploadingFavicon(false);
     }
   };
 
@@ -75,34 +138,75 @@ export function ThemeEditor({ config, onUpdate, saving }: ThemeEditorProps) {
         {/* Logo */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-            Logo (URL)
+            Logo
           </label>
-          <input
-            type="url"
-            value={theme.logo || ''}
-            onChange={(e) => setTheme({ ...theme, logo: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-gray-100"
-            placeholder="https://example.com/logo.png"
-          />
-          {theme.logo && (
-            <div className="mt-2">
-              <img src={theme.logo} alt="Logo preview" className="h-16 object-contain" />
+          <div className="flex items-start gap-4">
+            {theme.logo && (
+              <div className="relative">
+                <img src={theme.logo} alt="Logo preview" className="h-20 w-auto max-w-[200px] object-contain border-2 border-gray-200 dark:border-gray-700 rounded-lg p-2 bg-white dark:bg-gray-800" />
+              </div>
+            )}
+            <div className="flex-1">
+              <input
+                id="logo-upload"
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
+                onChange={handleLogoUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => document.getElementById('logo-upload')?.click()}
+                disabled={uploadingLogo}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                {uploadingLogo ? 'Subiendo...' : theme.logo ? 'Cambiar Logo' : 'Subir Logo'}
+              </button>
+              <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                <p><strong>Formato:</strong> PNG o SVG recomendado</p>
+                <p><strong>Tamaño máximo:</strong> 2MB</p>
+                <p><strong>Dimensiones:</strong> Se optimizará a máximo 400px de ancho</p>
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Favicon */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-            Favicon (URL)
+            Favicon
           </label>
-          <input
-            type="url"
-            value={theme.favicon || ''}
-            onChange={(e) => setTheme({ ...theme, favicon: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-gray-100"
-            placeholder="https://example.com/favicon.ico"
-          />
+          <div className="flex items-start gap-4">
+            {theme.favicon && (
+              <div className="relative">
+                <img src={theme.favicon} alt="Favicon preview" className="h-16 w-16 object-contain border-2 border-gray-200 dark:border-gray-700 rounded-lg p-2 bg-white dark:bg-gray-800" />
+              </div>
+            )}
+            <div className="flex-1">
+              <input
+                id="favicon-upload"
+                type="file"
+                accept="image/x-icon,image/png,image/vnd.microsoft.icon"
+                onChange={handleFaviconUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => document.getElementById('favicon-upload')?.click()}
+                disabled={uploadingFavicon}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                {uploadingFavicon ? 'Subiendo...' : theme.favicon ? 'Cambiar Favicon' : 'Subir Favicon'}
+              </button>
+              <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                <p><strong>Formato:</strong> ICO o PNG recomendado</p>
+                <p><strong>Tamaño máximo:</strong> 500KB</p>
+                <p><strong>Dimensiones:</strong> Se optimizará a 32x32px</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Preview */}

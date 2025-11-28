@@ -1,7 +1,9 @@
 import { getStorefrontConfig, getActiveDomains, getProducts, getCategories } from '@/lib/api';
 import { getTemplate } from '@/lib/templateFactory';
 
-export const revalidate = 60; // ISR: Revalidar cada 60 segundos
+// Forzar renderizado dinámico en cada request
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 interface StorefrontPageProps {
   params: Promise<{ domain: string }>;
@@ -41,6 +43,10 @@ export default async function StorefrontPage({
   );
 }
 
+// Deshabilitado para permitir rendering 100% dinámico
+// Con dynamic = 'force-dynamic', Next.js renderizará cada página bajo demanda
+// en lugar de pre-generarlas durante el build
+/*
 export async function generateStaticParams() {
   try {
     // Generar paths para todos los dominios activos
@@ -55,3 +61,4 @@ export async function generateStaticParams() {
     return [];
   }
 }
+*/

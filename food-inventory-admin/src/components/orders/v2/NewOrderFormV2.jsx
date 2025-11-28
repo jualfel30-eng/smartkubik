@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Combobox } from '@/components/ui/combobox.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
-import { Plus, Trash2, Percent } from 'lucide-react';
+import { Plus, Trash2, Percent, Scan } from 'lucide-react';
 import { fetchApi } from '@/lib/api.js';
 import { useCrmContext } from '@/context/CrmContext.jsx';
 import { venezuelaData } from '@/lib/venezuela-data.js';
@@ -19,6 +19,7 @@ import ModifierSelector from '@/components/restaurant/ModifierSelector.jsx';
 import { useAuth } from '@/hooks/use-auth.jsx';
 import { toast } from 'sonner';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group.jsx';
+import { BarcodeScannerDialog } from '@/components/BarcodeScannerDialog.jsx';
 
 const initialOrderState = {
   customerId: '',
@@ -46,7 +47,7 @@ const formatDecimalString = (value, decimals = 3) => {
 };
 
 export function NewOrderFormV2({ onOrderCreated }) {
-  const { crmData: customers, loading: contextLoading } = useCrmContext();
+  const { crmData: customers } = useCrmContext();
   const { rate: bcvRate, loading: loadingRate, error: rateError } = useExchangeRate();
   const { tenant, hasPermission } = useAuth();
   const canApplyDiscounts = hasPermission('orders_apply_discounts');
@@ -63,8 +64,13 @@ export function NewOrderFormV2({ onOrderCreated }) {
   const [customerNameInput, setCustomerNameInput] = useState('');
   const [customerRifInput, setCustomerRifInput] = useState('');
   const [productSearchInput, setProductSearchInput] = useState('');
+  const [barcodeSearch, setBarcodeSearch] = useState('');
+  const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
+  const [isBarcodeLookup, setIsBarcodeLookup] = useState(false);
+  const [continuousScan, setContinuousScan] = useState(false);
   const [shippingCost, setShippingCost] = useState(0);
   const [calculatingShipping, setCalculatingShipping] = useState(false);
+  const [isSearchingCustomers, setIsSearchingCustomers] = useState(false);
 
   // Estados para descuentos
   const [showItemDiscountDialog, setShowItemDiscountDialog] = useState(false);
@@ -75,8 +81,9 @@ export function NewOrderFormV2({ onOrderCreated }) {
   const [generalDiscountPercentage, setGeneralDiscountPercentage] = useState(0);
   const [generalDiscountReason, setGeneralDiscountReason] = useState('');
   const [customerSearchResults, setCustomerSearchResults] = useState([]);
-  const [loadingCustomerSearch, setLoadingCustomerSearch] = useState(false);
   const customerSearchTimeout = useRef(null);
+  const barcodeInputRef = useRef(null);
+  const lastScannedRef = useRef({ code: '', at: 0 });
   const restaurantEnabled = Boolean(
     tenant?.enabledModules?.restaurant ||
     tenant?.enabledModules?.tables ||
@@ -170,6 +177,47 @@ export function NewOrderFormV2({ onOrderCreated }) {
   ]);
 
   useEffect(() => {
+    const handleShortcutFocus = (event) => {
+      if (
+        event.key?.toLowerCase() === 'b' &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey
+      ) {
+        const tag = event.target?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || event.target?.isContentEditable) {
+          return;
+        }
+        event.preventDefault();
+        barcodeInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleShortcutFocus);
+    return () => window.removeEventListener('keydown', handleShortcutFocus);
+  }, []);
+
+  useEffect(() => {
+    const handleShortcutFocus = (event) => {
+      if (
+        event.key?.toLowerCase() === 'b' &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey
+      ) {
+        // Avoid stealing focus when typing inside inputs/textareas/selects
+        const tag = event.target?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || event.target?.isContentEditable) {
+          return;
+        }
+        event.preventDefault();
+        barcodeInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleShortcutFocus);
+    return () => window.removeEventListener('keydown', handleShortcutFocus);
+  }, []);
+
+  useEffect(() => {
     const selectedStateData = venezuelaData.find(v => v.estado === newOrder.shippingAddress.state);
     const newMunicipios = selectedStateData ? selectedStateData.municipios : [];
     setMunicipios(newMunicipios);
@@ -178,7 +226,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
     if (!cityExists && newMunicipios.length > 0) {
       handleAddressChange('city', newMunicipios[0]);
     }
-  }, [newOrder.shippingAddress.state]);
+  }, [newOrder.shippingAddress.state, newOrder.shippingAddress.city]);
 
   // Ref to prevent duplicate loading in React Strict Mode
   const hasLoadedProducts = useRef(false);
@@ -360,11 +408,12 @@ export function NewOrderFormV2({ onOrderCreated }) {
     }
     if (!term || term.length < 2) {
       setCustomerSearchResults([]);
+      setIsSearchingCustomers(false);
       return;
     }
+    setIsSearchingCustomers(true);
     customerSearchTimeout.current = setTimeout(async () => {
       try {
-        setLoadingCustomerSearch(true);
         const resp = await fetchApi(`/customers?search=${encodeURIComponent(term)}&limit=10`);
         const list = resp?.data || resp?.customers || [];
         setCustomerSearchResults(list);
@@ -372,7 +421,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
         console.error('Customer search failed:', error);
         setCustomerSearchResults([]);
       } finally {
-        setLoadingCustomerSearch(false);
+        setIsSearchingCustomers(false);
       }
     }, 300);
   };
@@ -479,7 +528,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
     }));
   };
 
-  const addConfiguredProductToOrder = (config, { modifiers = [], specialInstructions, priceAdjustment = 0 }) => {
+  const addConfiguredProductToOrder = useCallback((config, { modifiers = [], specialInstructions, priceAdjustment = 0 }) => {
     if (!config) return;
 
     const {
@@ -554,85 +603,88 @@ export function NewOrderFormV2({ onOrderCreated }) {
 
       return { ...prev, items };
     });
-  };
+  }, []);
 
-  const handleProductSelection = async (selectedOption) => {
-    if (!selectedOption) return;
-    const product = selectedOption.product;
-    if (!product) return;
-    const variant = product.variants?.[0];
-    if (!variant) {
-        alert(`El producto seleccionado (${product.name}) no tiene variantes configuradas y no se puede añadir.`);
-        return;
-    }
-    const hasMultiUnit = product.hasMultipleSellingUnits && product.sellingUnits?.length > 0;
-    const defaultUnit = hasMultiUnit ? product.sellingUnits.find(u => u.isDefault) || product.sellingUnits[0] : null;
-    let baseUnitPrice = hasMultiUnit ? (defaultUnit?.pricePerUnit || 0) : (variant.basePrice || 0);
-    const initialQuantity = hasMultiUnit ? (defaultUnit?.minimumQuantity || 1) : 1;
-
-    // Apply promotional discount if active
-    let promotionInfo = null;
-    if (product.hasActivePromotion && product.promotion?.isActive) {
-      const now = new Date();
-      const startDate = new Date(product.promotion.startDate);
-      const endDate = new Date(product.promotion.endDate);
-
-      // Check if promotion is currently valid
-      if (now >= startDate && now <= endDate) {
-        const discountPercentage = product.promotion.discountPercentage || 0;
-        const discountedPrice = baseUnitPrice * (1 - discountPercentage / 100);
-        promotionInfo = {
-          originalPrice: baseUnitPrice,
-          discountPercentage,
-          reason: product.promotion.reason,
-        };
-        baseUnitPrice = discountedPrice;
+  const handleProductSelection = useCallback(
+    async (selectedOption) => {
+      if (!selectedOption) return;
+      const product = selectedOption.product;
+      if (!product) return;
+      const variant = product.variants?.[0];
+      if (!variant) {
+          alert(`El producto seleccionado (${product.name}) no tiene variantes configuradas y no se puede añadir.`);
+          return;
       }
-    }
+      const hasMultiUnit = product.hasMultipleSellingUnits && product.sellingUnits?.length > 0;
+      const defaultUnit = hasMultiUnit ? product.sellingUnits.find(u => u.isDefault) || product.sellingUnits[0] : null;
+      let baseUnitPrice = hasMultiUnit ? (defaultUnit?.pricePerUnit || 0) : (variant.basePrice || 0);
+      const initialQuantity = hasMultiUnit ? (defaultUnit?.minimumQuantity || 1) : 1;
 
-    const config = {
-      product,
-      variant,
-      hasMultiUnit,
-      defaultUnit,
-      baseUnitPrice,
-      initialQuantity,
-      promotionInfo,
-    };
+      // Apply promotional discount if active
+      let promotionInfo = null;
+      if (product.hasActivePromotion && product.promotion?.isActive) {
+        const now = new Date();
+        const startDate = new Date(product.promotion.startDate);
+        const endDate = new Date(product.promotion.endDate);
 
-    setPendingProductConfig(config);
+        // Check if promotion is currently valid
+        if (now >= startDate && now <= endDate) {
+          const discountPercentage = product.promotion.discountPercentage || 0;
+          const discountedPrice = baseUnitPrice * (1 - discountPercentage / 100);
+          promotionInfo = {
+            originalPrice: baseUnitPrice,
+            discountPercentage,
+            reason: product.promotion.reason,
+          };
+          baseUnitPrice = discountedPrice;
+        }
+      }
 
-    if (!supportsModifiers) {
-      addConfiguredProductToOrder(config, { modifiers: [], specialInstructions: undefined, priceAdjustment: 0 });
-      setProductSearchInput('');
-      setPendingProductConfig(null);
-      return;
-    }
+      const config = {
+        product,
+        variant,
+        hasMultiUnit,
+        defaultUnit,
+        baseUnitPrice,
+        initialQuantity,
+        promotionInfo,
+      };
 
-    try {
-      const groups = await fetchApi(`/modifier-groups/product/${product._id}`);
-      if (Array.isArray(groups) && groups.length > 0) {
-        setShowModifierSelector(true);
+      setPendingProductConfig(config);
+
+      if (!supportsModifiers) {
+        addConfiguredProductToOrder(config, { modifiers: [], specialInstructions: undefined, priceAdjustment: 0 });
         setProductSearchInput('');
-      } else {
+        setPendingProductConfig(null);
+        return;
+      }
+
+      try {
+        const groups = await fetchApi(`/modifier-groups/product/${product._id}`);
+        if (Array.isArray(groups) && groups.length > 0) {
+          setShowModifierSelector(true);
+          setProductSearchInput('');
+        } else {
+          addConfiguredProductToOrder(config, { modifiers: [], specialInstructions: undefined, priceAdjustment: 0 });
+          setProductSearchInput('');
+          setPendingProductConfig(null);
+        }
+      } catch (error) {
+        // Modifier groups are optional (used mainly in restaurant vertical)
+        // If user doesn't have permissions or feature is not enabled, just add product without modifiers
+        if (error.message?.includes('permissions') || error.message?.includes('Forbidden')) {
+          console.log('ℹ️ [NewOrderForm] Modifier groups not available for this tenant (expected for non-restaurant verticals)');
+        } else {
+          console.warn('⚠️ [NewOrderForm] Could not load modifier groups:', error.message);
+        }
+        // Continue normal flow - add product without modifiers
         addConfiguredProductToOrder(config, { modifiers: [], specialInstructions: undefined, priceAdjustment: 0 });
         setProductSearchInput('');
         setPendingProductConfig(null);
       }
-    } catch (error) {
-      // Modifier groups are optional (used mainly in restaurant vertical)
-      // If user doesn't have permissions or feature is not enabled, just add product without modifiers
-      if (error.message?.includes('permissions') || error.message?.includes('Forbidden')) {
-        console.log('ℹ️ [NewOrderForm] Modifier groups not available for this tenant (expected for non-restaurant verticals)');
-      } else {
-        console.warn('⚠️ [NewOrderForm] Could not load modifier groups:', error.message);
-      }
-      // Continue normal flow - add product without modifiers
-      addConfiguredProductToOrder(config, { modifiers: [], specialInstructions: undefined, priceAdjustment: 0 });
-      setProductSearchInput('');
-      setPendingProductConfig(null);
-    }
-  };
+    },
+    [addConfiguredProductToOrder, supportsModifiers]
+  );
 
   const handleModifierClose = () => {
     setShowModifierSelector(false);
@@ -648,6 +700,112 @@ export function NewOrderFormV2({ onOrderCreated }) {
     addConfiguredProductToOrder(pendingProductConfig, { modifiers, specialInstructions, priceAdjustment });
     setProductSearchInput('');
     handleModifierClose();
+  };
+
+  const findProductByBarcode = useCallback(
+    (code) => {
+      const normalized = (code || '').trim();
+      if (!normalized) return null;
+
+      return products.find((product) => {
+        const productBarcode = product.barcode ? String(product.barcode).trim() : '';
+        if (productBarcode && productBarcode === normalized) {
+          return true;
+        }
+        if (Array.isArray(product.variants)) {
+          return product.variants.some((variant) => {
+            const variantBarcode = variant?.barcode ? String(variant.barcode).trim() : '';
+            return variantBarcode === normalized;
+          });
+        }
+        return false;
+      });
+    },
+    [products]
+  );
+
+  const handleBarcodeLookup = useCallback(
+    async (codeValue, options = {}) => {
+      const normalized = (codeValue || barcodeSearch).trim();
+      if (!normalized) return;
+
+      setIsBarcodeLookup(true);
+      const productMatch = findProductByBarcode(normalized);
+      try {
+        if (productMatch) {
+          await handleProductSelection({
+            value: productMatch._id,
+            label: `${productMatch.name} (${productMatch.sku || 'N/A'})`,
+            product: productMatch,
+          });
+          setBarcodeSearch('');
+          setProductSearchInput('');
+          toast.success('Producto añadido por código de barras');
+        } else {
+          // Fallback: buscar en backend para casos en que el producto no está en el listado local
+          const resp = await fetchApi(`/products/lookup/barcode/${encodeURIComponent(normalized)}`);
+          const data = resp?.data || resp;
+          if (data?.product) {
+            const fetchedProduct = {
+              ...data.product,
+              variants: data.product.variants?.length
+                ? data.product.variants
+                : data.variant
+                  ? [data.variant]
+                  : [],
+            };
+            await handleProductSelection({
+              value: fetchedProduct._id,
+              label: `${fetchedProduct.name} (${fetchedProduct.sku || 'N/A'})`,
+              product: fetchedProduct,
+            });
+            setBarcodeSearch('');
+            setProductSearchInput('');
+            toast.success('Producto añadido por código de barras');
+          } else {
+            toast.error('No se encontró un producto con ese código de barras');
+          }
+        }
+      } catch (error) {
+        console.error('Error al agregar producto escaneado:', error);
+        toast.error('No se pudo agregar el producto escaneado');
+      } finally {
+        setIsBarcodeLookup(false);
+        if (!options.keepScannerOpen) {
+          setIsBarcodeScannerOpen(false);
+        }
+      }
+    },
+    [barcodeSearch, findProductByBarcode, handleProductSelection]
+  );
+
+  const handleBarcodeDetected = useCallback(
+    (value) => {
+      const normalized = (value || '').trim();
+      if (!normalized) return;
+      const now = Date.now();
+      if (
+        lastScannedRef.current.code === normalized &&
+        now - lastScannedRef.current.at < 1200
+      ) {
+        return;
+      }
+      lastScannedRef.current = { code: normalized, at: now };
+      setBarcodeSearch(normalized);
+      handleBarcodeLookup(normalized, { keepScannerOpen: continuousScan }).finally(() => {
+        if (!continuousScan) {
+          setIsBarcodeScannerOpen(false);
+        }
+      });
+    },
+    [continuousScan, handleBarcodeLookup]
+  );
+
+  const handleBarcodeInputKeyDown = (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      handleBarcodeLookup();
+    }
   };
 
   const handleItemQuantityChange = (productId, newQuantityStr, isSoldByWeight) => {
@@ -956,10 +1114,6 @@ export function NewOrderFormV2({ onOrderCreated }) {
       }));
   }, [customers, customerSearchResults]);
 
-  const productOptions = useMemo(() => 
-    products.map(p => ({ value: p._id, label: `${p.name} (${p.sku})` })), 
-  [products]);
-
   const totals = useMemo(() => {
     const subtotal = newOrder.items.reduce((sum, item) => {
       const quantity = getItemQuantityValue(item);
@@ -1036,7 +1190,8 @@ export function NewOrderFormV2({ onOrderCreated }) {
                     onInputChange={handleCustomerRifInputChange}
                     inputValue={customerRifInput}
                     value={getCustomerRifValue()}
-                    placeholder="Buscar o crear RIF..."
+                    placeholder="Escriba para buscar RIF..."
+                    isLoading={isSearchingCustomers}
                   />
                 </div>
               </div>
@@ -1049,7 +1204,8 @@ export function NewOrderFormV2({ onOrderCreated }) {
                 onInputChange={handleCustomerNameInputChange}
                 inputValue={customerNameInput}
                 value={getCustomerNameValue()}
-                placeholder="Escriba o seleccione un cliente..."
+                placeholder="Escriba para buscar cliente..."
+                isLoading={isSearchingCustomers}
               />
             </div>
           </div>
@@ -1190,22 +1346,74 @@ export function NewOrderFormV2({ onOrderCreated }) {
 
         <div className="p-4 border rounded-lg space-y-4">
             <Label className="text-base font-semibold">Productos</Label>
-            <div className="flex space-x-2">
-                <div className="flex-grow min-w-0">
-                  <SearchableSelect
-                    options={products.map(p => ({
-                      value: p._id,
-                      label: `${p.name} (${p.sku || 'N/A'})`,
-                      product: p,
-                    }))}
-                    onSelection={handleProductSelection}
-                    inputValue={productSearchInput}
-                    onInputChange={(value) => setProductSearchInput(value)}
-                    value={null}
-                    placeholder={loadingProducts ? "Cargando productos..." : "Buscar y añadir producto..."}
-                    isDisabled={loadingProducts}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+              <div className="flex-grow min-w-0">
+                <SearchableSelect
+                  options={products.map(p => ({
+                    value: p._id,
+                    label: `${p.name} (${p.sku || 'N/A'})`,
+                    product: p,
+                  }))}
+                  onSelection={handleProductSelection}
+                  inputValue={productSearchInput}
+                  onInputChange={(value) => setProductSearchInput(value)}
+                  value={null}
+                  placeholder={loadingProducts ? "Cargando productos..." : "Buscar y añadir producto..."}
+                  isDisabled={loadingProducts}
+                />
+              </div>
+              <div className="flex w-full flex-col gap-2 sm:w-[360px]">
+                <Label className="text-sm text-muted-foreground">Escanear / código de barras</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={barcodeSearch}
+                    onChange={(e) => setBarcodeSearch(e.target.value)}
+                    onKeyDown={handleBarcodeInputKeyDown}
+                    ref={barcodeInputRef}
+                    placeholder="Escanea aquí o pega el código"
+                    className="flex-1"
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setIsBarcodeScannerOpen(true)}
+                    title="Escanear con cámara"
+                  >
+                    <Scan className="h-4 w-4" />
+                    <span className="sr-only">Abrir escáner</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleBarcodeLookup()}
+                    disabled={!barcodeSearch.trim()}
+                  >
+                    Agregar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={continuousScan ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      const next = !continuousScan;
+                      setContinuousScan(next);
+                      setIsBarcodeScannerOpen(next);
+                      if (next) {
+                        barcodeInputRef.current?.focus();
+                      }
+                    }}
+                    title="Modo escáner continuo (mantiene cámara abierta)"
+                  >
+                    <Scan className="h-4 w-4 mr-2" />
+                    {continuousScan ? "Escáner activo" : "Escáner en vivo"}
+                  </Button>
                 </div>
+                {isBarcodeLookup && (
+                  <span className="text-xs text-blue-600 dark:text-blue-300">Buscando producto por código...</span>
+                )}
+              </div>
             </div>
             <div className="border rounded-lg mt-4"><Table><TableHeader><TableRow><TableHead>Producto</TableHead><TableHead className="w-24">Cant.</TableHead><TableHead className="w-32">Unidad</TableHead><TableHead>Precio Unit.</TableHead><TableHead>Total</TableHead>{canApplyDiscounts && <TableHead className="w-28 text-center">Descuentos</TableHead>}<TableHead className="w-20 text-center">Borrar</TableHead></TableRow></TableHeader><TableBody>
               {newOrder.items.length > 0 ? (
@@ -1483,6 +1691,14 @@ export function NewOrderFormV2({ onOrderCreated }) {
         </div>
       </CardFooter>
       </Card>
+
+      <BarcodeScannerDialog
+        open={isBarcodeScannerOpen}
+        onOpenChange={setIsBarcodeScannerOpen}
+        onDetected={handleBarcodeDetected}
+        autoClose={!continuousScan}
+        description="Escanea con la cámara o usa tu lector USB; añadiremos el producto si hay coincidencia."
+      />
 
       {/* Dialog para descuento en item individual */}
       <Dialog open={showItemDiscountDialog} onOpenChange={setShowItemDiscountDialog}>

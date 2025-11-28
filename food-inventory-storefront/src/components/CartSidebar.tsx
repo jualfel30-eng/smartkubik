@@ -100,7 +100,10 @@ export function CartSidebar({ isOpen, onClose, domain }: CartSidebarProps) {
   };
 
   const calculateTotal = () => {
-    return cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    return cartItems.reduce((sum, item) => {
+      const price = item.unitPrice || item.product.price;
+      return sum + price * item.quantity;
+    }, 0);
   };
 
   const handleClose = () => {
@@ -188,7 +191,8 @@ export function CartSidebar({ isOpen, onClose, domain }: CartSidebarProps) {
                     {item.product.name}
                   </h3>
                   <p className="text-sm font-semibold text-[var(--primary-color)] mb-2">
-                    {formatPrice(item.product.price)}
+                    {formatPrice(item.unitPrice || item.product.price)}
+                    {item.selectedUnit && <span className="text-xs ml-1">/{item.selectedUnit}</span>}
                   </p>
 
                   {/* Quantity Controls */}
@@ -201,7 +205,7 @@ export function CartSidebar({ isOpen, onClose, domain }: CartSidebarProps) {
                       <Minus className={`h-4 w-4 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`} />
                     </button>
                     <span className={`text-sm font-medium min-w-[2rem] text-center ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
-                      {item.quantity}
+                      {item.quantity}{item.selectedUnit ? ` ${item.selectedUnit}` : ''}
                     </span>
                     <button
                       onClick={() => updateQuantity(item.product._id, 1)}

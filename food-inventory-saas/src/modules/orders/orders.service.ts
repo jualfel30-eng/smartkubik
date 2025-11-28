@@ -35,6 +35,10 @@ import { FEATURES } from "../../config/features.config";
 import { getVerticalProfile } from "../../config/vertical-profiles";
 import { DiscountService } from "./services/discount.service";
 import { TransactionHistoryService } from "../../services/transaction-history.service";
+import { BillOfMaterials, BillOfMaterialsDocument } from "../../schemas/bill-of-materials.schema";
+import { Modifier } from "../../schemas/modifier.schema";
+import { CouponsService } from "../coupons/coupons.service";
+import { PromotionsService } from "../promotions/promotions.service";
 
 @Injectable()
 export class OrdersService {
@@ -47,6 +51,10 @@ export class OrdersService {
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     @InjectModel(BankAccount.name)
     private bankAccountModel: Model<BankAccountDocument>,
+    @InjectModel(BillOfMaterials.name)
+    private bomModel: Model<BillOfMaterialsDocument>,
+    @InjectModel(Modifier.name)
+    private modifierModel: Model<Modifier>,
     private readonly inventoryService: InventoryService,
     private readonly accountingService: AccountingService,
     private readonly paymentsService: PaymentsService,
@@ -55,6 +63,8 @@ export class OrdersService {
   private readonly shiftsService: ShiftsService,
   private readonly discountService: DiscountService,
   private readonly transactionHistoryService: TransactionHistoryService,
+  private readonly couponsService: CouponsService,
+  private readonly promotionsService: PromotionsService,
   private readonly eventEmitter: EventEmitter2,
   @InjectConnection() private readonly connection: Connection,
   ) {}
@@ -298,6 +308,113 @@ export class OrdersService {
       };
     }
 
+    // ========================================
+    // MARKETING: Validar cupón y aplicar promociones
+    // ========================================
+    let appliedCoupon: any = null;
+    let appliedPromotions: any[] = [];
+    let couponDiscountAmount = 0;
+    let promotionsDiscountAmount = 0;
+
+    // 1. Validar y aplicar cupón si se proporcionó
+    if (createOrderDto.couponCode) {
+      try {
+        const couponValidation = await this.couponsService.validate(
+          user.tenantId,
+          {
+            code: createOrderDto.couponCode.toUpperCase(),
+            customerId: customer._id.toString(),
+            orderAmount: subtotal,
+            productIds: items.map((item) => item.productId),
+          },
+        );
+
+        if (couponValidation.isValid && couponValidation.discountAmount) {
+          couponDiscountAmount = couponValidation.discountAmount;
+
+          appliedCoupon = {
+            couponId: couponValidation.couponId,
+            code: couponValidation.code,
+            discountType: couponValidation.discountType || "unknown",
+            discountValue: couponValidation.discountValue || 0,
+            discountAmount: couponDiscountAmount,
+          };
+
+          this.logger.log(
+            `Coupon ${couponValidation.code} applied: $${couponDiscountAmount} discount`,
+          );
+        }
+      } catch (error) {
+        this.logger.warn(`Coupon validation failed: ${error.message}`);
+        // No lanzamos error, simplemente no aplicamos el cupón
+      }
+    }
+
+    // 2. Buscar y aplicar promociones automáticas
+    try {
+      const applicablePromotions = await this.promotionsService.findApplicable(
+        user.tenantId,
+        {
+          productItems: items.map((item) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+          })),
+          orderAmount: subtotal,
+          customerId: customer._id.toString(),
+        },
+      );
+
+      for (const promotion of applicablePromotions) {
+        // Solo aplicar promociones con autoApply: true
+        if (promotion.autoApply) {
+          const result = await this.promotionsService.calculateDiscount(
+            promotion,
+            {
+              promotionId: promotion._id.toString(),
+              orderId: "", // Will be set after order is created
+              customerId: customer._id.toString(),
+              orderAmount: subtotal,
+              productItems: items.map((item) => ({
+                productId: item.productId,
+                quantity: item.quantity,
+                price:
+                  detailedItems.find(
+                    (di) => di.productId.toString() === item.productId,
+                  )?.unitPrice || 0,
+              })),
+            },
+          );
+
+          if (
+            result.isApplicable &&
+            result.discountAmount &&
+            result.discountAmount > 0
+          ) {
+            appliedPromotions.push({
+              promotionId: promotion._id,
+              name: promotion.name,
+              type: promotion.type,
+              discountAmount: result.discountAmount,
+              productsAffected:
+                result.productsAffected?.map((p) => p.productId) || [],
+            });
+
+            promotionsDiscountAmount += result.discountAmount;
+
+            this.logger.log(
+              `Promotion "${promotion.name}" applied: $${result.discountAmount} discount`,
+            );
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.warn(`Promotions detection failed: ${error.message}`);
+      // No lanzamos error, simplemente no aplicamos promociones
+    }
+
+    const totalMarketingDiscount =
+      couponDiscountAmount + promotionsDiscountAmount;
+
     const foreignCurrencyPaymentAmount = (payments || [])
       .filter((p) => p.method.includes("_usd"))
       .reduce((sum, p) => sum + p.amount, 0);
@@ -307,7 +424,8 @@ export class OrdersService {
       ivaTotal +
       igtfTotal +
       shippingCost -
-      (createOrderDto.discountAmount || 0);
+      (createOrderDto.discountAmount || 0) -
+      totalMarketingDiscount;
 
     // Calcular totalAmountVes usando la tasa de cambio actual
     let totalAmountVes = 0;
@@ -334,6 +452,9 @@ export class OrdersService {
       shippingCost,
       shipping: shippingInfo,
       discountAmount: createOrderDto.discountAmount || 0,
+      appliedCoupon: appliedCoupon || undefined,
+      appliedPromotions:
+        appliedPromotions.length > 0 ? appliedPromotions : undefined,
       payments: [],
       paymentStatus: "pending",
       notes: createOrderDto.notes,
@@ -389,6 +510,55 @@ export class OrdersService {
     await this.tenantModel.findByIdAndUpdate(user.tenantId, {
       $inc: { "usage.currentOrders": 1 },
     });
+
+    // ========================================
+    // MARKETING: Track coupon and promotion usage
+    // ========================================
+    if (appliedCoupon) {
+      try {
+        await this.couponsService.apply(user.tenantId, {
+          code: appliedCoupon.code,
+          customerId: customer._id.toString(),
+          orderId: savedOrder._id.toString(),
+          orderAmount: totalAmount,
+        });
+        this.logger.log(
+          `Coupon usage tracked for ${appliedCoupon.code} on order ${savedOrder.orderNumber}`,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Failed to track coupon usage: ${error.message}`,
+        );
+      }
+    }
+
+    if (appliedPromotions.length > 0) {
+      for (const appliedPromotion of appliedPromotions) {
+        try {
+          await this.promotionsService.apply(user.tenantId, {
+            promotionId: appliedPromotion.promotionId.toString(),
+            orderId: savedOrder._id.toString(),
+            customerId: customer._id.toString(),
+            orderAmount: totalAmount,
+            productItems: items.map((item) => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              price:
+                detailedItems.find(
+                  (di) => di.productId.toString() === item.productId,
+                )?.unitPrice || 0,
+            })),
+          });
+          this.logger.log(
+            `Promotion usage tracked for "${appliedPromotion.name}" on order ${savedOrder.orderNumber}`,
+          );
+        } catch (error) {
+          this.logger.error(
+            `Failed to track promotion usage: ${error.message}`,
+          );
+        }
+      }
+    }
 
     // Emit order.created event for consumables automatic deduction
     this.eventEmitter.emit("order.created", {
@@ -496,6 +666,8 @@ export class OrdersService {
       attributes?: Record<string, any>;
       quantity: number;
       unitPrice: number;
+      selectedUnit?: string;
+      conversionFactor?: number;
     }>;
     shippingMethod?: "pickup" | "delivery";
     shippingAddress?: any;
@@ -622,6 +794,9 @@ export class OrdersService {
               .join(" | ")
           : undefined,
         quantity: item.quantity,
+        selectedUnit: item.selectedUnit,
+        conversionFactor: item.conversionFactor,
+        quantityInBaseUnit: item.conversionFactor ? item.quantity * item.conversionFactor : undefined,
         unitPrice: item.unitPrice,
         totalPrice: item.quantity * item.unitPrice,
         costPrice: variant?.costPrice ?? 0,
@@ -1002,6 +1177,7 @@ export class OrdersService {
     order.paidAmountVes = totalPaidVES;
 
     // Actualizar paymentStatus
+    const wasNotPaidBefore = order.paymentStatus !== "paid";
     if (totalPaidUSD >= order.totalAmount) {
       order.paymentStatus = "paid";
     } else if (totalPaidUSD > 0) {
@@ -1032,6 +1208,23 @@ export class OrdersService {
     }
 
     await order.save();
+
+    // Si la orden se acaba de pagar completamente, deducir ingredientes de las recetas
+    if (wasNotPaidBefore && order.paymentStatus === "paid") {
+      this.logger.log(
+        `Order ${order.orderNumber} fully paid. Triggering ingredient deduction...`,
+      );
+      // Ejecutar en background para no bloquear la respuesta
+      setImmediate(async () => {
+        try {
+          await this.deductIngredientsFromSale(order, user);
+        } catch (error) {
+          this.logger.error(
+            `Background ingredient deduction failed for order ${order.orderNumber}: ${error.message}`,
+          );
+        }
+      });
+    }
 
     const finalOrder = await this.findOne(orderId, user.tenantId);
     if (!finalOrder) {
@@ -1258,5 +1451,207 @@ export class OrdersService {
 
   private escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  /**
+   * Deduce ingredientes automáticamente del inventario cuando se vende un platillo con receta (BOM)
+   * Solo se ejecuta si el tenant tiene habilitada la opción enableAutomaticIngredientDeduction
+   *
+   * @param order - Orden completada
+   * @param user - Usuario que completó la orden
+   */
+  private async deductIngredientsFromSale(
+    order: OrderDocument,
+    user: any,
+  ): Promise<void> {
+    try {
+      // 1. Verificar si el tenant tiene habilitada la deducción automática
+      const tenant = await this.tenantModel.findById(user.tenantId);
+      if (!tenant?.settings?.inventory?.enableAutomaticIngredientDeduction) {
+        this.logger.debug(
+          `Automatic ingredient deduction disabled for tenant ${user.tenantId}`,
+        );
+        return;
+      }
+
+      this.logger.log(
+        `Deducting ingredients for order ${order.orderNumber} (${order._id})`,
+      );
+
+      // 2. Para cada item de la orden
+      for (const item of order.items) {
+        // Buscar BOM activo del producto
+        const bom = await this.bomModel
+          .findOne({
+            productId: item.productId,
+            isActive: true,
+            tenantId: user.tenantId,
+          })
+          .lean();
+
+        // Si no tiene receta, skip
+        if (!bom) {
+          this.logger.debug(
+            `No active BOM found for product ${item.productSku} (${item.productId})`,
+          );
+          continue;
+        }
+
+        this.logger.log(
+          `Found BOM ${bom._id} for product ${item.productSku}. Exploding recipe...`,
+        );
+
+        // 3. Explotar BOM para obtener lista flat de ingredientes
+        const flatIngredients: Array<{
+          productId: Types.ObjectId;
+          sku: string;
+          name: string;
+          totalQuantity: number;
+          unit: string;
+        }> = [];
+
+        // Procesar cada componente de la receta
+        for (const component of bom.components || []) {
+          // Calcular cantidad base del componente
+          let componentQuantity = component.quantity * item.quantity;
+
+          // NUEVO: Procesar modificadores que afectan este componente
+          if (item.modifiers && item.modifiers.length > 0) {
+            for (const appliedModifier of item.modifiers) {
+              // Buscar el modificador con sus efectos de componentes
+              const modifier = await this.modifierModel
+                .findById(appliedModifier.modifierId)
+                .lean();
+
+              if (
+                modifier?.componentEffects &&
+                modifier.componentEffects.length > 0
+              ) {
+                // Verificar si este modificador afecta el componente actual
+                const effect = modifier.componentEffects.find(
+                  (ce: any) =>
+                    ce.componentProductId.toString() ===
+                    component.componentProductId.toString(),
+                );
+
+                if (effect) {
+                  const modifierQty = appliedModifier.quantity || 1;
+
+                  switch (effect.action) {
+                    case "exclude":
+                      // No deducir este ingrediente
+                      componentQuantity = 0;
+                      this.logger.log(
+                        `Modifier "${modifier.name}" excluded component ${component.componentProductId} from order ${order.orderNumber}`,
+                      );
+                      break;
+
+                    case "multiply":
+                      // Multiplicar la cantidad (ej: "Extra Queso" x2)
+                      const multiplier = effect.quantity || 1;
+                      componentQuantity *= multiplier * modifierQty;
+                      this.logger.log(
+                        `Modifier "${modifier.name}" multiplied component ${component.componentProductId} by ${multiplier} (qty: ${modifierQty})`,
+                      );
+                      break;
+
+                    case "add":
+                      // Agregar cantidad adicional
+                      const additionalQty = (effect.quantity || 0) * modifierQty;
+                      componentQuantity += additionalQty;
+                      this.logger.log(
+                        `Modifier "${modifier.name}" added ${additionalQty} to component ${component.componentProductId}`,
+                      );
+                      break;
+                  }
+                }
+              }
+            }
+          }
+
+          // Si el componente fue excluido, skip
+          if (componentQuantity === 0) {
+            continue;
+          }
+
+          // Aplicar scrap percentage
+          const totalQuantity =
+            componentQuantity * (1 + (component.scrapPercentage || 0) / 100);
+
+          // Buscar información del producto componente
+          const componentProduct = await this.productModel
+            .findById(component.componentProductId)
+            .lean();
+
+          if (!componentProduct) {
+            this.logger.warn(
+              `Component product ${component.componentProductId} not found in BOM ${bom._id}`,
+            );
+            continue;
+          }
+
+          flatIngredients.push({
+            productId: component.componentProductId,
+            sku: componentProduct.sku,
+            name: componentProduct.name,
+            totalQuantity,
+            unit: component.unit,
+          });
+        }
+
+        // 4. Deducir cada ingrediente del inventario
+        for (const ingredient of flatIngredients) {
+          try {
+            // Buscar el inventario del ingrediente
+            const inventory = await this.inventoryService.findByProductSku(
+              ingredient.sku,
+              user.tenantId,
+            );
+
+            if (!inventory) {
+              this.logger.warn(
+                `Inventory not found for ingredient ${ingredient.sku} (${ingredient.name}). Skipping deduction.`,
+              );
+              continue;
+            }
+
+            // Calcular nueva cantidad
+            const newQuantity = inventory.totalQuantity - ingredient.totalQuantity;
+
+            // Ajustar inventario
+            await this.inventoryService.adjustInventory(
+              {
+                inventoryId: inventory._id.toString(),
+                newQuantity: Math.max(0, newQuantity), // No permitir cantidades negativas
+                reason: `Consumo por venta - Orden ${order.orderNumber} - Platillo: ${item.productName}`,
+              },
+              user,
+            );
+
+            this.logger.log(
+              `Deducted ${ingredient.totalQuantity} ${ingredient.unit} of ${ingredient.sku} (${ingredient.name}). New quantity: ${newQuantity}`,
+            );
+          } catch (error) {
+            // Log error pero continuar con otros ingredientes
+            this.logger.error(
+              `Error deducting ingredient ${ingredient.sku} for order ${order.orderNumber}: ${error.message}`,
+              error.stack,
+            );
+            // No lanzar error para no bloquear el proceso de venta
+            // El tenant puede revisar el inventario manualmente
+          }
+        }
+      }
+
+      this.logger.log(
+        `Ingredient deduction completed for order ${order.orderNumber}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error in deductIngredientsFromSale for order ${order._id}: ${error.message}`,
+        error.stack,
+      );
+      // No lanzar error para no bloquear el flujo de venta
+    }
   }
 }

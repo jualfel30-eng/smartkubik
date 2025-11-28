@@ -6,8 +6,28 @@ import {
   IsMongoId,
   Min,
   MaxLength,
+  IsArray,
+  ValidateNested,
+  IsEnum,
 } from "class-validator";
 import { Type } from "class-transformer";
+
+/**
+ * DTO para definir un efecto de componente
+ */
+export class ComponentEffectDto {
+  @IsMongoId()
+  componentProductId: string;
+
+  @IsEnum(["exclude", "multiply", "add"])
+  action: "exclude" | "multiply" | "add";
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Type(() => Number)
+  quantity?: number;
+}
 
 /**
  * DTO para crear un Modificador
@@ -39,6 +59,12 @@ export class CreateModifierDto {
 
   @IsMongoId()
   groupId: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ComponentEffectDto)
+  componentEffects?: ComponentEffectDto[];
 }
 
 /**
@@ -74,6 +100,12 @@ export class UpdateModifierDto {
   @IsOptional()
   @IsMongoId()
   groupId?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ComponentEffectDto)
+  componentEffects?: ComponentEffectDto[];
 }
 
 /**

@@ -37,6 +37,7 @@ export interface StorefrontConfig {
       postalCode: string;
     };
   };
+  suggestedDomain?: string;
 }
 
 const extractPayload = (response: any) => response?.data ?? response ?? null;

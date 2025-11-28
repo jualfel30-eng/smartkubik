@@ -4,6 +4,10 @@ import { getStorefrontConfig } from '@/lib/api';
 import ThemeProvider from '@/components/ThemeProvider';
 import { ClientLayout } from '@/components/ClientLayout';
 
+// Forzar renderizado dinámico para todas las páginas de dominio
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 interface DomainLayoutProps {
   children: React.ReactNode;
   params: Promise<{ domain: string }>;

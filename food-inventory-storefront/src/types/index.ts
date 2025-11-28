@@ -44,6 +44,18 @@ export interface StorefrontConfig {
   updatedAt: string;
 }
 
+export interface SellingUnit {
+  name: string;
+  abbreviation: string;
+  conversionFactor: number;
+  pricePerUnit: number;
+  costPerUnit: number;
+  isActive: boolean;
+  isDefault: boolean;
+  minimumQuantity?: number;
+  incrementStep?: number;
+}
+
 export interface Product {
   _id: string;
   name: string;
@@ -56,6 +68,10 @@ export interface Product {
   ingredients?: string;
   isActive: boolean;
   tenantId: string;
+  isSoldByWeight?: boolean;
+  hasMultipleSellingUnits?: boolean;
+  unitOfMeasure?: string;
+  sellingUnits?: SellingUnit[];
 }
 
 export interface ProductsResponse {
@@ -68,6 +84,9 @@ export interface ProductsResponse {
 export interface CartItem {
   product: Product;
   quantity: number;
+  selectedUnit?: string;
+  conversionFactor?: number;
+  unitPrice?: number;
 }
 
 export interface OrderData {
@@ -80,6 +99,8 @@ export interface OrderData {
     productId: string;
     quantity: number;
     price: number;
+    selectedUnit?: string;
+    conversionFactor?: number;
   }[];
   total: number;
   notes?: string;
@@ -92,16 +113,37 @@ export interface Order {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
-  customerAddress: string;
+  customerAddress?: string;
   items: {
     productId: string;
     productName: string;
     quantity: number;
-    price: number;
+    price?: number;
+    unitPrice: number;
   }[];
-  total: number;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  total?: number;
+  totalAmount: number;
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'processing' | 'shipped' | 'delivered';
   notes?: string;
+  shipping?: {
+    method: 'pickup' | 'delivery' | 'envio_nacional';
+    address?: {
+      street: string;
+      city: string;
+      state: string;
+      zipCode: string;
+      country: string;
+    };
+    scheduledDate?: string;
+    deliveredDate?: string;
+    trackingNumber?: string;
+    courierCompany?: string;
+    cost: number;
+  };
+  confirmedAt?: string;
+  shippedAt?: string;
+  deliveredAt?: string;
+  cancelledAt?: string;
   createdAt: string;
   updatedAt: string;
 }

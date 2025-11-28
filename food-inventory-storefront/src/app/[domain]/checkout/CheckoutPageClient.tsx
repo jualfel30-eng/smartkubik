@@ -65,7 +65,10 @@ export function CheckoutPageClient({ config }: CheckoutPageClientProps) {
   };
 
   const calculateTotal = () => {
-    return cartItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    return cartItems.reduce((sum, item) => {
+      const price = item.unitPrice || item.product.price;
+      return sum + price * item.quantity;
+    }, 0);
   };
 
   const validateForm = () => {
@@ -107,9 +110,9 @@ export function CheckoutPageClient({ config }: CheckoutPageClientProps) {
         items: cartItems.map((item) => ({
           productId: item.product._id,
           quantity: item.quantity,
-          unitPrice: item.product.price,
-          variantId: (item.product as any).variants?.[0]?._id,
-          variantSku: (item.product as any).variants?.[0]?.sku,
+          price: item.unitPrice || item.product.price,
+          selectedUnit: item.selectedUnit,
+          conversionFactor: item.conversionFactor,
         })),
         total: calculateTotal(),
         notes: formData.notes || undefined,

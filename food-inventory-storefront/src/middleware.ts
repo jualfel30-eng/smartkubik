@@ -38,28 +38,22 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    // Obtener URL del backend desde env o usar localhost
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
-    const apiUrl = backendUrl.replace('/api/v1', ''); // Remove /api/v1 if present
+    // Rewrite la ruta para que Next.js use el parámetro dinámico [domain]
+    const url = request.nextUrl.clone();
 
-    // Llamar al backend para validar el tenant
-    const response = await fetch(`${apiUrl}/api/v1/public/storefront/by-domain/${domain}`);
-
-    if (!response.ok) {
-      // Si el storefront no existe, continuar sin headers adicionales
-      return NextResponse.next();
+    // Si estamos en la raíz, rewrite a /${domain}
+    if (pathname === '/' || pathname === '') {
+      url.pathname = `/${domain}`;
+    } else if (!pathname.startsWith(`/${domain}`)) {
+      // Si la ruta no empieza con /${domain}, agregarla
+      url.pathname = `/${domain}${pathname}`;
     }
 
-    const result = await response.json();
-    const config = result.data;
-
-    // Agregar datos del tenant a los headers
+    // Agregar el domain como header para que esté disponible en los componentes
     const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-tenant-id', config.tenantId._id || config.tenantId);
-    requestHeaders.set('x-domain', config.domain);
-    requestHeaders.set('x-template', config.templateType);
+    requestHeaders.set('x-domain', domain);
 
-    return NextResponse.next({
+    return NextResponse.rewrite(url, {
       request: {
         headers: requestHeaders,
       },
