@@ -11,7 +11,7 @@ import TipsManagementDashboard from '../components/TipsManagementDashboard';
 const ReportsPage = () => {
   return (
     <div className="container mx-auto p-4 space-y-6">
-      <h1 className="text-3xl font-bold">Reportes</h1>
+      <h1 className="text-3xl font-bold text-foreground">Reportes</h1>
       <div>
         {/* Food Cost % - KPI #1 para restaurantes */}
         <FoodCostWidget />

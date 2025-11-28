@@ -22,36 +22,36 @@ const CATEGORY_CONFIG = {
   star: {
     label: 'Stars (Estrellas)',
     icon: Star,
-    color: 'text-yellow-600',
-    bgColor: 'bg-yellow-50',
-    borderColor: 'border-yellow-300',
+    color: 'text-yellow-600 dark:text-yellow-400',
+    bgColor: 'bg-yellow-50 dark:bg-yellow-950',
+    borderColor: 'border-yellow-300 dark:border-yellow-700',
     description: 'Alta popularidad + Alta rentabilidad',
     emoji: '⭐',
   },
   plowhorse: {
     label: 'Plowhorses (Caballos de trabajo)',
     icon: TrendingUp,
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-50',
-    borderColor: 'border-blue-300',
+    color: 'text-blue-600 dark:text-blue-400',
+    bgColor: 'bg-blue-50 dark:bg-blue-950',
+    borderColor: 'border-blue-300 dark:border-blue-700',
     description: 'Alta popularidad + Baja rentabilidad',
     emoji: '🐴',
   },
   puzzle: {
     label: 'Puzzles (Enigmas)',
     icon: HelpCircle,
-    color: 'text-purple-600',
-    bgColor: 'bg-purple-50',
-    borderColor: 'border-purple-300',
+    color: 'text-purple-600 dark:text-purple-400',
+    bgColor: 'bg-purple-50 dark:bg-purple-950',
+    borderColor: 'border-purple-300 dark:border-purple-700',
     description: 'Baja popularidad + Alta rentabilidad',
     emoji: '🧩',
   },
   dog: {
     label: 'Dogs (Perros)',
     icon: AlertCircle,
-    color: 'text-red-600',
-    bgColor: 'bg-red-50',
-    borderColor: 'border-red-300',
+    color: 'text-red-600 dark:text-red-400',
+    bgColor: 'bg-red-50 dark:bg-red-950',
+    borderColor: 'border-red-300 dark:border-red-700',
     description: 'Baja popularidad + Baja rentabilidad',
     emoji: '🐕',
   },
@@ -92,7 +92,7 @@ const MenuEngineeringWidget = () => {
     const Icon = config.icon;
 
     return (
-      <TableRow key={`${product.productId}-${index}`} className="hover:bg-gray-50">
+      <TableRow key={`${product.productId}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-800">
         <TableCell>
           <div className="flex items-center gap-2">
             <Icon className={`w-4 h-4 ${config.color}`} />
@@ -109,7 +109,7 @@ const MenuEngineeringWidget = () => {
           {formatCurrency(product.cost)}
         </TableCell>
         <TableCell className="text-right">
-          <span className={product.contributionMargin > 0 ? 'text-green-700 font-semibold' : 'text-red-700'}>
+          <span className={product.contributionMargin > 0 ? 'text-green-700 dark:text-green-400 font-semibold' : 'text-red-700 dark:text-red-400'}>
             {formatCurrency(product.contributionMargin)}
           </span>
         </TableCell>
@@ -149,7 +149,7 @@ const MenuEngineeringWidget = () => {
         </CardHeader>
         <CardContent className="pt-4">
           {products.length === 0 ? (
-            <p className="text-center text-gray-500 py-4 text-sm">
+            <p className="text-center text-muted-foreground py-4 text-sm">
               No hay platillos en esta categoría
             </p>
           ) : (
@@ -157,35 +157,35 @@ const MenuEngineeringWidget = () => {
               {products.slice(0, 3).map((product, index) => (
                 <div
                   key={`${product.productId}-${index}`}
-                  className="p-3 rounded-lg bg-gray-50 border border-gray-200"
+                  className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-semibold text-gray-900">{product.productName}</h4>
+                    <h4 className="font-semibold text-foreground">{product.productName}</h4>
                     <Badge className={`${config.bgColor} ${config.color} border-0`}>
                       {product.quantitySold} vendidos
                     </Badge>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
-                      <span className="text-gray-600">Ingresos:</span>
-                      <span className="ml-1 font-semibold text-gray-900">
+                      <span className="text-muted-foreground">Ingresos:</span>
+                      <span className="ml-1 font-semibold text-foreground">
                         {formatCurrency(product.revenue)}
                       </span>
                     </div>
                     <div>
-                      <span className="text-gray-600">Margen:</span>
-                      <span className="ml-1 font-semibold text-green-700">
+                      <span className="text-muted-foreground">Margen:</span>
+                      <span className="ml-1 font-semibold text-green-700 dark:text-green-400">
                         {product.contributionMarginPercent}%
                       </span>
                     </div>
                   </div>
-                  <div className="mt-2 text-xs text-gray-600 italic">
+                  <div className="mt-2 text-xs text-muted-foreground italic">
                     💡 {product.recommendation}
                   </div>
                 </div>
               ))}
               {products.length > 3 && (
-                <p className="text-center text-sm text-gray-500 pt-2">
+                <p className="text-center text-sm text-muted-foreground pt-2">
                   + {products.length - 3} platillos más
                 </p>
               )}
@@ -223,55 +223,55 @@ const MenuEngineeringWidget = () => {
       <CardContent>
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
         ) : data ? (
           <div className="space-y-6">
             {/* Summary Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
-                <div className="flex items-center gap-2 text-blue-700 mb-2">
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 mb-2">
                   <ShoppingCart className="h-5 w-5" />
                   <span className="text-sm font-medium">Platillos Totales</span>
                 </div>
-                <div className="text-3xl font-bold text-blue-900">
+                <div className="text-3xl font-bold text-blue-900 dark:text-blue-100">
                   {data.summary.totalItems}
                 </div>
               </div>
 
-              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
-                <div className="flex items-center gap-2 text-green-700 mb-2">
+              <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 rounded-lg p-4 border border-green-200 dark:border-green-800">
+                <div className="flex items-center gap-2 text-green-700 dark:text-green-300 mb-2">
                   <DollarSign className="h-5 w-5" />
                   <span className="text-sm font-medium">Ingresos Totales</span>
                 </div>
-                <div className="text-3xl font-bold text-green-900">
+                <div className="text-3xl font-bold text-green-900 dark:text-green-100">
                   {formatCurrency(data.summary.totalRevenue)}
                 </div>
               </div>
 
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
-                <div className="flex items-center gap-2 text-purple-700 mb-2">
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+                <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300 mb-2">
                   <TrendingUp className="h-5 w-5" />
                   <span className="text-sm font-medium">Margen Total</span>
                 </div>
-                <div className="text-3xl font-bold text-purple-900">
+                <div className="text-3xl font-bold text-purple-900 dark:text-purple-100">
                   {formatCurrency(data.summary.totalContributionMargin)}
                 </div>
               </div>
 
-              <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-4 border border-yellow-200">
-                <div className="flex items-center gap-2 text-yellow-700 mb-2">
+              <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950 dark:to-yellow-900 rounded-lg p-4 border border-yellow-200 dark:border-yellow-800">
+                <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-300 mb-2">
                   <Star className="h-5 w-5" />
                   <span className="text-sm font-medium">Stars</span>
                 </div>
-                <div className="text-3xl font-bold text-yellow-900">
+                <div className="text-3xl font-bold text-yellow-900 dark:text-yellow-100">
                   {data.metrics.starsCount}
                 </div>
               </div>
             </div>
 
             {/* Period Info */}
-            <div className="text-center text-sm text-gray-500 py-2 border-y">
+            <div className="text-center text-sm text-muted-foreground py-2 border-y dark:border-gray-700">
               <span className="font-medium">
                 {PERIOD_OPTIONS.find(p => p.value === period)?.label || 'Período seleccionado'}
               </span>
@@ -297,7 +297,7 @@ const MenuEngineeringWidget = () => {
                 </div>
 
                 {/* Revenue Distribution */}
-                <Card className="border-2">
+                <Card className="border-2 dark:border-gray-700">
                   <CardHeader>
                     <CardTitle className="text-lg">Distribución de Ingresos por Categoría</CardTitle>
                   </CardHeader>
@@ -323,11 +323,11 @@ const MenuEngineeringWidget = () => {
                                   {metrics.count} items
                                 </Badge>
                               </span>
-                              <span className="text-gray-700 font-semibold">
+                              <span className="font-semibold text-foreground">
                                 {formatCurrency(metrics.revenue)} ({percentage.toFixed(1)}%)
                               </span>
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-3">
+                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
                               <div
                                 className={`h-3 rounded-full transition-all duration-500 ${config.bgColor.replace('bg-', 'bg-gradient-to-r from-').replace('-50', '-400 to-').replace(/to-$/, config.bgColor.split('-')[1] + '-600')}`}
                                 style={{ width: `${percentage}%` }}
@@ -343,10 +343,10 @@ const MenuEngineeringWidget = () => {
 
               {/* Table View */}
               <TabsContent value="table" className="mt-4">
-                <div className="border rounded-lg overflow-hidden">
+                <div className="border dark:border-gray-700 rounded-lg overflow-hidden">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-gray-50">
+                      <TableRow className="bg-gray-50 dark:bg-gray-800">
                         <TableHead className="font-bold">Platillo</TableHead>
                         <TableHead className="text-right font-bold">Unidades</TableHead>
                         <TableHead className="text-right font-bold">Ingresos</TableHead>
@@ -359,8 +359,8 @@ const MenuEngineeringWidget = () => {
                     <TableBody>
                       {data.categories.stars.length > 0 && (
                         <>
-                          <TableRow className="bg-yellow-50">
-                            <TableCell colSpan={7} className="font-bold text-yellow-900">
+                          <TableRow className="bg-yellow-50 dark:bg-yellow-950">
+                            <TableCell colSpan={7} className="font-bold text-yellow-900 dark:text-yellow-100">
                               ⭐ Stars (Estrellas)
                             </TableCell>
                           </TableRow>
@@ -369,8 +369,8 @@ const MenuEngineeringWidget = () => {
                       )}
                       {data.categories.plowhorses.length > 0 && (
                         <>
-                          <TableRow className="bg-blue-50">
-                            <TableCell colSpan={7} className="font-bold text-blue-900">
+                          <TableRow className="bg-blue-50 dark:bg-blue-950">
+                            <TableCell colSpan={7} className="font-bold text-blue-900 dark:text-blue-100">
                               🐴 Plowhorses (Caballos de trabajo)
                             </TableCell>
                           </TableRow>
@@ -379,8 +379,8 @@ const MenuEngineeringWidget = () => {
                       )}
                       {data.categories.puzzles.length > 0 && (
                         <>
-                          <TableRow className="bg-purple-50">
-                            <TableCell colSpan={7} className="font-bold text-purple-900">
+                          <TableRow className="bg-purple-50 dark:bg-purple-950">
+                            <TableCell colSpan={7} className="font-bold text-purple-900 dark:text-purple-100">
                               🧩 Puzzles (Enigmas)
                             </TableCell>
                           </TableRow>
@@ -389,8 +389,8 @@ const MenuEngineeringWidget = () => {
                       )}
                       {data.categories.dogs.length > 0 && (
                         <>
-                          <TableRow className="bg-red-50">
-                            <TableCell colSpan={7} className="font-bold text-red-900">
+                          <TableRow className="bg-red-50 dark:bg-red-950">
+                            <TableCell colSpan={7} className="font-bold text-red-900 dark:text-red-100">
                               🐕 Dogs (Perros)
                             </TableCell>
                           </TableRow>
@@ -404,10 +404,10 @@ const MenuEngineeringWidget = () => {
             </Tabs>
 
             {/* Strategic Recommendations */}
-            <Alert className="border-blue-200 bg-blue-50">
-              <TrendingUp className="h-4 w-4 text-blue-900" />
-              <AlertTitle className="text-blue-900">💡 Recomendaciones Estratégicas</AlertTitle>
-              <AlertDescription className="text-blue-800 text-sm space-y-2">
+            <Alert className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950">
+              <TrendingUp className="h-4 w-4 text-blue-900 dark:text-blue-100" />
+              <AlertTitle className="text-blue-900 dark:text-blue-100">💡 Recomendaciones Estratégicas</AlertTitle>
+              <AlertDescription className="text-blue-800 dark:text-blue-200 text-sm space-y-2">
                 <ul className="list-disc list-inside space-y-1 mt-2">
                   <li><strong>Stars:</strong> Mantén la calidad y promociónalos activamente. Son tu fuente principal de rentabilidad.</li>
                   <li><strong>Plowhorses:</strong> Considera aumentar precios gradualmente o reducir costos de ingredientes.</li>
@@ -418,8 +418,8 @@ const MenuEngineeringWidget = () => {
             </Alert>
           </div>
         ) : (
-          <div className="text-center py-16 text-gray-500">
-            <ShoppingCart className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+          <div className="text-center py-16 text-muted-foreground">
+            <ShoppingCart className="h-12 w-12 mx-auto mb-4 text-muted" />
             <p>No hay datos disponibles para el período seleccionado</p>
           </div>
         )}

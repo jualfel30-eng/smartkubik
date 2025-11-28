@@ -54,6 +54,7 @@ import {
 } from "../../schemas/bank-account.schema";
 import { MailModule } from "../mail/mail.module";
 import { PayrollWebhooksModule } from "../payroll-webhooks/payroll-webhooks.module";
+import { TipsModule } from "../tips/tips.module";
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { PayrollWebhooksModule } from "../payroll-webhooks/payroll-webhooks.modu
     NotificationsModule,
     MailModule,
     PayrollWebhooksModule,
+    TipsModule,
   ],
   controllers: [PayrollRunsController],
   providers: [PayrollRunsService, PayrollEngineService, PayablesService],

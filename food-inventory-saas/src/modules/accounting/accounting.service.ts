@@ -26,6 +26,10 @@ import { PaymentDocument } from "../../schemas/payment.schema";
 import { Payable, PayableDocument } from "../../schemas/payable.schema";
 import { PayrollConcept } from "../../schemas/payroll-concept.schema";
 import { PayrollRunDocument } from "../../schemas/payroll-run.schema";
+import {
+  BillingDocument,
+  BillingDocumentDocument,
+} from "../../schemas/billing-document.schema";
 
 @Injectable()
 export class AccountingService {
@@ -38,6 +42,8 @@ export class AccountingService {
     private journalEntryModel: Model<JournalEntryDocument>,
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
     @InjectModel(Payable.name) private payableModel: Model<PayableDocument>,
+    @InjectModel(BillingDocument.name)
+    private billingModel: Model<BillingDocumentDocument>,
   ) {}
 
   private async generateNextCode(
@@ -412,6 +418,74 @@ export class AccountingService {
     });
 
     return newEntry.save();
+  }
+
+  /**
+   * Asiento automático para BillingDocument (factura) emitido desde módulo billing.
+   * Usa AR 1102, Ingresos 4101 y 2102 Impuestos por Pagar.
+   */
+  async createJournalEntryForBillingDocument(
+    billing: BillingDocumentDocument,
+    tenantId: string,
+  ): Promise<JournalEntryDocument | null> {
+    const total = billing.totals?.grandTotal || 0;
+    if (total <= 0) {
+      return null;
+    }
+    const taxTotal = (billing.totals?.taxes || []).reduce(
+      (sum, t) => sum + (t.amount || 0),
+      0,
+    );
+    const subtotal =
+      billing.totals?.subtotal ?? Math.max(total - taxTotal, 0);
+
+    const accountsReceivableAcc = await this.findAccountByCode(
+      "1102",
+      tenantId,
+    );
+    const salesRevenueAcc = await this.findAccountByCode("4101", tenantId);
+    const taxPayableAcc = await this.findAccountByCode("2102", tenantId);
+
+    const lines = [
+      {
+        accountId: accountsReceivableAcc._id.toString(),
+        debit: total,
+        credit: 0,
+        description: `Cuentas por cobrar doc ${billing.documentNumber}`,
+      },
+      {
+        accountId: salesRevenueAcc._id.toString(),
+        debit: 0,
+        credit: subtotal,
+        description: `Ingreso doc ${billing.documentNumber}`,
+      },
+    ];
+
+    if (taxTotal > 0) {
+      lines.push({
+        accountId: taxPayableAcc._id.toString(),
+        debit: 0,
+        credit: taxTotal,
+        description: `Impuestos doc ${billing.documentNumber}`,
+      });
+    }
+
+    const entry = await this.createJournalEntry(
+      {
+        description: `Asiento automático por factura ${billing.documentNumber}`,
+        date: billing.issueDate || new Date(),
+        lines,
+        isAutomatic: true,
+        source: {
+          module: "billing",
+          documentId: billing._id.toString(),
+          controlNumber: billing.controlNumber,
+        },
+      } as any,
+      tenantId,
+    );
+
+    return entry;
   }
 
   async createJournalEntryForCOGS(

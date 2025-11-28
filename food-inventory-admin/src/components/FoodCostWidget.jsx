@@ -48,13 +48,13 @@ const FoodCostWidget = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'good':
-        return 'text-green-600 border-green-600 bg-green-50';
+        return 'text-green-600 dark:text-green-400 border-green-600 dark:border-green-400 bg-green-50 dark:bg-green-950';
       case 'warning':
-        return 'text-yellow-600 border-yellow-600 bg-yellow-50';
+        return 'text-yellow-600 dark:text-yellow-400 border-yellow-600 dark:border-yellow-400 bg-yellow-50 dark:bg-yellow-950';
       case 'danger':
-        return 'text-red-600 border-red-600 bg-red-50';
+        return 'text-red-600 dark:text-red-400 border-red-600 dark:border-red-400 bg-red-50 dark:bg-red-950';
       default:
-        return 'text-gray-600 border-gray-600 bg-gray-50';
+        return 'text-gray-600 dark:text-gray-400 border-gray-600 dark:border-gray-400 bg-gray-50 dark:bg-gray-800';
     }
   };
 
@@ -134,7 +134,7 @@ const FoodCostWidget = () => {
           <span className="text-4xl font-bold" style={{ color }}>
             {percentage.toFixed(1)}%
           </span>
-          <span className="text-sm text-gray-500 mt-1">Food Cost</span>
+          <span className="text-sm text-muted-foreground mt-1">Food Cost</span>
         </div>
       </div>
     );
@@ -167,7 +167,7 @@ const FoodCostWidget = () => {
       <CardContent>
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
         ) : data ? (
           <div className="space-y-6">
@@ -188,61 +188,61 @@ const FoodCostWidget = () => {
             </div>
 
             {/* Benchmark Comparison */}
-            <Alert className={data.variance <= 0 ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}>
+            <Alert className={data.variance <= 0 ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950' : 'border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950'}>
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Comparación con Benchmark ({data.benchmark}%)</AlertTitle>
               <AlertDescription>
                 {data.variance > 0 ? (
-                  <span className="text-yellow-800">
+                  <span className="text-yellow-800 dark:text-yellow-200">
                     Estás <strong>{data.variance.toFixed(2)}%</strong> por encima del benchmark ideal
                   </span>
                 ) : data.variance < 0 ? (
-                  <span className="text-green-800">
+                  <span className="text-green-800 dark:text-green-200">
                     Estás <strong>{Math.abs(data.variance).toFixed(2)}%</strong> por debajo del benchmark ¡Excelente!
                   </span>
                 ) : (
-                  <span className="text-green-800">Estás exactamente en el benchmark ideal</span>
+                  <span className="text-green-800 dark:text-green-200">Estás exactamente en el benchmark ideal</span>
                 )}
               </AlertDescription>
             </Alert>
 
             {/* Metrics Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4">
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <div className="flex items-center gap-2 text-gray-600 mb-2">
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 mb-2">
                   <ShoppingCart className="h-4 w-4" />
                   <span className="text-sm font-medium">Ventas Totales</span>
                 </div>
-                <div className="text-2xl font-bold text-gray-900">
+                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {formatCurrency(data.totalSales)}
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-xs text-muted-foreground mt-1">
                   {data.metrics.orderCount} órdenes
                 </div>
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <div className="flex items-center gap-2 text-gray-600 mb-2">
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 mb-2">
                   <Package className="h-4 w-4" />
                   <span className="text-sm font-medium">Costo Ingredientes</span>
                 </div>
-                <div className="text-2xl font-bold text-gray-900">
+                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {formatCurrency(data.totalCost)}
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-xs text-muted-foreground mt-1">
                   {data.metrics.movementCount} movimientos
                 </div>
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <div className="flex items-center gap-2 text-gray-600 mb-2">
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 mb-2">
                   <DollarSign className="h-4 w-4" />
                   <span className="text-sm font-medium">Costo por Orden</span>
                 </div>
-                <div className="text-2xl font-bold text-gray-900">
+                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
                   {formatCurrency(data.metrics.averageCostPerOrder)}
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-xs text-muted-foreground mt-1">
                   Promedio
                 </div>
               </div>

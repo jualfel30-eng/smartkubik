@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { AccountingController } from "./accounting.controller";
 import { AccountingService } from "./accounting.service";
+import { BillingAccountingListener } from "./listeners/billing-accounting.listener";
 import {
   ChartOfAccounts,
   ChartOfAccountsSchema,
@@ -13,6 +14,10 @@ import {
 } from "../../schemas/journal-entry.schema";
 import { Order, OrderSchema } from "../../schemas/order.schema";
 import { Payable, PayableSchema } from "../../schemas/payable.schema";
+import {
+  BillingDocument,
+  BillingDocumentSchema,
+} from "../../schemas/billing-document.schema";
 
 @Module({
   imports: [
@@ -22,10 +27,11 @@ import { Payable, PayableSchema } from "../../schemas/payable.schema";
       { name: JournalEntry.name, schema: JournalEntrySchema },
       { name: Order.name, schema: OrderSchema },
       { name: Payable.name, schema: PayableSchema },
+      { name: BillingDocument.name, schema: BillingDocumentSchema },
     ]),
   ],
   controllers: [AccountingController],
-  providers: [AccountingService],
+  providers: [AccountingService, BillingAccountingListener],
   exports: [AccountingService],
 })
 export class AccountingModule {}

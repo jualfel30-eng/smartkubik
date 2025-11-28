@@ -68,7 +68,7 @@ const PerformanceReport = () => {
       </CardHeader>
       <CardContent>
         {loading ? (
-          <p>Cargando datos del reporte...</p>
+          <p className="text-muted-foreground">Cargando datos del reporte...</p>
         ) : (
           <Table>
             <TableHeader>

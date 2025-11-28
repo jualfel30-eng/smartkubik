@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { TipsController } from "./tips.controller";
 import { TipsService } from "./tips.service";
+import { TipsDistributionJob } from "./tips-distribution.job";
 import {
   TipsDistributionRule,
   TipsDistributionRuleSchema,
@@ -26,7 +27,7 @@ import { PermissionsModule } from "../permissions/permissions.module";
     PermissionsModule,
   ],
   controllers: [TipsController],
-  providers: [TipsService],
+  providers: [TipsService, TipsDistributionJob],
   exports: [TipsService],
 })
 export class TipsModule {}

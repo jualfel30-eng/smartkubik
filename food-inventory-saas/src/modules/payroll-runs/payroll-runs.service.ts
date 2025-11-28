@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
@@ -79,6 +80,7 @@ import { RemapPayrollAccountsDto } from "./dto/remap-payroll-accounts.dto";
 import { CreateSpecialPayrollRunDto } from "./dto/create-special-payroll-run.dto";
 import { SpecialPayrollRunFiltersDto } from "./dto/special-payroll-run-filters.dto";
 import { PayrollWebhooksService } from "../payroll-webhooks/payroll-webhooks.service";
+import { TipsService } from "../tips/tips.service";
 
 type LeanEmployeeProfile = EmployeeProfile & {
   _id: Types.ObjectId;
@@ -125,6 +127,8 @@ interface PayrollComputationResult {
 
 @Injectable()
 export class PayrollRunsService {
+  private readonly logger = new Logger(PayrollRunsService.name);
+
   constructor(
     @InjectModel(PayrollConcept.name)
     private readonly conceptModel: Model<PayrollConceptDocument>,
@@ -159,6 +163,7 @@ export class PayrollRunsService {
     private readonly mailService: MailService,
     private readonly payrollEngine: PayrollEngineService,
     private readonly webhooksService: PayrollWebhooksService,
+    private readonly tipsService: TipsService,
   ) {}
 
   private toObjectId(id: string | Types.ObjectId) {
@@ -911,6 +916,34 @@ export class PayrollRunsService {
       rulesMap.get(key)?.push(rule as any);
     });
 
+    // Obtener propinas del período para cada empleado
+    const employeeTipsMap = new Map<string, number>();
+    try {
+      const tipsReport = await this.tipsService.getConsolidatedReport(
+        periodStart,
+        periodEnd,
+        tenantId,
+      );
+
+      // Mapear propinas por employeeId
+      if (tipsReport.byEmployee && Array.isArray(tipsReport.byEmployee)) {
+        tipsReport.byEmployee.forEach((empTips: any) => {
+          if (empTips.employeeId && empTips.totalTips > 0) {
+            employeeTipsMap.set(empTips.employeeId, empTips.totalTips);
+          }
+        });
+      }
+
+      this.logger.log(
+        `Loaded tips for ${employeeTipsMap.size} employees in payroll period`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to load tips for payroll period: ${error.message}`,
+      );
+      // Continuar sin propinas si hay error
+    }
+
     const computations = this.computeRunEntries(
       employees,
       activeContractMap,
@@ -920,6 +953,7 @@ export class PayrollRunsService {
       rulesMap,
       conceptById,
       structures,
+      employeeTipsMap,
     );
 
     const structureSummary = this.buildStructureSummary(
@@ -1523,6 +1557,7 @@ export class PayrollRunsService {
     rulesMap: Map<string, PayrollRule[]>,
     conceptById: Map<string, LeanPayrollConcept>,
     allStructures: LeanPayrollStructure[],
+    employeeTipsMap: Map<string, number>,
   ): PayrollComputationResult {
     const entries: PayrollRun["entries"] = [];
     let grossPay = 0;
@@ -1665,6 +1700,64 @@ export class PayrollRunsService {
         contractId: contract?._id?.toString(),
         usedStructure: false,
       });
+    });
+
+    // Incluir propinas del período como earnings
+    employees.forEach((employee) => {
+      const employeeId = employee._id.toString();
+      const tipsAmount = employeeTipsMap.get(employeeId);
+
+      if (tipsAmount && tipsAmount > 0) {
+        const contract = contracts.get(employeeId);
+        const customer = customerMap.get(
+          (employee as any).customerId?.toString?.() || "",
+        );
+        const employeeName =
+          customer?.name ||
+          customer?.companyName ||
+          employee.position ||
+          "Empleado";
+
+        // Buscar o crear concepto de propinas
+        let tipsConcept = conceptByCode.get("TIPS") || conceptByCode.get("PROPINAS");
+
+        if (!tipsConcept) {
+          // Si no existe, crear una entrada con metadatos para el concepto de propinas
+          tipsConcept = {
+            tenantId: employee.tenantId,
+            code: "TIPS",
+            name: "Propinas",
+            conceptType: "earning",
+            calculation: { method: "fixed_amount" },
+            isActive: true,
+            metadata: {
+              category: "variable",
+              isTaxable: true,
+              appliesToAllEmployees: true,
+            },
+          };
+        }
+
+        const resolvedTipsConcept = tipsConcept;
+
+        entries.push({
+          employeeId: employee._id,
+          contractId: contract?._id,
+          employeeName,
+          department: employee.department,
+          conceptCode: resolvedTipsConcept.code,
+          conceptName: resolvedTipsConcept.name || "Propinas",
+          conceptType: (resolvedTipsConcept.conceptType || "earning") as any,
+          amount: tipsAmount,
+          breakdown: {
+            source: "tips",
+            calculationType: "fixed",
+            baseAmount: tipsAmount,
+          },
+        });
+
+        grossPay += tipsAmount;
+      }
     });
 
     return {

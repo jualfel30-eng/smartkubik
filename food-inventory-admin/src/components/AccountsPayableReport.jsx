@@ -24,11 +24,11 @@ const AccountsPayableReport = () => {
     }, []);
 
     if (loading) {
-        return <div>Cargando...</div>;
+        return <div className="text-muted-foreground">Cargando...</div>;
     }
 
     if (error) {
-        return <div>Error: {error}</div>;
+        return <div className="text-destructive">Error: {error}</div>;
     }
 
     return (

@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import QRCode from "qrcode";
 
 // Helper function to load an image and get its dimensions
 const loadImage = (url) => {
@@ -10,6 +11,21 @@ const loadImage = (url) => {
     img.onerror = (err) => reject(err);
     img.src = url;
   });
+};
+
+// Helper to generate QR data URL
+const generateQrDataUrl = async (text) => {
+  if (!text) return null;
+  try {
+    return await QRCode.toDataURL(text, {
+      errorCorrectionLevel: "M",
+      margin: 0,
+      scale: 3,
+    });
+  } catch (e) {
+    console.error("Error generating QR", e);
+    return null;
+  }
 };
 
 export const generateDocumentPDF = async ({ documentType, orderData, customerData, tenantSettings, action = 'download' }) => {
@@ -29,6 +45,21 @@ export const generateDocumentPDF = async ({ documentType, orderData, customerDat
   const docTitle = documentType === 'invoice' ? 'Factura' : 'Presupuesto';
   const templates = tenantSettings.settings?.documentTemplates || {};
   const templateSettings = templates[documentType === 'invoice' ? 'invoice' : 'quote'] || {};
+  const controlNumber = orderData?.controlNumber || orderData?.taxInfo?.controlNumber;
+  const imprentaInfo = orderData?.imprenta || {};
+  const fiscalHash =
+    orderData?.hash ||
+    orderData?.fiscalHash ||
+    orderData?.taxInfo?.hash ||
+    orderData?.evidenceHash;
+  const verificationUrl = orderData?.verificationUrl || orderData?.taxInfo?.verificationUrl;
+  const qrData =
+    verificationUrl ||
+    controlNumber ||
+    fiscalHash ||
+    orderData?.orderNumber ||
+    "";
+  const qrImage = await generateQrDataUrl(qrData);
 
   // 1. Add Logo (proportionally) - top left
   if (tenantSettings.logo) {
@@ -84,7 +115,17 @@ export const generateDocumentPDF = async ({ documentType, orderData, customerDat
   // 5. Add Order Details - below client info
   const clientInfoHeight = customerInfo.filter(line => line).length * 5; // approx 5 units per line
   const orderInfoY = 35 + clientInfoHeight + 5;
-  const orderInfo = `Número de Orden: ${orderData.orderNumber || ''}\nFecha: ${new Date(orderData.createdAt).toLocaleDateString()}`;
+  const orderInfoLines = [
+    `Número de Orden: ${orderData.orderNumber || ''}`,
+    `Fecha: ${new Date(orderData.createdAt).toLocaleDateString()}`,
+  ];
+  if (controlNumber) {
+    orderInfoLines.push(`Control Fiscal: ${controlNumber}`);
+  }
+  if (fiscalHash) {
+    orderInfoLines.push(`Hash: ${String(fiscalHash).slice(0, 16)}...`);
+  }
+  const orderInfo = orderInfoLines.join('\n');
   doc.text(orderInfo, 130, orderInfoY);
 
   // 6. Add Table with Products - starts after company and order info
@@ -170,11 +211,38 @@ export const generateDocumentPDF = async ({ documentType, orderData, customerDat
   doc.text(totals.join('\n'), 200, finalY + 10, { align: 'right' });
 
   // 8. Add Footer - right below totals, left aligned
+  const footerLines = [];
   if (templateSettings.footerText) {
-      const footerY = finalY + 10 + (totals.length * 5) + 5;
-      doc.setFontSize(9);
-      doc.setTextColor(150);
-      doc.text(templateSettings.footerText, 15, footerY);
+    footerLines.push(templateSettings.footerText);
+  }
+  // Leyenda fiscal obligatoria y datos de imprenta
+  footerLines.push("Documento emitido conforme a SNAT/2024/000102");
+  if (imprentaInfo?.providerName || imprentaInfo?.providerRif) {
+    const parts = [];
+    if (imprentaInfo.providerName) parts.push(imprentaInfo.providerName);
+    if (imprentaInfo.providerRif) parts.push(`RIF ${imprentaInfo.providerRif}`);
+    footerLines.push(`Imprenta Digital: ${parts.join(" - ")}`);
+  }
+  if (controlNumber) {
+    footerLines.push(`Control Fiscal: ${controlNumber}`);
+  }
+  if (fiscalHash) {
+    footerLines.push(`Hash: ${fiscalHash}`);
+  }
+
+  if (footerLines.length > 0) {
+    const footerY = finalY + 10 + (totals.length * 5) + 5;
+    doc.setFontSize(9);
+    doc.setTextColor(150);
+    doc.text(footerLines.join('\n'), 15, footerY);
+
+    // QR/Verificación
+    const qrY = footerY + footerLines.length * 5 + 5;
+    if (qrImage) {
+      doc.addImage(qrImage, "PNG", 165, qrY - 10, 30, 30);
+    } else if (qrData) {
+      doc.text(`Verificar: ${qrData}`, 15, qrY);
+    }
   }
 
   // 9. Perform action: print or download
@@ -197,6 +265,21 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
   const docTitle = documentType === 'invoice' ? 'Factura' : 'Presupuesto';
   const templates = tenantSettings.settings?.documentTemplates || {};
   const templateSettings = templates[documentType === 'invoice' ? 'invoice' : 'quote'] || {};
+  const controlNumber = orderData?.controlNumber || orderData?.taxInfo?.controlNumber;
+  const imprentaInfo = orderData?.imprenta || {};
+  const fiscalHash =
+    orderData?.hash ||
+    orderData?.fiscalHash ||
+    orderData?.taxInfo?.hash ||
+    orderData?.evidenceHash;
+  const verificationUrl = orderData?.verificationUrl || orderData?.taxInfo?.verificationUrl;
+  const qrData =
+    verificationUrl ||
+    controlNumber ||
+    fiscalHash ||
+    orderData?.orderNumber ||
+    "";
+  const qrImage = await generateQrDataUrl(qrData);
 
   let currentY = 5;
 
@@ -263,6 +346,14 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
   currentY += 4;
   doc.text(`Fecha: ${new Date(orderData.createdAt).toLocaleDateString()}`, 5, currentY);
   currentY += 4;
+  if (controlNumber) {
+    doc.text(`Control Fiscal: ${controlNumber}`, 5, currentY);
+    currentY += 4;
+  }
+  if (fiscalHash) {
+    doc.text(`Hash: ${String(fiscalHash).slice(0, 24)}...`, 5, currentY);
+    currentY += 4;
+  }
 
   // Customer info
   doc.text(`Cliente: ${customerData?.name || orderData.customerName}`, 5, currentY);
@@ -362,15 +453,43 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
   currentY += 6;
 
   // Footer
+  const footerLines = [];
   if (templateSettings.footerText) {
+    footerLines.push(...doc.splitTextToSize(templateSettings.footerText, 70));
+  }
+  footerLines.push("Documento emitido conforme a SNAT/2024/000102");
+  if (imprentaInfo?.providerName || imprentaInfo?.providerRif) {
+    const parts = [];
+    if (imprentaInfo.providerName) parts.push(imprentaInfo.providerName);
+    if (imprentaInfo.providerRif) parts.push(`RIF ${imprentaInfo.providerRif}`);
+    footerLines.push(`Imprenta Digital: ${parts.join(" - ")}`);
+  }
+  if (controlNumber) {
+    footerLines.push(`Control Fiscal: ${controlNumber}`);
+  }
+  if (fiscalHash) {
+    footerLines.push(`Hash: ${fiscalHash}`);
+  }
+
+  if (footerLines.length) {
     doc.setFontSize(7);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(100);
-    const footerLines = doc.splitTextToSize(templateSettings.footerText, 70);
     footerLines.forEach(line => {
       doc.text(line, 40, currentY, { align: 'center' });
       currentY += 3;
     });
+    if (qrImage) {
+      doc.addImage(qrImage, "PNG", 30, currentY, 20, 20);
+      currentY += 22;
+    } else if (qrData) {
+      const verifyText = `Verificar: ${qrData}`;
+      const lines = doc.splitTextToSize(verifyText, 70);
+      lines.forEach(line => {
+        doc.text(line, 40, currentY, { align: 'center' });
+        currentY += 3;
+      });
+    }
   }
 
   // Perform action

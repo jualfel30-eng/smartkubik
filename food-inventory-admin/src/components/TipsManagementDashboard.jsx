@@ -39,6 +39,7 @@ import {
   Plus,
   Edit,
   Trash2,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   getTipsDistributionRules,
@@ -50,8 +51,10 @@ import {
   getTipsReportForEmployee,
 } from '../lib/api';
 import { toast } from 'sonner';
+import { useModuleAccess } from '../hooks/useModuleAccess';
 
 export default function TipsManagementDashboard() {
+  const hasTipsModule = useModuleAccess('tips');
   const [loading, setLoading] = useState(false);
   const [distributionRules, setDistributionRules] = useState([]);
   const [consolidatedReport, setConsolidatedReport] = useState(null);
@@ -72,13 +75,15 @@ export default function TipsManagementDashboard() {
   const [selectedRuleId, setSelectedRuleId] = useState('');
 
   useEffect(() => {
+    if (!hasTipsModule) return;
     fetchDistributionRules();
     fetchConsolidatedReport();
-  }, []);
+  }, [hasTipsModule]);
 
   useEffect(() => {
+    if (!hasTipsModule) return;
     fetchConsolidatedReport();
-  }, [selectedPeriod]);
+  }, [selectedPeriod, hasTipsModule]);
 
   const fetchDistributionRules = async () => {
     try {
@@ -209,14 +214,30 @@ export default function TipsManagementDashboard() {
   };
 
   if (loading && !consolidatedReport) {
-    return <div className="flex justify-center p-8">Cargando dashboard de propinas...</div>;
+    return <div className="flex justify-center p-8 text-muted-foreground">Cargando dashboard de propinas...</div>;
+  }
+
+  if (!hasTipsModule) {
+    return (
+      <Card className="bg-muted/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldAlert className="h-4 w-4 text-amber-600" />
+            Módulo de Propinas no habilitado
+          </CardTitle>
+          <CardDescription>
+            Activa el módulo de propinas para este tenant desde Configuración &gt; Organización o solicita acceso al equipo de soporte.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Gestión de Propinas</h1>
+          <h1 className="text-3xl font-bold text-foreground">Gestión de Propinas</h1>
           <p className="text-muted-foreground">
             Distribuye y reporta propinas del equipo
           </p>

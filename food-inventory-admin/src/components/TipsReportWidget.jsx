@@ -105,55 +105,55 @@ const TipsReportWidget = () => {
       <CardContent>
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
         ) : data ? (
           <div className="space-y-6">
             {/* Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                <div className="flex items-center gap-2 text-blue-600 mb-2">
+              <div className="bg-blue-50 dark:bg-blue-950 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-2">
                   <DollarSign className="h-5 w-5" />
                   <span className="text-sm font-medium">Total Propinas</span>
                 </div>
-                <div className="text-2xl font-bold text-blue-900">
+                <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
                   {formatCurrency(data.summary.totalTips)}
                 </div>
               </div>
 
-              <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                <div className="flex items-center gap-2 text-green-600 mb-2">
+              <div className="bg-green-50 dark:bg-green-950 rounded-lg p-4 border border-green-200 dark:border-green-800">
+                <div className="flex items-center gap-2 text-green-600 dark:text-green-400 mb-2">
                   <TrendingUp className="h-5 w-5" />
                   <span className="text-sm font-medium">Promedio por Orden</span>
                 </div>
-                <div className="text-2xl font-bold text-green-900">
+                <div className="text-2xl font-bold text-green-900 dark:text-green-100">
                   {formatCurrency(data.summary.averageTipPerOrder)}
                 </div>
               </div>
 
-              <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                <div className="flex items-center gap-2 text-purple-600 mb-2">
+              <div className="bg-purple-50 dark:bg-purple-950 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+                <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 mb-2">
                   <Users className="h-5 w-5" />
                   <span className="text-sm font-medium">Empleados</span>
                 </div>
-                <div className="text-2xl font-bold text-purple-900">
+                <div className="text-2xl font-bold text-purple-900 dark:text-purple-100">
                   {data.summary.employeesCount}
                 </div>
               </div>
 
-              <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
-                <div className="flex items-center gap-2 text-orange-600 mb-2">
+              <div className="bg-orange-50 dark:bg-orange-950 rounded-lg p-4 border border-orange-200 dark:border-orange-800">
+                <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 mb-2">
                   <Calendar className="h-5 w-5" />
                   <span className="text-sm font-medium">Órdenes con Propina</span>
                 </div>
-                <div className="text-2xl font-bold text-orange-900">
+                <div className="text-2xl font-bold text-orange-900 dark:text-orange-100">
                   {data.summary.totalOrders}
                 </div>
               </div>
             </div>
 
             {/* Period Info */}
-            <div className="text-center text-sm text-gray-500 py-2 border-y">
+            <div className="text-center text-sm text-muted-foreground py-2 border-y dark:border-gray-700">
               <span className="font-medium">{getDateRangeLabel()}</span>
               {' • '}
               {new Date(data.period.from).toLocaleDateString('es-VE')} -{' '}
@@ -162,10 +162,10 @@ const TipsReportWidget = () => {
 
             {/* Employees Table */}
             <div>
-              <h3 className="text-lg font-semibold mb-3">Propinas por Empleado</h3>
+              <h3 className="text-lg font-semibold mb-3 text-foreground">Propinas por Empleado</h3>
               {data.employees.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Users className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="h-12 w-12 mx-auto mb-3 text-muted" />
                   <p>No hay datos de propinas para el período seleccionado</p>
                 </div>
               ) : (
@@ -193,18 +193,18 @@ const TipsReportWidget = () => {
                     </TableHeader>
                     <TableBody>
                       {data.employees.map((employee, index) => (
-                        <TableRow key={employee.employeeId} className={index === 0 ? 'bg-yellow-50' : ''}>
+                        <TableRow key={employee.employeeId} className={index === 0 ? 'bg-yellow-50 dark:bg-yellow-950' : ''}>
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-2">
                               {index === 0 && (
-                                <Badge className="bg-yellow-500 text-white">
+                                <Badge className="bg-yellow-500 dark:bg-yellow-600 text-white">
                                   Top 1
                                 </Badge>
                               )}
                               <span>{employee.employeeName}</span>
                             </div>
                           </TableCell>
-                          <TableCell className="text-right font-semibold text-green-700">
+                          <TableCell className="text-right font-semibold text-green-700 dark:text-green-400">
                             {formatCurrency(employee.totalTips)}
                           </TableCell>
                           <TableCell className="text-right">
@@ -213,10 +213,10 @@ const TipsReportWidget = () => {
                           <TableCell className="text-right">
                             {formatCurrency(employee.averageTip)}
                           </TableCell>
-                          <TableCell className="text-right text-gray-600">
+                          <TableCell className="text-right text-muted-foreground">
                             {formatCurrency(employee.cashTips)}
                           </TableCell>
-                          <TableCell className="text-right text-gray-600">
+                          <TableCell className="text-right text-muted-foreground">
                             {formatCurrency(employee.cardTips)}
                           </TableCell>
                         </TableRow>
@@ -229,8 +229,8 @@ const TipsReportWidget = () => {
 
             {/* Tips Distribution Chart (simple text-based for now) */}
             {data.employees.length > 0 && (
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <h4 className="text-sm font-semibold mb-3 text-gray-700">
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                <h4 className="text-sm font-semibold mb-3 text-foreground">
                   Distribución de Propinas
                 </h4>
                 <div className="space-y-2">
@@ -239,16 +239,16 @@ const TipsReportWidget = () => {
                     return (
                       <div key={employee.employeeId}>
                         <div className="flex justify-between text-sm mb-1">
-                          <span className="text-gray-700 font-medium">
+                          <span className="font-medium text-foreground">
                             {employee.employeeName}
                           </span>
-                          <span className="text-gray-600">
+                          <span className="text-muted-foreground">
                             {percentage.toFixed(1)}%
                           </span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                           <div
-                            className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                            className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-500"
                             style={{ width: `${percentage}%` }}
                           />
                         </div>
@@ -260,8 +260,8 @@ const TipsReportWidget = () => {
             )}
           </div>
         ) : (
-          <div className="text-center py-16 text-gray-500">
-            <DollarSign className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+          <div className="text-center py-16 text-muted-foreground">
+            <DollarSign className="h-12 w-12 mx-auto mb-4 text-muted" />
             <p>No hay datos disponibles</p>
           </div>
         )}
