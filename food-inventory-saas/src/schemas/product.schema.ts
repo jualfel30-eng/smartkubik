@@ -268,7 +268,16 @@ ProductSchema.index({ name: "text", description: "text", tags: "text" });
 ProductSchema.index({ brand: 1, tenantId: 1 });
 ProductSchema.index({ isActive: 1, tenantId: 1 });
 ProductSchema.index({ "variants.sku": 1, tenantId: 1 });
-ProductSchema.index({ "variants.barcode": 1, tenantId: 1 });
+ProductSchema.index(
+  { "variants.barcode": 1, tenantId: 1 },
+  {
+    name: "uniq_variant_barcode_per_tenant",
+    unique: true,
+    partialFilterExpression: {
+      "variants.barcode": { $exists: true, $ne: "" },
+    },
+  },
+);
 ProductSchema.index({ isPerishable: 1, tenantId: 1 });
 ProductSchema.index({ createdAt: -1, tenantId: 1 });
 

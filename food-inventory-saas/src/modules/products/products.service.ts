@@ -46,6 +46,53 @@ export class ProductsService {
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
+  private collectNormalizedBarcodes(variants: any[]): string[] {
+    const uniqueBarcodes = new Set<string>();
+    for (const variant of variants || []) {
+      const code = (variant?.barcode || "").trim();
+      if (!code) {
+        continue;
+      }
+      if (uniqueBarcodes.has(code)) {
+        throw new BadRequestException(
+          `El código de barras ${code} está duplicado dentro del mismo producto.`,
+        );
+      }
+      uniqueBarcodes.add(code);
+    }
+    return Array.from(uniqueBarcodes);
+  }
+
+  private async ensureUniqueVariantBarcodes(
+    variants: any[],
+    tenantId: string | Types.ObjectId,
+    excludeProductId?: string,
+  ) {
+    const barcodes = this.collectNormalizedBarcodes(variants);
+    if (!barcodes.length) {
+      return;
+    }
+
+    const query: any = {
+      tenantId: new Types.ObjectId(tenantId),
+      "variants.barcode": { $in: barcodes },
+    };
+    if (excludeProductId) {
+      query._id = { $ne: new Types.ObjectId(excludeProductId) };
+    }
+
+    const conflict = await this.productModel
+      .findOne(query)
+      .select("name sku variants.barcode")
+      .lean();
+
+    if (conflict) {
+      throw new BadRequestException(
+        `El código de barras ya está asignado al producto ${conflict.name || conflict.sku}.`,
+      );
+    }
+  }
+
   async createWithInitialPurchase(
     dto: CreateProductWithPurchaseDto,
     user: any,
@@ -242,6 +289,10 @@ export class ProductsService {
     if (existingProduct) {
       throw new Error(`El SKU ${createProductDto.sku} ya existe`);
     }
+    await this.ensureUniqueVariantBarcodes(
+      createProductDto.variants,
+      user.tenantId,
+    );
     const productData = {
       ...createProductDto,
       isActive: true, // Explicitly set new products as active
@@ -525,6 +576,41 @@ export class ProductsService {
       .exec();
   }
 
+  async findByBarcode(barcode: string, tenantId: string) {
+    const normalized = (barcode || "").trim();
+    if (!normalized) {
+      throw new BadRequestException("El código de barras es requerido.");
+    }
+
+    const product = await this.productModel
+      .findOne({
+        tenantId: new Types.ObjectId(tenantId),
+        "variants.barcode": normalized,
+      })
+      .select(
+        "name sku brand category subcategory productType isActive hasActivePromotion promotion variants.name variants.sku variants.barcode variants.basePrice variants.price variants.images unitOfMeasure hasMultipleSellingUnits sellingUnits isSoldByWeight",
+      )
+      .lean();
+
+    if (!product) {
+      throw new NotFoundException(
+        "No se encontró un producto con ese código de barras.",
+      );
+    }
+
+    const matchedVariant =
+      product.variants?.find(
+        (variant: any) =>
+          (variant?.barcode || "").trim().toLowerCase() ===
+          normalized.toLowerCase(),
+      ) || null;
+
+    return {
+      product,
+      variant: matchedVariant,
+    };
+  }
+
   async update(
     id: string,
     updateProductDto: UpdateProductDto,
@@ -543,6 +629,16 @@ export class ProductsService {
     const oldImagesSize = this.calculateImagesSize(
       productBeforeUpdate.variants,
     );
+    const variantsToValidate =
+      "variants" in updateProductDto && updateProductDto.variants
+        ? updateProductDto.variants
+        : productBeforeUpdate.variants;
+    await this.ensureUniqueVariantBarcodes(
+      variantsToValidate,
+      user.tenantId,
+      id,
+    );
+
     let newImagesSize = oldImagesSize;
     if ("variants" in updateProductDto) {
       newImagesSize = this.calculateImagesSize(updateProductDto.variants);

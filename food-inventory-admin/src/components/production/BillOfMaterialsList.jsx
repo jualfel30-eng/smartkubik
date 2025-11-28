@@ -44,12 +44,12 @@ export function BillOfMaterialsList() {
       setSelectedBom(null);
     } catch (err) {
       console.error('Error saving BOM:', err);
-      alert('Error al guardar la lista de materiales: ' + err.message);
+      alert('Error al guardar la receta: ' + err.message);
     }
   };
 
   const handleDelete = async (bomId) => {
-    if (window.confirm('¿Estás seguro de eliminar esta lista de materiales?')) {
+    if (window.confirm('¿Estás seguro de eliminar esta receta?')) {
       try {
         await deleteBom(bomId);
       } catch (err) {
@@ -96,11 +96,11 @@ export function BillOfMaterialsList() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
             <FileText className="h-6 w-6" />
-            <CardTitle>Listas de Materiales (BOM)</CardTitle>
+            <CardTitle>Recetas</CardTitle>
           </div>
           <Button onClick={handleCreate}>
             <Plus className="h-4 w-4 mr-2" />
-            Nueva BOM
+            Nueva Receta
           </Button>
         </CardHeader>
         <CardContent>
@@ -114,9 +114,9 @@ export function BillOfMaterialsList() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Producto</TableHead>
+                  <TableHead>Platillo</TableHead>
                   <TableHead>Versión</TableHead>
-                  <TableHead>Componentes</TableHead>
+                  <TableHead>Ingredientes</TableHead>
                   <TableHead>Activa</TableHead>
                   <TableHead>Fecha Efectiva</TableHead>
                   <TableHead>Costo Calculado</TableHead>
@@ -128,7 +128,7 @@ export function BillOfMaterialsList() {
                 {boms.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="text-center text-muted-foreground">
-                      No hay listas de materiales
+                      No hay recetas creadas
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -144,7 +144,7 @@ export function BillOfMaterialsList() {
                         </TableCell>
                         <TableCell>{bom.version}</TableCell>
                         <TableCell>
-                          <Badge variant="outline">{bom.components?.length || 0} componentes</Badge>
+                          <Badge variant="outline">{bom.components?.length || 0} ingredientes</Badge>
                         </TableCell>
                         <TableCell>
                           {bom.isActive ? (

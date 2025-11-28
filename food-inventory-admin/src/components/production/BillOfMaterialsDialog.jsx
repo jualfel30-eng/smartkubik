@@ -73,7 +73,7 @@ export function BillOfMaterialsDialog({ bom, open, onClose, onSave }) {
 
   const handleAddComponent = () => {
     if (!newComponentProductId || !newComponentQuantity || !newComponentUnit) {
-      alert('Por favor completa todos los campos del componente');
+      alert('Por favor completa todos los campos del ingrediente');
       return;
     }
 
@@ -103,7 +103,7 @@ export function BillOfMaterialsDialog({ bom, open, onClose, onSave }) {
 
   const handleSave = () => {
     if (!productId || !version || components.length === 0) {
-      alert('Por favor completa los campos requeridos y agrega al menos un componente');
+      alert('Por favor completa los campos requeridos y agrega al menos un ingrediente');
       return;
     }
 
@@ -133,9 +133,9 @@ export function BillOfMaterialsDialog({ bom, open, onClose, onSave }) {
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{bom ? 'Editar Lista de Materiales' : 'Crear Nueva Lista de Materiales'}</DialogTitle>
+          <DialogTitle>{bom ? 'Editar Receta' : 'Crear Nueva Receta'}</DialogTitle>
           <DialogDescription>
-            {bom ? 'Modifica la lista de materiales.' : 'Crea una nueva lista de materiales (BOM).'}
+            {bom ? 'Modifica la receta y sus ingredientes.' : 'Crea una nueva receta con sus ingredientes y proporciones.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -243,13 +243,13 @@ export function BillOfMaterialsDialog({ bom, open, onClose, onSave }) {
 
           {/* Components Section */}
           <div className="border-t pt-4 mt-4">
-            <h4 className="font-semibold mb-3">Componentes / Materiales *</h4>
+            <h4 className="font-semibold mb-3">Ingredientes *</h4>
 
             {/* Add Component Form */}
             <div className="grid grid-cols-6 gap-2 mb-4 items-end">
               <div className="col-span-2">
                 <Label htmlFor="newComponentProductId" className="text-xs">
-                  Producto
+                  Ingrediente
                 </Label>
                 <Select value={newComponentProductId} onValueChange={setNewComponentProductId}>
                   <SelectTrigger>
@@ -296,7 +296,7 @@ export function BillOfMaterialsDialog({ bom, open, onClose, onSave }) {
 
               <div>
                 <Label htmlFor="newComponentScrap" className="text-xs">
-                  Scrap %
+                  Desperdicio %
                 </Label>
                 <Input
                   id="newComponentScrap"
@@ -321,10 +321,10 @@ export function BillOfMaterialsDialog({ bom, open, onClose, onSave }) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Producto</TableHead>
+                    <TableHead>Ingrediente</TableHead>
                     <TableHead>Cantidad</TableHead>
                     <TableHead>Unidad</TableHead>
-                    <TableHead>Scrap %</TableHead>
+                    <TableHead>Desperdicio %</TableHead>
                     <TableHead>Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -348,7 +348,7 @@ export function BillOfMaterialsDialog({ bom, open, onClose, onSave }) {
               </Table>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-4">
-                No hay componentes. Agrega al menos uno para continuar.
+                No hay ingredientes. Agrega al menos uno para continuar.
               </p>
             )}
           </div>

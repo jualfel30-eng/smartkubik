@@ -20,7 +20,9 @@ import { useConsumables } from '@/hooks/useConsumables';
 import { useSupplies } from '@/hooks/useSupplies';
 import { useUnitConversions } from '@/hooks/useUnitConversions';
 import { UnitConversionDialog } from './UnitConversionDialog';
+import { BarcodeScannerDialog } from '@/components/BarcodeScannerDialog.jsx';
 import { CONSUMABLE_TYPES, SUPPLY_CATEGORIES } from '@/types/consumables';
+import { toast } from 'sonner';
 import {
   Plus,
   Search,
@@ -35,7 +37,8 @@ import {
   Layers,
   Wrench,
   Calculator,
-  Settings2
+  Settings2,
+  Scan
 } from 'lucide-react';
 
 const UNASSIGNED_SELECT_VALUE = '__UNASSIGNED__';
@@ -405,6 +408,8 @@ function ProductsManagement() {
   const [newProduct, setNewProduct] = useState(initialNewProductState);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [additionalVariants, setAdditionalVariants] = useState([]);
+  const [isBarcodeDialogOpen, setIsBarcodeDialogOpen] = useState(false);
+  const [barcodeCaptureTarget, setBarcodeCaptureTarget] = useState(null);
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -446,7 +451,7 @@ function ProductsManagement() {
     return combined;
   }, [verticalConfig]);
 
-  const placeholders = verticalConfig?.placeholders || {};
+  const placeholders = useMemo(() => verticalConfig?.placeholders || {}, [verticalConfig]);
   const getPlaceholder = useCallback(
     (key, fallback) => (placeholders[key] && placeholders[key].trim() !== '' ? placeholders[key] : fallback),
     [placeholders],
@@ -838,7 +843,7 @@ useEffect(() => {
     });
   };
 
-  const updateAdditionalVariantField = (index, field, value) => {
+  const updateAdditionalVariantField = useCallback((index, field, value) => {
     setAdditionalVariants((prev) => {
       const next = [...prev];
       if (!next[index]) {
@@ -856,7 +861,7 @@ useEffect(() => {
       next[index] = { ...next[index], [field]: nextValue };
       return next;
     });
-  };
+  }, []);
 
   const handleAdditionalVariantAttributeChange = (variantIndex, attr, rawValue) => {
     const normalized = normalizeAttributeValue(attr, rawValue);
@@ -919,7 +924,7 @@ useEffect(() => {
     });
   };
 
-  const handleEditVariantFieldChange = (index, field, value) => {
+  const handleEditVariantFieldChange = useCallback((index, field, value) => {
     updateEditingVariant(index, (variant) => {
       let nextValue = value;
       if (field === 'unitSize') {
@@ -938,7 +943,35 @@ useEffect(() => {
         [field]: nextValue,
       };
     });
-  };
+  }, [updateEditingVariant]);
+
+  const openBarcodeScanner = useCallback((target) => {
+    setBarcodeCaptureTarget(target);
+    setIsBarcodeDialogOpen(true);
+  }, []);
+
+  const handleBarcodeDetected = useCallback(
+    (rawValue) => {
+      const code = (rawValue || '').trim();
+      if (!code) return;
+
+      if (barcodeCaptureTarget?.scope === 'additional' && typeof barcodeCaptureTarget.index === 'number') {
+        updateAdditionalVariantField(barcodeCaptureTarget.index, 'barcode', code);
+      } else if (barcodeCaptureTarget?.scope === 'edit' && typeof barcodeCaptureTarget.index === 'number') {
+        handleEditVariantFieldChange(barcodeCaptureTarget.index, 'barcode', code);
+      } else {
+        setNewProduct((prev) => ({
+          ...prev,
+          variant: { ...prev.variant, barcode: code },
+        }));
+      }
+
+      toast.success('Código de barras capturado');
+      setIsBarcodeDialogOpen(false);
+      setBarcodeCaptureTarget(null);
+    },
+    [barcodeCaptureTarget, handleEditVariantFieldChange, updateAdditionalVariantField]
+  );
 
   const handleEditProductAttributeChange = (attr, rawValue) => {
     const normalized = normalizeAttributeValue(attr, rawValue);
@@ -1992,17 +2025,32 @@ useEffect(() => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="barcode">Código de Barras (UPC) (Opcional)</Label>
-                    <Input
-                      id="barcode"
-                      value={newProduct.variant.barcode}
-                      onChange={(e) =>
-                        setNewProduct({
-                          ...newProduct,
-                          variant: { ...newProduct.variant, barcode: e.target.value },
-                        })
-                      }
-                      placeholder={getPlaceholder('barcode', 'Ej: 7591234567890')}
-                    />
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="barcode"
+                        value={newProduct.variant.barcode}
+                        onChange={(e) =>
+                          setNewProduct({
+                            ...newProduct,
+                            variant: { ...newProduct.variant, barcode: e.target.value },
+                          })
+                        }
+                        placeholder={getPlaceholder('barcode', 'Ej: 7591234567890')}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => openBarcodeScanner({ scope: 'create' })}
+                        title="Escanear código con cámara"
+                      >
+                        <Scan className="h-4 w-4" />
+                        <span className="sr-only">Escanear código</span>
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Escanea con la cámara o usa una pistola USB enfocando este campo.
+                    </p>
                     </div>
                   </div>
                 </div>
@@ -3003,11 +3051,23 @@ useEffect(() => {
                             </div>
                             <div className="space-y-2">
                               <Label>Código de barras</Label>
-                              <Input
-                                value={variant.barcode}
-                                onChange={(e) => updateAdditionalVariantField(index, 'barcode', e.target.value)}
-                                placeholder="Opcional"
-                              />
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  value={variant.barcode}
+                                  onChange={(e) => updateAdditionalVariantField(index, 'barcode', e.target.value)}
+                                  placeholder="Opcional"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => openBarcodeScanner({ scope: 'additional', index })}
+                                  title="Escanear código con cámara"
+                                >
+                                  <Scan className="h-4 w-4" />
+                                  <span className="sr-only">Escanear código</span>
+                                </Button>
+                              </div>
                             </div>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -4413,10 +4473,22 @@ useEffect(() => {
                       </div>
                       <div className="space-y-2">
                         <Label>Código de barras</Label>
-                        <Input
-                          value={variant.barcode || ''}
-                          onChange={(e) => handleEditVariantFieldChange(index, 'barcode', e.target.value)}
-                        />
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={variant.barcode || ''}
+                            onChange={(e) => handleEditVariantFieldChange(index, 'barcode', e.target.value)}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => openBarcodeScanner({ scope: 'edit', index })}
+                            title="Escanear código con cámara"
+                          >
+                            <Scan className="h-4 w-4" />
+                            <span className="sr-only">Escanear código</span>
+                          </Button>
+                        </div>
                       </div>
                     </div>
 
@@ -4527,6 +4599,18 @@ useEffect(() => {
           </DialogContent>
         </Dialog>
       )}
+
+      <BarcodeScannerDialog
+        open={isBarcodeDialogOpen}
+        onOpenChange={(open) => {
+          setIsBarcodeDialogOpen(open);
+          if (!open) {
+            setBarcodeCaptureTarget(null);
+          }
+        }}
+        onDetected={handleBarcodeDetected}
+        description="Usa la cámara del dispositivo o un lector USB para rellenar el campo de código seleccionado."
+      />
 
       {/* Diálogo de Previsualización de Importación */}
       <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>

@@ -112,6 +112,19 @@ export class ProductsController {
     return { success: true, data: product };
   }
 
+  @Get("lookup/barcode/:barcode")
+  @Permissions("products_read")
+  async findByBarcode(
+    @Param("barcode") barcode: string,
+    @Request() req,
+  ) {
+    const result = await this.productsService.findByBarcode(
+      barcode,
+      req.user.tenantId,
+    );
+    return { success: true, data: result };
+  }
+
   @Patch(":id")
   @Permissions("products_update")
   async update(
