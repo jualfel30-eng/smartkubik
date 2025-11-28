@@ -25,7 +25,7 @@ const BUSINESS_VERTICALS = {
     label: 'Restaurantes y Servicios de Comida',
     description: 'Restaurantes, cafeterías, catering, food trucks',
     icon: '🍽️',
-    recommendedModules: ['restaurant', 'tables', 'kitchenDisplay', 'menuEngineering', 'orders', 'inventory', 'customers', 'payroll']
+    recommendedModules: ['restaurant', 'tables', 'kitchenDisplay', 'menuEngineering', 'tips', 'reservations', 'recipes', 'orders', 'inventory', 'customers', 'payroll']
   },
   RETAIL: {
     label: 'Retail / Tiendas',
@@ -73,7 +73,7 @@ const MODULE_GROUPS = {
   food_service: {
     title: 'Restaurantes',
     description: 'Específico para negocios de comida',
-    modules: ['restaurant', 'tables', 'recipes', 'kitchenDisplay', 'menuEngineering']
+    modules: ['restaurant', 'tables', 'recipes', 'kitchenDisplay', 'menuEngineering', 'tips', 'reservations']
   },
   retail: {
     title: 'Retail',
@@ -115,6 +115,8 @@ const MODULE_LABELS = {
   recipes: 'Recetas',
   kitchenDisplay: 'Display de Cocina',
   menuEngineering: 'Ingeniería de Menú',
+  tips: 'Propinas',
+  reservations: 'Reservas',
   restaurant: 'Suite de Restaurante',
   pos: 'Punto de Venta',
   variants: 'Variantes',
@@ -157,6 +159,9 @@ const RESTAURANT_MODULES_PRESET = [
   'tables',
   'kitchenDisplay',
   'menuEngineering',
+  'tips',
+  'reservations',
+  'recipes',
   'orders',
   'inventory',
   'customers',

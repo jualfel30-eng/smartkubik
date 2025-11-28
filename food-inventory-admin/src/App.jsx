@@ -50,8 +50,12 @@ import {
   Layers,
   UserCog,
   Mail,
+  DollarSign,
+  Target,
+  BookOpen,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
+import { Toaster as ShadcnToaster } from '@/components/ui/toaster';
 import './App.css';
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -116,6 +120,9 @@ const OrganizationsManagement = lazy(() => import('@/components/OrganizationsMan
 const TablesPage = lazy(() => import('./pages/TablesPage.jsx'));
 const KitchenDisplay = lazy(() => import('@/components/restaurant/KitchenDisplay.jsx'));
 const ReservationsPage = lazy(() => import('./pages/ReservationsPage.jsx'));
+const TipsPage = lazy(() => import('./pages/TipsPage.jsx'));
+const MenuEngineeringPage = lazy(() => import('./pages/MenuEngineeringPage.jsx'));
+const RecipesPage = lazy(() => import('./pages/RecipesPage.jsx'));
 const PurchaseOrdersPage = lazy(() => import('./pages/PurchaseOrdersPage.jsx'));
 const MarketingPage = lazy(() => import('./pages/MarketingPage.jsx'));
 const WhatsAppInbox = lazy(() => import('./pages/WhatsAppInbox.jsx')); // <-- Componente de WhatsApp añadido
@@ -308,6 +315,9 @@ function TenantLayout() {
     { name: 'Mesas', href: 'restaurant/floor-plan', icon: Utensils, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Cocina (KDS)', href: 'restaurant/kitchen-display', icon: ChefHat, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Reservas', href: 'restaurant/reservations', icon: Calendar, permission: 'restaurant_read', requiresModule: 'restaurant' },
+    { name: 'Propinas', href: 'restaurant/tips', icon: DollarSign, permission: 'restaurant_read', requiresModule: 'restaurant' },
+    { name: 'Ingeniería de Menú', href: 'restaurant/menu-engineering', icon: Target, permission: 'restaurant_read', requiresModule: 'restaurant' },
+    { name: 'Recetas', href: 'restaurant/recipes', icon: BookOpen, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Órdenes de Compra', href: 'restaurant/purchase-orders', icon: FileText, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Marketing', href: 'marketing', icon: Mail, permission: 'marketing_read', requiresModule: 'marketing' },
     {
@@ -953,6 +963,9 @@ function TenantLayout() {
                 <Route path="restaurant/floor-plan" element={<TablesPage />} />
                 <Route path="restaurant/kitchen-display" element={<KitchenDisplay />} />
                 <Route path="restaurant/reservations" element={<ReservationsPage />} />
+                <Route path="restaurant/tips" element={<TipsPage />} />
+                <Route path="restaurant/menu-engineering" element={<MenuEngineeringPage />} />
+                <Route path="restaurant/recipes" element={<RecipesPage />} />
                 <Route path="restaurant/purchase-orders" element={<PurchaseOrdersPage />} />
                 <Route path="marketing" element={<MarketingPage />} />
                 <Route path="settings" element={<SettingsPage />} />
@@ -983,6 +996,7 @@ function AppContent() {
   return (
     <>
       <Toaster richColors />
+      <ShadcnToaster />
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
           <Route path="/" element={<SmartKubikLanding />} />

@@ -19,9 +19,9 @@ export const VERTICAL_FEATURES = {
     hrCore: false,
     timeAndAttendance: false,
 
-    // Communication & Marketing (opt-in modules)
+    // Communication & Marketing
     chat: false,
-    marketing: false,
+    marketing: true, // ✅ HABILITADO - Campañas, segmentación, analytics completos
 
     // Food service specific
     restaurant: true, // This flag enables the whole restaurant section in the frontend
@@ -29,12 +29,14 @@ export const VERTICAL_FEATURES = {
     recipes: true,
     kitchenDisplay: true,
     menuEngineering: true,
+    tips: true,
+    reservations: true,
 
     // Disabled for food service
     pos: false,
     variants: false,
     ecommerce: false,
-    loyaltyProgram: false,
+    loyaltyProgram: true, // ✅ HABILITADO - Tiers y descuentos automáticos
     appointments: false,
     resources: false,
     booking: false,
@@ -60,9 +62,9 @@ export const VERTICAL_FEATURES = {
     hrCore: false,
     timeAndAttendance: false,
 
-    // Communication & Marketing (opt-in modules)
+    // Communication & Marketing
     chat: false,
-    marketing: false,
+    marketing: true, // ✅ HABILITADO - Campañas, cupones, promociones
 
     // Retail specific
     pos: true,
@@ -100,9 +102,9 @@ export const VERTICAL_FEATURES = {
     hrCore: false,
     timeAndAttendance: false,
 
-    // Communication & Marketing (opt-in modules)
+    // Communication & Marketing
     chat: false,
-    marketing: false,
+    marketing: true, // ✅ HABILITADO - Campañas para servicios
 
     // Services specific
     appointments: true,
@@ -180,9 +182,9 @@ export const VERTICAL_FEATURES = {
     hrCore: true,
     timeAndAttendance: true,
 
-    // Communication & Marketing (opt-in modules - even for HYBRID)
+    // Communication & Marketing
     chat: false,
-    marketing: false,
+    marketing: true, // ✅ HABILITADO - Full marketing suite
 
     // All vertical-specific modules enabled (admin decides which to use)
     tables: true,

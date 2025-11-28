@@ -1,16 +1,35 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
 import * as nodemailer from "nodemailer";
+import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
+import { GmailOAuthService } from "./gmail-oauth.service";
+import { OutlookOAuthService } from "./outlook-oauth.service";
+import { ResendService } from "./resend.service";
+import { decrypt } from "../../utils/encryption.util";
 
 @Injectable()
 export class MailService {
-  private transporter: nodemailer.Transporter;
+  private readonly logger = new Logger(MailService.name);
+  private defaultTransporter: nodemailer.Transporter;
 
-  constructor(private configService: ConfigService) {
-    this.transporter = nodemailer.createTransport({
+  constructor(
+    private configService: ConfigService,
+    @InjectModel(Tenant.name)
+    private readonly tenantModel: Model<TenantDocument>,
+    @Inject(forwardRef(() => GmailOAuthService))
+    private readonly gmailOAuthService: GmailOAuthService,
+    @Inject(forwardRef(() => OutlookOAuthService))
+    private readonly outlookOAuthService: OutlookOAuthService,
+    @Inject(forwardRef(() => ResendService))
+    private readonly resendService: ResendService,
+  ) {
+    // Default SMTP transporter (fallback global)
+    this.defaultTransporter = nodemailer.createTransport({
       host: this.configService.get<string>("SMTP_HOST"),
       port: this.configService.get<number>("SMTP_PORT"),
-      secure: this.configService.get<number>("SMTP_PORT") === 465, // true for 465, false for other ports
+      secure: this.configService.get<number>("SMTP_PORT") === 465,
       auth: {
         user: this.configService.get<string>("SMTP_USER"),
         pass: this.configService.get<string>("SMTP_PASS"),
@@ -24,7 +43,66 @@ export class MailService {
     html: string;
     text?: string;
     attachments?: nodemailer.SendMailOptions["attachments"];
+    tenantId?: string; // NUEVO: opcional tenant ID para usar su configuración
   }): Promise<void> {
+    // Si hay tenantId, intentar usar su configuración de email
+    if (options.tenantId) {
+      const tenant = await this.tenantModel.findById(options.tenantId).exec();
+
+      if (tenant?.emailConfig?.enabled) {
+        this.logger.log(
+          `Sending email via ${tenant.emailConfig.provider} for tenant ${options.tenantId}`,
+        );
+
+        try {
+          switch (tenant.emailConfig.provider) {
+            case "gmail":
+              return await this.gmailOAuthService.sendEmail(options.tenantId, {
+                to: options.to,
+                subject: options.subject,
+                html: options.html,
+                text: options.text,
+              });
+
+            case "outlook":
+              return await this.outlookOAuthService.sendEmail(
+                options.tenantId,
+                {
+                  to: options.to,
+                  subject: options.subject,
+                  html: options.html,
+                  text: options.text,
+                },
+              );
+
+            case "resend":
+              return await this.resendService.sendEmail(options.tenantId, {
+                to: options.to,
+                subject: options.subject,
+                html: options.html,
+                text: options.text,
+              });
+
+            case "smtp":
+              return await this.sendViaTenantSmtp(tenant, options);
+
+            default:
+              this.logger.warn(
+                `Unknown email provider ${tenant.emailConfig.provider} for tenant ${options.tenantId}, falling back to default SMTP`,
+              );
+          }
+        } catch (error) {
+          this.logger.error(
+            `Failed to send email via ${tenant.emailConfig.provider} for tenant ${options.tenantId}: ${error.message}. Falling back to default SMTP`,
+            error.stack,
+          );
+          // Fall through to default SMTP
+        }
+      }
+    }
+
+    // Fallback: usar SMTP global por defecto
+    this.logger.log(`Sending email via default SMTP`);
     const mailOptions = {
       from: this.configService.get<string>("SMTP_FROM"),
       to: options.to,
@@ -34,7 +112,47 @@ export class MailService {
       attachments: options.attachments,
     };
 
-    await this.transporter.sendMail(mailOptions);
+    await this.defaultTransporter.sendMail(mailOptions);
+  }
+
+  /**
+   * Enviar email usando SMTP configurado por el tenant
+   */
+  private async sendViaTenantSmtp(
+    tenant: TenantDocument,
+    options: {
+      to: string;
+      subject: string;
+      html: string;
+      text?: string;
+      attachments?: nodemailer.SendMailOptions["attachments"];
+    },
+  ): Promise<void> {
+    if (!tenant.emailConfig?.smtpHost || !tenant.emailConfig?.smtpUser) {
+      throw new Error("SMTP configuration incomplete for tenant");
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: tenant.emailConfig.smtpHost,
+      port: tenant.emailConfig.smtpPort || 587,
+      secure: tenant.emailConfig.smtpSecure || false,
+      auth: {
+        user: tenant.emailConfig.smtpUser,
+        pass: decrypt(tenant.emailConfig.smtpPass || ""),
+      },
+    });
+
+    const mailOptions = {
+      from: tenant.emailConfig.smtpFrom || tenant.emailConfig.smtpUser,
+      to: options.to,
+      subject: options.subject,
+      html: options.html,
+      text: options.text,
+      attachments: options.attachments,
+      replyTo: tenant.emailConfig.smtpReplyTo,
+    };
+
+    await transporter.sendMail(mailOptions);
   }
 
   async sendUserWelcomeEmail(email: string, tempPassword: string) {
@@ -56,7 +174,7 @@ export class MailService {
       `,
     };
 
-    await this.transporter.sendMail(mailOptions);
+    await this.defaultTransporter.sendMail(mailOptions);
   }
 
   async sendPasswordResetEmail(email: string, resetToken: string) {
@@ -88,7 +206,7 @@ export class MailService {
       `,
     };
 
-    await this.transporter.sendMail(mailOptions);
+    await this.defaultTransporter.sendMail(mailOptions);
   }
 
   async sendTenantWelcomeEmail(
@@ -141,6 +259,6 @@ export class MailService {
       `,
     };
 
-    await this.transporter.sendMail(mailOptions);
+    await this.defaultTransporter.sendMail(mailOptions);
   }
 }

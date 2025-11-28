@@ -246,6 +246,15 @@ export class Customer {
   @Prop({ type: Number, default: 0 })
   loyaltyScore?: number;
 
+  @Prop({ type: Number, default: 0 })
+  loyaltyPoints?: number; // Puntos de lealtad acumulados
+
+  @Prop({ type: Date })
+  lastPointsEarnedAt?: Date; // Última vez que ganó puntos
+
+  @Prop({ type: Date })
+  lastPointsRedeemedAt?: Date; // Última vez que redimió puntos
+
   @Prop({
     type: Object,
     default: {},

@@ -16,6 +16,7 @@ import { DeliverySettings } from './DeliverySettings'; // Importar DeliverySetti
 import WhatsAppConnection from './WhatsAppConnection'; // Importar WhatsAppConnection
 import { useAuth } from '@/hooks/use-auth.jsx'; // Importar useAuth
 import TenantKnowledgeBaseManager from './TenantKnowledgeBaseManager';
+import EmailConfiguration from './EmailConfiguration'; // Importar EmailConfiguration
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DEFAULT_VERTICAL_KEY, getVerticalProfile, listVerticalProfiles } from '@/config/verticalProfiles.js';
 
@@ -325,9 +326,10 @@ const SettingsPage = () => {
       <h1 className="text-3xl font-bold">Configuración</h1>
       
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7">
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-8">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="delivery">Delivery</TabsTrigger>
+          <TabsTrigger value="email">Email</TabsTrigger>
           {tenant?.enabledModules?.chat && hasPermission('chat_read') && <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>}
           <TabsTrigger value="security">Seguridad</TabsTrigger>
           {hasPermission('users_read') && <TabsTrigger value="users">Usuarios</TabsTrigger>}
@@ -798,6 +800,9 @@ const SettingsPage = () => {
         </TabsContent>
         <TabsContent value="delivery" className="mt-10">
           <DeliverySettings />
+        </TabsContent>
+        <TabsContent value="email" className="mt-10">
+          <EmailConfiguration />
         </TabsContent>
         <TabsContent value="whatsapp" className="mt-10">
           <WhatsAppConnection />

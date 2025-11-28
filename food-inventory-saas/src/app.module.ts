@@ -63,6 +63,8 @@ import { ReservationsModule } from "./modules/reservations/reservations.module";
 import { WhapiModule } from "./modules/whapi/whapi.module";
 import { ServicePackagesModule } from "./modules/service-packages/service-packages.module";
 import { LoyaltyModule } from "./modules/loyalty/loyalty.module";
+import { CouponsModule } from "./modules/coupons/coupons.module";
+import { PromotionsModule } from "./modules/promotions/promotions.module";
 import { HospitalityIntegrationsModule } from "./modules/hospitality-integrations/hospitality-integrations.module";
 import { LocationsModule } from "./modules/locations/locations.module";
 import { HealthModule } from "./modules/health/health.module";
@@ -99,6 +101,7 @@ import { ProductAffinityModule } from "./modules/product-affinity/product-affini
 import { ProductCampaignModule } from "./modules/product-campaign/product-campaign.module";
 import { PayrollReportsModule } from "./modules/payroll-reports/payroll-reports.module";
 import { PayrollWebhooksModule } from "./modules/payroll-webhooks/payroll-webhooks.module";
+// import { BillingModule } from "./modules/billing/billing.module"; // TODO: Implement billing module
 
 @Module({
   imports: [
@@ -352,6 +355,8 @@ import { PayrollWebhooksModule } from "./modules/payroll-webhooks/payroll-webhoo
     AppointmentsModule,
     ServicePackagesModule,
     LoyaltyModule,
+    CouponsModule,
+    PromotionsModule,
     HospitalityIntegrationsModule,
     StorefrontModule,
     OrganizationsModule,
@@ -382,6 +387,7 @@ import { PayrollWebhooksModule } from "./modules/payroll-webhooks/payroll-webhoo
     TransactionHistoryModule,
     ProductAffinityModule,
     ProductCampaignModule,
+    // BillingModule, // TODO: Implement billing module
   ],
   controllers: [AppController, TenantController],
   providers: [

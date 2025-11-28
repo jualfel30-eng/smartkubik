@@ -49,6 +49,7 @@ export class TenantSettings {
     expirationAlertDays: number;
     lowStockAlertEnabled: boolean;
     autoReorderEnabled: boolean;
+    enableAutomaticIngredientDeduction: boolean; // NUEVO: Deducir ingredientes automáticamente al vender
   };
 
   @Prop({ type: Object })
@@ -147,6 +148,43 @@ export class TenantSettings {
       enabled?: boolean;
     };
   };
+
+  @Prop({ type: Object })
+  tips?: {
+    autoDistribute?: boolean;
+    distributionFrequency?: 'daily' | 'weekly' | 'biweekly' | 'monthly';
+    defaultDistributionDay?: number; // 1-7 for day of week, 1-31 for day of month
+    poolingEnabled?: boolean;
+    taxWithholdingEnabled?: boolean;
+    taxWithholdingRate?: number;
+    minimumDistributionAmount?: number;
+    notificationEnabled?: boolean;
+  };
+
+  @Prop({ type: Object })
+  reservations?: {
+    maxPartySize?: number;
+    defaultDuration?: number; // minutes
+    advanceBookingDays?: number;
+    cancellationWindowHours?: number;
+    requireDeposit?: boolean;
+    depositAmount?: number;
+    autoConfirmReservations?: boolean;
+    sendConfirmationEmail?: boolean;
+    sendReminderEmail?: boolean;
+    reminderHoursBefore?: number;
+  };
+
+  @Prop({ type: Object })
+  loyalty?: {
+    pointsPerDollar?: number; // Puntos ganados por cada dólar gastado (default: 1)
+    pointsValue?: number; // Valor en dólares de cada punto (default: 0.01)
+    minimumPointsToRedeem?: number; // Mínimo de puntos para redimir (default: 100)
+    pointsExpirationDays?: number; // Días hasta que expiran los puntos (0 = nunca, default: 365)
+    autoApplyRewards?: boolean; // Aplicar automáticamente descuentos de puntos
+    notifyOnPointsEarned?: boolean; // Notificar al cliente cuando gana puntos
+    notifyOnPointsExpiring?: boolean; // Notificar cuando puntos están por expirar
+  };
 }
 
 const TenantSettingsSchema = SchemaFactory.createForClass(TenantSettings);
@@ -220,10 +258,13 @@ export class Tenant {
     marketing?: boolean;
 
     // FOOD_SERVICE specific modules
+    restaurant?: boolean;
     tables?: boolean;
     recipes?: boolean;
     kitchenDisplay?: boolean;
     menuEngineering?: boolean;
+    tips?: boolean;
+    reservations?: boolean;
 
     // RETAIL specific modules
     pos?: boolean;
@@ -360,6 +401,63 @@ export class Tenant {
 
   @Prop({ type: String, required: false })
   whapiToken?: string;
+
+  @Prop({
+    type: {
+      provider: {
+        type: String,
+        enum: ["none", "gmail", "outlook", "resend", "smtp"],
+        default: "none",
+      },
+      enabled: { type: Boolean, default: false },
+      // Gmail OAuth
+      gmailAccessToken: { type: String },
+      gmailRefreshToken: { type: String },
+      gmailEmail: { type: String },
+      // Outlook OAuth
+      outlookAccessToken: { type: String },
+      outlookRefreshToken: { type: String },
+      outlookEmail: { type: String },
+      // Resend
+      resendApiKey: { type: String },
+      resendFromEmail: { type: String },
+      // SMTP Manual
+      smtpHost: { type: String },
+      smtpPort: { type: Number },
+      smtpSecure: { type: Boolean },
+      smtpUser: { type: String },
+      smtpPass: { type: String },
+      smtpFrom: { type: String },
+      smtpReplyTo: { type: String },
+    },
+    default: {
+      provider: "none",
+      enabled: false,
+    },
+  })
+  emailConfig?: {
+    provider: "none" | "gmail" | "outlook" | "resend" | "smtp";
+    enabled: boolean;
+    // Gmail OAuth
+    gmailAccessToken?: string;
+    gmailRefreshToken?: string;
+    gmailEmail?: string;
+    // Outlook OAuth
+    outlookAccessToken?: string;
+    outlookRefreshToken?: string;
+    outlookEmail?: string;
+    // Resend
+    resendApiKey?: string;
+    resendFromEmail?: string;
+    // SMTP Manual
+    smtpHost?: string;
+    smtpPort?: number;
+    smtpSecure?: boolean;
+    smtpUser?: string;
+    smtpPass?: string;
+    smtpFrom?: string;
+    smtpReplyTo?: string;
+  };
 
   @Prop({
     type: {

@@ -14,6 +14,7 @@ NC='\033[0m'
 
 BACKEND_LOCAL="./food-inventory-saas"
 FRONTEND_LOCAL="./food-inventory-admin"
+STOREFRONT_LOCAL="./food-inventory-storefront"
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${BLUE}🔧 SmartKubik PRE-DEPLOY${NC}"
@@ -28,6 +29,11 @@ fi
 
 if [ ! -d "$FRONTEND_LOCAL" ]; then
     echo -e "${RED}❌ Frontend directory not found: $FRONTEND_LOCAL${NC}"
+    exit 1
+fi
+
+if [ ! -d "$STOREFRONT_LOCAL" ]; then
+    echo -e "${RED}❌ Storefront directory not found: $STOREFRONT_LOCAL${NC}"
     exit 1
 fi
 
@@ -69,6 +75,25 @@ fi
 echo -e "${GREEN}✅ Frontend dependencies installed${NC}"
 cd ..
 
+# Step 3.5: Install storefront dependencies
+echo -e "${YELLOW}📦 Installing storefront dependencies...${NC}"
+cd $STOREFRONT_LOCAL
+
+if [ ! -f "package.json" ]; then
+    echo -e "${RED}❌ package.json not found in storefront${NC}"
+    exit 1
+fi
+
+npm install
+
+if [ $? -ne 0 ]; then
+    echo -e "${RED}❌ Storefront dependency installation failed${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ Storefront dependencies installed${NC}"
+cd ..
+
 # Step 4: Verify installations
 echo ""
 echo -e "${YELLOW}🔍 Verifying installations...${NC}"
@@ -87,6 +112,14 @@ if ! npm ls --depth=0 > /dev/null 2>&1; then
     exit 1
 fi
 echo -e "${GREEN}✅ Frontend dependencies verified${NC}"
+cd ..
+
+cd $STOREFRONT_LOCAL
+if ! npm ls --depth=0 > /dev/null 2>&1; then
+    echo -e "${RED}❌ Storefront dependencies verification failed${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✅ Storefront dependencies verified${NC}"
 cd ..
 
 echo ""

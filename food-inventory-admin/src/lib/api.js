@@ -990,6 +990,42 @@ export const getAbTestResults = (campaignId) => {
   return fetchApi(`/product-campaigns/${campaignId}/ab-test-results`);
 };
 
+// ==================== Campaign Analytics API (Phase 5) ====================
+export const getCampaignAnalytics = (campaignId) => {
+  return fetchApi(`/product-campaigns/${campaignId}/analytics`);
+};
+
+export const refreshCampaignAnalytics = (campaignId) => {
+  return fetchApi(`/product-campaigns/${campaignId}/analytics/refresh`, {
+    method: 'POST',
+  });
+};
+
+export const getAllCampaignAnalytics = (filters = {}) => {
+  const queryParams = new URLSearchParams();
+  if (filters.startDate) queryParams.append('startDate', filters.startDate);
+  if (filters.endDate) queryParams.append('endDate', filters.endDate);
+  if (filters.sortBy) queryParams.append('sortBy', filters.sortBy);
+  if (filters.limit) queryParams.append('limit', filters.limit.toString());
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/product-campaigns/analytics/all${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getTopPerformingCampaigns = (metric = 'roi', limit = 10) => {
+  return fetchApi(`/product-campaigns/analytics/top-performers?metric=${metric}&limit=${limit}`);
+};
+
+export const exportCampaignAnalytics = (campaignId, format = 'json') => {
+  return fetchApi(`/product-campaigns/${campaignId}/analytics/export?format=${format}`);
+};
+
+export const refreshAllCampaignAnalytics = () => {
+  return fetchApi('/product-campaigns/analytics/refresh-all', {
+    method: 'POST',
+  });
+};
+
 // ==================== Marketing Analytics API (Phase 4) ====================
 export const getCampaignPerformanceOverTime = (params = {}) => {
   const queryParams = new URLSearchParams();
@@ -1289,4 +1325,25 @@ export const deleteSubscriptionPlan = (id) => {
   return fetchApi(`/subscription-plans/${id}`, {
     method: 'DELETE',
   });
+};
+
+// Generic API client for axios-like usage
+export const api = {
+  get: (url, config = {}) => fetchApi(url, { ...config, method: 'GET' }),
+  post: (url, data, config = {}) => fetchApi(url, {
+    ...config,
+    method: 'POST',
+    body: data instanceof FormData ? data : JSON.stringify(data)
+  }),
+  put: (url, data, config = {}) => fetchApi(url, {
+    ...config,
+    method: 'PUT',
+    body: data instanceof FormData ? data : JSON.stringify(data)
+  }),
+  patch: (url, data, config = {}) => fetchApi(url, {
+    ...config,
+    method: 'PATCH',
+    body: data instanceof FormData ? data : JSON.stringify(data)
+  }),
+  delete: (url, config = {}) => fetchApi(url, { ...config, method: 'DELETE' }),
 };
