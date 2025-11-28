@@ -14,9 +14,13 @@ import {
 import { Customer, CustomerDocument } from "../../schemas/customer.schema";
 import { Order, OrderDocument } from "../../schemas/order.schema";
 import { AudienceFilterDto } from "../../dto/audience-filter.dto";
+import { NotificationsService } from "../notifications/notifications.service";
+import { Logger } from "@nestjs/common";
 
 @Injectable()
 export class MarketingService {
+  private readonly logger = new Logger(MarketingService.name);
+
   constructor(
     @InjectModel(MarketingCampaign.name)
     private campaignModel: Model<MarketingCampaignDocument>,
@@ -24,6 +28,7 @@ export class MarketingService {
     private customerModel: Model<CustomerDocument>,
     @InjectModel(Order.name)
     private orderModel: Model<OrderDocument>,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(
@@ -216,21 +221,206 @@ export class MarketingService {
       throw new NotFoundException("Campaign not found");
     }
 
-    // TODO: Implement actual sending logic (email/SMS/WhatsApp)
-    // For now, just simulate
-    setTimeout(async () => {
+    // PHASE 1: Send campaign messages to all recipients via NotificationsService
+    this.sendCampaignMessages(campaign, tenantId).catch((error) => {
+      this.logger.error(
+        `Error sending campaign ${campaign._id}: ${error.message}`,
+      );
+    });
+
+    return campaign;
+  }
+
+  /**
+   * Send campaign messages to all recipients
+   * PHASE 1: Integration with NotificationsService
+   */
+  private async sendCampaignMessages(
+    campaign: any,
+    tenantId: string,
+  ): Promise<void> {
+    if (!campaign.recipients || campaign.recipients.length === 0) {
+      this.logger.warn(`Campaign ${campaign.name} has no recipients`);
       await this.campaignModel.findByIdAndUpdate(campaign._id, {
         status: "completed",
         completedAt: new Date(),
-        totalSent: campaign.recipients?.length || 0,
-        totalDelivered: Math.floor((campaign.recipients?.length || 0) * 0.95),
-        totalOpened: Math.floor((campaign.recipients?.length || 0) * 0.4),
-        totalClicked: Math.floor((campaign.recipients?.length || 0) * 0.1),
-        totalConverted: Math.floor((campaign.recipients?.length || 0) * 0.05),
       });
-    }, 5000);
+      return;
+    }
 
-    return campaign;
+    // Get customer contact information
+    const customers = await this.customerModel
+      .find({
+        _id: { $in: campaign.recipients },
+        tenantId: new Types.ObjectId(tenantId),
+      })
+      .select("_id name contacts preferences whatsappChatId whatsappNumber")
+      .lean();
+
+    this.logger.log(
+      `Sending campaign "${campaign.name}" to ${customers.length} customers via ${campaign.channel}`,
+    );
+
+    let sentCount = 0;
+    let deliveredCount = 0;
+    const errors: string[] = [];
+
+    // Send to each customer
+    for (const customer of customers) {
+      try {
+        const result = await this.sendCampaignToCustomer(
+          campaign,
+          customer,
+          tenantId,
+        );
+
+        if (result.success) {
+          sentCount++;
+          if (result.delivered) deliveredCount++;
+        } else {
+          errors.push(`${customer.name}: ${result.error}`);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          `Error sending campaign to customer ${customer._id}: ${message}`,
+        );
+        errors.push(`${customer.name}: ${message}`);
+      }
+    }
+
+    // Update campaign metrics
+    await this.campaignModel.findByIdAndUpdate(campaign._id, {
+      status: "completed",
+      completedAt: new Date(),
+      totalSent: sentCount,
+      totalDelivered: deliveredCount,
+    });
+
+    this.logger.log(
+      `Campaign "${campaign.name}" completed: ${sentCount}/${customers.length} messages sent, ${deliveredCount} delivered`,
+    );
+
+    if (errors.length > 0) {
+      this.logger.warn(
+        `Campaign "${campaign.name}" had ${errors.length} errors:\n${errors.slice(0, 5).join("\n")}${errors.length > 5 ? `\n... and ${errors.length - 5} more` : ""}`,
+      );
+    }
+  }
+
+  /**
+   * Send campaign to a single customer
+   * PHASE 1: Integration with NotificationsService
+   */
+  private async sendCampaignToCustomer(
+    campaign: any,
+    customer: any,
+    tenantId: string,
+  ): Promise<{ success: boolean; delivered: boolean; error?: string }> {
+    // Validate channel
+    const validChannels = ["email", "sms", "whatsapp"] as const;
+    type ValidChannel = (typeof validChannels)[number];
+
+    if (!validChannels.includes(campaign.channel as ValidChannel)) {
+      return {
+        success: false,
+        delivered: false,
+        error: `Invalid channel: ${campaign.channel}`,
+      };
+    }
+
+    const channel = campaign.channel as ValidChannel;
+
+    // Get customer contact based on channel
+    const contact = this.getCustomerContact(customer, channel);
+
+    if (!contact) {
+      return {
+        success: false,
+        delivered: false,
+        error: `No ${channel} contact available`,
+      };
+    }
+
+    try {
+      const channels: Array<"email" | "sms" | "whatsapp"> = [channel];
+
+      // Prepare campaign context
+      const context = {
+        customerName: customer.name || "Cliente",
+        campaignName: campaign.name,
+        campaignSubject: campaign.subject || campaign.name,
+        campaignMessage: campaign.message || "",
+        hotelName: "SmartKubik",
+      };
+
+      // Send notification using NotificationsService
+      const results = await this.notificationsService.sendTemplateNotification(
+        {
+          tenantId,
+          customerId: customer._id.toString(),
+          templateId: "marketing-campaign",
+          channels,
+          context,
+          customerEmail: channel === "email" ? contact : null,
+          customerPhone: channel === "sms" ? contact : null,
+          whatsappChatId:
+            channel === "whatsapp"
+              ? customer.whatsappChatId || contact
+              : null,
+        },
+        {
+          engagementDelta: 3,
+        },
+      );
+
+      const channelResult = results.find((r) => r.channel === channel);
+
+      if (channelResult && channelResult.success) {
+        return { success: true, delivered: true };
+      } else {
+        return {
+          success: false,
+          delivered: false,
+          error: channelResult?.error || "Unknown error",
+        };
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { success: false, delivered: false, error: message };
+    }
+  }
+
+  /**
+   * Get customer contact for specific channel
+   * PHASE 1: Helper method
+   */
+  private getCustomerContact(
+    customer: any,
+    channel: "email" | "sms" | "whatsapp",
+  ): string | null {
+    if (!customer.contacts || customer.contacts.length === 0) {
+      return null;
+    }
+
+    switch (channel) {
+      case "email":
+        const emailContact = customer.contacts.find(
+          (c: any) => c.type === "email" && c.isActive,
+        );
+        return emailContact?.value || null;
+
+      case "sms":
+      case "whatsapp":
+        const phoneContact = customer.contacts.find(
+          (c: any) =>
+            (c.type === "phone" || c.type === "mobile") && c.isActive,
+        );
+        return phoneContact?.value || customer.whatsappNumber || null;
+
+      default:
+        return null;
+    }
   }
 
   async pause(

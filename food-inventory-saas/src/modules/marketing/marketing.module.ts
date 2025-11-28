@@ -43,8 +43,9 @@ import { Customer, CustomerSchema } from "../../schemas/customer.schema";
 import { Order, OrderSchema } from "../../schemas/order.schema";
 
 // === PHASE 3: Product Campaign Integration ===
-import { ProductCampaignController } from "../../controllers/product-campaign.controller";
+// Note: ProductCampaignController is in ProductCampaignModule
 import { ProductCampaignService } from "../../services/product-campaign.service";
+import { CampaignAnalyticsService } from "../../services/campaign-analytics.service";
 import {
   ProductCampaign,
   ProductCampaignSchema,
@@ -55,6 +56,34 @@ import {
 } from "../../schemas/customer-product-affinity.schema";
 import { ProductAffinityModule } from "../product-affinity/product-affinity.module";
 import { NotificationsModule } from "../notifications/notifications.module";
+import {
+  CampaignAnalytics,
+  CampaignAnalyticsSchema,
+} from "../../schemas/campaign-analytics.schema";
+
+// === PHASE 7: Email/SMS Templates & Delivery System ===
+import { TemplateService } from "./template.service";
+import { DeliveryService } from "./delivery.service";
+import { TemplateController } from "./template.controller";
+import { DeliveryController } from "./delivery.controller";
+import {
+  EmailTemplate,
+  EmailTemplateSchema,
+} from "../../schemas/email-template.schema";
+import {
+  MessageDelivery,
+  MessageDeliverySchema,
+} from "../../schemas/message-delivery.schema";
+
+// === PHASE 8: WhatsApp Business Integration ===
+import { WhatsAppService } from "./whatsapp.service";
+import { WhatsAppController } from "./whatsapp.controller";
+import {
+  WhatsAppTemplate,
+  WhatsAppTemplateSchema,
+} from "../../schemas/whatsapp-template.schema";
+import { SuperAdminModule } from "../super-admin/super-admin.module";
+import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
 
 @Module({
   imports: [
@@ -74,11 +103,21 @@ import { NotificationsModule } from "../notifications/notifications.module";
         name: CustomerProductAffinity.name,
         schema: CustomerProductAffinitySchema,
       },
+      // PHASE 5: Campaign Analytics schema
+      { name: CampaignAnalytics.name, schema: CampaignAnalyticsSchema },
+      // PHASE 7: Email/SMS Templates & Delivery System schemas
+      { name: EmailTemplate.name, schema: EmailTemplateSchema },
+      { name: MessageDelivery.name, schema: MessageDeliverySchema },
+      // PHASE 8: WhatsApp Business Integration schemas
+      { name: WhatsAppTemplate.name, schema: WhatsAppTemplateSchema },
+      { name: Tenant.name, schema: TenantSchema },
     ]),
     // PHASE 3: Import ProductAffinityModule for CRM data access
     ProductAffinityModule,
     // PHASE 3: Import NotificationsModule for campaign sending
     NotificationsModule,
+    // PHASE 8: Import SuperAdminModule for Whapi token access
+    SuperAdminModule,
   ],
   controllers: [
     MarketingController,
@@ -86,8 +125,12 @@ import { NotificationsModule } from "../notifications/notifications.module";
     ABTestingController,
     SchedulingController,
     WorkflowController,
-    // PHASE 3: Product Campaign controller
-    ProductCampaignController,
+    // Note: ProductCampaignController is in ProductCampaignModule
+    // PHASE 7: Email/SMS Templates & Delivery System controllers
+    TemplateController,
+    DeliveryController,
+    // PHASE 8: WhatsApp Business Integration controller
+    WhatsAppController,
   ],
   providers: [
     MarketingService,
@@ -96,8 +139,14 @@ import { NotificationsModule } from "../notifications/notifications.module";
     ABTestingService,
     SchedulingService,
     WorkflowService,
-    // PHASE 3: Product Campaign service
+    // PHASE 3: Product Campaign services
     ProductCampaignService,
+    CampaignAnalyticsService,
+    // PHASE 7: Email/SMS Templates & Delivery System services
+    TemplateService,
+    DeliveryService,
+    // PHASE 8: WhatsApp Business Integration service
+    WhatsAppService,
   ],
   exports: [
     MarketingService,
@@ -106,8 +155,14 @@ import { NotificationsModule } from "../notifications/notifications.module";
     ABTestingService,
     SchedulingService,
     WorkflowService,
-    // PHASE 3: Export ProductCampaignService for external use
+    // PHASE 3: Export Product Campaign services for external use
     ProductCampaignService,
+    CampaignAnalyticsService,
+    // PHASE 7: Export Template & Delivery services for external use
+    TemplateService,
+    DeliveryService,
+    // PHASE 8: Export WhatsApp service for external use
+    WhatsAppService,
   ],
 })
 export class MarketingModule {}

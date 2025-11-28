@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import ProductCampaignBuilder from '../components/marketing/ProductCampaignBuilder';
 import ProductCampaignInsights from '../components/marketing/ProductCampaignInsights';
+import CampaignAnalyticsDashboard from '../components/marketing/CampaignAnalyticsDashboard';
 import {
   getProductCampaigns,
   createProductCampaign,
@@ -48,6 +49,7 @@ export default function ProductCampaignsPage() {
   const [loading, setLoading] = useState(false);
   const [showBuilder, setShowBuilder] = useState(false);
   const [showInsights, setShowInsights] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [filters] = useState({
     status: '',
@@ -124,6 +126,11 @@ export default function ProductCampaignsPage() {
   const handleViewInsights = (campaign) => {
     setSelectedCampaign(campaign);
     setShowInsights(true);
+  };
+
+  const handleViewAnalytics = (campaign) => {
+    setSelectedCampaign(campaign);
+    setShowAnalytics(true);
   };
 
   return (
@@ -289,45 +296,58 @@ export default function ProductCampaignsPage() {
                   )}
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2">
-                    {campaign.status === 'draft' && (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      {campaign.status === 'draft' && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleLaunchCampaign(campaign._id)}
+                          className="flex-1"
+                        >
+                          <Play className="w-3 h-3 mr-1" />
+                          Lanzar
+                        </Button>
+                      )}
                       <Button
                         size="sm"
-                        onClick={() => handleLaunchCampaign(campaign._id)}
-                        className="flex-1"
+                        variant="outline"
+                        onClick={() => handleViewInsights(campaign)}
+                        className="flex-1 dark:border-gray-600 dark:text-gray-200"
                       >
-                        <Play className="w-3 h-3 mr-1" />
-                        Lanzar
+                        <BarChart3 className="w-3 h-3 mr-1" />
+                        Insights
                       </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleViewInsights(campaign)}
-                      className="flex-1 dark:border-gray-600 dark:text-gray-200"
-                    >
-                      <BarChart3 className="w-3 h-3 mr-1" />
-                      Insights
-                    </Button>
-                    {campaign.status === 'draft' && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleRefreshSegment(campaign._id)}
-                          className="dark:text-gray-200"
-                        >
-                          <RefreshCw className="w-3 h-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDeleteCampaign(campaign._id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      </>
+                      {campaign.status === 'draft' && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleRefreshSegment(campaign._id)}
+                            className="dark:text-gray-200"
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteCampaign(campaign._id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                    {(campaign.status === 'running' || campaign.status === 'completed') && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => handleViewAnalytics(campaign)}
+                        className="w-full bg-purple-600 hover:bg-purple-700"
+                      >
+                        <TrendingUp className="w-3 h-3 mr-1" />
+                        Ver Analíticas
+                      </Button>
                     )}
                   </div>
                 </CardContent>
@@ -362,6 +382,23 @@ export default function ProductCampaignsPage() {
           </DialogHeader>
           {selectedCampaign && (
             <ProductCampaignInsights campaignId={selectedCampaign._id} />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Campaign Analytics Dialog - PHASE 5 */}
+      <Dialog open={showAnalytics} onOpenChange={setShowAnalytics}>
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto dark:bg-gray-800 dark:border-gray-700">
+          <DialogHeader>
+            <DialogTitle className="dark:text-gray-100">
+              Analíticas Avanzadas - {selectedCampaign?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedCampaign && (
+            <CampaignAnalyticsDashboard
+              campaignId={selectedCampaign._id}
+              campaignName={selectedCampaign.name}
+            />
           )}
         </DialogContent>
       </Dialog>

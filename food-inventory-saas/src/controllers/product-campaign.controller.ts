@@ -12,6 +12,7 @@ import {
 } from "@nestjs/common";
 import { JwtAuthGuard } from "../guards/jwt-auth.guard";
 import { ProductCampaignService } from "../services/product-campaign.service";
+import { CampaignAnalyticsService } from "../services/campaign-analytics.service";
 import {
   CreateProductCampaignDto,
   UpdateProductCampaignDto,
@@ -24,6 +25,7 @@ import {
 export class ProductCampaignController {
   constructor(
     private readonly productCampaignService: ProductCampaignService,
+    private readonly campaignAnalyticsService: CampaignAnalyticsService,
   ) {}
 
   /**
@@ -458,6 +460,130 @@ export class ProductCampaignController {
     return {
       success: true,
       data: results,
+    };
+  }
+
+  // ========================================================================
+  // PHASE 5: ADVANCED ANALYTICS & REPORTING ENDPOINTS
+  // ========================================================================
+
+  /**
+   * GET /product-campaigns/:id/analytics
+   * Get comprehensive analytics for a campaign (PHASE 5)
+   */
+  @Get(":id/analytics")
+  async getCampaignAnalytics(@Param("id") id: string, @Request() req) {
+    const analytics = await this.campaignAnalyticsService.getAnalytics(
+      id,
+      req.user.tenantId,
+    );
+
+    return {
+      success: true,
+      data: analytics,
+    };
+  }
+
+  /**
+   * POST /product-campaigns/:id/analytics/refresh
+   * Recalculate analytics for a campaign (PHASE 5)
+   */
+  @Post(":id/analytics/refresh")
+  async refreshCampaignAnalytics(@Param("id") id: string, @Request() req) {
+    const analytics = await this.campaignAnalyticsService.calculateCampaignAnalytics(
+      id,
+      req.user.tenantId,
+    );
+
+    return {
+      success: true,
+      data: analytics,
+      message: "Analytics refreshed successfully",
+    };
+  }
+
+  /**
+   * GET /product-campaigns/analytics/all
+   * Get analytics for all campaigns with optional filters (PHASE 5)
+   */
+  @Get("analytics/all")
+  async getAllCampaignAnalytics(@Query() filters: any, @Request() req) {
+    const analytics = await this.campaignAnalyticsService.getAllAnalytics(
+      req.user.tenantId,
+      {
+        startDate: filters.startDate ? new Date(filters.startDate) : undefined,
+        endDate: filters.endDate ? new Date(filters.endDate) : undefined,
+        sortBy: filters.sortBy,
+        limit: filters.limit ? parseInt(filters.limit) : undefined,
+      },
+    );
+
+    return {
+      success: true,
+      data: analytics,
+      count: analytics.length,
+    };
+  }
+
+  /**
+   * GET /product-campaigns/analytics/top-performers
+   * Get top performing campaigns by metric (PHASE 5)
+   */
+  @Get("analytics/top-performers")
+  async getTopPerformers(@Query() query: any, @Request() req) {
+    const metric = query.metric || "roi";
+    const limit = query.limit ? parseInt(query.limit) : 10;
+
+    const topPerformers = await this.campaignAnalyticsService.getTopPerformers(
+      req.user.tenantId,
+      metric,
+      limit,
+    );
+
+    return {
+      success: true,
+      data: topPerformers,
+      metric,
+    };
+  }
+
+  /**
+   * GET /product-campaigns/:id/analytics/export
+   * Export analytics data for a campaign (PHASE 5)
+   */
+  @Get(":id/analytics/export")
+  async exportCampaignAnalytics(
+    @Param("id") id: string,
+    @Query("format") format: "json" | "csv",
+    @Request() req,
+  ) {
+    const data = await this.campaignAnalyticsService.exportAnalytics(
+      id,
+      req.user.tenantId,
+      format || "json",
+    );
+
+    return {
+      success: true,
+      data,
+      format: format || "json",
+    };
+  }
+
+  /**
+   * POST /product-campaigns/analytics/refresh-all
+   * Refresh analytics for all campaigns (PHASE 5)
+   */
+  @Post("analytics/refresh-all")
+  async refreshAllAnalytics(@Request() req) {
+    const refreshedCount = await this.campaignAnalyticsService.refreshAllAnalytics(
+      req.user.tenantId,
+    );
+
+    return {
+      success: true,
+      message: `Refreshed analytics for ${refreshedCount} campaigns`,
+      count: refreshedCount,
     };
   }
 }

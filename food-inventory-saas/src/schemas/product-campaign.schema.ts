@@ -265,6 +265,10 @@ export class ProductCampaign {
   @Prop({ required: true, enum: ["email", "sms", "whatsapp"] })
   channel: string;
 
+  // Email Template Reference (PHASE 1: Integration with NotificationsService)
+  @Prop({ type: Types.ObjectId, ref: "EmailTemplate" })
+  emailTemplateId?: Types.ObjectId;
+
   @Prop()
   subject?: string; // For email
 
