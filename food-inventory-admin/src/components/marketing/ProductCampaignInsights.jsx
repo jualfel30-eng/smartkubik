@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -45,37 +45,27 @@ export default function ProductCampaignInsights({ campaignId }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [campaign, setCampaign] = useState(null);
-  const [insights, setInsights] = useState(null);
-  const [performanceData, setPerformanceData] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
 
-  useEffect(() => {
-    if (campaignId) {
-      fetchCampaignData();
-    }
-  }, [campaignId]);
-
-  const fetchCampaignData = async () => {
+  const fetchCampaignData = useCallback(async () => {
     setLoading(true);
     try {
       // Fetch campaign details
       const campaignResponse = await fetchApi(`/product-campaigns/${campaignId}`);
       setCampaign(campaignResponse.data);
-
-      // Fetch audience insights
-      const insightsResponse = await fetchApi(`/product-campaigns/${campaignId}/insights`);
-      setInsights(insightsResponse.data);
-
-      // Fetch performance data
-      const performanceResponse = await fetchApi(`/product-campaigns/${campaignId}/performance`);
-      setPerformanceData(performanceResponse.data);
     } catch (error) {
       console.error('Error fetching campaign data:', error);
       toast.error('Error al cargar datos de la campaña');
     } finally {
       setLoading(false);
     }
-  };
+  }, [campaignId]);
+
+  useEffect(() => {
+    if (campaignId) {
+      fetchCampaignData();
+    }
+  }, [campaignId, fetchCampaignData]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

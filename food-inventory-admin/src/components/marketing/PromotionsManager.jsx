@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,9 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Switch } from '@/components/ui/switch';
 import { Percent, Plus, Edit, Trash2, BarChart3, TrendingUp, Gift, Package } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+import { fetchApi } from '@/lib/api';
 
 const PROMOTION_TYPES = [
   { value: 'percentage_discount', label: '% Descuento', icon: Percent },
@@ -54,19 +52,11 @@ const PromotionsManager = () => {
     maxUsagePerCustomer: '',
   });
 
-  useEffect(() => {
-    fetchPromotions();
-  }, []);
-
-  const fetchPromotions = async () => {
+  const fetchPromotions = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/promotions`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { limit: 100 },
-      });
-      setPromotions(response.data.data || []);
+      const response = await fetchApi('/promotions?limit=100');
+      setPromotions(response.data || []);
     } catch (error) {
       console.error('Error fetching promotions:', error);
       toast({
@@ -77,15 +67,16 @@ const PromotionsManager = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchPromotions();
+  }, [fetchPromotions]);
 
   const fetchPromotionStats = async (promotionId) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/promotions/${promotionId}/stats`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setPromotionStats(response.data.data);
+      const response = await fetchApi(`/promotions/${promotionId}/stats`);
+      setPromotionStats(response.data);
       setIsStatsDialogOpen(true);
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -101,7 +92,6 @@ const PromotionsManager = () => {
     e.preventDefault();
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
 
       const payload = {
         name: formData.name,
@@ -155,8 +145,9 @@ const PromotionsManager = () => {
       }
 
       if (selectedPromotion) {
-        await axios.put(`${API_URL}/promotions/${selectedPromotion._id}`, payload, {
-          headers: { Authorization: `Bearer ${token}` },
+        await fetchApi(`/promotions/${selectedPromotion._id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
         });
         toast({
           title: 'Promoción actualizada',
@@ -164,8 +155,9 @@ const PromotionsManager = () => {
         });
         setIsEditDialogOpen(false);
       } else {
-        await axios.post(`${API_URL}/promotions`, payload, {
-          headers: { Authorization: `Bearer ${token}` },
+        await fetchApi('/promotions', {
+          method: 'POST',
+          body: JSON.stringify(payload),
         });
         toast({
           title: 'Promoción creada',
@@ -191,9 +183,8 @@ const PromotionsManager = () => {
     if (!confirm('¿Estás seguro de eliminar esta promoción?')) return;
 
     try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`${API_URL}/promotions/${promotionId}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      await fetchApi(`/promotions/${promotionId}`, {
+        method: 'DELETE',
       });
       toast({
         title: 'Promoción eliminada',
@@ -201,6 +192,7 @@ const PromotionsManager = () => {
       });
       fetchPromotions();
     } catch (error) {
+      console.error('Error deleting promotion:', error);
       toast({
         title: 'Error',
         description: 'No se pudo eliminar la promoción',

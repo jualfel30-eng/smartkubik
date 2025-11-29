@@ -164,6 +164,20 @@ export class LoyaltyController {
   }
 
   /**
+   * GET /loyalty/customers
+   * Obtiene lista de clientes para selector de loyalty
+   */
+  @Get("customers")
+  async getCustomers(@Request() req: any) {
+    const customers = await this.loyaltyService.getCustomers(req.user.tenantId);
+
+    return {
+      success: true,
+      data: customers,
+    };
+  }
+
+  /**
    * POST /loyalty/expire
    * Ejecuta job de expiración de puntos (admin/cron)
    */

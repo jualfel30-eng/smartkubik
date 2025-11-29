@@ -65,8 +65,21 @@ const STATUS_CONFIG = {
   paused: { label: 'Pausada', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200' },
 };
 
-const MarketingCampaigns = () => {
-  const [activeTab, setActiveTab] = useState('overview');
+const MarketingCampaigns = ({ initialSubTab = 'overview', onSubTabChange }) => {
+  const [activeTab, setActiveTab] = useState(initialSubTab);
+
+  useEffect(() => {
+    if (initialSubTab !== activeTab) {
+      setActiveTab(initialSubTab);
+    }
+  }, [initialSubTab, activeTab]);
+
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    if (onSubTabChange) {
+      onSubTabChange(newTab);
+    }
+  };
   const [analytics, setAnalytics] = useState(null);
   const [campaigns, setCampaigns] = useState([]);
   const [triggers, setTriggers] = useState([]);
@@ -239,7 +252,7 @@ const MarketingCampaigns = () => {
         </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid w-full max-w-2xl grid-cols-4">
           <TabsTrigger value="overview">Resumen</TabsTrigger>
           <TabsTrigger value="campaigns">Campañas</TabsTrigger>

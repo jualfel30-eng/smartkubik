@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -35,24 +35,25 @@ export default function ProductSelector({ value = {}, onChange }) {
   const excludedProductsData = products.filter(p => excludedProducts.includes(p._id));
 
   // Fetch products based on search query
-  const fetchProducts = useCallback(
-    debounce(async (query) => {
-      if (!query || query.length < 2) {
-        setProducts([]);
-        return;
-      }
+  const fetchProducts = useMemo(
+    () =>
+      debounce(async (query) => {
+        if (!query || query.length < 2) {
+          setProducts([]);
+          return;
+        }
 
-      setLoading(true);
-      try {
-        const response = await fetchApi(`/products?search=${encodeURIComponent(query)}&limit=20`);
-        setProducts(response.data || []);
-      } catch (error) {
-        console.error('Error fetching products:', error);
-        setProducts([]);
-      } finally {
-        setLoading(false);
-      }
-    }, 300),
+        setLoading(true);
+        try {
+          const response = await fetchApi(`/products?search=${encodeURIComponent(query)}&limit=20`);
+          setProducts(response.data || []);
+        } catch (error) {
+          console.error('Error fetching products:', error);
+          setProducts([]);
+        } finally {
+          setLoading(false);
+        }
+      }, 300),
     []
   );
 

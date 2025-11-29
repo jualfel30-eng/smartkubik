@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -113,7 +113,6 @@ export default function ProductCampaignBuilder({ onSubmit, onCancel, initialData
 
   // Audience preview state
   const [audiencePreview, setAudiencePreview] = useState(null);
-  const [products, setProducts] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -156,24 +155,25 @@ export default function ProductCampaignBuilder({ onSubmit, onCancel, initialData
   });
 
   // Search products
-  const searchProducts = useCallback(
-    debounce(async (query) => {
-      if (!query || query.length < 2) {
-        setSearchResults([]);
-        return;
-      }
+  const searchProducts = useMemo(
+    () =>
+      debounce(async (query) => {
+        if (!query || query.length < 2) {
+          setSearchResults([]);
+          return;
+        }
 
-      setSearchLoading(true);
-      try {
-        const response = await fetchApi(`/products?search=${encodeURIComponent(query)}&limit=20`);
-        setSearchResults(response.data || []);
-      } catch (error) {
-        console.error('Error searching products:', error);
-        toast.error('Error buscando productos');
-      } finally {
-        setSearchLoading(false);
-      }
-    }, 300),
+        setSearchLoading(true);
+        try {
+          const response = await fetchApi(`/products?search=${encodeURIComponent(query)}&limit=20`);
+          setSearchResults(response.data || []);
+        } catch (error) {
+          console.error('Error searching products:', error);
+          toast.error('Error buscando productos');
+        } finally {
+          setSearchLoading(false);
+        }
+      }, 300),
     []
   );
 
@@ -182,29 +182,30 @@ export default function ProductCampaignBuilder({ onSubmit, onCancel, initialData
   }, [searchQuery, searchProducts]);
 
   // Test audience criteria (real-time preview)
-  const testAudienceCriteria = useCallback(
-    debounce(async (productTargeting, targetingLogic) => {
-      if (!productTargeting || productTargeting.length === 0) {
-        setAudiencePreview(null);
-        return;
-      }
+  const testAudienceCriteria = useMemo(
+    () =>
+      debounce(async (productTargeting, targetingLogic) => {
+        if (!productTargeting || productTargeting.length === 0) {
+          setAudiencePreview(null);
+          return;
+        }
 
-      setTestingAudience(true);
-      try {
-        const response = await fetchApi('/product-campaigns/test-audience', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ productTargeting, targetingLogic }),
-        });
+        setTestingAudience(true);
+        try {
+          const response = await fetchApi('/product-campaigns/test-audience', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ productTargeting, targetingLogic }),
+          });
 
-        setAudiencePreview(response.data || null);
-      } catch (error) {
-        console.error('Error testing audience:', error);
-        setAudiencePreview(null);
-      } finally {
-        setTestingAudience(false);
-      }
-    }, 800),
+          setAudiencePreview(response.data || null);
+        } catch (error) {
+          console.error('Error testing audience:', error);
+          setAudiencePreview(null);
+        } finally {
+          setTestingAudience(false);
+        }
+      }, 800),
     []
   );
 
@@ -236,7 +237,7 @@ export default function ProductCampaignBuilder({ onSubmit, onCancel, initialData
 
     // Clean up empty values
     const cleanTargeting = Object.fromEntries(
-      Object.entries(editingTargeting).filter(([key, value]) => {
+      Object.entries(editingTargeting).filter(([, value]) => {
         if (value === '' || value === undefined || value === null) return false;
         if (Array.isArray(value) && value.length === 0) return false;
         return true;

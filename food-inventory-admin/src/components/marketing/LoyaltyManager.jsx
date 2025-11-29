@@ -1,72 +1,119 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Award, Plus, Minus, Edit, TrendingUp, TrendingDown, Gift, AlertCircle, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+import { SearchableSelect } from '@/components/orders/v2/custom/SearchableSelect';
+import { useCrmContext } from '@/context/CrmContext';
+import { fetchApi } from '@/lib/api';
 
 const LoyaltyManager = () => {
   const { toast } = useToast();
-  const [customers, setCustomers] = useState([]);
+  const { crmData: customers } = useCrmContext();
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [selectedCustomerOption, setSelectedCustomerOption] = useState(null);
   const [customerBalance, setCustomerBalance] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('earn');
+
+  // Search states
+  const [customerSearchResults, setCustomerSearchResults] = useState([]);
+  const [isSearchingCustomers, setIsSearchingCustomers] = useState(false);
+  const [customerNameInput, setCustomerNameInput] = useState('');
+  const customerSearchTimeout = useRef(null);
 
   // Form states
   const [earnForm, setEarnForm] = useState({ amount: '', orderId: '', description: '' });
   const [redeemForm, setRedeemForm] = useState({ points: '', orderId: '', description: '' });
   const [adjustForm, setAdjustForm] = useState({ points: '', reason: '', type: 'bonus' });
 
-  useEffect(() => {
-    fetchCustomers();
-  }, []);
+  // Convert customers to react-select options
+  const customerOptions = useMemo(() => {
+    const source = customerSearchResults.length > 0 ? customerSearchResults : customers;
+    return source.map((customer) => ({
+      value: customer._id,
+      label: `${customer.name} - ${customer.taxInfo?.taxId || 'N.A.'}`,
+      customer,
+    }));
+  }, [customers, customerSearchResults]);
 
   useEffect(() => {
     if (selectedCustomer) {
       fetchCustomerBalance();
       fetchTransactions();
     }
-  }, [selectedCustomer]);
+  }, [selectedCustomer, fetchCustomerBalance, fetchTransactions]);
 
-  const fetchCustomers = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/customers`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setCustomers(response.data.data || response.data);
-    } catch (error) {
-      console.error('Error fetching customers:', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudieron cargar los clientes',
-        variant: 'destructive',
-      });
+  // Trigger customer search with debounce
+  const triggerCustomerSearch = (term) => {
+    if (customerSearchTimeout.current) {
+      clearTimeout(customerSearchTimeout.current);
+    }
+    if (!term || term.length < 2) {
+      setCustomerSearchResults([]);
+      setIsSearchingCustomers(false);
+      return;
+    }
+    setIsSearchingCustomers(true);
+    customerSearchTimeout.current = setTimeout(async () => {
+      try {
+        const resp = await fetchApi(`/customers?search=${encodeURIComponent(term)}&limit=10`);
+        const list = resp?.data || resp?.customers || [];
+        setCustomerSearchResults(list);
+      } catch (error) {
+        console.error('Customer search failed:', error);
+        setCustomerSearchResults([]);
+      } finally {
+        setIsSearchingCustomers(false);
+      }
+    }, 300);
+  };
+
+  const handleCustomerNameInputChange = (inputValue) => {
+    setCustomerNameInput(inputValue);
+    triggerCustomerSearch(inputValue);
+  };
+
+  const handleCustomerSelect = (selectedOption) => {
+    if (selectedOption) {
+      const { customer } = selectedOption;
+      setSelectedCustomer(customer._id);
+      setSelectedCustomerOption(selectedOption);
+      setCustomerNameInput('');
+      setCustomerSearchResults([]);
+    } else {
+      setSelectedCustomer(null);
+      setSelectedCustomerOption(null);
+      setCustomerBalance(null);
+      setTransactions([]);
+      setCustomerNameInput('');
+      setCustomerSearchResults([]);
     }
   };
 
-  const fetchCustomerBalance = async () => {
+  const getCustomerValue = () => {
+    if (selectedCustomer && selectedCustomerOption) {
+      return selectedCustomerOption;
+    }
+    return null;
+  };
+
+  const fetchCustomerBalance = useCallback(async () => {
     if (!selectedCustomer) return;
 
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/loyalty/balance/${selectedCustomer}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setCustomerBalance(response.data.data);
+      const response = await fetchApi(`/loyalty/balance/${selectedCustomer}`);
+      setCustomerBalance(response.data);
     } catch (error) {
       console.error('Error fetching balance:', error);
       toast({
@@ -77,22 +124,18 @@ const LoyaltyManager = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedCustomer, toast]);
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     if (!selectedCustomer) return;
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/loyalty/history`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { customerId: selectedCustomer, limit: 50 },
-      });
-      setTransactions(response.data.data?.transactions || []);
+      const response = await fetchApi(`/loyalty/history?customerId=${selectedCustomer}&limit=50`);
+      setTransactions(response.data?.transactions || []);
     } catch (error) {
       console.error('Error fetching transactions:', error);
     }
-  };
+  }, [selectedCustomer]);
 
   const handleEarnPoints = async (e) => {
     e.preventDefault();
@@ -100,17 +143,15 @@ const LoyaltyManager = () => {
 
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      await axios.post(
-        `${API_URL}/loyalty/earn`,
-        {
+      await fetchApi('/loyalty/earn', {
+        method: 'POST',
+        body: JSON.stringify({
           customerId: selectedCustomer,
           amount: parseFloat(earnForm.amount),
           orderId: earnForm.orderId || undefined,
           description: earnForm.description || undefined,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+        }),
+      });
 
       toast({
         title: 'Puntos acumulados',
@@ -137,21 +178,19 @@ const LoyaltyManager = () => {
 
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `${API_URL}/loyalty/redeem`,
-        {
+      const response = await fetchApi('/loyalty/redeem', {
+        method: 'POST',
+        body: JSON.stringify({
           customerId: selectedCustomer,
           points: parseInt(redeemForm.points),
           orderId: redeemForm.orderId || undefined,
           description: redeemForm.description || undefined,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+        }),
+      });
 
       toast({
         title: 'Puntos redimidos',
-        description: `Descuento aplicado: $${response.data.data.discountAmount.toFixed(2)}`,
+        description: `Descuento aplicado: $${response.data.discountAmount.toFixed(2)}`,
       });
 
       setRedeemForm({ points: '', orderId: '', description: '' });
@@ -174,17 +213,15 @@ const LoyaltyManager = () => {
 
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      await axios.post(
-        `${API_URL}/loyalty/adjust`,
-        {
+      await fetchApi('/loyalty/adjust', {
+        method: 'POST',
+        body: JSON.stringify({
           customerId: selectedCustomer,
           points: parseInt(adjustForm.points),
           reason: adjustForm.reason,
           type: adjustForm.type,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+        }),
+      });
 
       toast({
         title: 'Puntos ajustados',
@@ -246,18 +283,16 @@ const LoyaltyManager = () => {
             <div className="space-y-4">
               <div>
                 <Label htmlFor="customer">Cliente</Label>
-                <Select value={selectedCustomer || ''} onValueChange={setSelectedCustomer}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers.map((customer) => (
-                      <SelectItem key={customer._id} value={customer._id}>
-                        {customer.name} - {customer.email || customer.phone}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  options={customerOptions}
+                  value={getCustomerValue()}
+                  onSelection={handleCustomerSelect}
+                  onInputChange={handleCustomerNameInputChange}
+                  inputValue={customerNameInput}
+                  placeholder="Escriba para buscar cliente..."
+                  isCreatable={false}
+                  isLoading={isSearchingCustomers}
+                />
               </div>
 
               {selectedCustomer && customerBalance && (

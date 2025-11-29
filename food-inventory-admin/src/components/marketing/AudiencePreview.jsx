@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -66,7 +66,6 @@ const ENGAGEMENT_LABELS = {
  * @param {string} className - Additional CSS classes
  */
 export default function AudiencePreview({ insights, loading, className = '' }) {
-  const [expandedSection, setExpandedSection] = useState(null);
 
   if (loading) {
     return (
@@ -102,7 +101,6 @@ export default function AudiencePreview({ insights, loading, className = '' }) {
     engagementDistribution = {},
     averageAffinityScore = 0,
     averagePurchaseFrequency = 0,
-    totalPotentialRevenue = 0,
     estimatedConversionRate = 0,
     estimatedRevenue = 0,
     topCustomerIds = [],

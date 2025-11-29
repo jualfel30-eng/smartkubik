@@ -618,4 +618,18 @@ export class LoyaltyService {
     this.logger.log(`Expired ${totalExpired} points for tenant ${tenantId}`);
     return totalExpired;
   }
+
+  /**
+   * Obtener lista de clientes para el selector de loyalty
+   */
+  async getCustomers(tenantId: string): Promise<any[]> {
+    const customers = await this.customerModel
+      .find({ tenantId })
+      .select('_id name email phone customerNumber')
+      .sort({ name: 1 })
+      .limit(500)
+      .lean();
+
+    return customers;
+  }
 }

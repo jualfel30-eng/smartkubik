@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,13 +35,7 @@ const CampaignAnalyticsDashboard = ({ campaignId, campaignName }) => {
   const [refreshing, setRefreshing] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (campaignId) {
-      loadAnalytics();
-    }
-  }, [campaignId]);
-
-  const loadAnalytics = async () => {
+  const loadAnalytics = useCallback(async () => {
     try {
       setLoading(true);
       const response = await getCampaignAnalytics(campaignId);
@@ -56,7 +50,13 @@ const CampaignAnalyticsDashboard = ({ campaignId, campaignName }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [campaignId, toast]);
+
+  useEffect(() => {
+    if (campaignId) {
+      loadAnalytics();
+    }
+  }, [campaignId, loadAnalytics]);
 
   const handleRefresh = async () => {
     try {
@@ -134,34 +134,37 @@ const CampaignAnalyticsDashboard = ({ campaignId, campaignName }) => {
     );
   }
 
-  const MetricCard = ({ title, value, icon: Icon, trend, trendValue, subtitle, color = 'purple' }) => (
-    <Card className="dark:bg-gray-800">
-      <CardContent className="pt-6">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <Icon className={`w-4 h-4 text-${color}-600`} />
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{title}</p>
+  const MetricCard = ({ title, value, icon, trend, trendValue, subtitle, color = 'purple' }) => {
+    const IconEl = icon;
+    return (
+      <Card className="dark:bg-gray-800">
+        <CardContent className="pt-6">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <IconEl className={`w-4 h-4 text-${color}-600`} />
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{title}</p>
+              </div>
+              <p className="text-2xl font-bold dark:text-gray-100">{value}</p>
+              {subtitle && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>
+              )}
             </div>
-            <p className="text-2xl font-bold dark:text-gray-100">{value}</p>
-            {subtitle && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>
+            {trend && (
+              <div className={`flex items-center gap-1 ${trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+                {trend === 'up' ? (
+                  <TrendingUp className="w-4 h-4" />
+                ) : (
+                  <TrendingDown className="w-4 h-4" />
+                )}
+                <span className="text-sm font-medium">{trendValue}</span>
+              </div>
             )}
           </div>
-          {trend && (
-            <div className={`flex items-center gap-1 ${trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
-              {trend === 'up' ? (
-                <TrendingUp className="w-4 h-4" />
-              ) : (
-                <TrendingDown className="w-4 h-4" />
-              )}
-              <span className="text-sm font-medium">{trendValue}</span>
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="space-y-6">

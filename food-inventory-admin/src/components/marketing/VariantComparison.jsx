@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,11 +29,7 @@ const VariantComparison = ({ campaignId, onWinnerSelected }) => {
   const [selecting, setSelecting] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    loadResults();
-  }, [campaignId]);
-
-  const loadResults = async () => {
+  const loadResults = useCallback(async () => {
     try {
       setLoading(true);
       const response = await getAbTestResults(campaignId);
@@ -48,7 +44,11 @@ const VariantComparison = ({ campaignId, onWinnerSelected }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [campaignId, toast]);
+
+  useEffect(() => {
+    loadResults();
+  }, [campaignId, loadResults]);
 
   const handleSelectWinner = async (variantName) => {
     try {
@@ -112,7 +112,7 @@ const VariantComparison = ({ campaignId, onWinnerSelected }) => {
   const metricConfig = {
     open_rate: { label: 'Tasa de Apertura', icon: Eye, format: (v) => `${v.toFixed(2)}%` },
     click_rate: { label: 'Tasa de Clics', icon: MousePointerClick, format: (v) => `${v.toFixed(2)}%` },
-    conversion_rate: { label: 'Tasa de Conversión', icon: ShoppingCart, format: (v) => `${v.toFixed(2)}%` },
+    conversion_rate: { label: 'Tasa de Conversiï¿½n', icon: ShoppingCart, format: (v) => `${v.toFixed(2)}%` },
     revenue: { label: 'Ingreso por Cliente', icon: DollarSign, format: (v) => `$${v.toFixed(2)}` }
   };
 
@@ -128,7 +128,7 @@ const VariantComparison = ({ campaignId, onWinnerSelected }) => {
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Target className="w-5 h-5 text-purple-600" />
-                <h3 className="font-semibold">Métrica de Optimización</h3>
+                <h3 className="font-semibold">Mï¿½trica de Optimizaciï¿½n</h3>
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 {config.label}
@@ -201,7 +201,7 @@ const VariantComparison = ({ campaignId, onWinnerSelected }) => {
                         {isLeader && !isWinner && (
                           <Badge className="bg-yellow-600">
                             <TrendingUp className="w-3 h-3 mr-1" />
-                            Líder
+                            Lï¿½der
                           </Badge>
                         )}
                       </div>
@@ -216,7 +216,7 @@ const VariantComparison = ({ campaignId, onWinnerSelected }) => {
                       <span className="text-2xl font-bold">{config.format(metricValue)}</span>
                     </div>
                     <p className="text-xs text-gray-500">
-                      {variant.trafficPercentage}% de tráfico
+                      {variant.trafficPercentage}% de trï¿½fico
                     </p>
                   </div>
                 </div>
@@ -266,7 +266,7 @@ const VariantComparison = ({ campaignId, onWinnerSelected }) => {
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-medium">Performance Relativo</span>
                     <span className="text-gray-500">
-                      {((metricValue / getMetricValue(leader)) * 100).toFixed(0)}% del líder
+                      {((metricValue / getMetricValue(leader)) * 100).toFixed(0)}% del lï¿½der
                     </span>
                   </div>
                   <Progress

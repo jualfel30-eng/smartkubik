@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,9 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Switch } from '@/components/ui/switch';
 import { Tag, Plus, Edit, Trash2, BarChart3, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+import { fetchApi } from '@/lib/api';
 
 const CouponManager = () => {
   const { toast } = useToast();
@@ -39,19 +37,11 @@ const CouponManager = () => {
     isActive: true,
   });
 
-  useEffect(() => {
-    fetchCoupons();
-  }, []);
-
-  const fetchCoupons = async () => {
+  const fetchCoupons = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/coupons`, {
-        headers: { Authorization: `Bearer ${token}` },
-        params: { limit: 100 },
-      });
-      setCoupons(response.data.data || []);
+      const response = await fetchApi('/coupons?limit=100');
+      setCoupons(response.data || []);
     } catch (error) {
       console.error('Error fetching coupons:', error);
       toast({
@@ -62,15 +52,16 @@ const CouponManager = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchCoupons();
+  }, [fetchCoupons]);
 
   const fetchCouponStats = async (couponId) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/coupons/${couponId}/stats`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setCouponStats(response.data.data);
+      const response = await fetchApi(`/coupons/${couponId}/stats`);
+      setCouponStats(response.data);
       setIsStatsDialogOpen(true);
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -86,7 +77,6 @@ const CouponManager = () => {
     e.preventDefault();
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
 
       const payload = {
         code: formData.code.toUpperCase().trim(),
@@ -109,8 +99,9 @@ const CouponManager = () => {
       };
 
       if (selectedCoupon) {
-        await axios.put(`${API_URL}/coupons/${selectedCoupon._id}`, payload, {
-          headers: { Authorization: `Bearer ${token}` },
+        await fetchApi(`/coupons/${selectedCoupon._id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
         });
         toast({
           title: 'Cupón actualizado',
@@ -118,8 +109,9 @@ const CouponManager = () => {
         });
         setIsEditDialogOpen(false);
       } else {
-        await axios.post(`${API_URL}/coupons`, payload, {
-          headers: { Authorization: `Bearer ${token}` },
+        await fetchApi('/coupons', {
+          method: 'POST',
+          body: JSON.stringify(payload),
         });
         toast({
           title: 'Cupón creado',
@@ -145,9 +137,8 @@ const CouponManager = () => {
     if (!confirm('¿Estás seguro de eliminar este cupón?')) return;
 
     try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`${API_URL}/coupons/${couponId}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      await fetchApi(`/coupons/${couponId}`, {
+        method: 'DELETE',
       });
       toast({
         title: 'Cupón eliminado',
@@ -155,6 +146,7 @@ const CouponManager = () => {
       });
       fetchCoupons();
     } catch (error) {
+      console.error('Error deleting coupon:', error);
       toast({
         title: 'Error',
         description: 'No se pudo eliminar el cupón',

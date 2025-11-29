@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -43,15 +43,7 @@ export default function AudienceSelector({ value = {}, onChange }) {
   const [loading, setLoading] = useState(false);
 
   // Debounced estimation
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      calculateEstimatedReach();
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [filters]);
-
-  const calculateEstimatedReach = async () => {
+  const calculateEstimatedReach = useCallback(async () => {
     setLoading(true);
     try {
       // Filter out empty strings for numeric fields to avoid validation errors
@@ -82,7 +74,15 @@ export default function AudienceSelector({ value = {}, onChange }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      calculateEstimatedReach();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [filters, calculateEstimatedReach]);
 
   const handleFilterChange = (key, value) => {
     const newFilters = { ...filters, [key]: value };
