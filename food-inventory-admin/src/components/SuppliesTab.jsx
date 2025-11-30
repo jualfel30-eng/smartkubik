@@ -80,14 +80,19 @@ function SuppliesTab() {
     },
   });
 
-  const supplies = useSupplies();
+  const {
+    listSupplyConfigs,
+    createSupplyConfig,
+    updateSupplyConfig,
+    logConsumption,
+  } = useSupplies();
   const { getConfigByProductId, createConfig, updateConfig } = useUnitConversions();
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
       // Load supply configurations
-      const configsResult = await supplies.listSupplyConfigs({ isActive: true });
+      const configsResult = await listSupplyConfigs({ isActive: true });
       if (configsResult.success) {
         setSupplyConfigs(configsResult.data || []);
       }
@@ -100,7 +105,7 @@ function SuppliesTab() {
     } finally {
       setIsLoading(false);
     }
-  }, [supplies]);
+  }, [listSupplyConfigs]);
 
   // Load data on mount
   useEffect(() => {
@@ -109,7 +114,7 @@ function SuppliesTab() {
 
   const handleCreateConfig = async () => {
     try {
-      const result = await supplies.createSupplyConfig(configForm);
+      const result = await createSupplyConfig(configForm);
       if (result.success) {
         alert('Configuración de suministro creada exitosamente');
         setIsConfigDialogOpen(false);
@@ -126,7 +131,7 @@ function SuppliesTab() {
   const handleUpdateConfig = async () => {
     if (!editingConfig) return;
     try {
-      const result = await supplies.updateSupplyConfig(editingConfig._id, configForm);
+      const result = await updateSupplyConfig(editingConfig._id, configForm);
       if (result.success) {
         alert('Configuración actualizada exitosamente');
         setIsConfigDialogOpen(false);
@@ -143,7 +148,7 @@ function SuppliesTab() {
 
   const handleLogConsumption = async () => {
     try {
-      const result = await supplies.logConsumption(consumptionForm);
+      const result = await logConsumption(consumptionForm);
       if (result.success) {
         alert('Consumo registrado exitosamente');
         setIsConsumptionDialogOpen(false);

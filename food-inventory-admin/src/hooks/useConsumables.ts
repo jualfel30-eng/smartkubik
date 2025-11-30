@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { fetchApi } from '../lib/api';
 import {
   ConsumableConfig,
@@ -20,7 +20,7 @@ export function useConsumables() {
   /**
    * Create a consumable configuration for a product
    */
-  const createConsumableConfig = async (data: CreateConsumableConfigDto) => {
+  const createConsumableConfig = useCallback(async (data: CreateConsumableConfigDto) => {
     try {
       setLoading(true);
       const response = await fetchApi('/consumables/configs', {
@@ -37,12 +37,12 @@ export function useConsumables() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   /**
    * Update a consumable configuration
    */
-  const updateConsumableConfig = async (
+  const updateConsumableConfig = useCallback(async (
     configId: string,
     data: UpdateConsumableConfigDto
   ) => {
@@ -62,12 +62,12 @@ export function useConsumables() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   /**
    * List all consumable configurations with optional filters
    */
-  const listConsumableConfigs = async (filters?: {
+  const listConsumableConfigs = useCallback(async (filters?: {
     consumableType?: string;
     isActive?: boolean;
     limit?: number;
@@ -95,12 +95,12 @@ export function useConsumables() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   /**
    * Get consumable configuration by product ID
    */
-  const getConsumableConfigByProduct = async (productId: string) => {
+  const getConsumableConfigByProduct = useCallback(async (productId: string) => {
     try {
       setLoading(true);
       const response = await fetchApi(`/consumables/configs/product/${productId}`);
@@ -114,14 +114,14 @@ export function useConsumables() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // ==================== Product-Consumable Relations ====================
 
   /**
    * Create a relation between a product and a consumable
    */
-  const createProductConsumableRelation = async (
+  const createProductConsumableRelation = useCallback(async (
     data: CreateProductConsumableRelationDto
   ) => {
     try {
@@ -140,12 +140,12 @@ export function useConsumables() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   /**
    * Get all consumables for a specific product
    */
-  const getProductConsumables = async (productId: string) => {
+  const getProductConsumables = useCallback(async (productId: string) => {
     try {
       setLoading(true);
       const response = await fetchApi(`/consumables/relations/product/${productId}`);
@@ -159,12 +159,12 @@ export function useConsumables() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   /**
    * Get all products that use a specific consumable
    */
-  const getProductsUsingConsumable = async (consumableId: string) => {
+  const getProductsUsingConsumable = useCallback(async (consumableId: string) => {
     try {
       setLoading(true);
       const response = await fetchApi(`/consumables/relations/consumable/${consumableId}`);
@@ -178,12 +178,12 @@ export function useConsumables() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   /**
    * Update a product-consumable relation
    */
-  const updateProductConsumableRelation = async (
+  const updateProductConsumableRelation = useCallback(async (
     relationId: string,
     data: UpdateProductConsumableRelationDto
   ) => {
@@ -203,12 +203,12 @@ export function useConsumables() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   /**
    * Delete a product-consumable relation
    */
-  const deleteProductConsumableRelation = async (relationId: string) => {
+  const deleteProductConsumableRelation = useCallback(async (relationId: string) => {
     try {
       setLoading(true);
       await fetchApi(`/consumables/relations/${relationId}`, {
@@ -223,21 +223,34 @@ export function useConsumables() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  return {
-    loading,
-    error,
-    // Consumable configs
-    createConsumableConfig,
-    updateConsumableConfig,
-    listConsumableConfigs,
-    getConsumableConfigByProduct,
-    // Product-consumable relations
-    createProductConsumableRelation,
-    getProductConsumables,
-    getProductsUsingConsumable,
-    updateProductConsumableRelation,
-    deleteProductConsumableRelation,
-  };
+  return useMemo(() => ({
+      loading,
+      error,
+      // Consumable configs
+      createConsumableConfig,
+      updateConsumableConfig,
+      listConsumableConfigs,
+      getConsumableConfigByProduct,
+      // Product-consumable relations
+      createProductConsumableRelation,
+      getProductConsumables,
+      getProductsUsingConsumable,
+      updateProductConsumableRelation,
+      deleteProductConsumableRelation,
+    }),
+    [
+      loading,
+      error,
+      createConsumableConfig,
+      updateConsumableConfig,
+      listConsumableConfigs,
+      getConsumableConfigByProduct,
+      createProductConsumableRelation,
+      getProductConsumables,
+      getProductsUsingConsumable,
+      updateProductConsumableRelation,
+      deleteProductConsumableRelation,
+    ]);
 }

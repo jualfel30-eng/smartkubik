@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { fetchApi } from '../lib/api';
 import {
   SupplyConfig,
@@ -19,7 +19,7 @@ export function useSupplies() {
   /**
    * Create a supply configuration for a product
    */
-  const createSupplyConfig = async (data: CreateSupplyConfigDto) => {
+  const createSupplyConfig = useCallback(async (data: CreateSupplyConfigDto) => {
     try {
       setLoading(true);
       const response = await fetchApi('/supplies/configs', {
@@ -36,12 +36,12 @@ export function useSupplies() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   /**
    * Update a supply configuration
    */
-  const updateSupplyConfig = async (
+  const updateSupplyConfig = useCallback(async (
     configId: string,
     data: UpdateSupplyConfigDto
   ) => {
@@ -61,12 +61,12 @@ export function useSupplies() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   /**
    * List all supply configurations with optional filters
    */
-  const listSupplyConfigs = async (filters?: {
+  const listSupplyConfigs = useCallback(async (filters?: {
     supplyCategory?: string;
     isActive?: boolean;
     limit?: number;
@@ -94,12 +94,12 @@ export function useSupplies() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   /**
    * Get supply configuration by product ID
    */
-  const getSupplyConfigByProduct = async (productId: string) => {
+  const getSupplyConfigByProduct = useCallback(async (productId: string) => {
     try {
       setLoading(true);
       const response = await fetchApi(`/supplies/configs/product/${productId}`);
@@ -113,14 +113,14 @@ export function useSupplies() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // ==================== Supply Consumption ====================
 
   /**
    * Log supply consumption
    */
-  const logConsumption = async (data: LogSupplyConsumptionDto) => {
+  const logConsumption = useCallback(async (data: LogSupplyConsumptionDto) => {
     try {
       setLoading(true);
       const response = await fetchApi('/supplies/consumption', {
@@ -137,12 +137,12 @@ export function useSupplies() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   /**
    * Get consumption logs for a specific supply
    */
-  const getConsumptionLogs = async (
+  const getConsumptionLogs = useCallback(async (
     supplyId: string,
     filters?: {
       startDate?: string;
@@ -175,14 +175,14 @@ export function useSupplies() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // ==================== Reports ====================
 
   /**
    * Get consumption report by department
    */
-  const getConsumptionReportByDepartment = async (
+  const getConsumptionReportByDepartment = useCallback(async (
     startDate?: string,
     endDate?: string
   ) => {
@@ -208,12 +208,12 @@ export function useSupplies() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   /**
    * Get consumption report by supply
    */
-  const getConsumptionReportBySupply = async (
+  const getConsumptionReportBySupply = useCallback(async (
     startDate?: string,
     endDate?: string
   ) => {
@@ -239,21 +239,33 @@ export function useSupplies() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  return {
-    loading,
-    error,
-    // Supply configs
-    createSupplyConfig,
-    updateSupplyConfig,
-    listSupplyConfigs,
-    getSupplyConfigByProduct,
-    // Consumption logging
-    logConsumption,
-    getConsumptionLogs,
-    // Reports
-    getConsumptionReportByDepartment,
-    getConsumptionReportBySupply,
-  };
+  return useMemo(() => ({
+      loading,
+      error,
+      // Supply configs
+      createSupplyConfig,
+      updateSupplyConfig,
+      listSupplyConfigs,
+      getSupplyConfigByProduct,
+      // Consumption logging
+      logConsumption,
+      getConsumptionLogs,
+      // Reports
+      getConsumptionReportByDepartment,
+      getConsumptionReportBySupply,
+    }),
+    [
+      loading,
+      error,
+      createSupplyConfig,
+      updateSupplyConfig,
+      listSupplyConfigs,
+      getSupplyConfigByProduct,
+      logConsumption,
+      getConsumptionLogs,
+      getConsumptionReportByDepartment,
+      getConsumptionReportBySupply,
+    ]);
 }

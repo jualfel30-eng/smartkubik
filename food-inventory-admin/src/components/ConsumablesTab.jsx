@@ -70,7 +70,15 @@ function ConsumablesTab() {
     isActive: true,
   });
 
-  const consumables = useConsumables();
+  const {
+    listConsumableConfigs,
+    getProductConsumables,
+    createConsumableConfig,
+    updateConsumableConfig,
+    createProductConsumableRelation,
+    updateProductConsumableRelation,
+    deleteProductConsumableRelation,
+  } = useConsumables();
   const { getConfigByProductId, createConfig, updateConfig } = useUnitConversions();
 
   // Load data on mount
@@ -78,7 +86,7 @@ function ConsumablesTab() {
     setIsLoading(true);
     try {
       // Load consumable configurations
-      const configsResult = await consumables.listConsumableConfigs({ isActive: true });
+      const configsResult = await listConsumableConfigs({ isActive: true });
       if (configsResult.success) {
         setConsumableConfigs(configsResult.data || []);
       }
@@ -98,7 +106,7 @@ function ConsumablesTab() {
     } finally {
       setIsLoading(false);
     }
-  }, [consumables]);
+  }, [listConsumableConfigs]);
 
   useEffect(() => {
     loadData();
@@ -107,7 +115,7 @@ function ConsumablesTab() {
   const loadRelationsForProduct = async (productId) => {
     if (!productId) return;
     try {
-      const result = await consumables.getProductConsumables(productId);
+      const result = await getProductConsumables(productId);
       if (result.success) {
         setRelations(result.data || []);
       }
@@ -118,7 +126,7 @@ function ConsumablesTab() {
 
   const handleCreateConfig = async () => {
     try {
-      const result = await consumables.createConsumableConfig(configForm);
+      const result = await createConsumableConfig(configForm);
       if (result.success) {
         alert('Configuración de consumible creada exitosamente');
         setIsConfigDialogOpen(false);
@@ -135,7 +143,7 @@ function ConsumablesTab() {
   const handleUpdateConfig = async () => {
     if (!editingConfig) return;
     try {
-      const result = await consumables.updateConsumableConfig(editingConfig._id, configForm);
+      const result = await updateConsumableConfig(editingConfig._id, configForm);
       if (result.success) {
         alert('Configuración actualizada exitosamente');
         setIsConfigDialogOpen(false);
@@ -152,7 +160,7 @@ function ConsumablesTab() {
 
   const handleCreateRelation = async () => {
     try {
-      const result = await consumables.createProductConsumableRelation(relationForm);
+      const result = await createProductConsumableRelation(relationForm);
       if (result.success) {
         alert('Relación creada exitosamente');
         setIsRelationDialogOpen(false);
@@ -169,7 +177,7 @@ function ConsumablesTab() {
   const handleUpdateRelation = async () => {
     if (!editingRelation) return;
     try {
-      const result = await consumables.updateProductConsumableRelation(editingRelation._id, relationForm);
+      const result = await updateProductConsumableRelation(editingRelation._id, relationForm);
       if (result.success) {
         alert('Relación actualizada exitosamente');
         setIsRelationDialogOpen(false);
@@ -187,7 +195,7 @@ function ConsumablesTab() {
   const handleDeleteRelation = async (relationId) => {
     if (!confirm('¿Estás seguro de eliminar esta relación?')) return;
     try {
-      const result = await consumables.deleteProductConsumableRelation(relationId);
+      const result = await deleteProductConsumableRelation(relationId);
       if (result.success) {
         alert('Relación eliminada exitosamente');
         loadRelationsForProduct(relationForm.productId);
