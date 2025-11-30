@@ -43,7 +43,7 @@ export const fetchApi = async (url, options = {}) => {
     let errorData;
     try {
       errorData = await response.json();
-    } catch (e) {
+    } catch {
       const errorText = await response.text();
       console.error("Failed to parse JSON response:", errorText);
       errorData = { message: response.statusText };

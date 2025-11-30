@@ -23,7 +23,7 @@ export const ShiftProvider = ({ children }) => {
       } else {
         setActiveShift(null);
       }
-    } catch (error) {
+    } catch {
       // No-op, it's fine if there's no active shift
       setActiveShift(null);
     } finally {

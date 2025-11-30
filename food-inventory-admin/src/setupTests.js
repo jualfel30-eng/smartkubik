@@ -3,7 +3,7 @@ import '@testing-library/jest-dom';
 // Polyfill for Radix UI + jsdom issue with hasPointerCapture
 if (typeof window !== 'undefined') {
   if (!Element.prototype.hasPointerCapture) {
-    Element.prototype.hasPointerCapture = function(pointerId) {
+    Element.prototype.hasPointerCapture = function() {
       return false;
     };
   }

@@ -6,7 +6,6 @@ import SmartKubikLogoLight from '@/assets/logo-smartkubik-light.png';
 
 const SmartKubikLanding = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState(1);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isVisible, setIsVisible] = useState({});
 

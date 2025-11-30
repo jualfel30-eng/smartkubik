@@ -67,7 +67,7 @@ export function isFeatureEnabled(featureName) {
  */
 export function getEnabledFeatures() {
   return Object.entries(FEATURES)
-    .filter(([_, enabled]) => enabled)
+    .filter(([, enabled]) => enabled)
     .map(([name]) => name);
 }
 

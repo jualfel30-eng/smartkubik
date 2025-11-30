@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/components/ThemeProvider';
@@ -124,6 +124,20 @@ export default function OrganizationSelector() {
     autoSelectTenant();
   }, [activeMembershipId, memberships, tenant, isAutoSelecting, selectTenant, navigate, getLastLocation, location.state]);
 
+  const handleSelectOrganization = useCallback(async (membership) => {
+    try {
+      console.log('Selecting organization:', membership);
+      console.log('Membership ID:', membership.id);
+      await selectTenant(membership.id, { rememberAsDefault: true });
+      const lastLocation = getLastLocation();
+      console.log('Navigating to:', lastLocation);
+      navigate(lastLocation);
+    } catch (error) {
+      console.error('Error selecting organization:', error);
+      toast.error('No se pudo seleccionar la organización');
+    }
+  }, [selectTenant, getLastLocation, navigate]);
+
   // Auto-select if there is only one membership
   useEffect(() => {
     if (memberships.length === 1 && !activeMembershipId && !tenant && !isAutoSelecting) {
@@ -131,7 +145,7 @@ export default function OrganizationSelector() {
       console.log('Only one membership found, auto-selecting:', singleMembership.tenant?.name);
       handleSelectOrganization(singleMembership);
     }
-  }, [memberships, activeMembershipId, tenant, isAutoSelecting]);
+  }, [memberships, activeMembershipId, tenant, isAutoSelecting, handleSelectOrganization]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -162,20 +176,6 @@ export default function OrganizationSelector() {
   }, [formData.vertical]);
 
   const logoSrc = resolvedTheme === 'dark' ? SmartKubikLogoDark : SmartKubikLogoLight;
-
-  const handleSelectOrganization = async (membership) => {
-    try {
-      console.log('Selecting organization:', membership);
-      console.log('Membership ID:', membership.id);
-      await selectTenant(membership.id, { rememberAsDefault: true });
-      const lastLocation = getLastLocation();
-      console.log('Navigating to:', lastLocation);
-      navigate(lastLocation);
-    } catch (error) {
-      console.error('Error selecting organization:', error);
-      toast.error('No se pudo seleccionar la organización');
-    }
-  };
 
   const handleCreateOrganization = async () => {
     setIsLoading(true);

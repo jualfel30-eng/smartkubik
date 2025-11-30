@@ -170,8 +170,6 @@ function TenantLayout() {
 }
 
 function AppContent() {
-  const { user } = useAuth();
-
   return (
     <Routes>
       <Route path="/login" element={<Login />} />

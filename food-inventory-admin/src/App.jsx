@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
+import { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -53,6 +53,13 @@ import {
   DollarSign,
   Target,
   BookOpen,
+  Tag,
+  Percent,
+  Award,
+  Megaphone,
+  ShoppingBag,
+  Sparkles,
+  Zap,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { Toaster as ShadcnToaster } from '@/components/ui/toaster';
@@ -319,7 +326,30 @@ function TenantLayout() {
     { name: 'Ingeniería de Menú', href: 'restaurant/menu-engineering', icon: Target, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Recetas', href: 'restaurant/recipes', icon: BookOpen, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Órdenes de Compra', href: 'restaurant/purchase-orders', icon: FileText, permission: 'restaurant_read', requiresModule: 'restaurant' },
-    { name: 'Marketing', href: 'marketing', icon: Mail, permission: 'marketing_read', requiresModule: 'marketing' },
+    {
+      name: 'Marketing',
+      href: 'marketing',
+      icon: Mail,
+      permission: 'marketing_read',
+      requiresModule: 'marketing',
+      children: [
+        {
+          name: 'Campañas',
+          href: 'marketing?tab=campaigns-overview',
+          icon: Megaphone,
+          children: [
+            { name: 'Resumen', href: 'marketing?tab=campaigns-overview', icon: BarChart3 },
+            { name: 'Campañas', href: 'marketing?tab=campaigns-campaigns', icon: List },
+            { name: 'Triggers', href: 'marketing?tab=campaigns-triggers', icon: Zap },
+            { name: 'Rendimiento', href: 'marketing?tab=campaigns-performance', icon: TrendingUp },
+          ]
+        },
+        { name: 'Productos', href: 'marketing?tab=products', icon: ShoppingBag },
+        { name: 'Lealtad', href: 'marketing?tab=loyalty', icon: Award },
+        { name: 'Cupones', href: 'marketing?tab=coupons', icon: Tag },
+        { name: 'Promociones', href: 'marketing?tab=promotions', icon: Percent },
+      ]
+    },
     {
       name: 'Cuentas por Pagar',
       href: 'accounts-payable',
@@ -405,8 +435,7 @@ function TenantLayout() {
   const SidebarNavigation = () => {
     const { state, setOpen, isMobile, setOpenMobile } = useSidebar();
 
-    // Memoizar la ruta base actual para evitar recalcular constantemente
-    const currentBasePath = useMemo(() => activeTab.split('?')[0], [activeTab]);
+    const currentBasePath = activeTab.split('?')[0];
 
     // Función optimizada para verificar si una ruta está activa
     const isRouteActive = useCallback((itemHref) => {
@@ -415,7 +444,7 @@ function TenantLayout() {
 
       const itemBasePath = itemHref.split('?')[0];
       return itemBasePath === currentBasePath;
-    }, [activeTab, currentBasePath]);
+    }, [currentBasePath]);
 
     // Función helper para verificar si un item tiene hijos activos (sin recursión innecesaria)
     const hasActiveChild = useCallback((item) => {
@@ -530,21 +559,6 @@ function TenantLayout() {
       }
     };
 
-    // Crear un mapa de items para búsqueda O(1) - memoizado
-    const itemsMap = useMemo(() => {
-      const map = new Map();
-      const buildMap = (items) => {
-        items.forEach(item => {
-          map.set(item.href, item);
-          if (item.children) {
-            buildMap(item.children);
-          }
-        });
-      };
-      buildMap(navLinks);
-      return map;
-    }, []);
-
     const toggleMenu = useCallback((href, requestedState) => {
       setOpenMenus(prev => {
         // Toggle simple
@@ -552,18 +566,10 @@ function TenantLayout() {
           return { ...prev, [href]: !prev[href] };
         }
 
-        // Si se solicita cerrar, verificar si hay hijos activos usando el helper memoizado
-        if (requestedState === false) {
-          const menuItem = itemsMap.get(href);
-          if (menuItem && hasActiveChild(menuItem)) {
-            return prev; // Mantener abierto si hay hijos activos
-          }
-        }
-
-        // Aplicar el estado solicitado
+        // Aplicar el estado solicitado (permitir cierre manual)
         return { ...prev, [href]: requestedState };
       });
-    }, [itemsMap, hasActiveChild]);
+    }, []);
 
     // Función recursiva para renderizar items con múltiples niveles de anidación
     const renderMenuItem = (item, level = 0) => {
@@ -967,7 +973,11 @@ function TenantLayout() {
                 <Route path="restaurant/menu-engineering" element={<MenuEngineeringPage />} />
                 <Route path="restaurant/recipes" element={<RecipesPage />} />
                 <Route path="restaurant/purchase-orders" element={<PurchaseOrdersPage />} />
-                <Route path="marketing" element={<MarketingPage />} />
+                <Route path="marketing" element={
+                  <CrmProvider>
+                    <MarketingPage />
+                  </CrmProvider>
+                } />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="reports" element={<ReportsPage />} />
                 <Route path="*" element={<Navigate to="dashboard" />} />

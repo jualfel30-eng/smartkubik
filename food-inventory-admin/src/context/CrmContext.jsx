@@ -38,36 +38,6 @@ export const CrmProvider = ({ children }) => {
   const employeeRoleIdRef = useRef(null);
   const employeesRefreshPromiseRef = useRef(null);
 
-  // eslint-disable-next-line no-unused-vars
-  const extractCustomers = (payload) => {
-    const candidates = [
-      payload,
-      payload?.data,
-      payload?.data?.customers,
-      payload?.customers,
-      payload?.data?.data,
-    ];
-
-    for (const candidate of candidates) {
-      if (Array.isArray(candidate)) {
-        return candidate;
-      }
-    }
-
-    return [];
-  };
-
-  // eslint-disable-next-line no-unused-vars
-  const mergeUniqueCustomers = (...lists) => {
-    const map = new Map();
-    lists.flat().forEach((customer) => {
-      if (customer && customer._id) {
-        map.set(customer._id, customer);
-      }
-    });
-    return Array.from(map.values());
-  };
-
   const loadCustomers = useCallback(async (page = 1, limit = 25, filters = {}) => {
     try {
       setLoading(true);
@@ -114,7 +84,6 @@ export const CrmProvider = ({ children }) => {
     }
   }, []);
 
-  // eslint-disable-next-line no-unused-vars
   const loadPaymentMethods = useCallback(async () => {
     try {
       const data = await fetchApi('/orders/__lookup/payment-methods');

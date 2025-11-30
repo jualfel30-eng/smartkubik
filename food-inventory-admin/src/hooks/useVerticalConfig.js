@@ -5,7 +5,10 @@ import { DEFAULT_VERTICAL_KEY, getVerticalProfile } from '@/config/verticalProfi
 export const useVerticalConfig = () => {
   const { tenant } = useAuth();
   const key = tenant?.verticalProfile?.key || DEFAULT_VERTICAL_KEY;
-  const overrides = tenant?.verticalProfile?.overrides || {};
+  const overrides = useMemo(
+    () => tenant?.verticalProfile?.overrides || {},
+    [tenant?.verticalProfile?.overrides],
+  );
 
   return useMemo(() => getVerticalProfile(key, overrides), [key, overrides]);
 };
@@ -14,4 +17,3 @@ export const useVerticalKey = () => {
   const { tenant } = useAuth();
   return tenant?.verticalProfile?.key || DEFAULT_VERTICAL_KEY;
 };
-

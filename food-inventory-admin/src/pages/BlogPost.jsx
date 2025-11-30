@@ -111,7 +111,7 @@ const BlogPost = () => {
   }, [post]);
 
   // Determine category and primary tag from post tags
-  const categoryMapping = {
+  const categoryMapping = React.useMemo(() => ({
     'compras': 'purchases-inventory',
     'inventario': 'purchases-inventory',
     'costeo': 'purchases-inventory',
@@ -125,7 +125,7 @@ const BlogPost = () => {
     'posventa': 'crm-postsale',
     'analítica': 'analytics-reports',
     'reportes': 'analytics-reports'
-  };
+  }), []);
 
   const postCategory = React.useMemo(() => {
     if (!post || !post.tags || post.tags.length === 0) return null;
@@ -139,7 +139,7 @@ const BlogPost = () => {
       }
     }
     return null;
-  }, [post]);
+  }, [post, categoryMapping]);
 
   const primaryTag = post?.tags?.[0]?.title || null;
 

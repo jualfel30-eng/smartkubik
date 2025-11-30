@@ -1,5 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 
 const TutorialContext = createContext();
 export const useTutorial = () => useContext(TutorialContext);
@@ -7,9 +6,8 @@ export const useTutorial = () => useContext(TutorialContext);
 export const TutorialProvider = ({ children }) => {
   const [run, setRun] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
-  const navigate = useNavigate();
 
-  const steps = [
+  const steps = useMemo(() => [
     // Paso 1: Navegación principal (Usa selector "ends-with")
     {
       target: '[id$="-trigger-inventory-management"]',
@@ -56,27 +54,7 @@ export const TutorialProvider = ({ children }) => {
       isFormStep: true,
       formType: 'inventory',
     },
-  ];
-
-  const waitForElement = (selector, maxWaitTime = 5000, interval = 100) => {
-    return new Promise((resolve, reject) => {
-      let totalWaitTime = 0;
-      const checkElement = () => {
-        const element = document.querySelector(selector);
-        if (element && element.offsetParent !== null) {
-          resolve(element);
-          return;
-        }
-        totalWaitTime += interval;
-        if (totalWaitTime >= maxWaitTime) {
-          reject(new Error(`Element ${selector} not found or not visible within ${maxWaitTime}ms`));
-          return;
-        }
-        setTimeout(checkElement, interval);
-      };
-      checkElement();
-    });
-  };
+  ], []);
 
   // This effect listens for form success events
   useEffect(() => {
@@ -93,7 +71,7 @@ export const TutorialProvider = ({ children }) => {
     return () => {
       document.removeEventListener(`${currentStep.formType}-form-success`, handleFormSuccess);
     };
-  }, [stepIndex, run]);
+  }, [stepIndex, run, steps]);
 
 
   const startTutorial = () => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useLocation, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
@@ -33,6 +33,7 @@ const navItems = [
   { to: '/super-admin/settings', icon: Settings, label: 'Ajustes' },
 ];
 
+// eslint-disable-next-line no-unused-vars
 const NavLink = ({ to, icon: Icon, label, onClick }) => {
   const location = useLocation();
   const isActive = location.pathname.startsWith(to);
