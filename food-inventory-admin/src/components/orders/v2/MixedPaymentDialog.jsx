@@ -27,7 +27,7 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
       // Limpiar al cerrar
       setPayments([]);
     }
-  }, [isOpen, totalAmount, paymentMethods]);
+  }, [isOpen, totalAmount, paymentMethods, payments.length]);
 
   const totalPaid = useMemo(() => 
     payments.reduce((sum, p) => sum + Number(p.amount || 0), 0), 
@@ -87,7 +87,7 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
         </DialogHeader>
         
         <div className="py-4 space-y-2 max-h-[60vh] overflow-y-auto">
-          {payments.map((line, index) => (
+          {payments.map((line) => (
             <div key={line.id} className="flex items-center gap-2 p-2 border rounded-lg">
               <Select value={line.method} onValueChange={(v) => handleUpdatePayment(line.id, 'method', v)} disabled={contextLoading}>
                 <SelectTrigger><SelectValue placeholder="Método" /></SelectTrigger>

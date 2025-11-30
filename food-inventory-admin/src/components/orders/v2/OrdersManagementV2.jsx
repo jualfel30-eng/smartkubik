@@ -383,7 +383,7 @@ export function OrdersManagementV2() {
     }
 
     return baseColumns;
-  }, [handleOpenPaymentDialog, handleOpenDetailsDialog, restaurantEnabled, sendToKitchen]);
+  }, [handleOpenPaymentDialog, handleOpenDetailsDialog, restaurantEnabled, sendToKitchen, handleRefresh]);
 
   const handleOrderCreated = () => {
     document.dispatchEvent(new CustomEvent('order-form-success'));

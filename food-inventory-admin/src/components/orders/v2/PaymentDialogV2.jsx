@@ -21,7 +21,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
   const [bankAccounts, setBankAccounts] = useState([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [exchangeRate, setExchangeRate] = useState(null);
-  const [loadingRate, setLoadingRate] = useState(false);
+  const [, setLoadingRate] = useState(false);
 
   const remainingAmount = useMemo(() => {
     if (!order) return 0;
@@ -443,7 +443,11 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
                     <div className="space-y-3">
                       <div className="space-y-2">
                         <Label>Forma de Pago</Label>
-                        <Select value={line.method} onValueChange={(v) => handleUpdatePaymentLine(line.id, 'method', v)} disabled={contextLoading}>
+                        <Select
+                          value={line.method}
+                          onValueChange={(v) => handleUpdatePaymentLine(line.id, 'method', v)}
+                          disabled={paymentMethodsLoading}
+                        >
                           <SelectTrigger><SelectValue placeholder="Seleccione método" /></SelectTrigger>
                           <SelectContent>
                             {paymentMethods.map(m => m.id !== 'pago_mixto' && (
