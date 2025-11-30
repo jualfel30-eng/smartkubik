@@ -136,6 +136,7 @@ export default function PayrollAbsencesManager() {
       }
       setEmployees(records);
     } catch (error) {
+      console.error('Error loading employees:', error);
       toast.error('No se pudieron cargar los empleados activos');
     } finally {
       setLoadingEmployees(false);

@@ -369,7 +369,7 @@ const PayrollRunsDashboard = () => {
     version: "",
     validFrom: "",
     ratesText:
-      '{\"rates\": {\"ivss\": {\"employer\": 0.09, \"employee\": 0.04}}}',
+      '{"rates": {"ivss": {"employer": 0.09, "employee": 0.04}}}',
   });
   const [activeLocalizationId, setActiveLocalizationId] = useState(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -515,6 +515,7 @@ const PayrollRunsDashboard = () => {
     canReadPayroll,
     filters.periodType,
     filters.status,
+    filters.calendarId,
     pagination.page,
   ]);
 
@@ -1229,6 +1230,7 @@ const PayrollRunsDashboard = () => {
         try {
           parsedRates = JSON.parse(localizationForm.ratesText);
         } catch (err) {
+          console.error('Invalid JSON for localization rates:', err);
           toast.error("JSON inválido en tasas");
           return;
         }

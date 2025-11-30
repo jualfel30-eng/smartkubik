@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth.jsx';
@@ -105,7 +105,7 @@ const PayrollCalendarTimeline = () => {
   const [generating, setGenerating] = useState(false);
   const [mutatingId, setMutatingId] = useState('');
 
-  const loadCalendars = async () => {
+  const loadCalendars = useCallback(async () => {
     if (!payrollEnabled || !canRead) return;
     setLoading(true);
     try {
@@ -116,11 +116,11 @@ const PayrollCalendarTimeline = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [payrollEnabled, canRead]);
 
   useEffect(() => {
     loadCalendars();
-  }, [payrollEnabled, canRead]);
+  }, [payrollEnabled, canRead, loadCalendars]);
 
   const handleGenerate = async () => {
     if (!canWrite) {
@@ -129,11 +129,14 @@ const PayrollCalendarTimeline = () => {
     }
     setGenerating(true);
     try {
+      const cutoffOffsetDays = Number(generateForm.cutoffOffsetDays);
+      const payDateOffsetDays = Number(generateForm.payDateOffsetDays);
+
       const payload = {
         ...generateForm,
         count: Number(generateForm.count) || 1,
-        cutoffOffsetDays: Number(generateForm.cutoffOffsetDays) ?? 0,
-        payDateOffsetDays: Number(generateForm.payDateOffsetDays) ?? 0,
+        cutoffOffsetDays: Number.isFinite(cutoffOffsetDays) ? cutoffOffsetDays : 0,
+        payDateOffsetDays: Number.isFinite(payDateOffsetDays) ? payDateOffsetDays : 0,
       };
       if (!payload.anchorDate) {
         delete payload.anchorDate;
@@ -182,10 +185,6 @@ const PayrollCalendarTimeline = () => {
   }, [calendars, filters]);
 
   const latestCalendar = calendars[0];
-  const validationLogs =
-    Array.isArray(latestCalendar?.metadata?.validationLog) && latestCalendar?.metadata?.validationLog.length
-      ? latestCalendar?.metadata?.validationLog
-      : [];
 
   if (!payrollEnabled) {
     return (

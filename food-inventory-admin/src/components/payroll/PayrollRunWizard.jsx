@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { fetchApi, getApiBaseUrl } from '@/lib/api';
@@ -83,7 +83,7 @@ const PayrollRunWizard = () => {
     });
   };
 
-  const loadCalendars = async () => {
+  const loadCalendars = useCallback(async () => {
     setLoadingCalendars(true);
     try {
       const data = await fetchApi('/payroll-calendar');
@@ -107,9 +107,9 @@ const PayrollRunWizard = () => {
     } finally {
       setLoadingCalendars(false);
     }
-  };
+  }, [searchParams]);
 
-  const loadPreviousRun = async () => {
+  const loadPreviousRun = useCallback(async () => {
     try {
       const params = new URLSearchParams({ page: '1', limit: '2' });
       const response = await fetchApi(`/payroll/runs?${params.toString()}`);
@@ -118,11 +118,12 @@ const PayrollRunWizard = () => {
         setPreviousRun(runs[0]);
       }
     } catch (error) {
+      console.error('Error loading previous run:', error);
       setPreviousRun(null);
     }
-  };
+  }, []);
 
-  const loadEmployees = async () => {
+  const loadEmployees = useCallback(async () => {
     setLoadingEmployees(true);
     try {
       const params = new URLSearchParams({
@@ -145,13 +146,13 @@ const PayrollRunWizard = () => {
     } finally {
       setLoadingEmployees(false);
     }
-  };
+  }, [form.searchEmployee]);
 
   useEffect(() => {
     loadCalendars();
     loadEmployees();
     loadPreviousRun();
-  }, []);
+  }, [loadCalendars, loadEmployees, loadPreviousRun]);
 
   const selectedCalendar = useMemo(
     () => calendars.find((c) => c._id === form.calendarId),

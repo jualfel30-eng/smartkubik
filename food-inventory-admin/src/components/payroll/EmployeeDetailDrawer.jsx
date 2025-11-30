@@ -38,7 +38,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert.jsx';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip.jsx';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover.jsx';
 import { Calendar as CalendarPicker } from '@/components/ui/calendar.jsx';
-import { cn } from '@/lib/utils.js';
 
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Activo' },
@@ -693,7 +692,7 @@ export function EmployeeDetailDrawer({
         } else if (settings?.companyName) {
           setOrgName((prev) => prev || settings.companyName);
         }
-      } catch (err) {
+      } catch {
         // Silently ignore; user can type manual values
       } finally {
         setSettingsLoaded(true);
