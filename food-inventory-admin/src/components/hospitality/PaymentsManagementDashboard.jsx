@@ -109,7 +109,7 @@ export default function PaymentsManagementDashboard() {
     if (tabFromUrl && tabFromUrl !== activeTab) {
       setActiveTab(tabFromUrl);
     }
-  }, [searchParams]);
+  }, [searchParams, activeTab]);
 
   // Manejador para cambiar tabs (actualiza estado y URL)
   const handleTabChange = (newTab) => {
@@ -214,7 +214,7 @@ export default function PaymentsManagementDashboard() {
       loadReceivables();
       loadRevenueReport(reportPeriod);
     }
-  }, [activeTab]);
+  }, [activeTab, reportPeriod]);
 
   useEffect(() => {
     if (selectedCustomerId) {

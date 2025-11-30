@@ -373,7 +373,7 @@ export function AppointmentsPaymentDialog({ isOpen, onClose, appointment, onPaym
   const [bankAccounts, setBankAccounts] = useState([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [exchangeRate, setExchangeRate] = useState(null);
-  const [loadingRate, setLoadingRate] = useState(false);
+  const [, setLoadingRate] = useState(false);
   const [resourceDetail, setResourceDetail] = useState(null);
   const [resourceLoading, setResourceLoading] = useState(false);
 

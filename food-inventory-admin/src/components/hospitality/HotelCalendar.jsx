@@ -1,16 +1,30 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { fetchApi } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Button } from '@/components/ui/button.jsx';
-import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge.jsx';
-import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
-import { useMediaQuery } from '@/hooks/use-media-query.js';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet.jsx';
+import { Alert, AlertDescription } from '@/components/ui/alert.jsx';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx';
+import { toast } from 'sonner';
+import { ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Calendar as CalendarIcon, Users, Clock, MapPin, RefreshCw, Plus } from 'lucide-react';
+
+const DAYS_OF_WEEK = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+const DAYS_OF_WEEK_FULL = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const MONTHS = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+];
+
+const TIME_SLOTS = [
+  '00:00', '00:30', '01:00', '01:30', '02:00', '02:30', '03:00', '03:30',
+  '04:00', '04:30', '05:00', '05:30', '06:00', '06:30', '07:00', '07:30',
+  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+  '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
+  '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30',
+  '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30'
+];
 
 const SERVICE_TYPE_LABELS = {
   room: 'Habitaciones',
@@ -20,105 +34,85 @@ const SERVICE_TYPE_LABELS = {
   general: 'General',
 };
 
-const STATUS_LABELS = {
-  pending: 'Pendiente',
-  confirmed: 'Confirmada',
-  in_progress: 'En progreso',
-  completed: 'Completada',
-  cancelled: 'Cancelada',
-  no_show: 'No asistió',
+const STATUS_CONFIG = {
+  pending: { label: 'Pendiente', color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 border-yellow-300 dark:border-yellow-700' },
+  confirmed: { label: 'Confirmada', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-300 dark:border-blue-700' },
+  in_progress: { label: 'En progreso', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 border-purple-300 dark:border-purple-700' },
+  completed: { label: 'Completada', color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-300 dark:border-green-700' },
+  cancelled: { label: 'Cancelada', color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border-red-300 dark:border-red-700' },
+  no_show: { label: 'No asistió', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-300 dark:border-orange-700' },
 };
 
-const STATUS_BADGE_VARIANT = {
-  pending: 'secondary',
-  confirmed: 'default',
-  in_progress: 'secondary',
-  completed: 'default',
-  cancelled: 'destructive',
-  no_show: 'destructive',
-};
-
-export function HotelCalendar({ resourceId }) {
-  const calendarRef = useRef(null);
-  const [rawEvents, setRawEvents] = useState([]);
+export function HotelCalendar({ resourceId, onCreateAppointment }) {
+  const [view, setView] = useState('month');
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [dayAppointments, setDayAppointments] = useState([]);
+  const [showDayPanel, setShowDayPanel] = useState(false);
   const [serviceTypeFilter, setServiceTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [isBusy, setIsBusy] = useState(false);
-  const [calendarTitle, setCalendarTitle] = useState('');
-  const [activeView, setActiveView] = useState('timeGridWeek');
-  const isDesktop = useMediaQuery('(min-width: 1024px)');
 
-  const loadEvents = useCallback(async () => {
-    if (!calendarRef.current) return;
-    const calendarApi = calendarRef.current.getApi();
-    const rangeStart = calendarApi.view.activeStart.toISOString();
-    const rangeEnd = calendarApi.view.activeEnd.toISOString();
-
-    const params = new URLSearchParams({
-      startDate: rangeStart,
-      endDate: rangeEnd,
-    });
-
-    if (resourceId) {
-      params.append('resourceId', resourceId);
-    }
-
+  const loadAppointments = useCallback(async () => {
+    setLoading(true);
     try {
-      setIsBusy(true);
+      // Calcular rango basado en la vista y fecha actual
+      let rangeStart, rangeEnd;
+
+      if (view === 'day') {
+        rangeStart = new Date(currentDate);
+        rangeStart.setHours(0, 0, 0, 0);
+        rangeEnd = new Date(currentDate);
+        rangeEnd.setHours(23, 59, 59, 999);
+      } else if (view === 'week') {
+        rangeStart = new Date(currentDate);
+        const day = rangeStart.getDay();
+        rangeStart.setDate(rangeStart.getDate() - day);
+        rangeStart.setHours(0, 0, 0, 0);
+        rangeEnd = new Date(rangeStart);
+        rangeEnd.setDate(rangeEnd.getDate() + 6);
+        rangeEnd.setHours(23, 59, 59, 999);
+      } else {
+        // month
+        rangeStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+        rangeEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59, 999);
+      }
+
+      const params = new URLSearchParams({
+        startDate: rangeStart.toISOString(),
+        endDate: rangeEnd.toISOString(),
+      });
+
+      if (resourceId) {
+        params.append('resourceId', resourceId);
+      }
+
       const data = await fetchApi(`/appointments/calendar?${params.toString()}`);
       const normalized = Array.isArray(data) ? data : data?.data || [];
-      setRawEvents(normalized);
-      if (!isDesktop) {
-        setCalendarTitle(calendarApi.view.title);
-        setActiveView(calendarApi.view.type);
-      }
+      setAppointments(normalized);
     } catch (error) {
-      console.error('Error loading hotel calendar:', error);
-      toast.error('No fue posible cargar el calendario hotelero', {
-        description: error.message,
-      });
-      setRawEvents([]);
+      console.error('Error loading appointments:', error);
+      toast.error('Error al cargar el calendario', { description: error.message });
+      setAppointments([]);
     } finally {
-      setIsBusy(false);
+      setLoading(false);
     }
-  }, [resourceId, isDesktop]);
+  }, [currentDate, view, resourceId]);
 
-  const handleDatesSet = useCallback(() => {
-    void loadEvents();
-  }, [loadEvents]);
+  useEffect(() => {
+    loadAppointments();
+  }, [loadAppointments]);
 
-  const filteredEvents = useMemo(() => {
-    return rawEvents
-      .filter((event) => {
-        if (serviceTypeFilter !== 'all' && event.serviceType !== serviceTypeFilter) {
-          return false;
-        }
-        if (statusFilter !== 'all' && event.status !== statusFilter) {
-          return false;
-        }
-        return true;
-      })
-      .map((event) => ({
-        id: event._id || event.appointmentId,
-        title: `${event.serviceName} · ${event.capacityUsed || 1}/${event.capacity || 1}`,
-        start: event.startTime,
-        end: event.endTime,
-        backgroundColor: event.statusColor,
-        borderColor: event.statusColor,
-        extendedProps: event,
-      }));
-  }, [rawEvents, serviceTypeFilter, statusFilter]);
-
+  // Sincronización con floor plan
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const now = new Date();
     const map = new Map();
 
-    rawEvents.forEach((event) => {
+    appointments.forEach((event) => {
       const roomId = event.resourceId || event.roomId || event.locationId;
-      if (!roomId) {
-        return;
-      }
+      if (!roomId) return;
 
       const start = event.startTime ? new Date(event.startTime) : null;
       const end = event.endTime ? new Date(event.endTime) : null;
@@ -162,190 +156,683 @@ export function HotelCalendar({ resourceId }) {
 
     window.dispatchEvent(
       new CustomEvent('hospitality-floorplan-sync', {
-        detail: {
-          rooms,
-          updatedAt: new Date().toISOString(),
-        },
+        detail: { rooms, updatedAt: new Date().toISOString() },
       }),
     );
-  }, [rawEvents]);
+  }, [appointments]);
+
+  const filteredAppointments = useMemo(() => {
+    return appointments.filter((apt) => {
+      if (serviceTypeFilter !== 'all' && apt.serviceType !== serviceTypeFilter) return false;
+      if (statusFilter !== 'all' && apt.status !== statusFilter) return false;
+      return true;
+    });
+  }, [appointments, serviceTypeFilter, statusFilter]);
 
   const groupedByServiceType = useMemo(() => {
-    const counters = {
-      room: 0,
-      spa: 0,
-      experience: 0,
-      concierge: 0,
-      general: 0,
-    };
-
-    rawEvents.forEach((event) => {
+    const counters = { room: 0, spa: 0, experience: 0, concierge: 0, general: 0 };
+    appointments.forEach((event) => {
       const key = event.serviceType || 'general';
-      if (counters[key] !== undefined) {
-        counters[key] += 1;
-      }
+      if (counters[key] !== undefined) counters[key] += 1;
     });
-
     return counters;
-  }, [rawEvents]);
+  }, [appointments]);
 
-  const handleEventClick = useCallback((info) => {
-    const data = info.event.extendedProps;
-    const start = new Date(data.startTime);
-    const end = new Date(data.endTime);
-    toast.info(data.serviceName, {
-      description: `${STATUS_LABELS[data.status] || data.status} · ${start.toLocaleString()} - ${end.toLocaleTimeString()}`,
-      action: {
-        label: 'Ver detalle',
-        onClick: () => {
-          console.table(data);
-        },
-      },
+  const goToPrevious = () => {
+    if (view === 'day') {
+      const newDate = new Date(currentDate);
+      newDate.setDate(newDate.getDate() - 1);
+      setCurrentDate(newDate);
+    } else if (view === 'week') {
+      const newDate = new Date(currentDate);
+      newDate.setDate(newDate.getDate() - 7);
+      setCurrentDate(newDate);
+    } else {
+      const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+      setCurrentDate(newDate);
+    }
+  };
+
+  const goToNext = () => {
+    if (view === 'day') {
+      const newDate = new Date(currentDate);
+      newDate.setDate(newDate.getDate() + 1);
+      setCurrentDate(newDate);
+    } else if (view === 'week') {
+      const newDate = new Date(currentDate);
+      newDate.setDate(newDate.getDate() + 7);
+      setCurrentDate(newDate);
+    } else {
+      const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+      setCurrentDate(newDate);
+    }
+  };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
+
+  const handleDayClick = (dateStr) => {
+    setSelectedDate(dateStr);
+    const aptsForDay = filteredAppointments.filter(apt => apt.startTime && apt.startTime.startsWith(dateStr));
+    setDayAppointments(aptsForDay);
+    setShowDayPanel(true);
+  };
+
+  const formatDate = (dateStr) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('es-VE', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
     });
-  }, []);
-
-  const handlePrevClick = () => {
-    const calendarApi = calendarRef.current?.getApi();
-    calendarApi?.prev();
   };
 
-  const handleNextClick = () => {
-    const calendarApi = calendarRef.current?.getApi();
-    calendarApi?.next();
+  const getHeaderText = () => {
+    if (view === 'day') {
+      return `${DAYS_OF_WEEK_FULL[currentDate.getDay()]}, ${currentDate.getDate()} de ${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+    } else if (view === 'week') {
+      const weekDates = getWeekDates();
+      const start = weekDates[0];
+      const end = weekDates[6];
+      return `${start.getDate()} - ${end.getDate()} de ${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+    } else {
+      return `${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+    }
   };
 
-  const handleTodayClick = () => {
-    const calendarApi = calendarRef.current?.getApi();
-    calendarApi?.today();
+  const getWeekDates = () => {
+    const start = new Date(currentDate);
+    const day = start.getDay();
+    start.setDate(start.getDate() - day);
+    const dates = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + i);
+      dates.push(date);
+    }
+    return dates;
   };
 
-  const handleViewChange = (view) => {
-    const calendarApi = calendarRef.current?.getApi();
-    calendarApi?.changeView(view);
-    setActiveView(view);
+  const daySummary = dayAppointments.reduce((acc, apt) => {
+    acc.total++;
+    acc.guests += apt.capacityUsed || 1;
+    if (apt.status === 'pending') acc.pending++;
+    if (apt.status === 'confirmed') acc.confirmed++;
+    if (apt.status === 'in_progress') acc.inProgress++;
+    return acc;
+  }, { total: 0, guests: 0, pending: 0, confirmed: 0, inProgress: 0 });
+
+  return (
+    <>
+      <Card className="dark:bg-gray-900 dark:border-gray-800">
+        <CardHeader>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <CardTitle className="text-2xl dark:text-gray-100">Calendario Hotelero</CardTitle>
+              <p className="text-sm text-muted-foreground dark:text-gray-400 mt-1">{getHeaderText()}</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={goToPrevious} className="dark:border-gray-700 dark:hover:bg-gray-800">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={goToToday} className="dark:border-gray-700 dark:hover:bg-gray-800">
+                Hoy
+              </Button>
+              <Button variant="outline" size="sm" onClick={goToNext} className="dark:border-gray-700 dark:hover:bg-gray-800">
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={loadAppointments} disabled={loading} className="dark:border-gray-700 dark:hover:bg-gray-800">
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
+          </div>
+
+          {/* View Tabs */}
+          <Tabs value={view} onValueChange={setView} className="w-full">
+            <TabsList className="grid w-full max-w-md grid-cols-3">
+              <TabsTrigger value="day">
+                <CalendarDays className="h-4 w-4 mr-2" />
+                Día
+              </TabsTrigger>
+              <TabsTrigger value="week">
+                <CalendarRange className="h-4 w-4 mr-2" />
+                Semana
+              </TabsTrigger>
+              <TabsTrigger value="month">
+                <CalendarIcon className="h-4 w-4 mr-2" />
+                Mes
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {/* Filtros */}
+          <div className="grid gap-3 md:grid-cols-2 mt-4">
+            <div>
+              <label className="text-xs uppercase tracking-wider text-muted-foreground dark:text-gray-400 mb-1 block">Tipo de servicio</label>
+              <Select value={serviceTypeFilter} onValueChange={setServiceTypeFilter}>
+                <SelectTrigger className="dark:border-gray-700 dark:bg-gray-800">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {Object.entries(SERVICE_TYPE_LABELS).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>
+                      {label} ({groupedByServiceType[key] || 0})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs uppercase tracking-wider text-muted-foreground dark:text-gray-400 mb-1 block">Estado</label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="dark:border-gray-700 dark:bg-gray-800">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {Object.entries(STATUS_CONFIG).map(([key, config]) => (
+                    <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent>
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+          ) : (
+            <>
+              {view === 'day' && <DayView currentDate={currentDate} appointments={filteredAppointments} handleDayClick={handleDayClick} />}
+              {view === 'week' && <WeekView currentDate={currentDate} appointments={filteredAppointments} handleDayClick={handleDayClick} />}
+              {view === 'month' && <MonthView currentDate={currentDate} appointments={filteredAppointments} handleDayClick={handleDayClick} />}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Day Panel - Sheet lateral */}
+      <Sheet open={showDayPanel} onOpenChange={setShowDayPanel}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto dark:bg-gray-900 dark:border-gray-800 px-12">
+          <SheetHeader>
+            <SheetTitle className="dark:text-gray-100">
+              Citas del {selectedDate && formatDate(selectedDate)}
+            </SheetTitle>
+            <SheetDescription className="dark:text-gray-400">
+              Gestiona las citas de este día
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="mt-12 space-y-12">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-3 gap-6">
+              <Card className="dark:bg-gray-800 dark:border-gray-700">
+                <CardContent className="pt-4">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{daySummary.total}</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Total Citas</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="dark:bg-gray-800 dark:border-gray-700">
+                <CardContent className="pt-4">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">{daySummary.guests}</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Clientes</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="dark:bg-gray-800 dark:border-gray-700">
+                <CardContent className="pt-4">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{daySummary.inProgress}</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">En Progreso</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* New Appointment Button */}
+            {onCreateAppointment && (
+              <Button
+                className="w-full"
+                onClick={() => {
+                  setShowDayPanel(false);
+                  onCreateAppointment(selectedDate);
+                }}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Nueva Cita para este día
+              </Button>
+            )}
+
+            {/* Appointments List */}
+            <div className="space-y-3">
+              {dayAppointments.length === 0 ? (
+                <Alert className="dark:bg-gray-800 dark:border-gray-700">
+                  <AlertDescription className="dark:text-gray-400">
+                    No hay citas para este día.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                dayAppointments.map((appointment) => {
+                  const statusConfig = STATUS_CONFIG[appointment.status] || STATUS_CONFIG.pending;
+                  const startTime = appointment.startTime ? new Date(appointment.startTime).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '';
+                  const endTime = appointment.endTime ? new Date(appointment.endTime).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '';
+
+                  return (
+                    <Card key={appointment._id || appointment.appointmentId} className="dark:bg-gray-800 dark:border-gray-700">
+                      <CardContent className="pt-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h4 className="font-semibold text-lg dark:text-gray-100">{appointment.serviceName || 'Servicio'}</h4>
+                              <Badge className={statusConfig.color}>
+                                {statusConfig.label}
+                              </Badge>
+                            </div>
+                            <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                              <div className="flex items-center gap-2">
+                                <Clock className="h-4 w-4" />
+                                {startTime} - {endTime}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Users className="h-4 w-4" />
+                                {appointment.customerName || 'Cliente'} · {appointment.capacityUsed || 1}/{appointment.capacity || 1} personas
+                              </div>
+                              {appointment.resourceName && (
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="h-4 w-4" />
+                                  {appointment.resourceName}
+                                </div>
+                              )}
+                              {appointment.notes && (
+                                <p className="text-xs italic mt-2 dark:text-gray-500">
+                                  "{appointment.notes}"
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
+  );
+}
+
+// Day View Component
+const DayView = ({ currentDate, appointments, handleDayClick }) => {
+  const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+
+  return (
+    <div className="border dark:border-gray-700 rounded-lg overflow-hidden">
+      <div className="overflow-y-auto max-h-[600px]">
+        {TIME_SLOTS.map((timeSlot) => {
+          const aptsAtTime = appointments.filter(apt => {
+            if (!apt.startTime || !apt.startTime.startsWith(dateStr)) return false;
+            const aptTime = new Date(apt.startTime).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit', hour12: false });
+            return aptTime === timeSlot;
+          });
+
+          return (
+            <div
+              key={timeSlot}
+              className="flex border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+              onClick={() => handleDayClick(dateStr)}
+            >
+              <div className="w-20 p-3 text-sm font-medium text-gray-600 dark:text-gray-400 border-r dark:border-gray-700 flex-shrink-0">
+                {timeSlot}
+              </div>
+              <div className="flex-1 p-2 min-h-[60px]">
+                <div className="flex flex-wrap gap-2">
+                  {aptsAtTime.map((apt) => {
+                    const statusConfig = STATUS_CONFIG[apt.status] || STATUS_CONFIG.pending;
+                    return (
+                      <div
+                        key={apt._id || apt.appointmentId}
+                        className={`text-xs p-2 rounded ${statusConfig.color} flex items-center gap-2`}
+                      >
+                        <Users className="h-3 w-3" />
+                        <span className="font-medium">{apt.serviceName}</span>
+                        <span>({apt.capacityUsed || 1}/{apt.capacity || 1})</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// Week View Component
+const WeekView = ({ currentDate, appointments, handleDayClick }) => {
+  const getWeekDates = () => {
+    const start = new Date(currentDate);
+    const day = start.getDay();
+    start.setDate(start.getDate() - day);
+    const dates = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + i);
+      dates.push(date);
+    }
+    return dates;
+  };
+
+  const weekDates = getWeekDates();
+
+  const isToday = (date) => {
+    const today = new Date();
+    return (
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear()
+    );
   };
 
   return (
-    <Card className="border border-border shadow-sm">
-      <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <CardTitle className="text-2xl font-semibold">Calendario Hotelero</CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">
-            Visualiza disponibilidad por recursos y servicio. Usa los filtros para enfocarte en habitaciones, spa o experiencias.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handleTodayClick}>Hoy</Button>
-          <Button variant="outline" size="icon" onClick={handlePrevClick}><ChevronLeft className="h-4 w-4" /></Button>
-          <Button variant="outline" size="icon" onClick={handleNextClick}><ChevronRight className="h-4 w-4" /></Button>
-          <Button variant="outline" size="icon" onClick={() => loadEvents()} disabled={isBusy}>
-            <RefreshCw className={`h-4 w-4 ${isBusy ? 'animate-spin' : ''}`} />
-          </Button>
-          <Button
-            variant={activeView === 'timeGridWeek' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => handleViewChange('timeGridWeek')}
+    <div className="border dark:border-gray-700 rounded-lg overflow-hidden">
+      {/* Week header */}
+      <div className="grid grid-cols-8 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+        <div className="p-2 text-sm font-medium text-gray-600 dark:text-gray-400"></div>
+        {weekDates.map((date, idx) => (
+          <div
+            key={idx}
+            className={`p-2 text-center border-l dark:border-gray-700 ${
+              isToday(date) ? 'bg-blue-100 dark:bg-blue-900/30' : ''
+            }`}
           >
-            Semana
-          </Button>
-          <Button
-            variant={activeView === 'dayGridMonth' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => handleViewChange('dayGridMonth')}
-          >
-            Mes
-          </Button>
-          <Button
-            variant={activeView === 'timeGridDay' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => handleViewChange('timeGridDay')}
-          >
-            Día
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid gap-2 md:grid-cols-3">
-          <div>
-            <label className="text-xs uppercase tracking-wider text-muted-foreground">Tipo de servicio</label>
-            <Select value={serviceTypeFilter} onValueChange={setServiceTypeFilter}>
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Todos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {Object.entries(SERVICE_TYPE_LABELS).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>
-                    {label} ({groupedByServiceType[key] || 0})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="text-xs text-gray-600 dark:text-gray-400">{DAYS_OF_WEEK[idx]}</div>
+            <div className={`text-sm font-semibold ${isToday(date) ? 'text-blue-600 dark:text-blue-400' : 'dark:text-gray-200'}`}>
+              {date.getDate()}
+            </div>
           </div>
-          <div>
-            <label className="text-xs uppercase tracking-wider text-muted-foreground">Estado</label>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Todos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {Object.entries(STATUS_LABELS).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="hidden md:flex items-center gap-2">
-            {Object.entries(STATUS_LABELS).map(([key, label]) => (
-              <Badge key={key} variant={STATUS_BADGE_VARIANT[key] || 'secondary'}>
-                {label}
-              </Badge>
-            ))}
-          </div>
-        </div>
+        ))}
+      </div>
 
-        {!isDesktop && (
-          <div className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
-            <strong>{calendarTitle}</strong>
-            <span>Total eventos: {filteredEvents.length}</span>
-          </div>
-        )}
+      {/* Time slots */}
+      <div className="overflow-y-auto max-h-[500px]">
+        {TIME_SLOTS.map((timeSlot) => (
+          <div key={timeSlot} className="grid grid-cols-8 border-b dark:border-gray-700">
+            <div className="p-2 text-xs font-medium text-gray-600 dark:text-gray-400 border-r dark:border-gray-700">
+              {timeSlot}
+            </div>
+            {weekDates.map((date, idx) => {
+              const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+              const aptsAtTime = appointments.filter(apt => {
+                if (!apt.startTime || !apt.startTime.startsWith(dateStr)) return false;
+                const aptTime = new Date(apt.startTime).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit', hour12: false });
+                return aptTime === timeSlot;
+              });
 
-        <div className="border border-border rounded-xl overflow-hidden">
-          <FullCalendar
-            ref={calendarRef}
-            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-            initialView={isDesktop ? 'timeGridWeek' : 'dayGridMonth'}
-            headerToolbar={false}
-            events={filteredEvents}
-            eventClick={handleEventClick}
-            datesSet={handleDatesSet}
-            selectable={false}
-            height="auto"
-            slotLabelFormat={{
-              hour: '2-digit',
-              minute: '2-digit',
-            }}
-            eventClassNames="rounded-md text-xs font-medium"
-            eventContent={(renderInfo) => {
-              const eventData = renderInfo.event.extendedProps;
               return (
-                <div className="flex flex-col gap-0.5 p-1">
-                  <span className="text-xs font-semibold leading-tight text-white">
-                    {renderInfo.event.title}
-                  </span>
-                  <span className="text-[10px] text-white/80 leading-tight">
-                    {eventData.resourceLabel || 'Sin recurso'} · Capacidad {eventData.capacityUsed || 1}/{eventData.capacity || 1}
-                  </span>
+                <div
+                  key={idx}
+                  className="p-1 border-l dark:border-gray-700 min-h-[50px] hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+                  onClick={() => handleDayClick(dateStr)}
+                >
+                  <div className="flex flex-col gap-1">
+                    {aptsAtTime.slice(0, 2).map((apt) => {
+                      const statusConfig = STATUS_CONFIG[apt.status] || STATUS_CONFIG.pending;
+                      return (
+                        <div
+                          key={apt._id || apt.appointmentId}
+                          className={`text-xs p-1 rounded ${statusConfig.color} truncate`}
+                          title={`${apt.serviceName} (${apt.capacityUsed || 1}/${apt.capacity || 1})`}
+                        >
+                          <div className="flex items-center gap-1">
+                            <Users className="h-2 w-2" />
+                            <span className="truncate">{apt.serviceName}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {aptsAtTime.length > 2 && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                        +{aptsAtTime.length - 2}
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
-            }}
-          />
-        </div>
-      </CardContent>
-    </Card>
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
   );
-}
+};
+
+// Month View Component
+const MonthView = ({ currentDate, appointments, handleDayClick }) => {
+  const getDaysInMonth = () => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    const days = [];
+    for (let i = 0; i < firstDay; i++) {
+      days.push(null);
+    }
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push(day);
+    }
+    return days;
+  };
+
+  // Función para detectar si una cita abarca este día
+  const getAppointmentsForDay = (day) => {
+    if (!day) return [];
+    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const dayDate = new Date(dateStr);
+    dayDate.setHours(0, 0, 0, 0);
+
+    return appointments.filter(apt => {
+      if (!apt.startTime) return false;
+
+      const startDate = new Date(apt.startTime);
+      startDate.setHours(0, 0, 0, 0);
+
+      const endDate = apt.endTime ? new Date(apt.endTime) : new Date(apt.startTime);
+      endDate.setHours(23, 59, 59, 999);
+
+      // Incluir la cita si el día está dentro del rango
+      return dayDate >= startDate && dayDate <= endDate;
+    });
+  };
+
+  // Detectar si es el primer día de una reserva multi-día
+  const isMultiDayStart = (apt, day) => {
+    if (!apt.startTime || !apt.endTime) return false;
+    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const startDateStr = apt.startTime.split('T')[0];
+    return dateStr === startDateStr;
+  };
+
+  // Detectar si es un día intermedio o final de reserva multi-día
+  const isMultiDayContinuation = (apt, day) => {
+    if (!apt.startTime || !apt.endTime) return false;
+    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const startDateStr = apt.startTime.split('T')[0];
+    return dateStr !== startDateStr;
+  };
+
+  // Calcular duración en días
+  const getMultiDayDuration = (apt) => {
+    if (!apt.startTime || !apt.endTime) return 1;
+    const start = new Date(apt.startTime);
+    const end = new Date(apt.endTime);
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 1 ? diffDays : 1;
+  };
+
+  const isToday = (day) => {
+    const today = new Date();
+    return (
+      day &&
+      day === today.getDate() &&
+      currentDate.getMonth() === today.getMonth() &&
+      currentDate.getFullYear() === today.getFullYear()
+    );
+  };
+
+  const isPast = (day) => {
+    if (!day) return false;
+    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return date < today;
+  };
+
+  const days = getDaysInMonth();
+
+  return (
+    <>
+      <div className="grid grid-cols-7 gap-2">
+        {DAYS_OF_WEEK.map((day) => (
+          <div
+            key={day}
+            className="text-center font-semibold text-sm text-gray-700 dark:text-gray-300 py-2 border-b dark:border-gray-700"
+          >
+            {day}
+          </div>
+        ))}
+
+        {days.map((day, index) => {
+          const aptsForDay = getAppointmentsForDay(day);
+          const isCurrentDay = isToday(day);
+          const isPastDay = isPast(day);
+          const dateStr = day ? `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : null;
+
+          return (
+            <div
+              key={index}
+              className={`
+                min-h-[100px] p-2 border dark:border-gray-700 rounded-lg transition-all
+                ${day ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 hover:shadow-md' : 'bg-gray-100 dark:bg-gray-800/50'}
+                ${isCurrentDay ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 border-2' : ''}
+                ${isPastDay && day ? 'opacity-60' : ''}
+              `}
+              onClick={() => day && handleDayClick(dateStr)}
+            >
+              {day && (
+                <>
+                  <div className="flex justify-between items-start mb-2">
+                    <span
+                      className={`
+                        text-sm font-medium
+                        ${isCurrentDay ? 'text-blue-700 dark:text-blue-300 font-bold' : 'text-gray-700 dark:text-gray-300'}
+                      `}
+                    >
+                      {day}
+                    </span>
+                    {aptsForDay.length > 0 && (
+                      <Badge variant="outline" className="text-xs bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200">
+                        {aptsForDay.length}
+                      </Badge>
+                    )}
+                  </div>
+
+                  {aptsForDay.length > 0 && (
+                    <div className="space-y-1">
+                      {aptsForDay.slice(0, 3).map((apt, idx) => {
+                        const statusConfig = STATUS_CONFIG[apt.status] || STATUS_CONFIG.pending;
+                        const time = apt.startTime ? new Date(apt.startTime).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '';
+                        const isMultiDay = getMultiDayDuration(apt) > 1;
+                        const isStart = isMultiDayStart(apt, day);
+                        const isContinuation = isMultiDayContinuation(apt, day);
+                        const duration = getMultiDayDuration(apt);
+
+                        return (
+                          <div
+                            key={idx}
+                            className={`
+                              text-xs p-1 rounded relative
+                              ${statusConfig.color}
+                              ${isMultiDay ? 'border-2 border-opacity-60' : ''}
+                              ${isContinuation ? 'border-l-4 pl-2' : ''}
+                            `}
+                            title={isMultiDay ? `Reserva de ${duration} días` : ''}
+                          >
+                            {isStart && isMultiDay && (
+                              <div className="absolute -top-1 -right-1 bg-orange-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold">
+                                {duration}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1">
+                              {isContinuation ? (
+                                <span className="text-[10px] font-semibold">↔</span>
+                              ) : (
+                                <Clock className="h-3 w-3" />
+                              )}
+                              {isStart ? time : 'Continúa'}
+                            </div>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <Users className="h-3 w-3" />
+                              {apt.capacityUsed || 1}/{apt.capacity || 1}
+                              {isMultiDay && isStart && (
+                                <span className="ml-auto text-[10px] font-bold opacity-70">
+                                  {duration}d
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {aptsForDay.length > 3 && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                          +{aptsForDay.length - 3} más
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t dark:border-gray-700 text-sm">
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded"></div>
+          <span className="text-gray-600 dark:text-gray-400">Confirmada</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded"></div>
+          <span className="text-gray-600 dark:text-gray-400">Pendiente</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700 rounded"></div>
+          <span className="text-gray-600 dark:text-gray-400">En Progreso</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-700 border-2 rounded"></div>
+          <span className="text-gray-600 dark:text-gray-400">Hoy</span>
+        </div>
+      </div>
+    </>
+  );
+};
 
 export default HotelCalendar;

@@ -232,6 +232,8 @@ export default function QuickCheckInDialog({ open, onOpenChange, room = null, on
     defaultService,
     services,
     findServiceById,
+    room?.baseRate?.amount,
+    room?.baseRate?.currency,
   ]);
 
   useEffect(() => {
@@ -429,7 +431,7 @@ export default function QuickCheckInDialog({ open, onOpenChange, room = null, on
       toast.error('Revisa las fechas de check-in / check-out.');
       return;
     }
-    const { primaryServiceId, additionalServiceIds, total: estimatedTotal, currency: stayCurrency } = staySummary;
+    const { primaryServiceId, additionalServiceIds } = staySummary;
 
     if (!primaryServiceId) {
       toast.error('Configura al menos un servicio base para completar el check-in.');

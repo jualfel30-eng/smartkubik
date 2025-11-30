@@ -35,25 +35,13 @@ export function HotelFloorPlan({
   onRoomSelect,
   selectedRoomId,
 }) {
-  if (!Array.isArray(rooms) || rooms.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Mapa de Habitaciones</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Aún no hay habitaciones registradas en el sistema.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
+  const hasRooms = Array.isArray(rooms) && rooms.length > 0;
 
   const groupedFloors = useMemo(() => {
+    const safeRooms = Array.isArray(rooms) ? rooms : [];
     const floorMap = new Map();
 
-    rooms.forEach((room) => {
+    safeRooms.forEach((room) => {
       const floorKey = getFloorKey(room.floor);
       const floorEntry =
         floorMap.get(floorKey) ||
@@ -104,6 +92,21 @@ export function HotelFloorPlan({
       return { ...floor, zones };
     });
   }, [rooms]);
+
+  if (!hasRooms) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Mapa de Habitaciones</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Aún no hay habitaciones registradas en el sistema.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="flex h-full flex-col">

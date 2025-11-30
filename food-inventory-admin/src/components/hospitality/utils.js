@@ -163,7 +163,7 @@ export function logHospitalityEvent(eventType, metadata = {}) {
           storage.setItem(EVENT_STORAGE_KEY, serialized);
         }
       }
-    } catch (error) {
+    } catch {
       console.info('[HospitalityLogs] (fallback)', event);
     }
   } else {
