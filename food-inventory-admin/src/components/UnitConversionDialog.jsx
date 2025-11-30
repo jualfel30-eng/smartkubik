@@ -111,15 +111,29 @@ export const UnitConversionDialog = ({
     return true;
   };
 
+  const resolveProductId = () => {
+    if (!product) return null;
+    const rawId = product._id || product.productId || product.productId?._id;
+    return rawId || null;
+  };
+
+  const isValidObjectId = (value) => typeof value === 'string' && /^[a-fA-F0-9]{24}$/.test(value);
+
   // Guardar configuración
   const handleSave = async () => {
     if (!validateForm()) return;
 
+    const productId = resolveProductId();
+    if (!productId || !isValidObjectId(productId)) {
+      toast.error('Guarda el producto primero para poder configurar unidades (ID inválido)');
+      return;
+    }
+
     setSaving(true);
     try {
       const configData = {
-        productSku: product.sku,
-        productId: product._id,
+        productSku: product?.sku || product?.productSku || '',
+        productId,
         baseUnit,
         baseUnitAbbr,
         conversions,

@@ -196,20 +196,29 @@ function InventoryManagement() {
       setNewInventoryItem({ ...newInventoryItem, lots: updatedLots });
   };
 
-  const loadData = useCallback(async ({ page, limit, search }) => {
+  const loadData = useCallback(async ({ page, limit, search } = {}) => {
     try {
       setLoading(true);
       setError(null);
-      console.log('🔄 [InventoryManagement] Cargando datos... Página:', page, 'Límite:', limit, 'Search:', search);
+      const safePage = Number(page ?? currentPage ?? 1);
+      const safeLimit = Number(limit ?? itemsPerPage ?? DEFAULT_ITEMS_PER_PAGE);
+      const safeSearch = (search ?? committedSearch ?? '').trim();
+      const usingSearch = safeSearch.length > 0;
+
+      // Cuando hay búsqueda, pedimos una sola página amplia y filtramos en frontend
+      const queryPage = usingSearch ? 1 : safePage;
+      // Backend limita a 100, así que nunca pedimos más que eso
+      const requestedLimit = usingSearch ? Math.max(SEARCH_ITEMS_PER_PAGE, safeLimit, 100) : safeLimit;
+      const queryLimit = Math.min(100, requestedLimit);
+
+      console.log('🔄 [InventoryManagement] Cargando datos... Página:', queryPage, 'Límite:', queryLimit, 'Search:', safeSearch);
 
       const params = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString(),
+        page: queryPage.toString(),
+        limit: queryLimit.toString(),
       });
 
-      if (search) {
-        params.set('search', search);
-      }
+      // Nota: evitamos pasar el search al backend para no depender de su lógica (ej. solo busca por SKU).
 
       const [inventoryResponse, productsList] = await Promise.all([
         fetchApi(`/inventory?${params.toString()}`),
@@ -228,12 +237,17 @@ function InventoryManagement() {
       setProducts(productsList.data || []);
 
       // Actualizar información de paginación
-      if (inventoryResponse?.pagination) {
+      if (usingSearch) {
+        // Una sola página con los resultados descargados; el filtro de texto se aplica en frontend
+        setCurrentPage(1);
+        setTotalPages(1);
+        setTotalItems(inventoryWithAttributes.length);
+      } else if (inventoryResponse?.pagination) {
         setCurrentPage(inventoryResponse.pagination.page);
         setTotalPages(inventoryResponse.pagination.totalPages);
         setTotalItems(inventoryResponse.pagination.total);
       } else {
-        setCurrentPage(page);
+        setCurrentPage(queryPage);
         setTotalPages(1);
         setTotalItems(inventoryWithAttributes.length);
       }
@@ -248,7 +262,7 @@ function InventoryManagement() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [committedSearch, currentPage, itemsPerPage]);
 
   const refreshData = useCallback(
     async (page, limit, search) => {
@@ -261,13 +275,34 @@ function InventoryManagement() {
   useEffect(() => {
     console.log('🔍 [useEffect Filter] Filtrando datos...');
     console.log('🔍 [useEffect Filter] inventoryData.length:', inventoryData.length);
+    const search = committedSearch.trim().toLowerCase();
     let filtered = inventoryData;
+
+    // Filtro por categoría (igual exacto)
     if (filterCategory !== 'all') {
       filtered = filtered.filter(item => item.productId?.category === filterCategory);
     }
+
+    // Filtro por texto (nombre, SKU, variant SKU)
+    if (search) {
+      filtered = filtered.filter((item) => {
+        const candidates = [
+          item.productName,
+          item.productSku,
+          item.variantSku,
+          item.productId?.name,
+          item.productId?.sku,
+        ]
+          .filter(Boolean)
+          .map((value) => String(value).toLowerCase());
+
+        return candidates.some((value) => value.includes(search));
+      });
+    }
+
     console.log('🔍 [useEffect Filter] filteredData.length:', filtered.length);
     setFilteredData(filtered);
-  }, [inventoryData, filterCategory]);
+  }, [inventoryData, filterCategory, committedSearch]);
 
   useEffect(() => {
     const trimmed = searchTerm.trim();
