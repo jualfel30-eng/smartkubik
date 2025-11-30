@@ -46,13 +46,6 @@ const LoyaltyManager = () => {
     }));
   }, [customers, customerSearchResults]);
 
-  useEffect(() => {
-    if (selectedCustomer) {
-      fetchCustomerBalance();
-      fetchTransactions();
-    }
-  }, [selectedCustomer, fetchCustomerBalance, fetchTransactions]);
-
   // Trigger customer search with debounce
   const triggerCustomerSearch = (term) => {
     if (customerSearchTimeout.current) {
@@ -136,6 +129,13 @@ const LoyaltyManager = () => {
       console.error('Error fetching transactions:', error);
     }
   }, [selectedCustomer]);
+
+  useEffect(() => {
+    if (selectedCustomer) {
+      fetchCustomerBalance();
+      fetchTransactions();
+    }
+  }, [selectedCustomer, fetchCustomerBalance, fetchTransactions]);
 
   const handleEarnPoints = async (e) => {
     e.preventDefault();
