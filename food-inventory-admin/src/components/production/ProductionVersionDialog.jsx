@@ -31,7 +31,7 @@ export function ProductionVersionDialog({ version, open, onClose, onSave }) {
       loadBoms();
       loadRoutings();
     }
-  }, [open]);
+  }, [open, loadProducts, loadBoms, loadRoutings]);
 
   useEffect(() => {
     if (version) {

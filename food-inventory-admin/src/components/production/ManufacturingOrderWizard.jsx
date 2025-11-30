@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -61,7 +61,7 @@ export function ManufacturingOrderWizard({ open, onClose, onSave }) {
       fetchProductionVersions();
       resetForm();
     }
-  }, [open]);
+  }, [open, fetchProducts, fetchProductionVersions]);
 
   useEffect(() => {
     if (productId) {
@@ -71,33 +71,7 @@ export function ManufacturingOrderWizard({ open, onClose, onSave }) {
     }
   }, [productId, products]);
 
-  useEffect(() => {
-    if (productionVersionId) {
-      const version = productionVersions.find(v => v._id === productionVersionId);
-      setSelectedVersion(version);
-      if (version) {
-        loadVersionDetails(version);
-      }
-    }
-  }, [productionVersionId, productionVersions]);
-
-  const resetForm = () => {
-    setCurrentStep(1);
-    setProductId('');
-    setProductionVersionId('');
-    setQuantity('');
-    setUnit('');
-    setScheduledStartDate('');
-    setPriority('normal');
-    setSelectedProduct(null);
-    setSelectedVersion(null);
-    setBomData(null);
-    setRoutingData(null);
-    setMaterialAvailability(null);
-    setCostEstimate(null);
-  };
-
-  const loadVersionDetails = async (version) => {
+  const loadVersionDetails = useCallback(async (version) => {
     try {
       setLoading(true);
 
@@ -117,6 +91,32 @@ export function ManufacturingOrderWizard({ open, onClose, onSave }) {
     } finally {
       setLoading(false);
     }
+  }, [getBom, getRouting]);
+
+  useEffect(() => {
+    if (productionVersionId) {
+      const version = productionVersions.find(v => v._id === productionVersionId);
+      setSelectedVersion(version);
+      if (version) {
+        loadVersionDetails(version);
+      }
+    }
+  }, [productionVersionId, productionVersions, loadVersionDetails]);
+
+  const resetForm = () => {
+    setCurrentStep(1);
+    setProductId('');
+    setProductionVersionId('');
+    setQuantity('');
+    setUnit('');
+    setScheduledStartDate('');
+    setPriority('normal');
+    setSelectedProduct(null);
+    setSelectedVersion(null);
+    setBomData(null);
+    setRoutingData(null);
+    setMaterialAvailability(null);
+    setCostEstimate(null);
   };
 
   const checkMaterialAvailability = async () => {

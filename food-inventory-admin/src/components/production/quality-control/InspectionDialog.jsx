@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +24,18 @@ export function InspectionDialog({ inspection, open, onClose, onSave, viewMode =
   const [generalNotes, setGeneralNotes] = useState('');
   const [results, setResults] = useState([]);
   const [isRecordingResults, setIsRecordingResults] = useState(false);
+
+  const loadQCPlan = useCallback(async (planId) => {
+    try {
+      setLoadingPlan(true);
+      const plan = await getQCPlan(planId);
+      setQcPlan(plan);
+    } catch (err) {
+      console.error('Error loading QC plan:', err);
+    } finally {
+      setLoadingPlan(false);
+    }
+  }, [getQCPlan]);
 
   useEffect(() => {
     if (inspection) {
@@ -58,19 +70,7 @@ export function InspectionDialog({ inspection, open, onClose, onSave, viewMode =
       setResults([]);
       setIsRecordingResults(false);
     }
-  }, [inspection, open]);
-
-  const loadQCPlan = async (planId) => {
-    try {
-      setLoadingPlan(true);
-      const plan = await getQCPlan(planId);
-      setQcPlan(plan);
-    } catch (err) {
-      console.error('Error loading QC plan:', err);
-    } finally {
-      setLoadingPlan(false);
-    }
-  };
+  }, [inspection, open, loadQCPlan]);
 
   const handleSave = () => {
     // Recording results for existing inspection

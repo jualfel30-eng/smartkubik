@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useQualityControl } from '@/hooks/useQualityControl';
@@ -24,13 +24,7 @@ export function QualityControlDashboard() {
     loadNonConformances();
   }, [loadQCPlans, loadInspections, loadNonConformances]);
 
-  useEffect(() => {
-    if (inspections || nonConformances || qcPlans) {
-      calculateMetrics();
-    }
-  }, [inspections, nonConformances, qcPlans]);
-
-  const calculateMetrics = () => {
+  const calculateMetrics = useCallback(() => {
     const totalInsp = inspections.length;
     const completed = inspections.filter(i => i.status === 'completed');
     const completedCount = completed.length;
@@ -55,7 +49,13 @@ export function QualityControlDashboard() {
       criticalNCs,
       activePlans,
     });
-  };
+  }, [inspections, nonConformances, qcPlans]);
+
+  useEffect(() => {
+    if (inspections || nonConformances || qcPlans) {
+      calculateMetrics();
+    }
+  }, [inspections, nonConformances, qcPlans, calculateMetrics]);
 
   const MetricCard = ({ title, value, subtitle, icon: Icon, trend, trendValue, colorClass = '' }) => (
     <Card>

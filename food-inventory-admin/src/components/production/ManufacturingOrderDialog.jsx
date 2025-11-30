@@ -26,7 +26,7 @@ export function ManufacturingOrderDialog({ order, open, onClose, onSave }) {
       loadProducts();
       loadProductionVersions();
     }
-  }, [open]);
+  }, [open, loadProducts, loadProductionVersions]);
 
   useEffect(() => {
     if (order) {

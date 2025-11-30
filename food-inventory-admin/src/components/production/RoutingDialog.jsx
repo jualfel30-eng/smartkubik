@@ -33,7 +33,7 @@ export function RoutingDialog({ routing, open, onClose, onSave }) {
       loadProducts();
       loadWorkCenters();
     }
-  }, [open]);
+  }, [open, loadProducts, loadWorkCenters]);
 
   useEffect(() => {
     if (routing) {

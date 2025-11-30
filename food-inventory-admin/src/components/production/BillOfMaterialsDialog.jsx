@@ -33,7 +33,7 @@ export function BillOfMaterialsDialog({ bom, open, onClose, onSave }) {
     if (open) {
       loadProducts();
     }
-  }, [open]);
+  }, [open, loadProducts]);
 
   useEffect(() => {
     if (bom) {
@@ -126,8 +126,6 @@ export function BillOfMaterialsDialog({ bom, open, onClose, onSave }) {
 
     onSave(payload);
   };
-
-  const selectedProduct = products.find((p) => p._id === productId);
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
