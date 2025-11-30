@@ -15,7 +15,6 @@ import {
   updateWaitListStatus,
   notifyWaitListCustomer,
   seatFromWaitList,
-  deleteWaitListEntry,
   getWaitListStats,
   estimateWaitTime,
   getAvailableTables,

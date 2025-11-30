@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -45,7 +45,7 @@ export default function KitchenDisplay() {
   const lastAlertTimeRef = useRef(Date.now());
 
   // Función para reproducir sonido de alerta
-  const playAlertSound = (type = 'new') => {
+  const playAlertSound = useCallback((type = 'new') => {
     if (!settings.soundEnabled) return;
 
     try {
@@ -88,7 +88,7 @@ export default function KitchenDisplay() {
     } catch (error) {
       console.error('Error playing sound:', error);
     }
-  };
+  }, [settings.soundEnabled]);
 
   // Detectar nuevas órdenes y reproducir alerta
   useEffect(() => {
@@ -103,24 +103,9 @@ export default function KitchenDisplay() {
         lastAlertTimeRef.current = now;
       }
     }
-  }, [orders, settings.soundEnabled, settings.urgentAlertInterval]);
+  }, [orders, settings.soundEnabled, settings.urgentAlertInterval, playAlertSound]);
 
-  // Auto-refresh cada 10 segundos
-  useEffect(() => {
-    loadOrders();
-    loadStats();
-
-    if (!settings.autoRefresh) return;
-
-    const interval = setInterval(() => {
-      loadOrders();
-      loadStats();
-    }, 10000);
-
-    return () => clearInterval(interval);
-  }, [filters, settings.autoRefresh]);
-
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
     try {
       const params = new URLSearchParams();
       if (filters.status) params.append('status', filters.status);
@@ -136,16 +121,31 @@ export default function KitchenDisplay() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     try {
       const result = await fetchApi('/kitchen-display/stats');
       setStats(result?.data || result || null);
     } catch (error) {
       console.error('Error loading stats:', error);
     }
-  };
+  }, []);
+
+  // Auto-refresh cada 10 segundos
+  useEffect(() => {
+    loadOrders();
+    loadStats();
+
+    if (!settings.autoRefresh) return;
+
+    const interval = setInterval(() => {
+      loadOrders();
+      loadStats();
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [filters, settings.autoRefresh, loadOrders, loadStats]);
 
   const handleUpdateItemStatus = async (kitchenOrderId, itemId, status) => {
     try {
@@ -206,17 +206,6 @@ export default function KitchenDisplay() {
     }
   };
 
-  const getStatusBgColor = (status) => {
-    const colors = {
-      new: 'bg-blue-500/90',
-      preparing: 'bg-yellow-500/90',
-      ready: 'bg-green-500/90',
-      completed: 'bg-gray-400/90',
-      cancelled: 'bg-red-500/90',
-    };
-    return colors[status] || 'bg-gray-300/90';
-  };
-
   const getUrgencyHighlight = (order) => {
     const elapsed = calculateElapsedTime(order.receivedAt);
     const estimatedSeconds = order.estimatedPrepTime * 60;
@@ -245,7 +234,6 @@ export default function KitchenDisplay() {
   };
 
   // Separar órdenes por status
-  const newOrders = orders.filter((o) => o.status === 'new');
   const preparingOrders = orders.filter((o) => o.status === 'preparing');
   const readyOrders = orders.filter((o) => o.status === 'ready');
 

@@ -233,25 +233,28 @@ export default function TableConfigModal({ table, sections, onClose, onSuccess }
           <div>
             <Label>Forma de la Mesa *</Label>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2">
-              {SHAPES.map(({ id, name, icon: Icon }) => (
-                <button
-                  key={id}
+              {SHAPES.map((shape) => {
+                const ShapeIcon = shape.icon;
+                return (
+                  <button
+                  key={shape.id}
                   type="button"
-                  onClick={() => handleChange('shape', id)}
+                  onClick={() => handleChange('shape', shape.id)}
                   className={`
                     p-4 border-2 rounded-lg flex flex-col items-center gap-2
                     transition-all duration-200
                     ${
-                      formData.shape === id
+                      formData.shape === shape.id
                         ? 'border-blue-600 bg-blue-50 text-blue-600 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-200'
                         : 'border-gray-300 hover:border-gray-400 dark:border-slate-700 dark:hover:border-slate-500'
                     }
                   `}
                 >
-                  <Icon className="w-8 h-8" />
-                  <span className="text-sm font-medium">{name}</span>
+                  <ShapeIcon className="w-8 h-8" />
+                  <span className="text-sm font-medium">{shape.name}</span>
                 </button>
-              ))}
+                );
+              })}
             </div>
           </div>
 

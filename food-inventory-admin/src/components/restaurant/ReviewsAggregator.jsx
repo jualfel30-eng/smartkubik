@@ -12,7 +12,6 @@ import {
   getReviewsAnalytics,
   respondToReview,
   flagReview,
-  createReview,
 } from '@/lib/api';
 import { toast } from 'sonner';
 import {
@@ -52,7 +51,6 @@ const ReviewsAggregator = () => {
   const [loading, setLoading] = useState(false);
   const [respondDialog, setRespondDialog] = useState(null);
   const [responseText, setResponseText] = useState('');
-  const [showNewReviewForm, setShowNewReviewForm] = useState(false);
   const [filters, setFilters] = useState({
     source: '',
     sentiment: '',

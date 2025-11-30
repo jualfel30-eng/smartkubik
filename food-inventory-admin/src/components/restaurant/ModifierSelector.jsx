@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { fetchApi } from '../../lib/api';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -22,11 +22,7 @@ export default function ModifierSelector({ product, onClose, onConfirm }) {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    fetchModifierGroups();
-  }, [product._id]);
-
-  const fetchModifierGroups = async () => {
+  const fetchModifierGroups = useCallback(async () => {
     try {
       setLoading(true);
       const groups = await fetchApi(`/modifier-groups/product/${product._id}`);
@@ -49,7 +45,11 @@ export default function ModifierSelector({ product, onClose, onConfirm }) {
       console.error('Error fetching modifier groups:', error);
       setLoading(false);
     }
-  };
+  }, [product._id]);
+
+  useEffect(() => {
+    fetchModifierGroups();
+  }, [product._id, fetchModifierGroups]);
 
   const handleModifierToggle = (modifier, group) => {
     const newSelected = { ...selectedModifiers };
