@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Input } from '@/components/ui/input.jsx';
@@ -30,7 +30,6 @@ import {
 } from 'lucide-react';
 
 function StorefrontConfigView() {
-  const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [domainChecking, setDomainChecking] = useState(false);
@@ -83,13 +82,12 @@ function StorefrontConfigView() {
     }, 500); // 500ms de debounce
 
     return () => clearTimeout(timer);
-  }, [formData.domain]);
+  }, [formData.domain, checkDomainAvailability]);
 
   const loadConfig = async () => {
     try {
       setLoading(true);
       const data = await fetchApi('/storefront/config');
-      setConfig(data);
       setFormData({
         domain: data.domain || data.suggestedDomain || '',
         isActive: data.isActive || false,
@@ -195,7 +193,7 @@ function StorefrontConfigView() {
     }
   };
 
-  const checkDomainAvailability = async (showToast = false) => {
+  const checkDomainAvailability = useCallback(async (showToast = false) => {
     if (!formData.domain) {
       if (showToast) toast.error('Ingresa un dominio primero');
       return;
@@ -220,7 +218,7 @@ function StorefrontConfigView() {
     } finally {
       setDomainChecking(false);
     }
-  };
+  }, [formData.domain]);
 
   const handleLogoUpload = async (e) => {
     const file = e.target.files?.[0];

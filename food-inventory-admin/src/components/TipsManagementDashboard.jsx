@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -48,7 +48,6 @@ import {
   deleteTipsDistributionRule,
   distributeTips,
   getConsolidatedTipsReport,
-  getTipsReportForEmployee,
 } from '../lib/api';
 import { toast } from 'sonner';
 import { useModuleAccess } from '../hooks/useModuleAccess';
@@ -74,18 +73,7 @@ export default function TipsManagementDashboard() {
   const [distEndDate, setDistEndDate] = useState('');
   const [selectedRuleId, setSelectedRuleId] = useState('');
 
-  useEffect(() => {
-    if (!hasTipsModule) return;
-    fetchDistributionRules();
-    fetchConsolidatedReport();
-  }, [hasTipsModule]);
-
-  useEffect(() => {
-    if (!hasTipsModule) return;
-    fetchConsolidatedReport();
-  }, [selectedPeriod, hasTipsModule]);
-
-  const fetchDistributionRules = async () => {
+  const fetchDistributionRules = useCallback(async () => {
     try {
       const data = await getTipsDistributionRules();
       setDistributionRules(data);
@@ -94,9 +82,9 @@ export default function TipsManagementDashboard() {
         description: error.message,
       });
     }
-  };
+  }, []);
 
-  const fetchConsolidatedReport = async () => {
+  const fetchConsolidatedReport = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getConsolidatedTipsReport({ period: selectedPeriod });
@@ -108,7 +96,13 @@ export default function TipsManagementDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedPeriod]);
+
+  useEffect(() => {
+    if (!hasTipsModule) return;
+    fetchDistributionRules();
+    fetchConsolidatedReport();
+  }, [hasTipsModule, fetchDistributionRules, fetchConsolidatedReport]);
 
   const handleCreateRule = async () => {
     try {

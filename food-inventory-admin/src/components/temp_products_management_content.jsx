@@ -306,8 +306,6 @@ function ProductsManagement() {
     saveAs(new Blob([wbout], { type: 'application/octet-stream' }), 'plantilla_productos.xlsx');
   };
 
-  const handleBulkUpload = (e) => { /* ... */ };
-
   const handleExportExcel = () => {
     const dataToExport = filteredProducts.map(p => ({
       SKU: p.sku,
@@ -328,6 +326,10 @@ function ProductsManagement() {
     XLSX.utils.book_append_sheet(wb, ws, "Productos");
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     saveAs(new Blob([wbout], { type: 'application/octet-stream' }), 'productos.xlsx');
+  };
+
+  const handleBulkUpload = () => {
+    // Importación masiva pendiente de implementación
   };
 
   const handleExportCsv = () => {

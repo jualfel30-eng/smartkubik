@@ -102,12 +102,12 @@ export default function BankAccountsManagement() {
       const response = await fetchApi(`/bank-accounts/${accountId}/movements?${params.toString()}`);
       const data = response.data || response;
       setMovements(Array.isArray(data) ? data : data?.data || []);
-      const pagination = response.pagination || data?.pagination || { page, totalPages: 1, limit: 20, total: movements.length };
+      const pagination = response.pagination || data?.pagination || { page, totalPages: 1, limit: 20, total: Array.isArray(data) ? data.length : 0 };
       setMovementsPagination({
         page: pagination.page || page,
         totalPages: pagination.totalPages || 1,
         limit: pagination.limit || 20,
-        totalItems: pagination.total ?? pagination.totalItems ?? movements.length,
+        totalItems: pagination.total ?? pagination.totalItems ?? (Array.isArray(data) ? data.length : 0),
       });
     } catch (error) {
       console.error('Error fetching bank movements:', error);
@@ -121,13 +121,13 @@ export default function BankAccountsManagement() {
   useEffect(() => {
     fetchAccounts(currentPage, pageLimit);
     fetchBalancesByCurrency();
-  }, [fetchBalancesByCurrency]);
+  }, [fetchAccounts, fetchBalancesByCurrency, currentPage, pageLimit]);
 
   useEffect(() => {
     if (currentPage > 1) {
       fetchAccounts(currentPage, pageLimit);
     }
-  }, [currentPage]);
+  }, [currentPage, fetchAccounts, pageLimit]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;

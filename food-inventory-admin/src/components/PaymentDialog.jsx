@@ -45,7 +45,7 @@ export const PaymentDialog = ({ isOpen, onClose, payable, onPaymentSuccess }) =>
   const [bankAccounts, setBankAccounts] = useState([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [exchangeRate, setExchangeRate] = useState(null);
-  const [loadingRate, setLoadingRate] = useState(false);
+  const [, setLoadingRate] = useState(false);
   const [error, setError] = useState('');
 
   const remainingAmount = useMemo(() => {

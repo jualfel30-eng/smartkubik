@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -74,11 +74,7 @@ function ConsumablesTab() {
   const { getConfigByProductId, createConfig, updateConfig } = useUnitConversions();
 
   // Load data on mount
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
       // Load consumable configurations
@@ -102,7 +98,11 @@ function ConsumablesTab() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [consumables]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const loadRelationsForProduct = async (productId) => {
     if (!productId) return;

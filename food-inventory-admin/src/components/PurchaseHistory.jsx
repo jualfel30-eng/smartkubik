@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { fetchApi } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
@@ -23,7 +23,7 @@ export default function PurchaseHistory() {
   const [totalPurchases, setTotalPurchases] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
-  const loadPurchases = async (page = 1, limit = 25) => {
+  const loadPurchases = useCallback(async (page = 1, limit = pageLimit) => {
     setLoading(true);
     setError(null);
     try {
@@ -45,17 +45,19 @@ export default function PurchaseHistory() {
       toast.error('Error de Conexión', { description: 'No se pudo conectar con el servidor para cargar el historial.' });
     }
     setLoading(false);
-  };
-
-  useEffect(() => {
-    loadPurchases(currentPage, pageLimit);
-  }, []);
+  }, [pageLimit]);
 
   useEffect(() => {
     if (currentPage > 1) {
       loadPurchases(currentPage, pageLimit);
     }
-  }, [currentPage]);
+  }, [currentPage, pageLimit, loadPurchases]);
+
+  useEffect(() => {
+    if (currentPage === 1) {
+      loadPurchases(1, pageLimit);
+    }
+  }, [currentPage, pageLimit, loadPurchases]);
 
   const handleStatusChange = (purchaseOrder, newStatus) => {
     if (newStatus !== 'received') return;
@@ -110,7 +112,7 @@ export default function PurchaseHistory() {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>Historial de Órdenes de Compra</CardTitle>
-            <Button onClick={loadPurchases} disabled={loading} variant="outline" size="sm">
+            <Button onClick={() => loadPurchases(currentPage, pageLimit)} disabled={loading} variant="outline" size="sm">
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               {loading ? 'Actualizando...' : 'Actualizar'}
             </Button>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -22,12 +22,7 @@ export const UnitConverter = ({ product, className = '' }) => {
   const [result, setResult] = useState(null);
   const [converting, setConverting] = useState(false);
 
-  // Cargar configuración del producto
-  useEffect(() => {
-    loadConfig();
-  }, [product?._id]);
-
-  const loadConfig = async () => {
+  const loadConfig = useCallback(async () => {
     if (!product?._id) return;
 
     setLoading(true);
@@ -48,7 +43,12 @@ export const UnitConverter = ({ product, className = '' }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getConfigByProductId, product?._id]);
+
+  // Cargar configuración del producto
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
 
   // Obtener unidades disponibles
   const getAvailableUnits = (cfg) => {
@@ -81,9 +81,9 @@ export const UnitConverter = ({ product, className = '' }) => {
     }
 
     performConversion();
-  }, [value, fromUnit, toUnit, config]);
+  }, [value, fromUnit, toUnit, config, performConversion]);
 
-  const performConversion = async () => {
+  const performConversion = useCallback(async () => {
     if (!product?._id) return;
 
     setConverting(true);
@@ -101,7 +101,7 @@ export const UnitConverter = ({ product, className = '' }) => {
     } finally {
       setConverting(false);
     }
-  };
+  }, [convertUnitDetailed, fromUnit, product?._id, toUnit, value]);
 
   if (loading) {
     return (

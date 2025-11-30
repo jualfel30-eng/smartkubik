@@ -12,7 +12,6 @@ import { sanityClient } from '@/lib/sanity';
 const BlogSidebar = () => {
   const [email, setEmail] = useState('');
   const [topPosts, setTopPosts] = useState([]);
-  const [categories, setCategories] = useState([]);
   const [tags, setTags] = useState([]);
   const [archive, setArchive] = useState([]);
 

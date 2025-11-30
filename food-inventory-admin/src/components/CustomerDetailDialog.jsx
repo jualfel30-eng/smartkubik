@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.jsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
@@ -76,26 +76,14 @@ export const CustomerDetailDialog = ({ customer, open, onOpenChange }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    if (open && customer?._id) {
-      loadCustomerData();
-    } else if (!open) {
-      // Reset state when dialog closes
-      setTransactions([]);
-      setStats(null);
-      setError(null);
-      setActiveTab('info');
-    }
-  }, [open, customer?._id]);
-
-  const loadCustomerData = async () => {
+  const loadCustomerData = useCallback(async () => {
     if (!customer?._id) {
       return;
     }
 
     setLoading(true);
     setError(null);
-    setTransactions([]); // Clear previous data
+      setTransactions([]); // Clear previous data
 
     try {
       const customerId = customer._id;
@@ -131,7 +119,19 @@ export const CustomerDetailDialog = ({ customer, open, onOpenChange }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [customer?._id]);
+
+  useEffect(() => {
+    if (open && customer?._id) {
+      loadCustomerData();
+    } else if (!open) {
+      // Reset state when dialog closes
+      setTransactions([]);
+      setStats(null);
+      setError(null);
+      setActiveTab('info');
+    }
+  }, [open, customer?._id, loadCustomerData]);
 
   const getContactValue = (type) => {
     if (!customer?.contacts || customer.contacts.length === 0) return 'N/A';

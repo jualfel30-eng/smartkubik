@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -102,10 +102,27 @@ function ResourcesManagement() {
   const [editingResource, setEditingResource] = useState(null);
   const [formData, setFormData] = useState(buildEmptyResourceForm());
   const [loading, setLoading] = useState(false);
+  const filterResources = useCallback(() => {
+    let filtered = [...resources];
 
-  if (!hasAccess) {
-    return <ModuleAccessDenied moduleName="appointments" />;
-  }
+    if (searchTerm) {
+      filtered = filtered.filter(resource =>
+        resource.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        resource.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        resource.specializations?.some(s => s.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(resource => resource.status === statusFilter);
+    }
+
+    if (typeFilter !== 'all') {
+      filtered = filtered.filter(resource => resource.type === typeFilter);
+    }
+
+    setFilteredResources(filtered);
+  }, [resources, searchTerm, statusFilter, typeFilter]);
 
   const loadResources = async () => {
     try {
@@ -130,35 +147,22 @@ function ResourcesManagement() {
   };
 
   useEffect(() => {
+    if (!hasAccess) return;
     loadResources();
     loadServices();
-  }, []);
+  }, [hasAccess]);
 
   useEffect(() => {
+    if (!hasAccess) {
+      setFilteredResources([]);
+      return;
+    }
     filterResources();
-  }, [resources, searchTerm, statusFilter, typeFilter]);
+  }, [hasAccess, filterResources]);
 
-  const filterResources = () => {
-    let filtered = [...resources];
-
-    if (searchTerm) {
-      filtered = filtered.filter(resource =>
-        resource.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        resource.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        resource.specializations?.some(s => s.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
-    }
-
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(resource => resource.status === statusFilter);
-    }
-
-    if (typeFilter !== 'all') {
-      filtered = filtered.filter(resource => resource.type === typeFilter);
-    }
-
-    setFilteredResources(filtered);
-  };
+  if (!hasAccess) {
+    return <ModuleAccessDenied moduleName="appointments" />;
+  }
 
   const openCreateDialog = () => {
     setEditingResource(null);
@@ -419,7 +423,8 @@ function ResourcesManagement() {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       }).format(amount);
-    } catch (error) {
+    } catch (err) {
+      console.warn('Error formatting currency', err);
       return `${amount.toFixed(2)} ${currency}`;
     }
   };

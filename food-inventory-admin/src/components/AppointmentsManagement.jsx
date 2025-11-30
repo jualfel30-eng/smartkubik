@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input.jsx';
 import { Label } from '@/components/ui/label.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx';
 import { SearchableSelect } from '@/components/orders/v2/custom/SearchableSelect.jsx';
@@ -562,7 +562,7 @@ function AppointmentsManagement() {
     loadServices();
     loadResources();
     loadCustomers();
-  }, [hasAccess]);
+  }, [hasAccess, loadServices, loadResources, loadCustomers]);
 
   useEffect(() => {
     if (!hasAccess) {
@@ -571,7 +571,7 @@ function AppointmentsManagement() {
     if (dateFrom && dateTo) {
       loadAppointments();
     }
-  }, [hasAccess, dateFrom, dateTo, statusFilter]);
+  }, [hasAccess, dateFrom, dateTo, statusFilter, loadAppointments]);
 
   useEffect(() => {
     if (!isDialogOpen) {
@@ -612,7 +612,7 @@ function AppointmentsManagement() {
     });
   }, [hasAccess, formData.customerName]);
 
-  const loadAppointments = async () => {
+  const loadAppointments = useCallback(async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -628,9 +628,9 @@ function AppointmentsManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dateFrom, dateTo, statusFilter]);
 
-  const loadServices = async () => {
+  const loadServices = useCallback(async () => {
     try {
       const data = await fetchApi('/services/active');
       const items = normalizeListResponse(data)
@@ -655,9 +655,9 @@ function AppointmentsManagement() {
       console.error('Error loading services:', error);
       setServices([]);
     }
-  };
+  }, []);
 
-  const loadResources = async () => {
+  const loadResources = useCallback(async () => {
     try {
       const data = await fetchApi('/resources/active');
       const items = normalizeListResponse(data)
@@ -677,9 +677,9 @@ function AppointmentsManagement() {
       console.error('Error loading resources:', error);
       setResources([]);
     }
-  };
+  }, []);
 
-  const loadCustomers = async () => {
+  const loadCustomers = useCallback(async () => {
     try {
       const data = await fetchApi('/customers');
       const items = normalizeListResponse(data)
@@ -690,7 +690,7 @@ function AppointmentsManagement() {
       console.error('Error loading customers:', error);
       setCustomers([]);
     }
-  };
+  }, [normalizeCustomerRecord]);
 
   const customerOptions = useMemo(
     () =>
@@ -1365,9 +1365,31 @@ const normalizeBankAccountSelection = (value) =>
     }
   };
 
-  const openCreateDialog = () => {
+  const openCreateDialog = (preselectedDate = null) => {
     setEditingAppointment(null);
-    setFormData({ ...initialAppointmentState });
+
+    // Si hay una fecha preseleccionada, configurar startTime y endTime
+    let newFormData = { ...initialAppointmentState };
+    if (preselectedDate && typeof preselectedDate === 'string') {
+      try {
+        // Convertir la fecha string (YYYY-MM-DD) a datetime-local format
+        const date = new Date(preselectedDate + 'T09:00:00');
+        if (!isNaN(date.getTime())) {
+          const startTime = date.toISOString().slice(0, 16);
+          const endDate = new Date(date.getTime() + 60 * 60 * 1000); // +1 hora
+          const endTime = endDate.toISOString().slice(0, 16);
+          newFormData = {
+            ...initialAppointmentState,
+            startTime,
+            endTime,
+          };
+        }
+      } catch (error) {
+        console.warn('Error parsing preselectedDate:', error);
+      }
+    }
+
+    setFormData(newFormData);
     setCustomerProfile({ ...initialCustomerProfile });
     setSelectedCustomerRecord(null);
     setDepositRecords([]);
@@ -1858,23 +1880,23 @@ const normalizeBankAccountSelection = (value) =>
         </TabsContent>
 
         <TabsContent value="calendar">
-          <HotelCalendar />
+          <HotelCalendar onCreateAppointment={openCreateDialog} />
         </TabsContent>
       </Tabs>
 
-      {/* Create/Edit Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
+      {/* Create/Edit Sheet */}
+      <Sheet open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <SheetContent className="w-full sm:max-w-3xl overflow-y-auto dark:bg-gray-900 dark:border-gray-800">
+          <SheetHeader>
+            <SheetTitle className="dark:text-gray-100">
               {editingAppointment ? 'Editar Cita' : 'Nueva Cita'}
-            </DialogTitle>
-            <DialogDescription>
+            </SheetTitle>
+            <SheetDescription className="dark:text-gray-400">
               Completa la información de la cita y asigna un recurso opcional antes de guardar.
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 mt-12 px-12">
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2 space-y-2">
                 <Label htmlFor="customerId">Cliente *</Label>
@@ -2444,29 +2466,29 @@ const normalizeBankAccountSelection = (value) =>
               </div>
             )}
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+            <div className="flex gap-2 pt-8 px-12 border-t dark:border-gray-700">
+              <Button type="button" variant="outline" className="flex-1 dark:border-gray-700 dark:hover:bg-gray-800" onClick={() => setIsDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" className="flex-1" disabled={loading}>
                 {loading ? 'Guardando...' : editingAppointment ? 'Actualizar' : 'Crear'}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
-      </DialogContent>
-    </Dialog>
+        </SheetContent>
+      </Sheet>
 
-      {/* Room Block Dialog */}
-      <Dialog open={isBlockDialogOpen} onOpenChange={setIsBlockDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Bloqueo de habitación / recurso</DialogTitle>
-            <DialogDescription>
+      {/* Room Block Sheet */}
+      <Sheet open={isBlockDialogOpen} onOpenChange={setIsBlockDialogOpen}>
+        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto dark:bg-gray-900 dark:border-gray-800">
+          <SheetHeader>
+            <SheetTitle className="dark:text-gray-100">Bloqueo de habitación / recurso</SheetTitle>
+            <SheetDescription className="dark:text-gray-400">
               Registra un bloqueo temporal por mantenimiento o limpieza profunda. El recurso no estará disponible durante el intervalo indicado.
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
 
-          <form className="space-y-4" onSubmit={handleBlockSubmit}>
+          <form className="space-y-4 mt-12 px-12" onSubmit={handleBlockSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>Recurso *</Label>
@@ -2548,20 +2570,20 @@ const normalizeBankAccountSelection = (value) =>
               </div>
             </div>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsBlockDialogOpen(false)}>
+            <div className="flex gap-2 pt-8 px-12 border-t dark:border-gray-700">
+              <Button type="button" variant="outline" className="flex-1 dark:border-gray-700 dark:hover:bg-gray-800" onClick={() => setIsBlockDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={blockSubmitting}>
+              <Button type="submit" className="flex-1" disabled={blockSubmitting}>
                 {blockSubmitting ? 'Registrando...' : 'Registrar bloqueo'}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
-      </DialogContent>
-    </Dialog>
+        </SheetContent>
+      </Sheet>
 
-      {/* Deposit Action Dialog */}
-      <Dialog
+      {/* Deposit Action Sheet */}
+      <Sheet
         open={isDepositActionDialogOpen}
         onOpenChange={(open) => {
           if (!open) {
@@ -2569,15 +2591,15 @@ const normalizeBankAccountSelection = (value) =>
           }
         }}
       >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Gestionar depósito manual</DialogTitle>
-            <DialogDescription>
+        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto dark:bg-gray-900 dark:border-gray-800">
+          <SheetHeader>
+            <SheetTitle className="dark:text-gray-100">Gestionar depósito manual</SheetTitle>
+            <SheetDescription className="dark:text-gray-400">
               Valida la evidencia reportada y confirma o rechaza el pago correspondiente a la reserva.
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 mt-12 px-12">
             <div className="grid md:grid-cols-2 gap-3">
               <div>
                 <Label>Estado</Label>
@@ -2801,33 +2823,33 @@ const normalizeBankAccountSelection = (value) =>
 
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={closeDepositActionDialog}>
+          <div className="flex gap-2 pt-8 px-12 border-t dark:border-gray-700">
+            <Button type="button" variant="outline" className="flex-1 dark:border-gray-700 dark:hover:bg-gray-800" onClick={closeDepositActionDialog}>
               Cancelar
             </Button>
-            <Button type="button" onClick={submitDepositAction} disabled={depositActionSubmitting}>
+            <Button type="button" className="flex-1" onClick={submitDepositAction} disabled={depositActionSubmitting}>
               {depositActionSubmitting
                 ? 'Guardando...'
                 : depositActionForm.status === 'rejected'
                     ? 'Registrar rechazo'
                     : 'Confirmar depósito'}
             </Button>
-          </DialogFooter>
+          </div>
 
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
-      {/* Group Block Dialog */}
-      <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Nuevo bloque grupal</DialogTitle>
-            <DialogDescription>
+      {/* Group Block Sheet */}
+      <Sheet open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
+        <SheetContent className="w-full sm:max-w-3xl overflow-y-auto dark:bg-gray-900 dark:border-gray-800">
+          <SheetHeader>
+            <SheetTitle className="dark:text-gray-100">Nuevo bloque grupal</SheetTitle>
+            <SheetDescription className="dark:text-gray-400">
               Crea múltiples reservas sincronizadas para un tour, clase o experiencia compartida.
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
 
-          <form className="space-y-4" onSubmit={handleGroupSubmit}>
+          <form className="space-y-4 mt-12 px-12" onSubmit={handleGroupSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label>Cliente principal *</Label>
@@ -2999,17 +3021,17 @@ const normalizeBankAccountSelection = (value) =>
               </CardContent>
             </Card>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsGroupDialogOpen(false)}>
+            <div className="flex gap-2 pt-8 px-12 border-t dark:border-gray-700">
+              <Button type="button" variant="outline" className="flex-1 dark:border-gray-700 dark:hover:bg-gray-800" onClick={() => setIsGroupDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={groupSubmitting}>
+              <Button type="submit" className="flex-1" disabled={groupSubmitting}>
                 {groupSubmitting ? 'Creando...' : 'Crear bloque'}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       <AppointmentsPaymentDialog
         isOpen={isPaymentDialogOpen}

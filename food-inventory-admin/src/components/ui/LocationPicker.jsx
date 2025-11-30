@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -42,14 +42,6 @@ function MapUpdater({ center }) {
   }, [center, map]);
   return null;
 }
-
-// Función para normalizar texto (quitar acentos y caracteres especiales)
-const normalizeText = (text) => {
-  return text
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Eliminar acentos
-    .toLowerCase();
-};
 
 export function LocationPicker({ value, onChange, label = 'Ubicación' }) {
   const [center, setCenter] = useState(value?.coordinates || defaultCenter);

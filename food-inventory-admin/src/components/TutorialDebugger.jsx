@@ -15,7 +15,7 @@ export default function TutorialDebugger() {
         value: el.value,
         visible: el.offsetParent !== null
       })),
-      buttons: Array.from(document.querySelectorAll('button')).map((el, idx) => ({
+      buttons: Array.from(document.querySelectorAll('button')).map((el) => ({
         selector: el.id ? `#${el.id}` : `button:contains("${el.textContent?.trim()}")`,
         text: el.textContent?.trim(),
         classes: el.className,

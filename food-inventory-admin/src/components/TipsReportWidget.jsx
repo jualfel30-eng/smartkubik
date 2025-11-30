@@ -6,8 +6,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { getTipsReport } from '@/lib/api';
 import { toast } from 'sonner';
 import { DollarSign, TrendingUp, Users, Calendar, Banknote, CreditCard } from 'lucide-react';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 
 const TipsReportWidget = () => {
   const [data, setData] = useState(null);

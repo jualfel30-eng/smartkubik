@@ -10,7 +10,6 @@ import {
   generatePayableFromTemplate,
   fetchChartOfAccounts,
   getPayments,
-  createPayment,
   deletePayable
 } from '../lib/api';
 import { Button } from './ui/button';
@@ -304,7 +303,7 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
     }
 
     if (selectedOption.__isNew__) {
-      setNewPayable(prev => ({ 
+      setNewPayable(() => ({ 
         ...initialPayableState,
         isNewSupplier: true,
         supplierName: selectedOption.label,
@@ -666,7 +665,7 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
   );
 };
 
-const RecurringPayables = ({ accounts, suppliers }) => {
+  const RecurringPayables = ({ accounts, suppliers }) => {
   const [templates, setTemplates] = useState([]);
   const [isCreateTemplateOpen, setIsCreateTemplateOpen] = useState(false);
 
@@ -675,6 +674,7 @@ const RecurringPayables = ({ accounts, suppliers }) => {
       const response = await getRecurringPayables();
       setTemplates(response || []);
     } catch (error) {
+      console.error('Error al cargar las plantillas:', error);
       toast.error('Error al cargar las plantillas.');
     }
   }, []);
@@ -716,7 +716,7 @@ const RecurringPayables = ({ accounts, suppliers }) => {
   );
 };
 
-const PayablesHistory = ({ payables, fetchPayables, suppliers }) => {
+const PayablesHistory = ({ payables, fetchPayables }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPayable, setSelectedPayable] = useState(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -736,6 +736,7 @@ const PayablesHistory = ({ payables, fetchPayables, suppliers }) => {
       toast.success('Payable eliminado exitosamente');
       fetchPayables();
     } catch (error) {
+      console.error('Error al eliminar el payable', error);
       toast.error('Error al eliminar el payable', { description: error.message });
     }
   };
@@ -906,6 +907,7 @@ const PaymentHistory = () => {
       const response = await getPayments();
       setPayments(response.data || []);
     } catch (error) {
+      console.error('Error al cargar el historial de pagos:', error);
       toast.error('Error al cargar el historial de pagos.');
     } finally {
       setLoading(false);
@@ -1160,7 +1162,7 @@ const PayablesManagement = () => {
     if (tabFromUrl && tabFromUrl !== activeTab) {
       setActiveTab(tabFromUrl);
     }
-  }, [searchParams]);
+  }, [searchParams, activeTab]);
 
   // Manejador para cambiar tabs (actualiza estado y URL)
   const handleTabChange = (newTab) => {
@@ -1173,6 +1175,7 @@ const PayablesManagement = () => {
       const data = await getPayables();
       setPayables(data.data || []);
     } catch (error) {
+      console.error('Error al cargar las cuentas por pagar:', error);
       toast.error('Error al cargar las cuentas por pagar.');
     }
   }, []);
@@ -1182,6 +1185,7 @@ const PayablesManagement = () => {
       const response = await fetchApi('/customers?customerType=supplier');
       setSuppliers(response.data || []);
     } catch (error) {
+      console.error('Error al cargar los proveedores:', error);
       toast.error('Error al cargar los proveedores.');
     }
   }, []);
@@ -1194,6 +1198,7 @@ const PayablesManagement = () => {
       await fetchSuppliers();
       await fetchPayables();
     } catch (error) {
+      console.error('Error al cargar datos iniciales:', error);
       toast.error('Error al cargar datos iniciales.');
     } finally {
       setLoading(false);
@@ -1229,7 +1234,7 @@ const PayablesManagement = () => {
             <RecurringPayables suppliers={suppliers} accounts={accounts} />
           </TabsContent>
           <TabsContent value="history">
-            <PayablesHistory payables={payables} fetchPayables={fetchPayables} suppliers={suppliers} />
+            <PayablesHistory payables={payables} fetchPayables={fetchPayables} />
           </TabsContent>
         </Tabs>
         <div className="mt-6">

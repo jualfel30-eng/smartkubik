@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -32,11 +32,9 @@ import { useUnitConversions } from '../hooks/useUnitConversions';
 function SuppliesTab() {
   // State for supply configurations
   const [supplyConfigs, setSupplyConfigs] = useState([]);
-  const [consumptionLogs, setConsumptionLogs] = useState([]);
   const [products, setProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [activeSubTab, setActiveSubTab] = useState('configs');
 
   // Dialog states
   const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
@@ -85,12 +83,7 @@ function SuppliesTab() {
   const supplies = useSupplies();
   const { getConfigByProductId, createConfig, updateConfig } = useUnitConversions();
 
-  // Load data on mount
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
       // Load supply configurations
@@ -107,19 +100,12 @@ function SuppliesTab() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [supplies]);
 
-  const loadConsumptionLogs = async (supplyId) => {
-    if (!supplyId) return;
-    try {
-      const result = await supplies.getConsumptionLogs(supplyId);
-      if (result.success) {
-        setConsumptionLogs(result.data || []);
-      }
-    } catch (error) {
-      console.error('Error loading consumption logs:', error);
-    }
-  };
+  // Load data on mount
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleCreateConfig = async () => {
     try {
@@ -162,7 +148,7 @@ function SuppliesTab() {
         alert('Consumo registrado exitosamente');
         setIsConsumptionDialogOpen(false);
         resetConsumptionForm();
-        loadConsumptionLogs(consumptionForm.supplyId);
+        loadData();
       } else {
         alert(`Error: ${result.error}`);
       }
@@ -245,7 +231,7 @@ function SuppliesTab() {
     try {
       const existingConfig = await getConfigByProductId(product._id);
       setUnitConfig(existingConfig);
-    } catch (error) {
+    } catch {
       setUnitConfig(null);
     }
 
@@ -253,18 +239,14 @@ function SuppliesTab() {
   };
 
   const handleSaveUnitConfig = async (configData) => {
-    try {
-      if (unitConfig) {
-        await updateConfig(unitConfig._id, configData);
-      } else {
-        await createConfig(configData);
-      }
-      setIsUnitDialogOpen(false);
-      setSelectedProductForUnits(null);
-      setUnitConfig(null);
-    } catch (error) {
-      throw error;
+    if (unitConfig) {
+      await updateConfig(unitConfig._id, configData);
+    } else {
+      await createConfig(configData);
     }
+    setIsUnitDialogOpen(false);
+    setSelectedProductForUnits(null);
+    setUnitConfig(null);
   };
 
   // Get product name by ID (handles both populated objects and string IDs)

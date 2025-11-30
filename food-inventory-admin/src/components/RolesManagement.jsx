@@ -68,6 +68,7 @@ const RolesManagement = () => {
         toast.error('Error al cargar los permisos', { description: permissionsResponse.message });
       }
     } catch (error) {
+      console.error('Error al cargar roles/permisos:', error);
       toast.error('Error de red', { description: 'No se pudo conectar con el servidor.' });
     } finally {
       setLoading(false);

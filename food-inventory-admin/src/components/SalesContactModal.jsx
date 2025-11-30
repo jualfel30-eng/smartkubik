@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -86,23 +86,22 @@ function SalesContactModal({ isOpen, onOpenChange }) {
     }
   }, [formData.vertical]);
 
+  const handleWhatsAppClick = useCallback(() => {
+    window.open('https://wa.me/584244263922', '_blank');
+    onOpenChange(false);
+  }, [onOpenChange]);
+
   useEffect(() => {
     if (formData.state) {
       getCitiesByState(formData.state);
     }
-// eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.state]);
+  }, [formData.state, getCitiesByState]);
 
   useEffect(() => {
     if (activeTab === 'whatsapp') {
       handleWhatsAppClick();
     }
-  }, [activeTab]);
-
-  const handleWhatsAppClick = () => {
-    window.open('https://wa.me/584244263922', '_blank');
-    onOpenChange(false);
-  };
+  }, [activeTab, handleWhatsAppClick]);
 
   const handleSendEmail = (e) => {
     e.preventDefault();

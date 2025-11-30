@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -34,11 +34,7 @@ export const UnitConversionManager = ({ product }) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   // Cargar configuración del producto
-  useEffect(() => {
-    loadConfig();
-  }, [product?._id]);
-
-  const loadConfig = async () => {
+  const loadConfig = useCallback(async () => {
     if (!product?._id) return;
 
     setLoading(true);
@@ -50,22 +46,22 @@ export const UnitConversionManager = ({ product }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [getConfigByProductId, product?._id]);
+
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
 
   // Guardar configuración (crear o actualizar)
   const handleSave = async (configData) => {
-    try {
-      if (config) {
-        // Actualizar
-        await updateConfig(config._id, configData);
-      } else {
-        // Crear
-        await createConfig(configData);
-      }
-      await loadConfig();
-    } catch (error) {
-      throw error;
+    if (config) {
+      // Actualizar
+      await updateConfig(config._id, configData);
+    } else {
+      // Crear
+      await createConfig(configData);
     }
+    await loadConfig();
   };
 
   // Eliminar configuración
@@ -78,6 +74,7 @@ export const UnitConversionManager = ({ product }) => {
       setDeleteDialogOpen(false);
       toast.success('Configuración eliminada');
     } catch (error) {
+      console.error('Error al eliminar configuración:', error);
       toast.error('Error al eliminar configuración');
     }
   };

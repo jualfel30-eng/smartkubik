@@ -14,7 +14,7 @@ export default function AccountingDashboard() {
     if (sectionFromUrl && sectionFromUrl !== activeTab) {
       setActiveTab(sectionFromUrl);
     }
-  }, [searchParams]);
+  }, [searchParams, activeTab]);
 
   // Manejador para cambiar tabs (actualiza estado y URL)
   const handleTabChange = (newTab) => {

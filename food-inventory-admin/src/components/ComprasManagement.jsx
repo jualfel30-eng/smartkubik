@@ -105,7 +105,7 @@ export default function ComprasManagement() {
   const [additionalVariants, setAdditionalVariants] = useState([]);
 
   const verticalConfig = useVerticalConfig();
-  const placeholders = verticalConfig?.placeholders || {};
+  const placeholders = useMemo(() => verticalConfig?.placeholders || {}, [verticalConfig]);
   const getPlaceholder = useCallback(
     (key, fallback) =>
       placeholders[key] && placeholders[key].trim() !== '' ? placeholders[key] : fallback,

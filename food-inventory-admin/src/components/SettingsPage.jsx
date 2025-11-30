@@ -182,6 +182,7 @@ const SettingsPage = () => {
           applySettingsData(response.data);
         }
       } catch (error) {
+        console.error('Error fetching tenant settings:', error);
         toast.error('Error de red', { description: 'No se pudo conectar con el servidor.' });
       } finally {
         setLoading(false);

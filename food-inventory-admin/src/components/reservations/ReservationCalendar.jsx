@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,11 +10,7 @@ export function ReservationCalendar({ onReservationClick }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [calendarData, setCalendarData] = useState(null);
 
-  useEffect(() => {
-    loadCalendarData();
-  }, [currentMonth]);
-
-  const loadCalendarData = async () => {
+  const loadCalendarData = useCallback(async () => {
     try {
       const monthStr = currentMonth.toISOString().slice(0, 7); // YYYY-MM
       const data = await getCalendar(monthStr);
@@ -22,7 +18,11 @@ export function ReservationCalendar({ onReservationClick }) {
     } catch (err) {
       console.error('Error loading calendar:', err);
     }
-  };
+  }, [currentMonth, getCalendar]);
+
+  useEffect(() => {
+    loadCalendarData();
+  }, [currentMonth, loadCalendarData]);
 
   const previousMonth = () => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));

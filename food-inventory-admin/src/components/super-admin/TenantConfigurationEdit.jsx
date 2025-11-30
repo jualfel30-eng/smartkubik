@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -199,11 +199,7 @@ export default function TenantConfigurationEdit() {
   const [selectedPresetRoles, setSelectedPresetRoles] = useState([]);
   const [businessVertical, setBusinessVertical] = useState('MIXED');
 
-  useEffect(() => {
-    loadTenantConfiguration();
-  }, [tenantId]);
-
-  const loadTenantConfiguration = async () => {
+  const loadTenantConfiguration = useCallback(async () => {
     try {
       setLoading(true);
       const data = await api.get(`/super-admin/tenants/${tenantId}/configuration`);
@@ -234,7 +230,11 @@ export default function TenantConfigurationEdit() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId]);
+
+  useEffect(() => {
+    loadTenantConfiguration();
+  }, [tenantId, loadTenantConfiguration]);
 
   const handleModuleToggle = (moduleName) => {
     setEnabledModules(prev => ({

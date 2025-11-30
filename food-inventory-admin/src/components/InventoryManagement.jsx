@@ -90,7 +90,7 @@ function InventoryManagement() {
       })),
     [inventoryAttributes],
   );
-  const placeholders = verticalConfig?.placeholders || {};
+  const placeholders = useMemo(() => verticalConfig?.placeholders || {}, [verticalConfig]);
   const getPlaceholder = useCallback(
     (key, fallback) => (placeholders[key] && placeholders[key].trim() !== '' ? placeholders[key] : fallback),
     [placeholders],

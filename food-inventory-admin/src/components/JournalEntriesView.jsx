@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { fetchJournalEntries } from '@/lib/api';
 import {
   Table,
@@ -35,7 +35,7 @@ const JournalEntriesView = () => {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const loadJournalEntries = async (page) => {
+  const loadJournalEntries = useCallback(async (page) => {
     setLoading(true);
     setError(null);
     try {
@@ -52,11 +52,11 @@ const JournalEntriesView = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination.limit]);
 
   useEffect(() => {
     loadJournalEntries(pagination.page);
-  }, [pagination.page]);
+  }, [pagination.page, loadJournalEntries]);
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('es-VE', { style: 'currency', currency: 'VES' }).format(amount);

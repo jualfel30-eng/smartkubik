@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Checkbox } from './ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Trash2, Plus, Edit, Calendar, Filter, X } from 'lucide-react';
+import { Trash2, Plus, Edit, Calendar, Filter, X, ChevronDown, ChevronUp, Archive } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar as CalendarUI } from './ui/calendar';
@@ -35,6 +35,7 @@ export function TodoList({ onTodoComplete }) {
   const [filterTag, setFilterTag] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTodo, setEditingTodo] = useState(null);
+  const [showCompleted, setShowCompleted] = useState(false);
 
   // Form state
   const [formTitle, setFormTitle] = useState('');
@@ -164,6 +165,14 @@ export function TodoList({ onTodoComplete }) {
     return todos.filter(todo => todo.tags?.includes(filterTag));
   }, [todos, filterTag]);
 
+  const pendingTodos = useMemo(() => {
+    return filteredTodos.filter(todo => !todo.isCompleted);
+  }, [filteredTodos]);
+
+  const completedTodos = useMemo(() => {
+    return filteredTodos.filter(todo => todo.isCompleted);
+  }, [filteredTodos]);
+
   return (
     <Card>
       <CardHeader>
@@ -208,47 +217,112 @@ export function TodoList({ onTodoComplete }) {
         {loading && <p>Cargando tareas...</p>}
         {error && <p className="text-red-500">{error}</p>}
 
+        {/* Tareas Pendientes */}
         <div className="space-y-2">
-          {filteredTodos.map(todo => (
-            <div key={todo._id} className="flex flex-col space-y-1 p-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 border">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id={todo._id}
-                  checked={todo.isCompleted}
-                  onCheckedChange={() => handleToggleTodo(todo._id, todo.isCompleted)}
-                />
-                <label
-                  htmlFor={todo._id}
-                  className={`flex-1 text-sm font-medium leading-none cursor-pointer ${todo.isCompleted ? 'line-through text-muted-foreground' : ''} ${getPriorityColor(todo.priority || 'medium')}`}>
-                  {todo.title}
-                </label>
+          {pendingTodos.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No hay tareas pendientes</p>
+          ) : (
+            pendingTodos.map(todo => (
+              <div key={todo._id} className="flex flex-col space-y-1 p-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 border">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id={todo._id}
+                    checked={todo.isCompleted}
+                    onCheckedChange={() => handleToggleTodo(todo._id, todo.isCompleted)}
+                  />
+                  <label
+                    htmlFor={todo._id}
+                    className={`flex-1 text-sm font-medium leading-none cursor-pointer ${getPriorityColor(todo.priority || 'medium')}`}>
+                    {todo.title}
+                  </label>
 
-                <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="sm" onClick={() => openEditDialog(todo)}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => deleteTodo(todo._id)}>
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => openEditDialog(todo)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => deleteTodo(todo._id)}>
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pl-8">
+                  {todo.dueDate && (
+                    <span className="text-xs text-muted-foreground flex items-center flex-shrink-0">
+                      <Calendar className="h-3 w-3 mr-1" />
+                      {format(new Date(todo.dueDate), 'PPP', { locale: es })}
+                    </span>
+                  )}
+                  {todo.tags?.map(tag => (
+                    <Badge key={tag} className={`${getTagColor(tag)} text-xs flex-shrink-0`}>
+                      {getTagLabel(tag)}
+                    </Badge>
+                  ))}
                 </div>
               </div>
+            ))
+          )}
+        </div>
 
-              <div className="flex items-center gap-2 pl-8">
-                {todo.dueDate && (
-                  <span className="text-xs text-muted-foreground flex items-center">
-                    <Calendar className="h-3 w-3 mr-1" />
-                    {format(new Date(todo.dueDate), 'PPP', { locale: es })}
-                  </span>
-                )}
-                {todo.tags?.map(tag => (
-                  <Badge key={tag} className={`${getTagColor(tag)} text-xs`}>
-                    {getTagLabel(tag)}
-                  </Badge>
+        {/* Tareas Completadas - Sección Colapsable */}
+        {completedTodos.length > 0 && (
+          <div className="mt-6 pt-4 border-t dark:border-gray-700">
+            <Button
+              variant="ghost"
+              className="w-full justify-between hover:bg-gray-100 dark:hover:bg-gray-800"
+              onClick={() => setShowCompleted(!showCompleted)}
+            >
+              <div className="flex items-center gap-2">
+                <Archive className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground">
+                  Tareas Completadas ({completedTodos.length})
+                </span>
+              </div>
+              {showCompleted ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+
+            {showCompleted && (
+              <div className="space-y-2 mt-3">
+                {completedTodos.map(todo => (
+                  <div key={todo._id} className="flex flex-col space-y-1 p-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 border border-dashed opacity-60">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`completed-${todo._id}`}
+                        checked={todo.isCompleted}
+                        onCheckedChange={() => handleToggleTodo(todo._id, todo.isCompleted)}
+                      />
+                      <label
+                        htmlFor={`completed-${todo._id}`}
+                        className="flex-1 text-sm font-medium leading-none cursor-pointer line-through text-muted-foreground">
+                        {todo.title}
+                      </label>
+
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => deleteTodo(todo._id)}>
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pl-8">
+                      {todo.dueDate && (
+                        <span className="text-xs text-muted-foreground flex items-center flex-shrink-0">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          {format(new Date(todo.dueDate), 'PPP', { locale: es })}
+                        </span>
+                      )}
+                      {todo.tags?.map(tag => (
+                        <Badge key={tag} className={`${getTagColor(tag)} text-xs opacity-60 flex-shrink-0`}>
+                          {getTagLabel(tag)}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
-            </div>
-          ))}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* Dialog para crear/editar */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

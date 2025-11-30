@@ -57,7 +57,7 @@ export const reducer = (state, action) => {
         ),
       }
 
-    case actionTypes.DISMISS_TOAST:
+    case actionTypes.DISMISS_TOAST: {
       const { toastId } = action
 
       // ! Side effects ! - This means you'll need to have a way to dispatch these things elsewhere.
@@ -77,6 +77,7 @@ export const reducer = (state, action) => {
             : t
         ),
       }
+    }
     case actionTypes.REMOVE_TOAST:
       if (action.toastId === undefined) {
         return { ...state, toasts: [], }
@@ -125,7 +126,7 @@ export const ToastProvider = ({ children }) => {
 
       return { id: id, dismiss, update, }
     },
-    [dispatch]
+    []
   )
 
   return (

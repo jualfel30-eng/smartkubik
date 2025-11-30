@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -64,44 +64,7 @@ function ServicesManagement() {
   const [editingService, setEditingService] = useState(null);
   const [formData, setFormData] = useState(initialServiceState);
   const [loading, setLoading] = useState(false);
-
-  // Check module access
-  if (!hasAccess) {
-    return <ModuleAccessDenied moduleName="appointments" />;
-  }
-
-  useEffect(() => {
-    loadServices();
-    loadCategories();
-  }, []);
-
-  useEffect(() => {
-    filterServices();
-  }, [services, searchTerm, statusFilter, categoryFilter]);
-
-  const loadServices = async () => {
-    try {
-      setLoading(true);
-      const data = await fetchApi('/services');
-      setServices(data);
-    } catch (error) {
-      console.error('Error loading services:', error);
-      alert('Error al cargar los servicios');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadCategories = async () => {
-    try {
-      const data = await fetchApi('/services/categories');
-      setCategories(data);
-    } catch (error) {
-      console.error('Error loading categories:', error);
-    }
-  };
-
-  const filterServices = () => {
+  const filterServices = useCallback(() => {
     let filtered = [...services];
 
     // Search filter
@@ -124,6 +87,42 @@ function ServicesManagement() {
     }
 
     setFilteredServices(filtered);
+  }, [services, searchTerm, statusFilter, categoryFilter]);
+
+  useEffect(() => {
+    if (!hasAccess) return;
+    loadServices();
+    loadCategories();
+  }, [hasAccess]);
+
+  useEffect(() => {
+    if (!hasAccess) {
+      setFilteredServices([]);
+      return;
+    }
+    filterServices();
+  }, [hasAccess, filterServices]);
+
+  const loadServices = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchApi('/services');
+      setServices(data);
+    } catch (error) {
+      console.error('Error loading services:', error);
+      alert('Error al cargar los servicios');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      const data = await fetchApi('/services/categories');
+      setCategories(data);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
   };
 
   const openCreateDialog = () => {
@@ -211,6 +210,11 @@ function ServicesManagement() {
     const mins = minutes % 60;
     return mins > 0 ? `${hours}h ${mins}min` : `${hours}h`;
   };
+
+  // Check module access
+  if (!hasAccess) {
+    return <ModuleAccessDenied moduleName="appointments" />;
+  }
 
   return (
     <div className="p-6 space-y-6">

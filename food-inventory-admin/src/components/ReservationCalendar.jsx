@@ -220,15 +220,6 @@ const ReservationCalendar = () => {
     return dates;
   };
 
-  const isToday = (date) => {
-    const today = new Date();
-    return (
-      date.getDate() === today.getDate() &&
-      date.getMonth() === today.getMonth() &&
-      date.getFullYear() === today.getFullYear()
-    );
-  };
-
   const daySummary = dayReservations.reduce((acc, res) => {
     acc.total++;
     acc.guests += res.partySize || 0;
