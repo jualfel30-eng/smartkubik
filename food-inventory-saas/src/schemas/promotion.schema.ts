@@ -111,7 +111,18 @@ export class Promotion {
   bundleDiscountPercentage?: number;
 
   // Restricciones
-  @Prop({ type: [String], enum: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] })
+  @Prop({
+    type: [String],
+    enum: [
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+      "sunday",
+    ],
+  })
   applicableDays?: string[]; // Días de la semana
 
   @Prop({ type: String }) // Formato: "HH:mm"

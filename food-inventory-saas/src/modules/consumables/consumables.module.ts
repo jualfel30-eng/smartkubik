@@ -18,6 +18,7 @@ import {
   InventoryMovement,
   InventoryMovementSchema,
 } from "../../schemas/inventory.schema";
+import { UnitTypesModule } from "../unit-types/unit-types.module";
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import {
         schema: InventoryMovementSchema,
       },
     ]),
+    UnitTypesModule,
   ],
   controllers: [ConsumablesController],
   providers: [ConsumablesService, ConsumablesListener],

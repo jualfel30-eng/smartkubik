@@ -11,6 +11,7 @@ import {
   SupplyConsumptionLogSchema,
 } from "../../schemas/supply-consumption-log.schema";
 import { Product, ProductSchema } from "../../schemas/product.schema";
+import { UnitTypesModule } from "../unit-types/unit-types.module";
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { Product, ProductSchema } from "../../schemas/product.schema";
         schema: ProductSchema,
       },
     ]),
+    UnitTypesModule,
   ],
   controllers: [SuppliesController],
   providers: [SuppliesService],

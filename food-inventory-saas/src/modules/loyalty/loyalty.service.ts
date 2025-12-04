@@ -1,4 +1,9 @@
-import { Injectable, Logger, BadRequestException, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+} from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { Customer, CustomerDocument } from "../../schemas/customer.schema";
@@ -625,7 +630,7 @@ export class LoyaltyService {
   async getCustomers(tenantId: string): Promise<any[]> {
     const customers = await this.customerModel
       .find({ tenantId })
-      .select('_id name email phone customerNumber')
+      .select("_id name email phone customerNumber")
       .sort({ name: 1 })
       .limit(500)
       .lean();

@@ -35,10 +35,14 @@ import { FEATURES } from "../../config/features.config";
 import { getVerticalProfile } from "../../config/vertical-profiles";
 import { DiscountService } from "./services/discount.service";
 import { TransactionHistoryService } from "../../services/transaction-history.service";
-import { BillOfMaterials, BillOfMaterialsDocument } from "../../schemas/bill-of-materials.schema";
+import {
+  BillOfMaterials,
+  BillOfMaterialsDocument,
+} from "../../schemas/bill-of-materials.schema";
 import { Modifier } from "../../schemas/modifier.schema";
 import { CouponsService } from "../coupons/coupons.service";
 import { PromotionsService } from "../promotions/promotions.service";
+import { WhapiService } from "../whapi/whapi.service";
 
 @Injectable()
 export class OrdersService {
@@ -60,13 +64,14 @@ export class OrdersService {
     private readonly paymentsService: PaymentsService,
     private readonly deliveryService: DeliveryService,
     private readonly exchangeRateService: ExchangeRateService,
-  private readonly shiftsService: ShiftsService,
-  private readonly discountService: DiscountService,
-  private readonly transactionHistoryService: TransactionHistoryService,
-  private readonly couponsService: CouponsService,
-  private readonly promotionsService: PromotionsService,
-  private readonly eventEmitter: EventEmitter2,
-  @InjectConnection() private readonly connection: Connection,
+    private readonly shiftsService: ShiftsService,
+    private readonly discountService: DiscountService,
+    private readonly transactionHistoryService: TransactionHistoryService,
+    private readonly couponsService: CouponsService,
+    private readonly promotionsService: PromotionsService,
+    private readonly whapiService: WhapiService,
+    private readonly eventEmitter: EventEmitter2,
+    @InjectConnection() private readonly connection: Connection,
   ) {}
 
   async getPaymentMethods(user: any): Promise<any> {
@@ -312,7 +317,7 @@ export class OrdersService {
     // MARKETING: Validar cupón y aplicar promociones
     // ========================================
     let appliedCoupon: any = null;
-    let appliedPromotions: any[] = [];
+    const appliedPromotions: any[] = [];
     let couponDiscountAmount = 0;
     let promotionsDiscountAmount = 0;
 
@@ -526,9 +531,7 @@ export class OrdersService {
           `Coupon usage tracked for ${appliedCoupon.code} on order ${savedOrder.orderNumber}`,
         );
       } catch (error) {
-        this.logger.error(
-          `Failed to track coupon usage: ${error.message}`,
-        );
+        this.logger.error(`Failed to track coupon usage: ${error.message}`);
       }
     }
 
@@ -646,6 +649,49 @@ export class OrdersService {
       await savedOrder.save();
     }
 
+    // Send WhatsApp confirmation (async, don't block response)
+    setImmediate(async () => {
+      try {
+        // Get customer phone number
+        const customerPhone =
+          customer.whatsappNumber ||
+          customer.contacts?.find(
+            (c) => c.type === "whatsapp" || c.type === "phone",
+          )?.value;
+
+        if (customerPhone) {
+          await this.whapiService.sendOrderConfirmation(
+            user.tenantId,
+            customerPhone,
+            {
+              orderNumber: savedOrder.orderNumber,
+              customerName: customer.name || savedOrder.customerName,
+              totalAmount: savedOrder.totalAmount,
+              items: savedOrder.items.map((item) => ({
+                productName: item.productName,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+              })),
+              shippingMethod: createOrderDto.deliveryMethod,
+              shippingAddress: createOrderDto.shippingAddress
+                ? `${createOrderDto.shippingAddress.street || ""}, ${createOrderDto.shippingAddress.city || ""}, ${createOrderDto.shippingAddress.state || ""}`.trim()
+                : undefined,
+              notes: createOrderDto.notes,
+            },
+          );
+        } else {
+          this.logger.warn(
+            `No WhatsApp/phone number found for customer ${customer._id} - skipping order confirmation`,
+          );
+        }
+      } catch (error) {
+        this.logger.error(
+          `Failed to send WhatsApp order confirmation for order ${savedOrder.orderNumber}: ${error.message}`,
+        );
+        // Don't throw - notification failure shouldn't break order creation
+      }
+    });
+
     // Devolver la orden guardada directamente sin populate pesado
     return savedOrder.toObject();
   }
@@ -759,10 +805,7 @@ export class OrdersService {
           );
           return {
             productSku:
-              variant?.sku ||
-              product?.sku ||
-              item.variantSku ||
-              item.productId, // fallback para cumplir DTO
+              variant?.sku || product?.sku || item.variantSku || item.productId, // fallback para cumplir DTO
             quantity: item.quantity,
           };
         }),
@@ -771,9 +814,7 @@ export class OrdersService {
     );
 
     const orderItems: OrderItem[] = dto.items.map((item) => {
-      const product = products.find(
-        (p) => p._id.toString() === item.productId,
-      );
+      const product = products.find((p) => p._id.toString() === item.productId);
       const variant = product?.variants?.find(
         (v) =>
           v._id?.toString() === item.variantId ||
@@ -796,7 +837,9 @@ export class OrdersService {
         quantity: item.quantity,
         selectedUnit: item.selectedUnit,
         conversionFactor: item.conversionFactor,
-        quantityInBaseUnit: item.conversionFactor ? item.quantity * item.conversionFactor : undefined,
+        quantityInBaseUnit: item.conversionFactor
+          ? item.quantity * item.conversionFactor
+          : undefined,
         unitPrice: item.unitPrice,
         totalPrice: item.quantity * item.unitPrice,
         costPrice: variant?.costPrice ?? 0,
@@ -868,6 +911,49 @@ export class OrdersService {
           `No se pudieron actualizar métricas del cliente ${customer._id}: ${err.message}`,
         ),
     );
+
+    // Send WhatsApp confirmation (async, don't block response)
+    setImmediate(async () => {
+      try {
+        const customerPhone =
+          dto.customerPhone ||
+          customer.whatsappNumber ||
+          customer.contacts?.find(
+            (c) => c.type === "whatsapp" || c.type === "phone",
+          )?.value;
+
+        if (customerPhone) {
+          await this.whapiService.sendOrderConfirmation(
+            dto.tenantId,
+            customerPhone,
+            {
+              orderNumber: saved.orderNumber,
+              customerName: dto.customerName,
+              totalAmount: saved.totalAmount,
+              items: saved.items.map((item) => ({
+                productName: item.productName,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+              })),
+              shippingMethod: dto.shippingMethod,
+              shippingAddress: dto.shippingAddress
+                ? `${dto.shippingAddress.street || ""}, ${dto.shippingAddress.city || ""}, ${dto.shippingAddress.state || ""}`.trim()
+                : undefined,
+              notes: dto.notes,
+            },
+          );
+        } else {
+          this.logger.warn(
+            `No WhatsApp/phone number found for public order ${saved.orderNumber} - skipping confirmation`,
+          );
+        }
+      } catch (error) {
+        this.logger.error(
+          `Failed to send WhatsApp order confirmation for public order ${saved.orderNumber}: ${error.message}`,
+        );
+        // Don't throw - notification failure shouldn't break order creation
+      }
+    });
 
     return saved;
   }
@@ -987,6 +1073,22 @@ export class OrdersService {
       this.orderModel.countDocuments(filter),
     ]);
     return { orders, page, limit, total, totalPages: Math.ceil(total / limit) };
+  }
+
+  async getCustomerOrders(tenantId: string, customerEmail: string) {
+    const orders = await this.orderModel
+      .find({
+        tenantId,
+        customerEmail: customerEmail.toLowerCase(),
+      })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .select(
+        "orderNumber customerName customerEmail customerPhone totalAmount status createdAt shippingMethod items",
+      )
+      .lean();
+
+    return orders;
   }
 
   async exportOrders(query: OrderQueryDto, tenantId: string): Promise<string> {
@@ -1142,7 +1244,7 @@ export class OrdersService {
       throw new NotFoundException("Orden no encontrada");
     }
 
-    // Guardar pagos en paymentRecords
+    // Guardar pagos en paymentRecords (compatibilidad)
     const newPaymentRecords = bulkRegisterPaymentsDto.payments.map((p) => ({
       method: p.method,
       amount: p.amount,
@@ -1159,30 +1261,83 @@ export class OrdersService {
       confirmedMethod: p.isConfirmed ? p.method : undefined,
     }));
 
-    order.paymentRecords = [
+    const mergedPaymentRecords = [
       ...(order.paymentRecords || []),
       ...newPaymentRecords,
     ];
 
     // Calcular paidAmount en USD y VES
-    const totalPaidUSD = order.paymentRecords.reduce(
+    const totalPaidUSD = mergedPaymentRecords.reduce(
       (sum, p) => sum + (p.amount || 0),
       0,
     );
-    const totalPaidVES = order.paymentRecords.reduce(
+    const totalPaidVES = mergedPaymentRecords.reduce(
       (sum, p) => sum + (p.amountVes || 0),
       0,
     );
-    order.paidAmount = totalPaidUSD;
-    order.paidAmountVes = totalPaidVES;
+    const paidAmount = totalPaidUSD;
+    const paidAmountVes = totalPaidVES;
 
     // Actualizar paymentStatus
     const wasNotPaidBefore = order.paymentStatus !== "paid";
-    if (totalPaidUSD >= order.totalAmount) {
-      order.paymentStatus = "paid";
-    } else if (totalPaidUSD > 0) {
-      order.paymentStatus = "partial";
-    }
+    const newPaymentStatus =
+      totalPaidUSD >= order.totalAmount
+        ? "paid"
+        : totalPaidUSD > 0
+          ? "partial"
+          : order.paymentStatus;
+
+    // Doble escritura opcional a colección Payment (idempotencia ligera por referencia+method)
+    const paymentIdsToAdd: Types.ObjectId[] = [];
+    await Promise.all(
+      bulkRegisterPaymentsDto.payments.map(async (p) => {
+        try {
+          const idempotencyKey =
+            p.idempotencyKey ||
+            (p.reference ? `${orderId}-${p.reference}` : undefined);
+
+          // Reusar PaymentsService para centralizar lógica e idempotencia
+          const paymentDto: any = {
+            paymentType: "sale",
+            orderId: orderId,
+            date: p.date || new Date().toISOString(),
+            amount: p.amount,
+            amountVes: p.amountVes,
+            exchangeRate: p.exchangeRate,
+            method: p.method,
+            currency: p.currency || "USD",
+            reference: p.reference || "",
+            bankAccountId: p.bankAccountId,
+            customerId: order.customerId
+              ? order.customerId.toString()
+              : undefined,
+            status: p.isConfirmed ? "confirmed" : "pending_validation",
+            idempotencyKey:
+              idempotencyKey ||
+              (p.reference ? `${orderId}-${p.reference}` : undefined),
+            allocations: [
+              {
+                documentId: orderId,
+                documentType: "order",
+                amount: p.amount,
+              },
+            ],
+            fees: p.igtf ? { igtf: p.igtf } : undefined,
+          };
+
+          const paymentDoc = await this.paymentsService.create(
+            paymentDto,
+            user,
+          );
+          // Enlazar la referencia en la orden si no está
+          paymentIdsToAdd.push(paymentDoc._id);
+        } catch (err) {
+          this.logger.warn(
+            `No se pudo crear Payment de colección para orden ${orderId}: ${err.message}`,
+          );
+        }
+      }),
+    );
 
     // Si el pago está confirmado, actualizar el balance de la cuenta bancaria
     for (const payment of bulkRegisterPaymentsDto.payments) {
@@ -1207,10 +1362,30 @@ export class OrdersService {
       }
     }
 
-    await order.save();
+    // Persistir cambios en la orden sin depender de versión del documento ya cargado
+    const update: any = {
+      paymentRecords: mergedPaymentRecords,
+      paidAmount,
+      paidAmountVes,
+      paymentStatus: newPaymentStatus,
+      updatedBy: user.id,
+    };
+    const addToSet: any = {};
+    if (paymentIdsToAdd.length > 0) {
+      addToSet.payments = { $each: paymentIdsToAdd };
+    }
+
+    await this.orderModel.findByIdAndUpdate(
+      orderId,
+      {
+        $set: update,
+        ...(paymentIdsToAdd.length > 0 ? { $addToSet: addToSet } : {}),
+      },
+      { new: true },
+    );
 
     // Si la orden se acaba de pagar completamente, deducir ingredientes de las recetas
-    if (wasNotPaidBefore && order.paymentStatus === "paid") {
+    if (wasNotPaidBefore && newPaymentStatus === "paid") {
       this.logger.log(
         `Order ${order.orderNumber} fully paid. Triggering ingredient deduction...`,
       );
@@ -1557,7 +1732,8 @@ export class OrdersService {
 
                     case "add":
                       // Agregar cantidad adicional
-                      const additionalQty = (effect.quantity || 0) * modifierQty;
+                      const additionalQty =
+                        (effect.quantity || 0) * modifierQty;
                       componentQuantity += additionalQty;
                       this.logger.log(
                         `Modifier "${modifier.name}" added ${additionalQty} to component ${component.componentProductId}`,
@@ -1616,7 +1792,8 @@ export class OrdersService {
             }
 
             // Calcular nueva cantidad
-            const newQuantity = inventory.totalQuantity - ingredient.totalQuantity;
+            const newQuantity =
+              inventory.totalQuantity - ingredient.totalQuantity;
 
             // Ajustar inventario
             await this.inventoryService.adjustInventory(

@@ -459,8 +459,7 @@ export class PromotionsService {
             (sum, item) => sum + item.price * item.quantity,
             0,
           );
-          discountAmount =
-            (subtotal * applicableTier.discountPercentage) / 100;
+          discountAmount = (subtotal * applicableTier.discountPercentage) / 100;
         }
         break;
 
@@ -474,12 +473,15 @@ export class PromotionsService {
         });
 
         if (hasBundle) {
-          const bundleTotal = promotion.bundleItems!.reduce((sum, bundleItem) => {
-            const cartItem = dto.productItems.find(
-              (item) => item.productId === bundleItem.productId.toString(),
-            )!;
-            return sum + cartItem.price * bundleItem.quantity;
-          }, 0);
+          const bundleTotal = promotion.bundleItems!.reduce(
+            (sum, bundleItem) => {
+              const cartItem = dto.productItems.find(
+                (item) => item.productId === bundleItem.productId.toString(),
+              )!;
+              return sum + cartItem.price * bundleItem.quantity;
+            },
+            0,
+          );
 
           discountAmount =
             (bundleTotal * (promotion.bundleDiscountPercentage || 0)) / 100;
@@ -509,7 +511,12 @@ export class PromotionsService {
    * Filtrar items aplicables según configuración de promoción
    */
   private filterApplicableItems(
-    items: Array<{ productId: string; quantity: number; price: number; categoryId?: string }>,
+    items: Array<{
+      productId: string;
+      quantity: number;
+      price: number;
+      categoryId?: string;
+    }>,
     promotion: any,
   ) {
     let filtered = [...items];
@@ -618,7 +625,15 @@ export class PromotionsService {
    * Obtener lista de promociones
    */
   async findAll(tenantId: string, query: GetPromotionsQueryDto) {
-    const { search, status, type, onlyActive, showInStorefront, page = 1, limit = 20 } = query;
+    const {
+      search,
+      status,
+      type,
+      onlyActive,
+      showInStorefront,
+      page = 1,
+      limit = 20,
+    } = query;
 
     const filter: any = {
       tenantId: new Types.ObjectId(tenantId),

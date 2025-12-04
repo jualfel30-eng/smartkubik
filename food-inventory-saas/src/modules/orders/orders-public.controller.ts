@@ -84,7 +84,7 @@ export class CreatePublicOrderDto {
   notes?: string;
 }
 
-  @ApiTags("Orders Public")
+@ApiTags("Orders Public")
 // Prefix global "api/v1" ya se aplica a toda la app en main.ts
 @Controller("public/orders")
 export class OrdersPublicController {

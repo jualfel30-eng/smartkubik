@@ -10,6 +10,7 @@ import {
   ValidateNested,
 } from "class-validator";
 import { Type } from "class-transformer";
+import { SanitizeString, SanitizeText } from "../decorators/sanitize.decorator";
 
 class PositionDto {
   @IsNumber()
@@ -21,13 +22,16 @@ class PositionDto {
 
 export class CreateTableDto {
   @IsString()
+  @SanitizeString()
   tableNumber: string;
 
   @IsString()
+  @SanitizeString()
   section: string;
 
   @IsOptional()
   @IsString()
+  @SanitizeString()
   floor?: string;
 
   @ValidateNested()
@@ -47,20 +51,24 @@ export class CreateTableDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   notes?: string;
 }
 
 export class UpdateTableDto {
   @IsOptional()
   @IsString()
+  @SanitizeString()
   tableNumber?: string;
 
   @IsOptional()
   @IsString()
+  @SanitizeString()
   section?: string;
 
   @IsOptional()
   @IsString()
+  @SanitizeString()
   floor?: string;
 
   @IsOptional()
@@ -88,6 +96,7 @@ export class UpdateTableDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   notes?: string;
 }
 

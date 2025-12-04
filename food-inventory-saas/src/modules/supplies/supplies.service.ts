@@ -10,6 +10,7 @@ import {
   ProductSupplyConfig,
   ProductSupplyConfigDocument,
 } from "../../schemas/product-supply-config.schema";
+import { CustomConversionRule } from "../../schemas/product-consumable-config.schema";
 import {
   SupplyConsumptionLog,
   SupplyConsumptionLogDocument,
@@ -19,6 +20,7 @@ import {
   ProductDocument,
   ProductType,
 } from "../../schemas/product.schema";
+import { UnitTypesService } from "../unit-types/unit-types.service";
 
 @Injectable()
 export class SuppliesService {
@@ -31,7 +33,53 @@ export class SuppliesService {
     private readonly consumptionLogModel: Model<SupplyConsumptionLogDocument>,
     @InjectModel(Product.name)
     private readonly productModel: Model<ProductDocument>,
+    private readonly unitTypesService: UnitTypesService,
   ) {}
+
+  /**
+   * Validate UnitType integration fields
+   */
+  private async validateUnitTypeFields(data: {
+    unitTypeId?: string;
+    defaultUnit?: string;
+    purchaseUnit?: string;
+    stockUnit?: string;
+    consumptionUnit?: string;
+  }): Promise<void> {
+    if (!data.unitTypeId) {
+      return; // No validation needed if unitTypeId not provided
+    }
+
+    // Verify UnitType exists
+    const unitType = await this.unitTypesService.findOne(data.unitTypeId);
+    if (!unitType) {
+      throw new BadRequestException(
+        `UnitType with ID ${data.unitTypeId} not found`,
+      );
+    }
+
+    // Validate that units exist in the UnitType conversions
+    const unitsToValidate = [
+      { unit: data.defaultUnit, field: "defaultUnit" },
+      { unit: data.purchaseUnit, field: "purchaseUnit" },
+      { unit: data.stockUnit, field: "stockUnit" },
+      { unit: data.consumptionUnit, field: "consumptionUnit" },
+    ];
+
+    for (const { unit, field } of unitsToValidate) {
+      if (unit) {
+        const isValid = await this.unitTypesService.validateUnit(
+          data.unitTypeId,
+          unit,
+        );
+        if (!isValid) {
+          throw new BadRequestException(
+            `Unit "${unit}" in field "${field}" is not valid for UnitType "${unitType.name}"`,
+          );
+        }
+      }
+    }
+  }
 
   /**
    * Create a supply configuration for a product
@@ -46,7 +94,13 @@ export class SuppliesService {
       requiresAuthorization?: boolean;
       usageDepartment?: string;
       estimatedMonthlyConsumption?: number;
-      unitOfMeasure?: string;
+      unitTypeId?: string;
+      defaultUnit?: string;
+      purchaseUnit?: string;
+      stockUnit?: string;
+      consumptionUnit?: string;
+      customConversions?: CustomConversionRule[];
+      unitOfMeasure?: string; // DEPRECATED
       safetyInfo?: {
         requiresPPE: boolean;
         isHazardous: boolean;
@@ -83,6 +137,17 @@ export class SuppliesService {
       );
     }
 
+    // Validate UnitType fields if provided
+    if (data.unitTypeId) {
+      await this.validateUnitTypeFields({
+        unitTypeId: data.unitTypeId,
+        defaultUnit: data.defaultUnit,
+        purchaseUnit: data.purchaseUnit,
+        stockUnit: data.stockUnit,
+        consumptionUnit: data.consumptionUnit,
+      });
+    }
+
     const config = await this.supplyConfigModel.create({
       productId: productObjectId,
       tenantId: tenantObjectId,
@@ -92,7 +157,18 @@ export class SuppliesService {
       requiresAuthorization: data.requiresAuthorization ?? false,
       usageDepartment: data.usageDepartment,
       estimatedMonthlyConsumption: data.estimatedMonthlyConsumption,
-      unitOfMeasure: data.unitOfMeasure || product.unitOfMeasure,
+      // UnitType integration
+      unitTypeId: data.unitTypeId
+        ? new Types.ObjectId(data.unitTypeId)
+        : undefined,
+      defaultUnit: data.defaultUnit,
+      purchaseUnit: data.purchaseUnit,
+      stockUnit: data.stockUnit,
+      consumptionUnit: data.consumptionUnit,
+      customConversions: data.customConversions,
+      // Legacy field (backwards compatibility)
+      unitOfMeasure:
+        data.unitOfMeasure || data.defaultUnit || product.unitOfMeasure,
       safetyInfo: data.safetyInfo,
       notes: data.notes,
       isActive: true,
@@ -132,7 +208,13 @@ export class SuppliesService {
       requiresAuthorization: boolean;
       usageDepartment: string;
       estimatedMonthlyConsumption: number;
-      unitOfMeasure: string;
+      unitTypeId: string;
+      defaultUnit: string;
+      purchaseUnit: string;
+      stockUnit: string;
+      consumptionUnit: string;
+      customConversions: CustomConversionRule[];
+      unitOfMeasure: string; // DEPRECATED
       safetyInfo: {
         requiresPPE: boolean;
         isHazardous: boolean;
@@ -147,15 +229,40 @@ export class SuppliesService {
     const tenantObjectId = new Types.ObjectId(tenantId);
     const configObjectId = new Types.ObjectId(configId);
 
+    // Validate UnitType fields if being updated
+    if (data.unitTypeId !== undefined) {
+      // Get current config to merge with updates
+      const currentConfig = await this.supplyConfigModel
+        .findOne({ _id: configObjectId, tenantId: tenantObjectId })
+        .lean()
+        .exec();
+
+      if (!currentConfig) {
+        throw new NotFoundException("Supply configuration not found");
+      }
+
+      await this.validateUnitTypeFields({
+        unitTypeId: data.unitTypeId || currentConfig.unitTypeId?.toString(),
+        defaultUnit: data.defaultUnit ?? currentConfig.defaultUnit,
+        purchaseUnit: data.purchaseUnit ?? currentConfig.purchaseUnit,
+        stockUnit: data.stockUnit ?? currentConfig.stockUnit,
+        consumptionUnit: data.consumptionUnit ?? currentConfig.consumptionUnit,
+      });
+    }
+
+    // Prepare update data
+    const updateData: any = { ...data };
+    if (data.unitTypeId) {
+      updateData.unitTypeId = new Types.ObjectId(data.unitTypeId);
+    }
+    if (userId) {
+      updateData.updatedBy = new Types.ObjectId(userId);
+    }
+
     const config = await this.supplyConfigModel
       .findOneAndUpdate(
         { _id: configObjectId, tenantId: tenantObjectId },
-        {
-          $set: {
-            ...data,
-            updatedBy: userId ? new Types.ObjectId(userId) : undefined,
-          },
-        },
+        { $set: updateData },
         { new: true },
       )
       .exec();

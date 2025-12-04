@@ -32,6 +32,7 @@ describe("OrdersService - Employee Assignment", () => {
     _id: new Types.ObjectId(),
     sku: "SKU-1",
     name: "Test Product",
+    price: 10,
     variants: [{ basePrice: 10, costPrice: 5 }],
     hasMultipleSellingUnits: false,
     ivaApplicable: false,
@@ -107,19 +108,32 @@ describe("OrdersService - Employee Assignment", () => {
       return { save: orderSaveMock };
     });
 
+    const discountServiceMock = {
+      calculateBestDiscount: jest.fn().mockResolvedValue({
+        discountApplied: 0,
+        discountedPrice: productDoc.price,
+        appliedDiscount: null,
+      }),
+    };
+
     service = new OrdersService(
       orderModelMock as any,
       customerModel as any,
       productModel as any,
       tenantModel as any,
       {} as any, // bankAccountModel
+      {} as any, // bomModel
+      {} as any, // modifierModel
       inventoryService as any,
       accountingService as any,
       paymentsService as any,
       deliveryService as any,
       {} as any, // exchangeRateService
       shiftsService as any,
-      {} as any, // discountService
+      discountServiceMock as any,
+      {} as any, // transactionHistoryService
+      {} as any, // couponsService
+      {} as any, // promotionsService
       { emit: jest.fn() } as any, // eventEmitter
       {} as any, // connection
     );

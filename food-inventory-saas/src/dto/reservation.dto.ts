@@ -14,6 +14,7 @@ import {
   IsArray,
 } from "class-validator";
 import { Type } from "class-transformer";
+import { SanitizeString, SanitizeText } from "../decorators/sanitize.decorator";
 
 // Check availability
 export class CheckAvailabilityDto {
@@ -38,9 +39,11 @@ export class CreateReservationDto {
   customerId?: string;
 
   @IsString()
+  @SanitizeString()
   guestName: string;
 
   @IsString()
+  @SanitizeString()
   guestPhone: string;
 
   @IsOptional()
@@ -51,6 +54,7 @@ export class CreateReservationDto {
   date: string;
 
   @IsString()
+  @SanitizeString()
   @Matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
   time: string;
 
@@ -68,6 +72,7 @@ export class CreateReservationDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   specialRequests?: string;
 
   @IsOptional()
@@ -84,6 +89,7 @@ export class CreateReservationDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   notes?: string;
 }
 
@@ -91,10 +97,12 @@ export class CreateReservationDto {
 export class UpdateReservationDto {
   @IsOptional()
   @IsString()
+  @SanitizeString()
   guestName?: string;
 
   @IsOptional()
   @IsString()
+  @SanitizeString()
   guestPhone?: string;
 
   @IsOptional()
@@ -107,6 +115,7 @@ export class UpdateReservationDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeString()
   @Matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
   time?: string;
 
@@ -121,10 +130,12 @@ export class UpdateReservationDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   specialRequests?: string;
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   notes?: string;
 }
 

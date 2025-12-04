@@ -1,5 +1,9 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document, Types } from "mongoose";
+import {
+  CustomConversionRule,
+  CustomConversionRuleSchema,
+} from "./product-consumable-config.schema";
 
 export type ProductSupplyConfigDocument = ProductSupplyConfig & Document;
 
@@ -26,8 +30,32 @@ export class ProductSupplyConfig {
   @Prop({ type: Number })
   estimatedMonthlyConsumption?: number; // Consumo mensual estimado
 
-  @Prop({ type: String })
-  unitOfMeasure: string; // "unidad", "litro", "kilogramo", "caja", etc.
+  // ===== UNIT TYPE INTEGRATION =====
+
+  @Prop({ type: Types.ObjectId, ref: "UnitType", required: false })
+  unitTypeId?: Types.ObjectId; // Referencia al tipo de unidad global
+
+  @Prop({ type: String, required: false })
+  defaultUnit?: string; // Unidad base del producto (ej: "litro", "unidad")
+
+  @Prop({ type: String, required: false })
+  purchaseUnit?: string; // Unidad en que se compra (ej: "garrafa", "caja")
+
+  @Prop({ type: String, required: false })
+  stockUnit?: string; // Unidad en que se almacena (ej: "litro", "paquete")
+
+  @Prop({ type: String, required: false })
+  consumptionUnit?: string; // Unidad en que se consume (ej: "ml", "unidad")
+
+  @Prop({ type: [CustomConversionRuleSchema], default: [] })
+  customConversions?: CustomConversionRule[]; // Conversiones específicas del producto
+
+  // ===== LEGACY FIELD (for backwards compatibility) =====
+
+  @Prop({ type: String, required: false })
+  unitOfMeasure?: string; // DEPRECATED: Usar defaultUnit en su lugar
+
+  // ===== OTHER FIELDS =====
 
   @Prop({ type: Object })
   safetyInfo?: {
@@ -69,3 +97,4 @@ ProductSupplyConfigSchema.index({ tenantId: 1, supplySubcategory: 1 });
 ProductSupplyConfigSchema.index({ tenantId: 1, isActive: 1 });
 ProductSupplyConfigSchema.index({ tenantId: 1, requiresTracking: 1 });
 ProductSupplyConfigSchema.index({ tenantId: 1, usageDepartment: 1 });
+ProductSupplyConfigSchema.index({ unitTypeId: 1 }); // For UnitType queries

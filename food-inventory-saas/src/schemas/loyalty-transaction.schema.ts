@@ -39,7 +39,15 @@ export class LoyaltyTransaction {
 
   @Prop({
     type: String,
-    enum: ["admin_adjustment", "correction", "bonus", "penalty", "purchase", "redemption", "expiration"],
+    enum: [
+      "admin_adjustment",
+      "correction",
+      "bonus",
+      "penalty",
+      "purchase",
+      "redemption",
+      "expiration",
+    ],
   })
   subType?: string; // Subtipo para mayor detalle
 

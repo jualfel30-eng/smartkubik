@@ -50,9 +50,7 @@ export class CouponsService {
       .lean();
 
     if (existing) {
-      throw new ConflictException(
-        `Ya existe un cupón con el código "${code}"`,
-      );
+      throw new ConflictException(`Ya existe un cupón con el código "${code}"`);
     }
 
     // Validaciones de negocio
@@ -142,8 +140,7 @@ export class CouponsService {
 
     // Actualizar campos
     if (dto.description !== undefined) coupon.description = dto.description;
-    if (dto.discountType !== undefined)
-      coupon.discountType = dto.discountType;
+    if (dto.discountType !== undefined) coupon.discountType = dto.discountType;
     if (dto.discountValue !== undefined)
       coupon.discountValue = dto.discountValue;
     if (dto.minimumPurchaseAmount !== undefined)
@@ -333,9 +330,7 @@ export class CouponsService {
       dto.categoryIds
     ) {
       const hasApplicableCategory = dto.categoryIds.some((categoryId) =>
-        coupon.applicableCategories!.some(
-          (id) => id.toString() === categoryId,
-        ),
+        coupon.applicableCategories!.some((id) => id.toString() === categoryId),
       );
 
       if (!hasApplicableCategory) {
@@ -557,9 +552,8 @@ export class CouponsService {
       0,
     );
     const totalOrderAmount = usages.reduce((sum, u) => sum + u.orderAmount, 0);
-    const uniqueCustomers = new Set(
-      usages.map((u) => u.customerId.toString()),
-    ).size;
+    const uniqueCustomers = new Set(usages.map((u) => u.customerId.toString()))
+      .size;
 
     // Agrupar por fecha
     const usageByDate = usages.reduce(

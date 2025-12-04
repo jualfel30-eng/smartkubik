@@ -10,12 +10,14 @@ import {
   ArrayMinSize,
 } from "class-validator";
 import { Type } from "class-transformer";
+import { SanitizeString, SanitizeText } from "../decorators/sanitize.decorator";
 
 /**
  * DTO para una parte individual del split
  */
 export class BillSplitPartDto {
   @IsString()
+  @SanitizeString()
   personName: string;
 
   @IsNumber()
@@ -63,6 +65,7 @@ export class CreateBillSplitDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   notes?: string;
 }
 
@@ -112,6 +115,7 @@ export class SplitByItemsDto {
 
 export class ItemAssignmentDto {
   @IsString()
+  @SanitizeString()
   personName: string;
 
   @IsArray()
@@ -133,6 +137,7 @@ export class PaySplitPartDto {
   splitId: string;
 
   @IsString()
+  @SanitizeString()
   personName: string; // Nombre de la persona que paga
 
   @IsNumber()
@@ -141,18 +146,22 @@ export class PaySplitPartDto {
   amount: number;
 
   @IsString()
+  @SanitizeString()
   paymentMethod: string; // cash, card, etc.
 
   @IsOptional()
   @IsString()
+  @SanitizeString()
   currency?: string;
 
   @IsOptional()
   @IsString()
+  @SanitizeString()
   reference?: string;
 
   @IsOptional()
   @IsString()
+  @SanitizeString()
   customerName?: string; // Nombre para el recibo
 }
 
@@ -164,6 +173,7 @@ export class UpdateSplitPartTipDto {
   splitId: string;
 
   @IsString()
+  @SanitizeString()
   personName: string;
 
   @IsNumber()

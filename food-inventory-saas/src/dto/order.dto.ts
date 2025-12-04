@@ -122,7 +122,18 @@ export class RegisterPaymentDto {
   @ApiPropertyOptional({ description: "Referencia del pago" })
   @IsOptional()
   @IsString()
+  @SanitizeString()
   reference?: string;
+
+  @ApiPropertyOptional({ description: "Clave de idempotencia opcional" })
+  @IsOptional()
+  @IsString()
+  idempotencyKey?: string;
+
+  @ApiPropertyOptional({ description: "IGTF aplicado en USD" })
+  @IsOptional()
+  @IsNumber()
+  igtf?: number;
 
   @ApiPropertyOptional({
     description: "ID de la cuenta bancaria (para pagos confirmados)",
@@ -325,6 +336,7 @@ export class UpdateOrderDto {
   @ApiPropertyOptional({ description: "Notas internas" })
   @IsOptional()
   @IsString()
+  @SanitizeText()
   internalNotes?: string;
 }
 
@@ -352,6 +364,7 @@ export class OrderPaymentDto {
   @ApiPropertyOptional({ description: "Referencia de transferencia o tarjeta" })
   @IsOptional()
   @IsString()
+  @SanitizeString()
   reference?: string;
 
   @ApiPropertyOptional({ description: "Banco" })

@@ -1,7 +1,8 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { CustomersController } from "./customers.controller";
 import { CustomersService } from "./customers.service";
+import { CustomersAuthController } from "./customers-auth.controller";
 import { AuthModule } from "../../auth/auth.module";
 import { Customer, CustomerSchema } from "../../schemas/customer.schema";
 import { Order, OrderSchema } from "../../schemas/order.schema";
@@ -16,6 +17,7 @@ import {
 import { RolesModule } from "../roles/roles.module";
 import { LoyaltyModule } from "../loyalty/loyalty.module";
 import { TransactionHistoryModule } from "../transaction-history/transaction-history.module";
+import { OrdersModule } from "../orders/orders.module";
 
 @Module({
   imports: [
@@ -23,6 +25,7 @@ import { TransactionHistoryModule } from "../transaction-history/transaction-his
     RolesModule,
     LoyaltyModule,
     TransactionHistoryModule, // Import for transaction history integration
+    forwardRef(() => OrdersModule), // Import OrdersModule to access OrdersService
     MongooseModule.forFeature([
       { name: Customer.name, schema: CustomerSchema },
       { name: Order.name, schema: OrderSchema },
@@ -30,7 +33,7 @@ import { TransactionHistoryModule } from "../transaction-history/transaction-his
       { name: PurchaseOrderRating.name, schema: PurchaseOrderRatingSchema },
     ]),
   ],
-  controllers: [CustomersController],
+  controllers: [CustomersController, CustomersAuthController],
   providers: [CustomersService],
   exports: [CustomersService],
 })

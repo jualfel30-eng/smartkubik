@@ -353,6 +353,40 @@ export class Customer {
   @Prop({ type: Date })
   lastWhatsappInteraction?: Date; // Last time customer interacted via WhatsApp
 
+  // Storefront authentication fields
+  @Prop({
+    type: String,
+    unique: true,
+    sparse: true,
+    lowercase: true,
+    trim: true,
+  })
+  email?: string; // Primary email for login
+
+  @Prop({ type: String, select: false })
+  passwordHash?: string; // Bcrypt hash of password
+
+  @Prop({ type: Boolean, default: false })
+  emailVerified: boolean; // Whether email has been verified
+
+  @Prop({ type: String, select: false })
+  emailVerificationToken?: string; // Token for email verification
+
+  @Prop({ type: Date })
+  emailVerifiedAt?: Date; // When email was verified
+
+  @Prop({ type: String, select: false })
+  passwordResetToken?: string; // Token for password reset
+
+  @Prop({ type: Date })
+  passwordResetExpires?: Date; // When password reset token expires
+
+  @Prop({ type: Date })
+  lastLoginAt?: Date; // Last successful login
+
+  @Prop({ type: Boolean, default: false })
+  hasStorefrontAccount: boolean; // Whether customer has a storefront account
+
   // Timestamps (automatically added by Mongoose with timestamps: true)
   createdAt?: Date;
   updatedAt?: Date;

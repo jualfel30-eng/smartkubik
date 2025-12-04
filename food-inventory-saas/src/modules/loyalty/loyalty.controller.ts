@@ -106,7 +106,10 @@ export class LoyaltyController {
    * Obtiene el balance de puntos de un cliente
    */
   @Get("balance/:customerId")
-  async getBalance(@Param("customerId") customerId: string, @Request() req: any) {
+  async getBalance(
+    @Param("customerId") customerId: string,
+    @Request() req: any,
+  ) {
     const balance = await this.loyaltyService.getPointsBalance(
       req.user.tenantId,
       customerId,

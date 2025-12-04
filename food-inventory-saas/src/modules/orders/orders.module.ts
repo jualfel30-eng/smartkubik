@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { OrdersController } from "./orders.controller";
 import { OrdersPublicController } from "./orders-public.controller";
@@ -29,12 +29,13 @@ import { ExchangeRateModule } from "../exchange-rate/exchange-rate.module";
 import { TransactionHistoryModule } from "../transaction-history/transaction-history.module";
 import { CouponsModule } from "../coupons/coupons.module";
 import { PromotionsModule } from "../promotions/promotions.module";
+import { WhapiModule } from "../whapi/whapi.module";
 
 @Module({
   imports: [
     AuthModule,
     InventoryModule,
-    CustomersModule,
+    forwardRef(() => CustomersModule),
     AccountingModule,
     RolesModule,
     PaymentsModule,
@@ -44,6 +45,7 @@ import { PromotionsModule } from "../promotions/promotions.module";
     TransactionHistoryModule,
     CouponsModule,
     PromotionsModule,
+    WhapiModule,
     MongooseModule.forFeature([
       { name: Order.name, schema: OrderSchema },
       { name: Customer.name, schema: CustomerSchema },

@@ -176,7 +176,18 @@ export class CreatePromotionDto {
   // Restricciones temporales
   @IsOptional()
   @IsArray()
-  @IsIn(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"], { each: true })
+  @IsIn(
+    [
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+      "sunday",
+    ],
+    { each: true },
+  )
   applicableDays?: string[];
 
   @IsOptional()
@@ -350,7 +361,18 @@ export class UpdatePromotionDto {
 
   @IsOptional()
   @IsArray()
-  @IsIn(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"], { each: true })
+  @IsIn(
+    [
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+      "sunday",
+    ],
+    { each: true },
+  )
   applicableDays?: string[];
 
   @IsOptional()

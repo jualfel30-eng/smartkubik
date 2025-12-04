@@ -97,11 +97,7 @@ export class CouponsController {
     @Body() dto: UpdateCouponDto,
     @Request() req: any,
   ) {
-    const coupon = await this.couponsService.update(
-      req.user.tenantId,
-      id,
-      dto,
-    );
+    const coupon = await this.couponsService.update(req.user.tenantId, id, dto);
 
     return {
       success: true,
@@ -166,7 +162,11 @@ export class CouponsController {
    * Obtener estadísticas de uso de un cupón
    */
   @Get(":id/stats")
-  async getStats(@Param("id") id: string, @Request() req: any, @Query() query: GetCouponStatsDto) {
+  async getStats(
+    @Param("id") id: string,
+    @Request() req: any,
+    @Query() query: GetCouponStatsDto,
+  ) {
     const stats = await this.couponsService.getStats(
       req.user.tenantId,
       id,

@@ -11,6 +11,7 @@ import {
   IsEnum,
 } from "class-validator";
 import { Type } from "class-transformer";
+import { SanitizeString, SanitizeText } from "../decorators/sanitize.decorator";
 
 /**
  * DTO para definir un efecto de componente
@@ -35,11 +36,13 @@ export class ComponentEffectDto {
 export class CreateModifierDto {
   @IsString()
   @MaxLength(100)
+  @SanitizeString()
   name: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(500)
+  @SanitizeText()
   description?: string;
 
   @IsNumber()
@@ -74,11 +77,13 @@ export class UpdateModifierDto {
   @IsOptional()
   @IsString()
   @MaxLength(100)
+  @SanitizeString()
   name?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(500)
+  @SanitizeText()
   description?: string;
 
   @IsOptional()
@@ -116,6 +121,7 @@ export class AppliedModifierDto {
   modifierId: string;
 
   @IsString()
+  @SanitizeString()
   name: string;
 
   @IsNumber()
