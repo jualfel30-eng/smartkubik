@@ -362,6 +362,18 @@ function TenantLayout() {
       ]
     },
     {
+      name: 'Cuentas por Cobrar',
+      href: 'receivables?tab=pending',
+      icon: PiggyBank,
+      permission: 'accounting_read',
+      children: [
+        { name: 'Pendientes', href: 'receivables?tab=pending', icon: Clock },
+        { name: 'Confirmados', href: 'receivables?tab=confirmed', icon: CheckCircle2 },
+        { name: 'Por cliente', href: 'receivables?tab=customers', icon: Users },
+        { name: 'Reportes', href: 'receivables?tab=reports', icon: TrendingUp },
+      ]
+    },
+    {
       name: 'Contabilidad General',
       href: 'accounting',
       icon: BookCopy,
@@ -406,28 +418,16 @@ function TenantLayout() {
       href: 'appointments',
       icon: Calendar,
       permission: 'appointments_read',
+      requiresVertical: ['SERVICES', 'HOSPITALITY'],
       children: [
         { name: 'Lista', href: 'appointments?tab=list', icon: List },
         { name: 'Calendario hotel', href: 'appointments?tab=calendar', icon: Calendar },
       ]
     },
-    { name: 'Servicios', href: 'services', icon: Briefcase, permission: 'appointments_read' },
-    { name: 'Recursos', href: 'resources', icon: UserSquare, permission: 'appointments_read' },
-    {
-      name: 'Cobros',
-      href: 'hospitality/deposits',
-      icon: PiggyBank,
-      permission: 'appointments_read',
-      requiresModule: 'appointments',
-      children: [
-        { name: 'Pendientes', href: 'hospitality/deposits?tab=pending', icon: Clock },
-        { name: 'Confirmados', href: 'hospitality/deposits?tab=confirmed', icon: CheckCircle2 },
-        { name: 'Por cliente', href: 'hospitality/deposits?tab=customers', icon: Users },
-        { name: 'Reportes', href: 'hospitality/deposits?tab=reports', icon: TrendingUp },
-      ]
-    },
-    { name: 'Operaciones Hotel', href: 'hospitality/operations', icon: Building2, permission: 'appointments_read', requiresModule: 'appointments' },
-    { name: 'Plano Hotel', href: 'hospitality/floor-plan', icon: Building, permission: 'appointments_read', requiresModule: 'appointments' },
+    { name: 'Servicios', href: 'services', icon: Briefcase, permission: 'appointments_read', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
+    { name: 'Recursos', href: 'resources', icon: UserSquare, permission: 'appointments_read', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
+    { name: 'Operaciones Hotel', href: 'hospitality/operations', icon: Building2, permission: 'appointments_read', requiresModule: 'appointments', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
+    { name: 'Plano Hotel', href: 'hospitality/floor-plan', icon: Building, permission: 'appointments_read', requiresModule: 'appointments', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
     { name: 'Calendario', href: 'calendar', icon: CalendarDays, permission: 'events_read' },
     { name: 'Reportes', href: 'reports', icon: AreaChart, permission: 'reports_read' },
   ];
@@ -585,11 +585,7 @@ function TenantLayout() {
         }
       }
 
-      if (
-        item.requiresVertical &&
-        !item.requiresVertical.includes(tenant?.vertical) &&
-        !tenant?.enabledModules?.[item.requiresModule]
-      ) {
+      if (item.requiresVertical && !item.requiresVertical.includes(tenant?.vertical)) {
         return null;
       }
 
@@ -950,6 +946,11 @@ function TenantLayout() {
                 <Route path="bank-accounts" element={<BankAccountsManagement />} />
                 <Route path="bank-accounts/:accountId/reconciliation" element={<BankReconciliationView />} />
                 <Route path="organizations" element={<OrganizationsManagement />} />
+                <Route path="receivables" element={
+                  <CrmProvider>
+                    <PaymentsManagementDashboard />
+                  </CrmProvider>
+                } />
                 <Route path="appointments" element={
                   <CrmProvider>
                     <AppointmentsManagement />

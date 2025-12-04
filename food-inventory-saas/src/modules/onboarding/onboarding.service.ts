@@ -65,9 +65,7 @@ export class OnboardingService {
 
     let savedTenant: TenantDocument | undefined;
     let savedUser: UserDocument | undefined;
-    let savedMembership:
-      | UserTenantMembershipDocument
-      | undefined;
+    let savedMembership: UserTenantMembershipDocument | undefined;
 
     const session = await this.connection.startSession();
 

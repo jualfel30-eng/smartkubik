@@ -96,7 +96,9 @@ export class PayrollEmployeesController {
   @Get(":id/documents")
   @UseGuards(PermissionsGuard)
   @Permissions("payroll_employees_read")
-  @ApiOperation({ summary: "Descargar documento laboral (carta/ingresos) en PDF" })
+  @ApiOperation({
+    summary: "Descargar documento laboral (carta/ingresos) en PDF",
+  })
   async downloadDocument(
     @Request() req,
     @Param("id") employeeId: string,

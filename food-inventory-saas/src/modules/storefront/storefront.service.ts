@@ -101,9 +101,7 @@ export class StorefrontService {
     if (!config) {
       // Si no hay configuración, devolver dominio sugerido
       const suggestedDomain = await this.getSuggestedDomain(tenantId);
-      throw new NotFoundException(
-        JSON.stringify({ suggestedDomain }),
-      );
+      throw new NotFoundException(JSON.stringify({ suggestedDomain }));
     }
 
     // Siempre incluir el dominio sugerido en la respuesta
@@ -437,7 +435,7 @@ export class StorefrontService {
       throw new BadRequestException("Tenant no encontrado");
     }
 
-    let baseDomain = this.sanitizeDomainName(tenant.name);
+    const baseDomain = this.sanitizeDomainName(tenant.name);
     let suggestedDomain = baseDomain;
     let counter = 1;
 

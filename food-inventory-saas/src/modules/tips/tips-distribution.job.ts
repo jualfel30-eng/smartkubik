@@ -78,12 +78,11 @@ export class TipsDistributionJob {
       // Process each tenant
       for (const tenant of tenants) {
         try {
-          this.logger.log(
-            `Processing tenant: ${tenant.name} (${tenant._id})`,
-          );
+          this.logger.log(`Processing tenant: ${tenant.name} (${tenant._id})`);
 
           // Check if tenant has automatic distribution enabled
-          const autoDistribute = (tenant as any).settings?.tips?.autoDistribute ?? false;
+          const autoDistribute =
+            (tenant as any).settings?.tips?.autoDistribute ?? false;
           if (!autoDistribute) {
             this.logger.log(
               `Tenant ${tenant.name} does not have automatic distribution enabled. Skipping.`,
@@ -92,9 +91,10 @@ export class TipsDistributionJob {
           }
 
           // Find active distribution rule for this tenant
-          const distributionRule = await this.tipsService.findActiveDistributionRule(
-            tenant._id.toString(),
-          );
+          const distributionRule =
+            await this.tipsService.findActiveDistributionRule(
+              tenant._id.toString(),
+            );
 
           if (!distributionRule) {
             this.logger.warn(
@@ -132,9 +132,7 @@ export class TipsDistributionJob {
 
       const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
-      this.logger.log(
-        `✅ Tips distribution job completed in ${duration}s`,
-      );
+      this.logger.log(`✅ Tips distribution job completed in ${duration}s`);
       this.logger.log(
         `   Tenants processed: ${totalTenantsProcessed} | Total distributed: $${totalTipsDistributed.toFixed(2)} | Employees: ${totalEmployees} | Errors: ${totalErrors}`,
       );
@@ -168,9 +166,8 @@ export class TipsDistributionJob {
       // If no distribution rule provided, find active one
       let ruleId = distributionRuleId;
       if (!ruleId) {
-        const activeRule = await this.tipsService.findActiveDistributionRule(
-          tenantId,
-        );
+        const activeRule =
+          await this.tipsService.findActiveDistributionRule(tenantId);
         if (!activeRule) {
           throw new Error("No active distribution rule found for this tenant");
         }

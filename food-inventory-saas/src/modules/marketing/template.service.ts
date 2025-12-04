@@ -206,10 +206,7 @@ export class TemplateService {
   /**
    * Render template with context (replace variables)
    */
-  renderTemplate(
-    htmlContent: string,
-    context: Record<string, any>,
-  ): string {
+  renderTemplate(htmlContent: string, context: Record<string, any>): string {
     let rendered = htmlContent;
 
     // Replace {{variable}} with context values
@@ -269,17 +266,13 @@ export class TemplateService {
 
     for (const extractedVar of extractedVars) {
       if (!declaredVars.includes(extractedVar)) {
-        warnings.push(
-          `Variable {{${extractedVar}}} is used but not declared`,
-        );
+        warnings.push(`Variable {{${extractedVar}}} is used but not declared`);
       }
     }
 
     for (const declaredVar of declaredVars) {
       if (!extractedVars.includes(declaredVar)) {
-        warnings.push(
-          `Variable ${declaredVar} is declared but not used`,
-        );
+        warnings.push(`Variable ${declaredVar} is declared but not used`);
       }
     }
 
@@ -307,10 +300,7 @@ export class TemplateService {
   /**
    * Increment usage count when template is used
    */
-  async incrementUsage(
-    tenantId: string,
-    templateId: string,
-  ): Promise<void> {
+  async incrementUsage(tenantId: string, templateId: string): Promise<void> {
     await this.templateModel
       .findOneAndUpdate(
         {

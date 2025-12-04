@@ -70,8 +70,7 @@ export class SendReservationReminderJob {
               reservationDateTime.setHours(parseInt(hours), parseInt(minutes));
 
               const hoursUntilReservation = Math.floor(
-                (reservationDateTime.getTime() - Date.now()) /
-                  (1000 * 60 * 60),
+                (reservationDateTime.getTime() - Date.now()) / (1000 * 60 * 60),
               );
 
               // Enviar email de recordatorio

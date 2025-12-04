@@ -47,6 +47,7 @@ export class BankReconciliationController {
       dto,
       file,
       req.user.tenantId,
+      req.user,
     );
     return {
       success: true,
@@ -60,6 +61,7 @@ export class BankReconciliationController {
     const transaction = await this.bankReconciliationService.manualReconcile(
       dto,
       req.user.tenantId,
+      req.user,
     );
     return {
       success: true,

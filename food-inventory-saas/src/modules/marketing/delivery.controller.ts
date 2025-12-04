@@ -75,10 +75,7 @@ export class DeliveryController {
    */
   @Get()
   async findAll(@Query() query: GetDeliveriesQueryDto, @Request() req) {
-    const result = await this.deliveryService.findAll(
-      req.user.tenantId,
-      query,
-    );
+    const result = await this.deliveryService.findAll(req.user.tenantId, query);
 
     return {
       success: true,
@@ -97,10 +94,7 @@ export class DeliveryController {
    */
   @Get(":id")
   async findById(@Param("id") id: string, @Request() req) {
-    const delivery = await this.deliveryService.findById(
-      req.user.tenantId,
-      id,
-    );
+    const delivery = await this.deliveryService.findById(req.user.tenantId, id);
 
     return {
       success: true,

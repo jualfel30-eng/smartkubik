@@ -22,6 +22,7 @@ import {
   BankTransaction,
   BankTransactionSchema,
 } from "../../schemas/bank-transaction.schema";
+import { Payment, PaymentSchema } from "../../schemas/payment.schema";
 import { BankTransactionsService } from "./bank-transactions.service";
 import { BankTransactionsController } from "./bank-transactions.controller";
 import { BankTransfersController } from "./bank-transfers.controller";
@@ -37,6 +38,7 @@ import { EventsModule } from "../events/events.module";
       { name: BankStatement.name, schema: BankStatementSchema },
       { name: Tenant.name, schema: TenantSchema },
       { name: BankTransaction.name, schema: BankTransactionSchema },
+      { name: Payment.name, schema: PaymentSchema },
     ]),
     AuthModule,
     PermissionsModule,

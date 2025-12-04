@@ -1,3 +1,5 @@
+import { CustomConversionRule } from './unit-types';
+
 // Product Types
 export enum ProductType {
   SIMPLE = "simple",
@@ -13,7 +15,15 @@ export interface ConsumableConfig {
   isReusable: boolean;
   isAutoDeducted: boolean;
   defaultQuantityPerUse: number;
-  unitOfMeasure: string;
+  // UnitType integration
+  unitTypeId?: string;
+  defaultUnit?: string;
+  purchaseUnit?: string;
+  stockUnit?: string;
+  consumptionUnit?: string;
+  customConversions?: CustomConversionRule[];
+  // Legacy field
+  unitOfMeasure?: string; // DEPRECATED
   notes?: string;
   isActive: boolean;
   tenantId: string;
@@ -27,7 +37,15 @@ export interface CreateConsumableConfigDto {
   isReusable?: boolean;
   isAutoDeducted?: boolean;
   defaultQuantityPerUse?: number;
-  unitOfMeasure?: string;
+  // UnitType integration
+  unitTypeId?: string;
+  defaultUnit?: string;
+  purchaseUnit?: string;
+  stockUnit?: string;
+  consumptionUnit?: string;
+  customConversions?: CustomConversionRule[];
+  // Legacy field
+  unitOfMeasure?: string; // DEPRECATED
   notes?: string;
 }
 
@@ -36,7 +54,15 @@ export interface UpdateConsumableConfigDto {
   isReusable?: boolean;
   isAutoDeducted?: boolean;
   defaultQuantityPerUse?: number;
-  unitOfMeasure?: string;
+  // UnitType integration
+  unitTypeId?: string;
+  defaultUnit?: string;
+  purchaseUnit?: string;
+  stockUnit?: string;
+  consumptionUnit?: string;
+  customConversions?: CustomConversionRule[];
+  // Legacy field
+  unitOfMeasure?: string; // DEPRECATED
   notes?: string;
   isActive?: boolean;
 }
@@ -98,7 +124,15 @@ export interface SupplyConfig {
   requiresAuthorization: boolean;
   usageDepartment?: string;
   estimatedMonthlyConsumption?: number;
-  unitOfMeasure: string;
+  // UnitType integration
+  unitTypeId?: string;
+  defaultUnit?: string;
+  purchaseUnit?: string;
+  stockUnit?: string;
+  consumptionUnit?: string;
+  customConversions?: CustomConversionRule[];
+  // Legacy field
+  unitOfMeasure?: string; // DEPRECATED
   safetyInfo?: SafetyInfo;
   notes?: string;
   isActive: boolean;
@@ -115,7 +149,15 @@ export interface CreateSupplyConfigDto {
   requiresAuthorization?: boolean;
   usageDepartment?: string;
   estimatedMonthlyConsumption?: number;
-  unitOfMeasure?: string;
+  // UnitType integration
+  unitTypeId?: string;
+  defaultUnit?: string;
+  purchaseUnit?: string;
+  stockUnit?: string;
+  consumptionUnit?: string;
+  customConversions?: CustomConversionRule[];
+  // Legacy field
+  unitOfMeasure?: string; // DEPRECATED
   safetyInfo?: SafetyInfo;
   notes?: string;
 }
@@ -127,7 +169,15 @@ export interface UpdateSupplyConfigDto {
   requiresAuthorization?: boolean;
   usageDepartment?: string;
   estimatedMonthlyConsumption?: number;
-  unitOfMeasure?: string;
+  // UnitType integration
+  unitTypeId?: string;
+  defaultUnit?: string;
+  purchaseUnit?: string;
+  stockUnit?: string;
+  consumptionUnit?: string;
+  customConversions?: CustomConversionRule[];
+  // Legacy field
+  unitOfMeasure?: string; // DEPRECATED
   safetyInfo?: SafetyInfo;
   notes?: string;
   isActive?: boolean;

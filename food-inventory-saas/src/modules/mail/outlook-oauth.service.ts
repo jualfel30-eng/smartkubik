@@ -19,8 +19,7 @@ export class OutlookOAuthService {
     @InjectModel(Tenant.name)
     private readonly tenantModel: Model<TenantDocument>,
   ) {
-    this.clientId =
-      this.configService.get<string>("MICROSOFT_CLIENT_ID") || "";
+    this.clientId = this.configService.get<string>("MICROSOFT_CLIENT_ID") || "";
     this.clientSecret =
       this.configService.get<string>("MICROSOFT_CLIENT_SECRET") || "";
     this.redirectUri = `${this.configService.get<string>("API_BASE_URL")}/api/v1/email-config/outlook/callback`;
@@ -186,10 +185,7 @@ export class OutlookOAuthService {
       );
 
       // Si el token expiró, intentar refrescar
-      if (
-        error.statusCode === 401 ||
-        error.message?.includes("Unauthorized")
-      ) {
+      if (error.statusCode === 401 || error.message?.includes("Unauthorized")) {
         this.logger.log(
           `Refreshing Outlook tokens for tenant ${tenantId} and retrying`,
         );

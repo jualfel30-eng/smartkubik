@@ -25,31 +25,31 @@ const BUSINESS_VERTICALS = {
     label: 'Restaurantes y Servicios de Comida',
     description: 'Restaurantes, cafeterías, catering, food trucks',
     icon: '🍽️',
-    recommendedModules: ['restaurant', 'tables', 'kitchenDisplay', 'menuEngineering', 'tips', 'reservations', 'recipes', 'orders', 'inventory', 'customers', 'payroll']
+    recommendedModules: ['restaurant', 'tables', 'kitchenDisplay', 'menuEngineering', 'tips', 'reservations', 'recipes', 'orders', 'inventory', 'customers', 'payroll', 'payments']
   },
   RETAIL: {
     label: 'Retail / Tiendas',
     description: 'Tiendas minoristas, supermercados, comercios',
     icon: '🏪',
-    recommendedModules: ['pos', 'variants', 'ecommerce', 'inventory', 'orders', 'customers', 'payroll']
+    recommendedModules: ['pos', 'variants', 'ecommerce', 'inventory', 'orders', 'customers', 'payroll', 'payments']
   },
   SERVICES: {
     label: 'Servicios Profesionales',
     description: 'Salones de belleza, spas, consultorios, talleres',
     icon: '💼',
-    recommendedModules: ['appointments', 'resources', 'booking', 'servicePackages', 'customers', 'payroll', 'hr_core', 'time_and_attendance']
+    recommendedModules: ['appointments', 'resources', 'booking', 'servicePackages', 'customers', 'payroll', 'hr_core', 'time_and_attendance', 'payments']
   },
   LOGISTICS: {
     label: 'Logística y Distribución',
     description: 'Empresas de transporte, distribuidoras, almacenes',
     icon: '🚚',
-    recommendedModules: ['shipments', 'tracking', 'routes', 'fleet', 'warehousing', 'dispatch', 'inventory']
+    recommendedModules: ['shipments', 'tracking', 'routes', 'fleet', 'warehousing', 'dispatch', 'inventory', 'payments']
   },
   MANUFACTURING: {
     label: 'Fabricantes / Manufactura',
     description: 'Empresas de fabricación, producción industrial',
     icon: '🏭',
-    recommendedModules: ['production', 'bom', 'routing', 'workCenters', 'mrp', 'inventory', 'orders', 'customers', 'suppliers', 'accounting']
+    recommendedModules: ['production', 'bom', 'routing', 'workCenters', 'mrp', 'inventory', 'orders', 'customers', 'suppliers', 'accounting', 'payments']
   },
   MIXED: {
     label: 'Mixto / Personalizado',
@@ -63,7 +63,7 @@ const MODULE_GROUPS = {
   core: {
     title: 'Módulos Core',
     description: 'Funcionalidades básicas disponibles para todos',
-    modules: ['inventory', 'orders', 'customers', 'suppliers', 'reports', 'accounting', 'bankAccounts']
+    modules: ['inventory', 'orders', 'customers', 'suppliers', 'reports', 'accounting', 'bankAccounts', 'payments']
   },
   communication: {
     title: 'Comunicación & Marketing',
@@ -111,6 +111,7 @@ const MODULE_LABELS = {
   reports: 'Reportes',
   accounting: 'Contabilidad',
   bankAccounts: 'Cuentas Bancarias',
+  payments: 'Cobros',
   tables: 'Mesas',
   recipes: 'Recetas',
   kitchenDisplay: 'Display de Cocina',

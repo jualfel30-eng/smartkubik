@@ -25,10 +25,7 @@ export class PayrollWebhooksService {
       .lean();
   }
 
-  async upsertConfig(
-    tenantId: string,
-    payload: Partial<PayrollWebhookConfig>,
-  ) {
+  async upsertConfig(tenantId: string, payload: Partial<PayrollWebhookConfig>) {
     const result = await this.configModel.findOneAndUpdate(
       { tenantId: this.toObjectId(tenantId) },
       { $set: { ...payload, tenantId: this.toObjectId(tenantId) } },

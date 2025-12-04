@@ -20,11 +20,6 @@ import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
     OutlookOAuthService,
     ResendService,
   ],
-  exports: [
-    MailService,
-    GmailOAuthService,
-    OutlookOAuthService,
-    ResendService,
-  ],
+  exports: [MailService, GmailOAuthService, OutlookOAuthService, ResendService],
 })
 export class MailModule {}

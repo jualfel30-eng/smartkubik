@@ -36,6 +36,7 @@ import {
 import { FEATURES } from "../../config/features.config";
 import { parseBankStatement } from "../../utils/bank-statement.parser";
 import { BankAccountsService } from "../bank-accounts/bank-accounts.service";
+import { PaymentsService } from "../payments/payments.service";
 
 @Injectable()
 export class BankReconciliationService {
@@ -52,12 +53,14 @@ export class BankReconciliationService {
     private statementImportModel: Model<BankStatementImportDocument>,
     private readonly bankTransactionsService: BankTransactionsService,
     private readonly bankAccountsService: BankAccountsService,
+    private readonly paymentsService: PaymentsService,
   ) {}
 
   async importStatement(
     dto: ImportBankStatementDto,
     file: Express.Multer.File,
     tenantId: string,
+    user?: { id?: string; tenantId?: string },
   ) {
     if (!FEATURES.BANK_ACCOUNTS_RECONCILIATION) {
       throw new BadRequestException("Bank reconciliation feature disabled");
@@ -124,8 +127,43 @@ export class BankReconciliationService {
         };
         transaction.reconciliationStatus = "matched";
         await transaction.save();
+
+        if (transaction.paymentId) {
+          await this.safeReconcilePayment(
+            transaction.paymentId.toString(),
+            "matched",
+            tenantId,
+            user?.id,
+            transaction._id.toString(),
+          );
+        }
         matchedRows += 1;
       } else {
+        // Si había un pago conciliado previamente con mismo monto/fecha, reabrirlo (mismatch en extracto)
+        const previouslyMatched = await this.bankTransactionModel.findOne({
+          bankAccountId: bankAccountObjectId,
+          tenantId: tenantObjectId,
+          amount: row.amount,
+          transactionDate,
+          reconciled: true,
+        });
+        if (previouslyMatched) {
+          previouslyMatched.reconciled = false;
+          previouslyMatched.reconciledAt = undefined;
+          previouslyMatched.reconciliationStatus = "pending";
+          previouslyMatched.statementImportId = undefined;
+          await previouslyMatched.save();
+          if (previouslyMatched.paymentId) {
+            await this.safeReconcilePayment(
+              previouslyMatched.paymentId.toString(),
+              "pending",
+              tenantId,
+              user?.id,
+              undefined,
+            );
+          }
+        }
+
         unmatched.push({
           statementImportId: statementImport._id,
           transactionDate: transactionDate.toISOString(),
@@ -161,7 +199,11 @@ export class BankReconciliationService {
     };
   }
 
-  async manualReconcile(dto: ManualReconcileDto, tenantId: string) {
+  async manualReconcile(
+    dto: ManualReconcileDto,
+    tenantId: string,
+    user?: { id?: string },
+  ) {
     const transaction = await this.bankTransactionModel.findOne({
       _id: new Types.ObjectId(dto.transactionId),
       tenantId: new Types.ObjectId(tenantId),
@@ -191,6 +233,17 @@ export class BankReconciliationService {
     };
 
     await transaction.save();
+
+    if (transaction.paymentId) {
+      await this.safeReconcilePayment(
+        transaction.paymentId.toString(),
+        "manual",
+        tenantId,
+        user?.id,
+        transaction._id.toString(),
+        dto.bankReference,
+      );
+    }
 
     if (transaction.statementImportId) {
       const statementImport = await this.statementImportModel.findById(
@@ -537,5 +590,30 @@ export class BankReconciliationService {
       { _id: reconciliation.bankStatementId },
       { $set: { status: "reconciled" } },
     );
+  }
+
+  private async safeReconcilePayment(
+    paymentId: string,
+    status: "matched" | "pending" | "manual" | "rejected",
+    tenantId: string,
+    userId?: string,
+    statementRef?: string,
+    note?: string,
+  ) {
+    try {
+      await this.paymentsService.reconcile(
+        paymentId,
+        status as any,
+        { tenantId, id: userId ?? "system" } as any,
+        statementRef,
+        note,
+      );
+    } catch (error) {
+      // No interrumpir la importación / conciliación por fallos de sincronización con pagos
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[BankReconciliation] No se pudo sincronizar la conciliación del pago ${paymentId}: ${error.message}`,
+      );
+    }
   }
 }

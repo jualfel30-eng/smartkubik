@@ -365,9 +365,7 @@ export class MarketingService {
           customerEmail: channel === "email" ? contact : null,
           customerPhone: channel === "sms" ? contact : null,
           whatsappChatId:
-            channel === "whatsapp"
-              ? customer.whatsappChatId || contact
-              : null,
+            channel === "whatsapp" ? customer.whatsappChatId || contact : null,
         },
         {
           engagementDelta: 3,
@@ -413,8 +411,7 @@ export class MarketingService {
       case "sms":
       case "whatsapp":
         const phoneContact = customer.contacts.find(
-          (c: any) =>
-            (c.type === "phone" || c.type === "mobile") && c.isActive,
+          (c: any) => (c.type === "phone" || c.type === "mobile") && c.isActive,
         );
         return phoneContact?.value || customer.whatsappNumber || null;
 

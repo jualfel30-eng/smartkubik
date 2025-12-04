@@ -138,9 +138,7 @@ export class WhatsAppService {
       .exec();
 
     if (!template) {
-      throw new NotFoundException(
-        `WhatsApp template ${templateId} not found`,
-      );
+      throw new NotFoundException(`WhatsApp template ${templateId} not found`);
     }
 
     return template;
@@ -190,9 +188,7 @@ export class WhatsAppService {
       .exec();
 
     if (result.deletedCount === 0) {
-      throw new NotFoundException(
-        `WhatsApp template ${templateId} not found`,
-      );
+      throw new NotFoundException(`WhatsApp template ${templateId} not found`);
     }
 
     this.logger.log(`WhatsApp template ${templateId} deleted`);

@@ -155,7 +155,10 @@ export class ResendService {
   /**
    * Validar API key enviando request a Resend
    */
-  private async validateApiKey(apiKey: string, fromEmail: string): Promise<void> {
+  private async validateApiKey(
+    apiKey: string,
+    fromEmail: string,
+  ): Promise<void> {
     // Hacer una llamada simple a la API de Resend para validar el API key
     // Podríamos usar el endpoint /emails para hacer un test, pero mejor usar /domains o similar
     return new Promise((resolve, reject) => {

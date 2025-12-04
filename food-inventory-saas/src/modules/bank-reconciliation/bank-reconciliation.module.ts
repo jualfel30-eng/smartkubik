@@ -23,6 +23,7 @@ import {
   BankStatementImport,
   BankStatementImportSchema,
 } from "../../schemas/bank-statement-import.schema";
+import { PaymentsModule } from "../payments/payments.module";
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import {
       { name: BankStatementImport.name, schema: BankStatementImportSchema },
     ]),
     BankAccountsModule,
+    PaymentsModule,
   ],
   controllers: [BankReconciliationController],
   providers: [BankReconciliationService],

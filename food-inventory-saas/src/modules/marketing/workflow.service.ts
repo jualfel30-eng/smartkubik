@@ -212,7 +212,10 @@ export class WorkflowService {
       );
     }
 
-    await this.workflowModel.deleteOne({ _id: workflow._id });
+    await this.workflowModel.deleteOne({
+      _id: workflow._id,
+      tenantId: new Types.ObjectId(tenantId),
+    });
 
     this.logger.log(`Deleted workflow ${workflowId}`);
   }

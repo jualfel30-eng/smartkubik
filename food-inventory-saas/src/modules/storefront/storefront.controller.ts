@@ -251,7 +251,9 @@ export class StorefrontController {
       new ParseFilePipe({
         validators: [
           new MaxFileSizeValidator({ maxSize: 2 * 1024 * 1024 }), // 2MB
-          new FileTypeValidator({ fileType: /image\/(png|jpeg|jpg|svg\+xml|webp)/ }),
+          new FileTypeValidator({
+            fileType: /image\/(png|jpeg|jpg|svg\+xml|webp)/,
+          }),
         ],
       }),
     )

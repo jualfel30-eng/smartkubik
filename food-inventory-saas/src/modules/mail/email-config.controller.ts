@@ -124,8 +124,7 @@ export class EmailConfigController {
       await this.gmailOAuthService.handleCallback(code, tenantId);
 
       // Redirect to frontend success page
-      const frontendUrl =
-        process.env.FRONTEND_URL || "http://localhost:5173";
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
       res.redirect(`${frontendUrl}/settings?emailConnected=gmail&success=true`);
     } catch (error) {
       this.logger.error(
@@ -133,8 +132,7 @@ export class EmailConfigController {
         error.stack,
       );
 
-      const frontendUrl =
-        process.env.FRONTEND_URL || "http://localhost:5173";
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
       res.redirect(
         `${frontendUrl}/settings?emailConnected=gmail&success=false&error=${encodeURIComponent(error.message)}`,
       );
@@ -188,8 +186,7 @@ export class EmailConfigController {
       await this.outlookOAuthService.handleCallback(code, tenantId);
 
       // Redirect to frontend success page
-      const frontendUrl =
-        process.env.FRONTEND_URL || "http://localhost:5173";
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
       res.redirect(
         `${frontendUrl}/settings?emailConnected=outlook&success=true`,
       );
@@ -199,8 +196,7 @@ export class EmailConfigController {
         error.stack,
       );
 
-      const frontendUrl =
-        process.env.FRONTEND_URL || "http://localhost:5173";
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
       res.redirect(
         `${frontendUrl}/settings?emailConnected=outlook&success=false&error=${encodeURIComponent(error.message)}`,
       );
@@ -339,7 +335,10 @@ export class EmailConfigController {
     try {
       const tenant = await this.tenantModel.findById(req.user.tenantId).exec();
 
-      if (!tenant?.emailConfig?.provider || tenant.emailConfig.provider === "none") {
+      if (
+        !tenant?.emailConfig?.provider ||
+        tenant.emailConfig.provider === "none"
+      ) {
         return {
           success: true,
           message: "No hay ningún proveedor de email configurado",

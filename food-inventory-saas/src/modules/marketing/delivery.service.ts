@@ -110,8 +110,7 @@ export class DeliveryService {
           context: delivery.metadata || {},
           customerEmail:
             delivery.channel === "email" ? delivery.recipient : null,
-          customerPhone:
-            delivery.channel === "sms" ? delivery.recipient : null,
+          customerPhone: delivery.channel === "sms" ? delivery.recipient : null,
           whatsappChatId:
             delivery.channel === "whatsapp" ? delivery.recipient : null,
         },
@@ -253,9 +252,7 @@ export class DeliveryService {
       }
     }
 
-    this.logger.log(
-      `Bulk send completed: ${queued} queued, ${failed} failed`,
-    );
+    this.logger.log(`Bulk send completed: ${queued} queued, ${failed} failed`);
 
     return { queued, failed, deliveryIds };
   }
@@ -508,10 +505,7 @@ export class DeliveryService {
   /**
    * Track email open (pixel tracking)
    */
-  async trackOpen(
-    tenantId: string,
-    deliveryId: string,
-  ): Promise<void> {
+  async trackOpen(tenantId: string, deliveryId: string): Promise<void> {
     await this.deliveryModel
       .findOneAndUpdate(
         {

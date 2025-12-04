@@ -17,11 +17,16 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 import { PaginationDto, PaginationHelper } from "../../dto/pagination.dto";
+import {
+  SanitizeString,
+  SanitizeText,
+} from "../../decorators/sanitize.decorator";
 
 // --- DTOs (definidos aquí temporalmente) ---
 
 class CreatePayableLineDto {
   @IsString()
+  @SanitizeString()
   description: string;
 
   @IsNumber()
@@ -61,6 +66,7 @@ export class CreatePayableDto {
   payeeId?: string;
 
   @IsString()
+  @SanitizeString()
   payeeName: string;
 
   @IsDateString()
@@ -72,6 +78,7 @@ export class CreatePayableDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   description?: string;
 
   @IsArray()
@@ -81,6 +88,7 @@ export class CreatePayableDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   notes?: string;
 
   @IsOptional()
@@ -109,6 +117,7 @@ export class UpdatePayableDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeString()
   payeeName?: string;
 
   @IsOptional()
@@ -121,6 +130,7 @@ export class UpdatePayableDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   description?: string;
 
   @IsOptional()
@@ -131,6 +141,7 @@ export class UpdatePayableDto {
 
   @IsOptional()
   @IsString()
+  @SanitizeText()
   notes?: string;
 
   @IsOptional()

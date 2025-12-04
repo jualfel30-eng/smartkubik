@@ -436,8 +436,7 @@ export class AccountingService {
       (sum, t) => sum + (t.amount || 0),
       0,
     );
-    const subtotal =
-      billing.totals?.subtotal ?? Math.max(total - taxTotal, 0);
+    const subtotal = billing.totals?.subtotal ?? Math.max(total - taxTotal, 0);
 
     const accountsReceivableAcc = await this.findAccountByCode(
       "1102",

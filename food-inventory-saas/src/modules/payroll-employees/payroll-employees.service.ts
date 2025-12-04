@@ -638,8 +638,14 @@ export class PayrollEmployeesService {
 
     const titleMap: Record<string, { es: string; en: string }> = {
       employment_letter: { es: "Carta de Trabajo", en: "Employment Letter" },
-      income_certificate: { es: "Constancia de Ingresos", en: "Income Certificate" },
-      seniority_letter: { es: "Constancia de Antigüedad", en: "Seniority Letter" },
+      income_certificate: {
+        es: "Constancia de Ingresos",
+        en: "Income Certificate",
+      },
+      seniority_letter: {
+        es: "Constancia de Antigüedad",
+        en: "Seniority Letter",
+      },
       fiscal_certificate: { es: "Constancia Fiscal", en: "Tax Certificate" },
     };
     const title =
@@ -656,8 +662,10 @@ export class PayrollEmployeesService {
 
     const contract = employee.currentContract || {};
     const name = employee.customer?.name || "Empleado";
-    const position = employee.position || contract.position || "Cargo no asignado";
-    const department = employee.department || contract.department || "Departamento";
+    const position =
+      employee.position || contract.position || "Cargo no asignado";
+    const department =
+      employee.department || contract.department || "Departamento";
     const startDate = contract.startDate
       ? formatDate(new Date(contract.startDate))
       : "Sin fecha";
@@ -673,9 +681,7 @@ export class PayrollEmployeesService {
     const companyAddress =
       options?.orgAddress ||
       employee.customer?.address ||
-      (language === "en"
-        ? "Company address"
-        : "Dirección de la empresa");
+      (language === "en" ? "Company address" : "Dirección de la empresa");
     const signer =
       options?.signerName ||
       (language === "en" ? "HR / Payroll" : "RRHH / Nómina");
@@ -704,7 +710,10 @@ export class PayrollEmployeesService {
       });
 
       doc.fontSize(16).text(company, { align: "left" });
-      doc.fontSize(10).fillColor("#555").text(companyAddress, { align: "left" });
+      doc
+        .fontSize(10)
+        .fillColor("#555")
+        .text(companyAddress, { align: "left" });
       doc.moveDown();
       doc.fillColor("#000").fontSize(18).text(title, { align: "center" });
       doc.moveDown();

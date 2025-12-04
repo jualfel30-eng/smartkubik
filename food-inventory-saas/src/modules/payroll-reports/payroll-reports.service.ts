@@ -1,7 +1,10 @@
 import { Injectable, BadRequestException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
-import { PayrollRun, PayrollRunDocument } from "../../schemas/payroll-run.schema";
+import {
+  PayrollRun,
+  PayrollRunDocument,
+} from "../../schemas/payroll-run.schema";
 import {
   EmployeeAbsenceRequest,
   EmployeeAbsenceRequestDocument,
@@ -27,10 +30,17 @@ export class PayrollReportsService {
     return id instanceof Types.ObjectId ? id : new Types.ObjectId(id);
   }
 
-  private buildDateMatch(filters: DateFilters, startField: string, endField?: string) {
+  private buildDateMatch(
+    filters: DateFilters,
+    startField: string,
+    endField?: string,
+  ) {
     const match: Record<string, any> = {};
     if (filters.from) {
-      match[startField] = { ...(match[startField] || {}), $gte: new Date(filters.from) };
+      match[startField] = {
+        ...(match[startField] || {}),
+        $gte: new Date(filters.from),
+      };
     }
     if (filters.to) {
       const field = endField || startField;
@@ -43,7 +53,10 @@ export class PayrollReportsService {
     const match: Record<string, any> = {
       tenantId: this.toObjectId(tenantId),
     };
-    Object.assign(match, this.buildDateMatch(filters, "periodStart", "periodEnd"));
+    Object.assign(
+      match,
+      this.buildDateMatch(filters, "periodStart", "periodEnd"),
+    );
     const pipeline: any[] = [{ $match: match }];
 
     const runs = await this.runModel.aggregate([
@@ -114,7 +127,10 @@ export class PayrollReportsService {
     const match: Record<string, any> = {
       tenantId: this.toObjectId(tenantId),
     };
-    Object.assign(match, this.buildDateMatch(filters, "periodStart", "periodEnd"));
+    Object.assign(
+      match,
+      this.buildDateMatch(filters, "periodStart", "periodEnd"),
+    );
 
     const pipeline: any[] = [
       { $match: match },
@@ -163,7 +179,8 @@ export class PayrollReportsService {
 
     const byLeaveType: Record<string, number> = {};
     absences.forEach((a) => {
-      byLeaveType[a.leaveType] = (byLeaveType[a.leaveType] || 0) + (a.totalDays || 0);
+      byLeaveType[a.leaveType] =
+        (byLeaveType[a.leaveType] || 0) + (a.totalDays || 0);
     });
     const byEmployee: Record<string, any> = {};
     absences.forEach((a) => {
@@ -177,7 +194,8 @@ export class PayrollReportsService {
       });
       row.totalDays += a.totalDays || 0;
       row.requests += 1;
-      row.leaveTypes[a.leaveType] = (row.leaveTypes[a.leaveType] || 0) + (a.totalDays || 0);
+      row.leaveTypes[a.leaveType] =
+        (row.leaveTypes[a.leaveType] || 0) + (a.totalDays || 0);
     });
 
     return {

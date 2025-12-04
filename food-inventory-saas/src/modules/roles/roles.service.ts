@@ -45,9 +45,11 @@ export class RolesService {
     return this.roleModel.find({ tenantId }).exec();
   }
 
-  async findAllWithPermissionsAndMetadata(
-    tenant: { _id: Types.ObjectId; enabledModules?: Record<string, boolean>; vertical?: string },
-  ): Promise<{
+  async findAllWithPermissionsAndMetadata(tenant: {
+    _id: Types.ObjectId;
+    enabledModules?: Record<string, boolean>;
+    vertical?: string;
+  }): Promise<{
     roles: Array<Record<string, any>>;
     availablePermissions: string[];
   }> {

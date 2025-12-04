@@ -1,8 +1,19 @@
-import { Injectable, Logger } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
+import { ConfigService } from "@nestjs/config";
 import { Customer, CustomerDocument } from "../../schemas/customer.schema";
+import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import { WhapiWebhookDto } from "../../dto/whapi.dto";
+import {
+  Configuration,
+  MessagesApi,
+  SendMessageTextRequest,
+} from "../../lib/whapi-sdk/whapi-sdk-typescript-fetch";
 
 @Injectable()
 export class WhapiService {
@@ -10,6 +21,8 @@ export class WhapiService {
 
   constructor(
     @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>,
+    @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
@@ -354,5 +367,316 @@ export class WhapiService {
       whatsappChatId: chatId,
       tenantId: new Types.ObjectId(tenantId),
     });
+  }
+
+  /**
+   * Send order confirmation via WhatsApp
+   * @param tenantId - Tenant ID
+   * @param customerPhone - Customer WhatsApp phone number
+   * @param orderData - Order information
+   */
+  async sendOrderConfirmation(
+    tenantId: string,
+    customerPhone: string,
+    orderData: {
+      orderNumber: string;
+      customerName: string;
+      totalAmount: number;
+      items: Array<{
+        productName: string;
+        quantity: number;
+        unitPrice: number;
+      }>;
+      shippingMethod?: string;
+      shippingAddress?: string;
+      notes?: string;
+    },
+  ): Promise<void> {
+    try {
+      // Normalize phone number (remove spaces, dashes, etc.)
+      const normalizedPhone = this.normalizePhoneNumber(customerPhone);
+
+      // Build confirmation message
+      const itemsList = orderData.items
+        .map(
+          (item) =>
+            `• ${item.productName} x${item.quantity} - $${item.unitPrice.toFixed(2)}`,
+        )
+        .join("\n");
+
+      let message = `¡Hola ${orderData.customerName}! 👋\n\n`;
+      message += `✅ Tu orden ha sido recibida exitosamente\n\n`;
+      message += `📋 *Orden #${orderData.orderNumber}*\n\n`;
+      message += `🛒 *Productos:*\n${itemsList}\n\n`;
+      message += `💰 *Total: $${orderData.totalAmount.toFixed(2)}*\n\n`;
+
+      if (orderData.shippingMethod) {
+        if (orderData.shippingMethod === "pickup") {
+          message += `📍 *Método:* Retiro en tienda\n\n`;
+        } else if (orderData.shippingMethod === "delivery") {
+          message += `🚚 *Método:* Envío a domicilio\n`;
+          if (orderData.shippingAddress) {
+            message += `📍 *Dirección:* ${orderData.shippingAddress}\n\n`;
+          }
+        }
+      }
+
+      if (orderData.notes) {
+        message += `📝 *Notas:* ${orderData.notes}\n\n`;
+      }
+
+      message += `Nos pondremos en contacto contigo pronto para coordinar la entrega. 📦\n\n`;
+      message += `¡Gracias por tu preferencia! 🙏`;
+
+      // Send message
+      await this.sendWhatsAppMessage(tenantId, normalizedPhone, message);
+
+      this.logger.log(
+        `Order confirmation sent to ${normalizedPhone} for order ${orderData.orderNumber}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to send order confirmation: ${error.message}`,
+        error.stack,
+      );
+      // Don't throw error to avoid blocking order creation
+    }
+  }
+
+  /**
+   * Send appointment/reservation confirmation via WhatsApp
+   * @param tenantId - Tenant ID
+   * @param customerPhone - Customer WhatsApp phone number
+   * @param appointmentData - Appointment information
+   */
+  async sendAppointmentConfirmation(
+    tenantId: string,
+    customerPhone: string,
+    appointmentData: {
+      confirmationCode?: string;
+      customerName: string;
+      serviceName?: string;
+      startTime: Date;
+      endTime: Date;
+      resourceName?: string;
+      location?: string;
+      notes?: string;
+      totalAmount?: number;
+      depositAmount?: number;
+    },
+  ): Promise<void> {
+    try {
+      // Normalize phone number
+      const normalizedPhone = this.normalizePhoneNumber(customerPhone);
+
+      // Format dates
+      const startDate = new Date(appointmentData.startTime);
+      const endDate = new Date(appointmentData.endTime);
+      const dateStr = startDate.toLocaleDateString("es-VE", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      const startTimeStr = startDate.toLocaleTimeString("es-VE", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      const endTimeStr = endDate.toLocaleTimeString("es-VE", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      // Build confirmation message
+      let message = `¡Hola ${appointmentData.customerName}! 👋\n\n`;
+      message += `✅ Tu reserva ha sido confirmada\n\n`;
+
+      if (appointmentData.confirmationCode) {
+        message += `🎫 *Código: ${appointmentData.confirmationCode}*\n\n`;
+      }
+
+      if (appointmentData.serviceName) {
+        message += `📋 *Servicio:* ${appointmentData.serviceName}\n`;
+      }
+
+      message += `📅 *Fecha:* ${dateStr}\n`;
+      message += `🕐 *Hora:* ${startTimeStr} - ${endTimeStr}\n`;
+
+      if (appointmentData.resourceName) {
+        message += `🏢 *Recurso:* ${appointmentData.resourceName}\n`;
+      }
+
+      if (appointmentData.location) {
+        message += `📍 *Ubicación:* ${appointmentData.location}\n`;
+      }
+
+      if (appointmentData.depositAmount && appointmentData.depositAmount > 0) {
+        message += `\n💰 *Depósito:* $${appointmentData.depositAmount.toFixed(2)}\n`;
+      }
+
+      if (appointmentData.totalAmount && appointmentData.totalAmount > 0) {
+        message += `💵 *Total:* $${appointmentData.totalAmount.toFixed(2)}\n`;
+      }
+
+      if (appointmentData.notes) {
+        message += `\n📝 *Notas:* ${appointmentData.notes}\n`;
+      }
+
+      message += `\n¡Te esperamos! 😊\n\n`;
+      message += `Si necesitas cancelar o reprogramar, por favor contáctanos con anticipación.`;
+
+      // Send message
+      await this.sendWhatsAppMessage(tenantId, normalizedPhone, message);
+
+      this.logger.log(
+        `Appointment confirmation sent to ${normalizedPhone} for appointment ${appointmentData.confirmationCode || "N/A"}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to send appointment confirmation: ${error.message}`,
+        error.stack,
+      );
+      // Don't throw error to avoid blocking appointment creation
+    }
+  }
+
+  /**
+   * Send a generic WhatsApp text message
+   * @param tenantId - Tenant ID
+   * @param recipientPhone - Recipient phone number (format: +58XXXXXXXXXX)
+   * @param message - Message text
+   */
+  async sendWhatsAppMessage(
+    tenantId: string,
+    recipientPhone: string,
+    message: string,
+  ): Promise<void> {
+    try {
+      // Get tenant to retrieve WhatsApp token
+      const tenant = await this.tenantModel.findById(tenantId);
+      if (!tenant) {
+        throw new Error(`Tenant ${tenantId} not found`);
+      }
+
+      // Resolve WhatsApp API token
+      const accessToken = await this.resolveWhapiToken(tenant);
+
+      // Send message via Whapi SDK
+      await this.dispatchWhatsAppTextMessage(
+        accessToken,
+        recipientPhone,
+        message,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to send WhatsApp message to ${recipientPhone}: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Resolve WhatsApp API token for a tenant
+   * @param tenant - Tenant document
+   * @returns WhatsApp API token
+   */
+  private async resolveWhapiToken(tenant: TenantDocument): Promise<string> {
+    // Try tenant-specific token first
+    if (tenant?.whapiToken?.trim()) {
+      return tenant.whapiToken.trim();
+    }
+
+    // Fallback to master token from environment variables
+    const masterToken = this.configService.get<string>("WHAPI_MASTER_TOKEN");
+
+    if (masterToken?.trim()) {
+      this.logger.warn(
+        `Tenant ${tenant.id} is missing a dedicated WhatsApp token. Falling back to WHAPI_MASTER_TOKEN from env.`,
+      );
+      return masterToken.trim();
+    }
+
+    throw new InternalServerErrorException(
+      "WhatsApp is not configured for this tenant.",
+    );
+  }
+
+  /**
+   * Dispatch WhatsApp text message via Whapi SDK with retry logic
+   * @param accessToken - Whapi API token
+   * @param recipientPhone - Recipient phone number
+   * @param body - Message text
+   */
+  private async dispatchWhatsAppTextMessage(
+    accessToken: string,
+    recipientPhone: string,
+    body: string,
+  ): Promise<void> {
+    const config = new Configuration({ accessToken });
+    const messagesApi = new MessagesApi(config);
+    const sendMessageTextRequest: SendMessageTextRequest = {
+      senderText: {
+        to: recipientPhone,
+        body,
+      },
+    };
+
+    const maxAttempts = 3;
+    const retryableErrors = new Set(["ETIMEDOUT", "ECONNRESET", "EPIPE"]);
+
+    let attempt = 0;
+    while (attempt < maxAttempts) {
+      attempt += 1;
+      try {
+        await messagesApi.sendMessageText(sendMessageTextRequest);
+        this.logger.log(
+          `Successfully sent message to ${recipientPhone} via Whapi SDK (attempt ${attempt})`,
+        );
+        return;
+      } catch (error) {
+        const code = (error as any)?.code;
+        const isRetryable = code && retryableErrors.has(code);
+
+        this.logger.warn(
+          `Attempt ${attempt} failed to send message to ${recipientPhone}: ${error.message} (code: ${code || "unknown"})`,
+        );
+
+        if (!isRetryable || attempt >= maxAttempts) {
+          this.logger.error(
+            `Failed to send message via Whapi SDK after ${attempt} attempt(s): ${error.message}`,
+            error.stack,
+          );
+          throw error;
+        }
+
+        const backoffMs = 2000 * attempt;
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      }
+    }
+  }
+
+  /**
+   * Normalize phone number to international format
+   * Removes spaces, dashes, parentheses, and ensures it starts with +
+   * @param phone - Phone number to normalize
+   * @returns Normalized phone number
+   */
+  private normalizePhoneNumber(phone: string): string {
+    // Remove all non-digit characters except +
+    let normalized = phone.replace(/[^\d+]/g, "");
+
+    // If it doesn't start with +, add it
+    if (!normalized.startsWith("+")) {
+      // If it starts with 58 (Venezuela), add +
+      if (normalized.startsWith("58")) {
+        normalized = "+" + normalized;
+      } else {
+        // Otherwise, assume Venezuela (+58)
+        normalized = "+58" + normalized;
+      }
+    }
+
+    return normalized;
   }
 }

@@ -200,20 +200,24 @@ export class PayrollRunsService {
     }
     if (nextStatus === "approved") {
       await this.approveRunInternal(run, tenantId, userId);
-      await this.webhooksService.dispatchEvent(tenantId, "payroll.run.approved", {
-        runId: run._id.toString(),
-        label: run.label,
-        periodStart: run.periodStart,
-        periodEnd: run.periodEnd,
-        totals: {
-          grossPay: run.grossPay,
-          deductions: run.deductions,
-          employerCosts: run.employerCosts,
-          netPay: run.netPay,
+      await this.webhooksService.dispatchEvent(
+        tenantId,
+        "payroll.run.approved",
+        {
+          runId: run._id.toString(),
+          label: run.label,
+          periodStart: run.periodStart,
+          periodEnd: run.periodEnd,
+          totals: {
+            grossPay: run.grossPay,
+            deductions: run.deductions,
+            employerCosts: run.employerCosts,
+            netPay: run.netPay,
+          },
+          employees: run.totalEmployees,
+          status: "approved",
         },
-        employees: run.totalEmployees,
-        status: "approved",
-      });
+      );
     } else if (nextStatus === "paid") {
       const before = { status: current };
       run.status = "paid";
@@ -1719,7 +1723,8 @@ export class PayrollRunsService {
           "Empleado";
 
         // Buscar o crear concepto de propinas
-        let tipsConcept = conceptByCode.get("TIPS") || conceptByCode.get("PROPINAS");
+        let tipsConcept =
+          conceptByCode.get("TIPS") || conceptByCode.get("PROPINAS");
 
         if (!tipsConcept) {
           // Si no existe, crear una entrada con metadatos para el concepto de propinas
@@ -2779,7 +2784,13 @@ export class PayrollRunsService {
 
   async listAudit(
     tenantId: string,
-    filters: { entity?: string; entityId?: string; from?: string; to?: string; limit?: number },
+    filters: {
+      entity?: string;
+      entityId?: string;
+      from?: string;
+      to?: string;
+      limit?: number;
+    },
   ) {
     const query: Record<string, any> = {
       tenantId: this.toObjectId(tenantId),

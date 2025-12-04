@@ -62,9 +62,7 @@ export class UpdateAffinityScoresJob {
       // Process each tenant
       for (const tenant of tenants) {
         try {
-          this.logger.log(
-            `Processing tenant: ${tenant.name} (${tenant._id})`,
-          );
+          this.logger.log(`Processing tenant: ${tenant.name} (${tenant._id})`);
 
           const result =
             await this.productAffinityService.recalculateAllAffinityScores(

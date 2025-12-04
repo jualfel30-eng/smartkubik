@@ -114,10 +114,7 @@ export class ProductsController {
 
   @Get("lookup/barcode/:barcode")
   @Permissions("products_read")
-  async findByBarcode(
-    @Param("barcode") barcode: string,
-    @Request() req,
-  ) {
+  async findByBarcode(@Param("barcode") barcode: string, @Request() req) {
     const result = await this.productsService.findByBarcode(
       barcode,
       req.user.tenantId,

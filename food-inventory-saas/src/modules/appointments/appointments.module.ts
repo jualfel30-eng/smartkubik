@@ -26,6 +26,7 @@ import { BankAccountsModule } from "../bank-accounts/bank-accounts.module";
 import { AccountingModule } from "../accounting/accounting.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { HospitalityIntegrationsModule } from "../hospitality-integrations/hospitality-integrations.module";
+import { WhapiModule } from "../whapi/whapi.module";
 import {
   AppointmentAudit,
   AppointmentAuditSchema,
@@ -68,6 +69,7 @@ const queueProviders =
     BankAccountsModule,
     AccountingModule,
     NotificationsModule,
+    forwardRef(() => WhapiModule),
     forwardRef(() => HospitalityIntegrationsModule),
   ],
   controllers: [

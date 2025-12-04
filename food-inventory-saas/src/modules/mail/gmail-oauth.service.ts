@@ -232,7 +232,7 @@ export class GmailOAuthService {
   ): string {
     const boundary = "boundary_" + Math.random().toString(36).substr(2);
 
-    let message = [
+    const message = [
       `From: ${from}`,
       `To: ${to}`,
       `Subject: ${subject}`,

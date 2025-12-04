@@ -60,10 +60,7 @@ export class TemplateController {
    */
   @Get()
   async findAll(@Query() query: GetTemplatesQueryDto, @Request() req) {
-    const result = await this.templateService.findAll(
-      req.user.tenantId,
-      query,
-    );
+    const result = await this.templateService.findAll(req.user.tenantId, query);
 
     return {
       success: true,
@@ -82,10 +79,7 @@ export class TemplateController {
    */
   @Get(":id")
   async findById(@Param("id") id: string, @Request() req) {
-    const template = await this.templateService.findById(
-      req.user.tenantId,
-      id,
-    );
+    const template = await this.templateService.findById(req.user.tenantId, id);
 
     return {
       success: true,
@@ -183,10 +177,7 @@ export class TemplateController {
    */
   @Post(":id/validate")
   async validate(@Param("id") id: string, @Request() req) {
-    const template = await this.templateService.findById(
-      req.user.tenantId,
-      id,
-    );
+    const template = await this.templateService.findById(req.user.tenantId, id);
 
     const validation = this.templateService.validateTemplate(template);
 
@@ -206,10 +197,7 @@ export class TemplateController {
     @Body() testDto: TestSendTemplateDto,
     @Request() req,
   ) {
-    const template = await this.templateService.findById(
-      req.user.tenantId,
-      id,
-    );
+    const template = await this.templateService.findById(req.user.tenantId, id);
 
     // Render template with sample context
     const context = {

@@ -23,6 +23,7 @@ export default function TenantEditForm({ tenant, onSave, onCancel }) {
         suppliers: false,
         reports: false,
         accounting: true,
+        payments: true,
         ...(tenant.enabledModules || {}),
       },
     };

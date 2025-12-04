@@ -11,10 +11,7 @@ import {
   ProductDocument,
   ProductType,
 } from "../../schemas/product.schema";
-import {
-  Inventory,
-  InventoryDocument,
-} from "../../schemas/inventory.schema";
+import { Inventory, InventoryDocument } from "../../schemas/inventory.schema";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import {
   CreateProductDto,
@@ -293,6 +290,35 @@ export class ProductsService {
       createProductDto.variants,
       user.tenantId,
     );
+
+    // VALIDATION: SIMPLE products should NOT use UnitConversion
+    // They should use SellingUnits instead
+    const productType = (createProductDto.productType ||
+      ProductType.SIMPLE) as ProductType;
+    if (
+      productType === ProductType.SIMPLE &&
+      (createProductDto as any).unitConversionConfig
+    ) {
+      throw new BadRequestException(
+        "Los productos SIMPLE deben usar SellingUnits, no UnitConversion. " +
+          "El sistema de conversión purchase/stock/consumption es solo para productos SUPPLY y CONSUMABLE.",
+      );
+    }
+
+    // VALIDATION: SUPPLY/CONSUMABLE should not have selling-specific fields during creation
+    // Those are configured after creation via dedicated configs
+    if (
+      [ProductType.SUPPLY, ProductType.CONSUMABLE].includes(productType) &&
+      createProductDto.hasMultipleSellingUnits &&
+      createProductDto.sellingUnits &&
+      createProductDto.sellingUnits.length > 1
+    ) {
+      this.logger.warn(
+        `Product ${createProductDto.sku} is SUPPLY/CONSUMABLE but has multiple selling units. ` +
+          `Consider using ProductConsumableConfig or ProductSupplyConfig instead.`,
+      );
+    }
+
     const productData = {
       ...createProductDto,
       isActive: true, // Explicitly set new products as active
@@ -638,6 +664,19 @@ export class ProductsService {
       user.tenantId,
       id,
     );
+
+    // VALIDATION: SIMPLE products should NOT use UnitConversion
+    // UpdateProductDto doesn't allow changing productType, so we use the existing one
+    const productType = productBeforeUpdate.productType;
+    if (
+      productType === ProductType.SIMPLE &&
+      (updateProductDto as any).unitConversionConfig
+    ) {
+      throw new BadRequestException(
+        "Los productos SIMPLE deben usar SellingUnits, no UnitConversion. " +
+          "El sistema de conversión purchase/stock/consumption es solo para productos SUPPLY y CONSUMABLE.",
+      );
+    }
 
     let newImagesSize = oldImagesSize;
     if ("variants" in updateProductDto) {

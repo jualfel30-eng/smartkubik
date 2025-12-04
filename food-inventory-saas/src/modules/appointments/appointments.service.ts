@@ -50,6 +50,7 @@ import { APPOINTMENT_DEPOSIT_ALERT_JOB } from "./queues/appointments.queue.const
 import { isFeatureEnabled } from "../../config/features.config";
 import { CalendarIntegrationService } from "../hospitality-integrations/calendar-integration.service";
 import { AppointmentAuditService } from "./appointment-audit.service";
+import { WhapiService } from "../whapi/whapi.service";
 
 @Injectable()
 export class AppointmentsService {
@@ -71,6 +72,7 @@ export class AppointmentsService {
     private readonly accountingService: AccountingService,
     private readonly calendarIntegrationService: CalendarIntegrationService,
     private readonly appointmentAuditService: AppointmentAuditService,
+    private readonly whapiService: WhapiService,
   ) {}
 
   private ensureProofWithinLimit(base64?: string): void {
@@ -503,6 +505,53 @@ export class AppointmentsService {
     this.logger.log(`Appointment created successfully: ${saved._id}`);
 
     await this.scheduleReminderIfEnabled(saved, tenantId, userId);
+
+    // Send WhatsApp confirmation (async, don't block response)
+    setImmediate(async () => {
+      try {
+        // Get customer phone number
+        const customerPhone =
+          customer.whatsappNumber ||
+          customer.contacts?.find(
+            (c) => c.type === "whatsapp" || c.type === "phone",
+          )?.value;
+
+        if (customerPhone) {
+          // Calculate deposit amount from depositRecords if available
+          const firstDeposit = (saved as any).depositRecords?.[0];
+          const depositAmount =
+            firstDeposit?.amount || firstDeposit?.confirmedAmount || 0;
+
+          await this.whapiService.sendAppointmentConfirmation(
+            tenantId,
+            customerPhone,
+            {
+              confirmationCode:
+                (saved as any).externalId ||
+                saved._id.toString().substring(0, 8).toUpperCase(),
+              customerName: customer.name || saved.customerName,
+              serviceName: saved.serviceName,
+              startTime: saved.startTime,
+              endTime: saved.endTime,
+              resourceName: saved.resourceName,
+              location: saved.locationName,
+              notes: saved.notes,
+              totalAmount: saved.servicePrice,
+              depositAmount,
+            },
+          );
+        } else {
+          this.logger.warn(
+            `No WhatsApp/phone number found for customer ${customer._id} - skipping appointment confirmation`,
+          );
+        }
+      } catch (error) {
+        this.logger.error(
+          `Failed to send WhatsApp appointment confirmation for appointment ${saved._id}: ${error.message}`,
+        );
+        // Don't throw - notification failure shouldn't break appointment creation
+      }
+    });
 
     const housekeepingUserId = await this.resolveUserObjectId(userId, tenantId);
     await this.scheduleHousekeepingTask({

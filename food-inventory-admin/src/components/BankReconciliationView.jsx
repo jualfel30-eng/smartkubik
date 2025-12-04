@@ -4,14 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useBankReconciliation } from '@/hooks/use-bank-reconciliation';
 import { fetchApi } from '@/lib/api';
 import { toast } from 'sonner';
-import { ArrowLeft, UploadCloud, Loader2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, UploadCloud, Loader2, CheckCircle, Info, ExternalLink } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/hooks/use-auth.jsx';
+import { ShieldAlert } from 'lucide-react';
 
 const resolveCurrency = (rawCurrency) => {
   const normalized = (rawCurrency || '').toString().trim().toUpperCase();
@@ -64,6 +67,13 @@ export default function BankReconciliationView() {
   const [isManualDialogOpen, setManualDialogOpen] = useState(false);
   const [selectedStatementMovement, setSelectedStatementMovement] = useState(null);
   const [selectedTransactionId, setSelectedTransactionId] = useState('');
+  const [reconcileLoading, setReconcileLoading] = useState({});
+  const [paymentNavigateLoading, setPaymentNavigateLoading] = useState({});
+  const [showReconciled, setShowReconciled] = useState(false);
+  const { user } = useAuth();
+  const canReconcile = Array.isArray(user?.permissions)
+    ? user.permissions.includes('payments_reconcile')
+    : false;
 
   const {
     isUploading,
@@ -73,8 +83,25 @@ export default function BankReconciliationView() {
     manualReconcile,
   } = useBankReconciliation(accountId);
 
+  const visibleRows = useMemo(() => {
+    const base = Array.isArray(transactions) ? transactions : [];
+    if (showReconciled) return base;
+    return base.filter(
+      (movement) =>
+        !movement.reconciliationStatus ||
+        movement.reconciliationStatus === 'pending',
+    );
+  }, [transactions, showReconciled]);
+
   const totals = useMemo(() => {
-    return pending.reduce(
+    const source = showReconciled
+      ? visibleRows
+      : visibleRows.filter(
+          (movement) =>
+            !movement.reconciliationStatus ||
+            movement.reconciliationStatus === 'pending',
+        );
+    return source.reduce(
       (acc, movement) => {
         const amount = Number(movement.amount || 0);
         if (amount >= 0) {
@@ -86,7 +113,7 @@ export default function BankReconciliationView() {
       },
       { deposits: 0, withdrawals: 0 },
     );
-  }, [pending]);
+  }, [visibleRows, showReconciled]);
 
   const loadAccount = async () => {
     if (!accountId) return;
@@ -113,12 +140,15 @@ export default function BankReconciliationView() {
     if (!accountId) return;
     setLoadingTransactions(true);
     try {
-      const params = new URLSearchParams({
+      const qs = {
         limit: '200',
-        reconciliationStatus: 'pending',
         sortField: 'transactionDate',
         sortOrder: 'desc',
-      }).toString();
+      };
+      if (!showReconciled) {
+        qs.reconciliationStatus = 'pending';
+      }
+      const params = new URLSearchParams(qs).toString();
       const response = await fetchApi(`/bank-accounts/${accountId}/movements?${params}`);
       const data = response.data || response || [];
       setTransactions(Array.isArray(data) ? data : data.data || []);
@@ -136,7 +166,7 @@ export default function BankReconciliationView() {
     loadAccount();
     loadTransactions();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountId]);
+  }, [accountId, showReconciled]);
 
   const handleFileChange = (event) => {
     const selected = event.target.files?.[0];
@@ -237,6 +267,63 @@ export default function BankReconciliationView() {
       form.currency,
   );
 
+  const handleMatchPayment = async (bankTxId, paymentId) => {
+    if (!paymentId) return;
+    if (!canReconcile) {
+      toast.error('No tienes permisos para conciliar pagos');
+      return;
+    }
+    setReconcileLoading((prev) => ({ ...prev, [bankTxId]: true }));
+    try {
+      await fetchApi(`/payments/${paymentId}/reconcile`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          status: 'matched',
+          statementRef: bankTxId,
+        }),
+      });
+      toast.success('Pago marcado como conciliado');
+      await loadTransactions();
+    } catch (error) {
+      toast.error('No se pudo conciliar el pago', { description: error.message });
+    } finally {
+      setReconcileLoading((prev) => ({ ...prev, [bankTxId]: false }));
+    }
+  };
+
+  const handleReopenPayment = async (bankTxId, paymentId) => {
+    if (!paymentId) return;
+    if (!canReconcile) {
+      toast.error('No tienes permisos para conciliar pagos');
+      return;
+    }
+    setReconcileLoading((prev) => ({ ...prev, [bankTxId]: true }));
+    try {
+      await fetchApi(`/payments/${paymentId}/reconcile`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          status: 'pending',
+          statementRef: null,
+        }),
+      });
+      toast.success('Conciliación reabierta a pendiente');
+      await loadTransactions();
+    } catch (error) {
+      toast.error('No se pudo reabrir la conciliación', { description: error.message });
+    } finally {
+      setReconcileLoading((prev) => ({ ...prev, [bankTxId]: false }));
+    }
+  };
+
+  const handleOpenPayment = (paymentId) => {
+    if (!paymentId) return;
+    setPaymentNavigateLoading((prev) => ({ ...prev, [paymentId]: true }));
+    navigate(`/receivables?tab=reports&paymentId=${paymentId}`);
+    setTimeout(() => {
+      setPaymentNavigateLoading((prev) => ({ ...prev, [paymentId]: false }));
+    }, 500);
+  };
+
   const handleBack = () => {
     navigate('/bank-accounts');
   };
@@ -253,6 +340,19 @@ export default function BankReconciliationView() {
           <p className="text-muted-foreground">
             Importa tu estado de cuenta y compara los movimientos con los registros del sistema.
           </p>
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <Label htmlFor="showReconciled" className="text-muted-foreground">
+            Ver conciliados
+          </Label>
+          <Button
+            id="showReconciled"
+            variant={showReconciled ? 'secondary' : 'outline'}
+            size="sm"
+            onClick={() => setShowReconciled((prev) => !prev)}
+          >
+            {showReconciled ? 'Mostrando todos' : 'Sólo pendientes'}
+          </Button>
         </div>
       </div>
 
@@ -400,8 +500,10 @@ export default function BankReconciliationView() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Movimientos pendientes por conciliar</CardTitle>
+        <CardHeader className="flex flex-col gap-2">
+          <CardTitle>
+            Movimientos {showReconciled ? 'pendientes y conciliados' : 'pendientes por conciliar'}
+          </CardTitle>
           <CardDescription>
             Coincide cada movimiento del estado de cuenta con un movimiento del sistema o regístralo manualmente.
           </CardDescription>
@@ -414,20 +516,27 @@ export default function BankReconciliationView() {
                   <TableHead>Fecha</TableHead>
                   <TableHead>Descripción</TableHead>
                   <TableHead>Referencia</TableHead>
-                  <TableHead className="text-right">Monto</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pending.length === 0 ? (
+                  <TableHead>Conciliación</TableHead>
+              <TableHead className="text-right">Monto</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+                {visibleRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
                       No hay movimientos pendientes. ¡Todo conciliado! 🎉
                     </TableCell>
                   </TableRow>
                 ) : (
-                  pending.map((movement) => (
-                    <TableRow key={movement.__key}>
+                  visibleRows.map((movement) => (
+                    <TableRow
+                      key={
+                        movement._id ||
+                        movement.__key ||
+                        `${movement.reference || 'unknown'}-${movement.amount || '0'}`
+                      }
+                    >
                       <TableCell>{formatDate(movement.transactionDate)}</TableCell>
                       <TableCell>
                         <div>
@@ -440,29 +549,116 @@ export default function BankReconciliationView() {
                         </div>
                       </TableCell>
                       <TableCell>{movement.reference || '-'}</TableCell>
-                      <TableCell className="text-right">
-                        <Badge
-                          variant={Number(movement.amount || 0) >= 0 ? 'success' : 'destructive'}
-                          className="text-base"
-                        >
-                          {formatCurrency(movement.amount, resolvedCurrency)}
-                        </Badge>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={
+                              (movement.reconciliationStatus || '').includes('matched')
+                                ? 'success'
+                                : 'secondary'
+                            }
+                          >
+                            {movement.reconciliationStatus || 'pending'}
+                          </Badge>
+                          {movement.paymentId ? (
+                            <Badge variant="outline">
+                              Pago #{movement.paymentId.substring(0, 6)}…
+                            </Badge>
+                          ) : null}
+                          {movement.statementTransactionId ? (
+                            <TooltipProvider delayDuration={100}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Info className="h-4 w-4 text-muted-foreground" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <div className="text-xs space-y-1">
+                                    <div>
+                                      <span className="font-medium">StatementRef:</span>{' '}
+                                      {movement.statementTransactionId}
+                                    </div>
+                                    <div>
+                                      <span className="font-medium">Conciliado:</span>{' '}
+                                      {formatDate(movement.reconciledAt)}
+                                    </div>
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : null}
+                        </div>
                       </TableCell>
-                      <TableCell className="text-right">
+              <TableCell className="text-right">
+                <Badge
+                  variant={Number(movement.amount || 0) >= 0 ? 'success' : 'destructive'}
+                  className="text-base"
+                >
+                  {formatCurrency(movement.amount, resolvedCurrency)}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-right">
+                <div className="flex justify-end gap-2 flex-wrap">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openManualDialog(movement)}
+                    disabled={loadingTransactions || !canReconcile}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Conciliar
+                  </Button>
+                  {movement.paymentId ? (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleOpenPayment(movement.paymentId)}
+                      >
+                        {paymentNavigateLoading[movement.paymentId] ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <ExternalLink className="h-4 w-4 mr-1" />
+                            Ver pago
+                          </>
+                        )}
+                      </Button>
+                      <div className="flex gap-2">
                         <Button
                           size="sm"
-                          variant="outline"
-                          onClick={() => openManualDialog(movement)}
-                          disabled={loadingTransactions}
+                          variant="secondary"
+                          onClick={() => handleMatchPayment(movement._id, movement.paymentId)}
+                          disabled={reconcileLoading[movement._id] || !canReconcile}
                         >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Conciliar
+                          {reconcileLoading[movement._id] ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            'Conciliar pago'
+                          )}
                         </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
+                        {(movement.reconciliationStatus || '').includes('matched') ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleReopenPayment(movement._id, movement.paymentId)}
+                            disabled={reconcileLoading[movement._id] || !canReconcile}
+                          >
+                            {reconcileLoading[movement._id] ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              'Reabrir'
+                            )}
+                          </Button>
+                        ) : null}
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              </TableCell>
+            </TableRow>
+          ))
+        )}
+      </TableBody>
             </Table>
           </div>
         </CardContent>
@@ -530,13 +726,22 @@ export default function BankReconciliationView() {
             </Button>
             <Button
               onClick={handleManualReconcile}
-              disabled={!selectedTransactionId || selectedTransactionId === '__empty'}
+              disabled={!selectedTransactionId || selectedTransactionId === '__empty' || !canReconcile}
             >
               Conciliar movimiento
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {!canReconcile ? (
+        <Card>
+          <CardContent className="flex items-center gap-2 text-sm text-muted-foreground">
+            <ShieldAlert className="h-4 w-4 text-amber-500" />
+            No tienes permisos para conciliar pagos. Solicita el permiso <code>payments_reconcile</code>.
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

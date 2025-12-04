@@ -18,8 +18,7 @@ import { fetchApi } from '../lib/api';
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
 import { useConsumables } from '@/hooks/useConsumables';
 import { useSupplies } from '@/hooks/useSupplies';
-import { useUnitConversions } from '@/hooks/useUnitConversions';
-import { UnitConversionDialog } from './UnitConversionDialog';
+import { UnitTypeFields } from './UnitTypes';
 import { BarcodeScannerDialog } from '@/components/BarcodeScannerDialog.jsx';
 import { CONSUMABLE_TYPES, SUPPLY_CATEGORIES } from '@/types/consumables';
 import { toast } from 'sonner';
@@ -36,8 +35,6 @@ import {
   X,
   Layers,
   Wrench,
-  Calculator,
-  Settings2,
   Scan
 } from 'lucide-react';
 
@@ -333,6 +330,12 @@ const initialNewProductState = {
   hasMultipleSellingUnits: false,
   sellingUnits: [],
   attributes: {},
+  // UnitType fields (Global UoM System)
+  unitTypeId: undefined,
+  defaultUnit: undefined,
+  purchaseUnit: undefined,
+  stockUnit: undefined,
+  consumptionUnit: undefined,
   // Consumable-specific fields
   consumableConfig: {
     consumableType: 'container',
@@ -425,15 +428,9 @@ function ProductsManagement() {
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [previewImageSrc, setPreviewImageSrc] = useState('');
 
-  // Estados para diálogo de unidades de medida
-  const [isUnitDialogOpen, setIsUnitDialogOpen] = useState(false);
-  const [unitConfig, setUnitConfig] = useState(null);
-  const [productForUnits, setProductForUnits] = useState(null);
-
   const verticalConfig = useVerticalConfig();
   const { createConsumableConfig } = useConsumables();
   const { createSupplyConfig } = useSupplies();
-  const { getConfigByProductId, createConfig, updateConfig } = useUnitConversions();
   const productAttributes = useMemo(
     () => (verticalConfig?.attributeSchema || []).filter((attr) => attr.scope === 'product'),
     [verticalConfig],
@@ -1029,62 +1026,6 @@ useEffect(() => {
     });
 
     return Object.keys(result).length > 0 ? result : undefined;
-  };
-
-  // Funciones para manejo de unidades de medida
-  const handleOpenUnitDialog = async () => {
-    if (!newProduct._id) {
-      // Si es un producto nuevo (aún no guardado), no tiene ID
-      // En este caso, guardaremos temporalmente el producto como mock
-      setProductForUnits({
-        _id: 'temp-id',
-        sku: newProduct.sku || 'TEMP-SKU',
-        name: newProduct.name || 'Nuevo Producto',
-      });
-      setUnitConfig(null);
-      setIsUnitDialogOpen(true);
-      return;
-    }
-
-    // Si el producto ya existe, cargar su configuración
-    try {
-      const config = await getConfigByProductId(newProduct._id);
-      setUnitConfig(config);
-      setProductForUnits({
-        _id: newProduct._id,
-        sku: newProduct.sku,
-        name: newProduct.name,
-      });
-      setIsUnitDialogOpen(true);
-    } catch (error) {
-      console.error('Error al cargar configuración de unidades:', error);
-      setUnitConfig(null);
-      setProductForUnits({
-        _id: newProduct._id,
-        sku: newProduct.sku,
-        name: newProduct.name,
-      });
-      setIsUnitDialogOpen(true);
-    }
-  };
-
-  const handleSaveUnitConfig = async (configData) => {
-    try {
-      if (unitConfig) {
-        // Actualizar configuración existente
-        await updateConfig(unitConfig._id, configData);
-      } else {
-        // Crear nueva configuración
-        await createConfig(configData);
-      }
-      // Cerrar diálogo
-      setIsUnitDialogOpen(false);
-      setUnitConfig(null);
-      setProductForUnits(null);
-    } catch (error) {
-      console.error('Error al guardar configuración de unidades:', error);
-      throw error;
-    }
   };
 
   const handleAddProduct = async () => {
@@ -2226,47 +2167,21 @@ useEffect(() => {
                   </div>
                 )}
 
-                {/* Sección de Unidades de Medida - Para todos los tipos de producto */}
-                <div className="col-span-2 border-t pt-4 mt-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <Settings2 className="h-5 w-5 text-primary" />
-                      <h4 className="text-lg font-medium">Unidades de Medida</h4>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleOpenUnitDialog}
-                      className="gap-2"
-                    >
-                      <Calculator className="h-4 w-4" />
-                      Configurar Conversiones
-                    </Button>
+                {/* Sistema Global de Unidades de Medida - Solo para CONSUMABLES y SUPPLIES */}
+                {(newProduct.productType === 'consumable' || newProduct.productType === 'supply') && (
+                  <div className="col-span-2 border-t pt-4 mt-4">
+                    <UnitTypeFields
+                      unitTypeId={newProduct.unitTypeId}
+                      defaultUnit={newProduct.defaultUnit}
+                      purchaseUnit={newProduct.purchaseUnit}
+                      stockUnit={newProduct.stockUnit}
+                      consumptionUnit={newProduct.consumptionUnit}
+                      onChange={(data) => setNewProduct({ ...newProduct, ...data })}
+                      showConversions={true}
+                      className="space-y-4"
+                    />
                   </div>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Configura conversiones de unidades para este producto (ej: cajas a unidades, kg a gramos).
-                    Esto permite comprar en una unidad, almacenar en otra, y consumir en otra diferente.
-                  </p>
-                  <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
-                    <div className="flex items-start gap-2">
-                      <div className="text-blue-600 dark:text-blue-400 mt-0.5">
-                        <Calculator className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1">
-                          Sistema de Conversión de Unidades (UoM)
-                        </p>
-                        <p className="text-xs text-blue-800 dark:text-blue-300">
-                          <strong>Unidad Base:</strong> {newProduct.unitOfMeasure || 'unidad'} - Es la unidad más pequeña en la que se registra el inventario.
-                        </p>
-                        <p className="text-xs text-blue-800 dark:text-blue-300 mt-1">
-                          <strong>Ejemplos:</strong> Compra en "caja de 24", almacena en "unidad", consume en "paquete de 3".
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                )}
 
                 {/* Descuentos solo para mercancía */}
                 {newProduct.productType === 'simple' && (
@@ -3409,21 +3324,6 @@ useEffect(() => {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-
-          {/* Diálogo de Configuración de Unidades */}
-          {productForUnits && (
-            <UnitConversionDialog
-              isOpen={isUnitDialogOpen}
-              onClose={() => {
-                setIsUnitDialogOpen(false);
-                setUnitConfig(null);
-                setProductForUnits(null);
-              }}
-              product={productForUnits}
-              existingConfig={unitConfig}
-              onSave={handleSaveUnitConfig}
-            />
-          )}
       </div>
       <Card>
         <CardHeader />

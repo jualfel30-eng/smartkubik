@@ -17,6 +17,10 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
   const [paymentMode, setPaymentMode] = useState('single');
   const [singlePayment, setSinglePayment] = useState({ method: '', reference: '', bankAccountId: '' });
   const [mixedPayments, setMixedPayments] = useState([]);
+  const buildIdempotencyKey = (ref) => {
+    if (!order?._id) return undefined;
+    return ref ? `${order._id}-${ref}` : `${order._id}-single`;
+  };
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bankAccounts, setBankAccounts] = useState([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
@@ -263,7 +267,10 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
         singlePaymentPayload.bankAccountId = singlePayment.bankAccountId;
       }
 
-      paymentsPayload.push(singlePaymentPayload);
+      paymentsPayload.push({
+        ...singlePaymentPayload,
+        idempotencyKey: buildIdempotencyKey(singlePayment.reference),
+      });
     } else {
       if (mixedPayments.length === 0) {
         toast.error('Añada al menos una línea de pago.');
@@ -301,7 +308,10 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
           payment.bankAccountId = p.bankAccountId;
         }
 
-        return payment;
+        return {
+          ...payment,
+          idempotencyKey: buildIdempotencyKey(p.reference || `mixed-${p.id}`),
+        };
       });
     }
 

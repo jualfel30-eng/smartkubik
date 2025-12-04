@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Checkbox } from './ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Trash2, Plus, Edit, Calendar, Filter, X, ChevronDown, ChevronUp, Archive } from 'lucide-react';
+import { Trash2, Plus, Edit, Calendar, Filter, X, ChevronDown, ChevronUp, Archive, GripVertical, ArrowUpDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar as CalendarUI } from './ui/calendar';
@@ -14,6 +14,7 @@ import { es } from 'date-fns/locale';
 import { Badge } from './ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Label } from './ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
 const TAG_OPTIONS = [
   { value: 'pagos', label: 'Pagos', color: 'bg-red-500' },
@@ -36,6 +37,9 @@ export function TodoList({ onTodoComplete }) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTodo, setEditingTodo] = useState(null);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [sortByPriority, setSortByPriority] = useState(true);
+  const [draggedTodo, setDraggedTodo] = useState(null);
+  const [customOrder, setCustomOrder] = useState([]);
 
   // Form state
   const [formTitle, setFormTitle] = useState('');
@@ -166,26 +170,109 @@ export function TodoList({ onTodoComplete }) {
   }, [todos, filterTag]);
 
   const pendingTodos = useMemo(() => {
-    return filteredTodos.filter(todo => !todo.isCompleted);
-  }, [filteredTodos]);
+    const pending = filteredTodos.filter(todo => !todo.isCompleted);
+
+    if (sortByPriority) {
+      // Ordenar por prioridad: high > medium > low
+      const priorityOrder = { high: 0, medium: 1, low: 2 };
+      return pending.sort((a, b) => {
+        const priorityA = priorityOrder[a.priority || 'medium'];
+        const priorityB = priorityOrder[b.priority || 'medium'];
+        return priorityA - priorityB;
+      });
+    } else if (customOrder.length > 0) {
+      // Ordenar por orden personalizado
+      return pending.sort((a, b) => {
+        const indexA = customOrder.indexOf(a._id);
+        const indexB = customOrder.indexOf(b._id);
+        if (indexA === -1 && indexB === -1) return 0;
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
+        return indexA - indexB;
+      });
+    }
+
+    return pending;
+  }, [filteredTodos, sortByPriority, customOrder]);
 
   const completedTodos = useMemo(() => {
     return filteredTodos.filter(todo => todo.isCompleted);
   }, [filteredTodos]);
 
+  const handleDragStart = (e, todo) => {
+    setDraggedTodo(todo);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, targetTodo) => {
+    e.preventDefault();
+    if (!draggedTodo || draggedTodo._id === targetTodo._id) return;
+
+    const newOrder = [...pendingTodos.map(t => t._id)];
+    const draggedIndex = newOrder.indexOf(draggedTodo._id);
+    const targetIndex = newOrder.indexOf(targetTodo._id);
+
+    // Reordenar
+    newOrder.splice(draggedIndex, 1);
+    newOrder.splice(targetIndex, 0, draggedTodo._id);
+
+    setCustomOrder(newOrder);
+    setSortByPriority(false); // Desactivar orden por prioridad
+    setDraggedTodo(null);
+  };
+
+  const toggleSortMode = () => {
+    if (sortByPriority) {
+      // Cambiar a orden manual
+      setCustomOrder(pendingTodos.map(t => t._id));
+      setSortByPriority(false);
+    } else {
+      // Volver a orden por prioridad
+      setSortByPriority(true);
+      setCustomOrder([]);
+    }
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle>Lista de Tareas</CardTitle>
-          <div className="flex items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filtrar
-                </Button>
-              </PopoverTrigger>
+    <TooltipProvider>
+      <Card className="h-full flex flex-col">
+        <CardHeader className="flex-shrink-0">
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle>Lista de Tareas</CardTitle>
+            <div className="flex items-center gap-1">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={toggleSortMode}
+                  >
+                    <ArrowUpDown className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{sortByPriority ? "Cambiar a orden manual" : "Ordenar por prioridad"}</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="icon">
+                        <Filter className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Filtrar por etiqueta</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </PopoverTrigger>
               <PopoverContent className="w-48">
                 <div className="space-y-2">
                   <p className="text-sm font-medium">Filtrar por etiqueta:</p>
@@ -206,14 +293,20 @@ export function TodoList({ onTodoComplete }) {
               </PopoverContent>
             </Popover>
 
-            <Button onClick={openNewTodoDialog} size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Nueva Tarea
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={openNewTodoDialog} size="icon">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Nueva tarea</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 overflow-y-auto">
         {loading && <p>Cargando tareas...</p>}
         {error && <p className="text-red-500">{error}</p>}
 
@@ -223,8 +316,18 @@ export function TodoList({ onTodoComplete }) {
             <p className="text-sm text-muted-foreground text-center py-4">No hay tareas pendientes</p>
           ) : (
             pendingTodos.map(todo => (
-              <div key={todo._id} className="flex flex-col space-y-1 p-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 border">
+              <div
+                key={todo._id}
+                draggable={!sortByPriority}
+                onDragStart={(e) => handleDragStart(e, todo)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, todo)}
+                className={`flex flex-col space-y-1 p-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 border ${!sortByPriority ? 'cursor-move' : ''} ${draggedTodo?._id === todo._id ? 'opacity-50' : ''}`}
+              >
                 <div className="flex items-center space-x-2">
+                  {!sortByPriority && (
+                    <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  )}
                   <Checkbox
                     id={todo._id}
                     checked={todo.isCompleted}
@@ -450,5 +553,6 @@ export function TodoList({ onTodoComplete }) {
         </Dialog>
       </CardContent>
     </Card>
+    </TooltipProvider>
   );
 }

@@ -294,10 +294,10 @@ export function CalendarView() {
   }) : [];
 
   return (
-    <div className="p-3 md:p-6 mx-auto max-w-[1800px]">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-3">
-          <Card className="dark:bg-gray-900 dark:border-gray-800">
+    <div className="p-3 md:p-6 mx-auto max-w-[1800px] h-[calc(100vh-8rem)]">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 h-full">
+        <div className="lg:col-span-3 h-full overflow-hidden">
+          <Card className="dark:bg-gray-900 dark:border-gray-800 h-full flex flex-col">
             <CardHeader>
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -320,32 +320,32 @@ export function CalendarView() {
                 </div>
               </div>
 
-              <Tabs value={view} onValueChange={setView} className="w-full">
-                <TabsList className="grid w-full max-w-md grid-cols-3">
-                  <TabsTrigger value="day">
-                    <CalendarDays className="h-4 w-4 mr-2" />
-                    Día
-                  </TabsTrigger>
-                  <TabsTrigger value="week">
-                    <CalendarRange className="h-4 w-4 mr-2" />
-                    Semana
-                  </TabsTrigger>
-                  <TabsTrigger value="month">
-                    <CalendarIcon className="h-4 w-4 mr-2" />
-                    Mes
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <div className="flex items-center justify-between gap-4">
+                <Tabs value={view} onValueChange={setView} className="flex-1">
+                  <TabsList className="grid w-full max-w-md grid-cols-3">
+                    <TabsTrigger value="day">
+                      <CalendarDays className="h-4 w-4 mr-2" />
+                      Día
+                    </TabsTrigger>
+                    <TabsTrigger value="week">
+                      <CalendarRange className="h-4 w-4 mr-2" />
+                      Semana
+                    </TabsTrigger>
+                    <TabsTrigger value="month">
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      Mes
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
 
-              <div className="mt-4">
-                <Button onClick={() => openCreateDialog()} className="w-full">
+                <Button onClick={() => openCreateDialog()}>
                   <Plus className="h-4 w-4 mr-2" />
                   Nuevo Evento
                 </Button>
               </div>
             </CardHeader>
 
-            <CardContent>
+            <CardContent className="flex-1 overflow-auto">
               {loading ? (
                 <div className="flex justify-center py-12">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -361,7 +361,7 @@ export function CalendarView() {
           </Card>
         </div>
 
-        <div>
+        <div className="h-full overflow-hidden">
           <TodoList onTodoComplete={fetchEvents} />
         </div>
       </div>

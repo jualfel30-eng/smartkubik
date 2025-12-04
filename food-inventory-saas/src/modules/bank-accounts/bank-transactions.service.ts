@@ -5,6 +5,7 @@ import {
   BankTransaction,
   BankTransactionDocument,
 } from "../../schemas/bank-transaction.schema";
+import { Payment, PaymentDocument } from "../../schemas/payment.schema";
 import {
   CreateBankTransactionDto,
   BankTransactionQueryDto,
@@ -19,6 +20,8 @@ export class BankTransactionsService {
   constructor(
     @InjectModel(BankTransaction.name)
     private readonly bankTransactionModel: Model<BankTransactionDocument>,
+    @InjectModel(Payment.name)
+    private readonly paymentModel: Model<PaymentDocument>,
   ) {}
 
   async findById(
@@ -120,35 +123,77 @@ export class BankTransactionsService {
     statementTransactionId: string,
     userId: string,
   ): Promise<void> {
-    await this.bankTransactionModel.findByIdAndUpdate(transactionId, {
-      $set: {
-        reconciliationStatus: "matched",
-        reconciliationId: new Types.ObjectId(reconciliationId),
-        statementTransactionId: new Types.ObjectId(statementTransactionId),
-        "metadata.reconciledBy": userId,
-        "metadata.reconciledAt": new Date(),
-        reconciled: true,
-        reconciledAt: new Date(),
-        importedFrom: "statement",
+    const tx = await this.bankTransactionModel.findByIdAndUpdate(
+      transactionId,
+      {
+        $set: {
+          reconciliationStatus: "matched",
+          reconciliationId: new Types.ObjectId(reconciliationId),
+          statementTransactionId: new Types.ObjectId(statementTransactionId),
+          "metadata.reconciledBy": userId,
+          "metadata.reconciledAt": new Date(),
+          reconciled: true,
+          reconciledAt: new Date(),
+          importedFrom: "statement",
+        },
       },
-    });
+      { new: true },
+    );
+
+    // Propagar conciliación al Payment ligado (si existe)
+    if (tx?.paymentId) {
+      await this.paymentModel.findByIdAndUpdate(tx.paymentId, {
+        $set: {
+          reconciliationStatus: "matched",
+          statementRef: statementTransactionId,
+          reconciledAt: new Date(),
+          reconciledBy: new Types.ObjectId(userId),
+        },
+        $push: {
+          statusHistory: {
+            status: "reconciliation:matched",
+            reason: "Conciliado desde BankReconciliation",
+            changedAt: new Date(),
+            changedBy: new Types.ObjectId(userId),
+          },
+        },
+      });
+    }
   }
 
   async markAsPending(transactionId: string): Promise<void> {
-    await this.bankTransactionModel.findByIdAndUpdate(transactionId, {
-      $set: {
-        reconciliationStatus: "pending",
-        reconciled: false,
+    const tx = await this.bankTransactionModel.findByIdAndUpdate(
+      transactionId,
+      {
+        $set: {
+          reconciliationStatus: "pending",
+          reconciled: false,
+        },
+        $unset: {
+          reconciliationId: 1,
+          statementTransactionId: 1,
+          "metadata.reconciledBy": 1,
+          "metadata.reconciledAt": 1,
+          reconciledAt: 1,
+          importedFrom: 1,
+        },
       },
-      $unset: {
-        reconciliationId: 1,
-        statementTransactionId: 1,
-        "metadata.reconciledBy": 1,
-        "metadata.reconciledAt": 1,
-        reconciledAt: 1,
-        importedFrom: 1,
-      },
-    });
+      { new: true },
+    );
+
+    if (tx?.paymentId) {
+      await this.paymentModel.findByIdAndUpdate(tx.paymentId, {
+        $set: { reconciliationStatus: "pending" },
+        $unset: { statementRef: 1, reconciledAt: 1, reconciledBy: 1 },
+        $push: {
+          statusHistory: {
+            status: "reconciliation:pending",
+            reason: "Se deshizo conciliación bancaria",
+            changedAt: new Date(),
+          },
+        },
+      });
+    }
   }
 
   async createTransfer(
