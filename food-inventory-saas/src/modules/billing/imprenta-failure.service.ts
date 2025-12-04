@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
-import { ImprentaFailure, ImprentaFailureDocument } from "../../schemas/imprenta-failure.schema";
+import {
+  ImprentaFailure,
+  ImprentaFailureDocument,
+} from "../../schemas/imprenta-failure.schema";
 import { ImprentaDigitalProvider } from "./imprenta-digital.provider";
 
 @Injectable()
@@ -28,39 +31,47 @@ export class ImprentaFailureService {
     if (!failures.length) {
       throw new NotFoundException("No se encontraron fallos para reintentar");
     }
-    const results = [];
+    const results: Array<{
+      id: any;
+      ok: boolean;
+      controlNumber?: string;
+      error?: string;
+    }> = [];
     for (const failure of failures) {
       try {
         const resp = await this.imprentaProvider.requestControlNumber({
           ...(failure.request as any),
           tenantId,
         });
-        results.push({ id: failure._id, ok: true, controlNumber: resp.controlNumber });
+        results.push({
+          id: failure._id,
+          ok: true,
+          controlNumber: resp.controlNumber,
+        });
         // Audit reintento exitoso
-        await this.failureModel.db
-          .collection("billingauditlogs")
-          .insertOne({
-            documentId: failure.documentId,
-            tenantId,
-            event: "retry_success",
-            payload: { controlNumber: resp.controlNumber, failureId: failure._id },
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
+        await this.failureModel.db.collection("billingauditlogs").insertOne({
+          documentId: failure.documentId,
+          tenantId,
+          event: "retry_success",
+          payload: {
+            controlNumber: resp.controlNumber,
+            failureId: failure._id,
+          },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
         await failure.deleteOne();
       } catch (err) {
         results.push({ id: failure._id, ok: false, error: err?.message });
         // Audit reintento fallido
-        await this.failureModel.db
-          .collection("billingauditlogs")
-          .insertOne({
-            documentId: failure.documentId,
-            tenantId,
-            event: "retry_failed",
-            payload: { error: err?.message, failureId: failure._id },
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
+        await this.failureModel.db.collection("billingauditlogs").insertOne({
+          documentId: failure.documentId,
+          tenantId,
+          event: "retry_failed",
+          payload: { error: err?.message, failureId: failure._id },
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
       }
     }
     return results;

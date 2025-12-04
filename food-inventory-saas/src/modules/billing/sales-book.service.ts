@@ -29,7 +29,7 @@ export class SalesBookService {
     channel?: "digital" | "machine_fiscal";
     from?: string;
     to?: string;
-    format?: "json" | "csv";
+    format?: "json" | "csv" | "pdf";
   }) {
     const channelFilter = channel || "digital";
     const sequences = await this.sequenceModel
@@ -69,7 +69,8 @@ export class SalesBookService {
         acc.total = (acc.total || 0) + (curr.total || 0);
         acc.count = (acc.count || 0) + 1;
         if (curr.type) {
-          acc.byType[curr.type] = (acc.byType[curr.type] || 0) + (curr.total || 0);
+          acc.byType[curr.type] =
+            (acc.byType[curr.type] || 0) + (curr.total || 0);
         }
         return acc;
       },

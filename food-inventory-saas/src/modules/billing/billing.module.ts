@@ -53,7 +53,12 @@ import { BillingAuditController } from "./billing-audit.controller";
       { name: ImprentaFailure.name, schema: ImprentaFailureSchema },
     ]),
   ],
-  controllers: [BillingController, ImprentaFailureController, BillingEvidencesController, BillingAuditController],
+  controllers: [
+    BillingController,
+    ImprentaFailureController,
+    BillingEvidencesController,
+    BillingAuditController,
+  ],
   providers: [
     BillingService,
     NumberingService,

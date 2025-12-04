@@ -13,8 +13,8 @@ import {
   CreateBillingDocumentDto,
   IssueBillingDocumentDto,
 } from "../../dto/billing.dto";
-import { PermissionsGuard } from "../permissions/permissions.guard";
-import { Permissions } from "../permissions/permissions.decorator";
+import { PermissionsGuard } from "../../guards/permissions.guard";
+import { Permissions } from "../../decorators/permissions.decorator";
 import { SalesBookService } from "./sales-book.service";
 import { Query } from "@nestjs/common";
 import { SalesBookPdfService } from "./sales-book-pdf.service";
@@ -32,10 +32,7 @@ export class BillingController {
   @Post("documents")
   @Permissions("billing_create")
   @ApiOperation({ summary: "Crear documento de facturación (draft)" })
-  async create(
-    @Body() dto: CreateBillingDocumentDto,
-    @Req() req: any,
-  ) {
+  async create(@Body() dto: CreateBillingDocumentDto, @Req() req: any) {
     return this.billingService.create(dto, req.user.tenantId);
   }
 

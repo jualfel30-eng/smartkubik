@@ -1,8 +1,14 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { DocumentSequence, DocumentSequenceDocument } from "../../schemas/document-sequence.schema";
+import {
+  DocumentSequence,
+  DocumentSequenceDocument,
+} from "../../schemas/document-sequence.schema";
 import { Model } from "mongoose";
 import { InjectModel } from "@nestjs/mongoose";
-import { SequenceLock, SequenceLockDocument } from "../../schemas/sequence-lock.schema";
+import {
+  SequenceLock,
+  SequenceLockDocument,
+} from "../../schemas/sequence-lock.schema";
 import { randomUUID } from "crypto";
 import { RedisLockService } from "./redis-lock.service";
 
@@ -33,7 +39,7 @@ export class NumberingService {
     const owner = randomUUID();
     let locked = false;
     let lockId: string | null = null;
-    let lockOwner = owner;
+    let lockOwner: string = owner;
 
     // Primero intentar redis (si disponible)
     if (this.redisLockService.hasClient()) {
@@ -53,7 +59,11 @@ export class NumberingService {
 
     // Fallback a lock Mongo si no se logró con redis
     if (!locked) {
-      for (let attempt = 1; attempt <= this.maxLockAttempts && !locked; attempt++) {
+      for (
+        let attempt = 1;
+        attempt <= this.maxLockAttempts && !locked;
+        attempt++
+      ) {
         const now = new Date();
         const lock = await this.lockModel.findOneAndUpdate(
           {
@@ -87,7 +97,9 @@ export class NumberingService {
       throw new Error("No se pudo adquirir lock de numeración");
     }
     let updated: DocumentSequenceDocument | null = null;
-    const session = await this.sequenceModel.db.startSession().catch(() => null);
+    const session = await this.sequenceModel.db
+      .startSession()
+      .catch(() => null);
 
     if (session) {
       try {

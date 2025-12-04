@@ -8,6 +8,10 @@ import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
 import { Order, OrderSchema } from "../../schemas/order.schema"; // <-- Add import
 import { AccountingModule } from "../accounting/accounting.module";
 import { BankAccountsModule } from "../bank-accounts/bank-accounts.module";
+import {
+  BankTransaction,
+  BankTransactionSchema,
+} from "../../schemas/bank-transaction.schema";
 
 @Module({
   imports: [
@@ -16,6 +20,7 @@ import { BankAccountsModule } from "../bank-accounts/bank-accounts.module";
       { name: Payable.name, schema: PayableSchema },
       { name: Tenant.name, schema: TenantSchema }, // For TenantGuard
       { name: Order.name, schema: OrderSchema }, // <-- Add Order model
+      { name: BankTransaction.name, schema: BankTransactionSchema },
     ]),
     AccountingModule,
     BankAccountsModule,

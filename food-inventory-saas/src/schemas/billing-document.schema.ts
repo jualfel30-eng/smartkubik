@@ -34,6 +34,16 @@ export class BillingDocument {
   @Prop({ type: String })
   controlNumber?: string; // Asignado por imprenta digital (VE)
 
+  @Prop({ type: String })
+  verificationUrl?: string; // URL de verificación del documento fiscal
+
+  @Prop({ type: Object })
+  taxInfo?: {
+    verificationUrl?: string;
+    qrCode?: string;
+    fiscalStamp?: string;
+  };
+
   @Prop({ type: String, required: true, default: "draft" })
   status: BillingDocumentStatus;
 

@@ -82,7 +82,10 @@ export class ImprentaDigitalProvider {
       this.logger.warn(
         "IMPRENTA_PROVIDER_URL/API_KEY no configurados; usando mock.",
       );
-      return this.requestControlNumber({ ...payload, documentNumber: payload.documentNumber });
+      return this.requestControlNumber({
+        ...payload,
+        documentNumber: payload.documentNumber,
+      });
     }
 
     let lastError: any;

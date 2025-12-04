@@ -9,7 +9,11 @@ import { Model, Types } from "mongoose";
 import { Payment, PaymentDocument } from "../../schemas/payment.schema";
 import { Payable, PayableDocument } from "../../schemas/payable.schema";
 import { Order, OrderDocument } from "../../schemas/order.schema";
-import { CreatePaymentDto } from "../../dto/payment.dto";
+import {
+  BankTransaction,
+  BankTransactionDocument,
+} from "../../schemas/bank-transaction.schema";
+import { CreatePaymentDto, PaymentStatus, ReconciliationStatus } from "../../dto/payment.dto";
 import { AccountingService } from "../accounting/accounting.service";
 import { BankAccountsService } from "../bank-accounts/bank-accounts.service";
 import { BankTransactionsService } from "../bank-accounts/bank-transactions.service";
@@ -22,20 +26,443 @@ export class PaymentsService {
     @InjectModel(Payment.name) private paymentModel: Model<PaymentDocument>,
     @InjectModel(Payable.name) private payableModel: Model<PayableDocument>,
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>, // Injected OrderModel
+    @InjectModel(BankTransaction.name)
+    private bankTransactionModel: Model<BankTransactionDocument>,
     private readonly accountingService: AccountingService,
     private readonly bankAccountsService: BankAccountsService,
     private readonly bankTransactionsService: BankTransactionsService,
   ) {}
 
-  async create(dto: CreatePaymentDto, user: any): Promise<PaymentDocument> {
-    const { paymentType, orderId, payableId, ...paymentDetails } = dto;
-    const { tenantId, id: userId } = user;
+  async getSummary(
+    tenantId: string,
+    query: {
+      from?: string;
+      to?: string;
+      groupBy?: "method" | "status" | "currency";
+    },
+  ): Promise<
+    Array<{
+      key: string;
+      totalAmount: number;
+      count: number;
+    }>
+  > {
+    const { from, to, groupBy = "method" } = query;
+    const match: any = { tenantId };
+    if (from || to) {
+      match.date = {};
+      if (from) match.date.$gte = new Date(from);
+      if (to) match.date.$lte = new Date(to);
+    }
 
-    if (!orderId && !payableId) {
+    const pipeline = [
+      { $match: match },
+      {
+        $group: {
+          _id: `$${groupBy}`,
+          totalAmount: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { totalAmount: -1 as 1 | -1 } },
+    ];
+
+    const result = await this.paymentModel.aggregate(pipeline).exec();
+    return result.map((r) => ({
+      key: r._id || "N/A",
+      totalAmount: r.totalAmount,
+      count: r.count,
+    }));
+  }
+
+  async getAging(
+    tenantId: string,
+    query: { asOf?: string; buckets?: string },
+  ): Promise<
+    Array<{
+      bucket: string;
+      amount: number;
+      count: number;
+    }>
+  > {
+    const asOfDate = query.asOf ? new Date(query.asOf) : new Date();
+    const bucketEdges = query.buckets
+      ?.split(",")
+      .map((v) => Number(v.trim()))
+      .filter((v) => !Number.isNaN(v))
+      .sort((a, b) => a - b) || [30, 60, 90];
+
+    // Aging simple: usa fecha de payment y agrupa por días transcurridos hasta asOf
+    const pipeline = [
+      { $match: { tenantId } },
+      {
+        $project: {
+          amount: 1,
+          days: {
+            $divide: [{ $subtract: [asOfDate, "$date"] }, 1000 * 60 * 60 * 24],
+          },
+        },
+      },
+      {
+        $bucket: {
+          groupBy: "$days",
+          boundaries: [
+            Number.NEGATIVE_INFINITY,
+            ...bucketEdges,
+            Number.POSITIVE_INFINITY,
+          ],
+          default: ">last",
+          output: {
+            amount: { $sum: "$amount" },
+            count: { $sum: 1 },
+          },
+        },
+      },
+    ];
+
+    const agg = await this.paymentModel.aggregate(pipeline as any[]).exec();
+
+    const labels: string[] = [];
+    let prev = -Infinity;
+    for (const edge of bucketEdges) {
+      labels.push(prev === -Infinity ? `0-${edge}` : `${prev + 1}-${edge}`);
+      prev = edge;
+    }
+    labels.push(`>${prev}`);
+
+    // Map results to readable buckets
+    return agg.map((entry) => {
+      const idx = agg.indexOf(entry);
+      return {
+        bucket: labels[idx] || labels[labels.length - 1],
+        amount: entry.amount,
+        count: entry.count,
+      };
+    });
+  }
+
+  async applyAllocations(
+    paymentId: string,
+    allocations: Array<{
+      documentId: string;
+      documentType: string;
+      amount: number;
+    }>,
+    user: any,
+  ): Promise<PaymentDocument> {
+    const payment = await this.paymentModel.findOne({
+      _id: paymentId,
+      tenantId: user.tenantId,
+    });
+    if (!payment) {
+      throw new NotFoundException("Pago no encontrado");
+    }
+
+    const normalizedAllocations =
+      allocations?.map((a) => ({
+        documentId: new Types.ObjectId(a.documentId),
+        documentType: a.documentType,
+        amount: a.amount,
+      })) || [];
+
+    payment.allocations = normalizedAllocations;
+    await payment.save();
+
+    // Reconstruir pagos aplicados por documento (órdenes y cuentas por pagar)
+    const orderIds = normalizedAllocations
+      .filter((a) => a.documentType === "order")
+      .map((a) => a.documentId.toString());
+    const payableIds = normalizedAllocations
+      .filter((a) => a.documentType === "payable")
+      .map((a) => a.documentId.toString());
+
+    // Actualizar órdenes: recalcula montos pagados en base a allocations
+    for (const orderId of Array.from(new Set(orderIds))) {
+      const oid = new Types.ObjectId(orderId);
+      const agg = await this.paymentModel
+        .aggregate([
+          { $match: { tenantId: user.tenantId, "allocations.documentId": oid } },
+          { $unwind: "$allocations" },
+          { $match: { "allocations.documentId": oid } },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: "$allocations.amount" },
+            },
+          },
+        ])
+        .exec();
+      const totalAlloc = agg?.[0]?.total || 0;
+      const order = await this.orderModel.findById(oid);
+      if (order) {
+        const paymentStatus =
+          totalAlloc >= Number(order.totalAmount || 0)
+            ? "paid"
+            : totalAlloc > 0
+              ? "partial"
+              : order.paymentStatus;
+        order.paidAmount = totalAlloc;
+        order.paymentStatus = paymentStatus;
+        if (
+          !order.payments?.some((p) => p.toString() === payment._id.toString())
+        ) {
+          order.payments = order.payments || [];
+          order.payments.push(payment._id);
+        }
+        await order.save();
+      }
+    }
+
+    // Actualizar payables: recalcula montos pagados en base a allocations
+    for (const payableId of Array.from(new Set(payableIds))) {
+      const pid = new Types.ObjectId(payableId);
+      const agg = await this.paymentModel
+        .aggregate([
+          { $match: { tenantId: user.tenantId, "allocations.documentId": pid } },
+          { $unwind: "$allocations" },
+          { $match: { "allocations.documentId": pid } },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: "$allocations.amount" },
+            },
+          },
+        ])
+        .exec();
+      const totalAlloc = agg?.[0]?.total || 0;
+      const payable = await this.payableModel.findById(pid);
+      if (payable) {
+        const remaining = Math.max(
+          0,
+          Number(payable.totalAmount || 0) - Number(totalAlloc || 0),
+        );
+        payable.paidAmount = Number(totalAlloc || 0);
+        payable.status =
+          remaining <= 0.01
+            ? "paid"
+            : payable.paidAmount > 0
+              ? "partially_paid"
+              : "open";
+        await payable.save();
+      }
+    }
+
+    return payment;
+  }
+
+  async updateStatus(
+    paymentId: string,
+    nextStatus: PaymentStatus,
+    user: any,
+    reason?: string,
+  ): Promise<PaymentDocument> {
+    const payment = await this.paymentModel.findOne({
+      _id: paymentId,
+      tenantId: user.tenantId,
+    });
+    if (!payment) {
+      throw new NotFoundException("Pago no encontrado");
+    }
+
+    const validStatuses: PaymentStatus[] = [
+      "draft",
+      "pending_validation",
+      "confirmed",
+      "failed",
+      "reversed",
+      "refunded",
+    ];
+    if (!validStatuses.includes(nextStatus)) {
+      throw new BadRequestException("Estado de pago no permitido");
+    }
+
+    // Transiciones permitidas básicas
+    const allowedTransitions: Record<PaymentStatus, PaymentStatus[]> = {
+      draft: ["pending_validation", "confirmed", "failed"],
+      pending_validation: ["confirmed", "failed"],
+      confirmed: ["reversed", "refunded"],
+      failed: [],
+      reversed: [],
+      refunded: [],
+    };
+
+    const currentStatus = payment.status as PaymentStatus;
+    const allowed = allowedTransitions[currentStatus] || [];
+    if (!allowed.includes(nextStatus)) {
       throw new BadRequestException(
-        "Payment must be associated with an order or a payable.",
+        `Transición no permitida de ${currentStatus} a ${nextStatus}`,
       );
     }
+
+    payment.status = nextStatus;
+    if (nextStatus === "confirmed") {
+      payment.confirmedAt = new Date();
+      payment.confirmedBy = new Types.ObjectId(user.id);
+    }
+
+    // Historial de estados
+    payment.statusHistory = payment.statusHistory || [];
+    payment.statusHistory.push({
+      status: nextStatus,
+      reason,
+      changedAt: new Date(),
+      changedBy: user?.id ? new Types.ObjectId(user.id) : undefined,
+    });
+
+    // Guardar motivo en metadata genérica
+    const note = reason ? `status change: ${reason}` : undefined;
+    if (note) {
+      (payment as any).notes = note;
+    }
+
+    await payment.save();
+    return payment;
+  }
+
+  async reconcile(
+    paymentId: string,
+    status: ReconciliationStatus,
+    user: any,
+    statementRef?: string,
+    note?: string,
+  ): Promise<PaymentDocument> {
+    const requireNote = status === "manual" || status === "rejected";
+    if (requireNote && !note) {
+      throw new BadRequestException(
+        "Debe especificar un motivo al marcar la conciliación como manual o rechazada",
+      );
+    }
+
+    const payment = await this.paymentModel.findOne({
+      _id: paymentId,
+      tenantId: user.tenantId,
+    });
+    if (!payment) {
+      throw new NotFoundException("Pago no encontrado");
+    }
+
+    // Auditoría
+    payment.reconciliationStatus = status;
+    payment.statementRef = statementRef;
+    payment.reconciledAt = new Date();
+    payment.reconciledBy = new Types.ObjectId(user.id);
+
+    payment.statusHistory = payment.statusHistory || [];
+    payment.statusHistory.push({
+      status: `reconciliation:${status}`,
+      reason: note,
+      changedAt: new Date(),
+      changedBy: new Types.ObjectId(user.id),
+    });
+
+    // Actualizar movimiento bancario vinculado (si existe)
+    const tx = await this.bankTransactionModel.findOne({
+      tenantId: user.tenantId,
+      paymentId: payment._id,
+    });
+    if (tx) {
+      tx.reconciliationStatus =
+        status === "matched" ? "matched" : status === "manual" ? "manually_matched" : status;
+      tx.reconciled = status === "matched" || status === "manual";
+      tx.reconciledAt = new Date();
+      if (statementRef) {
+        tx.statementTransactionId = statementRef as any;
+      }
+      await tx.save();
+    }
+
+    await payment.save();
+    return payment;
+  }
+
+  async create(dto: CreatePaymentDto, user: any): Promise<PaymentDocument> {
+    const {
+      paymentType,
+      orderId,
+      payableId,
+      idempotencyKey,
+      allocations,
+      fees,
+      status,
+      customerId,
+      ...paymentDetails
+    } = dto;
+
+    if (paymentDetails.bankAccountId && !paymentDetails.reference) {
+      throw new BadRequestException(
+        "La referencia es obligatoria para pagos asociados a cuenta bancaria",
+      );
+    }
+    const methodsRequiringReference = ["transferencia", "pago_movil", "pos"];
+    if (
+      paymentDetails.method &&
+      methodsRequiringReference.includes(paymentDetails.method) &&
+      !paymentDetails.reference
+    ) {
+      throw new BadRequestException(
+        "La referencia es obligatoria para pagos con métodos bancarios",
+      );
+    }
+    const { tenantId, id: userId } = user;
+
+    // Permitir anticipos (sin documento) siempre que existan allocations o customerId
+    if (!orderId && !payableId && (!allocations || allocations.length === 0)) {
+      throw new BadRequestException(
+        "El pago debe apuntar a una orden, un payable o traer allocations.",
+      );
+    }
+
+    // Idempotencia básica por tenant + idempotencyKey
+    if (idempotencyKey) {
+      const existing = await this.paymentModel.findOne({
+        tenantId,
+        idempotencyKey,
+      });
+      if (existing) {
+        this.logger.warn(
+          `Idempotent payment detected (tenant=${tenantId}, key=${idempotencyKey}). Returning existing ${existing._id}`,
+        );
+        return existing;
+      }
+    }
+
+    // Idempotencia por referencia+method+documento (cuando no hay idempotencyKey)
+    if (!idempotencyKey && orderId && paymentDetails.reference) {
+      const existingRef = await this.paymentModel.findOne({
+        tenantId,
+        orderId: new Types.ObjectId(orderId),
+        reference: paymentDetails.reference,
+        method: paymentDetails.method,
+        amount: paymentDetails.amount,
+      });
+      if (existingRef) {
+        this.logger.warn(
+          `Duplicate payment prevented by reference/method for order ${orderId} ref=${paymentDetails.reference}`,
+        );
+        return existingRef;
+      }
+    }
+
+    // Resolver estado inicial
+    // Resolved status con validación
+    const validStatuses: PaymentStatus[] = [
+      "draft",
+      "pending_validation",
+      "confirmed",
+      "failed",
+      "reversed",
+      "refunded",
+    ];
+    const resolvedStatus: PaymentStatus =
+      status && validStatuses.includes(status as PaymentStatus)
+        ? (status as PaymentStatus)
+        : "confirmed";
+
+    const autoReconcileEnabled =
+      (process.env.PAYMENTS_AUTO_RECONCILE || "false").toLowerCase() === "true";
+    const autoReconciliate = !!paymentDetails.bankAccountId && autoReconcileEnabled;
+    const initialReconciliationStatus =
+      paymentDetails.reconciliationStatus || (autoReconciliate ? "matched" : "pending");
 
     // Create and save the core payment document first
     const newPayment = new this.paymentModel({
@@ -43,12 +470,42 @@ export class PaymentsService {
       paymentType,
       orderId: orderId ? new Types.ObjectId(orderId) : undefined,
       payableId: payableId ? new Types.ObjectId(payableId) : undefined,
+      customerId: customerId ? new Types.ObjectId(customerId) : undefined,
       tenantId,
       createdBy: userId,
       confirmedBy: userId,
       confirmedAt: new Date(),
+      status: resolvedStatus,
+      reconciliationStatus: initialReconciliationStatus,
+      reconciledAt: autoReconciliate ? new Date() : undefined,
+      reconciledBy: autoReconciliate ? new Types.ObjectId(userId) : undefined,
+      statusHistory: [
+        {
+          status: resolvedStatus,
+          changedAt: new Date(),
+          changedBy: new Types.ObjectId(userId),
+        },
+      ],
+      idempotencyKey,
+      allocations:
+        allocations?.map((a) => ({
+          documentId: new Types.ObjectId(a.documentId),
+          documentType: a.documentType,
+          amount: a.amount,
+        })) || [],
+      fees,
     });
     await newPayment.save();
+    if (autoReconciliate) {
+      newPayment.statusHistory = newPayment.statusHistory || [];
+      newPayment.statusHistory.push({
+        status: "reconciliation:matched",
+        reason: "Auto-conciliado al seleccionar cuenta bancaria",
+        changedAt: new Date(),
+        changedBy: new Types.ObjectId(userId),
+      });
+      await newPayment.save();
+    }
     this.logger.log(
       `Created new payment document ${newPayment._id} of type ${paymentType}`,
     );
@@ -61,9 +518,9 @@ export class PaymentsService {
       await this.handleSalePayment(orderId, newPayment, tenantId);
     } else if (paymentType === "payable" && payableId) {
       await this.handlePayablePayment(payableId, newPayment, tenantId);
-    } else {
-      // This case should ideally not be reached due to initial validation
-      throw new BadRequestException("Invalid payment type or missing ID.");
+    } else if (allocations?.length) {
+      // Pago adelantado o multi-documento; aplicar allocations para recalcular saldos
+      await this.applyAllocations(newPayment._id.toString(), allocations, user);
     }
 
     // Update bank account balance if bankAccountId is provided
@@ -137,6 +594,7 @@ export class PaymentsService {
               amountVES: dto.amountVes,
             },
             balanceAfter: updatedAccount.currentBalance,
+            reconciliationStatus: initialReconciliationStatus,
           },
         );
         this.logger.log(
@@ -157,27 +615,49 @@ export class PaymentsService {
     payment: PaymentDocument,
     tenantId: string,
   ): Promise<void> {
-    const order = await this.orderModel.findById(orderId).exec();
+    const order = await this.orderModel
+      .findById(orderId)
+      .select("payments paymentStatus totalAmount tenantId")
+      .lean();
     if (!order) {
       throw new NotFoundException(`Order with ID ${orderId} not found.`);
     }
 
-    // Add the payment reference to the order
-    order.payments.push(payment._id);
+    // Calcular pagos acumulados (evita conflictos de versión /v key)
+    const paymentsForOrder = await this.paymentModel
+      .find({ orderId: new Types.ObjectId(orderId) })
+      .select("amount amountVes _id")
+      .lean();
 
-    // Recalculate paid amount and status
-    const allPayments = await this.paymentModel.find({
-      _id: { $in: order.payments },
-    });
-    const paidAmount = allPayments.reduce((sum, p) => sum + p.amount, 0);
+    const paidAmount = paymentsForOrder.reduce(
+      (sum, p) => sum + Number(p?.amount || 0),
+      0,
+    );
+    const paidAmountVes = paymentsForOrder.reduce(
+      (sum, p) => sum + Number(p?.amountVes || 0),
+      0,
+    );
 
-    if (paidAmount >= order.totalAmount) {
-      order.paymentStatus = "paid";
-    } else {
-      order.paymentStatus = "partial";
-    }
+    const paymentStatus =
+      paidAmount >= Number(order.totalAmount || 0)
+        ? "paid"
+        : paidAmount > 0
+          ? "partial"
+          : order.paymentStatus;
 
-    await order.save();
+    // Actualizar sin depender de versión previa
+    await this.orderModel.findByIdAndUpdate(
+      orderId,
+      {
+        $set: {
+          paymentStatus,
+          paidAmount,
+          paidAmountVes,
+        },
+        $addToSet: { payments: payment._id },
+      },
+      { new: true },
+    );
     this.logger.log(`Updated order ${orderId} with new payment ${payment._id}`);
 
     // --- Automatic Journal Entry Creation ---
@@ -302,12 +782,133 @@ export class PaymentsService {
     }
   }
 
-  async findAll(tenantId: string): Promise<Payment[]> {
-    return this.paymentModel
-      .find({ tenantId })
-      .sort({ date: -1 })
-      .populate({ path: "payableId", select: "description payeeName" })
-      .populate({ path: "orderId", select: "orderNumber customerName" })
+  async findAll(
+    tenantId: string,
+    query: {
+      status?: string;
+      method?: string;
+      reference?: string;
+      orderId?: string;
+      payableId?: string;
+      from?: string;
+      to?: string;
+      page?: number;
+      limit?: number;
+      customerId?: string;
+    },
+  ): Promise<{
+    data: Payment[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    const {
+      status,
+      method,
+      reference,
+      orderId,
+      payableId,
+      from,
+      to,
+      page = 1,
+      limit = 50,
+      customerId,
+    } = query;
+
+    const effectiveLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
+    const currentPage = Math.max(Number(page) || 1, 1);
+
+    const filter: any = { tenantId };
+    if (status) filter.status = status;
+    if (method) filter.method = method;
+    if (reference) filter.reference = reference;
+    if (orderId) filter.orderId = new Types.ObjectId(orderId);
+    if (payableId) filter.payableId = new Types.ObjectId(payableId);
+    if (customerId) filter.customerId = new Types.ObjectId(customerId);
+    if (from || to) {
+      filter.date = {};
+      if (from) filter.date.$gte = new Date(from);
+      if (to) filter.date.$lte = new Date(to);
+    }
+
+    // Búsqueda por texto (nombre cliente / taxId / referencia)
+    if ((query as any).search) {
+      const term = (query as any).search.trim();
+      if (term) {
+        filter.$or = [
+          { reference: { $regex: term, $options: "i" } },
+          { "orderId.customerName": { $regex: term, $options: "i" } },
+          { "customerId.name": { $regex: term, $options: "i" } },
+          { "orderId.taxInfo.customerTaxId": { $regex: term, $options: "i" } },
+          { "customerId.taxInfo.taxId": { $regex: term, $options: "i" } },
+        ];
+      }
+    }
+
+    const [data, total] = await Promise.all([
+      this.paymentModel
+        .find(filter)
+        .sort({ date: -1 })
+        .skip((currentPage - 1) * effectiveLimit)
+        .limit(effectiveLimit)
+        .populate({ path: "payableId", select: "description payeeName" })
+        .populate({
+          path: "orderId",
+          select: "orderNumber customerName taxInfo",
+        })
+        .populate({ path: "customerId", select: "name taxInfo" })
+        .exec(),
+      this.paymentModel.countDocuments(filter),
+    ]);
+
+    // Conciliación: adjuntar estado desde movimientos bancarios asociados
+    const paymentIds = data.map((p) => p._id);
+    const txs = await this.bankTransactionModel
+      .find({ tenantId, paymentId: { $in: paymentIds } })
+      .select(
+        "paymentId reconciliationStatus reconciled reconciledAt reference statementTransactionId",
+      )
+      .lean()
       .exec();
+    const txByPayment: Record<string, any> = {};
+    txs.forEach((tx) => {
+      if (tx.paymentId) {
+        txByPayment[tx.paymentId.toString()] = tx;
+      }
+    });
+    data.forEach((p) => {
+      const tx = txByPayment[p._id.toString()];
+      if (tx) {
+        (p as any)._reconciliation = {
+          status: tx.reconciliationStatus,
+          reconciled: tx.reconciled,
+          reconciledAt: tx.reconciledAt,
+          statementTransactionId: tx.statementTransactionId,
+          bankReference: tx.reference,
+        };
+      }
+    });
+
+    const totalPages = Math.max(1, Math.ceil(total / effectiveLimit));
+
+    return {
+      data,
+      pagination: {
+        page: currentPage,
+        limit: effectiveLimit,
+        total,
+        totalPages,
+      },
+    };
+  }
+
+  async exportAll(tenantId: string, query: any) {
+    // Reutilizar findAll pero sin paginación dura (máx 5000)
+    const cloned = { ...query, page: 1, limit: 5000 };
+    const result = await this.findAll(tenantId, cloned);
+    return result.data;
   }
 }

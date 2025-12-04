@@ -64,11 +64,7 @@ export class SalesBookPdfService {
     doc.setFontSize(9);
     doc.text(`Canal: ${channelFilter}`, 14, 22);
     if (from || to) {
-      doc.text(
-        `Rango: ${from || "-"} a ${to || "-"}`,
-        14,
-        27,
-      );
+      doc.text(`Rango: ${from || "-"} a ${to || "-"}`, 14, 27);
     }
 
     autoTable(doc, {

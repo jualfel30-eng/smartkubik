@@ -6,7 +6,20 @@ import {
   IsOptional,
   IsMongoId,
   IsEnum,
+  ValidateNested,
 } from "class-validator";
+import { Type } from "class-transformer";
+import { SanitizeString, SanitizeText } from "../decorators/sanitize.decorator";
+
+export type PaymentStatus =
+  | "draft"
+  | "pending_validation"
+  | "confirmed"
+  | "failed"
+  | "reversed"
+  | "refunded";
+
+export type ReconciliationStatus = "pending" | "matched" | "manual" | "rejected";
 
 // Individual payment object as received from the frontend
 export class PaymentDetailDto {
@@ -25,6 +38,18 @@ export class PaymentDetailDto {
   @IsDateString()
   @IsOptional()
   date?: string; // Date can be optional here, service will default to now()
+}
+
+export class PaymentAllocationDto {
+  @IsMongoId()
+  documentId: string;
+
+  @IsString()
+  @SanitizeString()
+  documentType: string;
+
+  @IsNumber()
+  amount: number;
 }
 
 // DTO for creating a single payment, used by the centralized PaymentsService
@@ -58,18 +83,70 @@ export class CreatePaymentDto {
   exchangeRate?: number;
 
   @IsString()
+  @SanitizeString()
   @IsNotEmpty()
   method: string;
 
   @IsString()
+  @SanitizeString()
   @IsNotEmpty()
   currency: string;
 
   @IsString()
+  @SanitizeString()
   @IsOptional()
   reference?: string;
 
   @IsMongoId()
   @IsOptional()
   bankAccountId?: string;
+
+  @IsString()
+  @IsOptional()
+  idempotencyKey?: string;
+
+  @IsMongoId()
+  @IsOptional()
+  customerId?: string;
+
+  @IsEnum([
+    "draft",
+    "pending_validation",
+    "confirmed",
+    "failed",
+    "reversed",
+    "refunded",
+  ])
+  @IsOptional()
+  status?: PaymentStatus;
+
+  @IsOptional()
+  fees?: {
+    igtf?: number;
+    other?: number;
+  };
+
+  @IsOptional()
+  @SanitizeText()
+  @IsString()
+  reason?: string;
+
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => PaymentAllocationDto)
+  allocations?: PaymentAllocationDto[];
+
+  @IsOptional()
+  @IsEnum(["pending", "matched", "manual", "rejected"])
+  reconciliationStatus?: ReconciliationStatus;
+
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  statementRef?: string;
+
+  @IsOptional()
+  @IsString()
+  @SanitizeText()
+  reconciliationNote?: string;
 }

@@ -28,6 +28,10 @@ export class Payment {
   @Prop({ type: Number, required: true })
   amount: number;
 
+  // Monto equivalente en VES (opcional para pagos registrados en VES)
+  @Prop({ type: Number })
+  amountVes?: number;
+
   @Prop({ type: String, required: true })
   method: string;
 
@@ -75,6 +79,9 @@ export class Payment {
     cardholderName?: string;
   };
 
+  @Prop({ type: Types.ObjectId, ref: "Customer" })
+  customerId?: Types.ObjectId; // Cliente asociado (cobros)
+
   @Prop({ type: String })
   transactionId?: string; // ID de transacción externa
 
@@ -86,6 +93,69 @@ export class Payment {
 
   @Prop({ type: Number })
   serviceFee?: number; // Comisión de servicio
+
+  // === Robustez / Nuevos campos ===
+  @Prop({ type: String, index: true })
+  idempotencyKey?: string;
+
+  @Prop({
+    type: [
+      {
+        documentId: { type: Types.ObjectId, required: true },
+        documentType: { type: String, required: true },
+        amount: { type: Number, required: true },
+      },
+    ],
+    default: [],
+  })
+  allocations?: Array<{
+    documentId: Types.ObjectId;
+    documentType: string;
+    amount: number;
+  }>;
+
+  @Prop({
+    type: {
+      igtf: { type: Number },
+      other: { type: Number },
+    },
+  })
+  fees?: {
+    igtf?: number;
+    other?: number;
+  };
+
+  // Conciliación bancaria
+  @Prop({ type: String, enum: ["pending", "matched", "manual", "rejected"], default: "pending", index: true })
+  reconciliationStatus?: string;
+
+  @Prop({ type: String })
+  statementRef?: string;
+
+  @Prop({ type: Date })
+  reconciledAt?: Date;
+
+  @Prop({ type: Types.ObjectId, ref: "User" })
+  reconciledBy?: Types.ObjectId;
+
+  // Historial de estados
+  @Prop({
+    type: [
+      {
+        status: { type: String, required: true },
+        reason: { type: String },
+        changedAt: { type: Date, default: Date.now },
+        changedBy: { type: Types.ObjectId, ref: "User" },
+      },
+    ],
+    default: [],
+  })
+  statusHistory?: Array<{
+    status: string;
+    reason?: string;
+    changedAt?: Date;
+    changedBy?: Types.ObjectId;
+  }>;
 }
 
 export const PaymentSchema = SchemaFactory.createForClass(Payment);
@@ -95,3 +165,8 @@ PaymentSchema.index({ tenantId: 1, orderId: 1 });
 PaymentSchema.index({ tenantId: 1, payableId: 1 });
 PaymentSchema.index({ tenantId: 1, splitId: 1 });
 PaymentSchema.index({ tenantId: 1, method: 1, date: -1 });
+PaymentSchema.index(
+  { tenantId: 1, idempotencyKey: 1 },
+  { unique: true, sparse: true },
+);
+PaymentSchema.index({ tenantId: 1, customerId: 1, date: -1 });
