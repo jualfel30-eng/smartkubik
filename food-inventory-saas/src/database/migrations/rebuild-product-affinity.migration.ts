@@ -84,7 +84,9 @@ export class RebuildProductAffinityMigration {
         .exec();
 
       if (sampleAffinity) {
-        this.logger.log(`   Most popular product: ${sampleAffinity.productName}`);
+        this.logger.log(
+          `   Most popular product: ${sampleAffinity.productName}`,
+        );
         this.logger.log(
           `   - Unique customers: ${sampleAffinity.totalUniqueCustomers}`,
         );

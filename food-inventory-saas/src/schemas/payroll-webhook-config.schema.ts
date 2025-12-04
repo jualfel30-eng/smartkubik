@@ -33,7 +33,6 @@ export class PayrollWebhookConfig {
   lastError?: string;
 }
 
-export const PayrollWebhookConfigSchema = SchemaFactory.createForClass(
-  PayrollWebhookConfig,
-);
+export const PayrollWebhookConfigSchema =
+  SchemaFactory.createForClass(PayrollWebhookConfig);
 PayrollWebhookConfigSchema.index({ tenantId: 1 }, { unique: true });

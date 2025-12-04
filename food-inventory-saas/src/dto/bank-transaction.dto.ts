@@ -156,6 +156,10 @@ export class RecordPaymentMovementDto {
   reference?: string;
 
   @IsOptional()
+  @IsEnum(["pending", "matched", "manual", "rejected"])
+  reconciliationStatus?: "pending" | "matched" | "manual" | "rejected";
+
+  @IsOptional()
   @IsString()
   description?: string;
 

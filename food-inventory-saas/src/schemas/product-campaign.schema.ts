@@ -52,11 +52,17 @@ export class ProductTargeting {
   maxAffinityScore?: number; // Maximum affinity score
 
   // Customer Segment Filters (from CustomerProductAffinity)
-  @Prop({ type: [String], enum: ["new", "occasional", "regular", "frequent", "champion"] })
+  @Prop({
+    type: [String],
+    enum: ["new", "occasional", "regular", "frequent", "champion"],
+  })
   customerSegments?: string[]; // Target specific customer segments
 
   // Engagement Level Filters (from CustomerProductAffinity)
-  @Prop({ type: [String], enum: ["very_high", "high", "medium", "low", "at_risk"] })
+  @Prop({
+    type: [String],
+    enum: ["very_high", "high", "medium", "low", "at_risk"],
+  })
   engagementLevels?: string[]; // Target specific engagement levels
 
   // Purchase Frequency Filters
@@ -352,7 +358,14 @@ export class ProductCampaign {
   // Campaign Category for organization
   @Prop({
     type: String,
-    enum: ["retention", "acquisition", "upsell", "cross-sell", "reactivation", "loyalty"],
+    enum: [
+      "retention",
+      "acquisition",
+      "upsell",
+      "cross-sell",
+      "reactivation",
+      "loyalty",
+    ],
   })
   campaignCategory?: string;
 
@@ -399,7 +412,10 @@ export class ProductCampaign {
   @Prop({ type: String })
   winningVariantName?: string; // Name of the winning variant (after test completion)
 
-  @Prop({ type: String, enum: ["open_rate", "click_rate", "conversion_rate", "revenue"] })
+  @Prop({
+    type: String,
+    enum: ["open_rate", "click_rate", "conversion_rate", "revenue"],
+  })
   testMetric?: string; // Metric used to determine winner
 
   @Prop({ type: Number, min: 0, max: 100 })

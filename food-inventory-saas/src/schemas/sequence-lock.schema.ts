@@ -24,8 +24,5 @@ export class SequenceLock {
 
 export const SequenceLockSchema = SchemaFactory.createForClass(SequenceLock);
 
-SequenceLockSchema.index(
-  { tenantId: 1, sequenceId: 1 },
-  { unique: true },
-);
+SequenceLockSchema.index({ tenantId: 1, sequenceId: 1 }, { unique: true });
 SequenceLockSchema.index({ expireAt: 1 }, { expireAfterSeconds: 0 });

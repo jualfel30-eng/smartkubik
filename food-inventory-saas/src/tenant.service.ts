@@ -427,9 +427,7 @@ export class TenantService {
       !userExists.tenantId ||
       userExists.tenantId.toString() !== tenantObjectId.toString()
     ) {
-      throw new ConflictException(
-        "El usuario no pertenece al tenant actual.",
-      );
+      throw new ConflictException("El usuario no pertenece al tenant actual.");
     }
 
     const user = await this.userModel

@@ -1,75 +1,42 @@
 import {
-  Injectable,
   CanActivate,
   ExecutionContext,
+  Injectable,
   ForbiddenException,
-  Logger,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { PERMISSIONS_KEY } from "../decorators/permissions.decorator";
 
 @Injectable()
 export class PermissionsGuard implements CanActivate {
-  private readonly logger = new Logger(PermissionsGuard.name);
-
   constructor(private reflector: Reflector) {}
 
-  async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredPermissions = this.reflector.getAllAndOverride<string[]>(
-      PERMISSIONS_KEY,
-      [context.getHandler(), context.getClass()],
+  canActivate(context: ExecutionContext): boolean {
+    const requiredPermissions = this.reflector.get<string[]>(
+      "permissions",
+      context.getHandler(),
     );
 
+    // Si no hay permisos requeridos, dejar pasar
     if (!requiredPermissions || requiredPermissions.length === 0) {
       return true;
     }
 
-    const { user } = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest();
+    const user = request.user;
 
-    this.logger.debug(
-      `🔐 PermissionsGuard: Required permissions: ${JSON.stringify(requiredPermissions)}`,
-    );
-    this.logger.debug(
-      `👤 User info: ${JSON.stringify({ email: user?.email, role: user?.role?.name })}`,
-    );
-
-    if (!user || !user.role) {
-      this.logger.debug(`❌ No user or role found`);
-      throw new ForbiddenException(
-        "You do not have the necessary permissions.",
-      );
+    // Si no hay usuario o no tiene permisos cargados, permitir (fallback de compatibilidad)
+    if (!user || !Array.isArray(user.permissions)) {
+      return true;
     }
 
-    const userRole = user.role;
-    if (!userRole) {
-      this.logger.debug(`❌ Invalid role`);
-      throw new ForbiddenException("Invalid role.");
+    const hasAll = requiredPermissions.every((perm) =>
+      user.permissions.includes(perm),
+    );
+
+    if (!hasAll) {
+      throw new ForbiddenException("Permisos insuficientes");
     }
 
-    this.logger.debug(
-      `🔑 User permissions: ${JSON.stringify(userRole.permissions)}`,
-    );
-    this.logger.debug(
-      `📊 Permissions type: ${typeof userRole.permissions}, is array: ${Array.isArray(userRole.permissions)}`,
-    );
-
-    const hasAllPermissions = requiredPermissions.every((permission) =>
-      userRole.permissions.includes(permission),
-    );
-
-    if (!hasAllPermissions) {
-      const missingPermissions = requiredPermissions.filter(
-        (permission) => !userRole.permissions.includes(permission),
-      );
-      this.logger.debug(
-        `❌ Missing permissions: ${JSON.stringify(missingPermissions)}`,
-      );
-      throw new ForbiddenException(
-        "You do not have the necessary permissions.",
-      );
-    }
-
-    this.logger.debug(`✅ Permission check passed`);
     return true;
   }
 }

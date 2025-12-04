@@ -112,7 +112,10 @@ export const WhatsAppTemplateSchema =
   SchemaFactory.createForClass(WhatsAppTemplate);
 
 // Indexes
-WhatsAppTemplateSchema.index({ tenantId: 1, name: 1, language: 1 }, { unique: true });
+WhatsAppTemplateSchema.index(
+  { tenantId: 1, name: 1, language: 1 },
+  { unique: true },
+);
 WhatsAppTemplateSchema.index({ tenantId: 1, status: 1 });
 WhatsAppTemplateSchema.index({ tenantId: 1, category: 1 });
 WhatsAppTemplateSchema.index({ metaTemplateId: 1 }, { sparse: true });

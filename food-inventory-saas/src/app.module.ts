@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { MongooseModule, getModelToken } from "@nestjs/mongoose";
-import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
+import { ThrottlerModule } from "@nestjs/throttler";
 import { APP_GUARD } from "@nestjs/core";
 import { WinstonModule } from "nest-winston";
 import { BullModule } from "@nestjs/bullmq";
@@ -71,6 +71,7 @@ import { HealthModule } from "./modules/health/health.module";
 import { ConsumablesModule } from "./modules/consumables/consumables.module";
 import { SuppliesModule } from "./modules/supplies/supplies.module";
 import { UnitConversionsModule } from "./modules/unit-conversions/unit-conversions.module";
+import { UnitTypesModule } from "./modules/unit-types/unit-types.module";
 import { LiquidationsModule } from "./modules/liquidations/liquidations.module";
 import { BillOfMaterialsModule } from "./modules/production/bill-of-materials.module";
 import { WorkCenterModule } from "./modules/production/work-center.module";
@@ -101,7 +102,11 @@ import { ProductAffinityModule } from "./modules/product-affinity/product-affini
 import { ProductCampaignModule } from "./modules/product-campaign/product-campaign.module";
 import { PayrollReportsModule } from "./modules/payroll-reports/payroll-reports.module";
 import { PayrollWebhooksModule } from "./modules/payroll-webhooks/payroll-webhooks.module";
-// import { BillingModule } from "./modules/billing/billing.module"; // TODO: Implement billing module
+import { UserThrottlerGuard } from "./guards/user-throttler.guard";
+import { AuditLogModule } from "./modules/audit-log/audit-log.module";
+import { NotificationsModule } from "./modules/notifications/notifications.module";
+import { SecurityMonitoringModule } from "./modules/security-monitoring/security-monitoring.module";
+// import { BillingModule } from "./modules/billing/billing.module"; // TODO: Completar formato SENIAT para imprentas digitales
 
 @Module({
   imports: [
@@ -313,6 +318,7 @@ import { PayrollWebhooksModule } from "./modules/payroll-webhooks/payroll-webhoo
     ConsumablesModule,
     SuppliesModule,
     UnitConversionsModule,
+    UnitTypesModule,
     BillOfMaterialsModule,
     WorkCenterModule,
     RoutingModule,
@@ -387,7 +393,10 @@ import { PayrollWebhooksModule } from "./modules/payroll-webhooks/payroll-webhoo
     TransactionHistoryModule,
     ProductAffinityModule,
     ProductCampaignModule,
-    // BillingModule, // TODO: Implement billing module
+    AuditLogModule,
+    NotificationsModule,
+    SecurityMonitoringModule,
+    // BillingModule, // TODO: Completar formato SENIAT para imprentas digitales
   ],
   controllers: [AppController, TenantController],
   providers: [
@@ -396,7 +405,7 @@ import { PayrollWebhooksModule } from "./modules/payroll-webhooks/payroll-webhoo
     // Aplicar ThrottlerGuard globalmente
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: UserThrottlerGuard,
     },
   ],
 })

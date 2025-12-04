@@ -247,7 +247,9 @@ export class ProductCampaignService {
 
     // Purchase Frequency Filters
     if (targeting.minPurchaseFrequencyDays !== undefined) {
-      query.purchaseFrequencyDays = { $gte: targeting.minPurchaseFrequencyDays };
+      query.purchaseFrequencyDays = {
+        $gte: targeting.minPurchaseFrequencyDays,
+      };
     }
     if (targeting.maxPurchaseFrequencyDays !== undefined) {
       query.purchaseFrequencyDays = {
@@ -258,7 +260,9 @@ export class ProductCampaignService {
 
     // Days Since Last Purchase Filters
     if (targeting.minDaysSinceLastPurchase !== undefined) {
-      query.daysSinceLastPurchase = { $gte: targeting.minDaysSinceLastPurchase };
+      query.daysSinceLastPurchase = {
+        $gte: targeting.minDaysSinceLastPurchase,
+      };
     }
     if (targeting.maxDaysSinceLastPurchase !== undefined) {
       query.daysSinceLastPurchase = {
@@ -448,7 +452,10 @@ export class ProductCampaignService {
       }
 
       // Purchase frequency
-      if (customer.purchaseFrequencyDays && customer.purchaseFrequencyDays > 0) {
+      if (
+        customer.purchaseFrequencyDays &&
+        customer.purchaseFrequencyDays > 0
+      ) {
         totalPurchaseFrequency += customer.purchaseFrequencyDays;
         customersWithFrequency++;
       }
@@ -533,7 +540,9 @@ export class ProductCampaignService {
     }
 
     const averageAffinityScore =
-      targetCustomers.length > 0 ? totalAffinityScore / targetCustomers.length : 0;
+      targetCustomers.length > 0
+        ? totalAffinityScore / targetCustomers.length
+        : 0;
 
     return {
       totalMatchingCustomers: targetCustomers.length,
@@ -637,10 +646,7 @@ export class ProductCampaignService {
       );
     }
 
-    return this.productCampaignModel
-      .find(query)
-      .sort({ createdAt: -1 })
-      .exec();
+    return this.productCampaignModel.find(query).sort({ createdAt: -1 }).exec();
   }
 
   /**
@@ -709,7 +715,9 @@ export class ProductCampaignService {
     }
 
     if (campaign.status !== "draft" && campaign.status !== "scheduled") {
-      throw new Error("Campaign must be in draft or scheduled status to launch");
+      throw new Error(
+        "Campaign must be in draft or scheduled status to launch",
+      );
     }
 
     // Refresh target segment before launching
@@ -737,7 +745,10 @@ export class ProductCampaignService {
     campaign: ProductCampaign,
     tenantId: string,
   ): Promise<void> {
-    if (!campaign.targetCustomerIds || campaign.targetCustomerIds.length === 0) {
+    if (
+      !campaign.targetCustomerIds ||
+      campaign.targetCustomerIds.length === 0
+    ) {
       this.logger.warn(`Campaign ${campaign.name} has no target customers`);
       return;
     }
@@ -784,14 +795,10 @@ export class ProductCampaignService {
     }
 
     // Update campaign metrics
-    await this.trackPerformance(
-      (campaign as any)._id.toString(),
-      tenantId,
-      {
-        sent: sentCount,
-        delivered: deliveredCount,
-      },
-    );
+    await this.trackPerformance((campaign as any)._id.toString(), tenantId, {
+      sent: sentCount,
+      delivered: deliveredCount,
+    });
 
     this.logger.log(
       `Campaign "${campaign.name}" sent: ${sentCount}/${customers.length} messages delivered`,
@@ -817,7 +824,7 @@ export class ProductCampaignService {
 
     // Type-safe channel validation
     const validChannels = ["email", "sms", "whatsapp"] as const;
-    type ValidChannel = typeof validChannels[number];
+    type ValidChannel = (typeof validChannels)[number];
 
     if (!validChannels.includes(campaign.channel as ValidChannel)) {
       return {
@@ -855,9 +862,7 @@ export class ProductCampaignService {
           customerEmail: channel === "email" ? contact : null,
           customerPhone: channel === "sms" ? contact : null,
           whatsappChatId:
-            channel === "whatsapp"
-              ? customer.whatsappChatId || contact
-              : null,
+            channel === "whatsapp" ? customer.whatsappChatId || contact : null,
         },
         {
           engagementDelta: 5, // Marketing campaigns give +5 engagement
@@ -896,7 +901,8 @@ export class ProductCampaignService {
       customerName: customer.name || "Cliente",
       campaignName: campaign.name,
       campaignSubject: campaign.subject || `Oferta especial: ${productNames}`,
-      campaignMessage: campaign.message || this.generateDefaultMessage(campaign),
+      campaignMessage:
+        campaign.message || this.generateDefaultMessage(campaign),
       productNames,
       offerType: campaign.offer?.type || "especial",
       offerValue: campaign.offer?.value || 0,
@@ -934,9 +940,9 @@ export class ProductCampaignService {
       }
 
       if (campaign.offer.expiresAt) {
-        const expiresDate = new Date(campaign.offer.expiresAt).toLocaleDateString(
-          "es-ES",
-        );
+        const expiresDate = new Date(
+          campaign.offer.expiresAt,
+        ).toLocaleDateString("es-ES");
         message += `. Válido hasta ${expiresDate}`;
       }
     }
@@ -967,8 +973,7 @@ export class ProductCampaignService {
       case "sms":
       case "whatsapp":
         const phoneContact = customer.contacts.find(
-          (c: any) =>
-            (c.type === "phone" || c.type === "mobile") && c.isActive,
+          (c: any) => (c.type === "phone" || c.type === "mobile") && c.isActive,
         );
         return phoneContact?.value || customer.whatsappNumber || null;
 
@@ -995,17 +1000,25 @@ export class ProductCampaignService {
     const campaign = await this.getCampaignById(campaignId, tenantId);
 
     const updates: any = {};
-    if (metrics.sent) updates.$inc = { ...updates.$inc, totalSent: metrics.sent };
-    if (metrics.delivered) updates.$inc = { ...updates.$inc, totalDelivered: metrics.delivered };
-    if (metrics.opened) updates.$inc = { ...updates.$inc, totalOpened: metrics.opened };
-    if (metrics.clicked) updates.$inc = { ...updates.$inc, totalClicked: metrics.clicked };
-    if (metrics.orders) updates.$inc = { ...updates.$inc, totalOrders: metrics.orders };
-    if (metrics.revenue) updates.$inc = { ...updates.$inc, totalRevenue: metrics.revenue };
+    if (metrics.sent)
+      updates.$inc = { ...updates.$inc, totalSent: metrics.sent };
+    if (metrics.delivered)
+      updates.$inc = { ...updates.$inc, totalDelivered: metrics.delivered };
+    if (metrics.opened)
+      updates.$inc = { ...updates.$inc, totalOpened: metrics.opened };
+    if (metrics.clicked)
+      updates.$inc = { ...updates.$inc, totalClicked: metrics.clicked };
+    if (metrics.orders)
+      updates.$inc = { ...updates.$inc, totalOrders: metrics.orders };
+    if (metrics.revenue)
+      updates.$inc = { ...updates.$inc, totalRevenue: metrics.revenue };
 
     // Calculate new totals for ROI
     const newTotalRevenue = campaign.totalRevenue + (metrics.revenue || 0);
     if (campaign.cost > 0) {
-      updates.$set = { roi: ((newTotalRevenue - campaign.cost) / campaign.cost) * 100 };
+      updates.$set = {
+        roi: ((newTotalRevenue - campaign.cost) / campaign.cost) * 100,
+      };
     }
 
     const updated = await this.productCampaignModel
@@ -1128,7 +1141,11 @@ export class ProductCampaignService {
       throw new NotFoundException("Campaign not found");
     }
 
-    if (!campaign.isAbTest || !campaign.variants || campaign.variants.length === 0) {
+    if (
+      !campaign.isAbTest ||
+      !campaign.variants ||
+      campaign.variants.length === 0
+    ) {
       return;
     }
 
@@ -1241,7 +1258,9 @@ export class ProductCampaignService {
   ): Promise<ProductCampaign> {
     const campaign = await this.getCampaignById(campaignId, tenantId);
 
-    const variant = campaign.variants.find((v) => v.variantName === variantName);
+    const variant = campaign.variants.find(
+      (v) => v.variantName === variantName,
+    );
 
     if (!variant) {
       throw new NotFoundException(`Variant "${variantName}" not found`);
@@ -1317,7 +1336,9 @@ export class ProductCampaignService {
     }
 
     if (campaign.status !== "draft" && campaign.status !== "scheduled") {
-      throw new Error("Campaign must be in draft or scheduled status to launch");
+      throw new Error(
+        "Campaign must be in draft or scheduled status to launch",
+      );
     }
 
     if (!campaign.variants || campaign.variants.length < 2) {
@@ -1359,8 +1380,13 @@ export class ProductCampaignService {
         continue;
       }
 
-      if (!variant.assignedCustomerIds || variant.assignedCustomerIds.length === 0) {
-        this.logger.warn(`Variant "${variant.variantName}" has no assigned customers`);
+      if (
+        !variant.assignedCustomerIds ||
+        variant.assignedCustomerIds.length === 0
+      ) {
+        this.logger.warn(
+          `Variant "${variant.variantName}" has no assigned customers`,
+        );
         continue;
       }
 
@@ -1395,7 +1421,8 @@ export class ProductCampaignService {
             if (result.delivered) deliveredCount++;
           }
         } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
+          const message =
+            error instanceof Error ? error.message : String(error);
           this.logger.error(
             `Error sending variant "${variant.variantName}" to customer ${customer._id}: ${message}`,
           );
@@ -1433,7 +1460,7 @@ export class ProductCampaignService {
 
     // Type-safe channel validation
     const validChannels = ["email", "sms", "whatsapp"] as const;
-    type ValidChannel = typeof validChannels[number];
+    type ValidChannel = (typeof validChannels)[number];
 
     if (!validChannels.includes(campaign.channel as ValidChannel)) {
       return {
@@ -1467,9 +1494,7 @@ export class ProductCampaignService {
           customerEmail: channel === "email" ? contact : null,
           customerPhone: channel === "sms" ? contact : null,
           whatsappChatId:
-            channel === "whatsapp"
-              ? customer.whatsappChatId || contact
-              : null,
+            channel === "whatsapp" ? customer.whatsappChatId || contact : null,
         },
         {
           engagementDelta: 5,
@@ -1509,7 +1534,10 @@ export class ProductCampaignService {
       customerName: customer.name || "Cliente",
       campaignName: campaign.name,
       variantName: variant.variantName,
-      campaignSubject: variant.subject || campaign.subject || `Oferta especial: ${productNames}`,
+      campaignSubject:
+        variant.subject ||
+        campaign.subject ||
+        `Oferta especial: ${productNames}`,
       campaignMessage: variant.message || this.generateDefaultMessage(campaign),
       productNames,
       offerType: variant.offer?.type || campaign.offer?.type || "especial",
@@ -1526,7 +1554,8 @@ export class ProductCampaignService {
           : campaign.offer?.type === "fixed_amount"
             ? campaign.offer.value
             : null,
-      couponCode: variant.offer?.couponCode || campaign.offer?.couponCode || null,
+      couponCode:
+        variant.offer?.couponCode || campaign.offer?.couponCode || null,
       expiresAt: variant.offer?.expiresAt || campaign.offer?.expiresAt || null,
       hotelName: "SmartKubik",
     };
@@ -1550,7 +1579,9 @@ export class ProductCampaignService {
   ): Promise<ProductCampaign> {
     const campaign = await this.getCampaignById(campaignId, tenantId);
 
-    const variant = campaign.variants.find((v) => v.variantName === variantName);
+    const variant = campaign.variants.find(
+      (v) => v.variantName === variantName,
+    );
 
     if (!variant) {
       throw new NotFoundException(`Variant "${variantName}" not found`);
@@ -1607,7 +1638,10 @@ export class ProductCampaignService {
     }
 
     // Check minimum sample size
-    const totalSent = campaign.variants.reduce((sum, v) => sum + v.totalSent, 0);
+    const totalSent = campaign.variants.reduce(
+      (sum, v) => sum + v.totalSent,
+      0,
+    );
 
     if (campaign.minimumSampleSize && totalSent < campaign.minimumSampleSize) {
       return null; // Not enough data yet

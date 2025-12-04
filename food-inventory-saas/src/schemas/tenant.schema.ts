@@ -152,7 +152,7 @@ export class TenantSettings {
   @Prop({ type: Object })
   tips?: {
     autoDistribute?: boolean;
-    distributionFrequency?: 'daily' | 'weekly' | 'biweekly' | 'monthly';
+    distributionFrequency?: "daily" | "weekly" | "biweekly" | "monthly";
     defaultDistributionDay?: number; // 1-7 for day of week, 1-31 for day of month
     poolingEnabled?: boolean;
     taxWithholdingEnabled?: boolean;

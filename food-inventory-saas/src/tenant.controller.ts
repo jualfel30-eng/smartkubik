@@ -208,10 +208,7 @@ export class TenantController {
     status: 200,
     description: "Invitación reenviada exitosamente",
   })
-  async resendInvite(
-    @Request() req,
-    @Param("userId") userId: string,
-  ) {
+  async resendInvite(@Request() req, @Param("userId") userId: string) {
     try {
       const result = await this.tenantService.resendUserInvite(
         req.user.tenantId,

@@ -66,8 +66,7 @@ export class CoPurchasePattern {
   customerIds: Types.ObjectId[];
 }
 
-const CoPurchasePatternSchema =
-  SchemaFactory.createForClass(CoPurchasePattern);
+const CoPurchasePatternSchema = SchemaFactory.createForClass(CoPurchasePattern);
 
 /**
  * ProductAffinity - Customer-Product Matrix and Purchase Analytics

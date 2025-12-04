@@ -169,7 +169,9 @@ export class CampaignAnalyticsService {
         ? (analytics.totalOrders / analytics.totalDelivered) * 100
         : 0;
     analytics.revenuePerRecipient =
-      analytics.totalSent > 0 ? analytics.totalRevenue / analytics.totalSent : 0;
+      analytics.totalSent > 0
+        ? analytics.totalRevenue / analytics.totalSent
+        : 0;
     analytics.revenuePerOrder =
       analytics.totalOrders > 0
         ? analytics.totalRevenue / analytics.totalOrders
@@ -272,7 +274,9 @@ export class CampaignAnalyticsService {
     const affinities = await this.affinityModel
       .find({
         tenantId: new Types.ObjectId(tenantId),
-        customerId: { $in: targetCustomerIds.map((id: string) => new Types.ObjectId(id)) },
+        customerId: {
+          $in: targetCustomerIds.map((id: string) => new Types.ObjectId(id)),
+        },
       })
       .select("customerId customerSegment")
       .exec();
@@ -306,7 +310,10 @@ export class CampaignAnalyticsService {
         customers.has(o.customerId.toString()),
       );
 
-      const revenue = segmentOrders.reduce((sum: number, o: any) => sum + (o.totalAmount || 0), 0);
+      const revenue = segmentOrders.reduce(
+        (sum: number, o: any) => sum + (o.totalAmount || 0),
+        0,
+      );
       const orderCount = segmentOrders.length;
 
       segmentPerf.push({
@@ -491,7 +498,8 @@ export class CampaignAnalyticsService {
 
       if (timeToPurchase.length > 0) {
         analytics.averageTimeToPurchase =
-          timeToPurchase.reduce((sum: number, t: number) => sum + t, 0) / timeToPurchase.length;
+          timeToPurchase.reduce((sum: number, t: number) => sum + t, 0) /
+          timeToPurchase.length;
       }
     }
 
@@ -573,7 +581,10 @@ export class CampaignAnalyticsService {
 
     const segmentMap = new Map<string, string>();
     affinities.forEach((aff: any) => {
-      segmentMap.set(aff.customerId.toString(), aff.customerSegment || "unknown");
+      segmentMap.set(
+        aff.customerId.toString(),
+        aff.customerSegment || "unknown",
+      );
     });
 
     // Aggregate by cohort
@@ -582,7 +593,10 @@ export class CampaignAnalyticsService {
 
     orders.forEach((order: any) => {
       const segment = segmentMap.get(order.customerId.toString()) || "unknown";
-      cohortRevenue.set(segment, (cohortRevenue.get(segment) || 0) + (order.totalAmount || 0));
+      cohortRevenue.set(
+        segment,
+        (cohortRevenue.get(segment) || 0) + (order.totalAmount || 0),
+      );
       cohortOrders.set(segment, (cohortOrders.get(segment) || 0) + 1);
     });
 
@@ -608,10 +622,7 @@ export class CampaignAnalyticsService {
   /**
    * Get analytics for a campaign
    */
-  async getAnalytics(
-    campaignId: string,
-    tenantId: string,
-  ): Promise<any> {
+  async getAnalytics(campaignId: string, tenantId: string): Promise<any> {
     let analytics = await this.campaignAnalyticsModel
       .findOne({
         campaignId: new Types.ObjectId(campaignId),
@@ -626,7 +637,10 @@ export class CampaignAnalyticsService {
       Date.now() - analytics.lastCalculatedAt.getTime() > 3600000
     ) {
       // 1 hour
-      analytics = await this.calculateCampaignAnalytics(campaignId, tenantId) as any;
+      analytics = (await this.calculateCampaignAnalytics(
+        campaignId,
+        tenantId,
+      )) as any;
     }
 
     if (!analytics) {
@@ -710,10 +724,7 @@ export class CampaignAnalyticsService {
       // Convert to CSV format
       const csvData = [
         // Headers
-        [
-          "Metric",
-          "Value",
-        ],
+        ["Metric", "Value"],
         ["Campaign Name", analytics.campaignName],
         ["Total Sent", analytics.totalSent],
         ["Total Delivered", analytics.totalDelivered],
@@ -726,7 +737,10 @@ export class CampaignAnalyticsService {
         ["Click Rate", `${analytics.clickRate.toFixed(2)}%`],
         ["Conversion Rate", `${analytics.conversionRate.toFixed(2)}%`],
         ["ROI", `${analytics.roi.toFixed(2)}%`],
-        ["Revenue Per Recipient", `$${analytics.revenuePerRecipient.toFixed(2)}`],
+        [
+          "Revenue Per Recipient",
+          `$${analytics.revenuePerRecipient.toFixed(2)}`,
+        ],
         ["Cost Per Acquisition", `$${analytics.costPerAcquisition.toFixed(2)}`],
       ];
 

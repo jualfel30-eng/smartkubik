@@ -55,10 +55,7 @@ export class ProductCampaignController {
    * Get all campaigns with optional filters
    */
   @Get()
-  async getAllCampaigns(
-    @Query() filters: CampaignFiltersDto,
-    @Request() req,
-  ) {
+  async getAllCampaigns(@Query() filters: CampaignFiltersDto, @Request() req) {
     const campaigns = await this.productCampaignService.getAllCampaigns(
       req.user.tenantId,
       filters,
@@ -245,14 +242,16 @@ export class ProductCampaignController {
    */
   @Get(":id/insights")
   async getAudienceInsights(@Param("id") id: string, @Request() req) {
-    const insights = await this.productCampaignService.calculateAudienceInsights(
-      id,
-      req.user.tenantId,
-    );
+    const insights =
+      await this.productCampaignService.calculateAudienceInsights(
+        id,
+        req.user.tenantId,
+      );
 
     return {
       success: true,
-      message: "Audience insights calculated from CustomerProductAffinity cache",
+      message:
+        "Audience insights calculated from CustomerProductAffinity cache",
       data: insights,
     };
   }
@@ -490,10 +489,11 @@ export class ProductCampaignController {
    */
   @Post(":id/analytics/refresh")
   async refreshCampaignAnalytics(@Param("id") id: string, @Request() req) {
-    const analytics = await this.campaignAnalyticsService.calculateCampaignAnalytics(
-      id,
-      req.user.tenantId,
-    );
+    const analytics =
+      await this.campaignAnalyticsService.calculateCampaignAnalytics(
+        id,
+        req.user.tenantId,
+      );
 
     return {
       success: true,
@@ -576,9 +576,10 @@ export class ProductCampaignController {
    */
   @Post("analytics/refresh-all")
   async refreshAllAnalytics(@Request() req) {
-    const refreshedCount = await this.campaignAnalyticsService.refreshAllAnalytics(
-      req.user.tenantId,
-    );
+    const refreshedCount =
+      await this.campaignAnalyticsService.refreshAllAnalytics(
+        req.user.tenantId,
+      );
 
     return {
       success: true,

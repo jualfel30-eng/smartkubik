@@ -173,11 +173,12 @@ export class AuthService {
       this.logger.warn(
         `User ${sanitizedEmailForLog.email} no tenía memberships activas; creando membresía por compatibilidad.`,
       );
-      const newMembership = await this.membershipsService.createDefaultMembershipIfMissing(
-        user._id,
-        user.tenantId,
-        user.role,
-      );
+      const newMembership =
+        await this.membershipsService.createDefaultMembershipIfMissing(
+          user._id,
+          user.tenantId,
+          user.role,
+        );
       if (newMembership) {
         memberships.push(newMembership);
       }
@@ -192,15 +193,15 @@ export class AuthService {
     const defaultMembership =
       memberships.find((m) => m.isDefault) || memberships[0] || null;
     const shouldAutoSelectTenant =
-      !!defaultMembership && (memberships.length === 1 || defaultMembership.isDefault);
+      !!defaultMembership &&
+      (memberships.length === 1 || defaultMembership.isDefault);
 
     let tenantPayload = null as ReturnType<
       AuthService["buildTenantPayload"]
     > | null;
     let membershipPayload: MembershipSummary | null = null;
-    let tokens:
-      | Awaited<ReturnType<TokenService["generateTokens"]>>
-      | null = null;
+    let tokens: Awaited<ReturnType<TokenService["generateTokens"]>> | null =
+      null;
 
     if (shouldAutoSelectTenant && defaultMembership) {
       try {
@@ -235,9 +236,7 @@ export class AuthService {
           }
 
           membershipPayload =
-            await this.membershipsService.buildMembershipSummary(
-              membershipDoc,
-            );
+            await this.membershipsService.buildMembershipSummary(membershipDoc);
           tenantPayload = this.buildTenantPayload(tenantDoc);
         }
       } catch (error) {
@@ -254,7 +253,10 @@ export class AuthService {
     }
 
     return {
-      user: this.buildUserPayload(user, tenantPayload ? tenantPayload.id : null),
+      user: this.buildUserPayload(
+        user,
+        tenantPayload ? tenantPayload.id : null,
+      ),
       tenant: tenantPayload,
       membership: membershipPayload,
       memberships,

@@ -32,9 +32,7 @@ export class PopulateTransactionHistoryMigration {
         .lean()
         .exec();
 
-      this.logger.log(
-        `📊 Found ${paidOrders.length} paid orders to process`,
-      );
+      this.logger.log(`📊 Found ${paidOrders.length} paid orders to process`);
 
       let successCount = 0;
       let skippedCount = 0;

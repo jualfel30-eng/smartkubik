@@ -45,6 +45,7 @@ import { MembershipsModule } from "../modules/memberships/memberships.module";
     AuthService,
     JwtStrategy,
     PassportModule,
+    JwtModule,
     TokenService,
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },

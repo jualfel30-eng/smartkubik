@@ -175,11 +175,17 @@ export class ProductAffinityService {
     affinity.totalQuantitySold += purchaseData.quantity;
     affinity.totalRevenue += purchaseData.totalPrice;
 
-    if (!affinity.firstSaleDate || purchaseData.orderDate < affinity.firstSaleDate) {
+    if (
+      !affinity.firstSaleDate ||
+      purchaseData.orderDate < affinity.firstSaleDate
+    ) {
       affinity.firstSaleDate = purchaseData.orderDate;
     }
 
-    if (!affinity.lastSaleDate || purchaseData.orderDate > affinity.lastSaleDate) {
+    if (
+      !affinity.lastSaleDate ||
+      purchaseData.orderDate > affinity.lastSaleDate
+    ) {
       affinity.lastSaleDate = purchaseData.orderDate;
     }
 
@@ -613,9 +619,7 @@ export class ProductAffinityService {
       const purchaseDates: Date[] = [];
 
       transactions.forEach((tx) => {
-        const item = tx.items.find(
-          (i) => i.productId.toString() === productId,
-        );
+        const item = tx.items.find((i) => i.productId.toString() === productId);
         if (item) {
           totalQuantity += item.quantity;
           totalSpent += item.totalPrice;
@@ -639,7 +643,9 @@ export class ProductAffinityService {
             (1000 * 60 * 60 * 24);
           totalDays += diff;
         }
-        purchaseFrequencyDays = Math.round(totalDays / (purchaseDates.length - 1));
+        purchaseFrequencyDays = Math.round(
+          totalDays / (purchaseDates.length - 1),
+        );
       }
 
       // Days since last purchase
@@ -659,8 +665,9 @@ export class ProductAffinityService {
 
       // Calculate segment and engagement
       const customerSegment = this.calculateCustomerSegment(purchaseCount);
-      const engagementLevel =
-        this.calculateEngagementLevel(daysSinceLastPurchase);
+      const engagementLevel = this.calculateEngagementLevel(
+        daysSinceLastPurchase,
+      );
 
       // Predict next purchase date
       let nextPredictedPurchaseDate: Date | undefined;

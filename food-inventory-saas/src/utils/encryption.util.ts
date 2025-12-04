@@ -1,7 +1,8 @@
 import * as crypto from "crypto";
 
 const ALGORITHM = "aes-256-cbc";
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "default-32-char-encryption-key";
+const ENCRYPTION_KEY =
+  process.env.ENCRYPTION_KEY || "default-32-char-encryption-key";
 const IV_LENGTH = 16;
 
 /**

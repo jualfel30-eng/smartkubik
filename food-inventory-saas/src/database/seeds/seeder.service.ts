@@ -3,6 +3,7 @@ import { InjectConnection } from "@nestjs/mongoose";
 import { Connection } from "mongoose";
 import { PermissionsSeed } from "./permissions.seed";
 import { RolesSeed } from "./roles.seed";
+import { UnitTypesSeed } from "./unit-types.seed";
 import { addApplyDiscountsPermission } from "../migrations/add-apply-discounts-permission";
 import { addProductionModulePermissions } from "../migrations/add-production-module-permissions";
 
@@ -13,6 +14,7 @@ export class SeederService {
   constructor(
     private readonly permissionsSeed: PermissionsSeed,
     private readonly rolesSeed: RolesSeed,
+    private readonly unitTypesSeed: UnitTypesSeed,
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
@@ -38,9 +40,10 @@ export class SeederService {
     try {
       this.logger.log("🌱 Starting database seeding...");
 
-      // Orden importante: primero permisos, luego roles
+      // Orden importante: primero permisos, luego roles, luego tipos de unidades
       await this.permissionsSeed.seed();
       await this.rolesSeed.seed();
+      await this.unitTypesSeed.seed();
 
       // Run migrations after seeding
       await this.runMigrations();
