@@ -139,7 +139,8 @@ export class TenantService {
     }
 
     if (updateDto.settings) {
-      const { currency, inventory, documentTemplates } = updateDto.settings;
+      const { currency, inventory, documentTemplates, invoiceFormat } =
+        updateDto.settings;
       if (currency) {
         Object.keys(currency).forEach((key) => {
           updatePayload[`settings.currency.${key}`] = currency[key];
@@ -174,6 +175,9 @@ export class TenantService {
             updatePayload[`settings.hospitalityPolicies.${key}`] = value;
           },
         );
+      }
+      if (invoiceFormat) {
+        updatePayload["settings.invoiceFormat"] = invoiceFormat;
       }
     }
 

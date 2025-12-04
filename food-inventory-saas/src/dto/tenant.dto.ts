@@ -361,6 +361,17 @@ class OperationalSettingsDto {
   @Type(() => InventorySettingsDto)
   inventory?: InventorySettingsDto;
 
+  @ApiProperty({
+    example: "thermal",
+    enum: ["standard", "thermal"],
+    description: "Formato de impresión para documentos fiscales (A4 vs térmica 80mm)",
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(["standard", "thermal"])
+  invoiceFormat?: string;
+
   @ApiProperty({ type: DocumentTemplatesSettingsDto })
   @IsOptional()
   @ValidateNested()
