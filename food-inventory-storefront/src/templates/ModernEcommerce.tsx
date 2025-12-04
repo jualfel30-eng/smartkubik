@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { StorefrontConfig } from '@/types';
+import { Header } from './ModernEcommerce/components/Header';
 import { Footer } from './ModernEcommerce/components/Footer';
 import { getImageUrl } from '@/lib/utils';
 
@@ -54,47 +55,12 @@ export default function ModernEcommerce({ config, featuredProducts = [], categor
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-gray-950 text-gray-100' : 'bg-gradient-to-br from-gray-50 to-gray-100 text-gray-900'}`}>
       {/* Header */}
-      <header className={`${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'} shadow-sm sticky top-0 z-50`}>
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              {config.theme?.logo && (
-                <Image
-                  src={config.theme.logo}
-                  alt={config.seo?.title || 'Logo'}
-                  width={48}
-                  height={48}
-                  className="h-12 w-auto rounded-lg"
-                />
-              )}
-              <h1 className="text-3xl font-bold">
-                {config.seo?.title || config.domain}
-              </h1>
-            </div>
-            <nav className="hidden md:flex space-x-8">
-              <a href="#inicio" className={`${isDarkMode ? 'text-gray-200 hover:text-white' : 'text-gray-700 hover:text-blue-600'} font-medium transition`}>
-                Inicio
-              </a>
-              <a href={`/${config.domain}/productos`} className={`${isDarkMode ? 'text-gray-200 hover:text-white' : 'text-gray-700 hover:text-blue-600'} font-medium transition`}>
-                Productos
-              </a>
-              <a href="#contacto" className={`${isDarkMode ? 'text-gray-200 hover:text-white' : 'text-gray-700 hover:text-blue-600'} font-medium transition`}>
-                Contacto
-              </a>
-              <button
-                onClick={toggleTheme}
-                className={`px-4 py-2 rounded-full text-sm font-semibold border transition ${
-                  isDarkMode
-                    ? 'border-gray-700 text-gray-200 hover:bg-gray-800'
-                    : 'border-gray-200 text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                {isDarkMode ? 'Modo claro' : 'Modo oscuro'}
-              </button>
-            </nav>
-          </div>
-        </div>
-      </header>
+      <Header
+        config={config}
+        domain={domain || config.domain}
+        isDarkMode={isDarkMode}
+        onToggleTheme={toggleTheme}
+      />
 
       {/* Hero Section */}
       <section id="inicio" className="py-20">

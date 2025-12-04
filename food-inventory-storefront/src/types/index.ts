@@ -279,3 +279,79 @@ export interface RescheduleBookingResponse {
   startTime: string;
   endTime: string;
 }
+
+// Customer Authentication Types
+export interface Customer {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  whatsappNumber?: string;
+  addresses?: CustomerAddress[];
+  preferences?: {
+    language?: string;
+    currency?: string;
+    notifications?: {
+      email?: boolean;
+      sms?: boolean;
+      whatsapp?: boolean;
+    };
+  };
+  loyaltyPoints?: number;
+  totalSpent?: number;
+  orderCount?: number;
+  createdAt: string;
+}
+
+export interface CustomerAddress {
+  _id: string;
+  label: string;
+  street: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country: string;
+  isDefault: boolean;
+}
+
+export interface RegisterCustomerDto {
+  name: string;
+  email: string;
+  password: string;
+  phone?: string;
+  whatsappNumber?: string;
+  marketingOptIn?: boolean;
+  tenantId?: string; // Set by middleware
+}
+
+export interface LoginCustomerDto {
+  email: string;
+  password: string;
+  tenantId?: string; // Set by middleware
+}
+
+export interface AuthResponse {
+  success: boolean;
+  token: string;
+  customer: Customer;
+}
+
+export interface UpdateCustomerProfileDto {
+  name?: string;
+  phone?: string;
+  whatsappNumber?: string;
+  preferences?: {
+    language?: string;
+    currency?: string;
+    notifications?: {
+      email?: boolean;
+      sms?: boolean;
+      whatsapp?: boolean;
+    };
+  };
+}
+
+export interface ChangePasswordDto {
+  currentPassword: string;
+  newPassword: string;
+}

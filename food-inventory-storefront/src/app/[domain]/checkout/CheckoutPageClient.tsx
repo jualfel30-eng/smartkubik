@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Image from 'next/image';
 import { StorefrontConfig, CartItem, OrderData } from '@/types';
 import { Header } from '@/templates/ModernEcommerce/components/Header';
 import { Footer } from '@/templates/ModernEcommerce/components/Footer';
 import { formatPrice, getImageUrl } from '@/lib/utils';
 import { createOrder } from '@/lib/api';
-import { CheckCircle, Loader } from 'lucide-react';
+import { CheckCircle, Loader, User } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface CheckoutPageClientProps {
   config: StorefrontConfig;
@@ -16,6 +18,7 @@ interface CheckoutPageClientProps {
 
 export function CheckoutPageClient({ config }: CheckoutPageClientProps) {
   const router = useRouter();
+  const { customer, isAuthenticated } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -43,6 +46,19 @@ export function CheckoutPageClient({ config }: CheckoutPageClientProps) {
     setCartItems(cart);
     setLoading(false);
   }, [config.domain, router]);
+
+  // Pre-llenar formulario con datos del usuario autenticado
+  useEffect(() => {
+    if (isAuthenticated && customer) {
+      setFormData(prev => ({
+        ...prev,
+        customerName: customer.name || prev.customerName,
+        customerEmail: customer.email || prev.customerEmail,
+        customerPhone: customer.phone || prev.customerPhone,
+        customerAddress: customer.addresses?.find(a => a.isDefault)?.street || prev.customerAddress,
+      }));
+    }
+  }, [isAuthenticated, customer]);
 
   useEffect(() => {
     const stored = localStorage.getItem('storefront_theme');
@@ -203,14 +219,53 @@ export function CheckoutPageClient({ config }: CheckoutPageClientProps) {
             </p>
           </div>
 
+          {/* Auth suggestion banner for non-authenticated users */}
+          {!isAuthenticated && (
+            <div className={`mb-6 ${isDarkMode ? 'bg-blue-900/30 border border-blue-800' : 'bg-blue-50 border border-blue-200'} rounded-lg p-4`}>
+              <div className="flex items-start gap-3">
+                <User className={`w-5 h-5 mt-0.5 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+                <div className="flex-1">
+                  <h3 className={`font-semibold mb-1 ${isDarkMode ? 'text-blue-300' : 'text-blue-900'}`}>
+                    ¿Ya tienes una cuenta?
+                  </h3>
+                  <p className={`text-sm mb-3 ${isDarkMode ? 'text-blue-200' : 'text-blue-700'}`}>
+                    Inicia sesión para completar tu compra más rápido con tus datos guardados
+                  </p>
+                  <div className="flex gap-3">
+                    <Link
+                      href={`/${config.domain}/login?redirect=checkout`}
+                      className="text-sm font-medium text-[var(--primary-color)] hover:opacity-80"
+                    >
+                      Iniciar Sesión
+                    </Link>
+                    <Link
+                      href={`/${config.domain}/registro?redirect=checkout`}
+                      className="text-sm font-medium text-[var(--primary-color)] hover:opacity-80"
+                    >
+                      Crear Cuenta
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit}>
             <div className="grid lg:grid-cols-3 gap-8">
               {/* Customer Information Form */}
               <div className="lg:col-span-2 space-y-6">
                 <div className={`${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white'} rounded-lg shadow-sm p-6`}>
-                  <h2 className={`text-xl font-bold mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                    Información de Contacto
-                  </h2>
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      Información de Contacto
+                    </h2>
+                    {isAuthenticated && (
+                      <span className={`text-sm ${isDarkMode ? 'text-green-400' : 'text-green-600'} flex items-center gap-1`}>
+                        <User className="w-4 h-4" />
+                        Conectado como {customer?.name}
+                      </span>
+                    )}
+                  </div>
 
                   <div className="space-y-4">
                     {/* Name */}

@@ -13,6 +13,12 @@ import {
   BookingSummary,
   RescheduleBookingPayload,
   RescheduleBookingResponse,
+  RegisterCustomerDto,
+  LoginCustomerDto,
+  AuthResponse,
+  Customer,
+  UpdateCustomerProfileDto,
+  ChangePasswordDto,
 } from '@/types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
@@ -523,6 +529,181 @@ export async function trackOrder(orderNumber: string, tenantId: string): Promise
     return data.data; // El backend devuelve { success: true, data: order }
   } catch (error) {
     console.error('Error tracking order:', error);
+    throw error;
+  }
+}
+
+/**
+ * Registra un nuevo cliente en el storefront
+ */
+export async function registerCustomer(data: RegisterCustomerDto, tenantId: string): Promise<AuthResponse> {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/customers/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Tenant-ID': tenantId,
+      },
+      body: JSON.stringify(data),
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Error al registrar usuario');
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error('Error registering customer:', error);
+    throw error;
+  }
+}
+
+/**
+ * Inicia sesión de un cliente
+ */
+export async function loginCustomer(data: LoginCustomerDto, tenantId: string): Promise<AuthResponse> {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/customers/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Tenant-ID': tenantId,
+      },
+      body: JSON.stringify(data),
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Error al iniciar sesión');
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error('Error logging in customer:', error);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene el perfil del cliente autenticado
+ */
+export async function getCustomerProfile(token: string, tenantId: string): Promise<Customer> {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/customers/auth/profile`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'X-Tenant-ID': tenantId,
+      },
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      if (res.status === 401) {
+        throw new Error('Sesión expirada');
+      }
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Error al cargar perfil');
+    }
+
+    const data = await res.json();
+    return data.customer;
+  } catch (error) {
+    console.error('Error fetching customer profile:', error);
+    throw error;
+  }
+}
+
+/**
+ * Actualiza el perfil del cliente autenticado
+ */
+export async function updateCustomerProfile(
+  token: string,
+  tenantId: string,
+  data: UpdateCustomerProfileDto
+): Promise<Customer> {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/customers/auth/profile`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'X-Tenant-ID': tenantId,
+      },
+      body: JSON.stringify(data),
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Error al actualizar perfil');
+    }
+
+    const response = await res.json();
+    return response.customer;
+  } catch (error) {
+    console.error('Error updating customer profile:', error);
+    throw error;
+  }
+}
+
+/**
+ * Cambia la contraseña del cliente autenticado
+ */
+export async function changeCustomerPassword(
+  token: string,
+  tenantId: string,
+  data: ChangePasswordDto
+): Promise<void> {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/customers/auth/change-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'X-Tenant-ID': tenantId,
+      },
+      body: JSON.stringify(data),
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Error al cambiar contraseña');
+    }
+  } catch (error) {
+    console.error('Error changing password:', error);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene las órdenes del cliente autenticado
+ */
+export async function getCustomerOrders(token: string, tenantId: string): Promise<Order[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/customers/auth/orders`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'X-Tenant-ID': tenantId,
+      },
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      if (res.status === 401) {
+        throw new Error('Sesión expirada');
+      }
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.message || 'Error al cargar órdenes');
+    }
+
+    const response = await res.json();
+    return response.data || [];
+  } catch (error) {
+    console.error('Error fetching customer orders:', error);
     throw error;
   }
 }

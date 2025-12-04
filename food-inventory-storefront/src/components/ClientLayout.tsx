@@ -2,6 +2,7 @@
 
 import { ReactNode } from 'react';
 import { CartProvider, useCart } from '@/contexts/CartContext';
+import { AuthProvider } from '@/contexts/AuthContext';
 import { CartSidebar } from '@/components/CartSidebar';
 
 interface ClientLayoutProps {
@@ -22,10 +23,12 @@ function ClientLayoutInner({ children, domain }: ClientLayoutProps) {
 
 export function ClientLayout({ children, domain }: ClientLayoutProps) {
   return (
-    <CartProvider>
-      <ClientLayoutInner domain={domain}>
-        {children}
-      </ClientLayoutInner>
-    </CartProvider>
+    <AuthProvider>
+      <CartProvider>
+        <ClientLayoutInner domain={domain}>
+          {children}
+        </ClientLayoutInner>
+      </CartProvider>
+    </AuthProvider>
   );
 }

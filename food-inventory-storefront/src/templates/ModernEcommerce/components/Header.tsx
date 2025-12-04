@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { StorefrontConfig } from '@/types';
-import { ShoppingCart, Menu, X } from 'lucide-react';
+import { ShoppingCart, Menu, X, User, Sun, Moon } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface HeaderProps {
   config: StorefrontConfig;
@@ -18,7 +19,9 @@ interface HeaderProps {
 export function Header({ config, domain, cartItemsCount: initialCartCount = 0, isDarkMode = false, onToggleTheme }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [cartItemsCount, setCartItemsCount] = useState(initialCartCount);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const { toggleCart } = useCart();
+  const { isAuthenticated, customer, logout } = useAuth();
 
   useEffect(() => {
     // Update cart count from localStorage
@@ -38,6 +41,19 @@ export function Header({ config, domain, cartItemsCount: initialCartCount = 0, i
       window.removeEventListener('storage', updateCartCount);
     };
   }, []);
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (showUserMenu && !target.closest('.user-menu-container')) {
+        setShowUserMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showUserMenu]);
 
   const navigation = [
     { name: 'Inicio', href: `/${domain}` },
@@ -80,14 +96,67 @@ export function Header({ config, domain, cartItemsCount: initialCartCount = 0, i
             ))}
             <button
               onClick={() => onToggleTheme?.()}
-              className={`px-3 py-1 rounded-full text-sm font-medium border ${isDarkMode ? 'border-gray-700 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
+              title={isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+              className={`p-2 rounded-lg ${isDarkMode ? 'text-gray-200 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'} transition`}
             >
-              {isDarkMode ? 'Modo claro' : 'Modo oscuro'}
+              {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
           </div>
 
-          {/* Cart & Mobile Menu Button */}
+          {/* Cart, User & Mobile Menu Button */}
           <div className="flex items-center space-x-4">
+            {/* User Menu - Desktop */}
+            <div className="hidden md:block relative">
+              {isAuthenticated ? (
+                <div className="relative user-menu-container">
+                  <button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className={`flex items-center space-x-2 p-2 rounded-lg ${isDarkMode ? 'text-gray-200 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'} transition`}
+                  >
+                    <User className="h-5 w-5" />
+                    <span className="text-sm font-medium hidden lg:inline">{customer?.name || 'Mi cuenta'}</span>
+                  </button>
+                  {showUserMenu && (
+                    <div className={`absolute right-0 mt-2 w-48 rounded-lg shadow-lg ${isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'} z-50`}>
+                      <div className={`py-1 ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
+                        <Link
+                          href={`/${domain}/perfil`}
+                          className={`block px-4 py-2 text-sm ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                          onClick={() => setShowUserMenu(false)}
+                        >
+                          Mi Perfil
+                        </Link>
+                        <Link
+                          href={`/${domain}/mis-ordenes`}
+                          className={`block px-4 py-2 text-sm ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                          onClick={() => setShowUserMenu(false)}
+                        >
+                          Mis Órdenes
+                        </Link>
+                        <button
+                          onClick={() => {
+                            logout();
+                            setShowUserMenu(false);
+                          }}
+                          className={`w-full text-left px-4 py-2 text-sm ${isDarkMode ? 'hover:bg-gray-700 text-red-400' : 'hover:bg-gray-100 text-red-600'}`}
+                        >
+                          Cerrar Sesión
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Link
+                  href={`/${domain}/login`}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium ${isDarkMode ? 'text-gray-200 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'} transition`}
+                >
+                  <User className="h-5 w-5" />
+                  <span className="hidden lg:inline">Iniciar Sesión</span>
+                </Link>
+              )}
+            </div>
+
             <button
               onClick={toggleCart}
               className={`relative p-2 ${isDarkMode ? 'text-gray-200 hover:text-white' : 'text-gray-700 hover:text-gray-900'} transition`}
@@ -129,14 +198,62 @@ export function Header({ config, domain, cartItemsCount: initialCartCount = 0, i
                   {item.name}
                 </Link>
               ))}
+
+              {/* User options in mobile */}
+              <div className={`pt-2 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                {isAuthenticated ? (
+                  <>
+                    <div className={`px-3 py-2 text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      {customer?.name || 'Mi cuenta'}
+                    </div>
+                    <Link
+                      href={`/${domain}/perfil`}
+                      className={`flex items-center space-x-2 px-3 py-2 ${isDarkMode ? 'text-gray-200 hover:text-white' : 'text-gray-700 hover:text-gray-900'} font-medium transition`}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <User className="h-5 w-5" />
+                      <span>Mi Perfil</span>
+                    </Link>
+                    <Link
+                      href={`/${domain}/mis-ordenes`}
+                      className={`flex items-center space-x-2 px-3 py-2 ${isDarkMode ? 'text-gray-200 hover:text-white' : 'text-gray-700 hover:text-gray-900'} font-medium transition`}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <ShoppingCart className="h-5 w-5" />
+                      <span>Mis Órdenes</span>
+                    </Link>
+                    <button
+                      onClick={() => {
+                        logout();
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center space-x-2 px-3 py-2 text-left ${isDarkMode ? 'text-red-400 hover:text-red-300' : 'text-red-600 hover:text-red-700'} font-medium transition`}
+                    >
+                      <X className="h-5 w-5" />
+                      <span>Cerrar Sesión</span>
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    href={`/${domain}/login`}
+                    className={`flex items-center space-x-2 px-3 py-2 ${isDarkMode ? 'text-gray-200 hover:text-white' : 'text-gray-700 hover:text-gray-900'} font-medium transition`}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <User className="h-5 w-5" />
+                    <span>Iniciar Sesión</span>
+                  </Link>
+                )}
+              </div>
+
               <button
                 onClick={() => {
                   onToggleTheme?.();
                   setMobileMenuOpen(false);
                 }}
-                className={`px-3 py-2 rounded-lg text-sm font-medium border text-left ${isDarkMode ? 'border-gray-700 text-gray-200 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium ${isDarkMode ? 'text-gray-200 hover:bg-gray-800' : 'text-gray-700 hover:bg-gray-100'}`}
               >
-                {isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                <span>{isDarkMode ? 'Modo claro' : 'Modo oscuro'}</span>
               </button>
             </div>
           </div>
