@@ -3,6 +3,7 @@ import {
   InternalServerErrorException,
   Logger,
   BadRequestException,
+  NotFoundException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
@@ -108,18 +109,26 @@ export class AccountingService {
     tenantId: string,
     page: number,
     limit: number,
+    isAutomatic?: boolean,
   ): Promise<any> {
     const tenantObjectId = tenantId;
     const skip = (page - 1) * limit;
+
+    // Build filter
+    const filter: any = { tenantId: tenantObjectId };
+    if (isAutomatic !== undefined) {
+      filter.isAutomatic = isAutomatic;
+    }
+
     const [entries, total] = await Promise.all([
       this.journalEntryModel
-        .find({ tenantId: tenantObjectId })
+        .find(filter)
         .sort({ date: -1 })
         .skip(skip)
         .limit(limit)
         .populate("lines.account", "name code")
         .exec(),
-      this.journalEntryModel.countDocuments({ tenantId: tenantObjectId }),
+      this.journalEntryModel.countDocuments(filter),
     ]);
 
     return {
@@ -1263,5 +1272,223 @@ export class AccountingService {
     });
 
     return newEntry.save();
+  }
+
+  // ==================== PHASE 2: Advanced Accounting Reports ====================
+
+  /**
+   * Get Trial Balance (Balance de Comprobación)
+   * Lists all accounts with their debit/credit balances
+   * Validates that total debits = total credits
+   */
+  async getTrialBalance(
+    tenantId: string,
+    startDate?: string,
+    endDate?: string,
+    accountType?: string,
+    includeZeroBalances = false,
+  ) {
+    // Build date filter
+    const dateFilter: any = { tenantId };
+    if (startDate && endDate) {
+      dateFilter.date = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
+
+    // Get all accounts
+    let accountsQuery: any = { tenantId };
+    if (accountType) {
+      accountsQuery.type = accountType;
+    }
+
+    const accounts = await this.chartOfAccountsModel
+      .find(accountsQuery)
+      .sort({ code: 1 })
+      .lean();
+
+    // Calculate balance for each account
+    const accountBalances: Array<{
+      accountCode: string;
+      accountName: string;
+      accountType: string;
+      debit: number;
+      credit: number;
+      balance: number;
+    }> = [];
+    let totalDebits = 0;
+    let totalCredits = 0;
+
+    for (const account of accounts) {
+      // Get all journal entry lines for this account
+      const entries = await this.journalEntryModel.find(dateFilter).lean();
+
+      let accountDebit = 0;
+      let accountCredit = 0;
+
+      for (const entry of entries) {
+        for (const line of entry.lines) {
+          if (line.account.toString() === account._id.toString()) {
+            accountDebit += line.debit || 0;
+            accountCredit += line.credit || 0;
+          }
+        }
+      }
+
+      const balance = accountDebit - accountCredit;
+
+      // Skip zero balances if requested
+      if (!includeZeroBalances && balance === 0 && accountDebit === 0 && accountCredit === 0) {
+        continue;
+      }
+
+      accountBalances.push({
+        accountCode: account.code,
+        accountName: account.name,
+        accountType: account.type,
+        debit: accountDebit,
+        credit: accountCredit,
+        balance: balance,
+      });
+
+      totalDebits += accountDebit;
+      totalCredits += accountCredit;
+    }
+
+    // Validation check
+    const isBalanced = Math.abs(totalDebits - totalCredits) < 0.01; // Allow small rounding errors
+
+    return {
+      period: {
+        startDate: startDate || 'Inicio',
+        endDate: endDate || 'Actual',
+      },
+      accounts: accountBalances,
+      totals: {
+        totalDebits,
+        totalCredits,
+        difference: totalDebits - totalCredits,
+        isBalanced,
+      },
+    };
+  }
+
+  /**
+   * Get General Ledger (Libro Mayor) for a specific account
+   * Shows all transactions for an account with running balance
+   */
+  async getGeneralLedger(
+    tenantId: string,
+    accountCode: string,
+    startDate?: string,
+    endDate?: string,
+    page = 1,
+    limit = 100,
+  ) {
+    // Find the account
+    const account = await this.chartOfAccountsModel.findOne({
+      tenantId,
+      code: accountCode,
+    });
+
+    if (!account) {
+      throw new NotFoundException(
+        `Cuenta con código ${accountCode} no encontrada`,
+      );
+    }
+
+    // Build date filter
+    const dateFilter: any = { tenantId };
+    if (startDate && endDate) {
+      dateFilter.date = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
+
+    // Get all journal entries
+    const entries = await this.journalEntryModel
+      .find(dateFilter)
+      .sort({ date: 1, createdAt: 1 })
+      .lean();
+
+    // Filter and transform to ledger format
+    const ledgerEntries: Array<{
+      date: Date;
+      entryId: any;
+      description: string;
+      debit: number;
+      credit: number;
+      balance: number;
+      isAutomatic: boolean;
+    }> = [];
+    let runningBalance = 0;
+
+    // Calculate opening balance if startDate is provided
+    if (startDate) {
+      const openingEntries = await this.journalEntryModel
+        .find({
+          tenantId,
+          date: { $lt: new Date(startDate) },
+        })
+        .lean();
+
+      for (const entry of openingEntries) {
+        for (const line of entry.lines) {
+          if (line.account.toString() === account._id.toString()) {
+            runningBalance += (line.debit || 0) - (line.credit || 0);
+          }
+        }
+      }
+    }
+
+    const openingBalance = runningBalance;
+
+    // Process each entry
+    for (const entry of entries) {
+      for (const line of entry.lines) {
+        if (line.account.toString() === account._id.toString()) {
+          const debit = line.debit || 0;
+          const credit = line.credit || 0;
+          runningBalance += debit - credit;
+
+          ledgerEntries.push({
+            date: entry.date,
+            entryId: entry._id,
+            description: line.description || entry.description,
+            debit,
+            credit,
+            balance: runningBalance,
+            isAutomatic: entry.isAutomatic || false,
+          });
+        }
+      }
+    }
+
+    // Pagination
+    const skip = (page - 1) * limit;
+    const paginatedEntries = ledgerEntries.slice(skip, skip + limit);
+
+    return {
+      account: {
+        code: account.code,
+        name: account.name,
+        type: account.type,
+      },
+      period: {
+        startDate: startDate || 'Inicio',
+        endDate: endDate || 'Actual',
+      },
+      openingBalance,
+      closingBalance: runningBalance,
+      entries: paginatedEntries,
+      pagination: {
+        total: ledgerEntries.length,
+        page,
+        limit,
+        totalPages: Math.ceil(ledgerEntries.length / limit),
+      },
+    };
   }
 }

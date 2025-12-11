@@ -22,6 +22,10 @@ import {
   ImprentaCredential,
   ImprentaCredentialSchema,
 } from "../../schemas/imprenta-credential.schema";
+import {
+  TaxSettings,
+  TaxSettingsSchema,
+} from "../../schemas/tax-settings.schema";
 import { NumberingService } from "./numbering.service";
 import { ImprentaDigitalProvider } from "./imprenta-digital.provider";
 import { SalesBookService } from "./sales-book.service";
@@ -40,6 +44,8 @@ import { SalesBookPdfService } from "./sales-book-pdf.service";
 import { BillingEvidencesController } from "./billing-evidences.controller";
 import { BillingEvidencesService } from "./billing-evidences.service";
 import { BillingAuditController } from "./billing-audit.controller";
+import { SeniatValidationService } from "./services/seniat-validation.service";
+import { SeniatExportService } from "./services/seniat-export.service";
 
 @Module({
   imports: [
@@ -49,6 +55,7 @@ import { BillingAuditController } from "./billing-audit.controller";
       { name: BillingEvidence.name, schema: BillingEvidenceSchema },
       { name: BillingAuditLog.name, schema: BillingAuditLogSchema },
       { name: ImprentaCredential.name, schema: ImprentaCredentialSchema },
+      { name: TaxSettings.name, schema: TaxSettingsSchema },
       { name: SequenceLock.name, schema: SequenceLockSchema },
       { name: ImprentaFailure.name, schema: ImprentaFailureSchema },
     ]),
@@ -68,6 +75,8 @@ import { BillingAuditController } from "./billing-audit.controller";
     ImprentaFailureService,
     SalesBookPdfService,
     BillingEvidencesService,
+    SeniatValidationService,
+    SeniatExportService,
   ],
   exports: [BillingService],
 })

@@ -9,6 +9,7 @@ export function useBankReconciliation(accountId) {
   const [isLoadingDetails, setLoadingDetails] = useState(false);
   const [statementImport, setStatementImport] = useState(null);
   const [pending, setPending] = useState([]);
+  const [reopened, setReopened] = useState([]);
 
   const buildKey = (item) => {
     return [
@@ -51,9 +52,17 @@ export function useBankReconciliation(accountId) {
           };
         });
         setPending(unmatched);
+        setReopened(result.reopened ?? []);
 
+        const autoMatched = result.statementImport?.matchedRows ?? 0;
+        const reopened = result.reopened?.length ?? 0;
+        const descParts = [];
+        descParts.push(`${autoMatched} movimientos conciliados automáticamente`);
+        if (reopened > 0) {
+          descParts.push(`${reopened} reabiertos a pendiente`);
+        }
         toast.success('Estado de cuenta importado correctamente', {
-          description: `${result.statementImport?.matchedRows ?? 0} movimientos conciliados automáticamente`,
+          description: descParts.join(' · '),
         });
 
         return result;
@@ -129,6 +138,7 @@ export function useBankReconciliation(accountId) {
         });
 
         setPending(unmatched);
+        setReopened(statement?.metadata?.reopened ?? []);
         return result;
       } catch (error) {
         toast.error('No se pudo cargar el estado de cuenta', {
@@ -147,6 +157,7 @@ export function useBankReconciliation(accountId) {
     isLoadingDetails,
     statementImport,
     pending,
+    reopened,
     importStatement,
     manualReconcile,
     loadStatementDetails,

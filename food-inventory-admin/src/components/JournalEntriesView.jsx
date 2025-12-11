@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertTriangle, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, PlusCircle } from "lucide-react"
+import { AlertTriangle, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, PlusCircle, Filter } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
 import JournalEntryForm from './JournalEntryForm';
 
 const JournalEntriesView = () => {
@@ -32,6 +40,7 @@ const JournalEntriesView = () => {
     total: 0,
     totalPages: 1,
   });
+  const [entryFilter, setEntryFilter] = useState('all'); // 'all', 'automatic', 'manual'
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -39,7 +48,15 @@ const JournalEntriesView = () => {
     setLoading(true);
     setError(null);
     try {
-      const apiResponse = await fetchJournalEntries(page, pagination.limit);
+      // Convert filter to API parameter
+      let isAutomatic = undefined;
+      if (entryFilter === 'automatic') {
+        isAutomatic = true;
+      } else if (entryFilter === 'manual') {
+        isAutomatic = false;
+      }
+
+      const apiResponse = await fetchJournalEntries(page, pagination.limit, isAutomatic);
       setJournalEntries(apiResponse.data || []);
       setPagination({
         page: apiResponse.page,
@@ -52,11 +69,17 @@ const JournalEntriesView = () => {
     } finally {
       setLoading(false);
     }
-  }, [pagination.limit]);
+  }, [pagination.limit, entryFilter]);
 
   useEffect(() => {
     loadJournalEntries(pagination.page);
   }, [pagination.page, loadJournalEntries]);
+
+  const handleFilterChange = (value) => {
+    setEntryFilter(value);
+    // Reset to page 1 when filter changes
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('es-VE', { style: 'currency', currency: 'VES' }).format(amount);
@@ -99,14 +122,23 @@ const JournalEntriesView = () => {
     return journalEntries.map(entry => (
       <React.Fragment key={entry._id}>
         <TableRow className="bg-muted/50">
-          <TableCell className="font-bold">{new Date(entry.date).toLocaleDateString()}</TableCell>
+          <TableCell className="font-bold">
+            <div className="flex items-center gap-2">
+              {new Date(entry.date).toLocaleDateString()}
+              {entry.isAutomatic && (
+                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 hover:bg-blue-100">
+                  Automático
+                </Badge>
+              )}
+            </div>
+          </TableCell>
           <TableCell className="font-bold" colSpan="3">{entry.description}</TableCell>
         </TableRow>
         {entry.lines.map((line, index) => (
           <TableRow key={`${entry._id}-${index}`}>
             <TableCell className="pl-10">
-              {line.account 
-                ? `${line.account.name} (${line.account.code})` 
+              {line.account
+                ? `${line.account.name} (${line.account.code})`
                 : <i className="text-muted-foreground">(Cuenta eliminada)</i>}
             </TableCell>
             <TableCell>{line.description}</TableCell>
@@ -120,27 +152,42 @@ const JournalEntriesView = () => {
 
   return (
     <>
-      <div className="flex justify-start mb-4">
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white">
-              <PlusCircle className="mr-2 h-5 w-5" />
-              Crear Asiento Manual
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[800px]">
-            <DialogHeader>
-              <DialogTitle>Crear Nuevo Asiento Contable</DialogTitle>
-              <DialogDescription>
-                Complete los detalles del asiento. Asegúrese de que los débitos y créditos estén balanceados.
-              </DialogDescription>
-            </DialogHeader>
-            <JournalEntryForm onSuccess={() => {
-              setIsDialogOpen(false);
-              loadJournalEntries(1);
-            }} />
-          </DialogContent>
-        </Dialog>
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center gap-3">
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white">
+                <PlusCircle className="mr-2 h-5 w-5" />
+                Crear Asiento Manual
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[800px]">
+              <DialogHeader>
+                <DialogTitle>Crear Nuevo Asiento Contable</DialogTitle>
+                <DialogDescription>
+                  Complete los detalles del asiento. Asegúrese de que los débitos y créditos estén balanceados.
+                </DialogDescription>
+              </DialogHeader>
+              <JournalEntryForm onSuccess={() => {
+                setIsDialogOpen(false);
+                loadJournalEntries(1);
+              }} />
+            </DialogContent>
+          </Dialog>
+        </div>
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <Select value={entryFilter} onValueChange={handleFilterChange}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filtrar entradas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las entradas</SelectItem>
+              <SelectItem value="automatic">Automáticas</SelectItem>
+              <SelectItem value="manual">Manuales</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
       <div className="border rounded-md">
         <Table>
@@ -162,34 +209,34 @@ const JournalEntriesView = () => {
           Página {pagination.page} de {pagination.totalPages}
         </div>
         <div className="space-x-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => loadJournalEntries(1)} 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadJournalEntries(1)}
             disabled={pagination.page === 1 || loading}
           >
             <ChevronsLeft className="h-4 w-4" />
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => loadJournalEntries(pagination.page - 1)} 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadJournalEntries(pagination.page - 1)}
             disabled={pagination.page === 1 || loading}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => loadJournalEntries(pagination.page + 1)} 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadJournalEntries(pagination.page + 1)}
             disabled={pagination.page === pagination.totalPages || loading}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => loadJournalEntries(pagination.totalPages)} 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadJournalEntries(pagination.totalPages)}
             disabled={pagination.page === pagination.totalPages || loading}
           >
             <ChevronsRight className="h-4 w-4" />

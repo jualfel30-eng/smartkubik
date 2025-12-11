@@ -102,6 +102,7 @@ export class BankReconciliationService {
     });
 
     const unmatched: Array<Record<string, any>> = [];
+    const reopened: Array<Record<string, any>> = [];
     let matchedRows = 0;
 
     for (const row of rows) {
@@ -162,6 +163,13 @@ export class BankReconciliationService {
               undefined,
             );
           }
+          reopened.push({
+            bankTransactionId: previouslyMatched._id,
+            paymentId: previouslyMatched.paymentId,
+            amount: previouslyMatched.amount,
+            transactionDate: previouslyMatched.transactionDate,
+            reference: previouslyMatched.reference,
+          });
         }
 
         unmatched.push({
@@ -179,6 +187,7 @@ export class BankReconciliationService {
     statementImport.metadata = {
       ...(statementImport.metadata ?? {}),
       unmatched,
+      reopened,
     };
     await statementImport.save();
 
@@ -196,6 +205,7 @@ export class BankReconciliationService {
     return {
       statementImport,
       unmatched,
+      reopened,
     };
   }
 

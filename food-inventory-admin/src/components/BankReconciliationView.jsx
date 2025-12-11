@@ -79,6 +79,7 @@ export default function BankReconciliationView() {
     isUploading,
     statementImport,
     pending,
+    reopened,
     importStatement,
     manualReconcile,
   } = useBankReconciliation(accountId);
@@ -498,6 +499,30 @@ export default function BankReconciliationView() {
           )}
         </CardContent>
       </Card>
+
+      {reopened && reopened.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Pagos reabiertos tras importación</CardTitle>
+            <CardDescription>Pagos que estaban conciliados y se reabrieron a pendiente por no aparecer en el extracto.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {reopened.slice(0, 10).map((item) => (
+              <div
+                key={`${item.paymentId || item.bankTransactionId || item.reference || 'unknown'}-${item.amount || '0'}`}
+              >
+                {formatDate(item.transactionDate)} · {item.reference || 'Sin referencia'} ·{' '}
+                {formatCurrency(item.amount, resolvedCurrency)}
+              </div>
+            ))}
+            {reopened.length > 10 ? (
+              <div className="text-muted-foreground">
+                y {reopened.length - 10} más...
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader className="flex flex-col gap-2">

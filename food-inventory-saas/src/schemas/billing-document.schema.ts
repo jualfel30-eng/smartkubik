@@ -44,6 +44,29 @@ export class BillingDocument {
     fiscalStamp?: string;
   };
 
+  // SENIAT Electronic Invoicing Information
+  @Prop({ type: Object })
+  seniat?: {
+    xmlGenerated?: boolean;
+    xmlGeneratedAt?: Date;
+    xmlHash?: string; // SHA-256 hash del XML para integridad
+    qrCode?: string; // Código QR en base64
+    verificationUrl?: string; // URL de verificación SENIAT
+    transmissionDate?: Date; // Fecha de transmisión a SENIAT
+    responseCode?: string; // Código de respuesta SENIAT
+    responseMessage?: string; // Mensaje de respuesta SENIAT
+    validationErrors?: string[]; // Errores de validación si los hay
+  };
+
+  // Withholding Agent Information (Agente de Retención)
+  @Prop({ type: Object })
+  withholdingAgent?: {
+    isAgent?: boolean; // Si el emisor es agente de retención
+    registrationNumber?: string; // Número de registro como agente
+    resolutionNumber?: string; // Número de resolución SENIAT
+    resolutionDate?: Date; // Fecha de la resolución
+  };
+
   @Prop({ type: String, required: true, default: "draft" })
   status: BillingDocumentStatus;
 
@@ -74,6 +97,40 @@ export class BillingDocument {
     currency?: string;
     exchangeRate?: number;
   };
+
+  @Prop({
+    type: [
+      {
+        taxType: { type: String, enum: ['IVA', 'IGTF', 'ISLR'] },
+        taxSettingsId: { type: Types.ObjectId, ref: 'TaxSettings' },
+        rate: Number,
+        baseAmount: Number,
+        amount: Number,
+      },
+    ],
+  })
+  taxDetails?: Array<{
+    taxType: string;
+    taxSettingsId?: Types.ObjectId;
+    rate: number;
+    baseAmount: number;
+    amount: number;
+  }>;
+
+  @Prop({ type: Boolean, default: false })
+  requiresIvaWithholding?: boolean; // Cliente es agente de retención
+
+  @Prop({ type: Number, default: 0 })
+  withheldIvaAmount?: number; // Monto de IVA retenido por el cliente
+
+  @Prop({ type: Number, default: 0 })
+  withheldIvaPercentage?: number; // Porcentaje de retención (75 o 100)
+
+  @Prop({ type: String })
+  withholdingCertificate?: string; // Número de comprobante de retención recibida
+
+  @Prop({ type: Date })
+  withholdingDate?: Date; // Fecha en que se practicó la retención
 
   @Prop({ type: Object })
   paymentTerms?: {

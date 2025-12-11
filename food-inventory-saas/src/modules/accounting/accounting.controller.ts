@@ -43,9 +43,17 @@ export class AccountingController {
     @Req() req,
     @Query("page", new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query("limit", new DefaultValuePipe(15), ParseIntPipe) limit: number,
+    @Query("isAutomatic") isAutomaticStr?: string,
   ) {
     const tenantId = req.user.tenantId;
-    return this.accountingService.findAllJournalEntries(tenantId, page, limit);
+
+    // Convert string to boolean if provided
+    let isAutomatic: boolean | undefined = undefined;
+    if (isAutomaticStr !== undefined && isAutomaticStr !== "") {
+      isAutomatic = isAutomaticStr === "true";
+    }
+
+    return this.accountingService.findAllJournalEntries(tenantId, page, limit, isAutomatic);
   }
 
   @Post("journal-entries")
@@ -107,6 +115,46 @@ export class AccountingController {
       tenantId,
       fromDate,
       toDate,
+    );
+  }
+
+  // ==================== PHASE 2: Advanced Accounting Reports ====================
+
+  @Get("reports/trial-balance")
+  getTrialBalance(
+    @Req() req,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+    @Query("accountType") accountType?: string,
+    @Query("includeZeroBalances") includeZeroBalances?: string,
+  ) {
+    const tenantId = req.user.tenantId;
+    return this.accountingService.getTrialBalance(
+      tenantId,
+      startDate,
+      endDate,
+      accountType,
+      includeZeroBalances === 'true',
+    );
+  }
+
+  @Get("reports/general-ledger")
+  getGeneralLedger(
+    @Req() req,
+    @Query("accountCode") accountCode: string,
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+    @Query("page") page?: string,
+    @Query("limit") limit?: string,
+  ) {
+    const tenantId = req.user.tenantId;
+    return this.accountingService.getGeneralLedger(
+      tenantId,
+      accountCode,
+      startDate,
+      endDate,
+      page ? parseInt(page) : 1,
+      limit ? parseInt(limit) : 100,
     );
   }
 }

@@ -5,14 +5,17 @@ import {
   Param,
   Post,
   Req,
+  Res,
   UseGuards,
 } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
+import { Response } from "express";
 import { BillingService } from "./billing.service";
 import {
   CreateBillingDocumentDto,
   IssueBillingDocumentDto,
 } from "../../dto/billing.dto";
+import { SeniatStatsDto } from "../../dto/seniat-validation.dto";
 import { PermissionsGuard } from "../../guards/permissions.guard";
 import { Permissions } from "../../decorators/permissions.decorator";
 import { SalesBookService } from "./sales-book.service";
@@ -99,5 +102,88 @@ export class BillingController {
       to,
       format,
     });
+  }
+
+  // ========== SENIAT Electronic Invoicing Endpoints ==========
+
+  @Post("documents/:id/validate-seniat")
+  @Permissions("billing_read")
+  @ApiOperation({ summary: "Validar documento para SENIAT" })
+  async validateSeniat(@Param("id") id: string, @Req() req: any) {
+    const result = await this.billingService.validateForSENIAT(
+      id,
+      req.user.tenantId,
+    );
+
+    return {
+      documentId: id,
+      valid: result.valid,
+      errors: result.errors,
+      warnings: result.warnings,
+    };
+  }
+
+  @Post("documents/:id/generate-xml")
+  @Permissions("billing_issue")
+  @ApiOperation({ summary: "Generar XML SENIAT para facturación electrónica" })
+  async generateXml(@Param("id") id: string, @Req() req: any) {
+    const result = await this.billingService.generateSENIATXML(
+      id,
+      req.user.tenantId,
+    );
+
+    return {
+      success: true,
+      documentId: id,
+      xml: result.xml,
+      xmlHash: result.hash,
+      qrCode: result.qrCode,
+      verificationUrl: result.verificationUrl,
+      generatedAt: new Date(),
+    };
+  }
+
+  @Get("documents/:id/seniat-xml")
+  @Permissions("billing_read")
+  @ApiOperation({ summary: "Descargar XML SENIAT" })
+  async downloadXml(
+    @Param("id") id: string,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const xmlBuffer = await this.billingService.downloadXML(
+      id,
+      req.user.tenantId,
+    );
+
+    // Get document to use in filename
+    const doc = await this.billingService.getById(id, req.user.tenantId);
+    const filename = `factura-${doc?.documentNumber || id}.xml`;
+
+    res.set({
+      "Content-Type": "application/xml",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Length": xmlBuffer.length,
+    });
+
+    res.send(xmlBuffer);
+  }
+
+  @Get("stats/electronic-invoices")
+  @Permissions("billing_read")
+  @ApiOperation({ summary: "Estadísticas de facturas electrónicas" })
+  async getElectronicInvoiceStats(
+    @Query() filters: SeniatStatsDto,
+    @Req() req: any,
+  ) {
+    return this.billingService.getElectronicInvoiceStats(
+      {
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        status: filters.status,
+        documentType: filters.documentType,
+      },
+      req.user.tenantId,
+    );
   }
 }

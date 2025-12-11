@@ -18,6 +18,7 @@ import JournalEntriesView from './JournalEntriesView';
 import ChartOfAccountsView from './ChartOfAccountsView';
 import ProfitLossView from './ProfitLossView';
 import BalanceSheetView from './BalanceSheetView';
+import BillingComplianceDashboard from './accounting/BillingComplianceDashboard';
 
 const AccountingManagement = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -47,9 +48,10 @@ const AccountingManagement = () => {
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid h-auto w-full grid-cols-3 md:h-10 md:grid-cols-5">
+          <TabsList className="grid h-auto w-full grid-cols-3 md:h-10 md:grid-cols-6">
             <TabsTrigger value="journal">Libro Diario</TabsTrigger>
             <TabsTrigger value="chart-of-accounts">Plan de Cuentas</TabsTrigger>
+            <TabsTrigger value="billing-compliance">Billing Integration</TabsTrigger>
             <TabsTrigger value="profit-loss">Estado de Resultados</TabsTrigger>
             <TabsTrigger value="balance-sheet">Balance General</TabsTrigger>
             <TabsTrigger value="reports">Informes</TabsTrigger>
@@ -75,6 +77,9 @@ const AccountingManagement = () => {
                 <ChartOfAccountsView />
               </CardContent>
             </Card>
+          </TabsContent>
+          <TabsContent value="billing-compliance">
+            <BillingComplianceDashboard />
           </TabsContent>
           <TabsContent value="profit-loss">
             <Card>
