@@ -37,6 +37,10 @@ export const FEATURES = {
   // Fase 1B: Login Multi-Tenant
   MULTI_TENANT_LOGIN:
     import.meta.env.VITE_ENABLE_MULTI_TENANT_LOGIN === 'true',
+
+  // Inventario: Multi-Almacén
+  MULTI_WAREHOUSE:
+    import.meta.env.VITE_ENABLE_MULTI_WAREHOUSE === 'true',
 };
 
 /**

@@ -37,6 +37,9 @@ export interface FeatureFlags {
   // Servicios & Booking
   SERVICE_BOOKING_PORTAL: boolean;
   APPOINTMENT_REMINDERS: boolean;
+
+  // Inventario
+  MULTI_WAREHOUSE: boolean;
 }
 
 /**
@@ -72,6 +75,9 @@ export const FEATURES: FeatureFlags = {
   // Servicios & Booking
   SERVICE_BOOKING_PORTAL: process.env.ENABLE_SERVICE_BOOKING_PORTAL === "true",
   APPOINTMENT_REMINDERS: process.env.ENABLE_APPOINTMENT_REMINDERS === "true",
+
+  // Inventario
+  MULTI_WAREHOUSE: process.env.ENABLE_MULTI_WAREHOUSE === "true",
 };
 
 /**

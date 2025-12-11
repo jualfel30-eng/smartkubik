@@ -33,6 +33,7 @@ export class FeatureFlagsService {
     ENABLE_MULTI_TENANT_LOGIN: "MULTI_TENANT_LOGIN",
     ENABLE_SERVICE_BOOKING_PORTAL: "SERVICE_BOOKING_PORTAL",
     ENABLE_APPOINTMENT_REMINDERS: "APPOINTMENT_REMINDERS",
+    ENABLE_MULTI_WAREHOUSE: "MULTI_WAREHOUSE",
   };
 
   constructor(
@@ -104,6 +105,9 @@ export class FeatureFlagsService {
         APPOINTMENT_REMINDERS:
           settingsMap.get("ENABLE_APPOINTMENT_REMINDERS") ??
           process.env.ENABLE_APPOINTMENT_REMINDERS === "true",
+        MULTI_WAREHOUSE:
+          settingsMap.get("ENABLE_MULTI_WAREHOUSE") ??
+          process.env.ENABLE_MULTI_WAREHOUSE === "true",
       };
 
       this.cache = flags;
@@ -190,6 +194,7 @@ export class FeatureFlagsService {
         process.env.ENABLE_SERVICE_BOOKING_PORTAL === "true",
       APPOINTMENT_REMINDERS:
         process.env.ENABLE_APPOINTMENT_REMINDERS === "true",
+      MULTI_WAREHOUSE: process.env.ENABLE_MULTI_WAREHOUSE === "true",
     };
   }
 

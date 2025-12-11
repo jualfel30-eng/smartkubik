@@ -12,15 +12,15 @@
 - Conciliación/auditoría base:
   - Payment con reconciliationStatus/statementRef/reconciledAt/reconciledBy + statusHistory.
   - Endpoint `PATCH /payments/:id/reconcile` y UI retail (Confirmados) con selector, nota y badge.
-  - Cambios de estado guardan historial; tooltip muestra últimos cambios; reabrir conciliación disponible en Cobros y vista bancaria.
+  - Cambios de estado guardan historial; tooltip muestra últimos cambios; reabrir conciliación (matched→pending/manual) disponible en Cobros y vista bancaria.
   - Auto-conciliación opcional: si `PAYMENTS_AUTO_RECONCILE=true` y hay `bankAccountId`, se crea en matched (flag off por defecto).
   - Validación: si hay `bankAccountId` sin referencia, o métodos bancarios sin referencia (transferencia/pago_movil/pos), el pago se rechaza (400). Nota obligatoria en conciliación manual/rechazada.
 
 ## Qué falta (🚧)
 1) Conciliación bancaria avanzada:
-   - Vista bancaria: mostrar `statementRef`, badge y botón de reabrir (matched→pending/manual) al listar conciliados.
-   - Al importar extracto, si no hay match, reabrir pago a pending/manual y notificar.
-   - Reconciliación invertida: permitir “rechazar/manual” y registrar ajuste entre cuentas (sin mover el pago).
+   - Vista bancaria: mostrar `statementRef`, badge y botón de reabrir (matched→pending/manual) al listar conciliados. ✅ Reabrir listo; badge/`statementRef` visibles en Cobros retail (confirmados); falta replicar en resto de tablas/pestañas.
+   - Al importar extracto, si no hay match, reabrir pago a pending/manual y notificar. ✅ backend lo hace; falta alertar/registrar en UI cobros con badge.
+   - Reconciliación invertida: permitir “rechazar/manual” y registrar ajuste entre cuentas (sin mover el pago). ⏳ pendiente.
 2) Evidencias y controles:
    - Adjuntar soporte (foto/PDF) al pago/concilación (GridFS/S3) y campo de observaciones de soporte en UI.
    - Extender validaciones por método a la UI (hoy ya valida backend).
