@@ -43,6 +43,8 @@ import { Modifier } from "../../schemas/modifier.schema";
 import { CouponsService } from "../coupons/coupons.service";
 import { PromotionsService } from "../promotions/promotions.service";
 import { WhapiService } from "../whapi/whapi.service";
+import { InventoryMovementsService } from "../inventory/inventory-movements.service";
+import { MovementType } from "../../dto/inventory-movement.dto";
 
 @Injectable()
 export class OrdersService {
@@ -70,6 +72,7 @@ export class OrdersService {
     private readonly couponsService: CouponsService,
     private readonly promotionsService: PromotionsService,
     private readonly whapiService: WhapiService,
+    private readonly inventoryMovementsService: InventoryMovementsService,
     private readonly eventEmitter: EventEmitter2,
     @InjectConnection() private readonly connection: Connection,
   ) {}
@@ -1225,12 +1228,149 @@ export class OrdersService {
   ): Promise<OrderDocument | null> {
     const order = await this.orderModel.findById(id);
     if (!order) throw new NotFoundException("Orden no encontrada");
+    const previousStatus = order.status || "";
     const updatedOrder = await this.orderModel.findByIdAndUpdate(
       id,
       { ...updateOrderDto, updatedBy: user.id },
       { new: true },
     );
+
+    const fulfillmentStatuses = ["shipped", "delivered"];
+    const movedToFulfillment =
+      updatedOrder &&
+      fulfillmentStatuses.includes(updatedOrder.status || "") &&
+      !fulfillmentStatuses.includes(previousStatus);
+
+    if (updatedOrder && movedToFulfillment) {
+      const hasOutMovements =
+        await this.inventoryMovementsService.hasOutMovementsForOrder(
+          updatedOrder._id.toString(),
+          user.tenantId,
+        );
+
+      if (!hasOutMovements) {
+        setImmediate(async () => {
+          try {
+            for (const item of updatedOrder.items || []) {
+              const inv = await this.inventoryService.findByProductSku(
+                item.productSku,
+                user.tenantId,
+              );
+              if (!inv) {
+                this.logger.warn(
+                  `No inventory found for SKU ${item.productSku} when creating OUT movement for order ${updatedOrder.orderNumber} (status change)`,
+                );
+                continue;
+              }
+              await this.inventoryMovementsService.create(
+                {
+                  inventoryId: inv._id.toString(),
+                  movementType: MovementType.OUT,
+                  quantity: item.quantity,
+                  unitCost: inv.averageCostPrice || 0,
+                  reason: "Salida por orden enviada/entregada",
+                  warehouseId: inv.warehouseId?.toString(),
+                },
+                user.tenantId,
+                user.id,
+                true,
+                { orderId: updatedOrder._id.toString(), origin: "order-status" },
+              );
+            }
+          } catch (err) {
+            this.logger.error(
+              `Failed to create OUT movements on status change for order ${updatedOrder.orderNumber}: ${err.message}`,
+            );
+          }
+        });
+      }
+    }
+
     return updatedOrder;
+  }
+
+  async reconcileMissingOutMovements(
+    user: any,
+    options?: { statuses?: string[]; limit?: number },
+  ): Promise<{
+    ordersChecked: number;
+    movementsCreated: number;
+    skippedExistingOut: number;
+    missingInventory: number;
+    errors: number;
+  }> {
+    const targetStatuses = (options?.statuses?.length
+      ? options.statuses
+      : ["shipped", "delivered", "paid"]
+    ).filter(Boolean);
+    const limit = Math.min(options?.limit || 200, 1000);
+
+    const orders = await this.orderModel
+      .find({
+        tenantId: user.tenantId,
+        status: { $in: targetStatuses },
+      })
+      .sort({ updatedAt: -1 })
+      .limit(limit)
+      .lean();
+
+    let movementsCreated = 0;
+    let skippedExistingOut = 0;
+    let missingInventory = 0;
+    let errors = 0;
+
+    for (const order of orders) {
+      try {
+        const hasOut = await this.inventoryMovementsService.hasOutMovementsForOrder(
+          order._id.toString(),
+          user.tenantId,
+        );
+        if (hasOut) {
+          skippedExistingOut += 1;
+          continue;
+        }
+
+        for (const item of order.items || []) {
+          const inv = await this.inventoryService.findByProductSku(
+            item.productSku,
+            user.tenantId,
+          );
+          if (!inv) {
+            missingInventory += 1;
+            continue;
+          }
+
+          await this.inventoryMovementsService.create(
+            {
+              inventoryId: inv._id.toString(),
+              movementType: MovementType.OUT,
+              quantity: item.quantity,
+              unitCost: inv.averageCostPrice || 0,
+              reason: "Salida por reconciliación de orden",
+              warehouseId: inv.warehouseId?.toString(),
+            },
+            user.tenantId,
+            user.id,
+            true,
+            { orderId: order._id.toString(), origin: "order-reconcile" },
+          );
+          movementsCreated += 1;
+        }
+      } catch (err) {
+        this.logger.error(
+          `Error reconciling OUT movements for order ${order.orderNumber}: ${err.message}`,
+        );
+        errors += 1;
+      }
+    }
+
+    return {
+      ordersChecked: orders.length,
+      movementsCreated,
+      skippedExistingOut,
+      missingInventory,
+      errors,
+    };
   }
 
   async registerPayments(
@@ -1243,6 +1383,10 @@ export class OrdersService {
     if (!order) {
       throw new NotFoundException("Orden no encontrada");
     }
+    const existingOutMovements = await this.inventoryMovementsService.hasOutMovementsForOrder(
+      order._id.toString(),
+      user.tenantId,
+    );
 
     // Guardar pagos en paymentRecords (compatibilidad)
     const newPaymentRecords = bulkRegisterPaymentsDto.payments.map((p) => ({
@@ -1406,6 +1550,45 @@ export class OrdersService {
       throw new NotFoundException(
         "Error al registrar el pago, no se pudo encontrar la orden final.",
       );
+    }
+
+    // OUT movements cuando la orden pasa a pagada
+    if (wasNotPaidBefore && newPaymentStatus === "paid" && !existingOutMovements) {
+      setImmediate(async () => {
+        try {
+          for (const item of order.items) {
+            // Nota: usamos el inventario asociado por SKU. Si multi-warehouse está desactivado, se usará el default asignado en migración.
+            const inv = await this.inventoryService.findByProductSku(
+              item.productSku,
+              user.tenantId,
+            );
+            if (!inv) {
+              this.logger.warn(
+                `No inventory found for SKU ${item.productSku} when creating OUT movement for order ${order.orderNumber}`,
+              );
+              continue;
+            }
+            await this.inventoryMovementsService.create(
+              {
+                inventoryId: inv._id.toString(),
+                movementType: MovementType.OUT,
+                quantity: item.quantity,
+                unitCost: inv.averageCostPrice || 0,
+                reason: "Salida por orden pagada",
+                warehouseId: inv.warehouseId?.toString(),
+              },
+              user.tenantId,
+              user.id,
+              true,
+              { orderId: order._id.toString(), origin: "order" },
+            );
+          }
+        } catch (err) {
+          this.logger.error(
+            `Failed to create OUT movements for order ${order.orderNumber}: ${err.message}`,
+          );
+        }
+      });
     }
     return finalOrder;
   }
@@ -1830,5 +2013,67 @@ export class OrdersService {
       );
       // No lanzar error para no bloquear el flujo de venta
     }
+  }
+
+  async cancelOrder(id: string, user: any): Promise<OrderDocument> {
+    const order = await this.orderModel.findOne({
+      _id: id,
+      tenantId: user.tenantId,
+    });
+    if (!order) {
+      throw new NotFoundException("Orden no encontrada");
+    }
+
+    if (order.status === "cancelled") {
+      return order;
+    }
+
+    order.status = "cancelled";
+    (order as any).cancelledAt = new Date();
+    await order.save();
+
+    setImmediate(async () => {
+      try {
+        for (const item of order.items) {
+          const inv =
+            (await this.inventoryService.findByProductSku(
+              item.productSku,
+              user.tenantId,
+            )) ||
+            (await this.inventoryService.findByProductId(
+              item.productId.toString(),
+              user.tenantId,
+            ));
+
+          if (!inv) {
+            this.logger.warn(
+              `No inventory found for SKU ${item.productSku} when reversing cancellation on order ${order.orderNumber}`,
+            );
+            continue;
+          }
+
+          await this.inventoryMovementsService.create(
+            {
+              inventoryId: inv._id.toString(),
+              movementType: MovementType.ADJUSTMENT,
+              quantity: item.quantity,
+              unitCost: inv.averageCostPrice || 0,
+              reason: "Reverso por cancelación de orden",
+              warehouseId: inv.warehouseId?.toString(),
+            },
+            user.tenantId,
+            user.id,
+            false,
+            { orderId: order._id.toString(), origin: "order-cancel" },
+          );
+        }
+      } catch (err) {
+        this.logger.error(
+          `Failed to reverse inventory for cancelled order ${order.orderNumber}: ${err.message}`,
+        );
+      }
+    });
+
+    return order;
   }
 }

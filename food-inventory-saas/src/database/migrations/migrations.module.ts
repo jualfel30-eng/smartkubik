@@ -4,6 +4,7 @@ import { MigrationsController } from "./migrations.controller";
 import { AddMarketingPermissionsMigration } from "./add-marketing-permissions.migration";
 import { PopulateTransactionHistoryMigration } from "./populate-transaction-history.migration";
 import { RebuildProductAffinityMigration } from "./rebuild-product-affinity.migration";
+import { SeedDefaultWarehousesMigration } from "./seed-default-warehouses.migration";
 import { Order, OrderSchema } from "../../schemas/order.schema";
 import {
   CustomerTransactionHistory,
@@ -34,11 +35,13 @@ import { ProductAffinityModule } from "../../modules/product-affinity/product-af
     AddMarketingPermissionsMigration,
     PopulateTransactionHistoryMigration,
     RebuildProductAffinityMigration,
+    SeedDefaultWarehousesMigration,
   ],
   exports: [
     AddMarketingPermissionsMigration,
     PopulateTransactionHistoryMigration,
     RebuildProductAffinityMigration,
+    SeedDefaultWarehousesMigration,
   ],
 })
 export class MigrationsModule {}

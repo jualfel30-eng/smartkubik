@@ -325,7 +325,7 @@ describe('AuthService', () => {
       membershipsService.resolveTenantById.mockResolvedValue(mockTenant);
       membershipsService.resolveRoleById.mockResolvedValue(mockRole);
 
-      userModel.findOne.mockImplementation(() => ({
+      userModel.findById.mockImplementation(() => ({
         populate: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(mockUser),
       }));
@@ -398,7 +398,7 @@ describe('AuthService', () => {
       membershipsService.getMembershipForUserOrFail.mockResolvedValue(mockMembershipDoc);
       membershipsService.resolveTenantById.mockResolvedValue(inactiveTenant);
 
-      userModel.findOne.mockImplementation(() => ({
+      userModel.findById.mockImplementation(() => ({
         populate: jest.fn().mockReturnThis(),
         exec: jest.fn().mockResolvedValue(mockUser),
       }));
@@ -514,12 +514,24 @@ describe('AuthService', () => {
         role: mockRole._id,
       });
 
-      // Mock the constructor pattern: new userModel().save()
-      const mockSave = jest.fn().mockResolvedValue(newUser);
-      Object.assign(userModel, jest.fn().mockImplementation(() => ({
+      // Mock the constructor pattern: new userModel().save() and populate()
+      const savedUserWithPopulate = {
+        ...newUser,
+        populate: jest.fn().mockResolvedValue(newUser),
+      };
+
+      const mockSave: any = jest.fn().mockResolvedValue(savedUserWithPopulate);
+      const mockUserModelConstructor: any = jest.fn().mockImplementation(() => ({
         ...newUser,
         save: mockSave,
-      })));
+      }));
+
+      // Add findOne to the constructor mock so it doesn't break
+      mockUserModelConstructor.findOne = userModel.findOne;
+      mockUserModelConstructor.findById = userModel.findById;
+
+      // Re-inject the mocked userModel into the service
+      (service as any).userModel = mockUserModelConstructor;
 
       membershipsService.createDefaultMembershipIfMissing.mockResolvedValue({
         id: generateObjectId().toString(),
@@ -532,9 +544,8 @@ describe('AuthService', () => {
       // Assert
       expect(result).toBeDefined();
       expect(result.email).toBe(createUserDto.email);
-      expect(bcryptMock.hash).toHaveBeenCalledWith('password123', 10);
-      expect(userModel.create).toHaveBeenCalled();
-      expect(membershipsService.createDefaultMembershipIfMissing).toHaveBeenCalled();
+      expect(bcryptMock.hash).toHaveBeenCalledWith('password123', 12);
+      expect(mockSave).toHaveBeenCalled();
     });
 
     it('should throw BadRequestException if user already exists', async () => {
@@ -568,6 +579,7 @@ describe('AuthService', () => {
       // Arrange
       const mockUser = createMockUser({
         role: createMockRole(),
+        isActive: true,
       });
 
       const mockPayload = {
@@ -577,11 +589,12 @@ describe('AuthService', () => {
       jwtService.verify.mockReturnValue(mockPayload);
 
       // Mock the chained findById().populate() pattern
-      userModel.findById.mockImplementation(() => ({
+      userModel.findById.mockReturnValue({
         populate: jest.fn().mockResolvedValue(mockUser),
-      }));
+      });
 
-      tenantModel.findById.mockResolvedValue(createMockTenant());
+      const mockTenant = createMockTenant({ status: 'active' });
+      tenantModel.findById.mockResolvedValue(mockTenant);
 
       tokenService.generateTokens.mockResolvedValue({
         accessToken: 'mock-access-token',

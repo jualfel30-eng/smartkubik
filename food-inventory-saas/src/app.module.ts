@@ -106,7 +106,8 @@ import { UserThrottlerGuard } from "./guards/user-throttler.guard";
 import { AuditLogModule } from "./modules/audit-log/audit-log.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { SecurityMonitoringModule } from "./modules/security-monitoring/security-monitoring.module";
-// import { BillingModule } from "./modules/billing/billing.module"; // TODO: Completar formato SENIAT para imprentas digitales
+import { WarehousesModule } from "./modules/warehouses/warehouses.module";
+// import { BillingModule } from "./modules/billing/billing.module"; // TODO: Completar implementación - Ver ROADMAP_ACCOUNTING_ERP.md
 
 @Module({
   imports: [
@@ -396,7 +397,8 @@ import { SecurityMonitoringModule } from "./modules/security-monitoring/security
     AuditLogModule,
     NotificationsModule,
     SecurityMonitoringModule,
-    // BillingModule, // TODO: Completar formato SENIAT para imprentas digitales
+    WarehousesModule,
+    // BillingModule, // TODO: Completar implementación - Ver ROADMAP_ACCOUNTING_ERP.md
   ],
   controllers: [AppController, TenantController],
   providers: [

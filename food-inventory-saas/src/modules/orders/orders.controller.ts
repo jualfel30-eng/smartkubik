@@ -324,4 +324,55 @@ export class OrdersController {
       );
     }
   }
+
+  @Post("__reconcile-movements")
+  @Permissions("orders_update")
+  @ApiOperation({
+    summary: "Reconciliar movimientos OUT faltantes para órdenes enviadas/entregadas",
+  })
+  @ApiResponse({ status: 200, description: "Reconciliación ejecutada" })
+  async reconcileMovements(
+    @Body()
+    body: {
+      statuses?: string[];
+      limit?: number;
+    },
+    @Request() req,
+  ) {
+    try {
+      const result = await this.ordersService.reconcileMissingOutMovements(
+        req.user,
+        { statuses: body?.statuses, limit: body?.limit },
+      );
+      return {
+        success: true,
+        message: "Reconciliación completada",
+        data: result,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al reconciliar movimientos",
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Patch(":id/cancel")
+  @Permissions("orders_update")
+  @ApiOperation({ summary: "Cancelar una orden y revertir inventario" })
+  async cancel(@Param("id") id: string, @Request() req) {
+    try {
+      const order = await this.ordersService.cancelOrder(id, req.user);
+      return {
+        success: true,
+        message: "Orden cancelada y stock revertido",
+        data: order,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al cancelar la orden",
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
 }

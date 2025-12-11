@@ -17,6 +17,7 @@ export function createMockModel<T>(data?: Partial<T>[], options?: {
     findByIdAndDelete: jest.fn().mockReturnThis(),
     findOneAndUpdate: jest.fn().mockReturnThis(),
     create: jest.fn(),
+    insertMany: jest.fn().mockResolvedValue([]),
     updateOne: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
     updateMany: jest.fn().mockResolvedValue({ modifiedCount: mockData.length }),
     deleteOne: jest.fn().mockResolvedValue({ deletedCount: 1 }),
@@ -287,6 +288,14 @@ export function createMockPermissionsService() {
       _id: new Types.ObjectId(),
       name,
     })),
+    findByModules: jest.fn().mockReturnValue([
+      'orders_read',
+      'orders_create',
+      'orders_update',
+      'orders_delete',
+      'inventory_read',
+      'inventory_update',
+    ]),
   };
 }
 

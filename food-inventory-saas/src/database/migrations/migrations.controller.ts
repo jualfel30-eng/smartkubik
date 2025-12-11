@@ -4,6 +4,7 @@ import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { AddMarketingPermissionsMigration } from "./add-marketing-permissions.migration";
 import { PopulateTransactionHistoryMigration } from "./populate-transaction-history.migration";
 import { RebuildProductAffinityMigration } from "./rebuild-product-affinity.migration";
+import { SeedDefaultWarehousesMigration } from "./seed-default-warehouses.migration";
 
 @ApiTags("Migrations")
 @Controller("migrations")
@@ -13,6 +14,7 @@ export class MigrationsController {
     private readonly addMarketingPermissionsMigration: AddMarketingPermissionsMigration,
     private readonly populateTransactionHistoryMigration: PopulateTransactionHistoryMigration,
     private readonly rebuildProductAffinityMigration: RebuildProductAffinityMigration,
+    private readonly seedDefaultWarehousesMigration: SeedDefaultWarehousesMigration,
   ) {}
 
   @Post("add-marketing-permissions")
@@ -66,6 +68,24 @@ export class MigrationsController {
     return {
       success: true,
       message: "Product affinity matrix rebuild completed successfully",
+    };
+  }
+
+  @Post("seed-default-warehouses")
+  @ApiOperation({
+    summary: "[SUPER ADMIN] Seed default warehouses and backfill inventories",
+    description:
+      "Creates warehouse 'GEN' per tenant if missing and assigns it to inventories without warehouseId.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Default warehouses seeded successfully",
+  })
+  async seedDefaultWarehouses() {
+    await this.seedDefaultWarehousesMigration.run();
+    return {
+      success: true,
+      message: "Default warehouses seeded successfully",
     };
   }
 }
