@@ -303,6 +303,9 @@ export class Tenant {
     compliance?: boolean;
   };
 
+  @Prop({ type: Object, default: {} })
+  featureFlags?: Record<string, boolean>;
+
   @Prop({ type: String, required: true, default: "trial" })
   subscriptionPlan: string;
 

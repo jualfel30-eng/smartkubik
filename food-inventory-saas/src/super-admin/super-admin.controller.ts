@@ -78,6 +78,21 @@ export class SuperAdminController {
     return this.superAdminService.findAllEvents();
   }
 
+  @Get("feature-flags")
+  getFeatureFlags() {
+    return this.superAdminService.getFeatureFlags();
+  }
+
+  @Post("feature-flags")
+  updateFeatureFlags(@Body("flags") flags: Record<string, boolean>) {
+    return this.superAdminService.updateFeatureFlags(flags);
+  }
+
+  @Post("feature-flags/reload")
+  reloadFeatureFlags() {
+    return this.superAdminService.reloadFeatureFlags();
+  }
+
   @Get("tenants/:id/configuration")
   getTenantConfiguration(@Param("id") id: string) {
     return this.superAdminService.getTenantConfiguration(id);

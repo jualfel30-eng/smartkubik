@@ -32,6 +32,7 @@ import { UsersModule } from "../users/users.module";
 import { KnowledgeBaseModule } from "../knowledge-base/knowledge-base.module";
 import { AssistantModule } from "../assistant/assistant.module";
 import { AuthModule } from "../../auth/auth.module";
+import { FeatureFlagsService } from "../../config/feature-flags.service";
 
 @Module({
   imports: [
@@ -66,7 +67,7 @@ import { AuthModule } from "../../auth/auth.module";
     UsersModule,
   ],
   controllers: [SuperAdminController],
-  providers: [SuperAdminService],
+  providers: [SuperAdminService, FeatureFlagsService],
   exports: [SuperAdminService],
 })
 export class SuperAdminModule {}

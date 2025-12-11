@@ -118,6 +118,28 @@ export class SuperAdminController {
     return this.superAdminService.updateTenant(tenantId, updateData);
   }
 
+  @Get("feature-flags")
+  @ApiOperation({ summary: "[SUPER ADMIN] List global feature flags" })
+  @ApiResponse({ status: 200, description: "Feature flags fetched." })
+  async getFeatureFlags() {
+    const flags = await this.superAdminService.getFeatureFlags();
+    return { data: flags };
+  }
+
+  @Post("feature-flags")
+  @ApiOperation({ summary: "[SUPER ADMIN] Update global feature flags" })
+  @ApiResponse({ status: 200, description: "Feature flags updated." })
+  async updateFeatureFlags(@Body("flags") flags: Record<string, boolean>) {
+    return this.superAdminService.updateFeatureFlags(flags);
+  }
+
+  @Post("feature-flags/reload")
+  @ApiOperation({ summary: "[SUPER ADMIN] Reload feature flags cache" })
+  @ApiResponse({ status: 200, description: "Feature flags cache reloaded." })
+  async reloadFeatureFlags() {
+    return this.superAdminService.reloadFeatureFlags();
+  }
+
   @Get("settings/:key")
   @ApiOperation({ summary: "[SUPER ADMIN] Get a global setting by key" })
   @ApiResponse({ status: 200, description: "Setting retrieved successfully." })
@@ -131,39 +153,6 @@ export class SuperAdminController {
   @ApiResponse({ status: 200, description: "Setting updated successfully." })
   async updateSetting(@Body() body: { key: string; value: string }) {
     return this.superAdminService.updateSetting(body.key, body.value);
-  }
-
-  @Get("feature-flags")
-  @ApiOperation({ summary: "[SUPER ADMIN] Get all feature flags status" })
-  @ApiResponse({
-    status: 200,
-    description: "Feature flags retrieved successfully.",
-  })
-  async getFeatureFlags() {
-    const flags = await this.superAdminService.getFeatureFlags();
-    return { data: flags };
-  }
-
-  @Post("feature-flags")
-  @ApiOperation({ summary: "[SUPER ADMIN] Update multiple feature flags" })
-  @ApiResponse({
-    status: 200,
-    description: "Feature flags updated successfully.",
-  })
-  async updateFeatureFlags(@Body() body: { flags: Record<string, boolean> }) {
-    return this.superAdminService.updateFeatureFlags(body.flags);
-  }
-
-  @Post("feature-flags/reload")
-  @ApiOperation({
-    summary: "[SUPER ADMIN] Force reload of feature flags from database",
-  })
-  @ApiResponse({
-    status: 200,
-    description: "Feature flags reloaded successfully.",
-  })
-  async reloadFeatureFlags() {
-    return this.superAdminService.reloadFeatureFlags();
   }
 
   @Patch("tenants/:tenantId/modules")

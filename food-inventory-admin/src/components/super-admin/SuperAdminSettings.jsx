@@ -70,6 +70,11 @@ const FEATURE_FLAGS_INFO = {
     description: 'Notificaciones automáticas de citas',
     category: 'Services',
   },
+  ENABLE_MULTI_WAREHOUSE: {
+    name: 'Multi-Warehouse',
+    description: 'Activa la gestión de múltiples almacenes en Inventario',
+    category: 'Inventory',
+  },
 };
 
 const SuperAdminSettings = () => {

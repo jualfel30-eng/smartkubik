@@ -85,4 +85,8 @@ export class UpdateTenantDto {
   @Type(() => TaxInfoDto)
   @IsOptional()
   taxInfo?: TaxInfoDto;
+
+  @IsObject()
+  @IsOptional()
+  featureFlags?: Record<string, boolean>;
 }

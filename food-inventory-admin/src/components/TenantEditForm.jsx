@@ -15,6 +15,7 @@ export default function TenantEditForm({ tenant, onSave, onCancel }) {
       ...tenant,
       contactInfo: tenant.contactInfo || { email: '', phone: '', address: {} },
       taxInfo: tenant.taxInfo || { rif: '', businessName: '' },
+      featureFlags: tenant.featureFlags || {},
       enabledModules: {
         ecommerce: false,
         inventory: false,
@@ -31,6 +32,17 @@ export default function TenantEditForm({ tenant, onSave, onCancel }) {
 
   const [formData, setFormData] = useState(normalizedTenant);
   const [isLoading, setIsLoading] = useState(false);
+
+  const MODULE_OPTIONS = [
+    { key: 'inventory', label: 'Inventario' },
+    { key: 'orders', label: 'Órdenes' },
+    { key: 'customers', label: 'Clientes/CRM' },
+    { key: 'suppliers', label: 'Proveedores' },
+    { key: 'reports', label: 'Reportes' },
+    { key: 'accounting', label: 'Contabilidad' },
+    { key: 'payments', label: 'Pagos/Cobros' },
+    { key: 'ecommerce', label: 'Ecommerce' },
+  ];
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -132,6 +144,62 @@ export default function TenantEditForm({ tenant, onSave, onCancel }) {
                 <div className="space-y-2">
                   <Label htmlFor="subscriptionExpiresAt">Fecha de Expiración</Label>
                   <Input id="subscriptionExpiresAt" name="subscriptionExpiresAt" type="date" value={formData.subscriptionExpiresAt ? new Date(formData.subscriptionExpiresAt).toISOString().split('T')[0] : ''} onChange={handleChange} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle>Módulos y Features</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Módulos habilitados</Label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {MODULE_OPTIONS.map(({ key, label }) => (
+                    <label key={key} className="flex items-center gap-2 text-sm border rounded-md p-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!formData.enabledModules?.[key]}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            enabledModules: {
+                              ...(prev.enabledModules || {}),
+                              [key]: e.target.checked,
+                            },
+                          }))
+                        }
+                      />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Inventario</Label>
+                <div className="flex flex-col gap-3 p-3 border rounded-md bg-muted/40">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">Multi-Warehouse</div>
+                      <div className="text-sm text-muted-foreground">Permite gestionar múltiples almacenes y mover stock entre ellos.</div>
+                      <div className="text-xs text-muted-foreground mt-1 font-mono">ENABLE_MULTI_WAREHOUSE</div>
+                    </div>
+                    <Switch
+                      checked={!!formData.featureFlags?.ENABLE_MULTI_WAREHOUSE}
+                      onCheckedChange={(checked) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          enabledModules: { ...(prev.enabledModules || {}), inventory: true },
+                          featureFlags: { ...(prev.featureFlags || {}), ENABLE_MULTI_WAREHOUSE: checked },
+                        }))
+                      }
+                      disabled={isLoading}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Requiere permisos: inventory_read / inventory_write / inventory_settings para ver y crear almacenes, movimientos y alertas.
+                  </p>
                 </div>
               </div>
             </CardContent>

@@ -105,6 +105,7 @@ export class SuperAdminService {
       "ENABLE_MULTI_TENANT_LOGIN",
       "ENABLE_SERVICE_BOOKING_PORTAL",
       "ENABLE_APPOINTMENT_REMINDERS",
+      "ENABLE_MULTI_WAREHOUSE",
     ];
 
     const settings = await this.globalSettingModel

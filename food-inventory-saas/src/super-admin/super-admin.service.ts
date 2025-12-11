@@ -93,6 +93,13 @@ export class SuperAdminService {
       updatePayload.limits = newLimits;
     }
 
+    if (updateTenantDto.featureFlags) {
+      updatePayload.featureFlags = {
+        ...(oldTenant.featureFlags || {}),
+        ...updateTenantDto.featureFlags,
+      };
+    }
+
     const updatedTenant = await this.tenantModel
       .findByIdAndUpdate(id, updatePayload, { new: true })
       .exec();
