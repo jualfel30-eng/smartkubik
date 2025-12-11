@@ -11,7 +11,16 @@ import {
   InventoryMovementSchema,
 } from "../../schemas/inventory.schema";
 import { Product, ProductSchema } from "../../schemas/product.schema"; // Import Product schema
+import { Warehouse, WarehouseSchema } from "../../schemas/warehouse.schema";
 import { RolesModule } from "../roles/roles.module";
+import { InventoryMovementsService } from "./inventory-movements.service";
+import { InventoryMovementsController } from "./inventory-movements.controller";
+import { InventoryAlertsService } from "./inventory-alerts.service";
+import { InventoryAlertsController } from "./inventory-alerts.controller";
+import {
+  InventoryAlertRule,
+  InventoryAlertRuleSchema,
+} from "../../schemas/inventory-alert-rule.schema";
 
 @Module({
   imports: [
@@ -23,10 +32,12 @@ import { RolesModule } from "../roles/roles.module";
       { name: Inventory.name, schema: InventorySchema },
       { name: InventoryMovement.name, schema: InventoryMovementSchema },
       { name: Product.name, schema: ProductSchema }, // Add ProductModel to feature module
+      { name: Warehouse.name, schema: WarehouseSchema },
+      { name: InventoryAlertRule.name, schema: InventoryAlertRuleSchema },
     ]),
   ],
-  controllers: [InventoryController],
-  providers: [InventoryService],
-  exports: [InventoryService],
+  controllers: [InventoryController, InventoryMovementsController, InventoryAlertsController],
+  providers: [InventoryService, InventoryMovementsService, InventoryAlertsService],
+  exports: [InventoryService, InventoryMovementsService, InventoryAlertsService],
 })
 export class InventoryModule {}

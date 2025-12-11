@@ -129,6 +129,24 @@ export class InventoryController {
     }
   }
 
+  @Get("stock-summary")
+  @Permissions("inventory_read")
+  @ApiOperation({ summary: "Resumen de stock por producto y almacén" })
+  async stockSummary(
+    @Query("productIds") productIds: string,
+    @Request() req,
+  ) {
+    const ids =
+      productIds && productIds.length > 0
+        ? productIds.split(",").map((id) => id.trim()).filter(Boolean)
+        : undefined;
+    const data = await this.inventoryService.getStockByProduct(
+      req.user.tenantId,
+      ids,
+    );
+    return { success: true, data };
+  }
+
   @Get(":id")
   @Permissions("inventory_read")
   @ApiOperation({ summary: "Obtener inventario por ID" })

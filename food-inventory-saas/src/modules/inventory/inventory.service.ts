@@ -1076,6 +1076,19 @@ export class InventoryService {
       .exec();
   }
 
+  async findByProductId(
+    productId: string,
+    tenantId: string,
+  ): Promise<InventoryDocument | null> {
+    return this.inventoryModel
+      .findOne({
+        productId: new Types.ObjectId(productId),
+        tenantId: this.buildTenantFilter(tenantId),
+      })
+      .populate("productId", "name category brand isPerishable")
+      .exec();
+  }
+
   private async createMovementRecord(
     movementData: any,
     user: any,
@@ -1300,6 +1313,85 @@ export class InventoryService {
     );
 
     return inventory;
+  }
+
+  async getStockByProduct(
+    tenantId: string,
+    productIds?: string[],
+  ): Promise<
+    Array<{
+      productId: Types.ObjectId;
+      productSku: string;
+      productName: string;
+      totalAvailable: number;
+      totalQuantity: number;
+      warehouses: {
+        warehouseId: Types.ObjectId | null;
+        warehouseCode?: string;
+        warehouseName?: string;
+        available: number;
+        total: number;
+      }[];
+    }>
+  > {
+    const match: any = {
+      tenantId: this.buildTenantFilter(tenantId),
+    };
+
+    if (productIds && productIds.length > 0) {
+      const ids = productIds
+        .map((id) => this.toObjectIdIfValid(id) || id)
+        .filter(Boolean);
+      match.productId = { $in: ids };
+    }
+
+    const result = await this.inventoryModel.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: { productId: "$productId", warehouseId: "$warehouseId" },
+          productSku: { $first: "$productSku" },
+          productName: { $first: "$productName" },
+          available: { $sum: "$availableQuantity" },
+          total: { $sum: "$totalQuantity" },
+        },
+      },
+      {
+        $lookup: {
+          from: "warehouses",
+          localField: "_id.warehouseId",
+          foreignField: "_id",
+          as: "warehouse",
+        },
+      },
+      {
+        $unwind: {
+          path: "$warehouse",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $group: {
+          _id: "$_id.productId",
+          productSku: { $first: "$productSku" },
+          productName: { $first: "$productName" },
+          warehouses: {
+            $push: {
+              warehouseId: "$_id.warehouseId",
+              warehouseCode: "$warehouse.code",
+              warehouseName: "$warehouse.name",
+              available: "$available",
+              total: "$total",
+            },
+          },
+          totalAvailable: { $sum: "$available" },
+          totalQuantity: { $sum: "$total" },
+        },
+      },
+      { $sort: { productName: 1 } },
+    ]);
+
+    return result;
   }
 
   private escapeRegExp(value: string): string {

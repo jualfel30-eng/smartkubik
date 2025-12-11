@@ -85,6 +85,9 @@ export class Inventory {
   @Prop({ type: Types.ObjectId, ref: "Product", required: true })
   productId: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: "Warehouse" })
+  warehouseId?: Types.ObjectId;
+
   @Prop({ type: String, required: true })
   productSku: string;
 
@@ -172,6 +175,9 @@ export class InventoryMovement {
   @Prop({ type: Types.ObjectId, ref: "Inventory", required: true })
   inventoryId: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: "Warehouse" })
+  warehouseId?: Types.ObjectId;
+
   @Prop({ type: Types.ObjectId, ref: "Product", required: true })
   productId: Types.ObjectId;
 
@@ -233,6 +239,7 @@ InventorySchema.index(
     name: "tenant_product_unique_without_variant",
   },
 );
+InventorySchema.index({ tenantId: 1, warehouseId: 1, productId: 1 });
 InventorySchema.index(
   { tenantId: 1, productId: 1, variantId: 1 },
   {
@@ -250,6 +257,8 @@ InventorySchema.index({ "alerts.expired": 1, tenantId: 1 });
 InventorySchema.index({ "lots.expirationDate": 1, tenantId: 1 });
 InventorySchema.index({ "lots.status": 1, tenantId: 1 });
 InventorySchema.index({ "location.warehouse": 1, tenantId: 1 });
+InventoryMovementSchema.index({ tenantId: 1, createdAt: -1 });
+InventoryMovementSchema.index({ tenantId: 1, warehouseId: 1, productId: 1, createdAt: -1 });
 
 // Índices para movimientos de inventario
 InventoryMovementSchema.index({ inventoryId: 1, createdAt: -1 });
