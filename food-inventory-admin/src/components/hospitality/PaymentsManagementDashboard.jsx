@@ -534,9 +534,9 @@ export default function PaymentsManagementDashboard() {
     loadRetailPayments();
   };
 
-  const reconcileRetailPayment = async (paymentId) => {
-    const status = reconciliationDrafts[paymentId] || 'matched';
-    const note = reconciliationNotes[paymentId] || '';
+  const reconcileRetailPayment = async (paymentId, override = {}) => {
+    const status = override.status || reconciliationDrafts[paymentId] || 'matched';
+    const note = override.note || reconciliationNotes[paymentId] || '';
     if (!canReconcile) {
       toast.error('No tienes permisos para conciliar pagos');
       return;
@@ -566,8 +566,10 @@ export default function PaymentsManagementDashboard() {
       toast.error('No tienes permisos para conciliar pagos');
       return;
     }
+    const note = reconciliationNotes[paymentId] || 'Reabierto manualmente';
     setReconciliationDrafts((prev) => ({ ...prev, [paymentId]: 'pending' }));
-    await reconcileRetailPayment(paymentId);
+    setReconciliationNotes((prev) => ({ ...prev, [paymentId]: note }));
+    await reconcileRetailPayment(paymentId, { status: 'pending', note });
   };
 
   const handleOpenRetailDetails = (order) => {
@@ -1610,6 +1612,25 @@ export default function PaymentsManagementDashboard() {
                                         <Badge variant={p.reconciliationStatus === 'matched' ? 'success' : 'secondary'}>
                                           {p.reconciliationStatus || 'pending'}
                                         </Badge>
+                                        {p.reconciliation?.statementRef || p.bankTransactionId ? (
+                                          <TooltipProvider>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <span className="text-xs text-muted-foreground underline cursor-help">
+                                                  {p.reconciliation?.statementRef || p.bankTransactionId}
+                                                </span>
+                                              </TooltipTrigger>
+                                              <TooltipContent>
+                                                <div className="text-xs">
+                                                  Referencia de conciliación<br />
+                                                  {p.reconciliation?.statementRef
+                                                    ? `Extracto: ${p.reconciliation.statementRef}`
+                                                    : `Movimiento: ${p.bankTransactionId}`}
+                                                </div>
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          </TooltipProvider>
+                                        ) : null}
                                         {p.statusHistory?.length ? (
                                           <TooltipProvider>
                                             <Tooltip>

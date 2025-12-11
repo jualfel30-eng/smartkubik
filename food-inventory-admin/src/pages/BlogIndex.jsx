@@ -38,7 +38,7 @@ const BlogIndex = () => {
           "authorName": author->name,
           publishedAt,
           body, // Fetch body to calculate excerpt and reading time
-          "tags": tags[]->{_id, title}
+          "categories": categories[]->{_id, title, description}
         }`;
         const result = await sanityClient.fetch(query);
         const postsWithDetails = result.map(post => {
@@ -84,15 +84,17 @@ const BlogIndex = () => {
       results = results.filter(post =>
         post.title.toLowerCase().includes(lowercasedSearchTerm) ||
         post.excerpt.toLowerCase().includes(lowercasedSearchTerm) ||
-        post.authorName.toLowerCase().includes(lowercasedSearchTerm) ||
-        post.tags.some(tag => tag.title.toLowerCase().includes(lowercasedSearchTerm))
+        (post.authorName && post.authorName.toLowerCase().includes(lowercasedSearchTerm)) ||
+        (post.categories && post.categories.some(cat => cat.title.toLowerCase().includes(lowercasedSearchTerm)))
       );
     }
 
-    // Filter by category (if implemented in tags)
+    // Filter by category title
     if (activeCategory) {
       results = results.filter(post =>
-        post.tags.some(tag => tag.title.toLowerCase().includes(activeCategory))
+        post.categories && post.categories.some(cat =>
+          cat.title.toLowerCase().includes(activeCategory.toLowerCase())
+        )
       );
     }
 
@@ -141,8 +143,10 @@ const BlogIndex = () => {
                 <CardContent className="flex-1 flex flex-col pt-0 pb-4">
                   <p className="text-sm text-muted-foreground mb-3 line-clamp-5">{post.excerpt}</p>
                   <div className="flex flex-wrap gap-1.5 mt-2">
-                    {post.tags && post.tags.slice(0, 2).map(tag => (
-                      <Badge key={tag._id} variant="secondary" className="text-xs py-0 px-2">{tag.title}</Badge>
+                    {post.categories && post.categories.slice(0, 2).map(category => (
+                      <Badge key={category._id} variant="secondary" className="text-xs py-0 px-2">
+                        {category.title}
+                      </Badge>
                     ))}
                   </div>
                   <Button

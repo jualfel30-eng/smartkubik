@@ -2066,7 +2066,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                   <SelectValue placeholder={structureLoading ? 'Cargando...' : 'Sin estructura'} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Sin estructura</SelectItem>
+                  <SelectItem value="none">Sin estructura</SelectItem>
                   {structureOptions.map((structure) => (
                     <SelectItem key={structure._id} value={structure._id}>
                       {structure.name}

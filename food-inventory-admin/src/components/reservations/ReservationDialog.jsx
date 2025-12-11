@@ -257,7 +257,7 @@ export function ReservationDialog({ reservation, open, onClose, onSave }) {
                     <SelectValue placeholder="Seleccionar sección" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Sin preferencia</SelectItem>
+                    <SelectItem value="none">Sin preferencia</SelectItem>
                     <SelectItem value="interior">Interior</SelectItem>
                     <SelectItem value="terraza">Terraza</SelectItem>
                     <SelectItem value="bar">Barra</SelectItem>
@@ -273,7 +273,7 @@ export function ReservationDialog({ reservation, open, onClose, onSave }) {
                     <SelectValue placeholder="Seleccionar ocasión" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Ninguna</SelectItem>
+                    <SelectItem value="none">Ninguna</SelectItem>
                     <SelectItem value="birthday">Cumpleaños</SelectItem>
                     <SelectItem value="anniversary">Aniversario</SelectItem>
                     <SelectItem value="business">Negocios</SelectItem>

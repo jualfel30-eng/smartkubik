@@ -271,7 +271,7 @@ const ServerPerformanceDashboard = () => {
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
                     {servers.map((server) => (
                       <SelectItem key={server._id} value={server._id}>
                         {server.name}

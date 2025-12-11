@@ -28,6 +28,28 @@ const generateQrDataUrl = async (text) => {
   }
 };
 
+// Build a human-readable summary string for QR when no verification URL is available.
+const buildQrFallbackText = (orderData, tenantSettings, documentType) => {
+  const parts = [];
+  const docTitle = documentType === 'invoice' ? 'Factura' : 'Presupuesto';
+  parts.push(`${docTitle} ${orderData?.orderNumber || ''}`);
+  if (orderData?.createdAt) {
+    parts.push(`Fecha: ${new Date(orderData.createdAt).toLocaleDateString()}`);
+  }
+  const total = orderData?.totalAmount;
+  if (typeof total === "number") {
+    parts.push(`Total USD: $${total.toFixed(2)}`);
+  }
+  const control = orderData?.controlNumber || orderData?.taxInfo?.controlNumber;
+  if (control) {
+    parts.push(`Control Fiscal: ${control}`);
+  }
+  if (tenantSettings?.name) {
+    parts.push(`Emisor: ${tenantSettings.name}`);
+  }
+  return parts.join(" | ");
+};
+
 export const generateDocumentPDF = async ({ documentType, orderData, customerData, tenantSettings, action = 'download' }) => {
   const invoiceFormat = tenantSettings.settings?.invoiceFormat || 'standard'; // 'standard' o 'thermal'
 
@@ -57,8 +79,7 @@ export const generateDocumentPDF = async ({ documentType, orderData, customerDat
     verificationUrl ||
     controlNumber ||
     fiscalHash ||
-    orderData?.orderNumber ||
-    "";
+    buildQrFallbackText(orderData, tenantSettings, documentType);
   const qrImage = await generateQrDataUrl(qrData);
 
   // 1. Add Logo (proportionally) - top left
@@ -234,14 +255,16 @@ export const generateDocumentPDF = async ({ documentType, orderData, customerDat
     const footerY = finalY + 10 + (totals.length * 5) + 5;
     doc.setFontSize(9);
     doc.setTextColor(150);
-    doc.text(footerLines.join('\n'), 15, footerY);
+    const wrappedFooter = footerLines.flatMap(line => doc.splitTextToSize(line, 180));
+    doc.text(wrappedFooter.join('\n'), 15, footerY);
 
     // QR/Verificación
-    const qrY = footerY + footerLines.length * 5 + 5;
+    const qrY = footerY + wrappedFooter.length * 5 + 5;
     if (qrImage) {
       doc.addImage(qrImage, "PNG", 165, qrY - 10, 30, 30);
     } else if (qrData) {
-      doc.text(`Verificar: ${qrData}`, 15, qrY);
+      const verifyLines = doc.splitTextToSize(`Verificar: ${qrData}`, 180);
+      doc.text(verifyLines.join('\n'), 15, qrY);
     }
   }
 
@@ -277,11 +300,13 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
     verificationUrl ||
     controlNumber ||
     fiscalHash ||
-    orderData?.orderNumber ||
-    "";
+    buildQrFallbackText(orderData, tenantSettings, documentType);
   const qrImage = await generateQrDataUrl(qrData);
 
   let currentY = 5;
+
+  // Use a monospaced font to better emulate thermal printer legibility
+  doc.setFont('courier', 'normal');
 
   // Logo centered
   if (tenantSettings.logo) {
@@ -308,13 +333,13 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
   }
 
   // Company name centered
-  doc.setFontSize(12);
+  doc.setFontSize(13); // Slightly larger for better legibility on thermal
   doc.setFont(undefined, 'bold');
   doc.text(tenantSettings.name || '', 40, currentY, { align: 'center' });
   currentY += 5;
 
   // Company info centered
-  doc.setFontSize(8);
+  doc.setFontSize(11);
   doc.setFont(undefined, 'normal');
   const companyLines = [
     tenantSettings.taxInfo?.rif || '',
@@ -334,13 +359,13 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
   currentY += 4;
 
   // Document title centered
-  doc.setFontSize(14);
+  doc.setFontSize(15);
   doc.setFont(undefined, 'bold');
   doc.text(docTitle, 40, currentY, { align: 'center' });
   currentY += 6;
 
   // Order info
-  doc.setFontSize(8);
+  doc.setFontSize(12);
   doc.setFont(undefined, 'normal');
   doc.text(`Orden: ${orderData.orderNumber || ''}`, 5, currentY);
   currentY += 4;
@@ -370,6 +395,7 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
 
   // Products table
   doc.setFont(undefined, 'bold');
+  doc.setFontSize(10);
   doc.text('Producto', 5, currentY);
   doc.text('Cant', 50, currentY);
   doc.text('Total', 70, currentY, { align: 'right' });
@@ -378,6 +404,7 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
   currentY += 4;
 
   doc.setFont(undefined, 'normal');
+  doc.setFontSize(12);
   orderData.items.forEach(item => {
     const productName = item.productName;
     const lines = doc.splitTextToSize(productName, 40);
@@ -397,7 +424,7 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
     });
 
     // Price per unit in smaller font
-    doc.setFontSize(7);
+    doc.setFontSize(11);
     if (discount > 0) {
       doc.text(`@ $${unitPrice.toFixed(2)} c/u (-${discount}%)`, 5, currentY);
     } else {
@@ -413,42 +440,43 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
 
   // Totals
   doc.setFont(undefined, 'bold');
+  doc.setFontSize(11);
   const totalUSD = orderData.totalAmount || 0;
   const totalBs = totalUSD * exchangeRate;
   const generalDiscountAmount = orderData.generalDiscountAmount || 0;
 
   if (orderData.subtotal) {
-    doc.text('Subtotal:', 40, currentY);
+    doc.text('Subtotal:', 5, currentY); // labels left-aligned
     doc.text(`$${orderData.subtotal.toFixed(2)}`, 75, currentY, { align: 'right' });
     currentY += 4;
   }
   if (generalDiscountAmount > 0) {
-    doc.text('Desc. General:', 40, currentY);
+    doc.text('Desc. General:', 5, currentY);
     doc.text(`-$${generalDiscountAmount.toFixed(2)}`, 75, currentY, { align: 'right' });
     currentY += 4;
   }
   if (orderData.ivaTotal) {
-    doc.text('IVA:', 40, currentY);
+    doc.text('IVA:', 5, currentY);
     doc.text(`$${orderData.ivaTotal.toFixed(2)}`, 75, currentY, { align: 'right' });
     currentY += 4;
   }
   if (orderData.igtfTotal) {
-    doc.text('IGTF:', 40, currentY);
+    doc.text('IGTF:', 5, currentY);
     doc.text(`$${orderData.igtfTotal.toFixed(2)}`, 75, currentY, { align: 'right' });
     currentY += 4;
   }
   if (orderData.shippingCost) {
-    doc.text('Envío:', 40, currentY);
+    doc.text('Envío:', 5, currentY);
     doc.text(`$${orderData.shippingCost.toFixed(2)}`, 75, currentY, { align: 'right' });
     currentY += 4;
   }
 
-  doc.setFontSize(10);
-  doc.text('TOTAL USD:', 40, currentY);
+  doc.setFontSize(12);
+  doc.text('TOTAL USD:', 5, currentY);
   doc.text(`$${totalUSD.toFixed(2)}`, 75, currentY, { align: 'right' });
   currentY += 5;
 
-  doc.text('TOTAL Bs:', 40, currentY);
+  doc.text('TOTAL Bs:', 5, currentY);
   doc.text(`Bs ${totalBs.toFixed(2)}`, 75, currentY, { align: 'right' });
   currentY += 6;
 
@@ -472,12 +500,15 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
   }
 
   if (footerLines.length) {
-    doc.setFontSize(7);
+    doc.setFontSize(11);
     doc.setFont(undefined, 'normal');
     doc.setTextColor(100);
     footerLines.forEach(line => {
-      doc.text(line, 40, currentY, { align: 'center' });
-      currentY += 3;
+      const wrapped = doc.splitTextToSize(line, 70);
+      wrapped.forEach(wrappedLine => {
+        doc.text(wrappedLine, 40, currentY, { align: 'center' });
+        currentY += 3;
+      });
     });
     if (qrImage) {
       doc.addImage(qrImage, "PNG", 30, currentY, 20, 20);

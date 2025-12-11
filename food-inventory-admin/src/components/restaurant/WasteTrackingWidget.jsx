@@ -355,7 +355,7 @@ const WasteTrackingWidget = () => {
                     <SelectValue placeholder="Todas" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas</SelectItem>
+                    <SelectItem value="all">Todas</SelectItem>
                     {WASTE_REASONS.map((reason) => (
                       <SelectItem key={reason.value} value={reason.value}>
                         {reason.icon} {reason.label}
@@ -859,7 +859,7 @@ const WasteTrackingWidget = () => {
                       <SelectValue placeholder="Condición" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Ninguna</SelectItem>
+                      <SelectItem value="none">Ninguna</SelectItem>
                       <SelectItem value="refrigerated">Refrigerado</SelectItem>
                       <SelectItem value="frozen">Congelado</SelectItem>
                       <SelectItem value="ambient">Ambiente</SelectItem>

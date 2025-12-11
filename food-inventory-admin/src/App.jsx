@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, Suspense, lazy } from 'react';
+import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -6,6 +6,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth, AuthProvider } from './hooks/use-auth.jsx';
 import { useShift, ShiftProvider } from './context/ShiftContext.jsx';
 import { useTheme } from '@/components/ThemeProvider';
+import { ThemeProvider as MuiThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import SmartKubikLogoDark from '@/assets/logo-smartkubik.png';
 import SmartKubikLogoLight from '@/assets/logo-smartkubik-light.png';
 import {
@@ -60,6 +61,7 @@ import {
   ShoppingBag,
   Sparkles,
   Zap,
+  AlertCircle,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { Toaster as ShadcnToaster } from '@/components/ui/toaster';
@@ -110,6 +112,12 @@ const InventoryDashboard = lazy(() => import('@/components/InventoryDashboard.js
 const PayablesManagement = lazy(() => import('@/components/PayablesManagement.jsx'));
 const AccountingManagement = lazy(() => import('@/components/AccountingManagement.jsx'));
 const AccountsReceivableReport = lazy(() => import('@/components/AccountsReceivableReport.jsx'));
+const ElectronicInvoicesManager = lazy(() => import('@/components/accounting/ElectronicInvoicesManager.jsx'));
+const IslrWithholdingList = lazy(() => import('@/components/accounting/IslrWithholdingList.jsx'));
+const TrialBalance = lazy(() => import('@/components/accounting/TrialBalance.jsx'));
+const GeneralLedger = lazy(() => import('@/components/accounting/GeneralLedger.jsx'));
+const AccountingPeriods = lazy(() => import('@/components/accounting/AccountingPeriods.jsx'));
+const RecurringEntries = lazy(() => import('@/components/accounting/RecurringEntries.jsx'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage.jsx'));
 const SuperAdminLayout = lazy(() => import('./layouts/SuperAdminLayout'));
 const SmartKubikLanding = lazy(() => import('./pages/SmartKubikLanding'));
@@ -294,10 +302,27 @@ function TenantLayout() {
       icon: Package,
       permission: 'inventory_read',
       children: [
-        { name: 'Productos', href: 'inventory-management?tab=products', icon: Box },
-        { name: 'Consumibles', href: 'inventory-management?tab=consumables', icon: Coffee },
-        { name: 'Suministros', href: 'inventory-management?tab=supplies', icon: Wrench },
-        { name: 'Inventario', href: 'inventory-management?tab=inventory', icon: List },
+        {
+          name: 'Productos',
+          href: 'inventory-management?tab=products',
+          icon: Box,
+          children: [
+            { name: 'Productos', href: 'inventory-management?tab=products', icon: Box },
+            { name: 'Consumibles', href: 'inventory-management?tab=consumables', icon: Coffee },
+            { name: 'Suministros', href: 'inventory-management?tab=supplies', icon: Wrench },
+          ],
+        },
+        {
+          name: 'Inventario',
+          href: 'inventory-management?tab=inventory',
+          icon: List,
+          children: [
+            { name: 'Inventario', href: 'inventory-management?tab=inventory', icon: List },
+            { name: 'Almacenes', href: 'inventory-management?tab=inventory-warehouses', icon: Building2 },
+            { name: 'Movimientos de Inventario', href: 'inventory-management?tab=inventory-movements', icon: RefreshCw },
+            { name: 'Alertas de Stock', href: 'inventory-management?tab=inventory-alerts', icon: AlertCircle },
+          ],
+        },
         { name: 'Compras', href: 'inventory-management?tab=purchases', icon: Truck },
       ]
     },
@@ -381,8 +406,14 @@ function TenantLayout() {
       children: [
         { name: 'Libro Diario', href: 'accounting?tab=journal', icon: FileText },
         { name: 'Plan de Cuentas', href: 'accounting?tab=chart-of-accounts', icon: List },
+        { name: 'Balance de Comprobación', href: 'accounting/reports/trial-balance', icon: BarChart3 },
+        { name: 'Libro Mayor', href: 'accounting/reports/general-ledger', icon: BookOpen },
         { name: 'Estado de Resultados', href: 'accounting?tab=profit-loss', icon: TrendingUp },
         { name: 'Balance General', href: 'accounting?tab=balance-sheet', icon: AreaChart },
+        { name: 'Períodos Contables', href: 'accounting/periods', icon: Calendar },
+        { name: 'Asientos Recurrentes', href: 'accounting/recurring-entries', icon: RefreshCw },
+        { name: 'Facturas Electrónicas', href: 'accounting/electronic-invoices', icon: Receipt },
+        { name: 'Retenciones ISLR', href: 'accounting/islr-withholding', icon: FileText },
         { name: 'Informes', href: 'accounting?tab=reports', icon: FileText },
       ]
     },
@@ -943,6 +974,12 @@ function TenantLayout() {
                 <Route path="accounts-payable" element={<PayablesManagement />} />
                 <Route path="accounting" element={<AccountingManagement />} />
                 <Route path="accounting/reports/accounts-receivable" element={<AccountsReceivableReport />} />
+                <Route path="accounting/reports/trial-balance" element={<TrialBalance />} />
+                <Route path="accounting/reports/general-ledger" element={<GeneralLedger />} />
+                <Route path="accounting/periods" element={<AccountingPeriods />} />
+                <Route path="accounting/recurring-entries" element={<RecurringEntries />} />
+                <Route path="accounting/electronic-invoices" element={<ElectronicInvoicesManager />} />
+                <Route path="accounting/islr-withholding" element={<IslrWithholdingList />} />
                 <Route path="bank-accounts" element={<BankAccountsManagement />} />
                 <Route path="bank-accounts/:accountId/reconciliation" element={<BankReconciliationView />} />
                 <Route path="organizations" element={<OrganizationsManagement />} />
@@ -1053,13 +1090,44 @@ function AppContent() {
   );
 }
 
+function MuiThemeBridge({ children }) {
+  const { theme } = useTheme();
+  const [resolvedMode, setResolvedMode] = useState('dark');
+
+  useEffect(() => {
+    if (theme === 'system') {
+      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setResolvedMode(systemPrefersDark ? 'dark' : 'light');
+    } else {
+      setResolvedMode(theme);
+    }
+  }, [theme]);
+
+  const muiTheme = useMemo(
+    () =>
+      createTheme({
+        palette: { mode: resolvedMode },
+      }),
+    [resolvedMode],
+  );
+
+  return (
+    <MuiThemeProvider theme={muiTheme}>
+      <CssBaseline enableColorScheme />
+      {children}
+    </MuiThemeProvider>
+  );
+}
+
 function App() {
   return (
     <Router>
       <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
+        <MuiThemeBridge>
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        </MuiThemeBridge>
       </ThemeProvider>
     </Router>
   );

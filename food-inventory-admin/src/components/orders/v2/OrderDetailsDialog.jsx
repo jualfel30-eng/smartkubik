@@ -92,7 +92,10 @@ export function OrderDetailsDialog({ isOpen, onClose, order, tenantSettings, onU
 
   const handlePdfAction = async (action) => {
     const quoteStatuses = ['draft', 'pending'];
-    const docType = quoteStatuses.includes(order.status) ? 'quote' : 'invoice';
+    // If already pagada, forzar factura aunque el estado sea de presupuesto
+    const docType = order.paymentStatus === 'paid'
+      ? 'invoice'
+      : quoteStatuses.includes(order.status) ? 'quote' : 'invoice';
     const docTypeName = docType === 'quote' ? 'Presupuesto' : 'Factura';
 
     if (!order || !tenantSettings) {

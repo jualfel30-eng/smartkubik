@@ -71,8 +71,12 @@ export const fetchApi = async (url, options = {}) => {
   return response.json();
 };
 
-export const fetchJournalEntries = (page = 1, limit = 20) => {
-  return fetchApi(`/accounting/journal-entries?page=${page}&limit=${limit}`);
+export const fetchJournalEntries = (page = 1, limit = 20, isAutomatic = undefined) => {
+  let url = `/accounting/journal-entries?page=${page}&limit=${limit}`;
+  if (isAutomatic !== undefined) {
+    url += `&isAutomatic=${isAutomatic}`;
+  }
+  return fetchApi(url);
 };
 
 export const fetchChartOfAccounts = () => {
@@ -1323,6 +1327,620 @@ export const updateSubscriptionPlan = (id, planData) => {
 
 export const deleteSubscriptionPlan = (id) => {
   return fetchApi(`/subscription-plans/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+// Tax Settings
+export const fetchTaxSettings = (filters = {}) => {
+  const queryString = new URLSearchParams(filters).toString();
+  return fetchApi(`/accounting/tax-settings${queryString ? `?${queryString}` : ''}`);
+};
+
+export const createTaxSettings = (taxData) => {
+  return fetchApi('/accounting/tax-settings', {
+    method: 'POST',
+    body: JSON.stringify(taxData),
+  });
+};
+
+export const updateTaxSettings = (id, taxData) => {
+  return fetchApi(`/accounting/tax-settings/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(taxData),
+  });
+};
+
+export const deleteTaxSettings = (id) => {
+  return fetchApi(`/accounting/tax-settings/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+export const seedDefaultTaxes = () => {
+  return fetchApi('/accounting/tax-settings/seed', {
+    method: 'POST',
+  });
+};
+
+// IVA Withholding
+export const fetchIvaWithholdings = (filters = {}) => {
+  const queryString = new URLSearchParams(filters).toString();
+  return fetchApi(`/accounting/iva-withholding${queryString ? `?${queryString}` : ''}`);
+};
+
+export const createIvaWithholding = (withholdingData) => {
+  return fetchApi('/accounting/iva-withholding', {
+    method: 'POST',
+    body: JSON.stringify(withholdingData),
+  });
+};
+
+export const updateIvaWithholding = (id, withholdingData) => {
+  return fetchApi(`/accounting/iva-withholding/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(withholdingData),
+  });
+};
+
+export const postIvaWithholding = (id) => {
+  return fetchApi(`/accounting/iva-withholding/${id}/post`, {
+    method: 'PUT',
+  });
+};
+
+export const annulIvaWithholding = (id, data) => {
+  return fetchApi(`/accounting/iva-withholding/${id}/annul`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteIvaWithholding = (id) => {
+  return fetchApi(`/accounting/iva-withholding/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+export const exportIvaWithholdingsToARC = async (month, year) => {
+  const baseUrl = getApiBaseUrl();
+  const token = getAuthToken();
+
+  const response = await fetch(
+    `${baseUrl}/api/v1/accounting/iva-withholding/export/arc/${month}/${year}`,
+    {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Error al exportar ARC');
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ARC-IVA-${month}-${year}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+// ============ IVA PURCHASE BOOK (Libro de Compras) ============
+
+export const fetchPurchaseBook = (filters = {}) => {
+  const queryString = new URLSearchParams(filters).toString();
+  return fetchApi(`/accounting/iva-books/purchases${queryString ? `?${queryString}` : ''}`);
+};
+
+export const fetchPurchaseBookByPeriod = (month, year) => {
+  return fetchApi(`/accounting/iva-books/purchases/period/${month}/${year}`);
+};
+
+export const validatePurchaseBook = (month, year) => {
+  return fetchApi(`/accounting/iva-books/purchases/validate/${month}/${year}`);
+};
+
+export const getPurchaseBookSummary = (month, year) => {
+  return fetchApi(`/accounting/iva-books/purchases/summary/${month}/${year}`);
+};
+
+export const deletePurchaseBookEntry = (id) => {
+  return fetchApi(`/accounting/iva-books/purchases/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+export const exportPurchaseBookToTXT = async (month, year) => {
+  const baseUrl = getApiBaseUrl();
+  const token = getAuthToken();
+
+  const response = await fetch(
+    `${baseUrl}/api/v1/accounting/iva-books/purchases/export/${month}/${year}`,
+    {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Error al exportar libro de compras');
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Libro-Compras-${month}-${year}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+// ============ IVA SALES BOOK (Libro de Ventas) ============
+
+export const fetchSalesBook = (filters = {}) => {
+  const queryString = new URLSearchParams(filters).toString();
+  return fetchApi(`/accounting/iva-books/sales${queryString ? `?${queryString}` : ''}`);
+};
+
+export const fetchSalesBookByPeriod = (month, year) => {
+  return fetchApi(`/accounting/iva-books/sales/period/${month}/${year}`);
+};
+
+export const validateSalesBook = (month, year) => {
+  return fetchApi(`/accounting/iva-books/sales/validate/${month}/${year}`);
+};
+
+export const getSalesBookSummary = (month, year) => {
+  return fetchApi(`/accounting/iva-books/sales/summary/${month}/${year}`);
+};
+
+export const annulSalesBookEntry = (id, data) => {
+  return fetchApi(`/accounting/iva-books/sales/${id}/annul`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteSalesBookEntry = (id) => {
+  return fetchApi(`/accounting/iva-books/sales/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+export const exportSalesBookToTXT = async (month, year) => {
+  const baseUrl = getApiBaseUrl();
+  const token = getAuthToken();
+
+  const response = await fetch(
+    `${baseUrl}/api/v1/accounting/iva-books/sales/export/${month}/${year}`,
+    {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Error al exportar libro de ventas');
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Libro-Ventas-${month}-${year}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+// ============ IVA DECLARATION (Declaración IVA) ============
+
+export const fetchIvaDeclarations = (filters = {}) => {
+  const queryString = new URLSearchParams(filters).toString();
+  return fetchApi(`/accounting/iva-declaration${queryString ? `?${queryString}` : ''}`);
+};
+
+export const fetchIvaDeclarationById = (id) => {
+  return fetchApi(`/accounting/iva-declaration/${id}`);
+};
+
+export const fetchIvaDeclarationByPeriod = (month, year) => {
+  return fetchApi(`/accounting/iva-declaration/period/${month}/${year}`);
+};
+
+export const calculateIvaDeclaration = (data) => {
+  return fetchApi('/accounting/iva-declaration/calculate', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const updateIvaDeclaration = (id, data) => {
+  return fetchApi(`/accounting/iva-declaration/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+};
+
+export const fileIvaDeclaration = (id, data) => {
+  return fetchApi(`/accounting/iva-declaration/${id}/file`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+};
+
+export const recordIvaDeclarationPayment = (id, data) => {
+  return fetchApi(`/accounting/iva-declaration/${id}/payment`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteIvaDeclaration = (id) => {
+  return fetchApi(`/accounting/iva-declaration/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+export const downloadIvaDeclarationXML = async (id) => {
+  const baseUrl = getApiBaseUrl();
+  const token = getAuthToken();
+
+  const response = await fetch(
+    `${baseUrl}/api/v1/accounting/iva-declaration/${id}/xml`,
+    {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Error al descargar XML');
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Declaracion-IVA-${id}.xml`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+};
+
+// ========== SENIAT Electronic Invoicing API ==========
+
+// Validate document for SENIAT
+export const validateDocumentForSENIAT = (documentId) =>
+  fetchApi(`/billing/documents/${documentId}/validate-seniat`, {
+    method: 'POST',
+  });
+
+// Generate SENIAT XML
+export const generateSeniatXML = (documentId) =>
+  fetchApi(`/billing/documents/${documentId}/generate-xml`, {
+    method: 'POST',
+  });
+
+// Download SENIAT XML
+export const downloadSeniatXML = async (documentId) => {
+  const token = getAuthToken();
+  const baseUrl = getApiBaseUrl();
+
+  const response = await fetch(
+    `${baseUrl}/api/v1/billing/documents/${documentId}/seniat-xml`,
+    {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Error al descargar XML SENIAT');
+  }
+
+  return response.blob();
+};
+
+// Get electronic invoice statistics
+export const getElectronicInvoiceStats = (filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.startDate) params.append('startDate', filters.startDate);
+  if (filters.endDate) params.append('endDate', filters.endDate);
+  if (filters.status) params.append('status', filters.status);
+  if (filters.documentType) params.append('documentType', filters.documentType);
+
+  return fetchApi(`/billing/stats/electronic-invoices?${params.toString()}`, {
+    method: 'GET',
+  });
+};
+
+// ==================== ISLR Withholding Functions ====================
+
+// Get all ISLR withholdings with filters
+export const fetchIslrWithholdings = (filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.status) params.append('status', filters.status);
+  if (filters.beneficiaryType) params.append('beneficiaryType', filters.beneficiaryType);
+  if (filters.operationType) params.append('operationType', filters.operationType);
+  if (filters.startDate) params.append('startDate', filters.startDate);
+  if (filters.endDate) params.append('endDate', filters.endDate);
+  if (filters.beneficiaryRif) params.append('beneficiaryRif', filters.beneficiaryRif);
+  if (filters.exportedToARC) params.append('exportedToARC', filters.exportedToARC);
+  if (filters.page) params.append('page', filters.page);
+  if (filters.limit) params.append('limit', filters.limit);
+
+  return fetchApi(`/accounting/islr-withholding?${params.toString()}`, {
+    method: 'GET',
+  });
+};
+
+// Create a new ISLR withholding
+export const createIslrWithholding = (data) => {
+  return fetchApi('/accounting/islr-withholding', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+// Update an ISLR withholding (only draft)
+export const updateIslrWithholding = (id, data) => {
+  return fetchApi(`/accounting/islr-withholding/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+};
+
+// Post (contabilizar) an ISLR withholding
+export const postIslrWithholding = (id) => {
+  return fetchApi(`/accounting/islr-withholding/${id}/post`, {
+    method: 'PUT',
+  });
+};
+
+// Annul an ISLR withholding
+export const annulIslrWithholding = (id, data) => {
+  return fetchApi(`/accounting/islr-withholding/${id}/annul`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+};
+
+// Delete an ISLR withholding (only draft)
+export const deleteIslrWithholding = (id) => {
+  return fetchApi(`/accounting/islr-withholding/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+// Get ISLR withholdings by period
+export const getIslrByPeriod = (month, year) => {
+  return fetchApi(`/accounting/islr-withholding/period/${month}/${year}`, {
+    method: 'GET',
+  });
+};
+
+// Get ISLR withholding summary for a period
+export const getIslrSummary = (month, year) => {
+  return fetchApi(`/accounting/islr-withholding/summary/${month}/${year}`, {
+    method: 'GET',
+  });
+};
+
+// Export ISLR withholdings to ARC format (SENIAT)
+export const exportIslrToARC = async (month, year) => {
+  const token = getToken();
+  if (!token) {
+    throw new Error('No autorizado');
+  }
+
+  const baseUrl = getApiBaseUrl();
+
+  const response = await fetch(
+    `${baseUrl}/api/v1/accounting/islr-withholding/export/arc/${month}/${year}`,
+    {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Error al exportar ARC ISLR');
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ARC-ISLR-${String(month).padStart(2, '0')}-${year}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+};
+
+// ==================== PHASE 2: Advanced Accounting Reports ====================
+
+// Trial Balance (Balance de Comprobación)
+export const fetchTrialBalance = (params = {}) => {
+  const { startDate, endDate, accountType, includeZeroBalances } = params;
+  const queryParams = new URLSearchParams();
+
+  if (startDate) queryParams.append('startDate', startDate);
+  if (endDate) queryParams.append('endDate', endDate);
+  if (accountType) queryParams.append('accountType', accountType);
+  if (includeZeroBalances !== undefined) {
+    queryParams.append('includeZeroBalances', includeZeroBalances.toString());
+  }
+
+  const queryString = queryParams.toString();
+  const url = `/accounting/reports/trial-balance${queryString ? `?${queryString}` : ''}`;
+
+  return fetchApi(url);
+};
+
+// General Ledger (Libro Mayor)
+export const fetchGeneralLedger = (params = {}) => {
+  const { accountCode, startDate, endDate, page = 1, limit = 100 } = params;
+
+  if (!accountCode) {
+    throw new Error('Se requiere el código de cuenta para el libro mayor');
+  }
+
+  const queryParams = new URLSearchParams({ page: page.toString(), limit: limit.toString() });
+
+  if (startDate) queryParams.append('startDate', startDate);
+  if (endDate) queryParams.append('endDate', endDate);
+
+  return fetchApi(`/accounting/reports/general-ledger/${accountCode}?${queryParams.toString()}`);
+};
+
+// Accounting Periods API
+export const fetchAccountingPeriods = (filters = {}) => {
+  const queryParams = new URLSearchParams();
+
+  if (filters.status) queryParams.append('status', filters.status);
+  if (filters.fiscalYear) queryParams.append('fiscalYear', filters.fiscalYear.toString());
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/accounting/periods${queryString ? `?${queryString}` : ''}`);
+};
+
+export const fetchAccountingPeriod = (id) => {
+  return fetchApi(`/accounting/periods/${id}`);
+};
+
+export const fetchCurrentPeriod = () => {
+  return fetchApi('/accounting/periods/current');
+};
+
+export const fetchFiscalYears = () => {
+  return fetchApi('/accounting/periods/fiscal-years');
+};
+
+export const createAccountingPeriod = (data) => {
+  return fetchApi('/accounting/periods', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const updateAccountingPeriod = (id, data) => {
+  return fetchApi(`/accounting/periods/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+};
+
+export const closeAccountingPeriod = (periodId, closingNotes = '') => {
+  return fetchApi('/accounting/periods/close', {
+    method: 'POST',
+    body: JSON.stringify({ periodId, closingNotes }),
+  });
+};
+
+export const reopenAccountingPeriod = (id) => {
+  return fetchApi(`/accounting/periods/${id}/reopen`, {
+    method: 'PUT',
+  });
+};
+
+export const lockAccountingPeriod = (id) => {
+  return fetchApi(`/accounting/periods/${id}/lock`, {
+    method: 'PUT',
+  });
+};
+
+export const unlockAccountingPeriod = (id) => {
+  return fetchApi(`/accounting/periods/${id}/unlock`, {
+    method: 'PUT',
+  });
+};
+
+export const deleteAccountingPeriod = (id) => {
+  return fetchApi(`/accounting/periods/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+export const getPeriodForDate = (date) => {
+  return fetchApi(`/accounting/periods/date/${date}`);
+};
+
+// Recurring Entries API
+export const fetchRecurringEntries = (filters = {}) => {
+  const queryParams = new URLSearchParams();
+
+  if (filters.isActive !== undefined) {
+    queryParams.append('isActive', filters.isActive.toString());
+  }
+  if (filters.frequency) queryParams.append('frequency', filters.frequency);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/accounting/recurring-entries${queryString ? `?${queryString}` : ''}`);
+};
+
+export const fetchRecurringEntry = (id) => {
+  return fetchApi(`/accounting/recurring-entries/${id}`);
+};
+
+export const fetchUpcomingRecurringEntries = (daysAhead = 30) => {
+  return fetchApi(`/accounting/recurring-entries/upcoming?daysAhead=${daysAhead}`);
+};
+
+export const createRecurringEntry = (data) => {
+  return fetchApi('/accounting/recurring-entries', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const updateRecurringEntry = (id, data) => {
+  return fetchApi(`/accounting/recurring-entries/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+};
+
+export const toggleRecurringEntryActive = (id) => {
+  return fetchApi(`/accounting/recurring-entries/${id}/toggle-active`, {
+    method: 'PUT',
+  });
+};
+
+export const executeRecurringEntry = (id, executionDate = null) => {
+  return fetchApi(`/accounting/recurring-entries/${id}/execute`, {
+    method: 'POST',
+    body: JSON.stringify({ executionDate: executionDate || new Date().toISOString() }),
+  });
+};
+
+export const executeAllPendingRecurringEntries = (executionDate = null, recurringEntryId = null) => {
+  return fetchApi('/accounting/recurring-entries/execute-pending', {
+    method: 'POST',
+    body: JSON.stringify({
+      executionDate: executionDate || new Date().toISOString(),
+      recurringEntryId,
+    }),
+  });
+};
+
+export const deleteRecurringEntry = (id) => {
+  return fetchApi(`/accounting/recurring-entries/${id}`, {
     method: 'DELETE',
   });
 };

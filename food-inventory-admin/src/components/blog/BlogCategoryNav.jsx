@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Package, ShoppingCart, CreditCard, Truck, Users, BarChart3, Mail } from 'lucide-react';
+import { Search, Package, ShoppingCart, CreditCard, Truck, Users, BarChart3, Mail, Briefcase } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -13,40 +13,46 @@ const BlogCategoryNav = ({ onCategoryChange, onSearch, activeCategory }) => {
 
   const categories = [
     {
-      id: 'purchases-inventory',
+      id: 'Compras, Inventarios y Costeo',
       name: 'Compras, Inventarios y Costeo',
       icon: <Package className="w-4 h-4" />,
       color: 'bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 dark:text-blue-400'
     },
     {
-      id: 'sales-orders',
+      id: 'Ventas y Órdenes',
       name: 'Ventas y Órdenes',
       icon: <ShoppingCart className="w-4 h-4" />,
       color: 'bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400'
     },
     {
-      id: 'finance-accounting',
+      id: 'Finanzas y Contabilidad',
       name: 'Finanzas y Contabilidad',
       icon: <CreditCard className="w-4 h-4" />,
       color: 'bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 dark:text-purple-400'
     },
     {
-      id: 'operations-logistics',
+      id: 'Operaciones y logística',
       name: 'Operaciones y logística',
       icon: <Truck className="w-4 h-4" />,
       color: 'bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 dark:text-orange-400'
     },
     {
-      id: 'crm-postsale',
+      id: 'CRM y posventa',
       name: 'CRM y posventa',
       icon: <Users className="w-4 h-4" />,
       color: 'bg-pink-500/10 text-pink-600 hover:bg-pink-500/20 dark:text-pink-400'
     },
     {
-      id: 'analytics-reports',
+      id: 'Analítica y Reportes',
       name: 'Analítica y Reportes',
       icon: <BarChart3 className="w-4 h-4" />,
       color: 'bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 dark:text-indigo-400'
+    },
+    {
+      id: 'RRHH, Nómina y Productividad',
+      name: 'RRHH, Nómina y Productividad',
+      icon: <Briefcase className="w-4 h-4" />,
+      color: 'bg-teal-500/10 text-teal-600 hover:bg-teal-500/20 dark:text-teal-400'
     }
   ];
 
