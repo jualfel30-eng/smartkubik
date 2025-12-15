@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Mail, Check, X, Send, AlertCircle } from 'lucide-react';
+import { Mail, Check, X, Send, AlertCircle, CalendarClock } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { api } from '@/lib/api';
 
@@ -14,6 +14,9 @@ const EmailConfiguration = () => {
   const [loading, setLoading] = useState(true);
   const [testEmail, setTestEmail] = useState('');
   const [isTesting, setIsTesting] = useState(false);
+  const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
+  const [calendarEnabled, setCalendarEnabled] = useState(false);
+  const [calendarStatus, setCalendarStatus] = useState(null);
 
   // Gmail/Outlook OAuth
   const [isConnecting, setIsConnecting] = useState(false);
@@ -66,6 +69,8 @@ const EmailConfiguration = () => {
       const response = await api.get('/email-config');
       if (response.success) {
         setConfig(response.data);
+        setCalendarEnabled(!!response.data?.calendarEnabled);
+        setCalendarStatus(response.data?.calendarWatch || null);
       }
     } catch (error) {
       toast.error('Error al cargar configuración de email', {
@@ -73,6 +78,24 @@ const EmailConfiguration = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleWatchGoogleCalendar = async () => {
+    try {
+      setIsSyncingCalendar(true);
+      const response = await api.post('/email-config/gmail/calendar/watch');
+      if (response.success) {
+        toast.success('Google Calendar sincronizado');
+        setCalendarStatus(response.data);
+        setCalendarEnabled(true);
+      }
+    } catch (error) {
+      toast.error('Error al sincronizar calendario', {
+        description: error.response?.data?.message || error.message,
+      });
+    } finally {
+      setIsSyncingCalendar(false);
     }
   };
 
@@ -337,6 +360,41 @@ const EmailConfiguration = () => {
               </Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Calendar Sync */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarClock className="w-5 h-5" />
+            Sincronización de Calendario (Google)
+          </CardTitle>
+          <CardDescription>
+            Activa el watch de Google Calendar para registrar reuniones en oportunidades. Requiere haber conectado Gmail con permiso de Calendario.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-3">
+            <Switch checked={calendarEnabled} disabled />
+            <span className="text-sm text-muted-foreground">
+              Estado: {calendarEnabled ? 'Activo' : 'Inactivo'} (se activa al crear el canal)
+            </span>
+          </div>
+          <Button size="sm" onClick={handleWatchGoogleCalendar} disabled={isSyncingCalendar}>
+            {isSyncingCalendar ? 'Sincronizando...' : 'Probar & Activar Google Calendar'}
+          </Button>
+          {calendarStatus && (
+            <div className="text-xs text-muted-foreground">
+              Canal: {calendarStatus.id || calendarStatus.channelId || '—'} · Expira:{' '}
+              {calendarStatus.expiration || calendarStatus.expirationDate || '—'}
+            </div>
+          )}
+          {!calendarStatus && (
+            <div className="text-xs text-muted-foreground">
+              Si ya autorizaste Gmail con el scope de Calendario, haz clic en “Probar & Activar”.
+            </div>
+          )}
         </CardContent>
       </Card>
 

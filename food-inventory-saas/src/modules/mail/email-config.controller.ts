@@ -28,6 +28,7 @@ import {
   GetEmailConfigResponseDto,
 } from "../../dto/email-config.dto";
 import { decryptState, encrypt } from "../../utils/encryption.util";
+import { ConfigService } from "@nestjs/config";
 
 @Controller("email-config")
 @UseGuards(JwtAuthGuard)
@@ -41,6 +42,7 @@ export class EmailConfigController {
     private readonly outlookOAuthService: OutlookOAuthService,
     private readonly resendService: ResendService,
     private readonly mailService: MailService,
+    private readonly configService: ConfigService,
   ) {}
 
   // ==================== Get Current Configuration ====================
@@ -75,6 +77,15 @@ export class EmailConfigController {
         fromEmail: config.resendFromEmail || config.smtpFrom,
       },
     };
+  }
+
+  @Post("gmail/calendar/watch")
+  async watchGoogleCalendar(@Request() req): Promise<{ success: boolean; data: any }> {
+    const tenantId = req.user.tenantId;
+    const baseUrl = this.configService.get<string>("API_BASE_URL") || "http://localhost:3000";
+    const webhookUrl = `${baseUrl}/api/v1/calendar-webhooks/google/event`;
+    const data = await this.gmailOAuthService.watchCalendar(tenantId, webhookUrl);
+    return { success: true, data };
   }
 
   // ==================== Gmail OAuth ====================

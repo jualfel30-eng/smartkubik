@@ -5,6 +5,7 @@ import { Model } from "mongoose";
 import { google } from "googleapis";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import { encrypt, decrypt, encryptState } from "../../utils/encryption.util";
+import { randomUUID } from "crypto";
 
 @Injectable()
 export class GmailOAuthService {
@@ -37,6 +38,8 @@ export class GmailOAuthService {
       prompt: "consent", // Forzar para obtener refresh_token
       scope: [
         "https://www.googleapis.com/auth/gmail.send", // Enviar emails
+        "https://www.googleapis.com/auth/gmail.modify", // Leer/etiquetar
+        "https://www.googleapis.com/auth/calendar", // Calendario completo (eventos/watch)
         "https://www.googleapis.com/auth/userinfo.email", // Obtener email del usuario
       ],
       state, // Encrypted tenant ID
@@ -91,6 +94,53 @@ export class GmailOAuthService {
       );
       throw error;
     }
+  }
+
+  async watchCalendar(tenantId: string, webhookUrl: string) {
+    const calendar = await this.getCalendarClient(tenantId);
+    const channelId = randomUUID();
+    const watchReq = {
+      requestBody: {
+        id: channelId,
+        type: "web_hook",
+        address: webhookUrl,
+      },
+      calendarId: "primary",
+    } as any;
+    const res = await calendar.events.watch(watchReq);
+    const expiration = res.data.expiration ? new Date(Number(res.data.expiration)) : undefined;
+    await this.tenantModel.updateOne(
+      { _id: tenantId },
+      {
+        $set: {
+          "calendarConfig.provider": "google",
+          "calendarConfig.watch": {
+            channelId,
+            resourceId: res.data.resourceId,
+            expiration,
+            address: webhookUrl,
+          },
+        },
+      },
+    );
+    this.logger.log(`Calendar watch set for tenant ${tenantId}, channel ${channelId}`);
+    return res.data;
+  }
+
+  private async getCalendarClient(tenantId: string) {
+    const tenant = await this.tenantModel.findById(tenantId).exec();
+    if (
+      !tenant ||
+      !tenant.emailConfig?.gmailAccessToken ||
+      !tenant.emailConfig?.gmailRefreshToken
+    ) {
+      throw new Error("Gmail/Calendar not configured for this tenant");
+    }
+    this.oauth2Client.setCredentials({
+      access_token: decrypt(tenant.emailConfig.gmailAccessToken),
+      refresh_token: decrypt(tenant.emailConfig.gmailRefreshToken),
+    });
+    return google.calendar({ version: "v3", auth: this.oauth2Client });
   }
 
   /**
