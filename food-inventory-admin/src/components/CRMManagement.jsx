@@ -39,6 +39,8 @@ import EmployeeDetailDrawer from '@/components/payroll/EmployeeDetailDrawer.jsx'
 import { CustomerDetailDialog } from '@/components/CustomerDetailDialog.jsx';
 import { toast } from 'sonner';
 import { fetchApi } from '@/lib/api';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 
 const DEFAULT_PAGE_LIMIT = 25;
 const SEARCH_PAGE_LIMIT = 100;
@@ -128,6 +130,17 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     bulkUpdateEmployeeStatus,
     bulkNotifyEmployees,
     reconcileEmployeeProfiles,
+    opportunities,
+    opportunitiesLoading,
+    opportunitiesPagination,
+    loadOpportunities,
+    owners,
+    ownersLoading,
+    searchOwners,
+    stageDefinitions,
+    stageDefinitionsLoading,
+    loadOpportunityStages,
+    createOpportunityStage,
   } = useCRM();
   const initialTabRaw = forceEmployeeTab ? 'employee' : searchParams.get('tab') || 'all';
   const initialTab = hideEmployeeTab && initialTabRaw === 'employee' ? 'all' : initialTabRaw;
@@ -147,6 +160,220 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
   const EMPLOYEE_PAGE_LIMIT = 25;
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState(() => new Set());
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [opportunityStageFilter, setOpportunityStageFilter] = useState('all');
+  const [opportunitySearch, setOpportunitySearch] = useState('');
+  const [isOpportunityDialogOpen, setIsOpportunityDialogOpen] = useState(false);
+  const [isStageDialogOpen, setIsStageDialogOpen] = useState(false);
+  const [activeOpportunity, setActiveOpportunity] = useState(null);
+  const [pipelineView, setPipelineView] = useState('table'); // table | kanban
+  const defaultStages = [
+    'Prospecto',
+    'Contactado',
+    'Calificado',
+    'Demo/Discovery',
+    'Propuesta',
+    'Negociación',
+    'Cierre ganado',
+    'Cierre perdido',
+  ];
+  const [customStageInput, setCustomStageInput] = useState('');
+  const [stageEdits, setStageEdits] = useState({});
+  const [newOpportunity, setNewOpportunity] = useState({
+    name: '',
+    stage: 'Prospecto',
+    amount: '',
+    currency: 'USD',
+    nextStep: '',
+    nextStepDue: '',
+    customerId: '',
+    ownerId: '',
+  });
+  const [stageForm, setStageForm] = useState({
+    stage: 'Prospecto',
+    amount: '',
+    currency: 'USD',
+    expectedCloseDate: '',
+    nextStep: '',
+    nextStepDue: '',
+    reasonLost: '',
+    competitor: '',
+    ownerId: '',
+    painNeed: '',
+    budgetFit: '',
+    decisionMaker: '',
+    timeline: '',
+    stakeholders: '',
+    useCases: '',
+    risks: '',
+    razonesBloqueo: '',
+    requisitosLegales: '',
+  });
+  const [ownerSearchTerm, setOwnerSearchTerm] = useState('');
+  const [ownerFilter, setOwnerFilter] = useState('all');
+  const [territoryFilter, setTerritoryFilter] = useState('all');
+  const [oppSummary, setOppSummary] = useState(null);
+  const [sqlDecision, setSqlDecision] = useState({ status: '', reason: '' });
+  const [mqlDecision, setMqlDecision] = useState({ status: '', reason: '' });
+  const [isCaptureOpen, setIsCaptureOpen] = useState(false);
+  const captureInitial = {
+    name: '',
+    stage: 'Prospecto',
+    customerId: '',
+    source: '',
+    utmSource: '',
+    utmMedium: '',
+    utmCampaign: '',
+    utmTerm: '',
+    utmContent: '',
+    budgetFit: 'sí',
+    decisionMaker: '',
+    timeline: '',
+    nextStep: '',
+    nextStepDue: '',
+  };
+  const [captureForm, setCaptureForm] = useState(captureInitial);
+  const stageOptions = useMemo(() => {
+    const fromCatalog =
+      stageDefinitions && stageDefinitions.length > 0
+        ? [...stageDefinitions].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((s) => s.name)
+        : defaultStages;
+    const set = new Set(fromCatalog);
+    opportunities.forEach((opp) => {
+      if (opp.stage) set.add(opp.stage);
+    });
+    return Array.from(set);
+  }, [defaultStages, stageDefinitions, opportunities]);
+
+  const handleAddCustomStage = async () => {
+    const value = (customStageInput || '').trim();
+    if (!value) return;
+    try {
+      await createOpportunityStage({ name: value });
+      setCustomStageInput('');
+      await loadOpportunityStages();
+      toast.success('Etapa agregada');
+    } catch (err) {
+      console.error('Error creando etapa:', err);
+      toast.error(err?.message || 'No se pudo crear la etapa');
+    }
+  };
+  const handleUpdateStage = async (id) => {
+    const draft = stageEdits[id];
+    if (!draft) return;
+    try {
+      await updateOpportunityStage(id, draft);
+      await loadOpportunityStages();
+      toast.success('Etapa actualizada');
+    } catch (err) {
+      console.error('Error actualizando etapa:', err);
+      toast.error(err?.message || 'No se pudo actualizar la etapa');
+    }
+  };
+  const handleDeleteStage = async (id) => {
+    try {
+      await deleteOpportunityStage(id);
+      await loadOpportunityStages();
+      toast.success('Etapa eliminada');
+    } catch (err) {
+      console.error('Error eliminando etapa:', err);
+      toast.error(err?.message || 'No se pudo eliminar la etapa');
+    }
+  };
+
+  const handleStageFieldChange = (id, field, value) => {
+    setStageEdits((prev) => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleQuickMoveStage = async (oppId, stage) => {
+    try {
+      await fetchApi(`/opportunities/${oppId}/stage`, {
+        method: 'PATCH',
+        body: JSON.stringify({ stage }),
+      });
+      refreshOpportunities();
+      toast.success('Etapa actualizada');
+    } catch (err) {
+      console.error('Error moviendo etapa:', err);
+      toast.error(err?.message || 'No se pudo mover la etapa');
+    }
+  };
+
+  const handleMqlDecision = async (oppId, status) => {
+    const reason = status === 'rejected' ? window.prompt('Razón de rechazo MQL', '') || '' : undefined;
+    try {
+      await fetchApi(`/opportunities/${oppId}/mql`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status, reason }),
+      });
+      refreshOpportunities();
+      toast.success(`MQL ${status}`);
+    } catch (err) {
+      console.error('Error MQL:', err);
+      toast.error(err?.message || 'No se pudo marcar MQL');
+    }
+  };
+
+  const handleSqlDecision = async (oppId, status) => {
+    const reason = status === 'rejected' ? window.prompt('Razón de rechazo SQL', '') || '' : undefined;
+    try {
+      await fetchApi(`/opportunities/${oppId}/sql`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status, reason }),
+      });
+      refreshOpportunities();
+      toast.success(`SQL ${status}`);
+    } catch (err) {
+      console.error('Error SQL:', err);
+      toast.error(err?.message || 'No se pudo marcar SQL');
+    }
+  };
+
+  const handleCaptureSubmit = async () => {
+    try {
+      if (!captureForm.customerId) {
+        toast.error('Selecciona cliente');
+        return;
+      }
+      await fetchApi('/opportunities/capture/form', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...captureForm,
+          nextStepDue: captureForm.nextStepDue || new Date().toISOString().slice(0, 10),
+        }),
+      });
+      setIsCaptureOpen(false);
+      setCaptureForm(captureInitial);
+      refreshOpportunities();
+      toast.success('Oportunidad capturada');
+    } catch (err) {
+      console.error('Error capturando oportunidad:', err);
+      toast.error(err?.message || 'No se pudo capturar oportunidad');
+    }
+  };
+  const requiredFieldsByStage = {
+    Prospecto: ['nextStep', 'nextStepDue'],
+    Contactado: ['nextStep', 'nextStepDue'],
+    Calificado: ['nextStep', 'nextStepDue', 'painNeed', 'budgetFit', 'decisionMaker', 'timeline'],
+    'Demo/Discovery': ['nextStep', 'nextStepDue', 'stakeholders', 'useCases', 'risks'],
+    Propuesta: ['nextStep', 'nextStepDue', 'amount', 'currency', 'expectedCloseDate'],
+    Negociación: [
+      'nextStep',
+      'nextStepDue',
+      'amount',
+      'currency',
+      'expectedCloseDate',
+      'razonesBloqueo',
+      'requisitosLegales',
+    ],
+    'Cierre ganado': ['nextStep', 'nextStepDue', 'amount', 'currency'],
+    'Cierre perdido': ['reasonLost'],
+  };
 
   // Customer Detail Dialog
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -167,6 +394,16 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     onlyActiveContracts: true,
     excludeAlreadyAssigned: true,
   });
+  const opportunityStages = [
+    'Prospecto',
+    'Contactado',
+    'Calificado',
+    'Demo/Discovery',
+    'Propuesta',
+    'Negociación',
+    'Cierre ganado',
+    'Cierre perdido',
+  ];
   const notificationChannelOptions = [
     { value: 'email', label: 'Correo electrónico' },
     { value: 'whatsapp', label: 'WhatsApp' },
@@ -280,6 +517,204 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     [currentFilters, loadCustomers],
   );
 
+  const refreshOpportunities = useCallback(() => {
+    loadOpportunities(1, opportunitiesPagination.limit || 20, {
+      stage: opportunityStageFilter === 'all' ? undefined : opportunityStageFilter,
+      search: opportunitySearch?.trim() || undefined,
+      ownerId: ownerFilter === 'all' ? undefined : ownerFilter,
+      territory: territoryFilter === 'all' ? undefined : territoryFilter,
+    });
+  }, [
+    loadOpportunities,
+    opportunitiesPagination.limit,
+    opportunityStageFilter,
+    opportunitySearch,
+    ownerFilter,
+    territoryFilter,
+  ]);
+
+  const handleCreateOpportunity = async () => {
+    try {
+      if (!newOpportunity.customerId) {
+        toast.error('Selecciona un cliente para la oportunidad');
+        return;
+      }
+      const payload = {
+        ...newOpportunity,
+        amount: newOpportunity.amount ? Number(newOpportunity.amount) : undefined,
+        ownerId: newOpportunity.ownerId || undefined,
+      };
+      await fetchApi('/opportunities', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      setIsOpportunityDialogOpen(false);
+      setNewOpportunity({
+        name: '',
+        stage: 'Prospecto',
+        amount: '',
+        currency: 'USD',
+        nextStep: '',
+        nextStepDue: '',
+        customerId: '',
+        ownerId: '',
+      });
+      refreshOpportunities();
+    } catch (error) {
+      console.error('Error creating opportunity:', error);
+      toast.error(error?.message || 'Error al crear oportunidad');
+    }
+  };
+
+  const slaAging = useMemo(() => {
+    const today = new Date();
+    let overdue = 0;
+    let dueSoon = 0;
+    opportunities.forEach((opp) => {
+      if (!opp.nextStepDue) return;
+      const due = new Date(opp.nextStepDue);
+      const diffDays = Math.floor((due - today) / (1000 * 60 * 60 * 24));
+      if (diffDays < 0) overdue += 1;
+      if (diffDays >= 0 && diffDays <= 2) dueSoon += 1;
+    });
+    return { overdue, dueSoon };
+  }, [opportunities]);
+
+  const OwnerSelect = ({ value, onChange }) => {
+    return (
+      <div className="space-y-1">
+        <Label>Owner (usuario)</Label>
+        <div className="flex gap-2">
+          <Input
+            placeholder="Buscar por email"
+            value={ownerSearchTerm}
+            onChange={(e) => setOwnerSearchTerm(e.target.value)}
+          />
+          <Button type="button" variant="outline" onClick={() => searchOwners(ownerSearchTerm)} disabled={ownersLoading}>
+            {ownersLoading ? '...' : 'Buscar'}
+          </Button>
+        </div>
+        {owners.length > 0 ? (
+          <Select value={value || ''} onValueChange={onChange}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecciona owner" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Sin owner</SelectItem>
+              {owners.map((o) => (
+                <SelectItem key={o._id} value={o._id}>
+                  {o.firstName ? `${o.firstName} ${o.lastName || ''}`.trim() : o.email}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Input
+            placeholder="OwnerId (opcional)"
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        )}
+      </div>
+    );
+  };
+
+  const openStageDialog = (opp) => {
+    setActiveOpportunity(opp);
+    setStageForm({
+      stage: opp.stage || 'Prospecto',
+      amount: opp.amount || '',
+      currency: opp.currency || 'USD',
+      expectedCloseDate: opp.expectedCloseDate
+        ? new Date(opp.expectedCloseDate).toISOString().slice(0, 10)
+        : '',
+      nextStep: opp.nextStep || '',
+      nextStepDue: opp.nextStepDue ? new Date(opp.nextStepDue).toISOString().slice(0, 10) : '',
+      reasonLost: opp.reasonLost || '',
+      competitor: opp.competitor || '',
+      painNeed: opp.painNeed || '',
+      budgetFit: opp.budgetFit || '',
+      decisionMaker: opp.decisionMaker || '',
+      timeline: opp.timeline || '',
+      stakeholders: (opp.stakeholders || []).join(', '),
+      useCases: (opp.useCases || []).join(', '),
+      risks: (opp.risks || []).join(', '),
+      razonesBloqueo: (opp.razonesBloqueo || []).join(', '),
+      requisitosLegales: (opp.requisitosLegales || []).join(', '),
+    });
+    setIsStageDialogOpen(true);
+  };
+
+  const handleChangeStage = async () => {
+    if (!activeOpportunity?._id) {
+      toast.error('No se seleccionó oportunidad');
+      return;
+    }
+    if (!stageForm.stage) {
+      toast.error('Selecciona la etapa');
+      return;
+    }
+    if (stageForm.stage === 'Cierre perdido' && !stageForm.reasonLost) {
+      toast.error('Indica razón de pérdida');
+      return;
+    }
+    const required = requiredFieldsByStage[stageForm.stage] || [];
+    const missing = required.filter((field) => {
+      const value = stageForm[field];
+      if (value === null || value === undefined) return true;
+      if (typeof value === 'string' && value.trim() === '') return true;
+      if (Array.isArray(value) && value.length === 0) return true;
+      return false;
+    });
+    if (missing.length > 0) {
+      toast.error(`Faltan campos: ${missing.join(', ')}`);
+      return;
+    }
+    try {
+      const payload = {
+        stage: stageForm.stage,
+        amount: stageForm.amount ? Number(stageForm.amount) : undefined,
+        currency: stageForm.currency || undefined,
+        expectedCloseDate: stageForm.expectedCloseDate || undefined,
+        nextStep: stageForm.nextStep || undefined,
+        nextStepDue: stageForm.nextStepDue || undefined,
+        reasonLost: stageForm.reasonLost || undefined,
+        competitor: stageForm.competitor || undefined,
+        ownerId: stageForm.ownerId || undefined,
+        painNeed: stageForm.painNeed || undefined,
+        budgetFit: stageForm.budgetFit || undefined,
+        decisionMaker: stageForm.decisionMaker || undefined,
+        timeline: stageForm.timeline || undefined,
+        stakeholders: stageForm.stakeholders
+          ? stageForm.stakeholders.split(',').map((s) => s.trim()).filter(Boolean)
+          : undefined,
+        useCases: stageForm.useCases
+          ? stageForm.useCases.split(',').map((s) => s.trim()).filter(Boolean)
+          : undefined,
+        risks: stageForm.risks
+          ? stageForm.risks.split(',').map((s) => s.trim()).filter(Boolean)
+          : undefined,
+        razonesBloqueo: stageForm.razonesBloqueo
+          ? stageForm.razonesBloqueo.split(',').map((s) => s.trim()).filter(Boolean)
+          : undefined,
+        requisitosLegales: stageForm.requisitosLegales
+          ? stageForm.requisitosLegales.split(',').map((s) => s.trim()).filter(Boolean)
+          : undefined,
+      };
+      await fetchApi(`/opportunities/${activeOpportunity._id}/stage`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+      setIsStageDialogOpen(false);
+      setActiveOpportunity(null);
+      refreshOpportunities();
+      toast.success('Etapa actualizada');
+    } catch (error) {
+      console.error('Error cambiando etapa:', error);
+      toast.error(error?.message || 'Error al cambiar etapa');
+    }
+  };
+
   useEffect(() => {
     const trimmed = searchTerm.trim();
     if (trimmed === '') {
@@ -356,6 +791,52 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     if (!isEmployeeTab) return;
     setEmployeePage(1);
   }, [employeeFilters, isEmployeeTab, employeeCommittedSearch]);
+
+  useEffect(() => {
+    loadOpportunityStages();
+  }, [loadOpportunityStages]);
+
+  useEffect(() => {
+    // cargar owners para filtros y selects
+    searchOwners('');
+  }, [searchOwners]);
+
+  useEffect(() => {
+    const stage = opportunityStageFilter === 'all' ? undefined : opportunityStageFilter;
+    const search = opportunitySearch?.trim() || undefined;
+    const ownerId = ownerFilter === 'all' ? undefined : ownerFilter;
+    const territory = territoryFilter === 'all' ? undefined : territoryFilter;
+    loadOpportunities(1, opportunitiesPagination.limit || 20, {
+      stage,
+      search,
+      ownerId,
+      territory,
+    });
+  }, [
+    loadOpportunities,
+    opportunityStageFilter,
+    opportunitySearch,
+    ownerFilter,
+    territoryFilter,
+    opportunitiesPagination.limit,
+  ]);
+
+  useEffect(() => {
+    const fetchSummary = async () => {
+      try {
+        const response = await fetchApi('/opportunities/summary');
+        setOppSummary(response?.data || response || null);
+      } catch (err) {
+        console.error('Error cargando resumen pipeline:', err.message);
+      }
+    };
+    fetchSummary();
+  }, []);
+
+  useEffect(() => {
+    if (!isOpportunityDialogOpen && !isStageDialogOpen) return;
+    searchOwners(ownerSearchTerm);
+  }, [isOpportunityDialogOpen, isStageDialogOpen, ownerSearchTerm, searchOwners]);
 
   useEffect(() => {
     setSelectedEmployeeIds((prev) => {
@@ -2206,6 +2687,763 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
         </Dialog>
       )}
 
+      {/* Oportunidades (beta) */}
+      <div className="mt-8">
+        <Card>
+          <CardHeader className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <CardTitle>Pipeline de oportunidades</CardTitle>
+                <CardDescription>Vista rápida de etapas y próximos pasos.</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Select value={pipelineView} onValueChange={setPipelineView}>
+                  <SelectTrigger className="w-[130px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="table">Tabla</SelectItem>
+                    <SelectItem value="kanban">Kanban</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" size="sm" onClick={refreshOpportunities} disabled={opportunitiesLoading}>
+                  <RefreshCw className={`h-4 w-4 mr-2 ${opportunitiesLoading ? 'animate-spin' : ''}`} />
+                  Actualizar
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => setIsCaptureOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Capturar lead
+                </Button>
+                <Button size="sm" onClick={() => setIsOpportunityDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Crear oportunidad
+                </Button>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[1fr,220px]">
+              <Input
+                placeholder="Buscar oportunidad..."
+                value={opportunitySearch}
+                onChange={(e) => setOpportunitySearch(e.target.value)}
+              />
+              <div className="flex gap-2 flex-wrap">
+                <Select value={opportunityStageFilter} onValueChange={setOpportunityStageFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Etapa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las etapas</SelectItem>
+                    {stageOptions.map((stage) => (
+                      <SelectItem key={stage} value={stage}>
+                        {stage}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="Owner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los owners</SelectItem>
+                    {owners.map((o) => (
+                      <SelectItem key={o._id} value={o._id}>
+                        {o.firstName ? `${o.firstName} ${o.lastName || ''}`.trim() : o.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  className="w-[200px]"
+                  placeholder="Territorio"
+                  value={territoryFilter === 'all' ? '' : territoryFilter}
+                  onChange={(e) =>
+                    setTerritoryFilter(e.target.value.trim() ? e.target.value : 'all')
+                  }
+                />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {oppSummary?.byStage && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                {oppSummary.byStage.map((row) => (
+                  <div key={row._id || 'sin-etapa'} className="rounded-md border p-3">
+                    <div className="text-sm font-semibold">{row._id || 'Sin etapa'}</div>
+                    <div className="text-2xl font-bold">{row.total || 0}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Prob promedio: {Math.round(row.avgProbability || 0)}% · Monto: {row.amount || 0}
+                    </div>
+                  </div>
+                ))}
+                <div className="rounded-md border p-3 bg-amber-50">
+                  <div className="text-sm font-semibold text-amber-900">Vence en ≤2 días</div>
+                  <div className="text-2xl font-bold text-amber-900">{slaAging.dueSoon}</div>
+                  <div className="text-xs text-amber-800">Next step cercano requiere acción.</div>
+                </div>
+                <div className="rounded-md border p-3 bg-red-50">
+                  <div className="text-sm font-semibold text-red-900">Vencidos</div>
+                  <div className="text-2xl font-bold text-red-900">{slaAging.overdue}</div>
+                  <div className="text-xs text-red-800">Next step vencido (SLA roto).</div>
+                </div>
+              </div>
+            )}
+            {pipelineView === 'table' ? (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Oportunidad</TableHead>
+                      <TableHead>Etapa</TableHead>
+                      <TableHead>Owner</TableHead>
+                      <TableHead>Monto</TableHead>
+                      <TableHead>Next step</TableHead>
+                      <TableHead>Vence</TableHead>
+                      <TableHead>Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {opportunitiesLoading && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-sm text-muted-foreground">
+                          Cargando pipeline...
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {!opportunitiesLoading && opportunities.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-sm text-muted-foreground">
+                          Sin oportunidades aún.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {!opportunitiesLoading &&
+                      opportunities.map((opp) => (
+                        <TableRow key={opp._id}>
+                          <TableCell>
+                            <div className="font-semibold">{opp.name || 'Sin nombre'}</div>
+                            <div className="text-xs text-muted-foreground">
+                              Cliente: {opp.customerId?.name || opp.customerId?.companyName || opp.customerId || '—'}
+                            </div>
+                          </TableCell>
+                          <TableCell>{opp.stage || '—'}</TableCell>
+                          <TableCell className="text-sm">
+                            {opp.ownerId?.name || opp.ownerId?.email || '—'}
+                          </TableCell>
+                          <TableCell>
+                            {opp.amount ? (
+                              <>
+                                {opp.amount} {opp.currency || 'USD'}
+                              </>
+                            ) : (
+                              '—'
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm">{opp.nextStep || '—'}</TableCell>
+                          <TableCell className="text-sm">
+                            {opp.nextStepDue ? new Date(opp.nextStepDue).toISOString().slice(0, 10) : '—'}
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="outline" size="sm" onClick={() => openStageDialog(opp)}>
+                              Cambiar etapa
+                            </Button>
+                            <div className="mt-2 flex gap-2">
+                              <Button variant="secondary" size="xs" onClick={() => handleMqlDecision(opp._id, 'accepted')}>
+                                MQL ✓
+                              </Button>
+                              <Button variant="destructive" size="xs" onClick={() => handleMqlDecision(opp._id, 'rejected')}>
+                                MQL ×
+                              </Button>
+                              <Button variant="secondary" size="xs" onClick={() => handleSqlDecision(opp._id, 'accepted')}>
+                                SQL ✓
+                              </Button>
+                              <Button variant="destructive" size="xs" onClick={() => handleSqlDecision(opp._id, 'rejected')}>
+                                SQL ×
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    placeholder="Agregar etapa personalizada"
+                    value={customStageInput}
+                    onChange={(e) => setCustomStageInput(e.target.value)}
+                    className="w-full sm:w-64"
+                  />
+                  <Button type="button" variant="outline" onClick={handleAddCustomStage}>
+                    Añadir etapa
+                  </Button>
+              </div>
+                <DndProvider backend={HTML5Backend}>
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {stageOptions.map((stage) => {
+                      const cards = opportunities.filter((opp) => opp.stage === stage);
+                      return (
+                        <KanbanColumn
+                          key={stage}
+                          stage={stage}
+                          cards={cards}
+                          onDrop={(opp) => openStageDialog({ ...opp, stage })}
+                          onQuickMove={handleQuickMoveStage}
+                          onMqlDecision={handleMqlDecision}
+                          onSqlDecision={handleSqlDecision}
+                          stageOptions={stageOptions}
+                        />
+                      );
+                    })}
+                  </div>
+                </DndProvider>
+                <div className="rounded-md border bg-background p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <div className="font-semibold">Catálogo de etapas</div>
+                      <p className="text-xs text-muted-foreground">
+                        Edita probabilidad/orden y elimina etapas del tenant.
+                      </p>
+                    </div>
+                    {stageDefinitionsLoading && (
+                      <Badge variant="outline">Cargando...</Badge>
+                    )}
+                  </div>
+                  <div className="space-y-2 max-h-[320px] overflow-auto pr-1">
+                    {(stageDefinitions || []).map((stage) => (
+                      <div key={stage._id} className="rounded border p-2 grid grid-cols-4 gap-2 text-sm">
+                        <div className="col-span-2">
+                          <div className="font-medium">{stage.name}</div>
+                          <div className="text-[11px] text-muted-foreground">
+                            Required: {(stage.requiredFields || []).join(', ') || '—'}
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-[11px]">Prob (%)</Label>
+                          <Input
+                            type="number"
+                            value={stageEdits[stage._id]?.probability ?? stage.probability ?? 0}
+                            onChange={(e) =>
+                              handleStageFieldChange(stage._id, 'probability', Number(e.target.value))
+                            }
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[11px]">Orden</Label>
+                          <Input
+                            type="number"
+                            value={stageEdits[stage._id]?.order ?? stage.order ?? 0}
+                            onChange={(e) =>
+                              handleStageFieldChange(stage._id, 'order', Number(e.target.value))
+                            }
+                          />
+                        </div>
+                        <div className="col-span-4 flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleUpdateStage(stage._id)}
+                          >
+                            Guardar
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteStage(stage._id)}
+                          >
+                            Eliminar
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Dialog open={isOpportunityDialogOpen} onOpenChange={setIsOpportunityDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Nueva oportunidad</DialogTitle>
+            <DialogDescription>Crea una oportunidad en el embudo.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-2">
+            <div className="col-span-2 space-y-1">
+              <Label>Nombre</Label>
+              <Input
+                value={newOpportunity.name}
+                onChange={(e) => setNewOpportunity({ ...newOpportunity, name: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Cliente (ID)</Label>
+              {crmData.length > 0 ? (
+                <Select
+                  value={newOpportunity.customerId}
+                  onValueChange={(value) => setNewOpportunity({ ...newOpportunity, customerId: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {crmData.map((c) => (
+                      <SelectItem key={c._id} value={c._id}>
+                        {c.name || c.companyName || 'Sin nombre'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  placeholder="customerId"
+                  value={newOpportunity.customerId}
+                  onChange={(e) => setNewOpportunity({ ...newOpportunity, customerId: e.target.value })}
+                />
+              )}
+            </div>
+            <div className="space-y-1">
+              <Label>Etapa</Label>
+              <Select
+                value={newOpportunity.stage}
+                onValueChange={(value) => setNewOpportunity({ ...newOpportunity, stage: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {stageOptions.map((stage) => (
+                    <SelectItem key={stage} value={stage}>
+                      {stage}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Monto</Label>
+              <Input
+                type="number"
+                value={newOpportunity.amount}
+                onChange={(e) => setNewOpportunity({ ...newOpportunity, amount: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Moneda</Label>
+              <Input
+                value={newOpportunity.currency}
+                onChange={(e) => setNewOpportunity({ ...newOpportunity, currency: e.target.value })}
+              />
+            </div>
+              <div className="col-span-2 grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Next step</Label>
+                  <Input
+                    value={newOpportunity.nextStep}
+                    onChange={(e) => setNewOpportunity({ ...newOpportunity, nextStep: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Fecha compromiso</Label>
+                  <Input
+                    type="date"
+                    value={newOpportunity.nextStepDue}
+                    onChange={(e) =>
+                      setNewOpportunity({ ...newOpportunity, nextStepDue: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
+              <OwnerSelect
+                value={newOpportunity.ownerId}
+                onChange={(value) => setNewOpportunity((prev) => ({ ...prev, ownerId: value }))}
+              />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsOpportunityDialogOpen(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleCreateOpportunity}>Crear</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={isCaptureOpen} onOpenChange={setIsCaptureOpen}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Capturar lead (formulario/UTM)</DialogTitle>
+          <DialogDescription>Crear oportunidad desde un lead entrante con fuente y UTM.</DialogDescription>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-3 py-2">
+          <div className="col-span-2 space-y-1">
+            <Label>Nombre de la oportunidad</Label>
+            <Input
+              value={captureForm.name}
+              onChange={(e) => setCaptureForm((prev) => ({ ...prev, name: e.target.value }))}
+              placeholder="Ej: Demo con ACME"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Cliente</Label>
+            {crmData.length > 0 ? (
+              <Select
+                value={captureForm.customerId}
+                onValueChange={(value) => setCaptureForm((prev) => ({ ...prev, customerId: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {crmData.map((c) => (
+                    <SelectItem key={c._id} value={c._id}>
+                      {c.name || c.companyName || 'Sin nombre'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                placeholder="customerId"
+                value={captureForm.customerId}
+                onChange={(e) => setCaptureForm((prev) => ({ ...prev, customerId: e.target.value }))}
+              />
+            )}
+          </div>
+          <div className="space-y-1">
+            <Label>Etapa inicial</Label>
+            <Select
+              value={captureForm.stage}
+              onValueChange={(value) => setCaptureForm((prev) => ({ ...prev, stage: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {stageOptions.map((stage) => (
+                  <SelectItem key={stage} value={stage}>
+                    {stage}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Fuente</Label>
+            <Input
+              value={captureForm.source}
+              onChange={(e) => setCaptureForm((prev) => ({ ...prev, source: e.target.value }))}
+              placeholder="Ej: Landing, Evento, Chat"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>UTM Source</Label>
+            <Input
+              value={captureForm.utmSource}
+              onChange={(e) => setCaptureForm((prev) => ({ ...prev, utmSource: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>UTM Medium</Label>
+            <Input
+              value={captureForm.utmMedium}
+              onChange={(e) => setCaptureForm((prev) => ({ ...prev, utmMedium: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>UTM Campaign</Label>
+            <Input
+              value={captureForm.utmCampaign}
+              onChange={(e) => setCaptureForm((prev) => ({ ...prev, utmCampaign: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>UTM Term</Label>
+            <Input
+              value={captureForm.utmTerm}
+              onChange={(e) => setCaptureForm((prev) => ({ ...prev, utmTerm: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>UTM Content</Label>
+            <Input
+              value={captureForm.utmContent}
+              onChange={(e) => setCaptureForm((prev) => ({ ...prev, utmContent: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Ajuste presupuesto (fit)</Label>
+            <Select
+              value={captureForm.budgetFit}
+              onValueChange={(value) => setCaptureForm((prev) => ({ ...prev, budgetFit: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sí">Sí</SelectItem>
+                <SelectItem value="no">No</SelectItem>
+                <SelectItem value="parcial">Parcial</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Decision maker</Label>
+            <Input
+              value={captureForm.decisionMaker}
+              onChange={(e) => setCaptureForm((prev) => ({ ...prev, decisionMaker: e.target.value }))}
+              placeholder="Nombre/rol"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Timeline</Label>
+            <Input
+              value={captureForm.timeline}
+              onChange={(e) => setCaptureForm((prev) => ({ ...prev, timeline: e.target.value }))}
+              placeholder="Ej: Q2, 30 días"
+            />
+          </div>
+          <div className="col-span-2 grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label>Next step</Label>
+              <Input
+                value={captureForm.nextStep}
+                onChange={(e) => setCaptureForm((prev) => ({ ...prev, nextStep: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Fecha compromiso</Label>
+              <Input
+                type="date"
+                value={captureForm.nextStepDue}
+                onChange={(e) => setCaptureForm((prev) => ({ ...prev, nextStepDue: e.target.value }))}
+              />
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setIsCaptureOpen(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleCaptureSubmit}>Capturar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+      <Dialog open={isStageDialogOpen} onOpenChange={setIsStageDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Cambiar etapa</DialogTitle>
+            <DialogDescription>
+              Ajusta la etapa y la información mínima requerida para la oportunidad.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-2">
+            <div className="col-span-2 space-y-1">
+              <Label>Etapa</Label>
+              <Select
+                value={stageForm.stage}
+                onValueChange={(value) => setStageForm((prev) => ({ ...prev, stage: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {stageOptions.map((stage) => (
+                    <SelectItem key={stage} value={stage}>
+                      {stage}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Owner (ID)</Label>
+              <Input
+                placeholder="ID de usuario (opcional)"
+                value={stageForm.ownerId}
+                onChange={(e) => setStageForm((prev) => ({ ...prev, ownerId: e.target.value }))}
+              />
+            </div>
+            <OwnerSelect
+              value={newOpportunity.ownerId}
+              onChange={(value) => setNewOpportunity((prev) => ({ ...prev, ownerId: value }))}
+            />
+            {(stageForm.stage === 'Propuesta' ||
+              stageForm.stage === 'Negociación' ||
+              stageForm.stage === 'Cierre ganado') && (
+              <>
+                <div className="space-y-1">
+                  <Label>Monto</Label>
+                  <Input
+                    type="number"
+                    value={stageForm.amount}
+                    onChange={(e) => setStageForm((prev) => ({ ...prev, amount: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Moneda</Label>
+                  <Input
+                    value={stageForm.currency}
+                    onChange={(e) => setStageForm((prev) => ({ ...prev, currency: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Fecha cierre estimada</Label>
+                  <Input
+                    type="date"
+                    value={stageForm.expectedCloseDate}
+                    onChange={(e) =>
+                      setStageForm((prev) => ({ ...prev, expectedCloseDate: e.target.value }))
+                    }
+                  />
+                </div>
+              </>
+            )}
+            {(stageForm.stage === 'Calificado' || stageForm.stage === 'Demo/Discovery') && (
+              <>
+                <div className="space-y-1">
+                  <Label>Dolor/Necesidad</Label>
+                  <Input
+                    value={stageForm.painNeed}
+                    onChange={(e) => setStageForm((prev) => ({ ...prev, painNeed: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Budget fit (sí/no)</Label>
+                  <Select
+                    value={stageForm.budgetFit || 'sí'}
+                    onValueChange={(value) => setStageForm((prev) => ({ ...prev, budgetFit: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sí">Sí</SelectItem>
+                      <SelectItem value="no">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Decision maker</Label>
+                  <Input
+                    value={stageForm.decisionMaker}
+                    onChange={(e) =>
+                      setStageForm((prev) => ({ ...prev, decisionMaker: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Timeline</Label>
+                  <Input
+                    value={stageForm.timeline}
+                    onChange={(e) => setStageForm((prev) => ({ ...prev, timeline: e.target.value }))}
+                  />
+                </div>
+              </>
+            )}
+            {stageForm.stage === 'Demo/Discovery' && (
+              <>
+                <div className="space-y-1 col-span-2">
+                  <Label>Stakeholders (separar por coma)</Label>
+                  <Input
+                    value={stageForm.stakeholders}
+                    onChange={(e) =>
+                      setStageForm((prev) => ({ ...prev, stakeholders: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <Label>Casos de uso (coma)</Label>
+                  <Input
+                    value={stageForm.useCases}
+                    onChange={(e) =>
+                      setStageForm((prev) => ({ ...prev, useCases: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <Label>Riesgos (coma)</Label>
+                  <Input
+                    value={stageForm.risks}
+                    onChange={(e) => setStageForm((prev) => ({ ...prev, risks: e.target.value }))}
+                  />
+                </div>
+              </>
+            )}
+            {stageForm.stage === 'Negociación' && (
+              <>
+                <div className="space-y-1 col-span-2">
+                  <Label>Razones de bloqueo (coma)</Label>
+                  <Input
+                    value={stageForm.razonesBloqueo}
+                    onChange={(e) =>
+                      setStageForm((prev) => ({ ...prev, razonesBloqueo: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <Label>Requisitos legales (coma)</Label>
+                  <Input
+                    value={stageForm.requisitosLegales}
+                    onChange={(e) =>
+                      setStageForm((prev) => ({ ...prev, requisitosLegales: e.target.value }))
+                    }
+                  />
+                </div>
+              </>
+            )}
+            <div className="col-span-2 grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Next step</Label>
+                <Input
+                  value={stageForm.nextStep}
+                  onChange={(e) => setStageForm((prev) => ({ ...prev, nextStep: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Fecha compromiso</Label>
+                <Input
+                  type="date"
+                  value={stageForm.nextStepDue}
+                  onChange={(e) =>
+                    setStageForm((prev) => ({ ...prev, nextStepDue: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Competidor</Label>
+              <Input
+                value={stageForm.competitor}
+                onChange={(e) =>
+                  setStageForm((prev) => ({ ...prev, competitor: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Razón de pérdida</Label>
+              <Input
+                placeholder="Requerido si etapa = Cierre perdido"
+                value={stageForm.reasonLost}
+                onChange={(e) =>
+                  setStageForm((prev) => ({ ...prev, reasonLost: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsStageDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleChangeStage}>Guardar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Customer Detail Dialog */}
       <CustomerDetailDialog
         customer={selectedCustomer}
@@ -2222,3 +3460,104 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
 }
 
 export default CRMManagement;
+
+function KanbanColumn({ stage, cards, onDrop, onQuickMove, onMqlDecision, onSqlDecision, stageOptions }) {
+  const [{ isOver }, drop] = useDrop(
+    () => ({
+      accept: 'OPPORTUNITY_CARD',
+      drop: (item) => onDrop(item.opp),
+      collect: (monitor) => ({
+        isOver: monitor.isOver(),
+      }),
+    }),
+    [onDrop],
+  );
+
+  return (
+    <div
+      ref={drop}
+      className={`rounded-lg border bg-muted/40 p-3 ${isOver ? 'ring-2 ring-primary' : ''}`}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <div className="font-semibold">{stage}</div>
+        <Badge variant="outline">{cards.length}</Badge>
+      </div>
+      <div className="space-y-2 max-h-[420px] overflow-auto pr-1">
+        {cards.length === 0 && (
+          <div className="text-sm text-muted-foreground">Sin oportunidades</div>
+        )}
+        {cards.map((opp) => (
+          <KanbanCard
+            key={opp._id}
+            opp={opp}
+            onQuickMove={onQuickMove}
+            onMqlDecision={onMqlDecision}
+            onSqlDecision={onSqlDecision}
+            stageOptions={stageOptions}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function KanbanCard({ opp, onQuickMove, onMqlDecision, onSqlDecision, stageOptions }) {
+  const [, drag] = useDrag(() => ({ type: 'OPPORTUNITY_CARD', opp }), [opp]);
+  const dueDate = opp.nextStepDue ? new Date(opp.nextStepDue) : null;
+  const today = new Date();
+  const diffDays = dueDate ? Math.floor((dueDate - today) / (1000 * 60 * 60 * 24)) : null;
+  const isOverdue = diffDays !== null && diffDays < 0;
+  const isDueSoon = diffDays !== null && diffDays >= 0 && diffDays <= 2;
+
+  return (
+    <div
+      ref={drag}
+      className="rounded-md border bg-background p-2 shadow-sm space-y-1 cursor-grab active:cursor-grabbing"
+    >
+      <div className="font-medium text-sm">{opp.name || 'Sin nombre'}</div>
+      <div className="text-xs text-muted-foreground">
+        Cliente: {opp.customerId?.name || opp.customerId?.companyName || '—'}
+      </div>
+      <div className="text-xs text-muted-foreground">
+        Owner: {opp.ownerId?.name || opp.ownerId?.email || '—'}
+      </div>
+      <div className="text-xs flex items-center gap-2">
+        <span>Next: {opp.nextStep || '—'}</span>
+        <span className={`px-1.5 py-0.5 rounded text-[10px] ${isOverdue ? 'bg-destructive/20 text-destructive' : isDueSoon ? 'bg-amber-200 text-amber-900' : 'bg-muted text-muted-foreground'}`}>
+          {opp.nextStepDue ? new Date(opp.nextStepDue).toISOString().slice(0, 10) : '—'}
+        </span>
+      </div>
+      <Select
+        value={opp.stage}
+        onValueChange={(value) => onQuickMove(opp._id, value)}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Mover a" />
+        </SelectTrigger>
+        <SelectContent>
+          {stageOptions.map((s) => (
+            <SelectItem key={s} value={s}>
+              {s}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <div className="flex gap-2">
+        <Button
+          variant="secondary"
+          size="xs"
+          onClick={() => onMqlDecision && onMqlDecision(opp._id, 'accepted')}
+        >
+          MQL ✓
+        </Button>
+        <Button
+          variant="secondary"
+          size="xs"
+          onClick={() => onSqlDecision && onSqlDecision(opp._id, 'accepted')}
+        >
+          SQL ✓
+        </Button>
+      </div>
+    </div>
+  );
+}

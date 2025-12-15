@@ -29,6 +29,18 @@ export const CrmProvider = ({ children }) => {
     total: 0,
     totalPages: 0,
   });
+  const [opportunities, setOpportunities] = useState([]);
+  const [opportunitiesLoading, setOpportunitiesLoading] = useState(false);
+  const [opportunitiesPagination, setOpportunitiesPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+  });
+  const [owners, setOwners] = useState([]);
+  const [ownersLoading, setOwnersLoading] = useState(false);
+  const [stageDefinitions, setStageDefinitions] = useState([]);
+  const [stageDefinitionsLoading, setStageDefinitionsLoading] = useState(false);
   const [employeeSummary, setEmployeeSummary] = useState(null);
   const lastEmployeeQueryRef = useRef({
     page: 1,
@@ -174,6 +186,113 @@ export const CrmProvider = ({ children }) => {
       console.error('Error loading employee summary:', err.message);
     }
   }, []);
+
+  const loadOpportunities = useCallback(
+    async (page = 1, limit = 20, filters = {}) => {
+      try {
+        setOpportunitiesLoading(true);
+        const params = new URLSearchParams({
+          page: page.toString(),
+          limit: limit.toString(),
+        });
+        if (filters.stage) params.set('stage', filters.stage);
+        if (filters.pipeline) params.set('pipeline', filters.pipeline);
+        if (filters.ownerId) params.set('ownerId', filters.ownerId);
+        if (filters.search) params.set('search', filters.search.trim());
+
+        const response = await fetchApi(`/opportunities?${params.toString()}`);
+        const payload = response.data || response.items || response;
+        const items = payload.items || payload.data || payload || [];
+        const pagination =
+          response.pagination || payload.pagination || {
+            page: payload.page || page,
+            limit: payload.limit || limit,
+            total: payload.total || 0,
+            totalPages:
+              payload.totalPages ||
+              (payload.total ? Math.ceil(payload.total / (payload.limit || limit)) : 0),
+          };
+
+        setOpportunities(items);
+        setOpportunitiesPagination({
+          page: pagination.page || page,
+          limit: pagination.limit || limit,
+          total: pagination.total || 0,
+          totalPages: pagination.totalPages || 0,
+        });
+      } catch (err) {
+        console.error('Error loading opportunities:', err.message);
+        setOpportunities([]);
+        setOpportunitiesPagination({ page: 1, limit, total: 0, totalPages: 0 });
+      } finally {
+        setOpportunitiesLoading(false);
+      }
+    },
+    [],
+  );
+
+  const searchOwners = useCallback(async (term = '') => {
+    try {
+      setOwnersLoading(true);
+      const query = term ? `?email=${encodeURIComponent(term)}` : '';
+      const response = await fetchApi(`/users/search${query}`);
+      const list = response?.data || response || [];
+      setOwners(list);
+      return list;
+    } catch (err) {
+      console.error('Error loading owners:', err.message);
+      setOwners([]);
+      return [];
+    } finally {
+      setOwnersLoading(false);
+    }
+  }, []);
+
+  const loadOpportunityStages = useCallback(async () => {
+    try {
+      setStageDefinitionsLoading(true);
+      const response = await fetchApi('/opportunity-stages');
+      const data = response?.data || response || [];
+      setStageDefinitions(data);
+      return data;
+    } catch (err) {
+      console.error('Error loading opportunity stages:', err.message);
+      setStageDefinitions([]);
+      return [];
+    } finally {
+      setStageDefinitionsLoading(false);
+    }
+  }, []);
+
+  const createOpportunityStage = useCallback(
+    async (payload) => {
+      await fetchApi('/opportunity-stages', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      return loadOpportunityStages();
+    },
+    [loadOpportunityStages],
+  );
+
+  const updateOpportunityStage = useCallback(
+    async (id, payload) => {
+      await fetchApi(`/opportunity-stages/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+      return loadOpportunityStages();
+    },
+    [loadOpportunityStages],
+  );
+
+  const deleteOpportunityStage = useCallback(
+    async (id) => {
+      await fetchApi(`/opportunity-stages/${id}`, { method: 'DELETE' });
+      return loadOpportunityStages();
+    },
+    [loadOpportunityStages],
+  );
 
   const refreshEmployeesData = useCallback(() => {
     if (employeesRefreshPromiseRef.current) {
@@ -545,6 +664,19 @@ export const CrmProvider = ({ children }) => {
     bulkUpdateEmployeeStatus,
     bulkNotifyEmployees,
     reconcileEmployeeProfiles,
+    opportunities,
+    opportunitiesLoading,
+    opportunitiesPagination,
+    loadOpportunities,
+    owners,
+    ownersLoading,
+    searchOwners,
+    stageDefinitions,
+    stageDefinitionsLoading,
+    loadOpportunityStages,
+    createOpportunityStage,
+    updateOpportunityStage,
+    deleteOpportunityStage,
   };
 
   return <CrmContext.Provider value={value}>{children}</CrmContext.Provider>;

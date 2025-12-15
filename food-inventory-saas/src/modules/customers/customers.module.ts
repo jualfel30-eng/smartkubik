@@ -21,7 +21,7 @@ import { OrdersModule } from "../orders/orders.module";
 
 @Module({
   imports: [
-    AuthModule,
+    forwardRef(() => AuthModule),
     RolesModule,
     LoyaltyModule,
     TransactionHistoryModule, // Import for transaction history integration
