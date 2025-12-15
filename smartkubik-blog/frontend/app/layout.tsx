@@ -16,6 +16,9 @@ import {settingsQuery} from '@/sanity/lib/queries'
 import {resolveOpenGraphImage} from '@/sanity/lib/utils'
 import {handleError} from './client-utils'
 
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://smartkubik.com').replace(/\/$/, '')
+const blogBasePath = (process.env.NEXT_PUBLIC_BLOG_BASE_PATH || '/blog').replace(/\/$/, '')
+
 /**
  * Generate metadata for the page.
  * Learn more: https://nextjs.org/docs/app/api-reference/functions/generate-metadata#generatemetadata-function
@@ -31,10 +34,14 @@ export async function generateMetadata(): Promise<Metadata> {
 
   const ogImage = resolveOpenGraphImage(settings?.ogImage)
   let metadataBase: URL | undefined = undefined
+  const fallbackMetadataBase = siteUrl
+    ? new URL(`${siteUrl}${blogBasePath === '/' ? '' : blogBasePath || ''}`)
+    : undefined
+
   try {
     metadataBase = settings?.ogImage?.metadataBase
       ? new URL(settings.ogImage.metadataBase)
-      : undefined
+      : fallbackMetadataBase
   } catch {
     // ignore
   }

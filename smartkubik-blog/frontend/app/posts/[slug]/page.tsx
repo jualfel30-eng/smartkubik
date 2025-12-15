@@ -15,6 +15,8 @@ type Props = {
   params: Promise<{slug: string}>
 }
 
+export const revalidate = 900
+
 /**
  * Generate the static params for the page.
  * Learn more: https://nextjs.org/docs/app/api-reference/functions/generate-static-params

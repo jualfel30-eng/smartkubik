@@ -8,6 +8,8 @@ import SideBySideIcons from '@/app/components/SideBySideIcons'
 import {settingsQuery} from '@/sanity/lib/queries'
 import {sanityFetch} from '@/sanity/lib/live'
 
+export const revalidate = 900
+
 export default async function Page() {
   const {data: settings} = await sanityFetch({
     query: settingsQuery,
