@@ -18,7 +18,7 @@ import { RolesModule } from "../roles/roles.module";
 
 @Module({
   imports: [
-    AuthModule,
+    forwardRef(() => AuthModule),
     RolesModule,
     MongooseModule.forFeature([
       { name: Product.name, schema: ProductSchema },

@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { WorkCenterController } from "./work-center.controller";
 import { WorkCenterService } from "./work-center.service";
@@ -10,7 +10,7 @@ import { AuthModule } from "../../auth/auth.module";
     MongooseModule.forFeature([
       { name: WorkCenter.name, schema: WorkCenterSchema },
     ]),
-    AuthModule,
+    forwardRef(() => AuthModule),
   ],
   controllers: [WorkCenterController],
   providers: [WorkCenterService],

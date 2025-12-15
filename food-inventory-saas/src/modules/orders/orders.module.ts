@@ -33,7 +33,7 @@ import { WhapiModule } from "../whapi/whapi.module";
 
 @Module({
   imports: [
-    AuthModule,
+    forwardRef(() => AuthModule),
     InventoryModule,
     forwardRef(() => CustomersModule),
     AccountingModule,

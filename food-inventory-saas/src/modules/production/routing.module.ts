@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { RoutingController } from "./routing.controller";
 import { RoutingService } from "./routing.service";
@@ -12,7 +12,7 @@ import { AuthModule } from "../../auth/auth.module";
       { name: Routing.name, schema: RoutingSchema },
       { name: WorkCenter.name, schema: WorkCenterSchema },
     ]),
-    AuthModule,
+    forwardRef(() => AuthModule),
   ],
   controllers: [RoutingController],
   providers: [RoutingService],

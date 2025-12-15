@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { CouponsService } from "./coupons.service";
 import { CouponsController } from "./coupons.controller";
@@ -17,7 +17,7 @@ import { AuthModule } from "../../auth/auth.module";
       { name: CouponUsage.name, schema: CouponUsageSchema },
       { name: Customer.name, schema: CustomerSchema },
     ]),
-    AuthModule,
+    forwardRef(() => AuthModule),
   ],
   controllers: [CouponsController],
   providers: [CouponsService],

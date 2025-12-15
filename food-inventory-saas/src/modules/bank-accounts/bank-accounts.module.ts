@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { BankAccountsController } from "./bank-accounts.controller";
 import { BankAccountsService } from "./bank-accounts.service";
@@ -40,9 +40,9 @@ import { EventsModule } from "../events/events.module";
       { name: BankTransaction.name, schema: BankTransactionSchema },
       { name: Payment.name, schema: PaymentSchema },
     ]),
-    AuthModule,
+    forwardRef(() => AuthModule),
     PermissionsModule,
-    EventsModule,
+    forwardRef(() => EventsModule),
   ],
   controllers: [
     BankAccountsController,

@@ -19,6 +19,14 @@ import {
 
 export type NotificationChannel = "email" | "sms" | "whatsapp";
 
+export interface InAppNotificationPayload {
+  tenantId: string;
+  userId?: string;
+  title: string;
+  message: string;
+  metadata?: Record<string, any>;
+}
+
 export interface TemplateNotificationTarget {
   tenantId: string;
   customerId: string;
@@ -239,6 +247,15 @@ export class NotificationsService {
       return value.length > 0;
     }
     return Boolean(value);
+  }
+
+  // Placeholder simple notification for in-app alerts (logs)
+  async enqueueInAppNotification(
+    payload: InAppNotificationPayload,
+  ): Promise<void> {
+    this.logger.log(
+      `[InAppNotification][tenant=${payload.tenantId}] to=${payload.userId || "unknown"} | ${payload.title} -> ${payload.message} | metadata=${JSON.stringify(payload.metadata || {})}`,
+    );
   }
 
   private async sendSms(to: string, body: string): Promise<void> {

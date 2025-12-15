@@ -62,6 +62,21 @@ export class TenantSettings {
   };
 
   @Prop({ type: Object })
+  calendarConfig?: {
+    provider?: string;
+    watch?: {
+      channelId?: string;
+      resourceId?: string;
+      expiration?: Date;
+      address?: string;
+    };
+    reminders?: {
+      email?: boolean;
+      whatsapp?: boolean;
+    };
+  };
+
+  @Prop({ type: Object })
   notifications: {
     email: boolean;
     whatsapp: boolean;

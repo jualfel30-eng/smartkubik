@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { StorefrontConfigController } from "./storefront-config.controller";
 import { StorefrontConfigService } from "./storefront-config.service";
@@ -10,7 +10,7 @@ import { AuthModule } from "../../auth/auth.module";
 
 @Module({
   imports: [
-    AuthModule,
+    forwardRef(() => AuthModule),
     MongooseModule.forFeature([
       { name: StorefrontConfig.name, schema: StorefrontConfigSchema },
     ]),

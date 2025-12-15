@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { ProductionVersionController } from "./production-version.controller";
 import { ProductionVersionService } from "./production-version.service";
@@ -22,7 +22,7 @@ import { AuthModule } from "../../auth/auth.module";
       { name: Routing.name, schema: RoutingSchema },
       { name: Product.name, schema: ProductSchema },
     ]),
-    AuthModule,
+    forwardRef(() => AuthModule),
   ],
   controllers: [ProductionVersionController],
   providers: [ProductionVersionService],

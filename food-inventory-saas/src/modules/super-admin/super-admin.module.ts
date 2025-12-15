@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { SuperAdminController } from "./super-admin.controller";
 import { SuperAdminService } from "./super-admin.service";
@@ -39,7 +39,7 @@ import { FeatureFlagsService } from "../../config/feature-flags.service";
     MongooseModule.forFeature([
       { name: GlobalSetting.name, schema: GlobalSettingSchema },
     ]),
-    AuthModule,
+    forwardRef(() => AuthModule),
     KnowledgeBaseModule, // <--- AÑADIDO
     AssistantModule,
     AppointmentsModule,

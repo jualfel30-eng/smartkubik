@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { ManufacturingOrderController } from "./manufacturing-order.controller";
 import { ManufacturingOrderService } from "./manufacturing-order.service";
@@ -36,7 +36,7 @@ import { AccountingModule } from "../accounting/accounting.module";
       { name: WorkCenter.name, schema: WorkCenterSchema },
       { name: Inventory.name, schema: InventorySchema },
     ]),
-    AuthModule,
+    forwardRef(() => AuthModule),
     InventoryModule,
     AccountingModule,
     BillOfMaterialsModule, // Para acceder a BillOfMaterialsService

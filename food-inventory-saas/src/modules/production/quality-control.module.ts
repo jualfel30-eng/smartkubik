@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { QualityControlController } from "./quality-control.controller";
 import { QualityControlService } from "./quality-control.service";
@@ -21,7 +21,7 @@ import { AuthModule } from "../../auth/auth.module";
       { name: QualityInspection.name, schema: QualityInspectionSchema },
       { name: NonConformance.name, schema: NonConformanceSchema },
     ]),
-    AuthModule,
+    forwardRef(() => AuthModule),
   ],
   controllers: [QualityControlController],
   providers: [QualityControlService],

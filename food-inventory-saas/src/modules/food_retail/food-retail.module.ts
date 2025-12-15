@@ -16,7 +16,7 @@ import { IInventoryServiceProvider } from "../core/inventory.interface";
 
 @Module({
   imports: [
-    AuthModule,
+    forwardRef(() => AuthModule),
     RolesModule,
     forwardRef(() => EventsModule),
     forwardRef(() => ProductsModule),

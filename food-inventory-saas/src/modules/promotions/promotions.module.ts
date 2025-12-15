@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { PromotionsService } from "./promotions.service";
 import { PromotionsController } from "./promotions.controller";
@@ -17,7 +17,7 @@ import { AuthModule } from "../../auth/auth.module";
       { name: PromotionUsage.name, schema: PromotionUsageSchema },
       { name: Customer.name, schema: CustomerSchema },
     ]),
-    AuthModule,
+    forwardRef(() => AuthModule),
   ],
   controllers: [PromotionsController],
   providers: [PromotionsService],

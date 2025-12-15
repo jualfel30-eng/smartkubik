@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { UnitConversionsController } from "./unit-conversions.controller";
 import { UnitConversionsService } from "./unit-conversions.service";
@@ -11,7 +11,7 @@ import {
 
 @Module({
   imports: [
-    AuthModule,
+    forwardRef(() => AuthModule),
     RolesModule,
     MongooseModule.forFeature([
       { name: UnitConversion.name, schema: UnitConversionSchema },

@@ -27,14 +27,14 @@ import { TransactionHistoryModule } from "../transaction-history/transaction-his
       { name: Tenant.name, schema: TenantSchema },
     ]),
     ScheduleModule.forRoot(),
-    AuthModule,
-    CustomersModule,
+    forwardRef(() => AuthModule),
+    forwardRef(() => CustomersModule),
     forwardRef(() => ProductsModule),
-    InventoryModule,
-    AccountingModule,
-    PayablesModule, // Add PayablesModule here
-    EventsModule, // Add EventsModule here
-    TransactionHistoryModule, // Add TransactionHistoryModule here
+    forwardRef(() => InventoryModule),
+    forwardRef(() => AccountingModule),
+    forwardRef(() => PayablesModule), // Add PayablesModule here
+    forwardRef(() => EventsModule), // Add EventsModule here
+    forwardRef(() => TransactionHistoryModule), // Add TransactionHistoryModule here
   ],
   controllers: [PurchasesController],
   providers: [PurchasesService, AutoGeneratePOsJob],

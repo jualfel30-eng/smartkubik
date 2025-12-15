@@ -24,7 +24,7 @@ import {
 
 @Module({
   imports: [
-    AuthModule,
+    forwardRef(() => AuthModule),
     RolesModule,
     forwardRef(() => EventsModule),
     forwardRef(() => ProductsModule), // Use forwardRef if there is a circular dependency

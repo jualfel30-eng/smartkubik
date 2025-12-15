@@ -107,6 +107,10 @@ import { AuditLogModule } from "./modules/audit-log/audit-log.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { SecurityMonitoringModule } from "./modules/security-monitoring/security-monitoring.module";
 import { WarehousesModule } from "./modules/warehouses/warehouses.module";
+import { OpportunitiesModule } from "./modules/opportunities/opportunities.module";
+import { OpportunityStagesModule } from "./modules/opportunity-stages/opportunity-stages.module";
+import { OpportunityIngestModule } from "./modules/opportunity-ingest/opportunity-ingest.module";
+import { PlaybooksModule } from "./modules/playbooks/playbooks.module";
 // import { BillingModule } from "./modules/billing/billing.module"; // TODO: Completar implementación - Ver ROADMAP_ACCOUNTING_ERP.md
 
 @Module({
@@ -398,6 +402,10 @@ import { WarehousesModule } from "./modules/warehouses/warehouses.module";
     NotificationsModule,
     SecurityMonitoringModule,
     WarehousesModule,
+    OpportunitiesModule,
+    OpportunityStagesModule,
+    OpportunityIngestModule,
+    PlaybooksModule,
     // BillingModule, // TODO: Completar implementación - Ver ROADMAP_ACCOUNTING_ERP.md
   ],
   controllers: [AppController, TenantController],

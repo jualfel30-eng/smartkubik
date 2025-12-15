@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { SuppliersController } from "./suppliers.controller";
 import { SuppliersService } from "./suppliers.service";
@@ -12,7 +12,7 @@ import { AuthModule } from "../../auth/auth.module";
       { name: Supplier.name, schema: SupplierSchema },
       { name: Customer.name, schema: CustomerSchema }, // Add Customer
     ]),
-    AuthModule,
+    forwardRef(() => AuthModule),
   ],
   controllers: [SuppliersController],
   providers: [SuppliersService],

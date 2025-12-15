@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { TodosService } from "./todos.service";
 import { TodosController } from "./todos.controller";
@@ -12,7 +12,7 @@ import { AuthModule } from "../../auth/auth.module";
       { name: Todo.name, schema: TodoSchema },
       { name: Event.name, schema: EventSchema },
     ]),
-    AuthModule,
+    forwardRef(() => AuthModule),
   ],
   controllers: [TodosController],
   providers: [TodosService],

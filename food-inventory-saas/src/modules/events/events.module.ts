@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { EventsService } from "./events.service";
 import { EventsController } from "./events.controller";
@@ -13,7 +13,7 @@ import { RolesModule } from "../roles/roles.module";
       { name: Event.name, schema: EventSchema },
       { name: Todo.name, schema: TodoSchema },
     ]),
-    AuthModule,
+    forwardRef(() => AuthModule),
     RolesModule,
   ],
   controllers: [EventsController],
