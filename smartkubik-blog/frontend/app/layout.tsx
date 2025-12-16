@@ -48,8 +48,8 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     metadataBase,
     title: {
-      template: `%s | ${title}`,
-      default: title,
+      template: `%s | SmartKubik Blog`,
+      default: 'SmartKubik Blog',
     },
     description: toPlainText(description),
     openGraph: {
