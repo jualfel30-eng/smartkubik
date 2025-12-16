@@ -15,6 +15,8 @@ NC='\033[0m'
 BACKEND_LOCAL="./food-inventory-saas"
 FRONTEND_LOCAL="./food-inventory-admin"
 STOREFRONT_LOCAL="./food-inventory-storefront"
+BLOG_LOCAL="./smartkubik-blog/frontend"
+ROOT_DIR=$(pwd)
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${BLUE}🔧 SmartKubik PRE-DEPLOY${NC}"
@@ -34,6 +36,11 @@ fi
 
 if [ ! -d "$STOREFRONT_LOCAL" ]; then
     echo -e "${RED}❌ Storefront directory not found: $STOREFRONT_LOCAL${NC}"
+    exit 1
+fi
+
+if [ ! -d "$BLOG_LOCAL" ]; then
+    echo -e "${RED}❌ Blog directory not found: $BLOG_LOCAL${NC}"
     exit 1
 fi
 
@@ -94,33 +101,60 @@ fi
 echo -e "${GREEN}✅ Storefront dependencies installed${NC}"
 cd ..
 
+# Step 3.6: Install blog dependencies
+echo -e "${YELLOW}📦 Installing blog dependencies...${NC}"
+cd $BLOG_LOCAL
+
+if [ ! -f "package.json" ]; then
+    echo -e "${RED}❌ package.json not found in blog${NC}"
+    exit 1
+fi
+
+npm install
+
+if [ $? -ne 0 ]; then
+    echo -e "${RED}❌ Blog dependency installation failed${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ Blog dependencies installed${NC}"
+cd "$ROOT_DIR"
+
 # Step 4: Verify installations
 echo ""
 echo -e "${YELLOW}🔍 Verifying installations...${NC}"
 
-cd $BACKEND_LOCAL
+cd "$ROOT_DIR/$BACKEND_LOCAL"
 if ! npm ls --depth=0 > /dev/null 2>&1; then
     echo -e "${RED}❌ Backend dependencies verification failed${NC}"
     exit 1
 fi
 echo -e "${GREEN}✅ Backend dependencies verified${NC}"
-cd ..
+cd "$ROOT_DIR"
 
-cd $FRONTEND_LOCAL
+cd "$ROOT_DIR/$FRONTEND_LOCAL"
 if ! npm ls --depth=0 > /dev/null 2>&1; then
     echo -e "${RED}❌ Frontend dependencies verification failed${NC}"
     exit 1
 fi
 echo -e "${GREEN}✅ Frontend dependencies verified${NC}"
-cd ..
+cd "$ROOT_DIR"
 
-cd $STOREFRONT_LOCAL
+cd "$ROOT_DIR/$STOREFRONT_LOCAL"
 if ! npm ls --depth=0 > /dev/null 2>&1; then
     echo -e "${RED}❌ Storefront dependencies verification failed${NC}"
     exit 1
 fi
 echo -e "${GREEN}✅ Storefront dependencies verified${NC}"
-cd ..
+cd "$ROOT_DIR"
+
+cd "$ROOT_DIR/$BLOG_LOCAL"
+if ! npm ls --depth=0 > /dev/null 2>&1; then
+    echo -e "${RED}❌ Blog dependencies verification failed${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✅ Blog dependencies verified${NC}"
+cd "$ROOT_DIR"
 
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
