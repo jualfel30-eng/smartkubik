@@ -70,7 +70,7 @@ const TableOfContents = ({ content }: { content: any[] }) => {
 
     return (
         <ScrollArea className="h-[calc(100vh-150px)] py-6 px-6 ml-6">
-            <Link href="/blog">
+            <Link href="/">
                 <Button variant="ghost" size="sm" className="mb-6 w-full justify-start">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Volver al Blog

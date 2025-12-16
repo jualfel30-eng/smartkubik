@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { Menu, X } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -11,14 +10,14 @@ const BlogNavbar = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false)
     const { resolvedTheme } = useTheme()
 
-    const logoSrc = resolvedTheme === 'dark' ? '/logo-smartkubik.png' : '/logo-smartkubik-light.png'
+    const logoSrc = resolvedTheme === 'dark' ? '/blog/logo-smartkubik.png' : '/blog/logo-smartkubik-light.png'
 
     return (
         <nav className="fixed top-0 w-full bg-background/95 backdrop-blur-sm border-b border-border z-50 transition-colors duration-200">
             <div className="max-w-7xl mx-auto px-6">
                 <div className="flex justify-between items-center h-16">
                     <Link href="/" className="flex items-center space-x-3 animate-fadeIn">
-                        <Image src={logoSrc} alt="Smart Kubik" width={160} height={40} className="h-10 w-auto" />
+                        <img src={logoSrc} alt="Smart Kubik" className="h-10 w-auto" />
                     </Link>
 
                     <div className="hidden md:flex items-center space-x-8">

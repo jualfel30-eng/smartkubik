@@ -117,7 +117,7 @@ export default async function PostPage(props: Props) {
       }
     },
     "authorName": author->name,
-    "authorImage": author->image.asset->url,
+    "authorImage": author->image,
     "authorBio": author->bio,
     publishedAt,
     body,
@@ -205,7 +205,11 @@ export default async function PostPage(props: Props) {
               <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">{post.title}</h1>
               <div className="flex items-center gap-4 mb-6">
                 {post.authorImage && (
-                  <img src={urlFor(post.authorImage).width(60).height(60).url()} alt={post.authorName} className="w-12 h-12 rounded-full object-cover" />
+                  <img
+                    src={urlFor(post.authorImage).width(60).height(60).url()}
+                    alt={post.authorName}
+                    className="w-12 h-12 rounded-full object-cover"
+                  />
                 )}
                 <div>
                   <p className="font-semibold text-lg">{post.authorName}</p>

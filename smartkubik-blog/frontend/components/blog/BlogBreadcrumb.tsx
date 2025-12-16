@@ -16,7 +16,7 @@ const BlogBreadcrumb = ({ category, tag, postTitle }: { category?: string | null
     return (
         <nav className="flex items-center space-x-2 text-sm text-muted-foreground py-3 px-6 ml-6 flex-wrap">
             <Link
-                href="/blog"
+                href="/"
                 className="hover:text-foreground transition-colors"
             >
                 Blog
@@ -26,7 +26,7 @@ const BlogBreadcrumb = ({ category, tag, postTitle }: { category?: string | null
                 <>
                     <ChevronRight className="w-4 h-4" />
                     <Link
-                        href={`/blog?category=${category}`}
+                        href={`/?category=${category}`}
                         className="hover:text-foreground transition-colors"
                     >
                         {categoryNames[category] || category}

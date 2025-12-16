@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button';
 
 const CtaBox = ({ title, description, buttonText, href }: { title: string, description: string, buttonText: string, href: string }) => {
     return (
-        <Card className="bg-primary/10 border-primary/20 text-primary-foreground">
+        <Card className="border-primary/50 bg-card">
             <CardHeader>
-                <CardTitle>{title}</CardTitle>
-                <CardDescription className="text-primary-foreground/80">{description}</CardDescription>
+                <CardTitle className="text-foreground">{title}</CardTitle>
+                <CardDescription className="text-muted-foreground">{description}</CardDescription>
             </CardHeader>
             <CardContent>
                 <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground">

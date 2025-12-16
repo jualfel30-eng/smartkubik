@@ -81,7 +81,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredPosts && filteredPosts.length > 0 ? (
               filteredPosts.map((post: any) => (
-                <Card key={post._id} className="h-[500px] overflow-hidden hover:shadow-lg transition-shadow duration-200 flex flex-col p-0 text-left">
+                <Card key={post._id} className="h-[500px] overflow-hidden hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 flex flex-col p-0 text-left cursor-pointer">
                   <Link href={`/posts/${post.slug.current}`} className="flex flex-col h-full w-full">
                     {post.mainImage && (
                       <img
