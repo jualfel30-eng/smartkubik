@@ -82,7 +82,26 @@ export class EmailConfigController {
   @Post("gmail/calendar/watch")
   async watchGoogleCalendar(@Request() req): Promise<{ success: boolean; data: any }> {
     const tenantId = req.user.tenantId;
-    const baseUrl = this.configService.get<string>("API_BASE_URL") || "http://localhost:3000";
+    const apiBase = this.configService.get<string>("API_BASE_URL");
+    // Si no hay API_BASE_URL o es http, intentar inferir del request y forzar https
+    let baseUrl = apiBase;
+    if (!baseUrl || baseUrl.startsWith("http://")) {
+      const proto =
+        (req.headers["x-forwarded-proto"] as string) ||
+        (req.protocol as string) ||
+        "https";
+      const host = (req.headers["x-forwarded-host"] as string) || req.headers.host;
+      if (host) {
+        baseUrl = `${proto.replace("http", "https")}://${host}`;
+      }
+    }
+    // Fallback final si sigue sin ser https
+    if (!baseUrl) {
+      baseUrl = "https://api.smartkubik.com";
+    } else if (baseUrl.startsWith("http://")) {
+      baseUrl = baseUrl.replace("http://", "https://");
+    }
+
     const webhookUrl = `${baseUrl}/api/v1/calendar-webhooks/google/event`;
     const data = await this.gmailOAuthService.watchCalendar(tenantId, webhookUrl);
     return { success: true, data };
