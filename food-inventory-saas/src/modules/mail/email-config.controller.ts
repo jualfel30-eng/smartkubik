@@ -88,22 +88,24 @@ export class EmailConfigController {
 
       // Si no hay API_BASE_URL o es http, intentar inferir del request y forzar https
       let baseUrl = apiBase;
-      if (!baseUrl || baseUrl.startsWith("http://")) {
-        const proto =
-          (req.headers["x-forwarded-proto"] as string) ||
-          (req.protocol as string) ||
-          "https";
+
+      // Logic to ensure HTTPS
+      if (!baseUrl) {
+        // Infer from request
         const host = (req.headers["x-forwarded-host"] as string) || req.headers.host;
         if (host) {
-          baseUrl = `${proto.replace("http", "https")}://${host}`;
+          baseUrl = `https://${host}`;
+        } else {
+          baseUrl = "https://api.smartkubik.com";
         }
+      } else if (baseUrl.startsWith("http://")) {
+        // Upgrade http to https
+        baseUrl = baseUrl.replace("http://", "https://");
       }
 
-      // Fallback final si sigue sin ser https
-      if (!baseUrl) {
-        baseUrl = "https://api.smartkubik.com";
-      } else if (baseUrl.startsWith("http://")) {
-        baseUrl = baseUrl.replace("http://", "https://");
+      // Verify final URL doesn't look weird (just in case)
+      if (baseUrl.startsWith("httpss://")) {
+        baseUrl = baseUrl.replace("httpss://", "https://");
       }
 
       const webhookUrl = `${baseUrl}/api/v1/calendar-webhooks/google/event`;
