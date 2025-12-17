@@ -111,34 +111,43 @@ export class GmailOAuthService {
   }
 
   async watchCalendar(tenantId: string, webhookUrl: string) {
-    const calendar = await this.getCalendarClient(tenantId);
-    const channelId = randomUUID();
-    const watchReq = {
-      requestBody: {
-        id: channelId,
-        type: "web_hook",
-        address: webhookUrl,
-      },
-      calendarId: "primary",
-    } as any;
-    const res = await calendar.events.watch(watchReq);
-    const expiration = res.data.expiration ? new Date(Number(res.data.expiration)) : undefined;
-    await this.tenantModel.updateOne(
-      { _id: tenantId },
-      {
-        $set: {
-          "calendarConfig.provider": "google",
-          "calendarConfig.watch": {
-            channelId,
-            resourceId: res.data.resourceId,
-            expiration,
-            address: webhookUrl,
+    this.logger.log(`Setting up calendar watch for tenant ${tenantId} at ${webhookUrl}`);
+    try {
+      const calendar = await this.getCalendarClient(tenantId);
+      const channelId = randomUUID();
+      const watchReq = {
+        requestBody: {
+          id: channelId,
+          type: "web_hook",
+          address: webhookUrl,
+        },
+        calendarId: "primary",
+      } as any;
+
+      this.logger.log(`Sending watch request to Google for channel ${channelId}`);
+      const res = await calendar.events.watch(watchReq);
+
+      const expiration = res.data.expiration ? new Date(Number(res.data.expiration)) : undefined;
+      await this.tenantModel.updateOne(
+        { _id: tenantId },
+        {
+          $set: {
+            "calendarConfig.provider": "google",
+            "calendarConfig.watch": {
+              channelId,
+              resourceId: res.data.resourceId,
+              expiration,
+              address: webhookUrl,
+            },
           },
         },
-      },
-    );
-    this.logger.log(`Calendar watch set for tenant ${tenantId}, channel ${channelId}`);
-    return res.data;
+      );
+      this.logger.log(`Calendar watch set successfully for tenant ${tenantId}, channel ${channelId}`);
+      return res.data;
+    } catch (error) {
+      this.logger.error(`Failed in watchCalendar for tenant ${tenantId}: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   private async getCalendarClient(tenantId: string) {
