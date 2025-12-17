@@ -17,11 +17,18 @@ export class GmailOAuthService {
     @InjectModel(Tenant.name)
     private readonly tenantModel: Model<TenantDocument>,
   ) {
+    const apiBaseUrl = this.configService.get<string>("API_BASE_URL");
+    if (!apiBaseUrl) {
+      this.logger.warn(
+        "API_BASE_URL not defined. Gmail OAuth callback URL might be incorrect.",
+      );
+    }
+
     // Reutiliza las mismas credenciales de Google OAuth ya configuradas
     this.oauth2Client = new google.auth.OAuth2(
       this.configService.get<string>("GOOGLE_CLIENT_ID"),
       this.configService.get<string>("GOOGLE_CLIENT_SECRET"),
-      `${this.configService.get<string>("API_BASE_URL")}/api/v1/email-config/gmail/callback`,
+      `${apiBaseUrl || ""}/api/v1/email-config/gmail/callback`,
     );
   }
 
