@@ -17,10 +17,17 @@ export class GmailOAuthService {
     @InjectModel(Tenant.name)
     private readonly tenantModel: Model<TenantDocument>,
   ) {
-    const apiBaseUrl = this.configService.get<string>("API_BASE_URL");
+    let apiBaseUrl = this.configService.get<string>("API_BASE_URL");
+
+    // Si no está definido, usar fallback según entorno
     if (!apiBaseUrl) {
+      const isProd = this.configService.get<string>("NODE_ENV") === "production";
+      apiBaseUrl = isProd
+        ? "https://api.smartkubik.com"
+        : "http://localhost:3000";
+
       this.logger.warn(
-        "API_BASE_URL not defined. Gmail OAuth callback URL might be incorrect.",
+        `API_BASE_URL not defined. Using fallback '${apiBaseUrl}' for Gmail OAuth callback.`,
       );
     }
 
@@ -28,7 +35,7 @@ export class GmailOAuthService {
     this.oauth2Client = new google.auth.OAuth2(
       this.configService.get<string>("GOOGLE_CLIENT_ID"),
       this.configService.get<string>("GOOGLE_CLIENT_SECRET"),
-      `${apiBaseUrl || ""}/api/v1/email-config/gmail/callback`,
+      `${apiBaseUrl}/api/v1/email-config/gmail/callback`,
     );
   }
 
