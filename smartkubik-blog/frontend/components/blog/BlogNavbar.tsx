@@ -34,18 +34,18 @@ const BlogNavbar = () => {
                             Blog
                         </Link>
                         <ThemeToggle />
-                        <Link
-                            href="/register"
+                        <a
+                            href="https://smartkubik.com/register"
                             className="bg-primary text-primary-foreground px-4 py-2 rounded text-sm font-medium hover:bg-primary/90 transition-colors duration-200"
                         >
                             Regístrate
-                        </Link>
-                        <Link
-                            href="/login"
+                        </a>
+                        <a
+                            href="https://smartkubik.com/login"
                             className="text-sm font-medium text-foreground hover:bg-primary hover:text-primary-foreground px-4 py-2 rounded-md transition-colors duration-200"
                         >
                             Inicia sesión
-                        </Link>
+                        </a>
                     </div>
 
                     <button
@@ -76,18 +76,18 @@ const BlogNavbar = () => {
                         <div className="pt-2">
                             <ThemeToggle />
                         </div>
-                        <Link
-                            href="/register"
+                        <a
+                            href="https://smartkubik.com/register"
                             className="block w-full bg-primary text-primary-foreground px-4 py-2 rounded text-sm font-medium text-center"
                         >
                             Regístrate
-                        </Link>
-                        <Link
-                            href="/login"
+                        </a>
+                        <a
+                            href="https://smartkubik.com/login"
                             className="block w-full bg-primary text-primary-foreground px-4 py-2 rounded text-sm font-medium text-center"
                         >
                             Inicia sesión
-                        </Link>
+                        </a>
                     </div>
                 </div>
             )}
