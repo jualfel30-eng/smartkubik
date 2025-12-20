@@ -46,6 +46,11 @@ export class ExchangeRateService {
         this.logger.log(`Fetching BCV rate from ${api.name}...`);
         const response = await axios.get(api.url, {
           timeout: 5000,
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            Accept: "application/json",
+          },
         });
 
         this.logger.debug(
