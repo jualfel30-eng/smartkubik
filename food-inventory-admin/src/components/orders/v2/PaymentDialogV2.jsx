@@ -10,7 +10,7 @@ import { fetchApi } from '@/lib/api';
 import { X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
-export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
+export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exchangeRate }) {
   const { paymentMethods, paymentMethodsLoading } = useCrmContext();
   const { triggerRefresh } = useAccountingContext();
 
@@ -24,8 +24,6 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bankAccounts, setBankAccounts] = useState([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
-  const [exchangeRate, setExchangeRate] = useState(null);
-  const [, setLoadingRate] = useState(false);
 
   const remainingAmount = useMemo(() => {
     if (!order) return 0;
@@ -34,6 +32,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
 
   const remainingAmountVes = useMemo(() => {
     if (!order) return 0;
+
 
     // Si la orden tiene totalAmountVes definido y mayor que 0, usarlo directamente
     if (order.totalAmountVes && order.totalAmountVes > 0) {
@@ -85,7 +84,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
     }
   }, [paymentMode, mixedPayments.length, paymentMethods]);
 
-  // Fetch bank accounts and exchange rate when dialog opens
+  // Fetch bank accounts when dialog opens
   useEffect(() => {
     if (isOpen) {
       // Fetch bank accounts
@@ -101,22 +100,6 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
         })
         .finally(() => {
           setLoadingAccounts(false);
-        });
-
-      // Fetch exchange rate
-      setLoadingRate(true);
-      fetchApi('/exchange-rate/bcv')
-        .then(data => {
-          if (data && data.rate) {
-            setExchangeRate(data.rate);
-          }
-        })
-        .catch(err => {
-          console.error('Error loading exchange rate:', err);
-          // No mostramos error al usuario, solo usaremos el valor de la orden
-        })
-        .finally(() => {
-          setLoadingRate(false);
         });
     }
   }, [isOpen]);
@@ -243,12 +226,12 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
         remainingAmount && remainingAmount > 0
           ? remainingAmount
           : (remainingAmountVes && remainingAmountVes > 0
-              ? remainingAmountVes / rateForCalc
-              : 0);
+            ? remainingAmountVes / rateForCalc
+            : 0);
       const amountVes = isVes
         ? (remainingAmountVes && remainingAmountVes > 0
-            ? remainingAmountVes
-            : baseUSD * rateForCalc)
+          ? remainingAmountVes
+          : baseUSD * rateForCalc)
         : baseUSD * rateForCalc;
       const amountUSD = isVes ? amountVes / rateForCalc : baseUSD;
 
@@ -345,7 +328,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
             {remainingAmountVes > 0 && ` / Bs ${remainingAmountVes.toFixed(2)}`}
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="py-4 space-y-4">
           <Select value={paymentMode} onValueChange={setPaymentMode}>
             <SelectTrigger><SelectValue /></SelectTrigger>
@@ -359,9 +342,9 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
             <div className="p-4 border rounded-lg space-y-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="single-method" className="text-right">Método</Label>
-                <Select value={singlePayment.method} onValueChange={(v) => setSinglePayment(p => ({...p, method: v, bankAccountId: ''}))} disabled={paymentMethodsLoading}>
-                    <SelectTrigger id="single-method" className="col-span-3"><SelectValue placeholder="Seleccione un método" /></SelectTrigger>
-                    <SelectContent>{paymentMethods.map(m => m.id !== 'pago_mixto' && <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
+                <Select value={singlePayment.method} onValueChange={(v) => setSinglePayment(p => ({ ...p, method: v, bankAccountId: '' }))} disabled={paymentMethodsLoading}>
+                  <SelectTrigger id="single-method" className="col-span-3"><SelectValue placeholder="Seleccione un método" /></SelectTrigger>
+                  <SelectContent>{paymentMethods.map(m => m.id !== 'pago_mixto' && <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               {singleMethodHasBankAccounts ? (
@@ -369,7 +352,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
                   <Label htmlFor="single-bank-account" className="text-right">Cuenta Bancaria</Label>
                   <Select
                     value={singlePayment.bankAccountId}
-                    onValueChange={(v) => setSinglePayment(p => ({...p, bankAccountId: v}))}
+                    onValueChange={(v) => setSinglePayment(p => ({ ...p, bankAccountId: v }))}
                     disabled={loadingAccounts || !singlePayment.method}
                   >
                     <SelectTrigger id="single-bank-account" className="col-span-3">
@@ -421,7 +404,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="single-reference" className="text-right">Referencia</Label>
-                <Input id="single-reference" value={singlePayment.reference} onChange={(e) => setSinglePayment(p => ({...p, reference: e.target.value}))} className="col-span-3" />
+                <Input id="single-reference" value={singlePayment.reference} onChange={(e) => setSinglePayment(p => ({ ...p, reference: e.target.value }))} className="col-span-3" />
               </div>
             </div>
           ) : (
@@ -477,9 +460,9 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess }) {
                           <SelectTrigger className="w-full">
                             <SelectValue placeholder={
                               loadingAccounts ? "Cargando..." :
-                              !line.method ? "Seleccione método primero" :
-                              filteredAccounts.length === 0 ? "No hay cuentas" :
-                              "Seleccione cuenta (opcional)"
+                                !line.method ? "Seleccione método primero" :
+                                  filteredAccounts.length === 0 ? "No hay cuentas" :
+                                    "Seleccione cuenta (opcional)"
                             } />
                           </SelectTrigger>
                           <SelectContent>

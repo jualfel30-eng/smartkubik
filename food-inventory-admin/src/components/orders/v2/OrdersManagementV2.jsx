@@ -11,12 +11,14 @@ import { PaymentDialogV2 } from './PaymentDialogV2';
 import { OrderStatusSelector } from './OrderStatusSelector';
 import { OrderDetailsDialog } from './OrderDetailsDialog';
 import { Button } from "@/components/ui/button";
-import { CreditCard, RefreshCw, Search, Download, ChefHat, Printer } from "lucide-react";
+import { CreditCard, RefreshCw, Search, Download, ChefHat, Printer, FileText } from "lucide-react";
+import BillingDrawer from '@/components/billing/BillingDrawer';
 import { useDebounce } from '@/hooks/use-debounce.js';
 import { useCrmContext } from '@/context/CrmContext.jsx';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth.jsx';
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
+import { useExchangeRate } from '@/hooks/useExchangeRate';
 
 const paymentStatusMap = {
   pending: { label: 'Pendiente', variant: 'outline' },
@@ -50,10 +52,17 @@ export function OrdersManagementV2() {
   // State for Payment Dialog
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [selectedOrderForPayment, setSelectedOrderForPayment] = useState(null);
+  const { rate: exchangeRate, loading: loadingRate, error: rateError } = useExchangeRate();
+
+
 
   // State for Details Dialog
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [selectedOrderForDetails, setSelectedOrderForDetails] = useState(null);
+
+  // State for Billing Drawer
+  const [isBillingDrawerOpen, setIsBillingDrawerOpen] = useState(false);
+  const [selectedOrderForBilling, setSelectedOrderForBilling] = useState(null);
 
   const productAttributes = useMemo(
     () => (verticalConfig?.attributeSchema || []).filter((attr) => attr.scope === 'product'),
@@ -227,6 +236,16 @@ export function OrdersManagementV2() {
     setSelectedOrderForDetails(null);
   }, []);
 
+  const handleOpenBillingDrawer = useCallback((order) => {
+    setSelectedOrderForBilling(order);
+    setIsBillingDrawerOpen(true);
+  }, []);
+
+  const handleCloseBillingDrawer = useCallback(() => {
+    setIsBillingDrawerOpen(false);
+    setSelectedOrderForBilling(null);
+  }, []);
+
   const estimatePrepTime = useCallback((itemCount = 1) => {
     const normalizedCount = Math.max(itemCount, 1);
     return 5 + Math.max(normalizedCount - 1, 0) * 2;
@@ -270,93 +289,98 @@ export function OrdersManagementV2() {
 
   const columns = useMemo(() => {
     const baseColumns = [
-    { accessorKey: "orderNumber", header: "Número de Orden" },
-    { accessorKey: "customerName", header: "Cliente" },
-    {
-      accessorKey: "assignedTo",
-      header: "Atendido Por",
-      cell: ({ row }) => {
-        const assigned = row.original.assignedTo;
-        if (!assigned) {
-          return <span className="text-muted-foreground">-</span>;
+      { accessorKey: "orderNumber", header: "Número de Orden" },
+      { accessorKey: "customerName", header: "Cliente" },
+      {
+        accessorKey: "assignedTo",
+        header: "Atendido Por",
+        cell: ({ row }) => {
+          const assigned = row.original.assignedTo;
+          if (!assigned) {
+            return <span className="text-muted-foreground">-</span>;
+          }
+
+          if (typeof assigned === 'string') {
+            return <Badge variant="outline">{assigned}</Badge>;
+          }
+
+          const fullName = [assigned.firstName, assigned.lastName]
+            .filter(Boolean)
+            .join(' ')
+            .trim();
+
+          const display = fullName || assigned.email || '—';
+          return <Badge variant="outline">{display}</Badge>;
         }
-
-        if (typeof assigned === 'string') {
-          return <Badge variant="outline">{assigned}</Badge>;
+      },
+      {
+        accessorKey: "totalAmount",
+        header: "Monto Total",
+        cell: ({ row }) => {
+          const amount = parseFloat(row.original.totalAmount);
+          const formatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+          return <div className="text-right font-medium">{formatted}</div>;
         }
-
-        const fullName = [assigned.firstName, assigned.lastName]
-          .filter(Boolean)
-          .join(' ')
-          .trim();
-
-        const display = fullName || assigned.email || '—';
-        return <Badge variant="outline">{display}</Badge>;
-      }
-    },
-    {
-      accessorKey: "totalAmount",
-      header: "Monto Total",
-      cell: ({ row }) => {
-        const amount = parseFloat(row.original.totalAmount);
-        const formatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-        return <div className="text-right font-medium">{formatted}</div>;
-      }
-    },
-    {
+      },
+      {
         accessorKey: "balance",
         header: "Balance",
         cell: ({ row }) => {
-            const balance = (row.original.totalAmount || 0) - (row.original.paidAmount || 0);
-            const formatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(balance);
-            return <div className={`text-right font-medium ${balance > 0 ? 'text-red-500' : 'text-green-500'}`}>{formatted}</div>;
+          const balance = (row.original.totalAmount || 0) - (row.original.paidAmount || 0);
+          const formatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(balance);
+          return <div className={`text-right font-medium ${balance > 0 ? 'text-red-500' : 'text-green-500'}`}>{formatted}</div>;
         }
-    },
-    {
-      accessorKey: "paymentStatus",
-      header: "Estado de Pago",
-       cell: ({ row }) => {
-         const status = row.original.paymentStatus;
-         const { label, variant } = paymentStatusMap[status] || { label: status, variant: 'secondary' };
-         return <Badge variant={variant}>{label}</Badge>;
-       }
-    },
-    {
-      accessorKey: "status",
-      header: "Estado de la Orden",
-      cell: ({ row }) => (
-        <OrderStatusSelector order={row.original} onStatusChange={handleRefresh} />
-      )
-    },
-    {
-      id: "view",
-      header: () => <div className="text-center">Ver/Imprimir</div>,
-      cell: ({ row }) => (
-        <div className="text-center">
-          <Button variant="ghost" size="icon" onClick={() => handleOpenDetailsDialog(row.original)}>
-            <Printer className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
-    },
-    {
-      id: "pay",
-      header: () => <div className="text-center">Pagar</div>,
-      cell: ({ row }) => {
-        const order = row.original;
-        const balance = (order.totalAmount || 0) - (order.paidAmount || 0);
-        if (balance <= 0) return <div className="text-center">-</div>;
-        
-        return (
+      },
+      {
+        accessorKey: "paymentStatus",
+        header: "Estado de Pago",
+        cell: ({ row }) => {
+          const status = row.original.paymentStatus;
+          const { label, variant } = paymentStatusMap[status] || { label: status, variant: 'secondary' };
+          return <Badge variant={variant}>{label}</Badge>;
+        }
+      },
+      {
+        accessorKey: "status",
+        header: "Estado de la Orden",
+        cell: ({ row }) => (
+          <OrderStatusSelector order={row.original} onStatusChange={handleRefresh} />
+        )
+      },
+      {
+        id: "billing",
+        header: () => <div className="text-center">Facturar</div>,
+        cell: ({ row }) => (
           <div className="text-center">
-            <Button variant="ghost" size="icon" onClick={() => handleOpenPaymentDialog(order)}>
-              <CreditCard className="h-4 w-4" />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleOpenBillingDrawer(row.original)}
+              title="Generar Factura"
+            >
+              <FileText className="h-4 w-4" />
             </Button>
           </div>
-        );
+        ),
       },
-    },
-  ];
+      {
+        id: "pay",
+        header: () => <div className="text-center">Pagar</div>,
+        cell: ({ row }) => {
+          const order = row.original;
+          const balance = (order.totalAmount || 0) - (order.paidAmount || 0);
+          if (balance <= 0) return <div className="text-center">-</div>;
+
+          return (
+            <div className="text-center">
+              <Button variant="ghost" size="icon" onClick={() => handleOpenPaymentDialog(order)}>
+                <CreditCard className="h-4 w-4" />
+              </Button>
+            </div>
+          );
+        },
+      },
+    ];
 
     if (restaurantEnabled) {
       baseColumns.push({
@@ -383,7 +407,7 @@ export function OrdersManagementV2() {
     }
 
     return baseColumns;
-  }, [handleOpenPaymentDialog, handleOpenDetailsDialog, restaurantEnabled, sendToKitchen, handleRefresh]);
+  }, [handleOpenPaymentDialog, handleOpenDetailsDialog, handleOpenBillingDrawer, restaurantEnabled, sendToKitchen, handleRefresh]);
 
   const handleOrderCreated = () => {
     document.dispatchEvent(new CustomEvent('order-form-success'));
@@ -403,7 +427,7 @@ export function OrdersManagementV2() {
       </div>
 
       <NewOrderFormV2 onOrderCreated={handleOrderCreated} />
-      
+
       <Card>
         <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -497,6 +521,7 @@ export function OrdersManagementV2() {
         onClose={handleClosePaymentDialog}
         order={selectedOrderForPayment}
         onPaymentSuccess={handlePaymentSuccess}
+        exchangeRate={exchangeRate}
       />
 
       <OrderDetailsDialog
@@ -505,6 +530,13 @@ export function OrdersManagementV2() {
         order={selectedOrderForDetails}
         tenantSettings={tenantSettings}
         onUpdate={handleRefresh}
+      />
+
+      <BillingDrawer
+        isOpen={isBillingDrawerOpen}
+        onClose={handleCloseBillingDrawer}
+        order={selectedOrderForBilling}
+        onOrderUpdated={handleRefresh}
       />
     </div>
   );
