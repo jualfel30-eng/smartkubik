@@ -50,7 +50,7 @@ export class OpportunitiesService {
     private readonly notificationsService: NotificationsService,
     private readonly playbooksService: PlaybooksService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   // Reglas simples de enrutamiento: round-robin por territorio
   private roundRobinIndex: Record<string, number> = {};
@@ -125,6 +125,22 @@ export class OpportunitiesService {
 
     const saved = await opportunity.save();
     await this.notifyOwnerNewOpportunity(saved, user);
+
+    // 🆕 TRIGGER PLAYBOOKS POR FUENTE
+    if (saved.source) {
+      try {
+        await this.playbooksService.triggerBySource(
+          saved.source,
+          saved._id.toString(),
+          user,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Failed to trigger playbooks by source for opportunity ${saved._id}: ${error.message}`,
+        );
+      }
+    }
+
     return saved;
   }
 
@@ -199,18 +215,30 @@ export class OpportunitiesService {
   }
 
   async summary(tenantId: string) {
-    const byStage = await this.opportunityModel.aggregate([
-      { $match: { tenantId } },
-      {
-        $group: {
-          _id: "$stage",
-          total: { $sum: 1 },
-          amount: { $sum: { $ifNull: ["$amount", 0] } },
-          avgProbability: { $avg: { $ifNull: ["$probability", 0] } },
+    this.logger.log(`Getting summary for tenant: ${tenantId} (${typeof tenantId})`);
+
+    if (!tenantId || !Types.ObjectId.isValid(tenantId)) {
+      this.logger.error(`Invalid tenantId for summary: ${tenantId}`);
+      throw new HttpException('Invalid tenant ID', HttpStatus.BAD_REQUEST);
+    }
+
+    try {
+      const byStage = await this.opportunityModel.aggregate([
+        { $match: { tenantId: new Types.ObjectId(tenantId) } },
+        {
+          $group: {
+            _id: "$stage",
+            total: { $sum: 1 },
+            amount: { $sum: { $ifNull: ["$amount", 0] } },
+            avgProbability: { $avg: { $ifNull: ["$probability", 0] } },
+          },
         },
-      },
-    ]);
-    return { byStage };
+      ]);
+      return { byStage };
+    } catch (err) {
+      this.logger.error(`Aggregation failed: ${err.message}`, err.stack);
+      throw err;
+    }
   }
 
   async changeStage(id: string, dto: ChangeStageDto, user: any) {
@@ -266,6 +294,23 @@ export class OpportunitiesService {
     });
 
     await opp.save();
+
+    // 🆕 TRIGGER PLAYBOOKS POR CAMBIO DE ETAPA
+    if (prevStage !== dto.stage) {
+      try {
+        await this.playbooksService.triggerByStageEntry(
+          dto.stage,
+          opp._id.toString(),
+          opp.pipeline,
+          user,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Failed to trigger playbooks by stage for opportunity ${opp._id}: ${error.message}`,
+        );
+      }
+    }
+
     return opp;
   }
 
@@ -404,7 +449,7 @@ export class OpportunitiesService {
     for (const opp of agingCandidates as any[]) {
       const days = Math.floor(
         (now.getTime() - new Date(opp.updatedAt).getTime()) /
-          (1000 * 60 * 60 * 24),
+        (1000 * 60 * 60 * 24),
       );
       const bucket = agingThresholds.find((t) => days >= t);
       if (!bucket) continue;
@@ -780,16 +825,51 @@ export class OpportunitiesService {
           },
         },
       };
-      // Insert for now; si ya tuviéramos eventId en metadata, podríamos actualizar
-      const res = await calendar.events.insert({
-        calendarId: "primary",
-        requestBody: eventResource,
-      });
-      if (res.data.id) {
-        await this.messageActivityModel.updateOne(
-          { _id: activity._id },
-          { $set: { "metadata.externalEventId": res.data.id } },
-        );
+
+      // Idempotencia: si ya existe externalEventId, actualizar; si no, crear
+      const existingEventId = activity.metadata?.externalEventId;
+      let res;
+
+      if (existingEventId) {
+        // Actualizar evento existente
+        this.logger.log(`Actualizando evento existente en Google Calendar: ${existingEventId}`);
+        try {
+          res = await calendar.events.update({
+            calendarId: "primary",
+            eventId: existingEventId,
+            requestBody: eventResource,
+          });
+        } catch (updateError) {
+          // Si el evento no existe (fue borrado), crear uno nuevo
+          if (updateError.code === 404 || updateError.message?.includes("not found")) {
+            this.logger.warn(`Evento ${existingEventId} no encontrado, creando nuevo`);
+            res = await calendar.events.insert({
+              calendarId: "primary",
+              requestBody: eventResource,
+            });
+            if (res.data.id) {
+              await this.messageActivityModel.updateOne(
+                { _id: activity._id },
+                { $set: { "metadata.externalEventId": res.data.id } },
+              );
+            }
+          } else {
+            throw updateError;
+          }
+        }
+      } else {
+        // Crear nuevo evento
+        this.logger.log(`Creando nuevo evento en Google Calendar para oportunidad ${opp.name}`);
+        res = await calendar.events.insert({
+          calendarId: "primary",
+          requestBody: eventResource,
+        });
+        if (res.data.id) {
+          await this.messageActivityModel.updateOne(
+            { _id: activity._id },
+            { $set: { "metadata.externalEventId": res.data.id } },
+          );
+        }
       }
     } catch (error) {
       this.logger.warn(`No se pudo sincronizar evento a Google: ${error?.message}`);

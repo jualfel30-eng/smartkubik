@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs.jsx";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs.jsx";
 import { Checkbox } from '@/components/ui/checkbox.jsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu.jsx';
 import {
@@ -41,6 +41,10 @@ import { toast } from 'sonner';
 import { fetchApi } from '@/lib/api';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import OpportunityStagesManagement from './crm/OpportunityStagesManagement.jsx';
+import { PlaybooksManagement } from './PlaybooksManagement.jsx';
+import { ActivityTimeline } from './ActivityTimeline.jsx';
+import { RemindersWidget } from './RemindersWidget.jsx';
 
 const DEFAULT_PAGE_LIMIT = 25;
 const SEARCH_PAGE_LIMIT = 100;
@@ -104,7 +108,16 @@ const initialNewContactState = {
 
 function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { tenant } = useAuth();
+  const { tenant, user, hasPermission } = useAuth();
+
+  // Access control based on backend requirement
+  // Managers (view_all) or Admins (customers_update) can manage stages
+  const canManageStages = hasPermission('opportunities_view_all') || hasPermission('customers_update');
+  const canViewAllOpportunities = hasPermission('opportunities_view_all');
+
+  // Maintain 'isAdmin' alias for existing code compatibility if needed, 
+  // or refactor usage. Using canManageStages is cleaner.
+  const isAdmin = canManageStages;
   const {
     crmData,
     loading,
@@ -141,12 +154,69 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     stageDefinitionsLoading,
     loadOpportunityStages,
     createOpportunityStage,
+    updateOpportunityStage,
+    deleteOpportunityStage,
   } = useCRM();
+
   const initialTabRaw = forceEmployeeTab ? 'employee' : searchParams.get('tab') || 'all';
   const initialTab = hideEmployeeTab && initialTabRaw === 'employee' ? 'all' : initialTabRaw;
-  const [filteredData, setFilteredData] = useState([]);
+  /* const isPipelineTab = initialTab === 'pipeline'; // REMOVED UNUSED */
+
+  // Calculate initial top tab
+  const getInitialTopTab = () => {
+    if (initialTab === 'pipeline') return 'pipeline';
+    if (initialTab === 'settings') return 'settings';
+    if (initialTab === 'playbooks') return 'playbooks';
+    if (initialTab === 'reminders') return 'reminders';
+    return 'contacts';
+  };
+
+  const [activeTopTab, setActiveTopTab] = useState(getInitialTopTab());
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState(initialTab);
+  const [filterType, setFilterType] = useState(
+    initialTab === 'pipeline' || initialTab === 'settings' ? 'all' : initialTab
+  );
+
+  const handleTopTabChange = (value) => {
+    setActiveTopTab(value);
+    if (value === 'pipeline') {
+      setFilterType('pipeline');
+      setSearchParams({ tab: 'pipeline' });
+    } else if (value === 'settings') {
+      setFilterType('settings');
+      setSearchParams({ tab: 'settings' });
+    } else if (value === 'playbooks') {
+      setSearchParams({ tab: 'playbooks' });
+    } else if (value === 'reminders') {
+      setSearchParams({ tab: 'reminders' });
+    } else {
+      // Switch back to contacts
+      const newSubTab = filterType === 'pipeline' || filterType === 'settings' ? 'all' : filterType;
+      setFilterType(newSubTab);
+      setSearchParams({ tab: newSubTab });
+    }
+  };
+
+  // Sync state with URL changes (back/forward navigation)
+  useEffect(() => {
+    const tab = searchParams.get('tab') || 'all';
+    if (tab === 'pipeline') {
+      if (activeTopTab !== 'pipeline') setActiveTopTab('pipeline');
+      if (filterType !== 'pipeline') setFilterType('pipeline');
+    } else if (tab === 'settings') {
+      if (activeTopTab !== 'settings') setActiveTopTab('settings');
+      if (filterType !== 'settings') setFilterType('settings');
+    } else if (tab === 'playbooks') {
+      if (activeTopTab !== 'playbooks') setActiveTopTab('playbooks');
+    } else if (tab === 'reminders') {
+      if (activeTopTab !== 'reminders') setActiveTopTab('reminders');
+    } else {
+      if (activeTopTab !== 'contacts') setActiveTopTab('contacts');
+      if (filterType !== tab) setFilterType(tab);
+    }
+  }, [searchParams, activeTopTab, filterType]);
+
+  const [filteredData, setFilteredData] = useState([]);
   const [filterTier] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -212,8 +282,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
   const [ownerFilter, setOwnerFilter] = useState('all');
   const [territoryFilter, setTerritoryFilter] = useState('all');
   const [oppSummary, setOppSummary] = useState(null);
-  const [sqlDecision, setSqlDecision] = useState({ status: '', reason: '' });
-  const [mqlDecision, setMqlDecision] = useState({ status: '', reason: '' });
+
   const [isCaptureOpen, setIsCaptureOpen] = useState(false);
   const captureInitial = {
     name: '',
@@ -394,16 +463,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     onlyActiveContracts: true,
     excludeAlreadyAssigned: true,
   });
-  const opportunityStages = [
-    'Prospecto',
-    'Contactado',
-    'Calificado',
-    'Demo/Discovery',
-    'Propuesta',
-    'Negociación',
-    'Cierre ganado',
-    'Cierre perdido',
-  ];
+
   const notificationChannelOptions = [
     { value: 'email', label: 'Correo electrónico' },
     { value: 'whatsapp', label: 'WhatsApp' },
@@ -448,7 +508,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     if (committedSearch) {
       filters.search = committedSearch;
     }
-    if (filterType !== 'all') {
+    if (filterType !== 'all' && filterType !== 'pipeline' && filterType !== 'settings' && filterType !== 'employee') {
       filters.customerType = filterType;
     }
     return filters;
@@ -493,6 +553,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
   }, [structureOptions]);
 
   const isEmployeeTab = forceEmployeeTab || filterType === 'employee';
+  /* const isPipelineTab = filterType === 'pipeline'; // REMOVED DUPLICATE */
   const showEmployeeTab = forceEmployeeTab || !hideEmployeeTab;
   const selectedEmployees = useMemo(
     () => employeesData.filter((employee) => selectedEmployeeIds.has(employee._id)),
@@ -580,7 +641,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     return { overdue, dueSoon };
   }, [opportunities]);
 
-  const OwnerSelect = ({ value, onChange }) => {
+  const OwnerSelect = ({ value, onChange, disabled }) => {
     return (
       <div className="space-y-1">
         <Label>Owner (usuario)</Label>
@@ -589,13 +650,14 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
             placeholder="Buscar por email"
             value={ownerSearchTerm}
             onChange={(e) => setOwnerSearchTerm(e.target.value)}
+            disabled={disabled}
           />
-          <Button type="button" variant="outline" onClick={() => searchOwners(ownerSearchTerm)} disabled={ownersLoading}>
+          <Button type="button" variant="outline" onClick={() => searchOwners(ownerSearchTerm)} disabled={ownersLoading || disabled}>
             {ownersLoading ? '...' : 'Buscar'}
           </Button>
         </div>
         {owners.length > 0 ? (
-          <Select value={value || ''} onValueChange={onChange}>
+          <Select value={value || ''} onValueChange={onChange} disabled={disabled}>
             <SelectTrigger>
               <SelectValue placeholder="Selecciona owner" />
             </SelectTrigger>
@@ -613,6 +675,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
             placeholder="OwnerId (opcional)"
             value={value || ''}
             onChange={(e) => onChange(e.target.value)}
+            disabled={disabled}
           />
         )}
       </div>
@@ -641,6 +704,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
       risks: (opp.risks || []).join(', '),
       razonesBloqueo: (opp.razonesBloqueo || []).join(', '),
       requisitosLegales: (opp.requisitosLegales || []).join(', '),
+      ownerId: opp.ownerId?._id || opp.ownerId || '',
     });
     setIsStageDialogOpen(true);
   };
@@ -741,7 +805,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
   }, [employeeSearchTerm, isEmployeeTab]);
 
   useEffect(() => {
-    if (filterType === 'employee') {
+    if (filterType === 'employee' || filterType === 'pipeline' || filterType === 'settings' || activeTopTab === 'playbooks' || activeTopTab === 'reminders') {
       return;
     }
     const effectiveLimit = committedSearch
@@ -761,7 +825,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
 
     setCurrentPage(1);
     reloadCustomers(1, effectiveLimit, currentFilters);
-  }, [committedSearch, filterType, currentFilters, reloadCustomers, setCurrentPage]);
+  }, [committedSearch, filterType, currentFilters, reloadCustomers, setCurrentPage, activeTopTab]);
 
   const [selectedContactId, setSelectedContactId] = useState(null);
   const [editingFormState, setEditingFormState] = useState({});
@@ -1121,7 +1185,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
       setStructureDialogOpen(false);
       setStructureSelection('');
       clearSelectedEmployees();
-      refreshEmployeesData().catch(() => {});
+      refreshEmployeesData().catch(() => { });
     } catch (err) {
       toast.error(err.message || 'No se pudo asignar la estructura');
     } finally {
@@ -1502,13 +1566,13 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     const newStreet = editingFormState.street;
     const oldStreet = originalContact.addresses?.[0]?.street || '';
     if (newStreet && newStreet !== oldStreet) {
-        changedFields.addresses = [{
-            type: 'shipping',
-            street: editingFormState.street,
-            city: editingFormState.city,
-            state: editingFormState.state,
-            isDefault: true
-        }];
+      changedFields.addresses = [{
+        type: 'shipping',
+        street: editingFormState.street,
+        city: editingFormState.city,
+        state: editingFormState.state,
+        isDefault: true
+      }];
     }
 
     // Compara primaryLocation
@@ -1587,1384 +1651,1426 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     return <div className="text-red-500">Error al cargar empleados: {employeesError}</div>;
   }
 
+  /* DEBUG: Checking user role structure
+  console.log('DEBUG USER ROLE:', user?.role); 
+  */
+
   return (
     <div className="space-y-6">
-      {showCommunicationsIntelligence && !isEmployeeTab && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Inteligencia de comunicaciones</CardTitle>
-            <CardDescription>
-              {communicationsDescription}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-none bg-muted/40 shadow-none">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Touchpoints totales
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-semibold text-foreground">{communicationTotals.touchpoints}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-none bg-muted/40 shadow-none">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Clientes altamente comprometidos
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-semibold text-foreground">{communicationTotals.engaged}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-none bg-muted/40 shadow-none">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Clientes monitoreados
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-semibold text-foreground">{filteredData.length}</p>
-              </CardContent>
-            </Card>
-            <Card className="border-none bg-muted/40 shadow-none">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Último envío registrado
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  {communicationsLeaderboard[0]?.lastContactAt
-                    ? communicationsLeaderboard[0].lastContactAt.toLocaleString()
-                    : 'Sin registros recientes'}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+      <Tabs value={activeTopTab} onValueChange={handleTopTabChange} className="w-full">
+        <TabsList className="grid w-full grid-cols-5 max-w-[1000px]">
+          <TabsTrigger value="contacts">Contactos</TabsTrigger>
+          <TabsTrigger value="pipeline">Embudo de Ventas</TabsTrigger>
+          <TabsTrigger value="playbooks">Playbooks</TabsTrigger>
+          <TabsTrigger value="reminders">Recordatorios</TabsTrigger>
+          {isAdmin && <TabsTrigger value="settings">Configuración</TabsTrigger>}
+        </TabsList>
+        <TabsContent value="contacts" className="space-y-6">
 
-          <div className="overflow-x-auto rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Interacciones</TableHead>
-                  <TableHead>Canal preferido</TableHead>
-                  <TableHead>Último contacto</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {communicationsLeaderboard.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-sm text-muted-foreground">
-                      Aún no se registran interacciones automáticas.
-                    </TableCell>
-                  </TableRow>
-                )}
-                {communicationsLeaderboard.map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell>
-                      <div className="font-medium text-foreground">{entry.name}</div>
-                      <div className="text-xs text-muted-foreground">Engagement {Math.round(entry.engagementScore)}</div>
-                    </TableCell>
-                    <TableCell>{entry.totalEvents}</TableCell>
-                    <TableCell className="capitalize">{entry.channel}</TableCell>
-                    <TableCell>
-                      {entry.lastContactAt
-                        ? entry.lastContactAt.toLocaleString()
-                        : 'Sin historial'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-      )}
-      {isEmployeeTab && (
-        <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Empleados activos</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{employeeTotals.employees || 0}</div>
-                <p className="text-xs text-muted-foreground">Perfiles sincronizados</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Contratos activos</CardTitle>
-                <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{employeeTotals.activeContracts || 0}</div>
-                <p className="text-xs text-muted-foreground">Con pagos vigentes</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Vencen en 30 días</CardTitle>
-                <CalendarClock className="h-4 w-4 text-amber-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-amber-600">{employeeTotals.expiringContracts || 0}</div>
-                <p className="text-xs text-muted-foreground">Programar renovaciones</p>
-              </CardContent>
-            </Card>
-          </div>
-          <div className="grid gap-4 lg:grid-cols-2">
+          {showCommunicationsIntelligence && !isEmployeeTab && (
             <Card>
               <CardHeader>
-                <CardTitle>Estados de empleados</CardTitle>
-                <CardDescription>Distribución actual de la fuerza laboral.</CardDescription>
+                <CardTitle>Inteligencia de comunicaciones</CardTitle>
+                <CardDescription>
+                  {communicationsDescription}
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-2">
-                {Object.keys(employeeStatusBreakdown).length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Sin datos suficientes.</p>
-                ) : (
-                  Object.entries(employeeStatusBreakdown).map(([status, count]) => (
-                    <div key={status} className="flex items-center justify-between text-sm">
-                      <span className="capitalize">{status}</span>
-                      <Badge variant="outline">{count}</Badge>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Contratos por tipo</CardTitle>
-                <CardDescription>Monitorea la mezcla de contratos en el equipo.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {Object.keys(contractTypeBreakdown).length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Sin contratos registrados.</p>
-                ) : (
-                  Object.entries(contractTypeBreakdown).map(([type, count]) => (
-                    <div key={type} className="flex items-center justify-between text-sm">
-                      <span className="capitalize">{type.replace('_', ' ')}</span>
-                      <Badge variant="secondary">{count}</Badge>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-          </div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Contratos por vencer</CardTitle>
-              <CardDescription>Alertas de los próximos 30 días.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {expiringContracts.length === 0 ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle className="h-4 w-4 text-emerald-500" />
-                  No hay contratos por expirar en los próximos 30 días.
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <Card className="border-none bg-muted/40 shadow-none">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Touchpoints totales
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-semibold text-foreground">{communicationTotals.touchpoints}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-none bg-muted/40 shadow-none">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Clientes altamente comprometidos
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-semibold text-foreground">{communicationTotals.engaged}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-none bg-muted/40 shadow-none">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Clientes monitoreados
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-2xl font-semibold text-foreground">{filteredData.length}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-none bg-muted/40 shadow-none">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Último envío registrado
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">
+                        {communicationsLeaderboard[0]?.lastContactAt
+                          ? communicationsLeaderboard[0].lastContactAt.toLocaleString()
+                          : 'Sin registros recientes'}
+                      </p>
+                    </CardContent>
+                  </Card>
                 </div>
-              ) : (
-                <div className="overflow-x-auto">
+
+                <div className="overflow-x-auto rounded-md border">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Empleado</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead>Fin</TableHead>
-                        <TableHead>Restan</TableHead>
-                        <TableHead className="text-right">Compensación</TableHead>
+                        <TableHead>Cliente</TableHead>
+                        <TableHead>Interacciones</TableHead>
+                        <TableHead>Canal preferido</TableHead>
+                        <TableHead>Último contacto</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {expiringContracts.map((contract) => (
-                        <TableRow key={contract.contractId}>
-                          <TableCell>
-                            <div className="font-medium">{contract.employeeName}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {contract.department || contract.position || '—'}
-                            </div>
+                      {communicationsLeaderboard.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center text-sm text-muted-foreground">
+                            Aún no se registran interacciones automáticas.
                           </TableCell>
-                          <TableCell className="capitalize">{contract.contractType || '—'}</TableCell>
-                          <TableCell>{formatDate(contract.endDate)}</TableCell>
+                        </TableRow>
+                      )}
+                      {communicationsLeaderboard.map((entry) => (
+                        <TableRow key={entry.id}>
                           <TableCell>
-                            {typeof contract.daysUntilEnd === 'number'
-                              ? `${contract.daysUntilEnd} días`
-                              : '—'}
+                            <div className="font-medium text-foreground">{entry.name}</div>
+                            <div className="text-xs text-muted-foreground">Engagement {Math.round(entry.engagementScore)}</div>
                           </TableCell>
-                          <TableCell className="text-right">
-                            {contract.compensationAmount
-                              ? formatCurrency(contract.compensationAmount, contract.currency || 'USD')
-                              : '—'}
+                          <TableCell>{entry.totalEvents}</TableCell>
+                          <TableCell className="capitalize">{entry.channel}</TableCell>
+                          <TableCell>
+                            {entry.lastContactAt
+                              ? entry.lastContactAt.toLocaleString()
+                              : 'Sin historial'}
                           </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </>
-      )}
-
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <h2 className="text-3xl font-bold text-foreground">
-          {isEmployeeTab ? 'Gestión de Empleados' : 'Gestión de Contactos'}
-        </h2>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <Button
-            onClick={() => {
-              if (isEmployeeTab) {
-                handleRefreshEmployees();
-              } else {
-                reloadCustomers(currentPage, pageLimit, currentFilters);
-              }
-            }}
-            disabled={isEmployeeTab ? employeesLoading : loading}
-            variant="outline"
-            className="w-full sm:w-auto"
-          >
-            <RefreshCw
-              className={`h-4 w-4 mr-2 ${
-                (isEmployeeTab ? employeesLoading : loading) ? 'animate-spin' : ''
-              }`}
-            />
-            {(isEmployeeTab ? employeesLoading : loading) ? 'Actualizando...' : 'Actualizar'}
-          </Button>
-          {isEmployeeTab && (
-            <Button
-              variant="secondary"
-              className="w-full sm:w-auto"
-              onClick={handleReconcileEmployees}
-              disabled={reconcileLoading}
-            >
-              {reconcileLoading ? (
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <ShieldCheck className="mr-2 h-4 w-4" />
-              )}
-              Reconciliar duplicados
-            </Button>
+              </CardContent>
+            </Card>
           )}
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button
-                className="w-full sm:w-auto"
-                onClick={() =>
-                  setNewContact({
-                    ...initialNewContactState,
-                    customerType: isEmployeeTab ? 'employee' : initialNewContactState.customerType,
-                  })
-                }
-              >
-                <Plus className="h-4 w-4 mr-2" /> {isEmployeeTab ? 'Crear empleado' : 'Agregar contacto'}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          {isEmployeeTab && (
+            <>
+              <div className="grid gap-4 md:grid-cols-3">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Empleados activos</CardTitle>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold">{employeeTotals.employees || 0}</div>
+                    <p className="text-xs text-muted-foreground">Perfiles sincronizados</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Contratos activos</CardTitle>
+                    <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold">{employeeTotals.activeContracts || 0}</div>
+                    <p className="text-xs text-muted-foreground">Con pagos vigentes</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Vencen en 30 días</CardTitle>
+                    <CalendarClock className="h-4 w-4 text-amber-500" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold text-amber-600">{employeeTotals.expiringContracts || 0}</div>
+                    <p className="text-xs text-muted-foreground">Programar renovaciones</p>
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Estados de empleados</CardTitle>
+                    <CardDescription>Distribución actual de la fuerza laboral.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {Object.keys(employeeStatusBreakdown).length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Sin datos suficientes.</p>
+                    ) : (
+                      Object.entries(employeeStatusBreakdown).map(([status, count]) => (
+                        <div key={status} className="flex items-center justify-between text-sm">
+                          <span className="capitalize">{status}</span>
+                          <Badge variant="outline">{count}</Badge>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Contratos por tipo</CardTitle>
+                    <CardDescription>Monitorea la mezcla de contratos en el equipo.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {Object.keys(contractTypeBreakdown).length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Sin contratos registrados.</p>
+                    ) : (
+                      Object.entries(contractTypeBreakdown).map(([type, count]) => (
+                        <div key={type} className="flex items-center justify-between text-sm">
+                          <span className="capitalize">{type.replace('_', ' ')}</span>
+                          <Badge variant="secondary">{count}</Badge>
+                        </div>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Contratos por vencer</CardTitle>
+                  <CardDescription>Alertas de los próximos 30 días.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {expiringContracts.length === 0 ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <CheckCircle className="h-4 w-4 text-emerald-500" />
+                      No hay contratos por expirar en los próximos 30 días.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Empleado</TableHead>
+                            <TableHead>Tipo</TableHead>
+                            <TableHead>Fin</TableHead>
+                            <TableHead>Restan</TableHead>
+                            <TableHead className="text-right">Compensación</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {expiringContracts.map((contract) => (
+                            <TableRow key={contract.contractId}>
+                              <TableCell>
+                                <div className="font-medium">{contract.employeeName}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {contract.department || contract.position || '—'}
+                                </div>
+                              </TableCell>
+                              <TableCell className="capitalize">{contract.contractType || '—'}</TableCell>
+                              <TableCell>{formatDate(contract.endDate)}</TableCell>
+                              <TableCell>
+                                {typeof contract.daysUntilEnd === 'number'
+                                  ? `${contract.daysUntilEnd} días`
+                                  : '—'}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {contract.compensationAmount
+                                  ? formatCurrency(contract.compensationAmount, contract.currency || 'USD')
+                                  : '—'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {(
+            <>
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                <h2 className="text-3xl font-bold text-foreground">
+                  {isEmployeeTab ? 'Gestión de Empleados' : 'Gestión de Contactos'}
+                </h2>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <Button
+                    onClick={() => {
+                      if (isEmployeeTab) {
+                        handleRefreshEmployees();
+                      } else {
+                        reloadCustomers(currentPage, pageLimit, currentFilters);
+                      }
+                    }}
+                    disabled={isEmployeeTab ? employeesLoading : loading}
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 mr-2 ${(isEmployeeTab ? employeesLoading : loading) ? 'animate-spin' : ''
+                        }`}
+                    />
+                    {(isEmployeeTab ? employeesLoading : loading) ? 'Actualizando...' : 'Actualizar'}
+                  </Button>
+                  {isEmployeeTab && (
+                    <Button
+                      variant="secondary"
+                      className="w-full sm:w-auto"
+                      onClick={handleReconcileEmployees}
+                      disabled={reconcileLoading}
+                    >
+                      {reconcileLoading ? (
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <ShieldCheck className="mr-2 h-4 w-4" />
+                      )}
+                      Reconciliar duplicados
+                    </Button>
+                  )}
+                  <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button
+                        className="w-full sm:w-auto"
+                        onClick={() =>
+                          setNewContact({
+                            ...initialNewContactState,
+                            customerType: isEmployeeTab ? 'employee' : initialNewContactState.customerType,
+                          })
+                        }
+                      >
+                        <Plus className="h-4 w-4 mr-2" /> {isEmployeeTab ? 'Crear empleado' : 'Agregar contacto'}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>{isEmployeeTab ? 'Crear empleado' : 'Agregar nuevo contacto'}</DialogTitle>
+                        <DialogDescription>
+                          {isEmployeeTab
+                            ? 'Registra un empleado con sus datos básicos de contacto.'
+                            : 'Completa los detalles para registrar un nuevo contacto en el sistema.'}
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid grid-cols-2 gap-4 py-4">
+                        <div className="space-y-2">
+                          <Label>Nombre</Label>
+                          <Input value={newContact.name} onChange={(e) => setNewContact({ ...newContact, name: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Tipo de Contacto</Label>
+                          <Select
+                            value={newContact.customerType}
+                            onValueChange={(value) => setNewContact({ ...newContact, customerType: value })}
+                            disabled={isEmployeeTab}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="business">Cliente</SelectItem>
+                              <SelectItem value="supplier">Proveedor</SelectItem>
+                              <SelectItem value="employee">Empleado</SelectItem>
+                              {!isEmployeeTab && (
+                                <>
+                                  <SelectItem value="admin">Admin</SelectItem>
+                                  <SelectItem value="manager">Gestor</SelectItem>
+                                  <SelectItem value="Repartidor">Repartidor</SelectItem>
+                                  <SelectItem value="Cajero">Cajero</SelectItem>
+                                  <SelectItem value="Mesonero">Mesonero</SelectItem>
+                                </>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Empresa</Label>
+                          <Input
+                            value={newContact.companyName}
+                            onChange={(e) => setNewContact({ ...newContact, companyName: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Email</Label>
+                          <Input
+                            type="email"
+                            value={newContact.email}
+                            onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Teléfono</Label>
+                          <Input
+                            value={newContact.phone}
+                            onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
+                          />
+                        </div>
+                        <div className="col-span-2 space-y-2">
+                          <Label>Dirección</Label>
+                          <Input
+                            value={newContact.address}
+                            onChange={(e) => setNewContact({ ...newContact, address: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Ciudad</Label>
+                          <Input
+                            value={newContact.city}
+                            onChange={(e) => setNewContact({ ...newContact, city: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Estado</Label>
+                          <Input
+                            value={newContact.state}
+                            onChange={(e) => setNewContact({ ...newContact, state: e.target.value })}
+                          />
+                        </div>
+                        <div className="col-span-2 space-y-2">
+                          <Label>Identificación Fiscal</Label>
+                          <div className="flex gap-2">
+                            <Select
+                              value={newContact.taxType}
+                              onValueChange={(value) => setNewContact({ ...newContact, taxType: value })}
+                            >
+                              <SelectTrigger className="w-[100px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="V">V</SelectItem>
+                                <SelectItem value="E">E</SelectItem>
+                                <SelectItem value="J">J</SelectItem>
+                                <SelectItem value="G">G</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              value={newContact.taxId}
+                              onChange={(e) => setNewContact({ ...newContact, taxId: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                        <div className="col-span-2 space-y-2">
+                          <LocationPicker
+                            label="Ubicación del Cliente"
+                            value={newContact.primaryLocation}
+                            onChange={(location) => setNewContact({ ...newContact, primaryLocation: location })}
+                          />
+                        </div>
+                        <div className="col-span-2 space-y-2">
+                          <Label>Notas</Label>
+                          <Textarea
+                            value={newContact.notes}
+                            onChange={(e) => setNewContact({ ...newContact, notes: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                          Cancelar
+                        </Button>
+                        <Button onClick={handleAddContact}>
+                          {isEmployeeTab ? 'Crear empleado' : 'Agregar contacto'}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
+              {isEmployeeTab && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Resumen de empleados</CardTitle>
+                    <CardDescription>Estado general de los colaboradores y contratos activos.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                      <Card className="border-none bg-muted/40 shadow-none">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Empleados totales
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-2xl font-semibold text-foreground">{employeeTotals.employees || 0}</p>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-none bg-muted/40 shadow-none">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Contratos activos
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-2xl font-semibold text-foreground">{employeeTotals.activeContracts || 0}</p>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-none bg-muted/40 shadow-none">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Contratos por vencer (30 días)
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-2xl font-semibold text-foreground">{employeeTotals.expiringContracts || 0}</p>
+                        </CardContent>
+                      </Card>
+                      <Card className="border-none bg-muted/40 shadow-none">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Departamentos activos
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-2xl font-semibold text-foreground">{Object.keys(employeeDepartmentBreakdown).length || 0}</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <div className="rounded-lg border p-4">
+                        <p className="text-sm font-semibold text-muted-foreground mb-2">Por estado</p>
+                        <div className="space-y-2">
+                          {Object.keys(employeeStatusBreakdown).length === 0 && (
+                            <p className="text-sm text-muted-foreground">Sin información disponible.</p>
+                          )}
+                          {Object.entries(employeeStatusBreakdown).map(([status, count]) => (
+                            <div key={status} className="flex items-center justify-between text-sm">
+                              <span className="capitalize">{status}</span>
+                              <Badge variant="outline">{count}</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border p-4">
+                        <p className="text-sm font-semibold text-muted-foreground mb-2">Por departamento</p>
+                        <div className="space-y-2">
+                          {Object.keys(employeeDepartmentBreakdown).length === 0 && (
+                            <p className="text-sm text-muted-foreground">Aún no se registran departamentos.</p>
+                          )}
+                          {Object.entries(employeeDepartmentBreakdown).map(([dept, count]) => (
+                            <div key={dept} className="flex items-center justify-between text-sm">
+                              <span>{dept}</span>
+                              <Badge variant="outline">{count}</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card>
+                <CardHeader>
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                    <Tabs value={filterType} onValueChange={handleTabChange} className="w-full overflow-x-auto sm:w-auto">
+                      <TabsList>
+                        {!forceEmployeeTab && <TabsTrigger value="all">Todos</TabsTrigger>}
+                        {!forceEmployeeTab && <TabsTrigger value="individual">Clientes</TabsTrigger>}
+                        {!forceEmployeeTab && <TabsTrigger value="supplier">Proveedores</TabsTrigger>}
+                        {showEmployeeTab && <TabsTrigger value="employee">Empleados</TabsTrigger>}
+                      </TabsList>
+                    </Tabs>
+                    <div className="relative w-full sm:flex-1 sm:max-w-sm">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder={isEmployeeTab ? 'Buscar empleados...' : 'Buscar contactos...'}
+                        className="pl-8 w-full"
+                        value={currentSearchValue}
+                        onChange={(e) => handleSearchInputChange(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  {isEmployeeTab && (
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+                      <div className="space-y-1">
+                        <Label>Estado</Label>
+                        <Select value={employeeStatusFilter} onValueChange={setEmployeeStatusFilter}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Estado" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {employeeStatusOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Departamento</Label>
+                        <Select value={employeeDepartmentFilter} onValueChange={setEmployeeDepartmentFilter}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Departamento" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todos</SelectItem>
+                            {employeeDepartmentOptions.map((dept) => (
+                              <SelectItem key={dept} value={dept}>
+                                {dept}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label>Estructura</Label>
+                        <Select value={employeeStructureFilter} onValueChange={setEmployeeStructureFilter}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Estructura" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {employeeStructureOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  {isEmployeeTab ? (
+                    <div className="space-y-4">
+                      {selectedEmployeesCount > 0 && (
+                        <div className="rounded-md border bg-muted/40 p-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="text-sm font-medium">
+                            {selectedEmployeesCount} empleado{selectedEmployeesCount === 1 ? '' : 's'} seleccionados
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={clearSelectedEmployees}
+                              disabled={bulkActionLoading}
+                            >
+                              Limpiar
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="sm" disabled={bulkActionLoading}>
+                                  {bulkActionLoading ? (
+                                    <>
+                                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                                      Procesando...
+                                    </>
+                                  ) : (
+                                    'Acciones masivas'
+                                  )}
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Seleccionados</DropdownMenuLabel>
+                                <DropdownMenuItem
+                                  onSelect={(event) => {
+                                    event.preventDefault();
+                                    handleBulkReinvite();
+                                  }}
+                                >
+                                  Re-invitar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onSelect={(event) => {
+                                    event.preventDefault();
+                                    handleOpenNotifyDialog();
+                                  }}
+                                >
+                                  Enviar notificación
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onSelect={(event) => {
+                                    event.preventDefault();
+                                    handleOpenStructureDialog();
+                                  }}
+                                >
+                                  Asignar estructura
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onSelect={(event) => {
+                                    event.preventDefault();
+                                    handleBulkStatusUpdate('suspended');
+                                  }}
+                                >
+                                  Suspender
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onSelect={(event) => {
+                                    event.preventDefault();
+                                    handleBulkStatusUpdate('active');
+                                  }}
+                                >
+                                  Re-activar
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div className="text-sm text-muted-foreground">
+                          {employeesPagination?.total
+                            ? `Coincidencias: ${employeesPagination.total}`
+                            : 'Sin resultados filtrados'}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleExportEmployeesCsv}
+                          disabled={!employeesData.length}
+                        >
+                          Exportar CSV
+                        </Button>
+                      </div>
+                      <div className="rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-10">
+                                <Checkbox
+                                  checked={isAllEmployeesSelected ? true : isSomeEmployeesSelected ? 'indeterminate' : false}
+                                  onCheckedChange={(value) => toggleAllEmployeesOnPage(Boolean(value))}
+                                />
+                              </TableHead>
+                              <TableHead>Empleado</TableHead>
+                              <TableHead>Departamento</TableHead>
+                              <TableHead>Puesto</TableHead>
+                              <TableHead>Estructura</TableHead>
+                              <TableHead>Estado</TableHead>
+                              <TableHead>Compensación</TableHead>
+                              <TableHead>Próximo pago</TableHead>
+                              <TableHead>Acciones</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {employeesData.length === 0 && (
+                              <TableRow>
+                                <TableCell colSpan={9} className="text-center text-sm text-muted-foreground">
+                                  No hay empleados registrados.
+                                </TableCell>
+                              </TableRow>
+                            )}
+                            {employeesData.map((employee) => {
+                              const contract = employee.currentContract;
+                              const employeeName = employee.customer?.name || 'Sin nombre';
+                              const department = employee.department || employee.customer?.companyName || '—';
+                              const structure =
+                                typeof contract?.payrollStructureId === 'object'
+                                  ? contract.payrollStructureId
+                                  : null;
+                              const structureLabel = structure?.name || 'Sin estructura';
+                              return (
+                                <TableRow
+                                  key={employee._id}
+                                  className="cursor-pointer transition hover:bg-muted/60"
+                                  onClick={() => openEmployeeDrawer(employee)}
+                                >
+                                  <TableCell className="align-top">
+                                    <Checkbox
+                                      checked={selectedEmployeeIds.has(employee._id)}
+                                      onCheckedChange={() => toggleEmployeeSelection(employee._id)}
+                                      onClick={(event) => event.stopPropagation()}
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="font-medium">{employeeName}</div>
+                                    <div className="text-sm text-muted-foreground">{employee.employeeNumber || employee.customer?.customerNumber || '—'}</div>
+                                  </TableCell>
+                                  <TableCell>{department}</TableCell>
+                                  <TableCell>{employee.position || '—'}</TableCell>
+                                  <TableCell>
+                                    <Badge variant={structure ? 'secondary' : 'outline'}>
+                                      {structureLabel}
+                                    </Badge>
+                                    {structure?.version && (
+                                      <span className="ml-2 text-xs text-muted-foreground">
+                                        v{structure.version}
+                                      </span>
+                                    )}
+                                  </TableCell>
+                                  <TableCell>{renderEmployeeStatusBadge(employee.status)}</TableCell>
+                                  <TableCell>
+                                    {contract
+                                      ? formatCurrency(contract.compensationAmount, contract.currency)
+                                      : '—'}
+                                  </TableCell>
+                                  <TableCell>{formatDate(contract?.nextPayDate)}</TableCell>
+                                  <TableCell>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openEmployeeDrawer(employee);
+                                      }}
+                                    >
+                                      Ver perfil
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div>
+                          Mostrando <span className="font-semibold">{employeesData.length}</span> de{' '}
+                          <span className="font-semibold">{employeesPagination?.total || 0}</span> empleados
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEmployeePage((page) => Math.max(1, page - 1))}
+                            disabled={employeePage === 1}
+                          >
+                            Anterior
+                          </Button>
+                          <div className="text-sm text-muted-foreground">
+                            Página <span className="font-semibold">{employeePage}</span> de{' '}
+                            <span className="font-semibold">{employeeTotalPages || 1}</span>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEmployeePage((page) => Math.min(employeeTotalPages || 1, page + 1))}
+                            disabled={employeePage === (employeeTotalPages || 1) || employeeTotalPages === 0}
+                          >
+                            Siguiente
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="rounded-md border">
+                        <Table>
+                          <TableHeader><TableRow><TableHead>Contacto</TableHead><TableHead>Tier RFM</TableHead><TableHead>Tipo</TableHead><TableHead>Contacto Principal</TableHead><TableHead>Gastos Totales</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader>
+                          <TableBody>
+                            {filteredData.map((customer) => {
+                              const primaryContact = customer.contacts?.find(c => c.isPrimary) || customer.contacts?.[0];
+                              return (
+                                <TableRow key={customer._id}>
+                                  <TableCell>
+                                    <div className="font-medium">{customer.name}</div>
+                                    <div className="text-sm text-muted-foreground">{customer.companyName}</div>
+                                  </TableCell>
+                                  <TableCell>{getTierBadge(customer.tier)}</TableCell>
+                                  <TableCell>{getContactTypeBadge(customer.customerType)}</TableCell>
+                                  <TableCell>
+                                    {primaryContact?.value && <div className="text-sm flex items-center gap-2"><Mail className="h-3 w-3" /> {primaryContact.value}</div>}
+                                  </TableCell>
+                                  <TableCell><div className="font-medium">${customer.metrics?.totalSpent?.toFixed(2) || '0.00'}</div></TableCell>
+                                  <TableCell>
+                                    <div className="flex space-x-2">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          setSelectedCustomer(customer);
+                                          setIsDetailDialogOpen(true);
+                                        }}
+                                        title="Ver detalles y historial"
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                      </Button>
+                                      <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(customer)}><Edit className="h-4 w-4" /></Button>
+                                      <Button variant="outline" size="sm" onClick={() => handleDeleteContact(customer._id)} className="text-red-600"><Trash2 className="h-4 w-4" /></Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mt-4">
+                        <div>
+                          Mostrando <span className="font-semibold">{filteredData.length}</span> de{' '}
+                          <span className="font-semibold">{totalCustomers}</span> contactos
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const newPage = Math.max(1, currentPage - 1);
+                              setCurrentPage(newPage);
+                              reloadCustomers(newPage, pageLimit, currentFilters);
+                            }}
+                            disabled={currentPage === 1}
+                          >
+                            Anterior
+                          </Button>
+                          <div className="text-sm text-muted-foreground">
+                            Página <span className="font-semibold">{currentPage}</span> de{' '}
+                            <span className="font-semibold">{totalPages}</span>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const newPage = Math.min(totalPages, currentPage + 1);
+                              setCurrentPage(newPage);
+                              reloadCustomers(newPage, pageLimit, currentFilters);
+                            }}
+                            disabled={currentPage === totalPages}
+                          >
+                            Siguiente
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          <Dialog open={notifyDialogOpen} onOpenChange={setNotifyDialogOpen}>
+            <DialogContent className="max-w-lg">
               <DialogHeader>
-                <DialogTitle>{isEmployeeTab ? 'Crear empleado' : 'Agregar nuevo contacto'}</DialogTitle>
+                <DialogTitle className="flex items-center gap-2">
+                  <Bell className="h-4 w-4" />
+                  Notificar empleados seleccionados
+                </DialogTitle>
                 <DialogDescription>
-                  {isEmployeeTab
-                    ? 'Registra un empleado con sus datos básicos de contacto.'
-                    : 'Completa los detalles para registrar un nuevo contacto en el sistema.'}
+                  Envía un recordatorio o actualización a los empleados seleccionados usando los canales disponibles.
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid grid-cols-2 gap-4 py-4">
+              <div className="space-y-4 py-2">
                 <div className="space-y-2">
-                  <Label>Nombre</Label>
-                  <Input value={newContact.name} onChange={(e) => setNewContact({ ...newContact, name: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Tipo de Contacto</Label>
-                  <Select
-                    value={newContact.customerType}
-                    onValueChange={(value) => setNewContact({ ...newContact, customerType: value })}
-                    disabled={isEmployeeTab}
-                  >
+                  <Label>Plantilla</Label>
+                  <Select value={notifyTemplate} onValueChange={setNotifyTemplate}>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Selecciona plantilla" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="business">Cliente</SelectItem>
-                      <SelectItem value="supplier">Proveedor</SelectItem>
-                      <SelectItem value="employee">Empleado</SelectItem>
-                      {!isEmployeeTab && (
-                        <>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="manager">Gestor</SelectItem>
-                          <SelectItem value="Repartidor">Repartidor</SelectItem>
-                          <SelectItem value="Cajero">Cajero</SelectItem>
-                          <SelectItem value="Mesonero">Mesonero</SelectItem>
-                        </>
-                      )}
+                      {notificationTemplates.map((template) => (
+                        <SelectItem key={template.value} value={template.value}>
+                          {template.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Empresa</Label>
-                  <Input
-                    value={newContact.companyName}
-                    onChange={(e) => setNewContact({ ...newContact, companyName: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input
-                    type="email"
-                    value={newContact.email}
-                    onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Teléfono</Label>
-                  <Input
-                    value={newContact.phone}
-                    onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
-                  />
-                </div>
-                <div className="col-span-2 space-y-2">
-                  <Label>Dirección</Label>
-                  <Input
-                    value={newContact.address}
-                    onChange={(e) => setNewContact({ ...newContact, address: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Ciudad</Label>
-                  <Input
-                    value={newContact.city}
-                    onChange={(e) => setNewContact({ ...newContact, city: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Estado</Label>
-                  <Input
-                    value={newContact.state}
-                    onChange={(e) => setNewContact({ ...newContact, state: e.target.value })}
-                  />
-                </div>
-                <div className="col-span-2 space-y-2">
-                  <Label>Identificación Fiscal</Label>
-                  <div className="flex gap-2">
-                    <Select
-                      value={newContact.taxType}
-                      onValueChange={(value) => setNewContact({ ...newContact, taxType: value })}
-                    >
-                      <SelectTrigger className="w-[100px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="V">V</SelectItem>
-                        <SelectItem value="E">E</SelectItem>
-                        <SelectItem value="J">J</SelectItem>
-                        <SelectItem value="G">G</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      value={newContact.taxId}
-                      onChange={(e) => setNewContact({ ...newContact, taxId: e.target.value })}
-                    />
+                  <Label>Canales</Label>
+                  <div className="flex flex-wrap gap-3">
+                    {notificationChannelOptions.map((channel) => (
+                      <label key={channel.value} className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={notifyChannels.includes(channel.value)}
+                          onCheckedChange={() => toggleNotificationChannel(channel.value)}
+                        />
+                        {channel.label}
+                      </label>
+                    ))}
                   </div>
+                  {notifyChannels.length === 0 && (
+                    <p className="text-xs text-amber-600 flex items-center gap-1">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      Selecciona al menos un canal.
+                    </p>
+                  )}
                 </div>
-                <div className="col-span-2 space-y-2">
-                  <LocationPicker
-                    label="Ubicación del Cliente"
-                    value={newContact.primaryLocation}
-                    onChange={(location) => setNewContact({ ...newContact, primaryLocation: location })}
-                  />
-                </div>
-                <div className="col-span-2 space-y-2">
-                  <Label>Notas</Label>
+                <div className="space-y-2">
+                  <Label>Mensaje contextual</Label>
                   <Textarea
-                    value={newContact.notes}
-                    onChange={(e) => setNewContact({ ...newContact, notes: e.target.value })}
+                    rows={4}
+                    placeholder="Ej: Recordatorio de actualizar datos bancarios..."
+                    value={notifyMessage}
+                    onChange={(event) => setNotifyMessage(event.target.value)}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Se enviará a {selectedEmployeesCount} empleado{selectedEmployeesCount === 1 ? '' : 's'}.
+                  </p>
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                <Button variant="outline" onClick={() => setNotifyDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={handleAddContact}>
-                  {isEmployeeTab ? 'Crear empleado' : 'Agregar contacto'}
+                <Button onClick={handleSendBulkNotification} disabled={bulkActionLoading || notifyChannels.length === 0}>
+                  {bulkActionLoading ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Enviando...
+                    </>
+                  ) : (
+                    'Enviar notificaciones'
+                  )}
                 </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
-      </div>
-      {isEmployeeTab && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Resumen de empleados</CardTitle>
-            <CardDescription>Estado general de los colaboradores y contratos activos.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Card className="border-none bg-muted/40 shadow-none">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Empleados totales
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-semibold text-foreground">{employeeTotals.employees || 0}</p>
-                </CardContent>
-              </Card>
-              <Card className="border-none bg-muted/40 shadow-none">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Contratos activos
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-semibold text-foreground">{employeeTotals.activeContracts || 0}</p>
-                </CardContent>
-              </Card>
-              <Card className="border-none bg-muted/40 shadow-none">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Contratos por vencer (30 días)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-semibold text-foreground">{employeeTotals.expiringContracts || 0}</p>
-                </CardContent>
-              </Card>
-              <Card className="border-none bg-muted/40 shadow-none">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Departamentos activos
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-semibold text-foreground">{Object.keys(employeeDepartmentBreakdown).length || 0}</p>
-                </CardContent>
-              </Card>
-            </div>
-            <div className="grid gap-4 lg:grid-cols-2">
-              <div className="rounded-lg border p-4">
-                <p className="text-sm font-semibold text-muted-foreground mb-2">Por estado</p>
-                <div className="space-y-2">
-                  {Object.keys(employeeStatusBreakdown).length === 0 && (
-                    <p className="text-sm text-muted-foreground">Sin información disponible.</p>
-                  )}
-                  {Object.entries(employeeStatusBreakdown).map(([status, count]) => (
-                    <div key={status} className="flex items-center justify-between text-sm">
-                      <span className="capitalize">{status}</span>
-                      <Badge variant="outline">{count}</Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="rounded-lg border p-4">
-                <p className="text-sm font-semibold text-muted-foreground mb-2">Por departamento</p>
-                <div className="space-y-2">
-                  {Object.keys(employeeDepartmentBreakdown).length === 0 && (
-                    <p className="text-sm text-muted-foreground">Aún no se registran departamentos.</p>
-                  )}
-                  {Object.entries(employeeDepartmentBreakdown).map(([dept, count]) => (
-                    <div key={dept} className="flex items-center justify-between text-sm">
-                      <span>{dept}</span>
-                      <Badge variant="outline">{count}</Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
-      <Card>
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-              <Tabs value={filterType} onValueChange={handleTabChange} className="w-full overflow-x-auto sm:w-auto">
-                <TabsList>
-                  {!forceEmployeeTab && <TabsTrigger value="all">Todos</TabsTrigger>}
-                  {!forceEmployeeTab && <TabsTrigger value="individual">Clientes</TabsTrigger>}
-                  {!forceEmployeeTab && <TabsTrigger value="supplier">Proveedores</TabsTrigger>}
-                  {showEmployeeTab && <TabsTrigger value="employee">Empleados</TabsTrigger>}
-                </TabsList>
-              </Tabs>
-            <div className="relative w-full sm:flex-1 sm:max-w-sm">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={isEmployeeTab ? 'Buscar empleados...' : 'Buscar contactos...'}
-                className="pl-8 w-full"
-                value={currentSearchValue}
-                onChange={(e) => handleSearchInputChange(e.target.value)}
-              />
-            </div>
-          </div>
-          {isEmployeeTab && (
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
-              <div className="space-y-1">
-                <Label>Estado</Label>
-                <Select value={employeeStatusFilter} onValueChange={setEmployeeStatusFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Estado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employeeStatusOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Departamento</Label>
-                <Select value={employeeDepartmentFilter} onValueChange={setEmployeeDepartmentFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Departamento" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {employeeDepartmentOptions.map((dept) => (
-                      <SelectItem key={dept} value={dept}>
-                        {dept}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Estructura</Label>
-                <Select value={employeeStructureFilter} onValueChange={setEmployeeStructureFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Estructura" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employeeStructureOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-        </CardHeader>
-        <CardContent>
-          {isEmployeeTab ? (
-            <div className="space-y-4">
-              {selectedEmployeesCount > 0 && (
-                <div className="rounded-md border bg-muted/40 p-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-sm font-medium">
-                    {selectedEmployeesCount} empleado{selectedEmployeesCount === 1 ? '' : 's'} seleccionados
+          <Dialog open={structureDialogOpen} onOpenChange={setStructureDialogOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Asignar estructura de nómina</DialogTitle>
+                <DialogDescription>
+                  Selecciona la estructura que aplicará a los empleados seleccionados.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 py-2">
+                <div className="space-y-2">
+                  <Label>Estructura</Label>
+                  <Select
+                    value={structureSelection}
+                    onValueChange={setStructureSelection}
+                    disabled={structureLoading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={structureLoading ? 'Cargando...' : 'Sin estructura'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin estructura</SelectItem>
+                      {structureOptions.map((structure) => (
+                        <SelectItem key={structure._id} value={structure._id}>
+                          {structure.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Puedes dejar vacío para eliminar la estructura asignada actualmente.
+                </p>
+                <div className="space-y-2 rounded-md border border-dashed p-3">
+                  <Label className="text-xs font-semibold">Condiciones</Label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={structureApplyFilters.onlyActiveContracts}
+                      onCheckedChange={(value) =>
+                        setStructureApplyFilters((prev) => ({
+                          ...prev,
+                          onlyActiveContracts: Boolean(value),
+                        }))
+                      }
+                    />
+                    Solo contratos activos
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={structureApplyFilters.excludeAlreadyAssigned}
+                      onCheckedChange={(value) =>
+                        setStructureApplyFilters((prev) => ({
+                          ...prev,
+                          excludeAlreadyAssigned: Boolean(value),
+                        }))
+                      }
+                    />
+                    {structureSelection
+                      ? 'Omitir empleados que ya tienen esta estructura'
+                      : 'Omitir empleados que ya están sin estructura'}
+                  </label>
+                </div>
+                <div className="space-y-2 rounded-md border bg-muted/40 p-3 text-xs">
+                  <div className="flex items-center justify-between font-medium">
+                    <span>Total seleccionados</span>
+                    <span>{selectedEmployeesCount}</span>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={clearSelectedEmployees}
-                      disabled={bulkActionLoading}
-                    >
-                      Limpiar
-                    </Button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="sm" disabled={bulkActionLoading}>
-                          {bulkActionLoading ? (
-                            <>
-                              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                              Procesando...
-                            </>
-                          ) : (
-                            'Acciones masivas'
-                          )}
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Seleccionados</DropdownMenuLabel>
-                        <DropdownMenuItem
-                          onSelect={(event) => {
-                            event.preventDefault();
-                            handleBulkReinvite();
-                          }}
-                        >
-                          Re-invitar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={(event) => {
-                            event.preventDefault();
-                            handleOpenNotifyDialog();
-                          }}
-                        >
-                          Enviar notificación
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={(event) => {
-                            event.preventDefault();
-                            handleOpenStructureDialog();
-                          }}
-                        >
-                          Asignar estructura
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onSelect={(event) => {
-                            event.preventDefault();
-                            handleBulkStatusUpdate('suspended');
-                          }}
-                        >
-                          Suspender
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={(event) => {
-                            event.preventDefault();
-                            handleBulkStatusUpdate('active');
-                          }}
-                        >
-                          Re-activar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                  <div className="flex items-center justify-between">
+                    <span>Se aplicará a</span>
+                    <span className="font-semibold">{structureAssignmentPreview.eligible.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>Omitidos por condiciones</span>
+                    <span>{structureAssignmentPreview.excluded.length}</span>
+                  </div>
+                  {structureAssignmentPreview.excluded.length > 0 && (
+                    <div className="space-y-1 pt-2">
+                      {Object.entries(structureAssignmentPreview.reasonCounts).map(([reason, count]) => (
+                        <div key={reason} className="flex items-center justify-between">
+                          <span className="text-[11px] text-muted-foreground">{reason}</span>
+                          <span className="text-[11px]">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {structureAssignmentPreview.eligible.length > 0 && (
+                    <div className="pt-2 text-[11px] text-muted-foreground">
+                      <p className="font-semibold text-foreground">Primeros en recibir el cambio:</p>
+                      <ul className="list-disc pl-4 space-y-0.5">
+                        {structureAssignmentPreview.eligible.slice(0, 3).map(({ employee }) => (
+                          <li key={employee._id}>
+                            {employee.customer?.name || 'Sin nombre'} ·{' '}
+                            {employee.currentContract?.status || 'sin contrato'}
+                          </li>
+                        ))}
+                        {structureAssignmentPreview.eligible.length > 3 && (
+                          <li>+{structureAssignmentPreview.eligible.length - 3} más…</li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                  {structureAssignmentPreview.eligible.length === 0 && (
+                    <p className="pt-2 text-[11px] text-amber-600">
+                      Ajusta las condiciones para incluir al menos un empleado.
+                    </p>
+                  )}
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setStructureDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleBulkAssignStructure} disabled={bulkActionLoading}>
+                  {bulkActionLoading ? (
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <UserCheck className="mr-2 h-4 w-4" />
+                  )}
+                  Aplicar
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <EmployeeDetailDrawer
+            open={isEmployeeDrawerOpen}
+            onClose={closeEmployeeDrawer}
+            employeeId={selectedEmployeeId}
+            initialEmployee={selectedEmployeeSnapshot}
+            onDataChanged={refreshEmployeesData}
+          />
+
+          {/* Dialog de edición */}
+          {isEditDialogOpen && (
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+              <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+                <DialogHeader><DialogTitle>Editar Contacto</DialogTitle><DialogDescription>Modifica la información del contacto existente.</DialogDescription></DialogHeader>
+                <div className="grid grid-cols-2 gap-4 py-4">
+                  <div className="space-y-2"><Label>Nombre</Label><Input value={editingFormState.name} onChange={(e) => setEditingFormState({ ...editingFormState, name: e.target.value })} /></div>
+                  <div className="space-y-2"><Label>Tipo de Contacto</Label><Select value={editingFormState.customerType} onValueChange={(value) => setEditingFormState({ ...editingFormState, customerType: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="business">Cliente</SelectItem><SelectItem value="supplier">Proveedor</SelectItem><SelectItem value="employee">Empleado</SelectItem><SelectItem value="admin">Admin</SelectItem><SelectItem value="manager">Gestor</SelectItem><SelectItem value="Repartidor">Repartidor</SelectItem><SelectItem value="Cajero">Cajero</SelectItem><SelectItem value="Mesonero">Mesonero</SelectItem></SelectContent></Select></div>
+                  <div className="space-y-2"><Label>Empresa</Label><Input value={editingFormState.companyName} onChange={(e) => setEditingFormState({ ...editingFormState, companyName: e.target.value })} /></div>
+                  <div className="space-y-2"><Label>Email</Label><Input type="email" value={editingFormState.email} onChange={(e) => setEditingFormState({ ...editingFormState, email: e.target.value })} /></div>
+                  <div className="space-y-2"><Label>Teléfono</Label><Input value={editingFormState.phone} onChange={(e) => setEditingFormState({ ...editingFormState, phone: e.target.value })} /></div>
+                  <div className="col-span-2 space-y-2"><Label>Dirección</Label><Input value={editingFormState.street} onChange={(e) => setEditingFormState({ ...editingFormState, street: e.target.value })} /></div>
+                  <div className="space-y-2"><Label>Ciudad</Label><Input value={editingFormState.city} onChange={(e) => setEditingFormState({ ...editingFormState, city: e.target.value })} /></div>
+                  <div className="space-y-2"><Label>Estado</Label><Input value={editingFormState.state} onChange={(e) => setEditingFormState({ ...editingFormState, state: e.target.value })} /></div>
+                  <div className="col-span-2 space-y-2"><Label>Identificación Fiscal</Label><div className="flex gap-2"><Select value={editingFormState.taxType} onValueChange={(value) => setEditingFormState({ ...editingFormState, taxType: value })}><SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="V">V</SelectItem><SelectItem value="E">E</SelectItem><SelectItem value="J">J</SelectItem><SelectItem value="G">G</SelectItem></SelectContent></Select><Input value={editingFormState.taxId} onChange={(e) => setEditingFormState({ ...editingFormState, taxId: e.target.value })} /></div></div>
+                  <div className="col-span-2 space-y-2">
+                    <LocationPicker
+                      label="Ubicación del Cliente"
+                      value={editingFormState.primaryLocation}
+                      onChange={(location) => setEditingFormState({ ...editingFormState, primaryLocation: location })}
+                    />
+                  </div>
+                  <div className="col-span-2 space-y-2"><Label>Notas</Label><Textarea value={editingFormState.notes} onChange={(e) => setEditingFormState({ ...editingFormState, notes: e.target.value })} /></div>
+                </div>
+                <DialogFooter><Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button><Button onClick={handleEditContact}>Guardar Cambios</Button></DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
+
+        </TabsContent>
+        <TabsContent value="pipeline" className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+            <h2 className="text-3xl font-bold text-foreground">Embudo de Ventas</h2>
+          </div>
+          <Card>
+            <CardHeader className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <CardTitle>Pipeline de oportunidades</CardTitle>
+                  <CardDescription>Vista rápida de etapas y próximos pasos.</CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Select value={pipelineView} onValueChange={setPipelineView}>
+                    <SelectTrigger className="w-[130px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="table">Tabla</SelectItem>
+                      <SelectItem value="kanban">Kanban</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="sm" onClick={refreshOpportunities} disabled={opportunitiesLoading}>
+                    <RefreshCw className={`h-4 w-4 mr-2 ${opportunitiesLoading ? 'animate-spin' : ''}`} />
+                    Actualizar
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => setIsCaptureOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Capturar lead
+                  </Button>
+                  <Button size="sm" onClick={() => setIsOpportunityDialogOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Crear oportunidad
+                  </Button>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-[1fr,220px]">
+                <Input
+                  placeholder="Buscar oportunidad..."
+                  value={opportunitySearch}
+                  onChange={(e) => setOpportunitySearch(e.target.value)}
+                />
+                <div className="flex gap-2 flex-wrap">
+                  <Select value={opportunityStageFilter} onValueChange={setOpportunityStageFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Etapa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas las etapas</SelectItem>
+                      {stageOptions.map((stage) => (
+                        <SelectItem key={stage} value={stage}>
+                          {stage}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Owner" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los owners</SelectItem>
+                      {owners.map((o) => (
+                        <SelectItem key={o._id} value={o._id}>
+                          {o.firstName ? `${o.firstName} ${o.lastName || ''}`.trim() : o.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    className="w-[200px]"
+                    placeholder="Territorio"
+                    value={territoryFilter === 'all' ? '' : territoryFilter}
+                    onChange={(e) =>
+                      setTerritoryFilter(e.target.value.trim() ? e.target.value : 'all')
+                    }
+                  />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {oppSummary?.byStage && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                  {oppSummary.byStage.map((row) => (
+                    <div key={row._id || 'sin-etapa'} className="rounded-md border p-3">
+                      <div className="text-sm font-semibold">{row._id || 'Sin etapa'}</div>
+                      <div className="text-2xl font-bold">{row.total || 0}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Prob promedio: {Math.round(row.avgProbability || 0)}% · Monto: {row.amount || 0}
+                      </div>
+                    </div>
+                  ))}
+                  <div className="rounded-md border p-3 bg-amber-50 dark:bg-amber-950/30">
+                    <div className="text-sm font-semibold text-amber-900 dark:text-amber-400">Vence en ≤2 días</div>
+                    <div className="text-2xl font-bold text-amber-900 dark:text-amber-400">{slaAging.dueSoon}</div>
+                    <div className="text-xs text-amber-800 dark:text-amber-500">Next step cercano requiere acción.</div>
+                  </div>
+                  <div className="rounded-md border p-3 bg-red-50 dark:bg-red-950/30">
+                    <div className="text-sm font-semibold text-red-900 dark:text-red-400">Vencidos</div>
+                    <div className="text-2xl font-bold text-red-900 dark:text-red-400">{slaAging.overdue}</div>
+                    <div className="text-xs text-red-800 dark:text-red-500">Next step vencido (SLA roto).</div>
                   </div>
                 </div>
               )}
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div className="text-sm text-muted-foreground">
-                  {employeesPagination?.total
-                    ? `Coincidencias: ${employeesPagination.total}`
-                    : 'Sin resultados filtrados'}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleExportEmployeesCsv}
-                  disabled={!employeesData.length}
-                >
-                  Exportar CSV
-                </Button>
-              </div>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-10">
-                        <Checkbox
-                          checked={isAllEmployeesSelected ? true : isSomeEmployeesSelected ? 'indeterminate' : false}
-                          onCheckedChange={(value) => toggleAllEmployeesOnPage(Boolean(value))}
-                        />
-                      </TableHead>
-                      <TableHead>Empleado</TableHead>
-                      <TableHead>Departamento</TableHead>
-                      <TableHead>Puesto</TableHead>
-                      <TableHead>Estructura</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Compensación</TableHead>
-                      <TableHead>Próximo pago</TableHead>
-                      <TableHead>Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
+              {pipelineView === 'table' ? (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Oportunidad</TableHead>
+                        <TableHead>Etapa</TableHead>
+                        <TableHead>Owner</TableHead>
+                        <TableHead>Monto</TableHead>
+                        <TableHead>Next step</TableHead>
+                        <TableHead>Vence</TableHead>
+                        <TableHead>Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
                     <TableBody>
-                      {employeesData.length === 0 && (
+                      {opportunitiesLoading && (
                         <TableRow>
-                          <TableCell colSpan={9} className="text-center text-sm text-muted-foreground">
-                            No hay empleados registrados.
+                          <TableCell colSpan={7} className="text-center text-sm text-muted-foreground">
+                            Cargando pipeline...
                           </TableCell>
                         </TableRow>
                       )}
-                      {employeesData.map((employee) => {
-                      const contract = employee.currentContract;
-                      const employeeName = employee.customer?.name || 'Sin nombre';
-                      const department = employee.department || employee.customer?.companyName || '—';
-                      const structure =
-                        typeof contract?.payrollStructureId === 'object'
-                          ? contract.payrollStructureId
-                          : null;
-                      const structureLabel = structure?.name || 'Sin estructura';
-                        return (
-                          <TableRow
-                            key={employee._id}
-                            className="cursor-pointer transition hover:bg-muted/60"
-                            onClick={() => openEmployeeDrawer(employee)}
-                          >
-                            <TableCell className="align-top">
-                              <Checkbox
-                                checked={selectedEmployeeIds.has(employee._id)}
-                                onCheckedChange={() => toggleEmployeeSelection(employee._id)}
-                                onClick={(event) => event.stopPropagation()}
-                              />
+                      {!opportunitiesLoading && opportunities.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center text-sm text-muted-foreground">
+                            Sin oportunidades aún.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      {!opportunitiesLoading &&
+                        opportunities.map((opp) => (
+                          <TableRow key={opp._id}>
+                            <TableCell>
+                              <div className="font-semibold">{opp.name || 'Sin nombre'}</div>
+                              <div className="text-xs text-muted-foreground">
+                                Cliente: {opp.customerId?.name || opp.customerId?.companyName || opp.customerId || '—'}
+                              </div>
+                            </TableCell>
+                            <TableCell>{opp.stage || '—'}</TableCell>
+                            <TableCell className="text-sm">
+                              {opp.ownerId?.name || opp.ownerId?.email || '—'}
                             </TableCell>
                             <TableCell>
-                              <div className="font-medium">{employeeName}</div>
-                            <div className="text-sm text-muted-foreground">{employee.employeeNumber || employee.customer?.customerNumber || '—'}</div>
-                          </TableCell>
-                          <TableCell>{department}</TableCell>
-                          <TableCell>{employee.position || '—'}</TableCell>
-                          <TableCell>
-                            <Badge variant={structure ? 'secondary' : 'outline'}>
-                              {structureLabel}
-                            </Badge>
-                            {structure?.version && (
-                              <span className="ml-2 text-xs text-muted-foreground">
-                                v{structure.version}
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell>{renderEmployeeStatusBadge(employee.status)}</TableCell>
-                          <TableCell>
-                            {contract
-                              ? formatCurrency(contract.compensationAmount, contract.currency)
-                              : '—'}
-                          </TableCell>
-                          <TableCell>{formatDate(contract?.nextPayDate)}</TableCell>
-                          <TableCell>
+                              {opp.amount ? (
+                                <>
+                                  {opp.amount} {opp.currency || 'USD'}
+                                </>
+                              ) : (
+                                '—'
+                              )}
+                            </TableCell>
+                            <TableCell className="text-sm">{opp.nextStep || '—'}</TableCell>
+                            <TableCell className="text-sm">
+                              {opp.nextStepDue ? new Date(opp.nextStepDue).toISOString().slice(0, 10) : '—'}
+                            </TableCell>
+                            <TableCell>
+                              <Button variant="outline" size="sm" onClick={() => openStageDialog(opp)}>
+                                Cambiar etapa
+                              </Button>
+                              <div className="mt-2 flex gap-2">
+                                <Button variant="secondary" size="xs" onClick={() => handleMqlDecision(opp._id, 'accepted')}>
+                                  MQL ✓
+                                </Button>
+                                <Button variant="destructive" size="xs" onClick={() => handleMqlDecision(opp._id, 'rejected')}>
+                                  MQL ×
+                                </Button>
+                                <Button variant="secondary" size="xs" onClick={() => handleSqlDecision(opp._id, 'accepted')}>
+                                  SQL ✓
+                                </Button>
+                                <Button variant="destructive" size="xs" onClick={() => handleSqlDecision(opp._id, 'rejected')}>
+                                  SQL ×
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input
+                      placeholder="Agregar etapa personalizada"
+                      value={customStageInput}
+                      onChange={(e) => setCustomStageInput(e.target.value)}
+                      className="w-full sm:w-64"
+                    />
+                    <Button type="button" variant="outline" onClick={handleAddCustomStage}>
+                      Añadir etapa
+                    </Button>
+                  </div>
+                  <DndProvider backend={HTML5Backend}>
+                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {stageOptions.map((stage) => {
+                        const cards = opportunities.filter((opp) => opp.stage === stage);
+                        return (
+                          <KanbanColumn
+                            key={stage}
+                            stage={stage}
+                            cards={cards}
+                            onDrop={(opp) => openStageDialog({ ...opp, stage })}
+                            onQuickMove={handleQuickMoveStage}
+                            onMqlDecision={handleMqlDecision}
+                            onSqlDecision={handleSqlDecision}
+                            stageOptions={stageOptions}
+                          />
+                        );
+                      })}
+                    </div>
+                  </DndProvider>
+                  <div className="rounded-md border bg-background p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <div className="font-semibold">Catálogo de etapas</div>
+                        <p className="text-xs text-muted-foreground">
+                          Edita probabilidad/orden y elimina etapas del tenant.
+                        </p>
+                      </div>
+                      {stageDefinitionsLoading && (
+                        <Badge variant="outline">Cargando...</Badge>
+                      )}
+                    </div>
+                    <div className="space-y-2 max-h-[320px] overflow-auto pr-1">
+                      {(stageDefinitions || []).map((stage) => (
+                        <div key={stage._id} className="rounded border p-2 grid grid-cols-4 gap-2 text-sm">
+                          <div className="col-span-2">
+                            <div className="font-medium">{stage.name}</div>
+                            <div className="text-[11px] text-muted-foreground">
+                              Required: {(stage.requiredFields || []).join(', ') || '—'}
+                            </div>
+                          </div>
+                          <div>
+                            <Label className="text-[11px]">Prob (%)</Label>
+                            <Input
+                              type="number"
+                              value={stageEdits[stage._id]?.probability ?? stage.probability ?? 0}
+                              onChange={(e) =>
+                                handleStageFieldChange(stage._id, 'probability', Number(e.target.value))
+                              }
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-[11px]">Orden</Label>
+                            <Input
+                              type="number"
+                              value={stageEdits[stage._id]?.order ?? stage.order ?? 0}
+                              onChange={(e) =>
+                                handleStageFieldChange(stage._id, 'order', Number(e.target.value))
+                              }
+                            />
+                          </div>
+                          <div className="col-span-4 flex justify-end gap-2">
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openEmployeeDrawer(employee);
-                              }}
+                              onClick={() => handleUpdateStage(stage._id)}
                             >
-                              Ver perfil
+                              Guardar
                             </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                  Mostrando <span className="font-semibold">{employeesData.length}</span> de{' '}
-                  <span className="font-semibold">{employeesPagination?.total || 0}</span> empleados
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setEmployeePage((page) => Math.max(1, page - 1))}
-                    disabled={employeePage === 1}
-                  >
-                    Anterior
-                  </Button>
-                  <div className="text-sm text-muted-foreground">
-                    Página <span className="font-semibold">{employeePage}</span> de{' '}
-                    <span className="font-semibold">{employeeTotalPages || 1}</span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setEmployeePage((page) => Math.min(employeeTotalPages || 1, page + 1))}
-                    disabled={employeePage === (employeeTotalPages || 1) || employeeTotalPages === 0}
-                  >
-                    Siguiente
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader><TableRow><TableHead>Contacto</TableHead><TableHead>Tier RFM</TableHead><TableHead>Tipo</TableHead><TableHead>Contacto Principal</TableHead><TableHead>Gastos Totales</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {filteredData.map((customer) => {
-                      const primaryContact = customer.contacts?.find(c => c.isPrimary) || customer.contacts?.[0];
-                      return (
-                        <TableRow key={customer._id}>
-                          <TableCell>
-                            <div className="font-medium">{customer.name}</div>
-                            <div className="text-sm text-muted-foreground">{customer.companyName}</div>
-                          </TableCell>
-                          <TableCell>{getTierBadge(customer.tier)}</TableCell>
-                          <TableCell>{getContactTypeBadge(customer.customerType)}</TableCell>
-                          <TableCell>
-                            {primaryContact?.value && <div className="text-sm flex items-center gap-2"><Mail className="h-3 w-3" /> {primaryContact.value}</div>}
-                          </TableCell>
-                          <TableCell><div className="font-medium">${customer.metrics?.totalSpent?.toFixed(2) || '0.00'}</div></TableCell>
-                          <TableCell>
-                            <div className="flex space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedCustomer(customer);
-                                  setIsDetailDialogOpen(true);
-                                }}
-                                title="Ver detalles y historial"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(customer)}><Edit className="h-4 w-4" /></Button>
-                              <Button variant="outline" size="sm" onClick={() => handleDeleteContact(customer._id)} className="text-red-600"><Trash2 className="h-4 w-4" /></Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mt-4">
-                <div>
-                  Mostrando <span className="font-semibold">{filteredData.length}</span> de{' '}
-                  <span className="font-semibold">{totalCustomers}</span> contactos
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const newPage = Math.max(1, currentPage - 1);
-                      setCurrentPage(newPage);
-                      reloadCustomers(newPage, pageLimit, currentFilters);
-                    }}
-                    disabled={currentPage === 1}
-                  >
-                    Anterior
-                  </Button>
-                  <div className="text-sm text-muted-foreground">
-                    Página <span className="font-semibold">{currentPage}</span> de{' '}
-                    <span className="font-semibold">{totalPages}</span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const newPage = Math.min(totalPages, currentPage + 1);
-                      setCurrentPage(newPage);
-                      reloadCustomers(newPage, pageLimit, currentFilters);
-                    }}
-                    disabled={currentPage === totalPages}
-                  >
-                    Siguiente
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      <Dialog open={notifyDialogOpen} onOpenChange={setNotifyDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Bell className="h-4 w-4" />
-              Notificar empleados seleccionados
-            </DialogTitle>
-            <DialogDescription>
-              Envía un recordatorio o actualización a los empleados seleccionados usando los canales disponibles.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Plantilla</Label>
-              <Select value={notifyTemplate} onValueChange={setNotifyTemplate}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona plantilla" />
-                </SelectTrigger>
-                <SelectContent>
-                  {notificationTemplates.map((template) => (
-                    <SelectItem key={template.value} value={template.value}>
-                      {template.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Canales</Label>
-              <div className="flex flex-wrap gap-3">
-                {notificationChannelOptions.map((channel) => (
-                  <label key={channel.value} className="flex items-center gap-2 text-sm">
-                    <Checkbox
-                      checked={notifyChannels.includes(channel.value)}
-                      onCheckedChange={() => toggleNotificationChannel(channel.value)}
-                    />
-                    {channel.label}
-                  </label>
-                ))}
-              </div>
-              {notifyChannels.length === 0 && (
-                <p className="text-xs text-amber-600 flex items-center gap-1">
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  Selecciona al menos un canal.
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label>Mensaje contextual</Label>
-              <Textarea
-                rows={4}
-                placeholder="Ej: Recordatorio de actualizar datos bancarios..."
-                value={notifyMessage}
-                onChange={(event) => setNotifyMessage(event.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Se enviará a {selectedEmployeesCount} empleado{selectedEmployeesCount === 1 ? '' : 's'}.
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setNotifyDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSendBulkNotification} disabled={bulkActionLoading || notifyChannels.length === 0}>
-              {bulkActionLoading ? (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  Enviando...
-                </>
-              ) : (
-                'Enviar notificaciones'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={structureDialogOpen} onOpenChange={setStructureDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Asignar estructura de nómina</DialogTitle>
-            <DialogDescription>
-              Selecciona la estructura que aplicará a los empleados seleccionados.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div className="space-y-2">
-              <Label>Estructura</Label>
-              <Select
-                value={structureSelection}
-                onValueChange={setStructureSelection}
-                disabled={structureLoading}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={structureLoading ? 'Cargando...' : 'Sin estructura'} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sin estructura</SelectItem>
-                  {structureOptions.map((structure) => (
-                    <SelectItem key={structure._id} value={structure._id}>
-                      {structure.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Puedes dejar vacío para eliminar la estructura asignada actualmente.
-            </p>
-            <div className="space-y-2 rounded-md border border-dashed p-3">
-              <Label className="text-xs font-semibold">Condiciones</Label>
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={structureApplyFilters.onlyActiveContracts}
-                  onCheckedChange={(value) =>
-                    setStructureApplyFilters((prev) => ({
-                      ...prev,
-                      onlyActiveContracts: Boolean(value),
-                    }))
-                  }
-                />
-                Solo contratos activos
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={structureApplyFilters.excludeAlreadyAssigned}
-                  onCheckedChange={(value) =>
-                    setStructureApplyFilters((prev) => ({
-                      ...prev,
-                      excludeAlreadyAssigned: Boolean(value),
-                    }))
-                  }
-                />
-                {structureSelection
-                  ? 'Omitir empleados que ya tienen esta estructura'
-                  : 'Omitir empleados que ya están sin estructura'}
-              </label>
-            </div>
-            <div className="space-y-2 rounded-md border bg-muted/40 p-3 text-xs">
-              <div className="flex items-center justify-between font-medium">
-                <span>Total seleccionados</span>
-                <span>{selectedEmployeesCount}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Se aplicará a</span>
-                <span className="font-semibold">{structureAssignmentPreview.eligible.length}</span>
-              </div>
-              <div className="flex items-center justify-between text-muted-foreground">
-                <span>Omitidos por condiciones</span>
-                <span>{structureAssignmentPreview.excluded.length}</span>
-              </div>
-              {structureAssignmentPreview.excluded.length > 0 && (
-                <div className="space-y-1 pt-2">
-                  {Object.entries(structureAssignmentPreview.reasonCounts).map(([reason, count]) => (
-                    <div key={reason} className="flex items-center justify-between">
-                      <span className="text-[11px] text-muted-foreground">{reason}</span>
-                      <span className="text-[11px]">{count}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {structureAssignmentPreview.eligible.length > 0 && (
-                <div className="pt-2 text-[11px] text-muted-foreground">
-                  <p className="font-semibold text-foreground">Primeros en recibir el cambio:</p>
-                  <ul className="list-disc pl-4 space-y-0.5">
-                    {structureAssignmentPreview.eligible.slice(0, 3).map(({ employee }) => (
-                      <li key={employee._id}>
-                        {employee.customer?.name || 'Sin nombre'} ·{' '}
-                        {employee.currentContract?.status || 'sin contrato'}
-                      </li>
-                    ))}
-                    {structureAssignmentPreview.eligible.length > 3 && (
-                      <li>+{structureAssignmentPreview.eligible.length - 3} más…</li>
-                    )}
-                  </ul>
-                </div>
-              )}
-              {structureAssignmentPreview.eligible.length === 0 && (
-                <p className="pt-2 text-[11px] text-amber-600">
-                  Ajusta las condiciones para incluir al menos un empleado.
-                </p>
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setStructureDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleBulkAssignStructure} disabled={bulkActionLoading}>
-              {bulkActionLoading ? (
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <UserCheck className="mr-2 h-4 w-4" />
-              )}
-              Aplicar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <EmployeeDetailDrawer
-        open={isEmployeeDrawerOpen}
-        onClose={closeEmployeeDrawer}
-        employeeId={selectedEmployeeId}
-        initialEmployee={selectedEmployeeSnapshot}
-        onDataChanged={refreshEmployeesData}
-      />
-
-      {/* Dialog de edición */}
-      {isEditDialogOpen && (
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>Editar Contacto</DialogTitle><DialogDescription>Modifica la información del contacto existente.</DialogDescription></DialogHeader>
-            <div className="grid grid-cols-2 gap-4 py-4">
-                <div className="space-y-2"><Label>Nombre</Label><Input value={editingFormState.name} onChange={(e) => setEditingFormState({...editingFormState, name: e.target.value})} /></div>
-                <div className="space-y-2"><Label>Tipo de Contacto</Label><Select value={editingFormState.customerType} onValueChange={(value) => setEditingFormState({...editingFormState, customerType: value})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="business">Cliente</SelectItem><SelectItem value="supplier">Proveedor</SelectItem><SelectItem value="employee">Empleado</SelectItem><SelectItem value="admin">Admin</SelectItem><SelectItem value="manager">Gestor</SelectItem><SelectItem value="Repartidor">Repartidor</SelectItem><SelectItem value="Cajero">Cajero</SelectItem><SelectItem value="Mesonero">Mesonero</SelectItem></SelectContent></Select></div>
-                <div className="space-y-2"><Label>Empresa</Label><Input value={editingFormState.companyName} onChange={(e) => setEditingFormState({...editingFormState, companyName: e.target.value})} /></div>
-                <div className="space-y-2"><Label>Email</Label><Input type="email" value={editingFormState.email} onChange={(e) => setEditingFormState({...editingFormState, email: e.target.value})} /></div>
-                <div className="space-y-2"><Label>Teléfono</Label><Input value={editingFormState.phone} onChange={(e) => setEditingFormState({...editingFormState, phone: e.target.value})} /></div>
-                <div className="col-span-2 space-y-2"><Label>Dirección</Label><Input value={editingFormState.street} onChange={(e) => setEditingFormState({...editingFormState, street: e.target.value})} /></div>
-                <div className="space-y-2"><Label>Ciudad</Label><Input value={editingFormState.city} onChange={(e) => setEditingFormState({...editingFormState, city: e.target.value})} /></div>
-                <div className="space-y-2"><Label>Estado</Label><Input value={editingFormState.state} onChange={(e) => setEditingFormState({...editingFormState, state: e.target.value})} /></div>
-                <div className="col-span-2 space-y-2"><Label>Identificación Fiscal</Label><div className="flex gap-2"><Select value={editingFormState.taxType} onValueChange={(value) => setEditingFormState({...editingFormState, taxType: value})}><SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="V">V</SelectItem><SelectItem value="E">E</SelectItem><SelectItem value="J">J</SelectItem><SelectItem value="G">G</SelectItem></SelectContent></Select><Input value={editingFormState.taxId} onChange={(e) => setEditingFormState({...editingFormState, taxId: e.target.value})} /></div></div>
-                <div className="col-span-2 space-y-2">
-                  <LocationPicker
-                    label="Ubicación del Cliente"
-                    value={editingFormState.primaryLocation}
-                    onChange={(location) => setEditingFormState({...editingFormState, primaryLocation: location})}
-                  />
-                </div>
-                <div className="col-span-2 space-y-2"><Label>Notas</Label><Textarea value={editingFormState.notes} onChange={(e) => setEditingFormState({...editingFormState, notes: e.target.value})} /></div>
-            </div>
-            <DialogFooter><Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button><Button onClick={handleEditContact}>Guardar Cambios</Button></DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* Oportunidades (beta) */}
-      <div className="mt-8">
-        <Card>
-          <CardHeader className="flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <CardTitle>Pipeline de oportunidades</CardTitle>
-                <CardDescription>Vista rápida de etapas y próximos pasos.</CardDescription>
-              </div>
-              <div className="flex gap-2">
-                <Select value={pipelineView} onValueChange={setPipelineView}>
-                  <SelectTrigger className="w-[130px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="table">Tabla</SelectItem>
-                    <SelectItem value="kanban">Kanban</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="sm" onClick={refreshOpportunities} disabled={opportunitiesLoading}>
-                  <RefreshCw className={`h-4 w-4 mr-2 ${opportunitiesLoading ? 'animate-spin' : ''}`} />
-                  Actualizar
-                </Button>
-                <Button variant="secondary" size="sm" onClick={() => setIsCaptureOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Capturar lead
-                </Button>
-                <Button size="sm" onClick={() => setIsOpportunityDialogOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Crear oportunidad
-                </Button>
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-[1fr,220px]">
-              <Input
-                placeholder="Buscar oportunidad..."
-                value={opportunitySearch}
-                onChange={(e) => setOpportunitySearch(e.target.value)}
-              />
-              <div className="flex gap-2 flex-wrap">
-                <Select value={opportunityStageFilter} onValueChange={setOpportunityStageFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Etapa" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas las etapas</SelectItem>
-                    {stageOptions.map((stage) => (
-                      <SelectItem key={stage} value={stage}>
-                        {stage}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={ownerFilter} onValueChange={setOwnerFilter}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Owner" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los owners</SelectItem>
-                    {owners.map((o) => (
-                      <SelectItem key={o._id} value={o._id}>
-                        {o.firstName ? `${o.firstName} ${o.lastName || ''}`.trim() : o.email}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input
-                  className="w-[200px]"
-                  placeholder="Territorio"
-                  value={territoryFilter === 'all' ? '' : territoryFilter}
-                  onChange={(e) =>
-                    setTerritoryFilter(e.target.value.trim() ? e.target.value : 'all')
-                  }
-                />
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {oppSummary?.byStage && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                {oppSummary.byStage.map((row) => (
-                  <div key={row._id || 'sin-etapa'} className="rounded-md border p-3">
-                    <div className="text-sm font-semibold">{row._id || 'Sin etapa'}</div>
-                    <div className="text-2xl font-bold">{row.total || 0}</div>
-                    <div className="text-xs text-muted-foreground">
-                      Prob promedio: {Math.round(row.avgProbability || 0)}% · Monto: {row.amount || 0}
-                    </div>
-                  </div>
-                ))}
-                <div className="rounded-md border p-3 bg-amber-50">
-                  <div className="text-sm font-semibold text-amber-900">Vence en ≤2 días</div>
-                  <div className="text-2xl font-bold text-amber-900">{slaAging.dueSoon}</div>
-                  <div className="text-xs text-amber-800">Next step cercano requiere acción.</div>
-                </div>
-                <div className="rounded-md border p-3 bg-red-50">
-                  <div className="text-sm font-semibold text-red-900">Vencidos</div>
-                  <div className="text-2xl font-bold text-red-900">{slaAging.overdue}</div>
-                  <div className="text-xs text-red-800">Next step vencido (SLA roto).</div>
-                </div>
-              </div>
-            )}
-            {pipelineView === 'table' ? (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Oportunidad</TableHead>
-                      <TableHead>Etapa</TableHead>
-                      <TableHead>Owner</TableHead>
-                      <TableHead>Monto</TableHead>
-                      <TableHead>Next step</TableHead>
-                      <TableHead>Vence</TableHead>
-                      <TableHead>Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {opportunitiesLoading && (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center text-sm text-muted-foreground">
-                          Cargando pipeline...
-                        </TableCell>
-                      </TableRow>
-                    )}
-                    {!opportunitiesLoading && opportunities.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center text-sm text-muted-foreground">
-                          Sin oportunidades aún.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                    {!opportunitiesLoading &&
-                      opportunities.map((opp) => (
-                        <TableRow key={opp._id}>
-                          <TableCell>
-                            <div className="font-semibold">{opp.name || 'Sin nombre'}</div>
-                            <div className="text-xs text-muted-foreground">
-                              Cliente: {opp.customerId?.name || opp.customerId?.companyName || opp.customerId || '—'}
-                            </div>
-                          </TableCell>
-                          <TableCell>{opp.stage || '—'}</TableCell>
-                          <TableCell className="text-sm">
-                            {opp.ownerId?.name || opp.ownerId?.email || '—'}
-                          </TableCell>
-                          <TableCell>
-                            {opp.amount ? (
-                              <>
-                                {opp.amount} {opp.currency || 'USD'}
-                              </>
-                            ) : (
-                              '—'
-                            )}
-                          </TableCell>
-                          <TableCell className="text-sm">{opp.nextStep || '—'}</TableCell>
-                          <TableCell className="text-sm">
-                            {opp.nextStepDue ? new Date(opp.nextStepDue).toISOString().slice(0, 10) : '—'}
-                          </TableCell>
-                          <TableCell>
-                            <Button variant="outline" size="sm" onClick={() => openStageDialog(opp)}>
-                              Cambiar etapa
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteStage(stage._id)}
+                            >
+                              Eliminar
                             </Button>
-                            <div className="mt-2 flex gap-2">
-                              <Button variant="secondary" size="xs" onClick={() => handleMqlDecision(opp._id, 'accepted')}>
-                                MQL ✓
-                              </Button>
-                              <Button variant="destructive" size="xs" onClick={() => handleMqlDecision(opp._id, 'rejected')}>
-                                MQL ×
-                              </Button>
-                              <Button variant="secondary" size="xs" onClick={() => handleSqlDecision(opp._id, 'accepted')}>
-                                SQL ✓
-                              </Button>
-                              <Button variant="destructive" size="xs" onClick={() => handleSqlDecision(opp._id, 'rejected')}>
-                                SQL ×
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Input
-                    placeholder="Agregar etapa personalizada"
-                    value={customStageInput}
-                    onChange={(e) => setCustomStageInput(e.target.value)}
-                    className="w-full sm:w-64"
-                  />
-                  <Button type="button" variant="outline" onClick={handleAddCustomStage}>
-                    Añadir etapa
-                  </Button>
-              </div>
-                <DndProvider backend={HTML5Backend}>
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {stageOptions.map((stage) => {
-                      const cards = opportunities.filter((opp) => opp.stage === stage);
-                      return (
-                        <KanbanColumn
-                          key={stage}
-                          stage={stage}
-                          cards={cards}
-                          onDrop={(opp) => openStageDialog({ ...opp, stage })}
-                          onQuickMove={handleQuickMoveStage}
-                          onMqlDecision={handleMqlDecision}
-                          onSqlDecision={handleSqlDecision}
-                          stageOptions={stageOptions}
-                        />
-                      );
-                    })}
-                  </div>
-                </DndProvider>
-                <div className="rounded-md border bg-background p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <div className="font-semibold">Catálogo de etapas</div>
-                      <p className="text-xs text-muted-foreground">
-                        Edita probabilidad/orden y elimina etapas del tenant.
-                      </p>
-                    </div>
-                    {stageDefinitionsLoading && (
-                      <Badge variant="outline">Cargando...</Badge>
-                    )}
-                  </div>
-                  <div className="space-y-2 max-h-[320px] overflow-auto pr-1">
-                    {(stageDefinitions || []).map((stage) => (
-                      <div key={stage._id} className="rounded border p-2 grid grid-cols-4 gap-2 text-sm">
-                        <div className="col-span-2">
-                          <div className="font-medium">{stage.name}</div>
-                          <div className="text-[11px] text-muted-foreground">
-                            Required: {(stage.requiredFields || []).join(', ') || '—'}
                           </div>
                         </div>
-                        <div>
-                          <Label className="text-[11px]">Prob (%)</Label>
-                          <Input
-                            type="number"
-                            value={stageEdits[stage._id]?.probability ?? stage.probability ?? 0}
-                            onChange={(e) =>
-                              handleStageFieldChange(stage._id, 'probability', Number(e.target.value))
-                            }
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-[11px]">Orden</Label>
-                          <Input
-                            type="number"
-                            value={stageEdits[stage._id]?.order ?? stage.order ?? 0}
-                            onChange={(e) =>
-                              handleStageFieldChange(stage._id, 'order', Number(e.target.value))
-                            }
-                          />
-                        </div>
-                        <div className="col-span-4 flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleUpdateStage(stage._id)}
-                          >
-                            Guardar
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleDeleteStage(stage._id)}
-                          >
-                            Eliminar
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="playbooks" className="space-y-6">
+          <PlaybooksManagement />
+        </TabsContent>
+
+        <TabsContent value="reminders" className="space-y-6">
+          <RemindersWidget />
+        </TabsContent>
+
+        {isAdmin && (
+          <TabsContent value="settings" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Configuración del CRM</CardTitle>
+                <CardDescription>Gestiona las etapas personalizadas de tus embudos de venta.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <OpportunityStagesManagement />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+      </Tabs>
 
       <Dialog open={isOpportunityDialogOpen} onOpenChange={setIsOpportunityDialogOpen}>
         <DialogContent className="max-w-lg">
@@ -3039,199 +3145,200 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                 onChange={(e) => setNewOpportunity({ ...newOpportunity, currency: e.target.value })}
               />
             </div>
-              <div className="col-span-2 grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label>Next step</Label>
-                  <Input
-                    value={newOpportunity.nextStep}
-                    onChange={(e) => setNewOpportunity({ ...newOpportunity, nextStep: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Fecha compromiso</Label>
-                  <Input
-                    type="date"
-                    value={newOpportunity.nextStepDue}
-                    onChange={(e) =>
-                      setNewOpportunity({ ...newOpportunity, nextStepDue: e.target.value })
-                    }
-                  />
-                </div>
+            <div className="col-span-2 grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Next step</Label>
+                <Input
+                  value={newOpportunity.nextStep}
+                  onChange={(e) => setNewOpportunity({ ...newOpportunity, nextStep: e.target.value })}
+                />
               </div>
-              <OwnerSelect
-                value={newOpportunity.ownerId}
-                onChange={(value) => setNewOpportunity((prev) => ({ ...prev, ownerId: value }))}
-              />
+              <div className="space-y-1">
+                <Label>Fecha compromiso</Label>
+                <Input
+                  type="date"
+                  value={newOpportunity.nextStepDue}
+                  onChange={(e) =>
+                    setNewOpportunity({ ...newOpportunity, nextStepDue: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+            <OwnerSelect
+              value={newOpportunity.ownerId}
+              onChange={(value) => setNewOpportunity((prev) => ({ ...prev, ownerId: value }))}
+              disabled={!canViewAllOpportunities}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsOpportunityDialogOpen(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleCreateOpportunity}>Crear</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+              Cancelar
+            </Button>
+            <Button onClick={handleCreateOpportunity}>Crear</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-    <Dialog open={isCaptureOpen} onOpenChange={setIsCaptureOpen}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Capturar lead (formulario/UTM)</DialogTitle>
-          <DialogDescription>Crear oportunidad desde un lead entrante con fuente y UTM.</DialogDescription>
-        </DialogHeader>
-        <div className="grid grid-cols-2 gap-3 py-2">
-          <div className="col-span-2 space-y-1">
-            <Label>Nombre de la oportunidad</Label>
-            <Input
-              value={captureForm.name}
-              onChange={(e) => setCaptureForm((prev) => ({ ...prev, name: e.target.value }))}
-              placeholder="Ej: Demo con ACME"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Cliente</Label>
-            {crmData.length > 0 ? (
+      <Dialog open={isCaptureOpen} onOpenChange={setIsCaptureOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Capturar lead (formulario/UTM)</DialogTitle>
+            <DialogDescription>Crear oportunidad desde un lead entrante con fuente y UTM.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-2">
+            <div className="col-span-2 space-y-1">
+              <Label>Nombre de la oportunidad</Label>
+              <Input
+                value={captureForm.name}
+                onChange={(e) => setCaptureForm((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="Ej: Demo con ACME"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Cliente</Label>
+              {crmData.length > 0 ? (
+                <Select
+                  value={captureForm.customerId}
+                  onValueChange={(value) => setCaptureForm((prev) => ({ ...prev, customerId: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona cliente" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {crmData.map((c) => (
+                      <SelectItem key={c._id} value={c._id}>
+                        {c.name || c.companyName || 'Sin nombre'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  placeholder="customerId"
+                  value={captureForm.customerId}
+                  onChange={(e) => setCaptureForm((prev) => ({ ...prev, customerId: e.target.value }))}
+                />
+              )}
+            </div>
+            <div className="space-y-1">
+              <Label>Etapa inicial</Label>
               <Select
-                value={captureForm.customerId}
-                onValueChange={(value) => setCaptureForm((prev) => ({ ...prev, customerId: value }))}
+                value={captureForm.stage}
+                onValueChange={(value) => setCaptureForm((prev) => ({ ...prev, stage: value }))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecciona cliente" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {crmData.map((c) => (
-                    <SelectItem key={c._id} value={c._id}>
-                      {c.name || c.companyName || 'Sin nombre'}
+                  {stageOptions.map((stage) => (
+                    <SelectItem key={stage} value={stage}>
+                      {stage}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            ) : (
-              <Input
-                placeholder="customerId"
-                value={captureForm.customerId}
-                onChange={(e) => setCaptureForm((prev) => ({ ...prev, customerId: e.target.value }))}
-              />
-            )}
-          </div>
-          <div className="space-y-1">
-            <Label>Etapa inicial</Label>
-            <Select
-              value={captureForm.stage}
-              onValueChange={(value) => setCaptureForm((prev) => ({ ...prev, stage: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {stageOptions.map((stage) => (
-                  <SelectItem key={stage} value={stage}>
-                    {stage}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>Fuente</Label>
-            <Input
-              value={captureForm.source}
-              onChange={(e) => setCaptureForm((prev) => ({ ...prev, source: e.target.value }))}
-              placeholder="Ej: Landing, Evento, Chat"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>UTM Source</Label>
-            <Input
-              value={captureForm.utmSource}
-              onChange={(e) => setCaptureForm((prev) => ({ ...prev, utmSource: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>UTM Medium</Label>
-            <Input
-              value={captureForm.utmMedium}
-              onChange={(e) => setCaptureForm((prev) => ({ ...prev, utmMedium: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>UTM Campaign</Label>
-            <Input
-              value={captureForm.utmCampaign}
-              onChange={(e) => setCaptureForm((prev) => ({ ...prev, utmCampaign: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>UTM Term</Label>
-            <Input
-              value={captureForm.utmTerm}
-              onChange={(e) => setCaptureForm((prev) => ({ ...prev, utmTerm: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>UTM Content</Label>
-            <Input
-              value={captureForm.utmContent}
-              onChange={(e) => setCaptureForm((prev) => ({ ...prev, utmContent: e.target.value }))}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Ajuste presupuesto (fit)</Label>
-            <Select
-              value={captureForm.budgetFit}
-              onValueChange={(value) => setCaptureForm((prev) => ({ ...prev, budgetFit: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="sí">Sí</SelectItem>
-                <SelectItem value="no">No</SelectItem>
-                <SelectItem value="parcial">Parcial</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>Decision maker</Label>
-            <Input
-              value={captureForm.decisionMaker}
-              onChange={(e) => setCaptureForm((prev) => ({ ...prev, decisionMaker: e.target.value }))}
-              placeholder="Nombre/rol"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Timeline</Label>
-            <Input
-              value={captureForm.timeline}
-              onChange={(e) => setCaptureForm((prev) => ({ ...prev, timeline: e.target.value }))}
-              placeholder="Ej: Q2, 30 días"
-            />
-          </div>
-          <div className="col-span-2 grid grid-cols-2 gap-3">
+            </div>
             <div className="space-y-1">
-              <Label>Next step</Label>
+              <Label>Fuente</Label>
               <Input
-                value={captureForm.nextStep}
-                onChange={(e) => setCaptureForm((prev) => ({ ...prev, nextStep: e.target.value }))}
+                value={captureForm.source}
+                onChange={(e) => setCaptureForm((prev) => ({ ...prev, source: e.target.value }))}
+                placeholder="Ej: Landing, Evento, Chat"
               />
             </div>
             <div className="space-y-1">
-              <Label>Fecha compromiso</Label>
+              <Label>UTM Source</Label>
               <Input
-                type="date"
-                value={captureForm.nextStepDue}
-                onChange={(e) => setCaptureForm((prev) => ({ ...prev, nextStepDue: e.target.value }))}
+                value={captureForm.utmSource}
+                onChange={(e) => setCaptureForm((prev) => ({ ...prev, utmSource: e.target.value }))}
               />
             </div>
+            <div className="space-y-1">
+              <Label>UTM Medium</Label>
+              <Input
+                value={captureForm.utmMedium}
+                onChange={(e) => setCaptureForm((prev) => ({ ...prev, utmMedium: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>UTM Campaign</Label>
+              <Input
+                value={captureForm.utmCampaign}
+                onChange={(e) => setCaptureForm((prev) => ({ ...prev, utmCampaign: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>UTM Term</Label>
+              <Input
+                value={captureForm.utmTerm}
+                onChange={(e) => setCaptureForm((prev) => ({ ...prev, utmTerm: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>UTM Content</Label>
+              <Input
+                value={captureForm.utmContent}
+                onChange={(e) => setCaptureForm((prev) => ({ ...prev, utmContent: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Ajuste presupuesto (fit)</Label>
+              <Select
+                value={captureForm.budgetFit}
+                onValueChange={(value) => setCaptureForm((prev) => ({ ...prev, budgetFit: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sí">Sí</SelectItem>
+                  <SelectItem value="no">No</SelectItem>
+                  <SelectItem value="parcial">Parcial</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Decision maker</Label>
+              <Input
+                value={captureForm.decisionMaker}
+                onChange={(e) => setCaptureForm((prev) => ({ ...prev, decisionMaker: e.target.value }))}
+                placeholder="Nombre/rol"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Timeline</Label>
+              <Input
+                value={captureForm.timeline}
+                onChange={(e) => setCaptureForm((prev) => ({ ...prev, timeline: e.target.value }))}
+                placeholder="Ej: Q2, 30 días"
+              />
+            </div>
+            <div className="col-span-2 grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Next step</Label>
+                <Input
+                  value={captureForm.nextStep}
+                  onChange={(e) => setCaptureForm((prev) => ({ ...prev, nextStep: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Fecha compromiso</Label>
+                <Input
+                  type="date"
+                  value={captureForm.nextStepDue}
+                  onChange={(e) => setCaptureForm((prev) => ({ ...prev, nextStepDue: e.target.value }))}
+                />
+              </div>
+            </div>
           </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setIsCaptureOpen(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleCaptureSubmit}>Capturar</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCaptureOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCaptureSubmit}>Capturar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isStageDialogOpen} onOpenChange={setIsStageDialogOpen}>
         <DialogContent className="max-w-lg">
@@ -3260,49 +3367,42 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
-              <Label>Owner (ID)</Label>
-              <Input
-                placeholder="ID de usuario (opcional)"
-                value={stageForm.ownerId}
-                onChange={(e) => setStageForm((prev) => ({ ...prev, ownerId: e.target.value }))}
-              />
-            </div>
             <OwnerSelect
-              value={newOpportunity.ownerId}
-              onChange={(value) => setNewOpportunity((prev) => ({ ...prev, ownerId: value }))}
+              value={stageForm.ownerId}
+              onChange={(value) => setStageForm((prev) => ({ ...prev, ownerId: value }))}
+              disabled={!canViewAllOpportunities}
             />
             {(stageForm.stage === 'Propuesta' ||
               stageForm.stage === 'Negociación' ||
               stageForm.stage === 'Cierre ganado') && (
-              <>
-                <div className="space-y-1">
-                  <Label>Monto</Label>
-                  <Input
-                    type="number"
-                    value={stageForm.amount}
-                    onChange={(e) => setStageForm((prev) => ({ ...prev, amount: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Moneda</Label>
-                  <Input
-                    value={stageForm.currency}
-                    onChange={(e) => setStageForm((prev) => ({ ...prev, currency: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Fecha cierre estimada</Label>
-                  <Input
-                    type="date"
-                    value={stageForm.expectedCloseDate}
-                    onChange={(e) =>
-                      setStageForm((prev) => ({ ...prev, expectedCloseDate: e.target.value }))
-                    }
-                  />
-                </div>
-              </>
-            )}
+                <>
+                  <div className="space-y-1">
+                    <Label>Monto</Label>
+                    <Input
+                      type="number"
+                      value={stageForm.amount}
+                      onChange={(e) => setStageForm((prev) => ({ ...prev, amount: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Moneda</Label>
+                    <Input
+                      value={stageForm.currency}
+                      onChange={(e) => setStageForm((prev) => ({ ...prev, currency: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Fecha cierre estimada</Label>
+                    <Input
+                      type="date"
+                      value={stageForm.expectedCloseDate}
+                      onChange={(e) =>
+                        setStageForm((prev) => ({ ...prev, expectedCloseDate: e.target.value }))
+                      }
+                    />
+                  </div>
+                </>
+              )}
             {(stageForm.stage === 'Calificado' || stageForm.stage === 'Demo/Discovery') && (
               <>
                 <div className="space-y-1">
@@ -3523,7 +3623,7 @@ function KanbanCard({ opp, onQuickMove, onMqlDecision, onSqlDecision, stageOptio
       </div>
       <div className="text-xs flex items-center gap-2">
         <span>Next: {opp.nextStep || '—'}</span>
-        <span className={`px-1.5 py-0.5 rounded text-[10px] ${isOverdue ? 'bg-destructive/20 text-destructive' : isDueSoon ? 'bg-amber-200 text-amber-900' : 'bg-muted text-muted-foreground'}`}>
+        <span className={`px-1.5 py-0.5 rounded text-[10px] ${isOverdue ? 'bg-destructive/20 text-destructive dark:bg-destructive/30 dark:text-destructive' : isDueSoon ? 'bg-amber-200 text-amber-900 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-muted text-muted-foreground'}`}>
           {opp.nextStepDue ? new Date(opp.nextStepDue).toISOString().slice(0, 10) : '—'}
         </span>
       </div>

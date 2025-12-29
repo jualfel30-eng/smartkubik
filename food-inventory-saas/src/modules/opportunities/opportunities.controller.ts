@@ -32,10 +32,10 @@ import { Permissions } from "../../decorators/permissions.decorator";
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class OpportunitiesController {
-  constructor(private readonly opportunitiesService: OpportunitiesService) {}
+  constructor(private readonly opportunitiesService: OpportunitiesService) { }
 
   @Post()
-  @Permissions("customers_create")
+  @Permissions("opportunities_create")
   @ApiOperation({ summary: "Crear oportunidad" })
   async create(@Body() dto: CreateOpportunityDto, @Request() req) {
     try {
@@ -50,10 +50,19 @@ export class OpportunitiesController {
   }
 
   @Get()
-  @Permissions("customers_read")
+  @Permissions("opportunities_read")
   @ApiOperation({ summary: "Listar oportunidades" })
   async findAll(@Query() query: OpportunityQueryDto, @Request() req) {
     try {
+      // Visibility Check: Enforce owner filter if user doesn't have view_all permission
+      const permissions = req.user.role?.permissions || [];
+      const canViewAll = permissions.includes('opportunities_view_all');
+
+      if (!canViewAll) {
+        // Force owner filter to current user
+        query.ownerId = req.user.userId;
+      }
+
       const data = await this.opportunitiesService.findAll(
         query,
         req.user.tenantId,
@@ -67,8 +76,24 @@ export class OpportunitiesController {
     }
   }
 
+  @Get("/summary")
+  @Permissions("opportunities_read")
+  @ApiOperation({ summary: "Resumen rápido de oportunidades" })
+  async summary(@Request() req) {
+    try {
+      const data = await this.opportunitiesService.summary(req.user.tenantId);
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error in opportunity summary:", error);
+      throw new HttpException(
+        error.message || "Error al obtener resumen de oportunidades",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   @Get(":id")
-  @Permissions("customers_read")
+  @Permissions("opportunities_read")
   @ApiOperation({ summary: "Obtener oportunidad" })
   async findOne(@Param("id") id: string, @Request() req) {
     const data = await this.opportunitiesService.findOne(id, req.user.tenantId);
@@ -76,7 +101,7 @@ export class OpportunitiesController {
   }
 
   @Patch(":id")
-  @Permissions("customers_update")
+  @Permissions("opportunities_update")
   @ApiOperation({ summary: "Actualizar oportunidad" })
   async update(
     @Param("id") id: string,
@@ -95,7 +120,7 @@ export class OpportunitiesController {
   }
 
   @Patch(":id/stage")
-  @Permissions("customers_update")
+  @Permissions("opportunities_update")
   @ApiOperation({ summary: "Cambiar etapa de oportunidad" })
   async changeStage(
     @Param("id") id: string,
@@ -117,16 +142,10 @@ export class OpportunitiesController {
     }
   }
 
-  @Get("/summary")
-  @Permissions("customers_read")
-  @ApiOperation({ summary: "Resumen rápido de oportunidades" })
-  async summary(@Request() req) {
-    const data = await this.opportunitiesService.summary(req.user.tenantId);
-    return { success: true, data };
-  }
+
 
   @Patch(":id/mql")
-  @Permissions("customers_update")
+  @Permissions("opportunities_update")
   @ApiOperation({ summary: "Decisión MQL (aceptar/rechazar)" })
   async decideMql(
     @Param("id") id: string,
@@ -138,7 +157,7 @@ export class OpportunitiesController {
   }
 
   @Patch(":id/sql")
-  @Permissions("customers_update")
+  @Permissions("opportunities_update")
   @ApiOperation({ summary: "Decisión SQL (aceptar/rechazar)" })
   async decideSql(
     @Param("id") id: string,
@@ -150,7 +169,7 @@ export class OpportunitiesController {
   }
 
   @Post("/capture/form")
-  @Permissions("customers_create")
+  @Permissions("opportunities_create")
   @ApiOperation({ summary: "Captura de oportunidad desde formulario/UTM" })
   async captureFromForm(@Body() dto: CreateOpportunityDto, @Request() req) {
     const data = await this.opportunitiesService.captureFromForm(dto, req.user);
@@ -158,7 +177,7 @@ export class OpportunitiesController {
   }
 
   @Post("/capture/bulk")
-  @Permissions("customers_create")
+  @Permissions("opportunities_create")
   @ApiOperation({ summary: "Captura masiva (CSV/Ads/LinkedIn/Chat/API)" })
   async captureBulk(@Body() dto: BulkCaptureDto, @Request() req) {
     const data = await this.opportunitiesService.captureBulk(dto, req.user);
@@ -166,7 +185,7 @@ export class OpportunitiesController {
   }
 
   @Get(":id/messages")
-  @Permissions("customers_read")
+  @Permissions("opportunities_read")
   @ApiOperation({ summary: "Listar mensajes/actividades de una oportunidad" })
   async listMessages(
     @Param("id") id: string,
@@ -178,7 +197,7 @@ export class OpportunitiesController {
   }
 
   @Post(":id/email-activity")
-  @Permissions("customers_update")
+  @Permissions("opportunities_update")
   @ApiOperation({ summary: "Registrar actividad de email (in/out)" })
   async logEmailActivity(
     @Param("id") id: string,
@@ -202,7 +221,7 @@ export class OpportunitiesController {
   }
 
   @Post(":id/calendar-activity")
-  @Permissions("customers_update")
+  @Permissions("opportunities_update")
   @ApiOperation({ summary: "Registrar reunión/evento de calendario" })
   async logCalendarActivity(
     @Param("id") id: string,
