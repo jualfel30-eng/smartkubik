@@ -161,23 +161,60 @@ export class BillingEvidence {
 
 ## 📅 Prioridades
 
-### Alta Prioridad (Crítico para operación)
+### 🔴 Alta Prioridad (Crítico para operación)
 1. ✅ Migrar componentes ISLR a shadcn/ui
 2. 🔴 Migrar componentes IVA a shadcn/ui
-3. 🔴 Completar schema de BillingEvidence
-4. 🔴 Activar y probar módulo de Billing
+3. 🔴 **Activar Módulo de Billing** (BLOQUEANTE)
+   - Completar schema de BillingEvidence (agregar `xml`, `xmlHash`)
+   - Resolver errores TypeScript en billing.service.ts
+   - Descomentar BillingModule en app.module.ts
+   - Testing básico de funcionalidad
+4. ✅ **Conciliación Bancaria** (YA IMPLEMENTADA)
+   - ✅ Módulo bank-accounts completamente funcional
+   - ✅ Importación de extractos bancarios (CSV, Excel)
+   - ✅ Matching automático de transacciones
+   - ✅ Reconciliación manual asistida
+   - ✅ Integración con Payments
+   - ✅ Reportes de diferencias y pendientes
+   - 📝 **Acción**: Reutilizar en lugar de reimplementar
+5. 🔴 Control de Inventario Contable
+   - Métodos: FIFO, LIFO, Promedio Ponderado
+   - Valoración de inventario automática
+   - Asientos de ajuste por diferencias
+   - Integración con módulo de inventario existente
 
-### Media Prioridad (Importantes para cumplimiento fiscal)
-1. Implementar Libro de Compras
-2. Implementar reportes de retenciones
-3. Proceso de cierre mensual
-4. Declaración de IVA
+### 🟡 Media Prioridad (Importantes para cumplimiento fiscal)
+1. Implementar Libro de Compras (formato SENIAT)
+2. Implementar reportes de retenciones (IVA e ISLR)
+3. Proceso de cierre mensual y anual
+4. Declaración de IVA (Formulario 30)
+5. **Activos Fijos y Depreciación**:
+   - Registro de activos fijos
+   - Cálculo automático de depreciación (línea recta, doble saldo)
+   - Asientos contables automáticos mensuales
+   - Reporte de activos y depreciación acumulada
+6. **Presupuestos**:
+   - Creación de presupuestos mensuales/anuales por cuenta
+   - Comparación Real vs Presupuesto
+   - Análisis de variaciones
+   - Alertas de desviaciones significativas
+7. **Centros de Costo**:
+   - Definición de centros de costo
+   - Asignación en asientos contables
+   - Reportes por centro de costo
+   - Análisis de rentabilidad por centro
 
-### Baja Prioridad (Nice to have)
-1. Optimizaciones de performance
-2. Estados financieros avanzados
-3. Análisis predictivo
-4. Integración con software contable externo
+### 🟢 Baja Prioridad (Nice to have)
+1. Optimizaciones de performance (índices, cache)
+2. Estados financieros avanzados (ratios, análisis vertical/horizontal)
+3. Análisis predictivo (forecasting con IA)
+4. Integración con software contable externo (SAP, QuickBooks)
+5. Análisis de Tendencias Históricas
+6. Reversión de Asientos con justificación
+7. Workflow de Aprobaciones multi-nivel
+8. Consolidación Multi-entidad
+9. Reportes XBRL/XML para reguladores
+10. Multi-moneda avanzado con revaluación
 
 ---
 

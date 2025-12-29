@@ -362,36 +362,98 @@ food-inventory-admin/src/
 ## 📊 Next Steps for Full Implementation
 
 ### **Backend Tasks**
+
+#### 🔴 ALTA PRIORIDAD (MVP Marketing)
 1. **Create Email Service Providers** (`src/modules/marketing/providers/`)
-   - `sendgrid.service.ts`
-   - `mailgun.service.ts`
-   - `ses.service.ts`
-   - `smtp.service.ts`
+   - `sendgrid.service.ts` - Prioridad #1 (recomendado para mayoría de casos)
+   - `mailgun.service.ts` - Alternativa developer-friendly
+   - `ses.service.ts` - Para alto volumen
+   - `smtp.service.ts` - Para SMTP genérico/Gmail/Office365
 
 2. **Create SMS Service Providers**
-   - `twilio.service.ts`
-   - `vonage.service.ts`
-   - `sns.service.ts`
+   - `twilio.service.ts` - Prioridad #1 (industria estándar)
+   - `vonage.service.ts` - Alternativa internacional
+   - `sns.service.ts` - Para ecosistema AWS
 
-3. **Create Email Template Module**
-   - CRUD operations
-   - Variable replacement
-   - Template rendering
+3. **Add Webhook Handlers**
+   - Email tracking (SendGrid webhooks: open, click, bounce, spam)
+   - SMS delivery status (Twilio webhooks: delivered, failed, replied)
+   - Unsubscribe management automático
+   - Almacenamiento en MarketingCampaign metrics
 
-4. **Create Customer Segment Module**
-   - Segment calculation engine
-   - Dynamic segment updates
-   - Audience estimation
+4. **Implement Campaign Scheduler**
+   - Cron job para campañas programadas
+   - Automated campaign triggers (behavioral)
+   - Recurring campaigns (diario, semanal, mensual)
 
-5. **Add Webhook Handlers**
-   - Email tracking (SendGrid webhooks)
-   - SMS delivery status (Twilio webhooks)
-   - Unsubscribe management
+#### 🟡 MEDIA PRIORIDAD (Funcionalidad Importante)
+5. **Create Email Template Module**
+   - CRUD operations completo
+   - Variable replacement engine ({{customer_name}}, etc.)
+   - Template rendering con Handlebars/Mustache
+   - Versionado de templates
 
-6. **Implement Campaign Scheduler**
-   - Cron job for scheduled campaigns
-   - Automated campaign triggers
-   - Recurring campaigns
+6. **Create Customer Segment Module**
+   - Segment calculation engine dinámico
+   - Dynamic segment auto-update
+   - Audience size estimation en tiempo real
+   - Segment analytics (engagement, LTV, etc.)
+
+7. **Social Media Integration (CRÍTICO - FALTANTE)**
+   - Facebook/Instagram Ads Integration
+     - Facebook Marketing API
+     - Ad creation y management
+     - Audience sync
+     - Campaign tracking
+   - LinkedIn Campaign Manager
+     - Lead Gen Forms
+     - Sponsored Content
+     - Analytics integration
+   - Twitter/X Ads API
+     - Tweet promotion
+     - Audience targeting
+   - Unified Social Dashboard
+
+8. **Landing Page Builder**
+   - Drag-and-drop page builder
+   - Template library
+   - A/B testing de páginas
+   - Conversion tracking
+   - Form builder integrado
+   - Analytics por página
+
+9. **Lead Scoring & Management**
+   - Lead scoring model configurable
+   - Automatic lead qualification
+   - Lead nurturing workflows
+   - Sales handoff automation
+   - Lead lifecycle tracking
+
+#### 🟢 BAJA PRIORIDAD (Post-MVP)
+10. **Advanced Analytics con IA**
+    - Predictive churn analysis
+    - Revenue forecasting
+    - Best time to send optimization
+    - Subject line A/B testing con ML
+    - Customer lifetime value prediction
+
+11. **Affiliate & Referral Programs**
+    - Affiliate tracking
+    - Commission management
+    - Referral link generation
+    - Reward automation
+
+12. **SEO/SEM Tools**
+    - Keyword research
+    - Rank tracking
+    - Backlink monitoring
+    - Google Ads integration
+
+13. **Content Marketing Management**
+    - Blog post scheduling
+    - Content calendar
+    - Multi-channel publishing
+    - Content performance analytics
 
 ### **Frontend Tasks**
 1. **Enhance Campaign Form**
