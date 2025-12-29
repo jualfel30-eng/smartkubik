@@ -111,7 +111,10 @@ import { OpportunitiesModule } from "./modules/opportunities/opportunities.modul
 import { OpportunityStagesModule } from "./modules/opportunity-stages/opportunity-stages.module";
 import { OpportunityIngestModule } from "./modules/opportunity-ingest/opportunity-ingest.module";
 import { PlaybooksModule } from "./modules/playbooks/playbooks.module";
-// import { BillingModule } from "./modules/billing/billing.module"; // TODO: Completar implementación - Ver ROADMAP_ACCOUNTING_ERP.md
+import { BillingModule } from "./modules/billing/billing.module";
+import { CalendarsModule } from "./modules/calendars/calendars.module";
+import { ActivitiesModule } from "./modules/activities/activities.module";
+import { RemindersModule } from "./modules/reminders/reminders.module";
 
 @Module({
   imports: [
@@ -406,7 +409,10 @@ import { PlaybooksModule } from "./modules/playbooks/playbooks.module";
     OpportunityStagesModule,
     OpportunityIngestModule,
     PlaybooksModule,
-    // BillingModule, // TODO: Completar implementación - Ver ROADMAP_ACCOUNTING_ERP.md
+    BillingModule,
+    CalendarsModule,
+    ActivitiesModule,
+    RemindersModule,
   ],
   controllers: [AppController, TenantController],
   providers: [
