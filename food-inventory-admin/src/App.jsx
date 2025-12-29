@@ -33,11 +33,13 @@ import {
   Utensils,
   ChefHat,
   MessageSquare, // Icono añadido para WhatsApp
-  PiggyBank,
   ChevronRight,
   Clock,
   CheckCircle2,
   TrendingUp,
+  TrendingDown,
+  ArrowUpRight,
+  ArrowDownRight,
   FileText,
   Box,
   List,
@@ -46,6 +48,7 @@ import {
   Coffee,
   Wrench,
   Factory,
+  Filter,
   BarChart3,
   GitBranch,
   Layers,
@@ -98,6 +101,8 @@ import {
 const CRMManagement = lazy(() => import('@/components/CRMManagement.jsx'));
 const OrdersManagement = lazy(() => import('@/components/orders/v2/OrdersManagementV2.jsx').then(module => ({ default: module.OrdersManagementV2 })));
 const CalendarView = lazy(() => import('@/components/CalendarView.jsx').then(module => ({ default: module.CalendarView })));
+const CalendarManagement = lazy(() => import('@/components/CalendarManagement.jsx').then(module => ({ default: module.CalendarManagement })));
+const CalendarModule = lazy(() => import('@/components/CalendarModule.jsx').then(module => ({ default: module.CalendarModule })));
 const Login = lazy(() => import('./pages/Login'));
 const LoginV2 = lazy(() => import('./pages/LoginV2'));
 const Register = lazy(() => import('./pages/Register'));
@@ -151,6 +156,11 @@ const PayrollStructuresManager = lazy(() => import('@/components/payroll/Payroll
 const PayrollCalendarTimeline = lazy(() => import('@/components/payroll/PayrollCalendarTimeline.jsx'));
 const PayrollAbsencesManager = lazy(() => import('@/components/payroll/PayrollAbsencesManager.jsx'));
 const PayrollRunWizard = lazy(() => import('@/components/payroll/PayrollRunWizard.jsx'));
+const BillingDashboard = lazy(() => import('@/components/billing/BillingDashboard.jsx'));
+const BillingCreateForm = lazy(() => import('@/components/billing/BillingCreateForm.jsx'));
+const BillingDocumentDetail = lazy(() => import('@/components/billing/BillingDocumentDetail.jsx'));
+const BillingSequencesManager = lazy(() => import('@/components/billing/BillingSequencesManager.jsx'));
+const FulfillmentDashboard = lazy(() => import('@/components/fulfillment/FulfillmentDashboard.jsx').then(module => ({ default: module.FulfillmentDashboard })));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -256,32 +266,32 @@ function TenantLayout() {
   const ShiftTimer = () => {
     const { activeShift } = useShift();
     const [duration, setDuration] = useState('');
-  
+
     useEffect(() => {
       if (!activeShift) {
         setDuration('');
         return;
       }
-  
+
       const timer = setInterval(() => {
         const now = new Date();
         const start = new Date(activeShift.clockIn);
         const diff = now - start;
-  
+
         const hours = Math.floor(diff / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-  
+
         setDuration(
           `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
         );
       }, 1000);
-  
+
       return () => clearInterval(timer);
     }, [activeShift]);
-  
+
     if (!duration) return null;
-  
+
     return <Badge variant="outline" className="bg-blue-100 text-blue-800">{duration}</Badge>;
   };
 
@@ -295,6 +305,7 @@ function TenantLayout() {
   const navLinks = [
     { name: 'Panel de Control', href: 'dashboard', icon: LayoutDashboard, permission: 'dashboard_read' },
     { name: 'Órdenes', href: 'orders', icon: ShoppingCart, permission: 'orders_read' },
+    { name: 'Entregas', href: 'fulfillment', icon: Truck, permission: 'orders_read' },
     { name: 'WhatsApp', href: 'whatsapp', icon: MessageSquare, permission: 'chat_read' },
     {
       name: 'Inventario',
@@ -378,10 +389,10 @@ function TenantLayout() {
     {
       name: 'Cuentas por Pagar',
       href: 'accounts-payable',
-      icon: Receipt,
+      icon: ArrowDownRight,
       permission: 'accounting_read',
       children: [
-        { name: 'Cuentas por Pagar', href: 'accounts-payable?tab=monthly', icon: Receipt },
+        { name: 'Cuentas por Pagar', href: 'accounts-payable?tab=monthly', icon: TrendingDown },
         { name: 'Pagos Recurrentes', href: 'accounts-payable?tab=recurring', icon: RefreshCw },
         { name: 'Historial', href: 'accounts-payable?tab=history', icon: List },
       ]
@@ -389,7 +400,7 @@ function TenantLayout() {
     {
       name: 'Cuentas por Cobrar',
       href: 'receivables?tab=pending',
-      icon: PiggyBank,
+      icon: ArrowUpRight,
       permission: 'accounting_read',
       children: [
         { name: 'Pendientes', href: 'receivables?tab=pending', icon: Clock },
@@ -419,14 +430,40 @@ function TenantLayout() {
     },
     { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: CreditCard, permission: 'accounting_read', requiresModule: 'bankAccounts' },
     {
+      name: 'Facturación Electrónica',
+      href: 'billing',
+      icon: FileText,
+      permission: 'billing_read',
+      children: [
+        { name: 'Dashboard', href: 'billing', icon: BarChart3 },
+        { name: 'Nueva Factura', href: 'billing/create', icon: Receipt },
+        { name: 'Series de Numeración', href: 'billing/sequences', icon: List },
+      ]
+    },
+    {
       name: 'CRM',
       href: 'crm',
       icon: Users,
       permission: 'customers_read',
       children: [
-        { name: 'Todos', href: 'crm?tab=all', icon: Users },
-        { name: 'Clientes', href: 'crm?tab=individual', icon: Users },
-        { name: 'Proveedores', href: 'crm?tab=supplier', icon: Truck },
+        {
+          name: 'Contactos',
+          href: 'crm?tab=all',
+          icon: Users,
+          children: [
+            { name: 'Todos', href: 'crm?tab=all', icon: Users },
+            { name: 'Clientes', href: 'crm?tab=individual', icon: Users },
+            { name: 'Proveedores', href: 'crm?tab=supplier', icon: Truck },
+          ]
+        },
+        {
+          name: 'Embudo de Ventas',
+          href: 'crm?tab=pipeline',
+          icon: Filter,
+          children: [
+            { name: 'Pipeline', href: 'crm?tab=pipeline', icon: BarChart3 },
+          ]
+        }
       ]
     },
     {
@@ -459,7 +496,16 @@ function TenantLayout() {
     { name: 'Recursos', href: 'resources', icon: UserSquare, permission: 'appointments_read', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
     { name: 'Operaciones Hotel', href: 'hospitality/operations', icon: Building2, permission: 'appointments_read', requiresModule: 'appointments', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
     { name: 'Plano Hotel', href: 'hospitality/floor-plan', icon: Building, permission: 'appointments_read', requiresModule: 'appointments', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
-    { name: 'Calendario', href: 'calendar', icon: CalendarDays, permission: 'events_read' },
+    {
+      name: 'Calendario',
+      href: 'calendar',
+      icon: CalendarDays,
+      permission: 'events_read',
+      children: [
+        { name: 'Calendario', href: 'calendar?tab=calendar', icon: CalendarDays },
+        { name: 'Configuración', href: 'calendar?tab=management', icon: Settings },
+      ]
+    },
     { name: 'Reportes', href: 'reports', icon: AreaChart, permission: 'reports_read' },
   ];
 
@@ -969,7 +1015,12 @@ function TenantLayout() {
                     <OrdersManagement />
                   </CrmProvider>
                 } />
-                <Route path="whatsapp" element={<WhatsAppInbox />} /> {/* <-- Ruta de WhatsApp añadida */}
+                <Route path="fulfillment" element={<FulfillmentDashboard />} />
+                <Route path="whatsapp" element={
+                  <CrmProvider>
+                    <WhatsAppInbox />
+                  </CrmProvider>
+                } />
                 <Route path="purchases" element={<ComprasManagement />} />
                 <Route path="accounts-payable" element={<PayablesManagement />} />
                 <Route path="accounting" element={<AccountingManagement />} />
@@ -980,6 +1031,10 @@ function TenantLayout() {
                 <Route path="accounting/recurring-entries" element={<RecurringEntries />} />
                 <Route path="accounting/electronic-invoices" element={<ElectronicInvoicesManager />} />
                 <Route path="accounting/islr-withholding" element={<IslrWithholdingList />} />
+                <Route path="billing" element={<BillingDashboard />} />
+                <Route path="billing/create" element={<BillingCreateForm />} />
+                <Route path="billing/sequences" element={<BillingSequencesManager />} />
+                <Route path="billing/documents/:id" element={<BillingDocumentDetail />} />
                 <Route path="bank-accounts" element={<BankAccountsManagement />} />
                 <Route path="bank-accounts/:accountId/reconciliation" element={<BankReconciliationView />} />
                 <Route path="organizations" element={<OrganizationsManagement />} />
@@ -1002,7 +1057,7 @@ function TenantLayout() {
                 } />
                 <Route path="hospitality/operations" element={<HospitalityOperationsDashboard />} />
                 <Route path="hospitality/floor-plan" element={<HotelFloorPlanPage />} />
-                <Route path="calendar" element={<CalendarView />} />
+                <Route path="calendar" element={<CalendarModule />} />
                 <Route path="production" element={<ProductionManagement />} />
                 <Route path="restaurant/floor-plan" element={<TablesPage />} />
                 <Route path="restaurant/kitchen-display" element={<KitchenDisplay />} />
