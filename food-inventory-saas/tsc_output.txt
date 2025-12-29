@@ -1,0 +1,82 @@
+src/modules/billing/billing.service.ts(842,42): error TS2339: Property 'createdAt' does not exist on type 'Document<unknown, {}, BillingDocumentDocument> & BillingDocument & Document<any, any, any> & { _id: ObjectId; }'.
+src/modules/billing/services/seniat-export.service.ts(46,43): error TS2339: Property 'documentDate' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(77,39): error TS2339: Property 'issuerInfo' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(78,47): error TS2339: Property 'issuerInfo' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(79,17): error TS2339: Property 'issuerInfo' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(80,47): error TS2339: Property 'issuerInfo' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(82,17): error TS2339: Property 'issuerInfo' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(83,46): error TS2339: Property 'issuerInfo' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(89,39): error TS2551: Property 'customerInfo' does not exist on type 'BillingDocument'. Did you mean 'customer'?
+src/modules/billing/services/seniat-export.service.ts(90,47): error TS2551: Property 'customerInfo' does not exist on type 'BillingDocument'. Did you mean 'customer'?
+src/modules/billing/services/seniat-export.service.ts(91,17): error TS2551: Property 'customerInfo' does not exist on type 'BillingDocument'. Did you mean 'customer'?
+src/modules/billing/services/seniat-export.service.ts(92,47): error TS2551: Property 'customerInfo' does not exist on type 'BillingDocument'. Did you mean 'customer'?
+src/modules/billing/services/seniat-export.service.ts(94,17): error TS2551: Property 'customerInfo' does not exist on type 'BillingDocument'. Did you mean 'customer'?
+src/modules/billing/services/seniat-export.service.ts(95,46): error TS2551: Property 'customerInfo' does not exist on type 'BillingDocument'. Did you mean 'customer'?
+src/modules/billing/services/seniat-export.service.ts(101,13): error TS2339: Property 'lines' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(121,37): error TS2339: Property 'subtotalAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(123,17): error TS2339: Property 'discountAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(123,43): error TS2339: Property 'discountAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(124,46): error TS2339: Property 'discountAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(127,43): error TS2339: Property 'subtotalAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(127,69): error TS2339: Property 'discountAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(128,42): error TS2339: Property 'taxAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(129,39): error TS2339: Property 'totalAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(130,42): error TS2339: Property 'currency' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(132,17): error TS2339: Property 'exchangeRate' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(132,41): error TS2339: Property 'exchangeRate' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(133,41): error TS2339: Property 'exchangeRate' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(139,17): error TS2339: Property 'taxAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(144,31): error TS2339: Property 'subtotalAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(144,57): error TS2339: Property 'discountAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(145,46): error TS2339: Property 'taxAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(149,38): error TS2339: Property 'taxAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(166,41): error TS2551: Property 'paymentTermDays' does not exist on type 'BillingDocument'. Did you mean 'paymentTerms'?
+src/modules/billing/services/seniat-export.service.ts(168,17): error TS2339: Property 'dueDate' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(169,43): error TS2339: Property 'dueDate' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(176,17): error TS2339: Property 'notes' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(178,42): error TS2339: Property 'notes' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(211,22): error TS2339: Property 'issuerInfo' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(215,32): error TS2339: Property 'documentDate' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(216,25): error TS2339: Property 'totalAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-export.service.ts(382,20): error TS2339: Property 'issuerInfo' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-validation.service.ts(164,18): error TS2339: Property 'lines' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-validation.service.ts(164,35): error TS2339: Property 'lines' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-validation.service.ts(167,15): error TS2339: Property 'lines' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-validation.service.ts(187,17): error TS2339: Property 'taxAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-validation.service.ts(204,18): error TS2339: Property 'currency' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-validation.service.ts(209,18): error TS2551: Property 'paymentTermDays' does not exist on type 'BillingDocument'. Did you mean 'paymentTerms'?
+src/modules/billing/services/seniat-validation.service.ts(234,19): error TS2339: Property 'lines' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-validation.service.ts(234,36): error TS2339: Property 'lines' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-validation.service.ts(235,38): error TS2339: Property 'lines' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-validation.service.ts(243,66): error TS2339: Property 'subtotalAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-validation.service.ts(246,82): error TS2339: Property 'subtotalAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-validation.service.ts(253,17): error TS2339: Property 'subtotalAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-validation.service.ts(254,18): error TS2339: Property 'discountAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-validation.service.ts(255,18): error TS2339: Property 'taxAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-validation.service.ts(257,58): error TS2339: Property 'totalAmount' does not exist on type 'BillingDocument'.
+src/modules/billing/services/seniat-validation.service.ts(260,74): error TS2339: Property 'totalAmount' does not exist on type 'BillingDocument'.
+src/modules/calendars/calendars.controller.ts(110,24): error TS2345: Argument of type 'any' is not assignable to parameter of type 'never'.
+src/modules/calendars/calendars.controller.ts(112,24): error TS2345: Argument of type '{ calendarId: string; success: boolean; error: any; }' is not assignable to parameter of type 'never'.
+src/modules/calendars/calendars.controller.ts(124,70): error TS2339: Property 'success' does not exist on type 'never'.
+src/modules/calendars/calendars.controller.ts(185,23): error TS2339: Property 'watchChannel' does not exist on type '{ enabled: boolean; calendarId?: string | undefined; lastSyncAt?: Date | undefined; syncStatus?: string | undefined; }'.
+src/modules/calendars/calendars.controller.ts(186,23): error TS2339: Property 'watchChannel' does not exist on type '{ enabled: boolean; calendarId?: string | undefined; lastSyncAt?: Date | undefined; syncStatus?: string | undefined; }'.
+src/modules/calendars/calendars.service.ts(589,27): error TS2339: Property 'syncToken' does not exist on type '{ enabled: boolean; calendarId: string; lastSyncAt?: Date | undefined; syncStatus?: "active" | "error" | "disabled" | undefined; errorMessage?: string | undefined; watchChannel?: { ...; } | undefined; }'.
+src/modules/opportunities/opportunities.service.ts(938,15): error TS2339: Property 'triggers' does not exist on type 'PlaybookDocument'.
+src/modules/opportunities/opportunities.service.ts(938,30): error TS2339: Property 'triggers' does not exist on type 'PlaybookDocument'.
+src/modules/opportunities/opportunities.service.ts(939,26): error TS2339: Property 'triggers' does not exist on type 'PlaybookDocument'.
+src/modules/opportunities/opportunities.service.ts(941,27): error TS2339: Property 'delayMinutes' does not exist on type 'PlaybookDocument'.
+src/modules/opportunities/opportunities.service.ts(944,18): error TS2339: Property 'actionType' does not exist on type 'PlaybookDocument'.
+src/modules/opportunities/opportunities.service.ts(944,46): error TS2339: Property 'taskTitle' does not exist on type 'PlaybookDocument'.
+src/modules/opportunities/opportunities.service.ts(948,25): error TS2339: Property 'taskTitle' does not exist on type 'PlaybookDocument'.
+src/modules/opportunities/opportunities.service.ts(953,18): error TS2339: Property 'actionType' does not exist on type 'PlaybookDocument'.
+src/modules/opportunities/opportunities.service.ts(958,29): error TS2339: Property 'taskTitle' does not exist on type 'PlaybookDocument'.
+src/modules/playbooks/playbooks.service.ts(298,9): error TS2322: Type '"task"' is not assignable to type 'ActivityType'.
+src/modules/playbooks/playbooks.service.ts(323,9): error TS2322: Type '"email"' is not assignable to type 'ActivityType'.
+src/modules/playbooks/playbooks.service.ts(324,9): error TS2322: Type '"outbound"' is not assignable to type 'ActivityDirection | undefined'.
+src/modules/playbooks/playbooks.service.ts(351,9): error TS2322: Type '"whatsapp"' is not assignable to type 'ActivityType'.
+src/modules/playbooks/playbooks.service.ts(352,9): error TS2322: Type '"outbound"' is not assignable to type 'ActivityDirection | undefined'.
+src/modules/reminders/reminders.service.ts(196,13): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/super-admin/super-admin.controller.ts(83,35): error TS2339: Property 'getFeatureFlags' does not exist on type 'SuperAdminService'.
+src/super-admin/super-admin.controller.ts(88,35): error TS2339: Property 'updateFeatureFlags' does not exist on type 'SuperAdminService'.
+src/super-admin/super-admin.controller.ts(93,35): error TS2339: Property 'reloadFeatureFlags' does not exist on type 'SuperAdminService'.
