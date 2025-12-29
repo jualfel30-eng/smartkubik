@@ -31,7 +31,7 @@ export class PaymentsService {
     private readonly accountingService: AccountingService,
     private readonly bankAccountsService: BankAccountsService,
     private readonly bankTransactionsService: BankTransactionsService,
-  ) {}
+  ) { }
 
   async getSummary(
     tenantId: string,
@@ -464,6 +464,27 @@ export class PaymentsService {
     const initialReconciliationStatus =
       paymentDetails.reconciliationStatus || (autoReconciliate ? "matched" : "pending");
 
+    // Calculate IGTF automatically for foreign currency payments
+    let calculatedFees = { ...fees };
+    const igtfApplicableMethods = [
+      'efectivo_usd',
+      'transferencia_usd',
+      'zelle_usd'
+    ];
+    const shouldApplyIgtf = igtfApplicableMethods.includes(paymentDetails.method);
+
+    if (shouldApplyIgtf) {
+      const igtfRate = 0.03; // 3% IGTF - TODO: Load from TaxSettings
+      const igtfAmount = paymentDetails.amount * igtfRate;
+      calculatedFees = {
+        ...calculatedFees,
+        igtf: igtfAmount,
+      };
+      this.logger.log(
+        `IGTF calculated for payment: method=${paymentDetails.method}, amount=${paymentDetails.amount}, igtf=${igtfAmount}`,
+      );
+    }
+
     // Create and save the core payment document first
     const newPayment = new this.paymentModel({
       ...paymentDetails,
@@ -493,7 +514,7 @@ export class PaymentsService {
           documentType: a.documentType,
           amount: a.amount,
         })) || [],
-      fees,
+      fees: calculatedFees,
     });
     await newPayment.save();
     if (autoReconciliate) {
@@ -639,7 +660,7 @@ export class PaymentsService {
     );
 
     const paymentStatus =
-      paidAmount >= Number(order.totalAmount || 0)
+      paidAmount >= Number(order.totalAmount || 0) - 0.01
         ? "paid"
         : paidAmount > 0
           ? "partial"

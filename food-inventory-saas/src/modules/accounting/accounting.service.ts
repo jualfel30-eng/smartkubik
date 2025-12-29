@@ -1075,10 +1075,18 @@ export class AccountingService {
       .exec(); // <-- FIXED
 
     const report = unpaidOrders.map((order) => {
-      const totalPaid = (order.payments as unknown as PaymentDocument[]).reduce(
-        (acc, p) => acc + p.amount,
+      // Safely handle payments array - it might be undefined, null, or empty
+      const payments = order.payments || [];
+      const totalPaid = (payments as unknown as PaymentDocument[]).reduce(
+        (acc, p) => {
+          // Handle case where payment might not be fully populated
+          if (p && typeof p === 'object' && 'amount' in p) {
+            return acc + (p.amount || 0);
+          }
+          return acc;
+        },
         0,
-      ); // <-- FIXED
+      );
       const balance = order.totalAmount - totalPaid;
       return {
         orderNumber: order.orderNumber,
