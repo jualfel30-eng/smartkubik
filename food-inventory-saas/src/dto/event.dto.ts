@@ -74,6 +74,13 @@ export class CreateEventDto {
   @IsOptional()
   @IsMongoId()
   relatedPayrollCalendarId?: string;
+
+  @ApiPropertyOptional({
+    description: "ID del calendario al que pertenece el evento",
+  })
+  @IsOptional()
+  @IsMongoId()
+  calendarId?: string;
 }
 
 export class UpdateEventDto {
@@ -137,4 +144,11 @@ export class UpdateEventDto {
   @IsOptional()
   @IsMongoId()
   relatedPayrollCalendarId?: string;
+
+  @ApiPropertyOptional({
+    description: "ID del calendario al que pertenece el evento",
+  })
+  @IsOptional()
+  @IsMongoId()
+  calendarId?: string;
 }

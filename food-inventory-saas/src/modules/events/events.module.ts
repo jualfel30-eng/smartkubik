@@ -6,6 +6,7 @@ import { Event, EventSchema } from "../../schemas/event.schema";
 import { Todo, TodoSchema } from "../../schemas/todo.schema";
 import { AuthModule } from "../../auth/auth.module";
 import { RolesModule } from "../roles/roles.module";
+import { CalendarsModule } from "../calendars/calendars.module";
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { RolesModule } from "../roles/roles.module";
       { name: Todo.name, schema: TodoSchema },
     ]),
     forwardRef(() => AuthModule),
+    forwardRef(() => CalendarsModule),
     RolesModule,
   ],
   controllers: [EventsController],

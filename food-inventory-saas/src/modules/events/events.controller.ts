@@ -97,6 +97,27 @@ export class EventsController {
     }
   }
 
+  @Patch(":id/move-to-calendar")
+  @Permissions("events_update")
+  @ApiOperation({ summary: "Mover un evento a otro calendario" })
+  @ApiResponse({ status: 200, description: "El evento ha sido movido al nuevo calendario." })
+  async moveToCalendar(
+    @Param("id") id: string,
+    @Body("calendarId") calendarId: string,
+    @Request() req,
+  ) {
+    try {
+      const event = await this.eventsService.moveEventToCalendar(
+        id,
+        calendarId,
+        req.user,
+      );
+      return { success: true, data: event };
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    }
+  }
+
   @Delete(":id")
   @Permissions("events_delete")
   @ApiOperation({ summary: "Eliminar un evento" })

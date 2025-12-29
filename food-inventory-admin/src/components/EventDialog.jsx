@@ -5,13 +5,17 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogDescription } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useCalendars } from '@/hooks/use-calendars';
 
 export function EventDialog({ event, open, onClose, onSave, onDelete }) {
+  const { calendars } = useCalendars();
   const [title, setTitle] = useState('');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [allDay, setAllDay] = useState(false);
   const [description, setDescription] = useState('');
+  const [calendarId, setCalendarId] = useState('');
 
   useEffect(() => {
     if (event) {
@@ -28,6 +32,7 @@ export function EventDialog({ event, open, onClose, onSave, onDelete }) {
       setEnd(formatDateTimeLocal(event.end || event.start));
       setAllDay(event.allDay || false);
       setDescription(event.description || '');
+      setCalendarId(event.calendarId || '');
     } else {
       // Resetear el formulario si no hay evento (para creación)
       setTitle('');
@@ -35,8 +40,10 @@ export function EventDialog({ event, open, onClose, onSave, onDelete }) {
       setEnd('');
       setAllDay(false);
       setDescription('');
+      // Establecer el primer calendario como predeterminado si existe
+      setCalendarId(calendars.length > 0 ? calendars[0].id : '');
     }
-  }, [event]);
+  }, [event, calendars]);
 
   const handleSave = () => {
     const payload = {
@@ -45,6 +52,7 @@ export function EventDialog({ event, open, onClose, onSave, onDelete }) {
       end: allDay ? null : new Date(end).toISOString(),
       allDay,
       description,
+      calendarId: calendarId || undefined,
     };
     onSave(payload);
   };
@@ -68,6 +76,27 @@ export function EventDialog({ event, open, onClose, onSave, onDelete }) {
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="title" className="text-right">Título</Label>
             <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} className="col-span-3" />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="calendar" className="text-right">Calendario</Label>
+            <Select value={calendarId} onValueChange={setCalendarId}>
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Selecciona un calendario" />
+              </SelectTrigger>
+              <SelectContent>
+                {calendars.map((calendar) => (
+                  <SelectItem key={calendar.id} value={calendar.id}>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: calendar.color }}
+                      />
+                      <span>{calendar.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="start" className="text-right">Inicio</Label>

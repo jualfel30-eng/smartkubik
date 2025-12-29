@@ -1,15 +1,18 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, Inject, forwardRef } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, ClientSession, Types } from "mongoose";
 import { Event, EventDocument } from "../../schemas/event.schema";
 import { CreateEventDto, UpdateEventDto } from "../../dto/event.dto";
 import { Todo, TodoDocument } from "../../schemas/todo.schema";
+import { CalendarsService } from "../calendars/calendars.service";
 
 @Injectable()
 export class EventsService {
   constructor(
     @InjectModel(Event.name) private eventModel: Model<EventDocument>,
     @InjectModel(Todo.name) private todoModel: Model<TodoDocument>,
+    @Inject(forwardRef(() => CalendarsService))
+    private readonly calendarsService: CalendarsService,
   ) {}
 
   async create(
@@ -84,7 +87,14 @@ export class EventsService {
         },
       ];
     }
-    return this.eventModel.find(query).exec();
+
+    // Obtener todos los eventos del tenant
+    const allEvents = await this.eventModel.find(query).exec();
+
+    // Filtrar eventos según permisos de calendario
+    const filteredEvents = await this.filterEventsByCalendarPermissions(allEvents, user);
+
+    return filteredEvents;
   }
 
   async findOne(id: string, user: any): Promise<EventDocument> {
@@ -295,5 +305,64 @@ export class EventsService {
     if (daysUntilDue <= 3) return "high";
     if (daysUntilDue <= 7) return "medium";
     return "low";
+  }
+
+  /**
+   * Mueve un evento a un calendario diferente con verificación de permisos
+   */
+  async moveEventToCalendar(
+    eventId: string,
+    targetCalendarId: string,
+    user: any,
+  ): Promise<EventDocument> {
+    // Verificar que el evento existe y el usuario tiene acceso
+    const event = await this.findOne(eventId, user);
+
+    // Verificar que el usuario tiene acceso al calendario destino
+    const hasAccess = await this.calendarsService.canUserAccessCalendar(
+      targetCalendarId,
+      user,
+    );
+
+    if (!hasAccess) {
+      throw new NotFoundException(
+        "No tienes acceso al calendario de destino",
+      );
+    }
+
+    // Actualizar el calendario del evento
+    event.calendarId = this.toObjectIdOrValue(targetCalendarId) as Types.ObjectId;
+    return await event.save();
+  }
+
+  /**
+   * Filtra eventos según los permisos de calendario del usuario
+   */
+  private async filterEventsByCalendarPermissions(
+    events: EventDocument[],
+    user: any,
+  ): Promise<EventDocument[]> {
+    const filteredEvents: EventDocument[] = [];
+
+    for (const event of events) {
+      // Si el evento no tiene calendarId asignado, pertenece al calendario por defecto
+      // El calendario por defecto es visible para todos en el tenant
+      if (!event.calendarId) {
+        filteredEvents.push(event);
+        continue;
+      }
+
+      // Verificar si el usuario tiene acceso al calendario
+      const hasAccess = await this.calendarsService.canUserAccessCalendar(
+        event.calendarId.toString(),
+        user,
+      );
+
+      if (hasAccess) {
+        filteredEvents.push(event);
+      }
+    }
+
+    return filteredEvents;
   }
 }

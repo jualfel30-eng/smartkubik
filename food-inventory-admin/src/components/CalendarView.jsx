@@ -9,6 +9,14 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import {
   ChevronLeft,
@@ -20,10 +28,13 @@ import {
   RefreshCw,
   Plus,
   Edit,
-  Trash2
+  Trash2,
+  Filter
 } from 'lucide-react';
 import { TodoList } from './TodoList';
+import { CalendarLegend } from './CalendarLegend';
 import { useTodos } from '@/hooks/use-todos';
+import { useCalendars } from '@/hooks/use-calendars';
 
 const DAYS_OF_WEEK = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const DAYS_OF_WEEK_FULL = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -57,7 +68,9 @@ export function CalendarView() {
     end: '',
     allDay: false
   });
+  const [selectedCalendarIds, setSelectedCalendarIds] = useState([]);
   const { todos, refetch: refetchTodos } = useTodos();
+  const { calendars } = useCalendars();
 
   const fetchEvents = useCallback(async () => {
     setLoading(true);
@@ -100,7 +113,16 @@ export function CalendarView() {
   }, [fetchEvents]);
 
   const allCalendarEvents = useMemo(() => {
-    const eventsList = [...events];
+    // Filtrar eventos por calendarios seleccionados
+    let eventsList = [...events];
+
+    if (selectedCalendarIds.length > 0) {
+      eventsList = eventsList.filter(event => {
+        // Si el evento no tiene calendarId, es del calendario por defecto
+        if (!event.calendarId) return true;
+        return selectedCalendarIds.includes(event.calendarId);
+      });
+    }
 
     const tagColors = {
       'pagos': '#ef4444',
@@ -132,7 +154,7 @@ export function CalendarView() {
     });
 
     return eventsList;
-  }, [events, todos]);
+  }, [events, todos, selectedCalendarIds]);
 
   const goToPrevious = () => {
     if (view === 'day') {
@@ -277,6 +299,26 @@ export function CalendarView() {
     }
   };
 
+  const handleMoveEventToCalendar = async (eventId, targetCalendarId) => {
+    try {
+      if (eventId.startsWith('todo-')) {
+        toast.error('Las tareas no se pueden mover entre calendarios');
+        return;
+      }
+
+      await fetchApi(`/events/${eventId}/move-to-calendar`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ calendarId: targetCalendarId }),
+      });
+
+      await fetchEvents();
+    } catch (error) {
+      console.error('Error moving event:', error);
+      throw error; // Let CalendarLegend handle the toast
+    }
+  };
+
   const formatDate = (dateStr) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('es-VE', {
@@ -338,10 +380,73 @@ export function CalendarView() {
                   </TabsList>
                 </Tabs>
 
-                <Button onClick={() => openCreateDialog()}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Nuevo Evento
-                </Button>
+                <div className="flex gap-2">
+                  {/* Selector de calendarios */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Filter className="h-4 w-4 mr-2" />
+                        Calendarios
+                        {selectedCalendarIds.length > 0 && (
+                          <Badge variant="secondary" className="ml-2">
+                            {selectedCalendarIds.length}
+                          </Badge>
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuLabel>Filtrar por calendario</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {calendars.length === 0 ? (
+                        <div className="px-2 py-4 text-sm text-gray-500 text-center">
+                          No hay calendarios disponibles
+                        </div>
+                      ) : (
+                        <>
+                          {calendars.map((calendar) => (
+                            <DropdownMenuCheckboxItem
+                              key={calendar.id}
+                              checked={selectedCalendarIds.includes(calendar.id)}
+                              onCheckedChange={(checked) => {
+                                setSelectedCalendarIds(prev =>
+                                  checked
+                                    ? [...prev, calendar.id]
+                                    : prev.filter(id => id !== calendar.id)
+                                );
+                              }}
+                            >
+                              <div className="flex items-center gap-2 flex-1">
+                                <div
+                                  className="w-3 h-3 rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: calendar.color }}
+                                />
+                                <span className="truncate">{calendar.name}</span>
+                              </div>
+                            </DropdownMenuCheckboxItem>
+                          ))}
+                          {selectedCalendarIds.length > 0 && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full justify-start"
+                                onClick={() => setSelectedCalendarIds([])}
+                              >
+                                Limpiar filtros
+                              </Button>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <Button onClick={() => openCreateDialog()}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nuevo Evento
+                  </Button>
+                </div>
               </div>
             </CardHeader>
 
@@ -361,8 +466,21 @@ export function CalendarView() {
           </Card>
         </div>
 
-        <div className="h-full overflow-hidden">
-          <TodoList onTodoComplete={fetchEvents} />
+        <div className="h-full overflow-hidden flex flex-col gap-6">
+          <CalendarLegend
+            selectedCalendarIds={selectedCalendarIds}
+            onToggleCalendar={(calendarId) => {
+              setSelectedCalendarIds(prev =>
+                prev.includes(calendarId)
+                  ? prev.filter(id => id !== calendarId)
+                  : [...prev, calendarId]
+              );
+            }}
+            onEventDrop={handleMoveEventToCalendar}
+          />
+          <div className="flex-1 overflow-hidden">
+            <TodoList onTodoComplete={fetchEvents} />
+          </div>
         </div>
       </div>
 
@@ -570,7 +688,13 @@ const DayView = ({ currentDate, events, handleDayClick }) => {
                   {eventsAtTime.map((evt) => (
                     <div
                       key={evt.id}
-                      className="text-xs p-2 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-300 dark:border-blue-700"
+                      className="text-xs p-2 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-300 dark:border-blue-700 cursor-move"
+                      draggable={!evt.id?.startsWith('todo-')}
+                      onDragStart={(e) => {
+                        e.stopPropagation();
+                        e.dataTransfer.setData('event', JSON.stringify({ id: evt.id, title: evt.title }));
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
                     >
                       {evt.title}
                     </div>
@@ -656,8 +780,14 @@ const WeekView = ({ currentDate, events, handleDayClick }) => {
                     {eventsAtTime.slice(0, 2).map((evt) => (
                       <div
                         key={evt.id}
-                        className="text-xs p-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-300 dark:border-blue-700 truncate"
+                        className="text-xs p-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-300 dark:border-blue-700 truncate cursor-move"
                         title={evt.title}
+                        draggable={!evt.id?.startsWith('todo-')}
+                        onDragStart={(e) => {
+                          e.stopPropagation();
+                          e.dataTransfer.setData('event', JSON.stringify({ id: evt.id, title: evt.title }));
+                          e.dataTransfer.effectAllowed = 'move';
+                        }}
                       >
                         {evt.title}
                       </div>
@@ -781,7 +911,13 @@ const MonthView = ({ currentDate, events, handleDayClick }) => {
                       return (
                         <div
                           key={evt.id || `evt-${idx}`}
-                          className={`text-xs p-1 rounded ${bgColor} border`}
+                          className={`text-xs p-1 rounded ${bgColor} border cursor-move`}
+                          draggable={!evt.id?.startsWith('todo-')}
+                          onDragStart={(e) => {
+                            e.stopPropagation();
+                            e.dataTransfer.setData('event', JSON.stringify({ id: evt.id, title: evt.title }));
+                            e.dataTransfer.effectAllowed = 'move';
+                          }}
                         >
                           <div className="flex items-center gap-1">
                             {time && <Clock className="h-3 w-3" />}
