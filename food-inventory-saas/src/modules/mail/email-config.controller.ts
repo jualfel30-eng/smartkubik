@@ -67,6 +67,8 @@ export class EmailConfigController {
       enabled: false,
     };
 
+    const calendarWatch = tenant.settings?.calendarConfig?.watch || null;
+
     return {
       success: true,
       data: {
@@ -75,6 +77,13 @@ export class EmailConfigController {
         connectedEmail:
           config.gmailEmail || config.outlookEmail || config.smtpUser,
         fromEmail: config.resendFromEmail || config.smtpFrom,
+        calendarEnabled: !!calendarWatch,
+        calendarWatch: calendarWatch ? {
+          channelId: calendarWatch.channelId,
+          resourceId: calendarWatch.resourceId,
+          expiration: calendarWatch.expiration,
+          address: calendarWatch.address,
+        } : null,
       },
     };
   }

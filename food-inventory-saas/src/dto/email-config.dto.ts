@@ -58,6 +58,13 @@ export class GetEmailConfigResponseDto {
   enabled: boolean;
   connectedEmail?: string;
   fromEmail?: string;
+  calendarEnabled?: boolean;
+  calendarWatch?: {
+    channelId?: string;
+    resourceId?: string;
+    expiration?: Date;
+    address?: string;
+  } | null;
 }
 
 export class HandleOAuthCallbackDto {

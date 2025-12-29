@@ -167,6 +167,81 @@ export class GmailOAuthService {
   }
 
   /**
+   * Crear calendario secundario en Google Calendar
+   */
+  async createSecondaryCalendar(
+    tenantId: string,
+    calendarData: {
+      summary: string;
+      description?: string;
+      timeZone?: string;
+    },
+    color?: string,
+  ): Promise<string> {
+    this.logger.log(`Creating secondary calendar "${calendarData.summary}" for tenant ${tenantId}`);
+
+    try {
+      const calendar = await this.getCalendarClient(tenantId);
+
+      // Crear el calendario secundario
+      const response = await calendar.calendars.insert({
+        requestBody: {
+          summary: calendarData.summary,
+          description: calendarData.description,
+          timeZone: calendarData.timeZone || "America/Caracas",
+        },
+      });
+
+      const calendarId = response.data.id;
+
+      if (!calendarId) {
+        throw new Error("Google Calendar did not return a calendar ID");
+      }
+
+      // Configurar el color si se proporcionó
+      if (color) {
+        try {
+          // Mapear color hex a colorId de Google Calendar (1-24)
+          const colorId = this.getGoogleCalendarColorId(color);
+
+          await calendar.calendarList.update({
+            calendarId,
+            requestBody: {
+              colorId,
+            },
+          });
+        } catch (colorError) {
+          this.logger.warn(`Could not set color for calendar: ${colorError.message}`);
+        }
+      }
+
+      this.logger.log(`Secondary calendar created successfully: ${calendarId}`);
+      return calendarId;
+    } catch (error) {
+      this.logger.error(`Failed to create secondary calendar: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Mapear color hex a colorId de Google Calendar
+   * Google Calendar usa IDs predefinidos (1-24)
+   */
+  private getGoogleCalendarColorId(hexColor: string): string {
+    // Mapeo aproximado de colores hex a IDs de Google Calendar
+    const colorMap: Record<string, string> = {
+      "#FF6B6B": "11", // Rojo
+      "#4ECDC4": "7",  // Cyan
+      "#95E1D3": "2",  // Verde claro
+      "#F38181": "4",  // Rosa
+      "#3B82F6": "9",  // Azul
+      "#9333EA": "3",  // Púrpura
+    };
+
+    return colorMap[hexColor] || "9"; // Default: azul
+  }
+
+  /**
    * Desconectar Gmail
    */
   async disconnect(tenantId: string): Promise<void> {
@@ -332,5 +407,146 @@ export class GmailOAuthService {
     message.push(`--${boundary}--`);
 
     return message.join("\r\n");
+  }
+
+  /**
+   * Crear un watch channel para recibir notificaciones de cambios en un calendario
+   * Solo funciona para calendarios del ERP sincronizados con Google
+   */
+  async createWatchChannel(
+    tenantId: string,
+    googleCalendarId: string,
+    webhookUrl: string,
+  ): Promise<{
+    id: string;
+    resourceId: string;
+    expiration: number;
+    token: string;
+  }> {
+    try {
+      const calendar = await this.getCalendarClient(tenantId);
+
+      // Generar un ID único y un token de verificación
+      const channelId = randomUUID();
+      const channelToken = randomUUID();
+
+      this.logger.log(
+        `Creating watch channel for calendar ${googleCalendarId} (tenant: ${tenantId})`,
+      );
+
+      const expirationTime = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 días
+
+      const response = await calendar.events.watch({
+        calendarId: googleCalendarId,
+        requestBody: {
+          id: channelId,
+          type: "web_hook",
+          address: webhookUrl,
+          token: channelToken,
+          // Los watch channels expiran después de cierto tiempo (máx 30 días para Calendar API)
+          expiration: expirationTime.toString(),
+        },
+      });
+
+      this.logger.log(
+        `Watch channel created successfully: ${response.data.id}`,
+      );
+
+      return {
+        id: response.data.id || channelId,
+        resourceId: response.data.resourceId || "",
+        expiration: response.data.expiration
+          ? parseInt(response.data.expiration as string)
+          : expirationTime,
+        token: channelToken,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error creating watch channel for calendar ${googleCalendarId}:`,
+        error,
+      );
+      throw new Error(`Failed to create watch channel: ${error.message}`);
+    }
+  }
+
+  /**
+   * Detener un watch channel existente
+   */
+  async stopWatchChannel(
+    tenantId: string,
+    channelId: string,
+    resourceId: string,
+  ): Promise<void> {
+    try {
+      const calendar = await this.getCalendarClient(tenantId);
+
+      this.logger.log(`Stopping watch channel ${channelId}`);
+
+      await calendar.channels.stop({
+        requestBody: {
+          id: channelId,
+          resourceId: resourceId,
+        },
+      });
+
+      this.logger.log(`Watch channel ${channelId} stopped successfully`);
+    } catch (error) {
+      this.logger.error(`Error stopping watch channel ${channelId}:`, error);
+      // No lanzar error aquí, solo loguearlo
+      // Los canales pueden ya haber expirado
+    }
+  }
+
+  /**
+   * Obtener cambios recientes en un calendario
+   * Usado para sincronizar eventos desde Google hacia el ERP
+   */
+  async getCalendarChanges(
+    tenantId: string,
+    googleCalendarId: string,
+    syncToken?: string,
+  ): Promise<{
+    events: any[];
+    nextSyncToken: string;
+  }> {
+    try {
+      const calendar = await this.getCalendarClient(tenantId);
+
+      this.logger.log(
+        `Fetching changes for calendar ${googleCalendarId} (syncToken: ${syncToken ? "exists" : "none"})`,
+      );
+
+      const params: any = {
+        calendarId: googleCalendarId,
+        singleEvents: true,
+      };
+
+      // Si tenemos un syncToken, úsalo para obtener solo cambios incrementales
+      if (syncToken) {
+        params.syncToken = syncToken;
+      } else {
+        // Primera sincronización: obtener eventos de los últimos 30 días
+        const timeMin = new Date();
+        timeMin.setDate(timeMin.getDate() - 30);
+        params.timeMin = timeMin.toISOString();
+      }
+
+      const response = await calendar.events.list(params);
+
+      this.logger.log(
+        `Found ${response.data.items?.length || 0} events/changes`,
+      );
+
+      return {
+        events: response.data.items || [],
+        nextSyncToken: response.data.nextSyncToken || "",
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error fetching calendar changes for ${googleCalendarId}:`,
+        error,
+      );
+      throw new Error(`Failed to fetch calendar changes: ${error.message}`);
+    }
   }
 }

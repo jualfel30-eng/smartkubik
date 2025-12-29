@@ -371,30 +371,83 @@ const EmailConfiguration = () => {
             Sincronización de Calendario (Google)
           </CardTitle>
           <CardDescription>
-            Activa el watch de Google Calendar para registrar reuniones en oportunidades. Requiere haber conectado Gmail con permiso de Calendario.
+            Sincroniza eventos de calendario con Google Calendar. Las reuniones creadas en el CRM se añaden automáticamente a tu calendario de Google.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex items-center gap-3">
-            <Switch checked={calendarEnabled} disabled />
-            <span className="text-sm text-muted-foreground">
-              Estado: {calendarEnabled ? 'Activo' : 'Inactivo'} (se activa al crear el canal)
-            </span>
+        <CardContent className="space-y-4">
+          {/* Estado del Watch */}
+          <div className="rounded-lg border p-4 bg-muted/50">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className={`w-2 h-2 rounded-full ${calendarStatus ? 'bg-green-500' : 'bg-gray-400'}`} />
+                <span className="font-medium text-sm">
+                  {calendarStatus ? 'Sincronización Activa' : 'Sin Sincronizar'}
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant={calendarStatus ? 'outline' : 'default'}
+                onClick={handleWatchGoogleCalendar}
+                disabled={isSyncingCalendar || config?.provider !== 'gmail'}
+              >
+                {isSyncingCalendar ? 'Sincronizando...' : calendarStatus ? 'Renovar Sincronización' : 'Activar Sincronización'}
+              </Button>
+            </div>
+
+            {calendarStatus && (
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <div className="flex justify-between">
+                  <span>Canal ID:</span>
+                  <span className="font-mono text-xs">{calendarStatus.id || calendarStatus.channelId || '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Expira:</span>
+                  <span className={`font-medium ${
+                    calendarStatus.expiration && new Date(calendarStatus.expiration) < new Date(Date.now() + 48 * 60 * 60 * 1000)
+                      ? 'text-yellow-600 dark:text-yellow-500'
+                      : 'text-green-600 dark:text-green-500'
+                  }`}>
+                    {calendarStatus.expiration
+                      ? new Date(calendarStatus.expiration).toLocaleString('es-ES', {
+                          dateStyle: 'short',
+                          timeStyle: 'short'
+                        })
+                      : '—'
+                    }
+                  </span>
+                </div>
+                {calendarStatus.expiration && new Date(calendarStatus.expiration) < new Date(Date.now() + 48 * 60 * 60 * 1000) && (
+                  <div className="flex items-center gap-2 mt-2 p-2 rounded bg-yellow-50 dark:bg-yellow-950 text-yellow-800 dark:text-yellow-200">
+                    <AlertCircle className="w-4 h-4" />
+                    <span className="text-xs">
+                      La sincronización expira pronto. Se renovará automáticamente o puedes renovarla manualmente.
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!calendarStatus && config?.provider === 'gmail' && (
+              <div className="text-sm text-muted-foreground">
+                <p>Requiere tener Gmail conectado con permiso de Calendario.</p>
+                <p className="mt-1">Haz clic en "Activar Sincronización" para comenzar.</p>
+              </div>
+            )}
+
+            {config?.provider !== 'gmail' && (
+              <div className="flex items-center gap-2 p-2 rounded bg-blue-50 dark:bg-blue-950 text-blue-800 dark:text-blue-200 text-sm">
+                <AlertCircle className="w-4 h-4" />
+                <span>Debes conectar Gmail primero para usar la sincronización de calendario.</span>
+              </div>
+            )}
           </div>
-          <Button size="sm" onClick={handleWatchGoogleCalendar} disabled={isSyncingCalendar}>
-            {isSyncingCalendar ? 'Sincronizando...' : 'Probar & Activar Google Calendar'}
-          </Button>
-          {calendarStatus && (
-            <div className="text-xs text-muted-foreground">
-              Canal: {calendarStatus.id || calendarStatus.channelId || '—'} · Expira:{' '}
-              {calendarStatus.expiration || calendarStatus.expirationDate || '—'}
-            </div>
-          )}
-          {!calendarStatus && (
-            <div className="text-xs text-muted-foreground">
-              Si ya autorizaste Gmail con el scope de Calendario, haz clic en “Probar & Activar”.
-            </div>
-          )}
+
+          {/* Información de funcionalidad */}
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p className="font-medium">✓ Eventos del CRM se sincronizan automáticamente a Google Calendar</p>
+            <p className="font-medium">✓ Renovación automática antes de expirar (cada ~7 días)</p>
+            <p className="font-medium">✓ Solo se envían eventos creados en SmartKubik (privacidad garantizada)</p>
+          </div>
         </CardContent>
       </Card>
 
