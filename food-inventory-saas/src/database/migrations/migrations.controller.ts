@@ -5,6 +5,7 @@ import { AddMarketingPermissionsMigration } from "./add-marketing-permissions.mi
 import { PopulateTransactionHistoryMigration } from "./populate-transaction-history.migration";
 import { RebuildProductAffinityMigration } from "./rebuild-product-affinity.migration";
 import { SeedDefaultWarehousesMigration } from "./seed-default-warehouses.migration";
+import { LinkPaymentsToOrdersMigration } from "./link-payments-to-orders.migration";
 
 @ApiTags("Migrations")
 @Controller("migrations")
@@ -15,6 +16,7 @@ export class MigrationsController {
     private readonly populateTransactionHistoryMigration: PopulateTransactionHistoryMigration,
     private readonly rebuildProductAffinityMigration: RebuildProductAffinityMigration,
     private readonly seedDefaultWarehousesMigration: SeedDefaultWarehousesMigration,
+    private readonly linkPaymentsToOrdersMigration: LinkPaymentsToOrdersMigration,
   ) {}
 
   @Post("add-marketing-permissions")
@@ -86,6 +88,24 @@ export class MigrationsController {
     return {
       success: true,
       message: "Default warehouses seeded successfully",
+    };
+  }
+
+  @Post("link-payments-to-orders")
+  @ApiOperation({
+    summary: "[SUPER ADMIN] Link payments to orders after database restore",
+    description:
+      "Rebuilds payment-order relationships by processing payment allocations and updating order.payments arrays, paidAmount, and paymentStatus fields.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Payments linked to orders successfully",
+  })
+  async linkPaymentsToOrders() {
+    await this.linkPaymentsToOrdersMigration.run();
+    return {
+      success: true,
+      message: "Payments linked to orders migration completed successfully",
     };
   }
 }

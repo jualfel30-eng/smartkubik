@@ -5,7 +5,9 @@ import { AddMarketingPermissionsMigration } from "./add-marketing-permissions.mi
 import { PopulateTransactionHistoryMigration } from "./populate-transaction-history.migration";
 import { RebuildProductAffinityMigration } from "./rebuild-product-affinity.migration";
 import { SeedDefaultWarehousesMigration } from "./seed-default-warehouses.migration";
+import { LinkPaymentsToOrdersMigration } from "./link-payments-to-orders.migration";
 import { Order, OrderSchema } from "../../schemas/order.schema";
+import { Payment, PaymentSchema } from "../../schemas/payment.schema";
 import {
   CustomerTransactionHistory,
   CustomerTransactionHistorySchema,
@@ -21,6 +23,7 @@ import { ProductAffinityModule } from "../../modules/product-affinity/product-af
   imports: [
     MongooseModule.forFeature([
       { name: Order.name, schema: OrderSchema },
+      { name: Payment.name, schema: PaymentSchema },
       {
         name: CustomerTransactionHistory.name,
         schema: CustomerTransactionHistorySchema,
@@ -36,12 +39,14 @@ import { ProductAffinityModule } from "../../modules/product-affinity/product-af
     PopulateTransactionHistoryMigration,
     RebuildProductAffinityMigration,
     SeedDefaultWarehousesMigration,
+    LinkPaymentsToOrdersMigration,
   ],
   exports: [
     AddMarketingPermissionsMigration,
     PopulateTransactionHistoryMigration,
     RebuildProductAffinityMigration,
     SeedDefaultWarehousesMigration,
+    LinkPaymentsToOrdersMigration,
   ],
 })
 export class MigrationsModule {}
