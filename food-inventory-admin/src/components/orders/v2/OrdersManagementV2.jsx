@@ -11,8 +11,9 @@ import { PaymentDialogV2 } from './PaymentDialogV2';
 import { OrderStatusSelector } from './OrderStatusSelector';
 import { OrderDetailsDialog } from './OrderDetailsDialog';
 import { Button } from "@/components/ui/button";
-import { CreditCard, RefreshCw, Search, Download, ChefHat, Printer, FileText } from "lucide-react";
+import { RefreshCw, Search, Download, ChefHat, Settings } from "lucide-react";
 import BillingDrawer from '@/components/billing/BillingDrawer';
+import { OrderProcessingDrawer } from '../OrderProcessingDrawer';
 import { useDebounce } from '@/hooks/use-debounce.js';
 import { useCrmContext } from '@/context/CrmContext.jsx';
 import { toast } from 'sonner';
@@ -63,6 +64,10 @@ export function OrdersManagementV2() {
   // State for Billing Drawer
   const [isBillingDrawerOpen, setIsBillingDrawerOpen] = useState(false);
   const [selectedOrderForBilling, setSelectedOrderForBilling] = useState(null);
+
+  // State for Order Processing Drawer
+  const [isProcessingDrawerOpen, setIsProcessingDrawerOpen] = useState(false);
+  const [selectedOrderForProcessing, setSelectedOrderForProcessing] = useState(null);
 
   const productAttributes = useMemo(
     () => (verticalConfig?.attributeSchema || []).filter((attr) => attr.scope === 'product'),
@@ -246,6 +251,17 @@ export function OrdersManagementV2() {
     setSelectedOrderForBilling(null);
   }, []);
 
+  // Handlers for Order Processing Drawer
+  const handleOpenProcessingDrawer = useCallback((order) => {
+    setSelectedOrderForProcessing(order);
+    setIsProcessingDrawerOpen(true);
+  }, []);
+
+  const handleCloseProcessingDrawer = useCallback(() => {
+    setIsProcessingDrawerOpen(false);
+    setSelectedOrderForProcessing(null);
+  }, []);
+
   const estimatePrepTime = useCallback((itemCount = 1) => {
     const normalizedCount = Math.max(itemCount, 1);
     return 5 + Math.max(normalizedCount - 1, 0) * 2;
@@ -348,33 +364,38 @@ export function OrdersManagementV2() {
         )
       },
       {
-        id: "billing",
-        header: () => <div className="text-center">Facturar</div>,
-        cell: ({ row }) => (
-          <div className="text-center">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => handleOpenBillingDrawer(row.original)}
-              title="Generar Factura"
-            >
-              <FileText className="h-4 w-4" />
-            </Button>
-          </div>
-        ),
-      },
-      {
-        id: "pay",
-        header: () => <div className="text-center">Pagar</div>,
+        id: "process",
+        header: () => <div className="text-center">Procesar</div>,
         cell: ({ row }) => {
           const order = row.original;
-          const balance = (order.totalAmount || 0) - (order.paidAmount || 0);
-          if (balance <= 0) return <div className="text-center">-</div>;
+          const isPaid = order.paymentStatus === 'paid';
+          const hasInvoice = order.billingDocumentId && order.billingDocumentType !== 'none';
+
+          // Determine button variant based on order state
+          let variant = 'outline';
+          let label = 'Procesar';
+
+          if (!isPaid) {
+            variant = 'default';
+            label = 'Procesar';
+          } else if (isPaid && !hasInvoice) {
+            variant = 'default';
+            label = 'Facturar';
+          } else if (hasInvoice) {
+            variant = 'outline';
+            label = 'Ver Proceso';
+          }
 
           return (
             <div className="text-center">
-              <Button variant="ghost" size="icon" onClick={() => handleOpenPaymentDialog(order)}>
-                <CreditCard className="h-4 w-4" />
+              <Button
+                variant={variant}
+                size="sm"
+                onClick={() => handleOpenProcessingDrawer(order)}
+                title="Procesar orden completa"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                {label}
               </Button>
             </div>
           );
@@ -407,12 +428,18 @@ export function OrdersManagementV2() {
     }
 
     return baseColumns;
-  }, [handleOpenPaymentDialog, handleOpenDetailsDialog, handleOpenBillingDrawer, restaurantEnabled, sendToKitchen, handleRefresh]);
+  }, [handleOpenProcessingDrawer, restaurantEnabled, sendToKitchen, handleRefresh]);
 
-  const handleOrderCreated = () => {
+  const handleOrderCreated = (newOrder) => {
     document.dispatchEvent(new CustomEvent('order-form-success'));
     fetchOrders(1, pageLimit, searchTerm);
     loadCustomers();
+
+    if (newOrder) {
+      toast.success('Orden creada. Iniciando proceso de cobro...');
+      // Automatically open the processing wizard for the new order
+      handleOpenProcessingDrawer(newOrder);
+    }
   };
 
   return (
@@ -537,6 +564,24 @@ export function OrdersManagementV2() {
         onClose={handleCloseBillingDrawer}
         order={selectedOrderForBilling}
         onOrderUpdated={handleRefresh}
+      />
+
+      <OrderProcessingDrawer
+        isOpen={isProcessingDrawerOpen}
+        onClose={handleCloseProcessingDrawer}
+        order={selectedOrderForProcessing}
+        onUpdate={async () => {
+          handleRefresh();
+          // Re-fetch the specific order to update the prop
+          if (selectedOrderForProcessing?._id) {
+            try {
+              const updatedOrder = await fetchApi(`/orders/${selectedOrderForProcessing._id}`);
+              setSelectedOrderForProcessing(updatedOrder);
+            } catch (error) {
+              console.error('Error refreshing selected order:', error);
+            }
+          }
+        }}
       />
     </div>
   );

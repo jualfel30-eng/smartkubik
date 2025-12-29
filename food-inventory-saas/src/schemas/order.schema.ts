@@ -267,6 +267,7 @@ export class Order {
     bankAccountId?: Types.ObjectId;
     confirmedAt?: Date;
     confirmedMethod?: string;
+    igtf?: number;
   }>;
 
   @Prop({ type: String, required: true, default: "pending" })
@@ -409,6 +410,53 @@ export class Order {
     discountAmount: number;
     productsAffected: string[];
   }>;
+
+  // ========================================
+  // FULFILLMENT & DELIVERY
+  // ========================================
+
+  @Prop({
+    type: String,
+    enum: ['pending', 'picking', 'packed', 'in_transit', 'delivered', 'cancelled'],
+    default: 'pending'
+  })
+  fulfillmentStatus: string;
+
+  @Prop({
+    type: String,
+    enum: ['store', 'delivery_local', 'delivery_national', 'pickup'],
+    default: 'store'
+  })
+  fulfillmentType: string;
+
+  @Prop({ type: Date })
+  fulfillmentDate?: Date;
+
+  @Prop({ type: String })
+  trackingNumber?: string;
+
+  @Prop({ type: String })
+  deliveryNotes?: string;
+
+  @Prop({ type: Types.ObjectId, ref: "User" })
+  fulfilledBy?: Types.ObjectId;
+
+  // ========================================
+  // BILLING DOCUMENT LINK
+  // ========================================
+
+  @Prop({ type: Types.ObjectId, ref: "BillingDocument" })
+  billingDocumentId?: Types.ObjectId;
+
+  @Prop({ type: String })
+  billingDocumentNumber?: string;
+
+  @Prop({
+    type: String,
+    enum: ['none', 'invoice', 'delivery_note'],
+    default: 'none'
+  })
+  billingDocumentType: string;
 
   @Prop({ type: String, ref: "Tenant", required: true })
   tenantId: string;

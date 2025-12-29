@@ -438,6 +438,16 @@ export class OrderQueryDto {
   ])
   status?: string;
 
+  @ApiPropertyOptional({ description: "Estado de entrega (fulfillment)" })
+  @IsOptional()
+  @IsString()
+  fulfillmentStatus?: string;
+
+  @ApiPropertyOptional({ description: "Tipo de entrega" })
+  @IsOptional()
+  @IsEnum(["pickup", "delivery_local", "delivery_national", "store"])
+  fulfillmentType?: string;
+
   @ApiPropertyOptional({ description: "ID del cliente" })
   @IsOptional()
   @IsMongoId()

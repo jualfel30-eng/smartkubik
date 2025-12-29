@@ -16,11 +16,11 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
     if (isOpen) {
       if (payments.length === 0) {
         const defaultMethod = paymentMethods.find(pm => pm.id !== 'pago_mixto')?.id || '';
-        setPayments([{ 
-          id: Date.now(), 
+        setPayments([{
+          id: Date.now(),
           amount: totalAmount.toFixed(2), // Pre-llenar con el total
-          method: defaultMethod, 
-          reference: '' 
+          method: defaultMethod,
+          reference: ''
         }]);
       }
     } else {
@@ -29,9 +29,9 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
     }
   }, [isOpen, totalAmount, paymentMethods, payments.length]);
 
-  const totalPaid = useMemo(() => 
-    payments.reduce((sum, p) => sum + Number(p.amount || 0), 0), 
-  [payments]);
+  const totalPaid = useMemo(() =>
+    payments.reduce((sum, p) => sum + Number(p.amount || 0), 0),
+    [payments]);
 
   const remaining = totalAmount - totalPaid;
 
@@ -51,11 +51,16 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
   };
 
   const igtf = useMemo(() => {
+    console.log("DEBUG: PaymentMethods in Dialog:", paymentMethods);
     const foreignCurrencyAmount = payments
-      .filter(p => p.method.includes('_usd'))
+      .filter(p => {
+        const methodDef = paymentMethods.find(m => m.id === p.method);
+        console.log(`DEBUG: Checking method ${p.method}:`, methodDef);
+        return methodDef?.igtfApplicable;
+      })
       .reduce((sum, p) => sum + Number(p.amount || 0), 0);
     return foreignCurrencyAmount * 0.03;
-  }, [payments]);
+  }, [payments, paymentMethods]);
 
   const isSaveDisabled = useMemo(() => {
     if (payments.length === 0) return true;
@@ -85,7 +90,7 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
             Añada o ajuste las formas de pago para cubrir el total de la orden: ${totalAmount.toFixed(2)}
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="py-4 space-y-2 max-h-[60vh] overflow-y-auto">
           {payments.map((line) => (
             <div key={line.id} className="flex items-center gap-2 p-2 border rounded-lg">
@@ -104,11 +109,11 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
         <div className="p-4 bg-muted/50 rounded-lg space-y-2 text-sm">
           <div className="flex justify-between font-semibold"><span>Total Pagado:</span><span>${totalPaid.toFixed(2)}</span></div>
           <div className={`flex justify-between font-semibold ${remaining < -0.01 ? 'text-orange-500' : (remaining > 0.01 ? 'text-blue-500' : 'text-green-600')}`}>
-             <span>Restante:</span>
-             <span>${remaining.toFixed(2)}</span>
+            <span>Restante:</span>
+            <span>${remaining.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-orange-600"><span>IGTF (3% sobre monto en divisa):</span><span>${igtf.toFixed(2)}</span></div>
-           {isSaveDisabled && payments.length > 0 && (
+          {isSaveDisabled && payments.length > 0 && (
             <p className="text-xs text-red-600 text-center pt-2">
               El total pagado debe ser exactamente ${totalAmount.toFixed(2)}. Ajuste los montos para poder guardar.
             </p>

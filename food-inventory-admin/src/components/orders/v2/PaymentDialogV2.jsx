@@ -124,6 +124,18 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
     return methodId && methodId.includes('_ves');
   };
 
+  // Check if payment method requires IGTF (3% for USD payments)
+  const requiresIgtf = (methodId) => {
+    const igtfMethods = ['efectivo_usd', 'transferencia_usd', 'zelle_usd'];
+    return igtfMethods.includes(methodId);
+  };
+
+  // Calculate IGTF amount (3% of base amount)
+  const calculateIgtf = (amount, methodId) => {
+    if (!requiresIgtf(methodId)) return 0;
+    return amount * 0.03;
+  };
+
   // Filter bank accounts by selected payment method
   const filteredBankAccounts = useMemo(() => {
     if (!singlePayment.method) return [];
@@ -216,6 +228,17 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
       const rate = exchangeRate || (order?.totalAmountVes / order?.totalAmount) || 0;
       const safeRate = rate > 0 ? rate : null;
 
+      if (singlePayment.bankAccountId && !singlePayment.reference) {
+        toast.error('La referencia es obligatoria para pagos con cuenta bancaria.');
+        return;
+      }
+
+      const methodsRequiringReference = ["transferencia", "pago_movil", "pos", "zelle"];
+      if (methodsRequiringReference.some(m => singlePayment.method?.includes(m)) && !singlePayment.reference) {
+        toast.error('La referencia es obligatoria para este método de pago.');
+        return;
+      }
+
       if (isVes && !safeRate) {
         toast.error('No se pudo obtener la tasa BCV para calcular el monto en Bs.');
         return;
@@ -228,12 +251,18 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
           : (remainingAmountVes && remainingAmountVes > 0
             ? remainingAmountVes / rateForCalc
             : 0);
+
+      // Calculate IGTF for USD payments (3%) - ONLY FOR DISPLAY
+      const igtfAmount = requiresIgtf(singlePayment.method) && !isVes ? calculateIgtf(baseUSD, singlePayment.method) : 0;
+      const totalWithIgtf = baseUSD + igtfAmount;
+
+      // Send BASE amount to backend (without IGTF) - backend will calculate IGTF
       const amountVes = isVes
         ? (remainingAmountVes && remainingAmountVes > 0
           ? remainingAmountVes
           : baseUSD * rateForCalc)
-        : baseUSD * rateForCalc;
-      const amountUSD = isVes ? amountVes / rateForCalc : baseUSD;
+        : baseUSD * rateForCalc; // Use baseUSD, not totalWithIgtf
+      const amountUSD = isVes ? amountVes / rateForCalc : baseUSD; // Use baseUSD, not totalWithIgtf
 
       const singlePaymentPayload = {
         amount: amountUSD,
@@ -300,13 +329,12 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
 
     try {
       setIsSubmitting(true);
-      // Corrected endpoint based on backend controller
-      await fetchApi(`/orders/${order._id}/payments`, {
+      const response = await fetchApi(`/orders/${order._id}/payments`, {
         method: 'POST',
         body: JSON.stringify({ payments: paymentsPayload })
       });
       toast.success('Pago registrado con éxito');
-      onPaymentSuccess();
+      onPaymentSuccess(response.data);
       triggerRefresh();
     } catch (error) {
       console.error("Error submitting payment:", error);
@@ -384,20 +412,46 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                   Monto a Pagar
                 </Label>
                 <div className="col-span-3">
-                  <div className="p-3 bg-muted rounded-md">
-                    <p className="text-lg font-semibold">
-                      {isVesMethod(singlePayment.method)
-                        ? `Bs ${remainingAmountVes.toFixed(2)}`
-                        : `$${remainingAmount.toFixed(2)}`
-                      }
-                    </p>
-                    {singlePayment.method && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {isVesMethod(singlePayment.method)
-                          ? `≈ $${remainingAmount.toFixed(2)} USD`
-                          : `≈ Bs ${remainingAmountVes.toFixed(2)}`
-                        }
-                      </p>
+                  <div className="p-3 bg-muted rounded-md space-y-2">
+                    {requiresIgtf(singlePayment.method) && !isVesMethod(singlePayment.method) ? (
+                      <>
+                        <div className="flex justify-between text-sm">
+                          <span>Monto orden:</span>
+                          <span>${remainingAmount.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm text-orange-600">
+                          <span>IGTF (3%):</span>
+                          <span>${calculateIgtf(remainingAmount, singlePayment.method).toFixed(2)}</span>
+                        </div>
+                        <div className="pt-2 border-t">
+                          <div className="flex justify-between">
+                            <span className="font-semibold">Total a cobrar:</span>
+                            <span className="text-lg font-bold">
+                              ${(remainingAmount + calculateIgtf(remainingAmount, singlePayment.method)).toFixed(2)}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            ≈ Bs {((remainingAmount + calculateIgtf(remainingAmount, singlePayment.method)) * (exchangeRate || 1)).toFixed(2)}
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-lg font-semibold">
+                          {isVesMethod(singlePayment.method)
+                            ? `Bs ${remainingAmountVes.toFixed(2)}`
+                            : `$${remainingAmount.toFixed(2)}`
+                          }
+                        </p>
+                        {singlePayment.method && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {isVesMethod(singlePayment.method)
+                              ? `≈ $${remainingAmount.toFixed(2)} USD`
+                              : `≈ Bs ${remainingAmountVes.toFixed(2)}`
+                            }
+                          </p>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

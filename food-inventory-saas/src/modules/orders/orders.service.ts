@@ -75,7 +75,7 @@ export class OrdersService {
     private readonly inventoryMovementsService: InventoryMovementsService,
     private readonly eventEmitter: EventEmitter2,
     @InjectConnection() private readonly connection: Connection,
-  ) {}
+  ) { }
 
   async getPaymentMethods(user: any): Promise<any> {
     const tenant = await this.tenantModel.findById(user.tenantId);
@@ -148,9 +148,9 @@ export class OrdersService {
       const shouldUpdateLocation =
         !customer.primaryLocation ||
         customer.primaryLocation.coordinates?.lat !==
-          createOrderDto.customerLocation.coordinates?.lat ||
+        createOrderDto.customerLocation.coordinates?.lat ||
         customer.primaryLocation.coordinates?.lng !==
-          createOrderDto.customerLocation.coordinates?.lng;
+        createOrderDto.customerLocation.coordinates?.lng;
 
       if (shouldUpdateLocation) {
         await this.customerModel.findByIdAndUpdate(customer._id, {
@@ -834,8 +834,8 @@ export class OrdersService {
         attributes: item.attributes,
         attributeSummary: item.attributes
           ? Object.entries(item.attributes)
-              .map(([k, v]) => `${k}: ${v}`)
-              .join(" | ")
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(" | ")
           : undefined,
         quantity: item.quantity,
         selectedUnit: item.selectedUnit,
@@ -888,10 +888,10 @@ export class OrdersService {
       shipping:
         dto.shippingMethod || dto.shippingAddress
           ? {
-              method: dto.shippingMethod || "pickup",
-              address: dto.shippingAddress,
-              cost: shippingCost,
-            }
+            method: dto.shippingMethod || "pickup",
+            address: dto.shippingAddress,
+            cost: shippingCost,
+          }
           : undefined,
       notes: dto.notes,
       inventoryReservation: {
@@ -1388,66 +1388,45 @@ export class OrdersService {
       user.tenantId,
     );
 
-    // Guardar pagos en paymentRecords (compatibilidad)
-    const newPaymentRecords = bulkRegisterPaymentsDto.payments.map((p) => ({
-      method: p.method,
-      amount: p.amount,
-      amountVes: p.amountVes,
-      exchangeRate: p.exchangeRate,
-      currency: p.currency || "USD",
-      reference: p.reference || "",
-      date: new Date(p.date),
-      isConfirmed: p.isConfirmed || false,
-      bankAccountId: p.bankAccountId
-        ? new Types.ObjectId(p.bankAccountId)
-        : undefined,
-      confirmedAt: p.isConfirmed ? new Date() : undefined,
-      confirmedMethod: p.isConfirmed ? p.method : undefined,
-    }));
-
-    const mergedPaymentRecords = [
-      ...(order.paymentRecords || []),
-      ...newPaymentRecords,
-    ];
-
-    // Calcular paidAmount en USD y VES
-    const totalPaidUSD = mergedPaymentRecords.reduce(
-      (sum, p) => sum + (p.amount || 0),
-      0,
-    );
-    const totalPaidVES = mergedPaymentRecords.reduce(
-      (sum, p) => sum + (p.amountVes || 0),
-      0,
-    );
-    const paidAmount = totalPaidUSD;
-    const paidAmountVes = totalPaidVES;
-
-    // Actualizar paymentStatus
-    const wasNotPaidBefore = order.paymentStatus !== "paid";
-    const newPaymentStatus =
-      totalPaidUSD >= order.totalAmount
-        ? "paid"
-        : totalPaidUSD > 0
-          ? "partial"
-          : order.paymentStatus;
-
     // Doble escritura opcional a colección Payment (idempotencia ligera por referencia+method)
     const paymentIdsToAdd: Types.ObjectId[] = [];
+    const createdPaymentDocs: any[] = [];
+
     await Promise.all(
-      bulkRegisterPaymentsDto.payments.map(async (p) => {
+      bulkRegisterPaymentsDto.payments.map(async (p, index) => {
         try {
           const idempotencyKey =
             p.idempotencyKey ||
             (p.reference ? `${orderId}-${p.reference}` : undefined);
 
+          // Normalize Amounts
+          let usdAmount = p.amount;
+          let vesAmount = p.amountVes;
+          const rate = p.exchangeRate || 1;
+          const isVes = (p.currency === 'VES' || p.currency === 'Bs');
+
+          if (isVes) {
+            if (!vesAmount && usdAmount) {
+              vesAmount = usdAmount;
+              usdAmount = vesAmount / (rate > 0 ? rate : 1);
+            } else if (vesAmount && usdAmount === vesAmount) {
+              usdAmount = vesAmount / (rate > 0 ? rate : 1);
+            }
+
+          } else {
+            if (usdAmount && !vesAmount) {
+              vesAmount = usdAmount * rate;
+            }
+          }
+
           // Reusar PaymentsService para centralizar lógica e idempotencia
           const paymentDto: any = {
             paymentType: "sale",
             orderId: orderId,
-            date: p.date || new Date().toISOString(),
-            amount: p.amount,
-            amountVes: p.amountVes,
-            exchangeRate: p.exchangeRate,
+            date: p.date ? new Date(p.date).toISOString() : new Date().toISOString(),
+            amount: usdAmount,
+            amountVes: vesAmount,
+            exchangeRate: rate,
             method: p.method,
             currency: p.currency || "USD",
             reference: p.reference || "",
@@ -1463,7 +1442,7 @@ export class OrdersService {
               {
                 documentId: orderId,
                 documentType: "order",
-                amount: p.amount,
+                amount: usdAmount,
               },
             ],
             fees: p.igtf ? { igtf: p.igtf } : undefined,
@@ -1475,6 +1454,7 @@ export class OrdersService {
           );
           // Enlazar la referencia en la orden si no está
           paymentIdsToAdd.push(paymentDoc._id);
+          createdPaymentDocs.push(paymentDoc);
         } catch (err) {
           this.logger.warn(
             `No se pudo crear Payment de colección para orden ${orderId}: ${err.message}`,
@@ -1483,28 +1463,69 @@ export class OrdersService {
       }),
     );
 
-    // Si el pago está confirmado, actualizar el balance de la cuenta bancaria
-    for (const payment of bulkRegisterPaymentsDto.payments) {
-      if (payment.isConfirmed && payment.bankAccountId) {
-        const bankAccount = await this.bankAccountModel.findById(
-          payment.bankAccountId,
-        );
-        if (bankAccount) {
-          // Determinar el monto a sumar según la moneda de la cuenta
-          const amountToAdd =
-            bankAccount.currency === "VES"
-              ? payment.amountVes || 0
-              : payment.amount || 0;
+    // Build payment records from created Payment documents (with IGTF calculated by backend)
+    this.logger.log(`Created ${createdPaymentDocs.length} payment documents for order ${orderId}`);
 
-          bankAccount.currentBalance += amountToAdd;
-          await bankAccount.save();
+    const newPaymentRecords = createdPaymentDocs.map((paymentDoc) => {
+      const igtf = paymentDoc.fees?.igtf || 0;
+      this.logger.log(`Payment ${paymentDoc._id}: method=${paymentDoc.method}, amount=${paymentDoc.amount}, IGTF=${igtf}`);
 
-          this.logger.log(
-            `Updated bank account ${bankAccount._id} balance by ${amountToAdd} ${bankAccount.currency}`,
-          );
-        }
-      }
-    }
+      return {
+        method: paymentDoc.method,
+        amount: paymentDoc.amount,
+        amountVes: paymentDoc.amountVes,
+        exchangeRate: paymentDoc.exchangeRate,
+        currency: paymentDoc.currency || "USD",
+        reference: paymentDoc.reference || "",
+        date: paymentDoc.date,
+        isConfirmed: paymentDoc.status === "confirmed",
+        bankAccountId: paymentDoc.bankAccountId,
+        confirmedAt: paymentDoc.confirmedAt,
+        confirmedMethod: paymentDoc.status === "confirmed" ? paymentDoc.method : undefined,
+        igtf: igtf,
+      };
+    });
+
+    const mergedPaymentRecords = [
+      ...(order.paymentRecords || []),
+      ...newPaymentRecords,
+    ];
+
+    // Calcular paidAmount en USD y VES (incluyendo IGTF porque eso es lo que realmente pagó el cliente)
+    const totalPaidUSD = mergedPaymentRecords.reduce(
+      (sum, p) => sum + (p.amount || 0) + (p.igtf || 0),
+      0,
+    );
+    const totalPaidVES = mergedPaymentRecords.reduce(
+      (sum, p) => sum + (p.amountVes || 0),
+      0,
+    );
+    const paidAmount = totalPaidUSD;
+    const paidAmountVes = totalPaidVES;
+
+    // Actualizar paymentStatus
+    const wasNotPaidBefore = order.paymentStatus !== "paid";
+
+    // Calculate total IGTF from payment records
+    const totalIgtf = mergedPaymentRecords.reduce((sum, record) => {
+      return sum + (record.igtf || 0);
+    }, 0);
+
+    this.logger.log(`Total IGTF calculated for order ${orderId}: ${totalIgtf}`);
+
+    // Update order's total amount to include IGTF
+    const updatedTotalAmount = order.subtotal + order.ivaTotal + totalIgtf + (order.shippingCost || 0);
+
+    this.logger.log(`Order ${orderId} - Updated totals: subtotal=${order.subtotal}, IVA=${order.ivaTotal}, IGTF=${totalIgtf}, total=${updatedTotalAmount}`);
+
+    const newPaymentStatus =
+      totalPaidUSD >= updatedTotalAmount - 0.01 // Add small tolerance for float precision
+        ? "paid"
+        : totalPaidUSD > 0
+          ? "partial"
+          : order.paymentStatus;
+
+    // Removed manual bank account update loop to avoid double-counting (PaymentsService handles it)
 
     // Persistir cambios en la orden sin depender de versión del documento ya cargado
     const update: any = {
@@ -1512,6 +1533,8 @@ export class OrdersService {
       paidAmount,
       paidAmountVes,
       paymentStatus: newPaymentStatus,
+      igtfTotal: totalIgtf,
+      totalAmount: updatedTotalAmount,
       updatedBy: user.id,
     };
     const addToSet: any = {};
@@ -1598,10 +1621,13 @@ export class OrdersService {
     paymentIndex: number,
     bankAccountId: string,
     confirmedMethod: string,
-    tenantId: string,
+    user: any,
   ): Promise<OrderDocument> {
     this.logger.log(`Confirming payment ${paymentIndex} for order ${orderId}`);
-    const order = await this.orderModel.findById(orderId);
+    const tenantId = user.tenantId;
+
+    // 1. Fetch Order to validate existence and record
+    let order = await this.orderModel.findById(orderId);
     if (!order) {
       throw new NotFoundException("Orden no encontrada");
     }
@@ -1610,18 +1636,68 @@ export class OrdersService {
       throw new NotFoundException("Pago no encontrado");
     }
 
-    // Confirmar el pago
-    order.paymentRecords[paymentIndex].isConfirmed = true;
-    order.paymentRecords[paymentIndex].bankAccountId = new Types.ObjectId(
-      bankAccountId,
+    const paymentRecord = order.paymentRecords[paymentIndex];
+
+    // Normalize Amounts for Payments Service (Expects amount in USD and amountVes in VES)
+    let usdAmount = paymentRecord.amount;
+    let vesAmount = paymentRecord.amountVes;
+    const rate = paymentRecord.exchangeRate || 1;
+    const isVes = (paymentRecord.currency === 'VES' || paymentRecord.currency === 'Bs');
+
+    if (isVes) {
+      // If it's VES, and amountVes is missing but amount exists, assume amount is the VES value
+      if (!vesAmount && usdAmount) {
+        vesAmount = usdAmount;
+        usdAmount = vesAmount / (rate > 0 ? rate : 1);
+      } else if (vesAmount && usdAmount === vesAmount) {
+        // If both are equal and it's VES, assume they both hold VES value, so recalculate USD
+        usdAmount = vesAmount / (rate > 0 ? rate : 1);
+      }
+    } else {
+      // USD Case
+      if (usdAmount && !vesAmount) {
+        vesAmount = usdAmount * rate;
+      }
+    }
+
+    this.logger.log(`Creating payment: USD=${usdAmount}, VES=${vesAmount}, Rate=${rate}, Currency=${paymentRecord.currency}`);
+
+    // 2. Create the Real Payment Document via PaymentsService
+    // This triggers Bank Transaction creation and Accounting Entry automatically.
+    await this.paymentsService.create(
+      {
+        paymentType: "sale",
+        orderId: order._id.toString(),
+        amount: usdAmount,
+        amountVes: vesAmount,
+        currency: paymentRecord.currency || "USD",
+        method: confirmedMethod,
+        reference: paymentRecord.reference || "N/A",
+        bankAccountId: bankAccountId,
+        exchangeRate: rate,
+        date: new Date().toISOString(),
+        status: "confirmed",
+        // Force status confirmed since we are confirming it
+      },
+      user,
     );
-    order.paymentRecords[paymentIndex].confirmedMethod = confirmedMethod;
-    order.paymentRecords[paymentIndex].confirmedAt = new Date();
 
-    await order.save();
+    // 3. Reload order to get updates made by PaymentsService (it updates 'payments' array)
+    order = await this.orderModel.findById(orderId);
+    if (!order) {
+      throw new NotFoundException("Order not found after payment creation");
+    }
 
-    // TODO: Crear transacción bancaria (deposit)
-    // await this.bankTransactionsService.create(...)
+    // 4. Update the historical paymentRecord to mark it as processed/confirmed
+    if (order.paymentRecords && order.paymentRecords[paymentIndex]) {
+      order.paymentRecords[paymentIndex].isConfirmed = true;
+      order.paymentRecords[paymentIndex].bankAccountId = new Types.ObjectId(
+        bankAccountId,
+      );
+      order.paymentRecords[paymentIndex].confirmedMethod = confirmedMethod;
+      order.paymentRecords[paymentIndex].confirmedAt = new Date();
+      await order.save();
+    }
 
     return order;
   }
@@ -1773,6 +1849,20 @@ export class OrdersService {
     const andConditions: any[] = [];
 
     if (status) filter.status = status;
+
+    // NEW: Filter by fulfillment status (supports commma separated)
+    if (query.fulfillmentStatus) {
+      const statuses = query.fulfillmentStatus.split(',').map(s => s.trim());
+      if (statuses.length > 0) {
+        filter.fulfillmentStatus = { $in: statuses };
+      }
+    }
+
+    // NEW: Filter by fulfillment type
+    if (query.fulfillmentType) {
+      filter.fulfillmentType = query.fulfillmentType;
+    }
+
     if (customerId) filter.customerId = customerId;
     if (search) {
       const regex = new RegExp(this.escapeRegExp(search), "i");
@@ -1805,6 +1895,48 @@ export class OrdersService {
       page,
       limit,
     };
+  }
+
+  async updateFulfillmentStatus(
+    id: string,
+    status: string,
+    user: any,
+    notes?: string,
+    trackingNumber?: string
+  ): Promise<OrderDocument> {
+    const order = await this.orderModel.findOne({ _id: id, tenantId: user.tenantId });
+    if (!order) {
+      throw new NotFoundException('Orden no encontrada');
+    }
+
+    const previousStatus = order.fulfillmentStatus;
+
+    // Validate status transition (basic check)
+    // Pending -> Picking -> Packed -> In Transit -> Delivered
+
+    order.fulfillmentStatus = status;
+    if (notes) order.deliveryNotes = notes;
+    if (trackingNumber) order.trackingNumber = trackingNumber;
+
+    if (status === 'shipped' || status === 'in_transit') {
+      order.shippedAt = new Date();
+    } else if (status === 'delivered') {
+      (order as any).deliveredAt = new Date();
+      order.fulfillmentDate = new Date();
+    }
+
+    await order.save();
+
+    this.logger.log(`Order ${order.orderNumber} fulfillment status updated: ${previousStatus} -> ${status}`);
+
+    this.eventEmitter.emit('order.fulfillment.updated', {
+      order,
+      previousStatus,
+      newStatus: status,
+      tenantId: user.tenantId, // Pass context
+    });
+
+    return order;
   }
 
   private escapeRegExp(value: string): string {
@@ -2015,6 +2147,90 @@ export class OrdersService {
     }
   }
 
+  /**
+   * Complete order: Final step in OrderProcessingDrawer
+   * Validates that order is fully paid and invoiced, then marks as completed
+   */
+  async completeOrder(id: string, user: any): Promise<OrderDocument> {
+    const order = await this.orderModel.findOne({
+      _id: id,
+      tenantId: user.tenantId,
+    });
+
+    if (!order) {
+      throw new NotFoundException("Orden no encontrada");
+    }
+
+    // Validate order is fully paid
+    if (order.paymentStatus !== 'paid') {
+      throw new BadRequestException(
+        'La orden debe estar completamente pagada antes de completarla'
+      );
+    }
+
+    // Validate order has billing document (invoice)
+    if (!order.billingDocumentId || order.billingDocumentType === 'none') {
+      throw new BadRequestException(
+        'La orden debe tener una factura emitida antes de completarla'
+      );
+    }
+
+    // Fetch tenant settings for fulfillment strategy
+    const tenant = await this.tenantModel.findById(user.tenantId);
+    let strategy = tenant?.settings?.fulfillmentStrategy || 'logistics';
+
+    // Handle Hybrid Strategy (Auto-detect)
+    if (strategy === 'hybrid') {
+      const method = order.shipping?.method?.toLowerCase();
+      if (method === 'pickup' || method === 'retiro') {
+        strategy = 'counter';
+      } else if (method === 'delivery' || method === 'shipping' || method === 'envio') {
+        strategy = 'logistics';
+      } else {
+        strategy = 'immediate'; // POS / Presencial default
+      }
+    }
+
+    // Update order status based on strategy
+    if (strategy === 'immediate') {
+      // Supermarket/Retail: Done immediately
+      order.status = 'completed';
+      order.fulfillmentStatus = 'delivered';
+      order.fulfillmentDate = new Date();
+      (order as any).deliveredAt = new Date();
+    } else if (strategy === 'counter') {
+      // Counter/Pickup: Needs picking/packing immediately
+      order.status = 'confirmed';
+      order.fulfillmentStatus = 'picking';
+    } else {
+      // Logistics: Standard flow (Pending -> Picking...)
+      order.status = 'confirmed';
+      order.fulfillmentStatus = 'pending';
+    }
+
+    if (order.fulfillmentStatus === 'delivered') {
+      order.fulfillmentDate = new Date();
+      (order as any).deliveredAt = new Date();
+    }
+
+
+    await order.save();
+
+    this.logger.log(
+      `Order ${order.orderNumber} completed successfully by user ${user.id}. Strategy: ${strategy}`
+    );
+
+    // Initial fulfillment event
+    this.eventEmitter.emit('order.fulfillment.updated', {
+      order,
+      previousStatus: 'pending', // Implicit previous status
+      newStatus: order.fulfillmentStatus,
+      tenantId: user.tenantId,
+    });
+
+    return order;
+  }
+
   async cancelOrder(id: string, user: any): Promise<OrderDocument> {
     const order = await this.orderModel.findOne({
       _id: id,
@@ -2075,5 +2291,80 @@ export class OrdersService {
     });
 
     return order;
+  }
+
+  async fixHistoricPayments(user: any) {
+    const tenantId = user.tenantId;
+    this.logger.log(`Starting historic payments migration for tenant ${tenantId}`);
+
+    const orders = await this.orderModel.find({
+      tenantId,
+      "paymentRecords.isConfirmed": true,
+      $or: [
+        { payments: { $size: 0 } },
+        { payments: { $exists: false } },
+        { paidAmount: 0 }
+      ]
+    }).limit(500);
+
+    let fixedCount = 0;
+    const errors: any[] = [];
+
+    for (const order of orders) {
+      this.logger.log(`Processing historic order ${order.orderNumber}`);
+      try {
+        for (const record of order.paymentRecords || []) {
+          if (!record.isConfirmed) continue;
+
+          // Skip if looks like it has been processed (crude check)
+          // But since we filtered for empty payments/paidAmount=0, we should process all confirmed records.
+
+          // Normalize Amounts
+          let usdAmount = record.amount;
+          let vesAmount = record.amountVes;
+          const rate = record.exchangeRate || 1;
+          const isVes = (record.currency === 'VES' || record.currency === 'Bs');
+
+          if (isVes) {
+            if (!vesAmount && usdAmount) {
+              vesAmount = usdAmount;
+              usdAmount = vesAmount / (rate > 0 ? rate : 1);
+            } else if (vesAmount && usdAmount === vesAmount) {
+              usdAmount = vesAmount / (rate > 0 ? rate : 1);
+            }
+          } else {
+            if (usdAmount && !vesAmount) {
+              vesAmount = usdAmount * rate;
+            }
+          }
+
+          // Create Payment
+          await this.paymentsService.create({
+            paymentType: 'sale',
+            orderId: order._id.toString(),
+            amount: usdAmount,
+            amountVes: vesAmount,
+            currency: record.currency || 'USD',
+            method: record.confirmedMethod || record.method || 'unknown',
+            reference: record.reference || `MIG-${order.orderNumber}`,
+            bankAccountId: record.bankAccountId?.toString(),
+            exchangeRate: rate,
+            date: (record.confirmedAt || record.date || new Date()).toISOString(),
+            status: 'confirmed'
+          }, user);
+
+          fixedCount++;
+        }
+      } catch (e) {
+        this.logger.error(`Failed to fix order ${order.orderNumber}: ${e.message}`);
+        errors.push({ order: order.orderNumber, error: e.message });
+      }
+    }
+
+    return {
+      processed: orders.length,
+      fixed: fixedCount,
+      errors
+    };
   }
 }

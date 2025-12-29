@@ -27,6 +27,7 @@ import {
   OrderCalculationDto,
   BulkRegisterPaymentsDto,
 } from "../../dto/order.dto";
+import { UpdateFulfillmentDto } from "../../dto/fulfillment.dto";
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
@@ -41,7 +42,7 @@ import { Response } from "express";
 export class OrdersController {
   private readonly logger = new Logger(OrdersController.name);
 
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(private readonly ordersService: OrdersService) { }
 
   @Post()
   @Permissions("orders_create")
@@ -290,6 +291,25 @@ export class OrdersController {
     }
   }
 
+  @Post("fix-historic-payments")
+  @Permissions("orders_update")
+  @ApiOperation({ summary: "Generar documentos de pago para órdenes históricas confirmadas" })
+  async fixHistoricPayments(@Request() req) {
+    try {
+      const result = await this.ordersService.fixHistoricPayments(req.user);
+      return {
+        success: true,
+        message: "Migración de pagos históricos completada",
+        data: result,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error en migración",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   @Post(":id/confirm-payment")
   @Permissions("orders_update")
   @ApiOperation({ summary: "Confirmar un pago y asignar cuenta bancaria" })
@@ -310,7 +330,7 @@ export class OrdersController {
         confirmPaymentDto.paymentIndex,
         confirmPaymentDto.bankAccountId,
         confirmPaymentDto.confirmedMethod,
-        req.user.tenantId,
+        req.user,
       );
       return {
         success: true,
@@ -357,6 +377,26 @@ export class OrdersController {
     }
   }
 
+  @Post(":id/complete")
+  @Permissions("orders_update")
+  @ApiOperation({ summary: "Completar orden y finalizar proceso (actualizar inventario si es necesario)" })
+  @ApiResponse({ status: 200, description: "Orden completada exitosamente" })
+  async completeOrder(@Param("id") id: string, @Request() req) {
+    try {
+      const order = await this.ordersService.completeOrder(id, req.user);
+      return {
+        success: true,
+        message: "Orden completada exitosamente",
+        data: order,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al completar la orden",
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
   @Patch(":id/cancel")
   @Permissions("orders_update")
   @ApiOperation({ summary: "Cancelar una orden y revertir inventario" })
@@ -371,6 +411,36 @@ export class OrdersController {
     } catch (error) {
       throw new HttpException(
         error.message || "Error al cancelar la orden",
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+
+  @Patch(":id/fulfillment")
+  @Permissions("orders_update")
+  @ApiOperation({ summary: "Actualizar estado de entrega (fulfillment)" })
+  async updateFulfillment(
+    @Param("id") id: string,
+    @Body() body: UpdateFulfillmentDto,
+    @Request() req,
+  ) {
+    try {
+      const order = await this.ordersService.updateFulfillmentStatus(
+        id,
+        body.status,
+        req.user,
+        body.deliveryNotes,
+        body.trackingNumber,
+      );
+      return {
+        success: true,
+        message: "Estado de entrega actualizado",
+        data: order,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al actualizar estado de entrega",
         error.status || HttpStatus.BAD_REQUEST,
       );
     }

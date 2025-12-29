@@ -20,12 +20,20 @@ import { useAuth } from '@/hooks/use-auth.jsx';
 import { toast } from 'sonner';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group.jsx';
 import { BarcodeScannerDialog } from '@/components/BarcodeScannerDialog.jsx';
+import ProductGridView from './ProductGridView';
+import ProductSearchView from './ProductSearchView';
+import ProductListView from './ProductListView';
+import ViewSwitcher from './ViewSwitcher';
+import useTenantViewPreferences from '@/hooks/useTenantViewPreferences';
+import { OrderSidebar } from './OrderSidebar';
 
 const initialOrderState = {
   customerId: '',
   customerName: '',
   customerRif: '',
   taxType: 'V',
+  customerPhone: '',
+  customerAddress: '',
   items: [],
   deliveryMethod: 'pickup',
   notes: '',
@@ -51,8 +59,10 @@ export function NewOrderFormV2({ onOrderCreated }) {
   const { rate: bcvRate, loading: loadingRate, error: rateError } = useExchangeRate();
   const { tenant, hasPermission } = useAuth();
   const canApplyDiscounts = hasPermission('orders_apply_discounts');
+  const { preferences, loading: loadingPreferences, setViewType } = useTenantViewPreferences();
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [inventoryMap, setInventoryMap] = useState({});
   const [newOrder, setNewOrder] = useState(initialOrderState);
   const [municipios, setMunicipios] = useState([]);
   const [showModifierSelector, setShowModifierSelector] = useState(false);
@@ -297,6 +307,19 @@ export function NewOrderFormV2({ onOrderCreated }) {
         console.log('🔑 [NewOrderForm] Unique product IDs from inventory:', productIds.length);
         console.log('🔑 [NewOrderForm] Sample product IDs:', productIds.slice(0, 5));
 
+        // Create inventory map for product quantities
+        const invMap = {};
+        availableInventories.forEach(inv => {
+          let productId;
+          if (typeof inv.productId === 'object' && inv.productId !== null) {
+            productId = inv.productId._id ? String(inv.productId._id) : (inv.productId.$oid || String(inv.productId));
+          } else {
+            productId = String(inv.productId);
+          }
+          invMap[productId] = (invMap[productId] || 0) + (inv.availableQuantity || 0);
+        });
+        setInventoryMap(invMap);
+
         // Load ALL products with pagination and rate limiting delay
         if (productIds.length > 0) {
           // Add initial delay before first products request to avoid rate limiting
@@ -444,12 +467,18 @@ export function NewOrderFormV2({ onOrderCreated }) {
           rifNumber = parts.slice(1).join('-');
         }
 
+        // Get phone and address from customer
+        const phone = customer.phones && customer.phones.length > 0 ? customer.phones[0].number : '';
+        const address = customer.addresses && customer.addresses.length > 0 ? customer.addresses[0].street : '';
+
         setNewOrder(prev => ({
           ...prev,
           customerId: customer._id,
           customerName: customer.name,
           customerRif: rifNumber,
           taxType: taxType,
+          customerPhone: phone,
+          customerAddress: address,
           customerLocation: customer.primaryLocation || null,
           useExistingLocation: !!customer.primaryLocation
         }));
@@ -478,12 +507,18 @@ export function NewOrderFormV2({ onOrderCreated }) {
           rifNumber = parts.slice(1).join('-');
         }
 
+        // Get phone and address from customer
+        const phone = customer.phones && customer.phones.length > 0 ? customer.phones[0].number : '';
+        const address = customer.addresses && customer.addresses.length > 0 ? customer.addresses[0].street : '';
+
         setNewOrder(prev => ({
           ...prev,
           customerId: customer._id,
           customerName: customer.name,
           customerRif: rifNumber,
           taxType: taxType,
+          customerPhone: phone,
+          customerAddress: address,
           customerLocation: customer.primaryLocation || null,
           useExistingLocation: !!customer.primaryLocation
         }));
@@ -511,6 +546,22 @@ export function NewOrderFormV2({ onOrderCreated }) {
         value: newOrder.customerId || newOrder.customerRif,
         label: fullRifDisplay
       };
+    }
+    return null;
+  };
+
+  const handleCustomerAddressSelection = (selectedOption) => {
+    if (selectedOption) {
+      const addressValue = selectedOption.__isNew__ ? selectedOption.value : selectedOption.value;
+      setNewOrder(prev => ({ ...prev, customerAddress: addressValue }));
+    } else {
+      setNewOrder(prev => ({ ...prev, customerAddress: '' }));
+    }
+  };
+
+  const getCustomerAddressValue = () => {
+    if (newOrder.customerAddress) {
+      return { value: newOrder.customerAddress, label: newOrder.customerAddress };
     }
     return null;
   };
@@ -1076,7 +1127,8 @@ export function NewOrderFormV2({ onOrderCreated }) {
       }),
     };
     try {
-      await fetchApi('/orders', { method: 'POST', body: JSON.stringify(payload) });
+      const response = await fetchApi('/orders', { method: 'POST', body: JSON.stringify(payload) });
+      const createdOrder = response.data || response;
       alert('¡Orden creada con éxito!');
       setNewOrder(initialOrderState);
       setCustomerNameInput('');
@@ -1084,7 +1136,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
       setProductSearchInput('');
       setSelectedTable('none');
       if (onOrderCreated) {
-        onOrderCreated();
+        onOrderCreated(createdOrder);
       }
     } catch (error) {
       console.error('Error creating order:', error);
@@ -1113,6 +1165,23 @@ export function NewOrderFormV2({ onOrderCreated }) {
         customer: customer,
       }));
   }, [customers, customerSearchResults]);
+
+  const addressOptions = useMemo(() => {
+    const addressSet = new Set();
+    customers.forEach(customer => {
+      if (customer.addresses && customer.addresses.length > 0) {
+        customer.addresses.forEach(addr => {
+          if (addr.street) {
+            addressSet.add(addr.street);
+          }
+        });
+      }
+    });
+    return Array.from(addressSet).map(address => ({
+      value: address,
+      label: address,
+    }));
+  }, [customers]);
 
   const totals = useMemo(() => {
     const subtotal = newOrder.items.reduce((sum, item) => {
@@ -1171,18 +1240,18 @@ export function NewOrderFormV2({ onOrderCreated }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>RIF / C.I.</Label>
-              <div className="flex items-center gap-1">
-                <div className="w-[70px] flex-shrink-0">
-                  <Select value={newOrder.taxType} onValueChange={(value) => handleFieldChange('taxType', value)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="V">V</SelectItem>
-                      <SelectItem value="E">E</SelectItem>
-                      <SelectItem value="J">J</SelectItem>
-                      <SelectItem value="G">G</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="flex items-center border border-input rounded-md">
+                <Select value={newOrder.taxType} onValueChange={(value) => handleFieldChange('taxType', value)}>
+                  <SelectTrigger className="w-[70px] !h-10 !min-h-10 !py-2 rounded-l-md rounded-r-none !border-0 !border-r !border-input focus:z-10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="V">V</SelectItem>
+                    <SelectItem value="E">E</SelectItem>
+                    <SelectItem value="J">J</SelectItem>
+                    <SelectItem value="G">G</SelectItem>
+                  </SelectContent>
+                </Select>
                 <div className="flex-grow">
                   <SearchableSelect
                     options={rifOptions}
@@ -1192,6 +1261,7 @@ export function NewOrderFormV2({ onOrderCreated }) {
                     value={getCustomerRifValue()}
                     placeholder="Escriba para buscar RIF..."
                     isLoading={isSearchingCustomers}
+                    customControlClass="flex h-10 w-full rounded-l-none rounded-r-md !border-0 bg-input-background px-3 py-2 text-sm ring-offset-background"
                   />
                 </div>
               </div>
@@ -1206,6 +1276,27 @@ export function NewOrderFormV2({ onOrderCreated }) {
                 value={getCustomerNameValue()}
                 placeholder="Escriba para buscar cliente..."
                 isLoading={isSearchingCustomers}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="customerAddress">Dirección</Label>
+              <SearchableSelect
+                options={addressOptions}
+                onSelection={handleCustomerAddressSelection}
+                value={getCustomerAddressValue()}
+                placeholder="Escriba la dirección..."
+                isCreatable={true}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="customerPhone">Teléfono</Label>
+              <Input
+                id="customerPhone"
+                value={newOrder.customerPhone || ''}
+                onChange={(e) => handleFieldChange('customerPhone', e.target.value)}
+                placeholder="04141234567"
               />
             </div>
           </div>
@@ -1345,76 +1436,96 @@ export function NewOrderFormV2({ onOrderCreated }) {
         )}
 
         <div className="p-4 border rounded-lg space-y-4">
-            <Label className="text-base font-semibold">Productos</Label>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-              <div className="flex-grow min-w-0">
-                <SearchableSelect
-                  options={products.map(p => ({
-                    value: p._id,
-                    label: `${p.name} (${p.sku || 'N/A'})`,
-                    product: p,
-                  }))}
-                  onSelection={handleProductSelection}
-                  inputValue={productSearchInput}
-                  onInputChange={(value) => setProductSearchInput(value)}
-                  value={null}
-                  placeholder={loadingProducts ? "Cargando productos..." : "Buscar y añadir producto..."}
-                  isDisabled={loadingProducts}
-                />
-              </div>
-              <div className="flex w-full flex-col gap-2 sm:w-[360px]">
-                <Label className="text-sm text-muted-foreground">Escanear / código de barras</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={barcodeSearch}
-                    onChange={(e) => setBarcodeSearch(e.target.value)}
-                    onKeyDown={handleBarcodeInputKeyDown}
-                    ref={barcodeInputRef}
-                    placeholder="Escanea aquí o pega el código"
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setIsBarcodeScannerOpen(true)}
-                    title="Escanear con cámara"
-                  >
-                    <Scan className="h-4 w-4" />
-                    <span className="sr-only">Abrir escáner</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleBarcodeLookup()}
-                    disabled={!barcodeSearch.trim()}
-                  >
-                    Agregar
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={continuousScan ? "secondary" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      const next = !continuousScan;
-                      setContinuousScan(next);
-                      setIsBarcodeScannerOpen(next);
-                      if (next) {
-                        barcodeInputRef.current?.focus();
-                      }
-                    }}
-                    title="Modo escáner continuo (mantiene cámara abierta)"
-                  >
-                    <Scan className="h-4 w-4 mr-2" />
-                    {continuousScan ? "Escáner activo" : "Escáner en vivo"}
-                  </Button>
-                </div>
-                {isBarcodeLookup && (
-                  <span className="text-xs text-blue-600 dark:text-blue-300">Buscando producto por código...</span>
-                )}
-              </div>
+            <div className="flex items-center justify-between mb-4">
+              <Label className="text-base font-semibold">Productos</Label>
+              <ViewSwitcher
+                currentView={preferences.productViewType}
+                onViewChange={setViewType}
+              />
             </div>
+
+            {preferences.productViewType === 'search' ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                <div className="flex-grow min-w-0">
+                  <ProductSearchView
+                    products={products}
+                    onProductSelect={handleProductSelection}
+                    isLoading={loadingProducts}
+                    searchInput={productSearchInput}
+                    onSearchInputChange={(value) => setProductSearchInput(value)}
+                    inventoryMap={inventoryMap}
+                  />
+                </div>
+                <div className="flex w-full flex-col gap-2 sm:w-[360px]">
+                  <Label className="text-sm text-muted-foreground">Escanear / código de barras</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={barcodeSearch}
+                      onChange={(e) => setBarcodeSearch(e.target.value)}
+                      onKeyDown={handleBarcodeInputKeyDown}
+                      ref={barcodeInputRef}
+                      placeholder="Escanea aquí o pega el código"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setIsBarcodeScannerOpen(true)}
+                      title="Escanear con cámara"
+                    >
+                      <Scan className="h-4 w-4" />
+                      <span className="sr-only">Abrir escáner</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleBarcodeLookup()}
+                      disabled={!barcodeSearch.trim()}
+                    >
+                      Agregar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={continuousScan ? "secondary" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        const next = !continuousScan;
+                        setContinuousScan(next);
+                        setIsBarcodeScannerOpen(next);
+                        if (next) {
+                          barcodeInputRef.current?.focus();
+                        }
+                      }}
+                      title="Modo escáner continuo (mantiene cámara abierta)"
+                    >
+                      <Scan className="h-4 w-4 mr-2" />
+                      {continuousScan ? "Escáner activo" : "Escáner en vivo"}
+                    </Button>
+                  </div>
+                  {isBarcodeLookup && (
+                    <span className="text-xs text-blue-600 dark:text-blue-300">Buscando producto por código...</span>
+                  )}
+                </div>
+              </div>
+            ) : preferences.productViewType === 'list' ? (
+              <ProductListView
+                products={products}
+                onProductSelect={handleProductSelection}
+                inventoryMap={inventoryMap}
+              />
+            ) : (
+              <ProductGridView
+                products={products}
+                onProductSelect={handleProductSelection}
+                gridColumns={preferences.gridColumns}
+                showImages={preferences.showProductImages}
+                showDescription={preferences.showProductDescription}
+                enableCategoryFilter={preferences.enableCategoryFilter}
+                inventoryMap={inventoryMap}
+              />
+            )}
             <div className="border rounded-lg mt-4"><Table><TableHeader><TableRow><TableHead>Producto</TableHead><TableHead className="w-24">Cant.</TableHead><TableHead className="w-32">Unidad</TableHead><TableHead>Precio Unit.</TableHead><TableHead>Total</TableHead>{canApplyDiscounts && <TableHead className="w-28 text-center">Descuentos</TableHead>}<TableHead className="w-20 text-center">Borrar</TableHead></TableRow></TableHeader><TableBody>
               {newOrder.items.length > 0 ? (
                 newOrder.items.map(item => (
