@@ -12,6 +12,8 @@ import { NotificationsService } from "./notifications.service";
 import { NotificationTemplateLoader } from "./templates/notification-template.loader";
 import { CustomersModule } from "../customers/customers.module";
 
+import { NotificationsListener } from "./notifications.listener";
+
 @Module({
   imports: [
     ConfigModule,
@@ -23,7 +25,7 @@ import { CustomersModule } from "../customers/customers.module";
       { name: GlobalSetting.name, schema: GlobalSettingSchema },
     ]),
   ],
-  providers: [NotificationsService, NotificationTemplateLoader],
+  providers: [NotificationsService, NotificationTemplateLoader, NotificationsListener],
   exports: [NotificationsService],
 })
-export class NotificationsModule {}
+export class NotificationsModule { }
