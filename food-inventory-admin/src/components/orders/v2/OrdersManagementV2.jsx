@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { fetchApi, getTenantSettings } from '@/lib/api';
 import { OrdersDataTableV2 } from './OrdersDataTableV2';
 import { Badge } from "@/components/ui/badge";
-import { NewOrderFormV2 } from './NewOrderFormV2';
+import { NewOrderFormV3 } from './NewOrderFormV3';
 import { PaymentDialogV2 } from './PaymentDialogV2';
 import { OrderStatusSelector } from './OrderStatusSelector';
 import { OrderDetailsDialog } from './OrderDetailsDialog';
@@ -453,7 +453,7 @@ export function OrdersManagementV2() {
         </div>
       </div>
 
-      <NewOrderFormV2 onOrderCreated={handleOrderCreated} />
+      <NewOrderFormV3 onOrderCreated={handleOrderCreated} />
 
       <Card>
         <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
