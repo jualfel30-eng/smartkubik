@@ -11,6 +11,9 @@ export class DocumentSequence {
   @Prop({ type: String, required: true })
   scope: "tenant" | "sucursal" | "caja";
 
+  @Prop({ type: String, required: true, enum: ["invoice", "credit_note", "debit_note", "delivery_note", "quote"] })
+  type: "invoice" | "credit_note" | "debit_note" | "delivery_note" | "quote";
+
   @Prop({ type: String })
   prefix?: string;
 
@@ -34,6 +37,9 @@ export class DocumentSequence {
 
   @Prop({ type: String, ref: "Tenant", required: true })
   tenantId: string;
+
+  @Prop({ type: Boolean, default: false })
+  isDefault: boolean;
 }
 
 export const DocumentSequenceSchema =

@@ -36,6 +36,42 @@ export class CreateBillingDocumentDto {
   @IsOptional()
   @IsString()
   customerTaxId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  customerData?: {
+    address?: string;
+    email?: string;
+    phone?: string;
+  };
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  items?: any[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  totals?: any;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  paymentMethod?: string; // e.g. 'cash', 'card'
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  currency?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  exchangeRate?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  issueDate?: Date;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  relatedOrderId?: string;
 }
 
 export class IssueBillingDocumentDto {

@@ -52,12 +52,12 @@ export class SeniatStatsDto {
 
   @ApiPropertyOptional({
     description: 'Filter by document type',
-    enum: ['invoice', 'credit_note', 'debit_note', 'all'],
+    enum: ['invoice', 'credit_note', 'debit_note', 'delivery_note', 'quote', 'all'],
     default: 'all',
   })
   @IsOptional()
-  @IsEnum(['invoice', 'credit_note', 'debit_note', 'all'])
-  documentType?: 'invoice' | 'credit_note' | 'debit_note' | 'all';
+  @IsEnum(['invoice', 'credit_note', 'debit_note', 'delivery_note', 'quote', 'all'])
+  documentType?: 'invoice' | 'credit_note' | 'debit_note' | 'delivery_note' | 'quote' | 'all';
 }
 
 /**

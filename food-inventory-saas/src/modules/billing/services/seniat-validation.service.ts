@@ -131,7 +131,7 @@ export class SeniatValidationService {
       errors.push('Número de documento es requerido');
     }
 
-    if (!invoice.documentDate) {
+    if (!invoice.issueDate && !(invoice as any).createdAt) {
       errors.push('Fecha de documento es requerida');
     }
 
@@ -142,21 +142,21 @@ export class SeniatValidationService {
     }
 
     // 3. Customer information
-    if (!invoice.customerId) {
+    if (!invoice.customer) {
       errors.push('Cliente es requerido');
     }
 
-    if (!invoice.customerInfo) {
+    if (!invoice.customer) {
       errors.push('Información del cliente es requerida');
     } else {
-      if (!invoice.customerInfo.name) {
+      if (!invoice.customer.name) {
         errors.push('Nombre del cliente es requerido');
       }
 
       // Validate customer RIF if amount is above threshold
       const customerTaxValidation = this.validateCustomerTaxInfo(invoice);
       if (!customerTaxValidation.valid) {
-        errors.push(customerTaxValidation.message);
+        errors.push(customerTaxValidation.message || 'Error de validación de RIF');
       }
     }
 
@@ -262,17 +262,18 @@ export class SeniatValidationService {
         return false;
       }
 
-      // Validate tax calculation (assuming IVA rate from taxAmount)
-      if (invoice.taxAmount > 0) {
-        const taxableBase = invoice.subtotalAmount - (invoice.discountAmount || 0);
+      // Validate tax calculation (assuming IVA rate from totals)
+      const taxTotal = invoice.totals?.taxes?.reduce((sum, tax) => sum + (tax.amount || 0), 0) || 0;
+      if (taxTotal > 0) {
+        const taxableBase = (invoice.totals?.subtotal || 0) - (invoice.totals?.discounts || 0);
         // Most common IVA rate in Venezuela is 16%
         const expectedTax = taxableBase * 0.16;
-        const taxDiff = Math.abs(expectedTax - invoice.taxAmount);
+        const taxDiff = Math.abs(expectedTax - taxTotal);
 
         // Allow 5% difference for different tax rates
         if (taxDiff > taxableBase * 0.05) {
           this.logger.warn(
-            `Tax amount seems unusual: ${invoice.taxAmount} for base ${taxableBase}`,
+            `Tax amount seems unusual: ${taxTotal} for base ${taxableBase}`,
           );
           // Don't fail validation, just warn
         }
@@ -324,10 +325,11 @@ export class SeniatValidationService {
     message?: string;
   } {
     // If total amount is above threshold, customer MUST have RIF
-    if (invoice.totalAmount >= this.RIF_REQUIRED_THRESHOLD) {
+    const totalAmount = invoice.totals?.grandTotal || 0;
+    if (totalAmount >= this.RIF_REQUIRED_THRESHOLD) {
       if (
-        !invoice.customerInfo?.taxId ||
-        invoice.customerInfo.taxId.trim() === ''
+        !invoice.customer?.taxId ||
+        invoice.customer.taxId.trim() === ''
       ) {
         return {
           valid: false,
@@ -336,7 +338,7 @@ export class SeniatValidationService {
       }
 
       // Validate RIF format
-      const rifValidation = this.validateRIF(invoice.customerInfo.taxId);
+      const rifValidation = this.validateRIF(invoice.customer.taxId);
       if (!rifValidation.valid) {
         return {
           valid: false,
@@ -367,26 +369,29 @@ export class SeniatValidationService {
 
     // 2. Validate control number (if issued)
     if (invoice.status === 'issued') {
-      if (!this.validateControlNumber(invoice.controlNumber)) {
+      if (invoice.controlNumber && !this.validateControlNumber(invoice.controlNumber)) {
         allErrors.push('Número de control fiscal inválido');
       }
     }
 
     // 3. Additional SENIAT-specific validations
     // Check that document is not too old (SENIAT has time limits)
-    const documentAge = this.getDocumentAgeDays(invoice.documentDate);
-    if (documentAge > 90) {
-      allWarnings.push(
-        `Documento tiene ${documentAge} días de antigüedad. SENIAT puede rechazar documentos muy antiguos.`,
-      );
+    const documentDate = invoice.issueDate || (invoice as any).createdAt;
+    if (documentDate) {
+      const documentAge = this.getDocumentAgeDays(documentDate);
+      if (documentAge > 90) {
+        allWarnings.push(
+          `Documento tiene ${documentAge} días de antigüedad. SENIAT puede rechazar documentos muy antiguos.`,
+        );
+      }
     }
 
     // 4. Validate withholding agent information (if applicable)
     if (invoice.requiresIvaWithholding) {
       // Customer should be registered as withholding agent
       if (
-        !invoice.customerInfo?.taxId ||
-        invoice.customerInfo.taxId.trim() === ''
+        !invoice.customer?.taxId ||
+        invoice.customer.taxId.trim() === ''
       ) {
         allErrors.push(
           'Cliente con retención de IVA debe tener RIF registrado',

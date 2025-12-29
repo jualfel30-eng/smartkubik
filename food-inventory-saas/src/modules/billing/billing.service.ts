@@ -44,12 +44,13 @@ export class BillingService {
     private auditModel: Model<BillingAuditLog>,
     @InjectModel(TaxSettings.name)
     private taxSettingsModel: Model<TaxSettings>,
+    @InjectModel('Order') private orderModel: Model<any>,
     private readonly numberingService: NumberingService,
     private readonly imprentaProvider: ImprentaDigitalProvider,
     private readonly eventEmitter: EventEmitter2,
     private readonly seniatValidation: SeniatValidationService,
     private readonly seniatExport: SeniatExportService,
-  ) {}
+  ) { }
 
   async getById(id: string, tenantId: string) {
     return this.billingModel.findOne({ _id: id, tenantId }).lean();
@@ -63,6 +64,24 @@ export class BillingService {
     if (!series) {
       throw new NotFoundException("Serie no encontrada");
     }
+
+    // FISCAL VALIDATION: One Order = One Invoice (maximum)
+    if (dto.type === 'invoice' && dto.relatedOrderId) {
+      const existingInvoice = await this.billingModel.findOne({
+        'references.orderId': dto.relatedOrderId,
+        type: 'invoice',
+        status: { $in: ['issued', 'validated', 'draft'] },
+        tenantId,
+      });
+
+      if (existingInvoice) {
+        throw new BadRequestException(
+          `Esta orden ya tiene una factura asociada (${existingInvoice.documentNumber}). ` +
+          `Una orden solo puede tener una factura según regulaciones fiscales de Venezuela.`
+        );
+      }
+    }
+
     const documentNumber = await this.numberingService.getNextNumber(
       series,
       tenantId,
@@ -93,10 +112,19 @@ export class BillingService {
       customer: {
         name: dto.customerName || original?.customer?.name,
         taxId: dto.customerTaxId || original?.customer?.taxId,
+        address: dto.customerData?.address || original?.customer?.address,
+        email: dto.customerData?.email || original?.customer?.email,
+        phone: dto.customerData?.phone || original?.customer?.phone,
       },
+      items: dto.items,
+      totals: dto.totals,
+      currency: dto.currency,
+      exchangeRate: dto.exchangeRate,
+      paymentMethod: dto.paymentMethod,
+      issueDate: dto.issueDate,
       references: dto.originalDocumentId
-        ? { originalDocumentId: dto.originalDocumentId }
-        : undefined,
+        ? { originalDocumentId: dto.originalDocumentId, orderId: dto.relatedOrderId }
+        : { orderId: dto.relatedOrderId },
       tenantId,
     });
     await billing.save();
@@ -229,6 +257,34 @@ export class BillingService {
       total,
       taxes: doc.totals?.taxes || [],
     });
+
+    // Update order with billing document reference
+    if (doc.references?.orderId && (doc.type === 'invoice' || doc.type === 'delivery_note')) {
+      try {
+        const orderId = doc.references.orderId;
+        const result = await this.orderModel.updateOne(
+          { _id: orderId }, // Removed tenantId from filter to avoid potential mismatches, relying on _id unicity or service context
+          {
+            $set: {
+              billingDocumentId: doc._id,
+              billingDocumentNumber: doc.documentNumber,
+              billingDocumentType: doc.type,
+            },
+          },
+        );
+
+        if (result.modifiedCount > 0) {
+          this.logger.log(`Updated Order ${orderId} with Invoice ${doc.documentNumber} (${doc._id})`);
+        } else {
+          this.logger.warn(`Failed to update Order ${orderId}: Order not found or already modified. Filter: {_id: ${orderId}}`);
+        }
+      } catch (error) {
+        this.logger.error(
+          `CRITICAL: Failed to update order ${doc.references.orderId} with billing info: ${error.message}`,
+          error.stack
+        );
+      }
+    }
 
     return doc;
   }
@@ -485,11 +541,96 @@ export class BillingService {
   }
 
   /**
+   * List billing documents with filters
+   * @param filters - Filters for documents
+   * @param tenantId - Tenant ID
+   * @returns List of billing documents
+   */
+  async listDocuments(
+    filters: {
+      startDate?: string;
+      endDate?: string;
+      status?: string;
+      documentType?: string;
+    },
+    tenantId: string,
+  ): Promise<BillingDocumentDocument[]> {
+    this.logger.debug('Listing billing documents');
+
+    const query: any = { tenantId };
+
+    if (filters.startDate || filters.endDate) {
+      const startDate = filters.startDate
+        ? new Date(filters.startDate)
+        : new Date(new Date().getFullYear(), 0, 1);
+      const endDate = filters.endDate
+        ? new Date(filters.endDate)
+        : new Date();
+
+      query.$or = [
+        { issueDate: { $gte: startDate, $lte: endDate } },
+        { createdAt: { $gte: startDate, $lte: endDate } }
+      ];
+    }
+
+    if (filters.status && filters.status !== 'all') {
+      query.status = filters.status;
+    }
+
+    if (filters.documentType && filters.documentType !== 'all') {
+      query.type = filters.documentType;
+    }
+
+    const documents = await this.billingModel
+      .find(query)
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean()
+      .exec();
+
+    this.logger.log(`Found ${documents.length} billing documents`);
+
+    return documents;
+  }
+
+  /**
    * Get statistics for electronic invoices
    * @param filters - Filters for statistics
    * @param tenantId - Tenant ID
    * @returns Electronic invoice statistics
    */
+  async getActiveSequences(tenantId: string): Promise<DocumentSequenceDocument[]> {
+    this.logger.log(`Fetching active sequences for tenant: ${tenantId}`);
+    const sequences = await this.sequenceModel
+      .find({ tenantId, status: 'active' })
+      .sort({ name: 1 })
+      .exec();
+    this.logger.log(`Found ${sequences.length} active sequences: ${JSON.stringify(sequences.map(s => ({ id: s._id, name: s.name, type: s.type })))}`);
+    return sequences;
+  }
+
+  async getAllSequences(tenantId: string): Promise<DocumentSequenceDocument[]> {
+    return this.sequenceModel
+      .find({ tenantId })
+      .sort({ name: 1 })
+      .exec();
+  }
+
+  async createSequence(dto: any, tenantId: string): Promise<DocumentSequenceDocument> {
+    const sequence = new this.sequenceModel({
+      name: dto.name,
+      scope: dto.scope || 'tenant',
+      type: dto.type,
+      prefix: dto.prefix || '',
+      currentNumber: dto.startNumber || 1,
+      channel: dto.channel || 'digital',
+      status: 'active',
+      tenantId,
+      isDefault: dto.isDefault || false,
+    });
+    return sequence.save();
+  }
+
   async getElectronicInvoiceStats(
     filters: {
       startDate?: string;
@@ -661,7 +802,145 @@ export class BillingService {
 
   private mapDocumentLines(doc: BillingDocumentDocument): any[] {
     // If lines are stored in doc, map them
-    // Otherwise return empty array (will need to be populated from related documents)
+    if (doc.items && doc.items.length > 0) {
+      return doc.items.map(item => ({
+        name: item.description,
+        quantity: item.quantity,
+        price: item.unitPrice,
+        taxRate: item.tax?.rate || 0,
+        amount: item.total
+      }));
+    }
     return [];
+  }
+
+  async repairInvoices(tenantId: string) {
+    this.logger.log(`Starting invoice repair for tenant ${tenantId}`);
+
+    // Find docs with no items or 0 total
+    const brokenDocs = await this.billingModel.find({
+      tenantId,
+      $or: [{ items: { $size: 0 } }, { items: { $exists: false } }]
+    });
+
+    this.logger.log(`Found ${brokenDocs.length} potential broken invoices`);
+    let repairedCount = 0;
+
+    for (const doc of brokenDocs) {
+      let order: any = null;
+
+      // 1. Try direct link (if exists)
+      if (doc.references?.orderId) {
+        order = await this.orderModel.findOne({ _id: doc.references.orderId, tenantId }).lean();
+      }
+
+      // 2. If no direct link, try HEURISTIC MATCHING
+      if (!order) {
+        let potentialOrders: any[] = [];
+
+        // Window: Invoice CreatedAt - 2 hours to Invoice CreatedAt + 5 mins
+        const invoiceDate = new Date(doc.createdAt);
+        const twoHoursAgo = new Date(invoiceDate.getTime() - 2 * 60 * 60 * 1000);
+        const fiveMinsAfter = new Date(invoiceDate.getTime() + 5 * 60 * 1000);
+
+        // A. Match by Name (if exists)
+        if (doc.customer?.name) {
+          const searchName = doc.customer.name.trim(); // regex is case insensitive below
+          potentialOrders = await this.orderModel.find({
+            tenantId,
+            $or: [
+              { customerName: { $regex: new RegExp(searchName, 'i') } },
+              { 'customer.name': { $regex: new RegExp(searchName, 'i') } }
+            ],
+            createdAt: { $gte: twoHoursAgo, $lte: fiveMinsAfter }
+          }).sort({ createdAt: -1 }).lean() as any[];
+
+          if (potentialOrders.length > 0) {
+            this.logger.log(`Heuristic (Name): Matched Invoice ${doc.documentNumber} to Order ${potentialOrders[0].orderNumber} (${searchName})`);
+          }
+        }
+
+        // B. Fallback: Match by Time Only (if no name match found yet)
+        if (potentialOrders.length === 0) {
+          // Find ANY order in the window
+          const timeCandidates = await this.orderModel.find({
+            tenantId,
+            createdAt: { $gte: twoHoursAgo, $lte: fiveMinsAfter }
+          }).sort({ createdAt: -1 }).lean() as any[];
+
+          // Filter out orders that might be linked to other VALID invoices (optional optimization, skipping for now)
+          if (timeCandidates.length > 0) {
+            this.logger.log(`Heuristic (Time): Matched Invoice ${doc.documentNumber} to Order ${timeCandidates[0].orderNumber} (No name match)`);
+            potentialOrders = timeCandidates;
+          }
+        }
+
+        if (potentialOrders.length > 0) {
+          // Pick the most recent one
+          order = potentialOrders[0];
+
+          // Save the link for future reference
+          doc.references = { ...doc.references, orderId: order._id.toString() };
+        }
+      }
+
+      if (!order) {
+        this.logger.warn(`Could not find matching Order for Invoice ${doc.documentNumber} (${doc._id})`);
+        continue;
+      }
+
+      try {
+        this.logger.log(`Repairing invoice ${doc.documentNumber} from Order ${order.orderNumber}`);
+
+        // Reconstruct items
+        const items = (order.items || []).map((item: any) => ({
+          product: item.productId || item.product,
+          description: item.productName || item.name || 'Producto',
+          quantity: item.quantity,
+          unitPrice: item.unitPrice || item.price || 0,
+          discount: {
+            type: 'percentage',
+            value: 0
+          },
+          tax: {
+            type: 'IVA',
+            rate: 16
+          },
+          total: (item.quantity * (item.unitPrice || item.price || 0)) * 1.16 // approx
+        }));
+
+        // Reconstruct totals
+        // If order has totals structure, use it. Else calculate.
+        const totals = order.totals || {
+          subtotal: order.subtotal || 0,
+          taxes: [{ type: 'IVA', rate: 16, amount: (order.tax || 0) }],
+          discounts: order.discount || 0,
+          grandTotal: order.totalAmount || 0,
+          currency: 'VES',
+          exchangeRate: order.exchangeRate || 1
+        };
+
+        // Update doc
+        doc.items = items;
+        doc.totals = totals;
+        // Also fix customer data if missing
+        if (!doc.customer?.name && order.customerName) {
+          doc.customer = {
+            name: order.customerName,
+            taxId: order.customerTaxId || order.rif || '',
+            address: order.shippingAddress?.street || '',
+            email: order.customerEmail,
+            phone: order.customerPhone
+          };
+        }
+
+        await doc.save();
+        repairedCount++;
+      } catch (e) {
+        this.logger.error(`Failed to repair invoice ${doc._id}: ${e.message}`);
+      }
+    }
+
+    return { success: true, repaired: repairedCount, totalFound: brokenDocs.length };
   }
 }

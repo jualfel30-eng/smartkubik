@@ -30,6 +30,12 @@ export class BillingEvidence {
   @Prop({ type: String })
   verificationUrl?: string;
 
+  @Prop({ type: String })
+  xml?: string; // XML SENIAT generado (para Venezuela)
+
+  @Prop({ type: String })
+  xmlHash?: string; // Hash SHA-256 del XML para validación de integridad
+
   @Prop({ type: Object })
   totalsSnapshot?: {
     subtotal?: number;

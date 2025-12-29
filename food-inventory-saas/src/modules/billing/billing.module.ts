@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { BillingController } from "./billing.controller";
 import { BillingService } from "./billing.service";
@@ -37,6 +37,7 @@ import {
   ImprentaFailure,
   ImprentaFailureSchema,
 } from "../../schemas/imprenta-failure.schema";
+import { Order, OrderSchema } from "../../schemas/order.schema";
 import { RedisLockService } from "./redis-lock.service";
 import { ImprentaFailureController } from "./imprenta-failure.controller";
 import { ImprentaFailureService } from "./imprenta-failure.service";
@@ -46,6 +47,9 @@ import { BillingEvidencesService } from "./billing-evidences.service";
 import { BillingAuditController } from "./billing-audit.controller";
 import { SeniatValidationService } from "./services/seniat-validation.service";
 import { SeniatExportService } from "./services/seniat-export.service";
+import { ImprentaProviderFactory } from "./providers/imprenta-provider.factory";
+import { ChatModule } from "../../chat/chat.module";
+import { InvoicePdfService } from "./invoice-pdf.service";
 
 @Module({
   imports: [
@@ -58,7 +62,9 @@ import { SeniatExportService } from "./services/seniat-export.service";
       { name: TaxSettings.name, schema: TaxSettingsSchema },
       { name: SequenceLock.name, schema: SequenceLockSchema },
       { name: ImprentaFailure.name, schema: ImprentaFailureSchema },
+      { name: Order.name, schema: OrderSchema },
     ]),
+    forwardRef(() => ChatModule),
   ],
   controllers: [
     BillingController,
@@ -70,14 +76,16 @@ import { SeniatExportService } from "./services/seniat-export.service";
     BillingService,
     NumberingService,
     ImprentaDigitalProvider,
+    ImprentaProviderFactory,
     SalesBookService,
     RedisLockService,
     ImprentaFailureService,
     SalesBookPdfService,
+    InvoicePdfService,
     BillingEvidencesService,
     SeniatValidationService,
     SeniatExportService,
   ],
   exports: [BillingService],
 })
-export class BillingModule {}
+export class BillingModule { }

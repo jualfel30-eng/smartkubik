@@ -7,6 +7,8 @@ import {
   Req,
   Res,
   UseGuards,
+  NotFoundException,
+  BadRequestException,
 } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Response } from "express";
@@ -21,16 +23,22 @@ import { Permissions } from "../../decorators/permissions.decorator";
 import { SalesBookService } from "./sales-book.service";
 import { Query } from "@nestjs/common";
 import { SalesBookPdfService } from "./sales-book-pdf.service";
+import { InvoicePdfService } from "./invoice-pdf.service";
+import { ChatService } from "../../chat/chat.service";
+
+import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 
 @ApiTags("billing")
 @Controller("billing")
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class BillingController {
   constructor(
     private readonly billingService: BillingService,
     private readonly salesBookService: SalesBookService,
     private readonly salesBookPdfService: SalesBookPdfService,
-  ) {}
+    private readonly invoicePdfService: InvoicePdfService,
+    private readonly chatService: ChatService,
+  ) { }
 
   @Post("documents")
   @Permissions("billing_create")
@@ -73,6 +81,89 @@ export class BillingController {
       .lean();
   }
 
+  @Post("documents/:id/send-whatsapp")
+  @Permissions("billing_read")
+  @ApiOperation({ summary: "Enviar factura por WhatsApp" })
+  async sendWhatsApp(
+    @Param("id") id: string,
+    @Body("phone") phone: string,
+    @Req() req: any,
+  ) {
+    const tenantId = req.user.tenantId;
+    const doc = await this.billingService.getById(id, tenantId);
+    if (!doc) {
+      throw new NotFoundException("Document Not Found");
+    }
+
+    const targetPhone = phone || (doc.customer as any)?.phone;
+
+    if (!targetPhone) {
+      throw new BadRequestException("Phone number required");
+    }
+
+    const pdfBuffer = this.invoicePdfService.generate(doc as any);
+    const base64Pdf = pdfBuffer.toString("base64");
+    const mediaUrl = `data:application/pdf;base64,${base64Pdf}`;
+    const filename = `factura-${doc.documentNumber}.pdf`;
+
+    const conversation = await this.chatService.findOrCreateConversation(
+      tenantId,
+      targetPhone,
+    );
+
+    await this.chatService.sendMediaMessage(
+      {
+        conversationId: conversation._id.toString(),
+        mediaUrl,
+        mediaType: "document",
+        caption: `Factura ${doc.documentNumber}`,
+        filename,
+      },
+      tenantId,
+    );
+
+    return { success: true };
+  }
+
+  @Post("documents/send-adhoc-whatsapp")
+  @Permissions("billing_read")
+  @ApiOperation({ summary: "Enviar pre-factura/orden por WhatsApp (sin persistencia)" })
+  async sendAdhocWhatsApp(
+    @Body() body: { invoiceData: any; phone: string },
+    @Req() req: any,
+  ) {
+    const tenantId = req.user.tenantId;
+    const { invoiceData, phone } = body;
+
+    if (!invoiceData || !phone) {
+      throw new BadRequestException("Invoice data and phone are required");
+    }
+
+    // Generate PDF from provided data
+    const pdfBuffer = this.invoicePdfService.generate(invoiceData);
+    const base64Pdf = pdfBuffer.toString("base64");
+    const mediaUrl = `data:application/pdf;base64,${base64Pdf}`;
+    const filename = `factura-${invoiceData.documentNumber || "draft"}.pdf`;
+
+    const conversation = await this.chatService.findOrCreateConversation(
+      tenantId,
+      phone,
+    );
+
+    await this.chatService.sendMediaMessage(
+      {
+        conversationId: conversation._id.toString(),
+        mediaUrl,
+        mediaType: "document",
+        caption: `Factura ${invoiceData.documentNumber || "Draft"}`,
+        filename,
+      },
+      tenantId,
+    );
+
+    return { success: true };
+  }
+
   @Get("books/sales")
   @Permissions("billing_read")
   @ApiOperation({ summary: "Generar libro de ventas por canal (borrador)" })
@@ -102,6 +193,11 @@ export class BillingController {
       to,
       format,
     });
+  }
+  @Get("sequences")
+  @ApiOperation({ summary: "Listar secuencias de documentos activas" })
+  async getSequences(@Req() req: any) {
+    return this.billingService.getActiveSequences(req.user.tenantId);
   }
 
   // ========== SENIAT Electronic Invoicing Endpoints ==========
@@ -185,5 +281,45 @@ export class BillingController {
       },
       req.user.tenantId,
     );
+  }
+
+  @Get("sequences")
+  @Permissions("billing_read")
+  @ApiOperation({ summary: "Obtener todas las series de facturación" })
+  async getAllSequences(@Req() req: any) {
+    return this.billingService.getAllSequences(req.user.tenantId);
+  }
+
+  @Post("sequences")
+  @Permissions("billing_create")
+  @ApiOperation({ summary: "Crear nueva serie de facturación" })
+  async createSequence(@Body() dto: any, @Req() req: any) {
+    return this.billingService.createSequence(dto, req.user.tenantId);
+  }
+
+  @Get("documents")
+  @Permissions("billing_read")
+  @ApiOperation({ summary: "Listar documentos de facturación" })
+  async listDocuments(
+    @Query() filters: SeniatStatsDto,
+    @Req() req: any,
+  ) {
+    return this.billingService.listDocuments(
+      {
+        startDate: filters.startDate,
+        endDate: filters.endDate,
+        status: filters.status,
+        documentType: filters.documentType,
+      },
+      req.user.tenantId,
+    );
+  }
+  @Post('repair-invoices')
+  @Permissions('billing_issue')
+  @ApiOperation({ summary: 'Reparar facturas históricas vacías desde sus órdenes' })
+  async repairInvoices(@Req() req: any) {
+    // Temporary endpoint to fix historical data
+    const tenantId = req.user.tenantId;
+    return this.billingService.repairInvoices(tenantId);
   }
 }

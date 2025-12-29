@@ -13,7 +13,21 @@ export class RedisLockService {
     const url = process.env.REDIS_URL || process.env.REDIS_LOCK_URL;
     if (url) {
       try {
-        this.client = new IORedis(url, {
+        // Sanitize URL: Remove tls=false if present, as it confuses ioredis into enabling TLS
+        let connectionUrl = url;
+        if (url.includes('tls=false')) {
+          try {
+            const parsed = new URL(url);
+            if (parsed.searchParams.get('tls') === 'false') {
+              parsed.searchParams.delete('tls');
+              connectionUrl = parsed.toString();
+            }
+          } catch (e) {
+            // If URL parsing fails, stick to original URL
+          }
+        }
+
+        this.client = new IORedis(connectionUrl, {
           lazyConnect: true,
           maxRetriesPerRequest: 2,
         });

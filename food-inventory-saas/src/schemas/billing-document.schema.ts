@@ -78,6 +78,8 @@ export class BillingDocument {
     name?: string;
     taxId?: string;
     address?: string;
+    email?: string;
+    phone?: string;
   };
 
   @Prop({ type: Object })
@@ -97,6 +99,41 @@ export class BillingDocument {
     currency?: string;
     exchangeRate?: number;
   };
+
+  @Prop({
+    type: [
+      {
+        product: { type: Types.ObjectId, ref: "Product" },
+        description: String,
+        quantity: Number,
+        unitPrice: Number,
+        discount: {
+          type: { type: String, enum: ["percentage", "amount"] },
+          value: Number,
+        },
+        tax: {
+          type: { type: String, enum: ["IVA", "IGTF", "Exento"] },
+          rate: Number,
+        },
+        total: Number,
+      },
+    ],
+  })
+  items: Array<{
+    product: Types.ObjectId;
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    discount?: {
+      type: "percentage" | "amount";
+      value: number;
+    };
+    tax?: {
+      type: "IVA" | "IGTF" | "Exento";
+      rate: number;
+    };
+    total: number;
+  }>;
 
   @Prop({
     type: [
