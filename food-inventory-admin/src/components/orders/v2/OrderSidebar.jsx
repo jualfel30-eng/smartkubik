@@ -29,6 +29,8 @@ export function OrderSidebar({
   totals,
   shippingCost,
   calculatingShipping,
+  bcvRate,
+  loadingRate,
 
   // Actions
   onCreateOrder,
@@ -162,12 +164,33 @@ export function OrderSidebar({
                 </div>
               )}
 
+              {totals.igtf > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span>IGTF (3%):</span>
+                  <span>${totals.igtf.toFixed(2)}</span>
+                </div>
+              )}
+
               <Separator />
 
               <div className="flex justify-between text-lg font-bold">
                 <span>TOTAL:</span>
                 <span className="text-primary">${totals.total.toFixed(2)}</span>
               </div>
+
+              {bcvRate && !loadingRate && (
+                <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                  <span>Tasa BCV:</span>
+                  <span>Bs. {bcvRate.toFixed(2)} / USD</span>
+                </div>
+              )}
+
+              {bcvRate && totals.total > 0 && (
+                <div className="flex justify-between text-sm font-semibold text-blue-600 dark:text-blue-400">
+                  <span>Total en Bs.:</span>
+                  <span>Bs. {(totals.total * bcvRate).toFixed(2)}</span>
+                </div>
+              )}
             </div>
 
             {canApplyDiscounts && (
