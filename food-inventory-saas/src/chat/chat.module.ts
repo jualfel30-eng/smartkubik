@@ -22,20 +22,20 @@ const queueImports =
   process.env.DISABLE_BULLMQ === "true"
     ? []
     : [
-        BullModule.registerQueue({
-          name: ASSISTANT_MESSAGES_QUEUE,
-        }),
-      ];
+      BullModule.registerQueue({
+        name: ASSISTANT_MESSAGES_QUEUE,
+      }),
+    ];
 
 const queueProviders =
   process.env.DISABLE_BULLMQ === "true"
     ? [
-        {
-          provide: getQueueToken(ASSISTANT_MESSAGES_QUEUE),
-          useValue: null,
-        },
-        AssistantMessageQueueService,
-      ]
+      {
+        provide: getQueueToken(ASSISTANT_MESSAGES_QUEUE),
+        useValue: null,
+      },
+      AssistantMessageQueueService,
+    ]
     : [AssistantMessageQueueService, AssistantMessageProcessor];
 
 @Module({
@@ -51,5 +51,6 @@ const queueProviders =
   ],
   providers: [ChatService, ChatGateway, WhapiSignatureGuard, ...queueProviders],
   controllers: [ChatController],
+  exports: [ChatService],
 })
-export class ChatModule {}
+export class ChatModule { }

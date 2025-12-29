@@ -26,6 +26,9 @@ import {
   MessagesApi,
   SendMessageTextRequest,
   EventTypeEnum,
+  SendMessageInteractiveRequest,
+  SendMessageImageRequest,
+  SendMessageDocumentRequest,
 } from "../lib/whapi-sdk/whapi-sdk-typescript-fetch";
 import { AssistantService } from "../modules/assistant/assistant.service";
 import { WhapiService } from "../modules/whapi/whapi.service";
@@ -52,7 +55,7 @@ export class ChatService {
     private readonly assistantService: AssistantService,
     private readonly whapiService: WhapiService,
     private readonly assistantQueueService: AssistantMessageQueueService,
-  ) {}
+  ) { }
 
   async generateQrCode(tenantId: string): Promise<{ qrCode: string }> {
     this.logger.log(`Generating QR code for tenant: ${tenantId}`);
@@ -221,6 +224,97 @@ export class ChatService {
     );
   }
 
+  async sendInteractiveMessage(
+    data: {
+      conversationId: string;
+      body: string;
+      accessToken?: string;
+      action: {
+        buttons?: { id: string; title: string }[];
+        button?: string;
+        sections?: {
+          title: string;
+          rows: { id: string; title: string; description?: string }[];
+        }[];
+      };
+      header?: string;
+      footer?: string;
+    },
+    tenantId: string,
+  ): Promise<void> {
+    this.logger.log(
+      `Sending interactive message to conversation ${data.conversationId}`,
+    );
+
+    const tenant = await this.tenantModel.findById(tenantId).exec();
+    if (!tenant) throw new NotFoundException("Tenant not found");
+
+    const accessToken = await this.resolveWhapiToken(tenant);
+
+    const conversation = await this.conversationModel
+      .findById(data.conversationId)
+      .exec();
+    if (!conversation) throw new NotFoundException("Conversation not found");
+
+    // Save internal message representation (as text for now, could be enhanced)
+    const savedMessage = await this.saveMessage(
+      conversation,
+      tenantId,
+      `[Interactive Message] ${data.body}`,
+      SenderType.USER,
+      { interactive: data.action },
+    );
+    this.chatGateway.emitNewMessage(tenantId, savedMessage);
+
+    await this.dispatchWhatsAppInteractiveMessage(
+      accessToken,
+      conversation.customerPhoneNumber,
+      data,
+      "manual",
+    );
+  }
+
+  async sendMediaMessage(
+    data: {
+      conversationId: string;
+      mediaUrl: string;
+      mediaType: "image" | "document" | "video" | "audio";
+      caption?: string;
+      filename?: string;
+    },
+    tenantId: string,
+  ): Promise<void> {
+    this.logger.log(
+      `Sending media message (${data.mediaType}) to conversation ${data.conversationId}`,
+    );
+
+    const tenant = await this.tenantModel.findById(tenantId).exec();
+    if (!tenant) throw new NotFoundException("Tenant not found");
+
+    const accessToken = await this.resolveWhapiToken(tenant);
+
+    const conversation = await this.conversationModel
+      .findById(data.conversationId)
+      .exec();
+    if (!conversation) throw new NotFoundException("Conversation not found");
+
+    const savedMessage = await this.saveMessage(
+      conversation,
+      tenantId,
+      data.caption || `[Sent ${data.mediaType}]`,
+      SenderType.USER,
+      { mediaUrl: data.mediaUrl, mediaType: data.mediaType },
+    );
+    this.chatGateway.emitNewMessage(tenantId, savedMessage);
+
+    await this.dispatchWhatsAppMediaMessage(
+      accessToken,
+      conversation.customerPhoneNumber,
+      data,
+      "manual",
+    );
+  }
+
   async handleIncomingMessage(payload: any, tenantId: string): Promise<void> {
     this.logger.log(`Handling incoming message for tenant: ${tenantId}`);
 
@@ -308,7 +402,7 @@ export class ChatService {
     }
   }
 
-  private async findOrCreateConversation(
+  async findOrCreateConversation(
     tenantId: string,
     customerPhoneNumber: string,
   ): Promise<ConversationDocument> {
@@ -688,14 +782,105 @@ export class ChatService {
       },
     };
 
+    await this.executeWhapiCall(
+      () => messagesApi.sendMessageText(sendMessageTextRequest),
+      recipientPhone,
+      context,
+    );
+  }
+
+  private async dispatchWhatsAppInteractiveMessage(
+    accessToken: string,
+    recipientPhone: string,
+    data: {
+      body: string;
+      action: any;
+      header?: string;
+      footer?: string;
+    },
+    context: "manual" | "assistant",
+  ): Promise<void> {
+    const config = new Configuration({ accessToken });
+    const messagesApi = new MessagesApi(config);
+
+    const request: SendMessageInteractiveRequest = {
+      senderInteractive: {
+        to: recipientPhone,
+        body: { text: data.body },
+        action: data.action,
+        header: data.header
+          ? { text: data.header }
+          : undefined,
+        footer: data.footer ? { text: data.footer } : undefined,
+      },
+    };
+
+    await this.executeWhapiCall(
+      () => messagesApi.sendMessageInteractive(request),
+      recipientPhone,
+      context,
+    );
+  }
+
+  private async dispatchWhatsAppMediaMessage(
+    accessToken: string,
+    recipientPhone: string,
+    data: {
+      mediaUrl: string;
+      mediaType: "image" | "document" | "video" | "audio";
+      caption?: string;
+      filename?: string;
+    },
+    context: "manual" | "assistant",
+  ): Promise<void> {
+    const config = new Configuration({ accessToken });
+    const messagesApi = new MessagesApi(config);
+
+    // Using 'as any' to bypass specific complex types for now if needed, but trying to adhere to structure
+    if (data.mediaType === "image") {
+      const request: SendMessageImageRequest = {
+        senderImage: {
+          to: recipientPhone,
+          media: data.mediaUrl as any, // Expecting URL string or string-like compatible with SDK
+          caption: data.caption,
+        },
+      };
+      await this.executeWhapiCall(
+        () => messagesApi.sendMessageImage(request),
+        recipientPhone,
+        context,
+      );
+    } else if (data.mediaType === "document") {
+      const request: SendMessageDocumentRequest = {
+        senderDocument: {
+          to: recipientPhone,
+          media: data.mediaUrl as any,
+          caption: data.caption,
+          filename: data.filename,
+        },
+      };
+      await this.executeWhapiCall(
+        () => messagesApi.sendMessageDocument(request),
+        recipientPhone,
+        context,
+      );
+    }
+    // Implement video/audio similarly if needed
+  }
+
+  private async executeWhapiCall(
+    apiCall: () => Promise<any>,
+    recipientPhone: string,
+    context: string,
+  ): Promise<void> {
     const maxAttempts = 3;
     const retryableErrors = new Set(["ETIMEDOUT", "ECONNRESET", "EPIPE"]);
-
     let attempt = 0;
+
     while (attempt < maxAttempts) {
       attempt += 1;
       try {
-        await messagesApi.sendMessageText(sendMessageTextRequest);
+        await apiCall();
         this.logger.log(
           `[${context}] Successfully sent message to ${recipientPhone} via Whapi SDK (attempt ${attempt})`,
         );
@@ -703,21 +888,12 @@ export class ChatService {
       } catch (error) {
         const code = (error as any)?.code;
         const isRetryable = code && retryableErrors.has(code);
-
         this.logger.warn(
-          `[${context}] Attempt ${attempt} failed to send message to ${recipientPhone}: ${error.message} (code: ${code || "unknown"})`,
+          `[${context}] Attempt ${attempt} failed: ${error.message}`,
         );
 
-        if (!isRetryable || attempt >= maxAttempts) {
-          this.logger.error(
-            `[${context}] Failed to send message via Whapi SDK after ${attempt} attempt(s): ${error.message}`,
-            error.stack,
-          );
-          return;
-        }
-
-        const backoffMs = 2000 * attempt;
-        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        if (!isRetryable || attempt >= maxAttempts) return;
+        await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
       }
     }
   }

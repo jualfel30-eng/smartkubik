@@ -19,7 +19,7 @@ import { JwtAuthGuard } from "../guards/jwt-auth.guard";
 export class ChatController {
   private readonly logger = new Logger(ChatController.name);
 
-  constructor(private readonly chatService: ChatService) {}
+  constructor(private readonly chatService: ChatService) { }
 
   @Get("qr-code")
   @UseGuards(JwtAuthGuard)
@@ -53,6 +53,22 @@ export class ChatController {
       conversationId,
       tenantId,
     );
+  }
+
+  @Post("messages/interactive")
+  @UseGuards(JwtAuthGuard)
+  async sendInteractiveMessage(
+    @Body() payload: {
+      conversationId: string;
+      body: string;
+      action: any;
+      header?: string;
+      footer?: string;
+    },
+    @Req() req,
+  ) {
+    const tenantId = req.user.tenantId;
+    return this.chatService.sendInteractiveMessage(payload, tenantId);
   }
 
   @Post("whapi-webhook")

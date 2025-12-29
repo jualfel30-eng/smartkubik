@@ -2,8 +2,19 @@ import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { getConversations, getMessagesForConversation } from '../lib/chatApi';
 import { useAuth } from '../hooks/use-auth';
+import { useCrmContext } from '@/context/CrmContext';
+import { api } from '../lib/api';
+import { toast } from 'sonner';
+
+import { ShoppingBag, Calendar, Menu, ChevronLeft, Smile, CreditCard, Send } from 'lucide-react';
+import { ActionPanel } from '../components/chat/ActionPanel';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'https://api.smartkubik.com';
+
+const COMMON_EMOJIS = ['👍', '👋', '🎉', '😂', '❤️', '🔥', '🤔', '🙏', '✅', '❌', '🍕', '🍔', '🥗', '🥤', '🍦', '💵', '💳', '🚚', '📦', '🏠'];
 
 const WhatsAppInbox = () => {
   const [conversations, setConversations] = useState([]);
@@ -13,10 +24,60 @@ const WhatsAppInbox = () => {
   const [loading, setLoading] = useState(false);
   const [assistantStatuses, setAssistantStatuses] = useState({});
   const { tenant } = useAuth();
+  const { paymentMethods } = useCrmContext();
   const tenantId = tenant?.id;
   const socket = useRef(null);
   const activeConversationRef = useRef(null);
   const messagesEndRef = useRef(null);
+
+  const [isActionPanelOpen, setIsActionPanelOpen] = useState(false);
+  const [activeAction, setActiveAction] = useState('order'); // 'order' | 'reservation'
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // Responsive: Close sidebar on mobile when conversation is selected
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        if (activeConversation) setIsSidebarOpen(false);
+        else setIsSidebarOpen(true);
+      } else {
+        setIsSidebarOpen(true);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [activeConversation]);
+
+  // Handle conversation selection with mobile logic
+  const handleSelectConversation = async (conversation) => {
+    setActiveConversation(conversation);
+    if (window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+    setAssistantStatuses(prev => {
+      const next = { ...prev };
+      delete next[conversation._id];
+      return next;
+    });
+    setLoading(true);
+    try {
+      const fetchedMessages = await getMessagesForConversation(conversation._id);
+      setMessages(fetchedMessages);
+    } catch (error) {
+      console.error('Failed to fetch messages', error);
+      setMessages([]); // Clear messages on error
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBackToInbox = () => {
+    setActiveConversation(null);
+    setIsSidebarOpen(true);
+    setIsActionPanelOpen(false);
+  };
+
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -100,51 +161,16 @@ const WhatsAppInbox = () => {
     }
   }, [tenantId]);
 
-  const handleSelectConversation = async (conversation) => {
-    setActiveConversation(conversation);
-    setAssistantStatuses(prev => {
-      const next = { ...prev };
-      delete next[conversation._id];
-      return next;
-    });
-    setLoading(true);
-    try {
-      const fetchedMessages = await getMessagesForConversation(conversation._id);
-      setMessages(fetchedMessages);
-    } catch (error) {
-      console.error('Failed to fetch messages', error);
-      setMessages([]); // Clear messages on error
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-
-    if (!socket.current) {
-      console.error('❌ Socket is not initialized');
+  const sendMessage = (content) => {
+    if (!socket.current || !socket.current.connected) {
+      console.error('❌ Socket not connected');
       return;
     }
-
-    if (!socket.current.connected) {
-      console.error('❌ Socket is not connected. Status:', socket.current.connected);
-      return;
-    }
-
-    if (!newMessage.trim()) {
-      console.warn('⚠️ Message is empty');
-      return;
-    }
-
-    if (!activeConversation) {
-      console.error('❌ No active conversation selected');
-      return;
-    }
+    if (!activeConversation) return;
 
     const messagePayload = {
       conversationId: activeConversation._id,
-      content: newMessage.trim(),
+      content: content.trim(),
     };
 
     console.log('📤 Sending message:', messagePayload);
@@ -152,12 +178,75 @@ const WhatsAppInbox = () => {
 
     // Optimistically add message to UI
     const optimisticMessage = {
-      content: newMessage.trim(),
+      content: content.trim(),
       sender: 'user',
       createdAt: new Date().toISOString(),
     };
     setMessages(prevMessages => [...prevMessages, optimisticMessage]);
+  };
+
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+    if (!newMessage.trim()) return;
+    sendMessage(newMessage);
     setNewMessage('');
+  };
+
+  const handleSendPaymentMethods = async () => {
+    if (!paymentMethods || paymentMethods.length === 0) {
+      alert('No hay métodos de pago configurados.');
+      return;
+    }
+    if (!activeConversation) return;
+
+    const rows = paymentMethods
+      .filter(m => m.isActive)
+      .map(m => {
+        let description = '';
+        if (m.type === 'mobile_payment') {
+          description = `${m.details.bank} - ${m.details.phone}`;
+        } else if (m.type === 'zelle') {
+          description = m.details.email;
+        } else if (m.type === 'transfer') {
+          description = `${m.details.bankName} - ${m.details.accountNumber?.slice(-4)}`;
+        }
+        return {
+          id: `payment_${m._id || m.type}_${Date.now()}`,
+          title: m.name.substring(0, 24),
+          description: description.substring(0, 72)
+        };
+      });
+
+    if (rows.length === 0) return;
+
+    try {
+      await api.post('/chat/messages/interactive', {
+        conversationId: activeConversation._id,
+        body: "Por favor seleccione un método de pago para ver los detalles:",
+        action: {
+          button: "Ver Métodos",
+          sections: [
+            {
+              title: "Métodos Disponibles",
+              rows: rows
+            }
+          ]
+        },
+        header: "Métodos de Pago",
+        footer: "Seleccione una opción"
+      });
+    } catch (err) {
+      console.error("Error sending interactive message:", err);
+      toast.error("Error al enviar métodos de pago. Verifique consola.");
+    }
+  };
+
+  const addEmoji = (emoji) => {
+    setNewMessage(prev => prev + emoji);
+  };
+
+  const getInitials = (name) => {
+    return name ? name.substring(0, 2).toUpperCase() : '??';
   };
 
   const activeAssistantStatus = activeConversation
@@ -167,8 +256,8 @@ const WhatsAppInbox = () => {
   return (
     <div className="flex h-full w-full overflow-hidden bg-background text-foreground font-sans rounded-lg border border-border shadow-sm md:flex-row">
       {/* Conversations Sidebar */}
-      <div className="flex w-full flex-shrink-0 flex-col border-border bg-card border-b md:h-full md:w-80 md:border-b-0 md:border-r lg:w-96">
-        <div className="border-border border-b p-4 flex-shrink-0 sticky top-0 z-20 bg-card">
+      <div className={`${isSidebarOpen ? 'flex' : 'hidden'} w-full flex-shrink-0 flex-col border-border bg-card border-b md:h-full md:w-80 md:border-b-0 md:border-r lg:w-96 transition-all duration-300 ease-in-out`}>
+        <div className="border-border border-b p-4 flex-shrink-0 sticky top-0 z-20 bg-card flex justify-between items-center">
           <h2 className="text-xl font-bold">Conversations</h2>
         </div>
         <div className="flex-1 overflow-y-auto min-h-0">
@@ -176,28 +265,56 @@ const WhatsAppInbox = () => {
             <div
               key={convo._id}
               onClick={() => handleSelectConversation(convo)}
-              className={`p-4 cursor-pointer hover:bg-muted transition-colors ${activeConversation?._id === convo._id ? 'bg-muted' : ''}`}
+              className={`p-4 cursor-pointer hover:bg-muted transition-colors flex items-center gap-3 ${activeConversation?._id === convo._id ? 'bg-muted' : ''}`}
             >
-              <p className="font-semibold">{convo.customerName || convo.customerPhoneNumber}</p>
-              <p className="text-sm text-muted-foreground truncate">{convo.messages?.[0]?.content || 'No messages yet'}</p>
+              <Avatar>
+                <AvatarImage src={convo.avatar || convo.profilePicUrl} />
+                <AvatarFallback>{getInitials(convo.customerName || convo.customerPhoneNumber)}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 overflow-hidden">
+                <p className="font-semibold truncate">{convo.customerName || convo.customerPhoneNumber}</p>
+                <p className="text-sm text-muted-foreground truncate">{convo.messages?.[0]?.content || 'No messages yet'}</p>
+              </div>
             </div>
           ))}
         </div>
       </div>
 
       {/* Active Chat Area */}
-      <div className="flex w-full flex-1 min-h-0 flex-col">
+      <div className={`${!isSidebarOpen || activeConversation ? 'flex' : 'hidden md:flex'} w-full flex-1 min-h-0 flex-col transition-all duration-300`}>
         {activeConversation ? (
           <>
             {/* Chat Header - Sticky */}
-            <div className="bg-card border-b border-border p-4 flex-shrink-0 sticky top-0 z-20">
-              <h2 className="text-xl font-bold">{activeConversation.customerName || activeConversation.customerPhoneNumber}</h2>
+            <div className="bg-card border-b border-border p-4 flex-shrink-0 sticky top-0 z-20 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <Button variant="ghost" size="icon" className="md:hidden" onClick={handleBackToInbox}>
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="hidden md:flex" onClick={() => setIsSidebarOpen(!isSidebarOpen)} title={isSidebarOpen ? "Cerrar lista" : "Abrir lista"}>
+                  <Menu className="h-5 w-5" />
+                </Button>
+
+                <Avatar>
+                  <AvatarImage src={activeConversation.avatar || activeConversation.profilePicUrl} />
+                  <AvatarFallback>{getInitials(activeConversation.customerName || activeConversation.customerPhoneNumber)}</AvatarFallback>
+                </Avatar>
+
+                <h2 className="text-xl font-bold truncate">{activeConversation.customerName || activeConversation.customerPhoneNumber}</h2>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => { setActiveAction('order'); setIsActionPanelOpen(true); }}>
+                  <ShoppingBag className="h-4 w-4 mr-2" /> <span className="hidden sm:inline">Orden</span>
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => { setActiveAction('reservation'); setIsActionPanelOpen(true); }}>
+                  <Calendar className="h-4 w-4 mr-2" /> <span className="hidden sm:inline">Reserva</span>
+                </Button>
+              </div>
             </div>
 
             {/* Messages Container - Scrollable */}
             <div className="flex-1 overflow-y-auto min-h-0 p-4 bg-muted/50">
               {loading ? (
-                <p>Loading messages...</p>
+                <div className="flex justify-center p-4">Loading messages...</div>
               ) : (
                 messages.map((msg, index) => {
                   const isUser = msg.sender === 'user';
@@ -213,6 +330,9 @@ const WhatsAppInbox = () => {
                     <div key={index} className={`mb-3 flex ${alignmentClass}`}>
                       <div className={`max-w-lg rounded-lg px-4 py-2 shadow-sm ${bubbleClass}`}>
                         <p className="whitespace-pre-wrap">{msg.content}</p>
+                        <p className="text-[10px] opacity-70 text-right mt-1">
+                          {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
                       </div>
                     </div>
                   );
@@ -235,17 +355,52 @@ const WhatsAppInbox = () => {
 
             {/* Input Box - Fixed at Bottom */}
             <div className="border-border border-t bg-card p-4 pb-6 md:pb-8 flex-shrink-0 relative z-[60]">
+              {/* Actions Bar */}
+              <div className="flex gap-2 mb-2 overflow-x-auto pb-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" title="Emojis">
+                      <Smile className="h-5 w-5 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-2">
+                    <div className="grid grid-cols-5 gap-2">
+                      {COMMON_EMOJIS.map(emoji => (
+                        <button
+                          key={emoji}
+                          onClick={() => addEmoji(emoji)}
+                          className="text-xl hover:bg-muted p-2 rounded cursor-pointer"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSendPaymentMethods}
+                  title="Enviar Métodos de Pago"
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Datos Pago
+                </Button>
+              </div>
+
               <form onSubmit={handleSendMessage} className="flex gap-2">
                 <input
                   type="text"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type a message..."
+                  placeholder="Escribe un mensaje..."
                   className="flex-1 rounded-md border border-input bg-transparent px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring"
                 />
-                <button type="submit" className="rounded-md bg-primary px-6 py-2 text-primary-foreground hover:bg-primary/90 focus:outline-none transition-colors flex-shrink-0">
-                  Send
-                </button>
+                <Button type="submit" size="icon">
+                  <Send className="h-4 w-4" />
+                </Button>
               </form>
             </div>
           </>
@@ -255,6 +410,16 @@ const WhatsAppInbox = () => {
           </div>
         )}
       </div>
+
+      {/* Action Panel */}
+      <ActionPanel
+        isOpen={isActionPanelOpen}
+        onClose={() => setIsActionPanelOpen(false)}
+        activeAction={activeAction}
+        onActionChange={setActiveAction}
+        activeConversation={activeConversation}
+        tenant={tenant}
+      />
     </div>
   );
 };
