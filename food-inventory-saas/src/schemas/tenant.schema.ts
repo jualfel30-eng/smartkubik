@@ -59,6 +59,11 @@ export class TenantSettings {
     requirePaymentConfirmation: boolean;
     allowPartialPayments: boolean;
     defaultPaymentTerms: number;
+    productViewType?: 'search' | 'grid' | 'list';
+    gridColumns?: number; // 2, 3, 4, 6
+    showProductImages?: boolean;
+    showProductDescription?: boolean;
+    enableCategoryFilter?: boolean;
   };
 
   @Prop({ type: Object })
@@ -196,9 +201,18 @@ export class TenantSettings {
     pointsValue?: number; // Valor en dólares de cada punto (default: 0.01)
     minimumPointsToRedeem?: number; // Mínimo de puntos para redimir (default: 100)
     pointsExpirationDays?: number; // Días hasta que expiran los puntos (0 = nunca, default: 365)
-    autoApplyRewards?: boolean; // Aplicar automáticamente descuentos de puntos
     notifyOnPointsEarned?: boolean; // Notificar al cliente cuando gana puntos
     notifyOnPointsExpiring?: boolean; // Notificar cuando puntos están por expirar
+  };
+
+  @Prop({ type: Object })
+  billingPreferences?: {
+    defaultDeliveryMethod: "print" | "email" | "whatsapp" | "none";
+    autoPrintCopies: number;
+    enabledMethods: string[];
+    printers?: {
+      receiptPrinterIp?: string;
+    };
   };
 }
 

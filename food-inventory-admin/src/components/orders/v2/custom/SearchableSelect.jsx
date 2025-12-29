@@ -11,6 +11,7 @@ export function SearchableSelect({
   isCreatable = true,
   inputValue, // Opcional
   isLoading = false, // Indicador de carga
+  customControlClass = '', // Clases personalizadas para el control
   ...props
 }) {
   // Usar Select normal si no es creatable, CreatableSelect si lo es
@@ -23,10 +24,18 @@ export function SearchableSelect({
   };
 
   const classNames = {
-    control: ({ isFocused }) =>
-      isFocused
+    control: ({ isFocused }) => {
+      // Si hay clases personalizadas, combinarlas con el estado de focus
+      if (customControlClass) {
+        const focusClasses = isFocused
+          ? "ring-2 ring-ring ring-offset-2"
+          : "";
+        return `${customControlClass} ${focusClasses}`;
+      }
+      return isFocused
         ? "flex h-10 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm ring-2 ring-ring ring-offset-2 ring-offset-background"
-        : "flex h-10 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm ring-offset-background",
+        : "flex h-10 w-full rounded-md border border-input bg-input-background px-3 py-2 text-sm ring-offset-background";
+    },
     valueContainer: () => "p-0 gap-1",
     input: () => "text-sm text-foreground",
     placeholder: () => "text-muted-foreground",
@@ -51,10 +60,19 @@ export function SearchableSelect({
       openMenuOnFocus
       unstyled
       classNames={classNames}
+      filterOption={null}
       formatCreateLabel={isCreatable ? (inputValue) => `Crear nuevo: "${inputValue}"` : undefined}
       noOptionsMessage={() => "No se encontraron resultados"}
       isLoading={isLoading}
       loadingMessage={() => "Buscando..."}
+      // Permitir crear opciones con Tab y Enter (solo para CreatableSelect)
+      onKeyDown={isCreatable ? (event) => {
+        if (event.key === 'Tab' && event.target.value) {
+          event.preventDefault();
+          // Forzar la creación de la nueva opción
+          handleChange({ value: event.target.value, label: event.target.value, __isNew__: true }, { action: 'create-option' });
+        }
+      } : undefined}
       {...props}
     />
   );

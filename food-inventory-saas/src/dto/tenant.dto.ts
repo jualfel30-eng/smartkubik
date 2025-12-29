@@ -16,7 +16,7 @@ import { Type } from "class-transformer";
 import { SanitizeString } from "../decorators/sanitize.decorator";
 import { VerticalKey, verticalProfileKeys } from "../config/vertical-profiles";
 
-class AddressDto {
+export class AddressDto {
   @ApiProperty({ example: "Calle Principal 123" })
   @IsString()
   @IsOptional()
@@ -48,7 +48,7 @@ class AddressDto {
   country: string;
 }
 
-class ContactInfoDto {
+export class ContactInfoDto {
   @ApiProperty({ example: "contacto@juantacos.com" })
   @IsEmail()
   @IsOptional()
@@ -67,7 +67,7 @@ class ContactInfoDto {
   address: AddressDto;
 }
 
-class TaxInfoDto {
+export class TaxInfoDto {
   @ApiProperty({ example: "J-12345678-9" })
   @IsString()
   @IsOptional()
@@ -81,14 +81,14 @@ class TaxInfoDto {
   businessName: string;
 }
 
-class CurrencySettingsDto {
+export class CurrencySettingsDto {
   @ApiProperty({ example: "VES" })
   @IsString()
   @IsOptional()
   primary?: string;
 }
 
-class InventorySettingsDto {
+export class InventorySettingsDto {
   @ApiProperty({ example: 10 })
   @IsNumber()
   @IsOptional()
@@ -141,7 +141,7 @@ class QuoteSettingsDto {
   footerText?: string;
 }
 
-class DocumentTemplatesSettingsDto {
+export class DocumentTemplatesSettingsDto {
   @ApiProperty({ type: InvoiceSettingsDto })
   @IsOptional()
   @ValidateNested()
@@ -155,7 +155,7 @@ class DocumentTemplatesSettingsDto {
   quote?: QuoteSettingsDto;
 }
 
-class HospitalityPoliciesSettingsDto {
+export class HospitalityPoliciesSettingsDto {
   @ApiProperty({ example: true })
   @IsOptional()
   @IsBoolean()
@@ -320,7 +320,7 @@ class AiAssistantCapabilitiesSettingsDto {
   orderLookup?: boolean;
 }
 
-class AiAssistantSettingsDto {
+export class AiAssistantSettingsDto {
   @ApiProperty({ example: false })
   @IsOptional()
   @IsBoolean()
@@ -348,7 +348,91 @@ class AiAssistantSettingsDto {
   capabilities?: AiAssistantCapabilitiesSettingsDto;
 }
 
-class OperationalSettingsDto {
+export class BillingPreferencesDto {
+  @ApiProperty({
+    example: "print",
+    enum: ["print", "email", "whatsapp", "none"],
+  })
+  @IsOptional()
+  @IsIn(["print", "email", "whatsapp", "none"])
+  defaultDeliveryMethod?: "print" | "email" | "whatsapp" | "none";
+
+  @ApiProperty({ example: 1 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  autoPrintCopies?: number;
+
+  @ApiProperty({ example: ["print", "email"] })
+  @IsOptional()
+  @IsString({ each: true })
+  enabledMethods?: string[];
+
+  @ApiProperty({ required: false, type: Object })
+  @IsOptional()
+  @IsObject()
+  printers?: {
+    receiptPrinterIp?: string;
+  };
+}
+
+export class NotificationSettingsDto {
+  @ApiProperty({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  customerOrderUpdates?: boolean; // Enable/Disable all customer notifications
+
+  @ApiProperty({ example: ["email"] })
+  @IsOptional()
+  @IsString({ each: true })
+  enabledChannels?: string[]; // email, whatsapp, sms
+
+  @ApiProperty({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  notifyOnPicking?: boolean;
+
+  @ApiProperty({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  notifyOnShipped?: boolean;
+
+  @ApiProperty({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  notifyOnDelivered?: boolean;
+}
+
+export class OrdersSettingsDto {
+  @ApiProperty({ example: 'search', enum: ['search', 'grid', 'list'] })
+  @IsOptional()
+  @IsIn(['search', 'grid', 'list'])
+  productViewType?: 'search' | 'grid' | 'list';
+
+  @ApiProperty({ example: 3 })
+  @IsOptional()
+  @IsNumber()
+  @Min(2)
+  @Max(6)
+  gridColumns?: number;
+
+  @ApiProperty({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  showProductImages?: boolean;
+
+  @ApiProperty({ example: false })
+  @IsOptional()
+  @IsBoolean()
+  showProductDescription?: boolean;
+
+  @ApiProperty({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  enableCategoryFilter?: boolean;
+}
+
+export class OperationalSettingsDto {
   @ApiProperty({ type: CurrencySettingsDto })
   @IsOptional()
   @ValidateNested()
@@ -361,6 +445,24 @@ class OperationalSettingsDto {
   @Type(() => InventorySettingsDto)
   inventory?: InventorySettingsDto;
 
+  @ApiProperty({ type: OrdersSettingsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OrdersSettingsDto)
+  orders?: OrdersSettingsDto;
+
+  @ApiProperty({ type: BillingPreferencesDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => BillingPreferencesDto)
+  billingPreferences?: BillingPreferencesDto;
+
+  @ApiProperty({ type: NotificationSettingsDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => NotificationSettingsDto)
+  notifications?: NotificationSettingsDto;
+
   @ApiProperty({
     example: "thermal",
     enum: ["standard", "thermal"],
@@ -371,6 +473,17 @@ class OperationalSettingsDto {
   @IsString()
   @IsIn(["standard", "thermal"])
   invoiceFormat?: string;
+
+  @ApiProperty({
+    example: "logistics",
+    enum: ["immediate", "counter", "logistics", "hybrid"],
+    description: "Estrategia de entrega: immediate (supermercado), counter (mostrador), logistics (envío), hybrid (auto)",
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(["immediate", "counter", "logistics", "hybrid"])
+  fulfillmentStrategy?: "immediate" | "counter" | "logistics" | "hybrid";
 
   @ApiProperty({ type: DocumentTemplatesSettingsDto })
   @IsOptional()

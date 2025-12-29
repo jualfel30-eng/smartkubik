@@ -37,7 +37,7 @@ export class TenantService {
     @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>, // Inyectar CustomerModel
     private readonly mailService: MailService,
     private readonly payrollEmployeesService: PayrollEmployeesService,
-  ) {}
+  ) { }
 
   async uploadLogo(
     tenantId: string,
@@ -139,8 +139,13 @@ export class TenantService {
     }
 
     if (updateDto.settings) {
-      const { currency, inventory, documentTemplates, invoiceFormat } =
-        updateDto.settings;
+      const {
+        currency,
+        inventory,
+        documentTemplates,
+        invoiceFormat,
+        billingPreferences,
+      } = updateDto.settings;
       if (currency) {
         Object.keys(currency).forEach((key) => {
           updatePayload[`settings.currency.${key}`] = currency[key];
@@ -149,6 +154,12 @@ export class TenantService {
       if (inventory) {
         Object.keys(inventory).forEach((key) => {
           updatePayload[`settings.inventory.${key}`] = inventory[key];
+        });
+      }
+      if (billingPreferences) {
+        Object.keys(billingPreferences).forEach((key) => {
+          updatePayload[`settings.billingPreferences.${key}`] =
+            billingPreferences[key];
         });
       }
       if (documentTemplates) {
@@ -478,8 +489,7 @@ export class TenantService {
       );
     } catch (error) {
       this.logger.error(
-        `No se pudo reenviar la invitación a ${user.email}: ${
-          error instanceof Error ? error.message : error
+        `No se pudo reenviar la invitación a ${user.email}: ${error instanceof Error ? error.message : error
         }`,
       );
       throw new ConflictException(
