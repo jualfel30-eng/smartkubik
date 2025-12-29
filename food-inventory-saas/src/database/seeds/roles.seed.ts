@@ -53,7 +53,13 @@ export class RolesSeed {
         "events_create",
         "events_update",
         "payroll_employees_read",
+        "payroll_employees_read",
         "payroll_employees_write",
+        "opportunities_read",
+        "opportunities_create",
+        "opportunities_update",
+        "opportunities_delete",
+        "opportunities_view_all",
       ],
     },
     {
@@ -69,6 +75,9 @@ export class RolesSeed {
         "products_read",
         "inventory_read",
         "events_read",
+        "opportunities_read",
+        "opportunities_create",
+        "opportunities_update",
       ],
     },
   ];
@@ -76,7 +85,7 @@ export class RolesSeed {
   constructor(
     @InjectConnection() private readonly connection: Connection,
     private readonly permissionsSeed: PermissionsSeed,
-  ) {}
+  ) { }
 
   async seed(): Promise<void> {
     try {

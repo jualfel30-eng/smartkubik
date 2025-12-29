@@ -403,9 +403,36 @@ export class PermissionsSeed {
       description: "Gestionar nómina de empleados",
       module: "payroll",
     },
+
+    // CRM / Opportunities (Phase 1.2)
+    {
+      name: "opportunities_read",
+      description: "Ver oportunidades (propias)",
+      module: "opportunities",
+    },
+    {
+      name: "opportunities_create",
+      description: "Crear oportunidades",
+      module: "opportunities",
+    },
+    {
+      name: "opportunities_update",
+      description: "Actualizar oportunidades",
+      module: "opportunities",
+    },
+    {
+      name: "opportunities_delete",
+      description: "Eliminar oportunidades",
+      module: "opportunities",
+    },
+    {
+      name: "opportunities_view_all",
+      description: "Ver todas las oportunidades del tenant (Manager)",
+      module: "opportunities",
+    },
   ];
 
-  constructor(@InjectConnection() private readonly connection: Connection) {}
+  constructor(@InjectConnection() private readonly connection: Connection) { }
 
   async seed(): Promise<void> {
     try {

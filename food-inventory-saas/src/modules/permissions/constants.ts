@@ -66,4 +66,9 @@ export const ALL_PERMISSIONS = [
   "payroll_employees_write",
   "marketing_read",
   "marketing_write",
+  "opportunities_read",
+  "opportunities_create",
+  "opportunities_update",
+  "opportunities_delete",
+  "opportunities_view_all",
 ];
