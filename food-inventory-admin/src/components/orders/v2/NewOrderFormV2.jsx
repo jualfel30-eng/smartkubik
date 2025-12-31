@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Combobox } from '@/components/ui/combobox.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
-import { Plus, Trash2, Percent, Scan } from 'lucide-react';
+import { Plus, Trash2, Percent, Scan, ShoppingCart, List } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { fetchApi } from '@/lib/api.js';
 import { useCrmContext } from '@/context/CrmContext.jsx';
 import { venezuelaData } from '@/lib/venezuela-data.js';
@@ -54,8 +55,14 @@ const formatDecimalString = (value, decimals = 3) => {
   return fixed.replace(/\.?0+$/, '') || '0';
 };
 
-export function NewOrderFormV2({ onOrderCreated }) {
+import { useMediaQuery } from '@/hooks/use-media-query';
+
+export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
   const { crmData: customers } = useCrmContext();
+  const [activeTab, setActiveTab] = useState('products');
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
+  const shouldRenderMobileLayout = isEmbedded || !isDesktop;
+
   const { rate: bcvRate, loading: loadingRate, error: rateError } = useExchangeRate();
   const { tenant, hasPermission } = useAuth();
   const canApplyDiscounts = hasPermission('orders_apply_discounts');
@@ -573,9 +580,9 @@ export function NewOrderFormV2({ onOrderCreated }) {
   };
 
   const handleAddressChange = (field, value) => {
-    setNewOrder(prev => ({ 
-        ...prev, 
-        shippingAddress: { ...prev.shippingAddress, [field]: value } 
+    setNewOrder(prev => ({
+      ...prev,
+      shippingAddress: { ...prev.shippingAddress, [field]: value }
     }));
   };
 
@@ -663,8 +670,8 @@ export function NewOrderFormV2({ onOrderCreated }) {
       if (!product) return;
       const variant = product.variants?.[0];
       if (!variant) {
-          alert(`El producto seleccionado (${product.name}) no tiene variantes configuradas y no se puede añadir.`);
-          return;
+        alert(`El producto seleccionado (${product.name}) no tiene variantes configuradas y no se puede añadir.`);
+        return;
       }
       const hasMultiUnit = product.hasMultipleSellingUnits && product.sellingUnits?.length > 0;
       const defaultUnit = hasMultiUnit ? product.sellingUnits.find(u => u.isDefault) || product.sellingUnits[0] : null;
@@ -1089,11 +1096,19 @@ export function NewOrderFormV2({ onOrderCreated }) {
       return;
     }
 
+    // Validación para cliente nuevo sin dirección
+    if (!newOrder.customerId && !newOrder.customerAddress) {
+      alert('Para clientes nuevos, es obligatorio ingresar la dirección.');
+      return;
+    }
+
     const payload = {
       customerId: newOrder.customerId || undefined,
       customerName: newOrder.customerName,
       customerRif: newOrder.customerRif,
       taxType: newOrder.taxType,
+      customerAddress: newOrder.customerAddress,
+      customerPhone: newOrder.customerPhone,
       items: newOrder.items.map(item => ({
         productId: item.productId,
         variantId: item.variantId,
@@ -1220,6 +1235,257 @@ export function NewOrderFormV2({ onOrderCreated }) {
 
   const isCreateDisabled = newOrder.items.length === 0 || !newOrder.customerName || !newOrder.customerRif;
 
+  // Helper function to render items table for sidebar
+  const renderItemsTable = () => {
+    if (newOrder.items.length === 0) {
+      return <p className="text-sm text-muted-foreground text-center py-4">No hay productos</p>;
+    }
+
+    return (
+      <div className="space-y-2">
+        {newOrder.items.map((item, index) => {
+          const quantity = getItemQuantityValue(item);
+          const unitPrice = getItemFinalUnitPrice(item);
+          const itemTotal = quantity * unitPrice;
+
+          return (
+            <div key={`${item.productId}-${index}`} className="flex justify-between items-start text-sm border-b pb-2">
+              <div className="flex-1 min-w-0">
+                <p className="font-medium truncate">{item.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {quantity} x ${unitPrice.toFixed(2)}
+                </p>
+              </div>
+              <p className="font-semibold ml-2">${itemTotal.toFixed(2)}</p>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Helper function to render full items table with all controls
+  const renderFullItemsTable = () => {
+    if (newOrder.items.length === 0) {
+      return (
+        <div className="text-sm text-muted-foreground text-center py-8">
+          No hay productos agregados
+        </div>
+      );
+    }
+
+    return (
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Producto</TableHead>
+              <TableHead className="w-24">Cant.</TableHead>
+              <TableHead className="w-32">Unidad</TableHead>
+              <TableHead>Precio Unit.</TableHead>
+              <TableHead>Total</TableHead>
+              {canApplyDiscounts && <TableHead className="w-28 text-center">Descuentos</TableHead>}
+              <TableHead className="w-20 text-center">Borrar</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {newOrder.items.map(item => (
+              <TableRow key={item.productId}>
+                <TableCell>
+                  {item.name}
+                  <div className="text-sm text-muted-foreground">{item.sku}</div>
+                  {item.hasMultipleSellingUnits && (
+                    <div className="text-xs text-blue-600 dark:text-blue-300 mt-1">Multi-unidad</div>
+                  )}
+                  {item.modifiers && item.modifiers.length > 0 && (
+                    <div className="text-xs text-muted-foreground mt-2 space-y-1">
+                      {item.modifiers.map((mod, index) => {
+                        const adjustment = (Number(mod.priceAdjustment) || 0) * (mod.quantity || 1);
+                        return (
+                          <div key={`${mod.modifierId || mod.name}-${index}`} className="flex items-center gap-1">
+                            <span>• {mod.name}{mod.quantity > 1 ? ` x${mod.quantity}` : ''}</span>
+                            {adjustment !== 0 && (
+                              <span>
+                                ({adjustment > 0 ? '+' : ''}${adjustment.toFixed(2)})
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {item.specialInstructions && (
+                    <div className="text-xs text-orange-600 dark:text-orange-300 italic mt-2">
+                      ⚠ {item.specialInstructions}
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <div className="space-y-2">
+                    {item.isSoldByWeight && (
+                      <ToggleGroup
+                        type="single"
+                        size="sm"
+                        value={item.quantityEntryMode || 'quantity'}
+                        onValueChange={(value) => handleItemEntryModeChange(item.productId, value)}
+                        className="justify-start"
+                      >
+                        <ToggleGroupItem value="quantity" aria-label="Ingresar por peso">
+                          Peso
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="amount" aria-label="Ingresar por monto">
+                          $
+                        </ToggleGroupItem>
+                      </ToggleGroup>
+                    )}
+                    {item.isSoldByWeight && item.quantityEntryMode === 'amount' ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center">
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            value={item.amountInput ?? ''}
+                            onChange={(e) => handleItemAmountChange(item.productId, e.target.value)}
+                            placeholder="Monto"
+                            className="w-24 h-8 text-center"
+                          />
+                          <span className="ml-2 text-xs text-muted-foreground">USD</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          ≈ {formatDecimalString(getItemQuantityValue(item))}{' '}
+                          {item.hasMultipleSellingUnits
+                            ? item.selectedUnit || item.unitOfMeasure
+                            : item.unitOfMeasure}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center">
+                        <Input
+                          type="text"
+                          inputMode={item.isSoldByWeight || item.hasMultipleSellingUnits ? "decimal" : "numeric"}
+                          value={item.quantity}
+                          onChange={(e) => handleItemQuantityChange(item.productId, e.target.value, item.isSoldByWeight || item.hasMultipleSellingUnits)}
+                          className="w-20 h-8 text-center"
+                        />
+                        {!item.hasMultipleSellingUnits && (
+                          <span className="ml-2 text-xs text-muted-foreground">{item.unitOfMeasure}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  {item.hasMultipleSellingUnits && item.sellingUnits ? (
+                    <Select
+                      value={item.selectedUnit}
+                      onValueChange={(value) => handleUnitChange(item.productId, value)}
+                    >
+                      <SelectTrigger className="h-8 w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {item.sellingUnits.filter(u => u.isActive !== false).map((unit) => (
+                          <SelectItem key={unit.abbreviation} value={unit.abbreviation}>
+                            {unit.name} ({unit.abbreviation})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">-</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {item.promotionInfo ? (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm line-through text-muted-foreground">
+                          ${item.promotionInfo.originalPrice.toFixed(2)}
+                        </span>
+                        <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+                          ${getItemFinalUnitPrice(item).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="text-xs text-green-600 dark:text-green-400">
+                        🎉 -{item.promotionInfo.discountPercentage}% descuento
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      ${getItemFinalUnitPrice(item).toFixed(2)}
+                      {item.modifiers && item.modifiers.length > 0 && (
+                        <div className="text-xs text-muted-foreground">
+                          Base: ${(Number(item.unitPrice) || 0).toFixed(2)}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </TableCell>
+                <TableCell>
+                  ${(getItemFinalUnitPrice(item) * getItemQuantityValue(item)).toFixed(2)}
+                  {!canApplyDiscounts && item.discountPercentage > 0 && (
+                    <div className="text-xs text-green-600 dark:text-green-400 font-semibold mt-1">
+                      Descuento: -{item.discountPercentage}%
+                    </div>
+                  )}
+                </TableCell>
+                {canApplyDiscounts && (
+                  <TableCell className="text-center">
+                    <div className="flex flex-col items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenItemDiscount(item)}
+                        title="Aplicar descuento"
+                        className="h-8 w-8"
+                      >
+                        <Percent className="h-4 w-4 text-blue-500" />
+                      </Button>
+                      {item.discountPercentage > 0 && (
+                        <div className="text-xs text-green-600 dark:text-green-400 font-semibold">
+                          -{item.discountPercentage}%
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                )}
+                <TableCell className="text-center">
+                  <Button variant="ghost" size="icon" onClick={() => removeProductFromOrder(item.productId)}>
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  };
+
+  // Helper function to render delivery content for sidebar
+  const renderDeliveryContent = () => {
+    if (newOrder.deliveryMethod === 'pickup') {
+      return <p className="text-sm">Retiro en tienda</p>;
+    }
+
+    if (newOrder.deliveryMethod === 'delivery') {
+      if (newOrder.customerLocation?.formattedAddress) {
+        return <p className="text-sm">{newOrder.customerLocation.formattedAddress}</p>;
+      }
+      return <p className="text-sm text-muted-foreground">Ubicación pendiente</p>;
+    }
+
+    if (newOrder.deliveryMethod === 'envio_nacional') {
+      const { street, city, state } = newOrder.shippingAddress;
+      if (street) {
+        return <p className="text-sm">{street}, {city}, {state}</p>;
+      }
+      return <p className="text-sm text-muted-foreground">Dirección pendiente</p>;
+    }
+
+    return null;
+  };
+
   return (
     <>
       {supportsModifiers && showModifierSelector && pendingProductConfig && (
@@ -1233,575 +1499,488 @@ export function NewOrderFormV2({ onOrderCreated }) {
           onConfirm={handleModifierConfirm}
         />
       )}
-      <Card className="mb-8">
-      <CardContent className="space-y-6">
-        <div className="p-4 border rounded-lg space-y-4">
-          <Label className="text-base font-semibold">Datos del Cliente</Label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>RIF / C.I.</Label>
-              <div className="flex items-center border border-input rounded-md">
-                <Select value={newOrder.taxType} onValueChange={(value) => handleFieldChange('taxType', value)}>
-                  <SelectTrigger className="w-[70px] !h-10 !min-h-10 !py-2 rounded-l-md rounded-r-none !border-0 !border-r !border-input focus:z-10">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="V">V</SelectItem>
-                    <SelectItem value="E">E</SelectItem>
-                    <SelectItem value="J">J</SelectItem>
-                    <SelectItem value="G">G</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="flex-grow">
+
+      {shouldRenderMobileLayout ? (
+        /* MOBILE / EMBEDDED LAYOUT (Single Column with Tabs) */
+        <div className="h-full flex flex-col">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+            <div className="px-4 pt-2">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="products" className="gap-2">
+                  <List className="h-4 w-4" />
+                  Productos
+                </TabsTrigger>
+                <TabsTrigger value="order" className="gap-2">
+                  <ShoppingCart className="h-4 w-4" />
+                  Orden ({newOrder.items.length})
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="products" className="flex-1 overflow-y-auto p-4 space-y-4 data-[state=inactive]:hidden">
+              {/* Products View embedded content */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Búsqueda</Label>
+                  <ViewSwitcher
+                    currentView={preferences.productViewType}
+                    onViewChange={setViewType}
+                  />
+                </div>
+
+                {preferences.productViewType === 'search' ? (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex-grow min-w-0">
+                      <ProductSearchView
+                        products={products}
+                        onProductSelect={handleProductSelection}
+                        isLoading={loadingProducts}
+                        searchInput={productSearchInput}
+                        onSearchInputChange={(value) => setProductSearchInput(value)}
+                        inventoryMap={inventoryMap}
+                      />
+                    </div>
+                    <div className="flex w-full flex-col gap-2">
+                      <Label className="text-xs text-muted-foreground">Escanear</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={barcodeSearch}
+                          onChange={(e) => setBarcodeSearch(e.target.value)}
+                          placeholder="Código..."
+                          className="flex-1 h-9 text-sm"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9"
+                          onClick={() => setIsBarcodeScannerOpen(true)}
+                        >
+                          <Scan className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-9"
+                          onClick={() => handleBarcodeLookup()}
+                          disabled={!barcodeSearch.trim()}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : preferences.productViewType === 'list' ? (
+                  <ProductListView
+                    products={products}
+                    onProductSelect={handleProductSelection}
+                    inventoryMap={inventoryMap}
+                  />
+                ) : (
+                  <ProductGridView
+                    products={products}
+                    onProductSelect={handleProductSelection}
+                    gridColumns={2} // Force 2 cols for narrow view
+                    showImages={preferences.showProductImages}
+                    showDescription={false} // Hide description to save space
+                    enableCategoryFilter={preferences.enableCategoryFilter}
+                    inventoryMap={inventoryMap}
+                  />
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="order" className="flex-1 overflow-y-auto p-4 space-y-4 data-[state=inactive]:hidden">
+              {/* Customer Data Section */}
+              <div className="space-y-4 border rounded-lg p-3 bg-card/50">
+                <Label className="text-sm font-semibold">Cliente</Label>
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <Select value={newOrder.taxType} onValueChange={(value) => handleFieldChange('taxType', value)}>
+                      <SelectTrigger className="w-[65px] h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="V">V</SelectItem>
+                        <SelectItem value="E">E</SelectItem>
+                        <SelectItem value="J">J</SelectItem>
+                        <SelectItem value="G">G</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="flex-1">
+                      <SearchableSelect
+                        options={rifOptions}
+                        onSelection={handleCustomerRifSelection}
+                        onInputChange={handleCustomerRifInputChange}
+                        inputValue={customerRifInput}
+                        value={getCustomerRifValue()}
+                        placeholder="RIF..."
+                        isLoading={isSearchingCustomers}
+                        customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
+                      />
+                    </div>
+                  </div>
                   <SearchableSelect
-                    options={rifOptions}
-                    onSelection={handleCustomerRifSelection}
-                    onInputChange={handleCustomerRifInputChange}
-                    inputValue={customerRifInput}
-                    value={getCustomerRifValue()}
-                    placeholder="Escriba para buscar RIF..."
+                    options={customerOptions}
+                    onSelection={handleCustomerNameSelection}
+                    onInputChange={handleCustomerNameInputChange}
+                    inputValue={customerNameInput}
+                    value={getCustomerNameValue()}
+                    placeholder="Nombre del cliente..."
                     isLoading={isSearchingCustomers}
-                    customControlClass="flex h-10 w-full rounded-l-none rounded-r-md !border-0 bg-input-background px-3 py-2 text-sm ring-offset-background"
+                    customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
                   />
                 </div>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="customerName">Nombre o Razón Social</Label>
-              <SearchableSelect
-                options={customerOptions}
-                onSelection={handleCustomerNameSelection}
-                onInputChange={handleCustomerNameInputChange}
-                inputValue={customerNameInput}
-                value={getCustomerNameValue()}
-                placeholder="Escriba para buscar cliente..."
-                isLoading={isSearchingCustomers}
+
+              {/* Order Items Summary */}
+              <OrderSidebar
+                customerName={newOrder.customerName}
+                customerRif={`${newOrder.taxType}-${newOrder.customerRif}`}
+                taxType={newOrder.taxType}
+                customerPhone={newOrder.customerPhone}
+                customerAddress={newOrder.customerAddress}
+                items={newOrder.items}
+                itemsTableContent={renderItemsTable()}
+                fullItemsTable={renderFullItemsTable()}
+                deliveryMethod={newOrder.deliveryMethod}
+                deliveryContent={renderDeliveryContent()}
+                totals={totals}
+                shippingCost={shippingCost}
+                calculatingShipping={calculatingShipping}
+                bcvRate={bcvRate}
+                loadingRate={loadingRate}
+                onCreateOrder={handleCreateOrder}
+                isCreateDisabled={isCreateDisabled}
+                notes={newOrder.notes}
+                onNotesChange={(value) => handleFieldChange('notes', value)}
+                handleFieldChange={handleFieldChange}
+                generalDiscountPercentage={newOrder.generalDiscountPercentage}
+                onOpenGeneralDiscount={canApplyDiscounts ? handleOpenGeneralDiscount : undefined}
+                canApplyDiscounts={canApplyDiscounts}
+                isEmbedded={true}
               />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="customerAddress">Dirección</Label>
-              <SearchableSelect
-                options={addressOptions}
-                onSelection={handleCustomerAddressSelection}
-                value={getCustomerAddressValue()}
-                placeholder="Escriba la dirección..."
-                isCreatable={true}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="customerPhone">Teléfono</Label>
-              <Input
-                id="customerPhone"
-                value={newOrder.customerPhone || ''}
-                onChange={(e) => handleFieldChange('customerPhone', e.target.value)}
-                placeholder="04141234567"
-              />
-            </div>
-          </div>
+            </TabsContent>
+          </Tabs>
         </div>
+      ) : (
+        /* DESKTOP / FULLSCREEN LAYOUT (Original 2 Columns) */
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_741px] xl:grid-cols-[1fr_833px] -gap-2 mb-8 lg:h-[calc(100vh-12rem)]">
+          {/* LEFT COLUMN - Products ONLY - Independent scroll */}
+          <div className="space-y-6 lg:overflow-y-auto lg:pr-2">
+            {/* Products Section */}
+            <div className="p-4 border rounded-lg space-y-4 bg-card">
+              <div className="flex items-center justify-between mb-4">
+                <Label className="text-base font-semibold">Productos</Label>
+                <ViewSwitcher
+                  currentView={preferences.productViewType}
+                  onViewChange={setViewType}
+                />
+              </div>
 
-        <div className="p-4 border rounded-lg space-y-4">
-          <Label className="text-base font-semibold">Método de Entrega</Label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Select value={newOrder.deliveryMethod} onValueChange={(value) => handleFieldChange('deliveryMethod', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccione método..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pickup">Pickup (Retiro en tienda)</SelectItem>
-                  <SelectItem value="delivery">Delivery (Entrega local)</SelectItem>
-                  <SelectItem value="envio_nacional">Envío Nacional</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
-
-        {restaurantEnabled && (
-          <div className="p-4 border rounded-lg space-y-4">
-            <Label className="text-base font-semibold">Mesa (Opcional)</Label>
-            <Select value={selectedTable} onValueChange={(value) => setSelectedTable(value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona una mesa disponible..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sin mesa asignada</SelectItem>
-                {tables.map((table) => (
-                  <SelectItem key={table._id} value={table._id}>
-                    Mesa {table.tableNumber} · {table.section} · {table.maxCapacity} personas
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {tables.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                No hay mesas disponibles en este momento.
-              </p>
-            )}
-          </div>
-        )}
-
-        {newOrder.deliveryMethod === 'delivery' && (
-          <div className="p-4 border rounded-lg space-y-4">
-            <Label className="text-base font-semibold">Ubicación de Entrega</Label>
-
-            {newOrder.customerLocation && newOrder.customerId && newOrder.useExistingLocation && (
-              <div className="p-3 rounded-lg border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-900/30 space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium text-blue-900 dark:text-blue-200">
-                    Ubicación guardada del cliente
-                  </Label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setNewOrder(prev => ({ ...prev, useExistingLocation: false }))}
-                  >
-                    Cambiar ubicación
-                  </Button>
+              {preferences.productViewType === 'search' ? (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                  <div className="flex-grow min-w-0">
+                    <ProductSearchView
+                      products={products}
+                      onProductSelect={handleProductSelection}
+                      isLoading={loadingProducts}
+                      searchInput={productSearchInput}
+                      onSearchInputChange={(value) => setProductSearchInput(value)}
+                      inventoryMap={inventoryMap}
+                    />
+                  </div>
+                  <div className="flex w-full flex-col gap-2 sm:w-[360px]">
+                    <Label className="text-sm text-muted-foreground">Escanear / código de barras</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={barcodeSearch}
+                        onChange={(e) => setBarcodeSearch(e.target.value)}
+                        onKeyDown={handleBarcodeInputKeyDown}
+                        ref={barcodeInputRef}
+                        placeholder="Escanea aquí o pega el código"
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setIsBarcodeScannerOpen(true)}
+                        title="Escanear con cámara"
+                      >
+                        <Scan className="h-4 w-4" />
+                        <span className="sr-only">Abrir escáner</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleBarcodeLookup()}
+                        disabled={!barcodeSearch.trim()}
+                      >
+                        Agregar
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={continuousScan ? "secondary" : "outline"}
+                        size="sm"
+                        onClick={() => {
+                          const next = !continuousScan;
+                          setContinuousScan(next);
+                          setIsBarcodeScannerOpen(next);
+                          if (next) {
+                            barcodeInputRef.current?.focus();
+                          }
+                        }}
+                        title="Modo escáner continuo (mantiene cámara abierta)"
+                      >
+                        <Scan className="h-4 w-4 mr-2" />
+                        {continuousScan ? "Escáner activo" : "Escáner en vivo"}
+                      </Button>
+                    </div>
+                    {isBarcodeLookup && (
+                      <span className="text-xs text-blue-600 dark:text-blue-300">Buscando producto por código...</span>
+                    )}
+                  </div>
                 </div>
-                {newOrder.customerLocation.formattedAddress && (
-                  <p className="text-sm text-blue-700 dark:text-blue-200">
-                    {newOrder.customerLocation.formattedAddress}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {(!newOrder.useExistingLocation || !newOrder.customerLocation || !newOrder.customerId) && (
-              <div>
-                <LocationPicker
-                  label="Selecciona la ubicación en el mapa"
-                  value={newOrder.customerLocation}
-                  onChange={(location) => setNewOrder(prev => ({ ...prev, customerLocation: location }))}
+              ) : preferences.productViewType === 'list' ? (
+                <ProductListView
+                  products={products}
+                  onProductSelect={handleProductSelection}
+                  inventoryMap={inventoryMap}
                 />
-                {!newOrder.customerId && newOrder.customerLocation && (
-                  <p className="text-sm text-green-600 dark:text-green-400 mt-2">
-                    ✓ Esta ubicación se guardará automáticamente en el perfil del cliente
-                  </p>
-                )}
-                {newOrder.customerId && newOrder.customerLocation && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                    onClick={() => setNewOrder(prev => ({ ...prev, useExistingLocation: true }))}
-                  >
-                    Usar ubicación guardada
-                  </Button>
-                )}
-              </div>
-            )}
+              ) : (
+                <ProductGridView
+                  products={products}
+                  onProductSelect={handleProductSelection}
+                  gridColumns={preferences.gridColumns}
+                  showImages={preferences.showProductImages}
+                  showDescription={preferences.showProductDescription}
+                  enableCategoryFilter={preferences.enableCategoryFilter}
+                  inventoryMap={inventoryMap}
+                />
+              )}
+            </div>
           </div>
-        )}
 
-        {newOrder.deliveryMethod === 'envio_nacional' && (
-          <div className="p-4 border rounded-lg space-y-4">
-            <Label className="text-base font-semibold">Dirección de Entrega Nacional</Label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Dirección</Label>
-                <Textarea
-                  value={newOrder.shippingAddress.street}
-                  onChange={(e) => handleAddressChange('street', e.target.value)}
-                  placeholder="Ej: Av. Bolívar, Edificio ABC, Piso 1, Apto 1A"
-                />
+          {/* RIGHT COLUMN - Customer/Delivery sections + OrderSidebar - Independent scroll */}
+          <div className="space-y-4 lg:overflow-y-auto lg:pl-2">
+            {/* Customer Data Section */}
+            <div className="p-4 border rounded-lg space-y-4 bg-card">
+              <Label className="text-base font-semibold">Datos del Cliente</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>RIF / C.I.</Label>
+                  <div className="flex items-center border border-input rounded-md">
+                    <Select value={newOrder.taxType} onValueChange={(value) => handleFieldChange('taxType', value)}>
+                      <SelectTrigger className="w-[70px] !h-10 !min-h-10 !py-2 rounded-l-md rounded-r-none !border-0 !border-r !border-input focus:z-10">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="V">V</SelectItem>
+                        <SelectItem value="E">E</SelectItem>
+                        <SelectItem value="J">J</SelectItem>
+                        <SelectItem value="G">G</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="flex-grow">
+                      <SearchableSelect
+                        options={rifOptions}
+                        onSelection={handleCustomerRifSelection}
+                        onInputChange={handleCustomerRifInputChange}
+                        inputValue={customerRifInput}
+                        value={getCustomerRifValue()}
+                        placeholder="Escriba para buscar RIF..."
+                        isLoading={isSearchingCustomers}
+                        customControlClass="flex h-10 w-full rounded-l-none rounded-r-md !border-0 bg-input-background px-3 py-2 text-sm ring-offset-background"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="customerName">Nombre o Razón Social</Label>
+                  <SearchableSelect
+                    options={customerOptions}
+                    onSelection={handleCustomerNameSelection}
+                    onInputChange={handleCustomerNameInputChange}
+                    inputValue={customerNameInput}
+                    value={getCustomerNameValue()}
+                    placeholder="Escriba para buscar cliente..."
+                    isLoading={isSearchingCustomers}
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Estado</Label>
-                  <Select value={newOrder.shippingAddress.state} onValueChange={(v) => handleAddressChange('state', v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {venezuelaData.map(e => <SelectItem key={e.estado} value={e.estado}>{e.estado}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Municipio / Ciudad</Label>
-                  <Select value={newOrder.shippingAddress.city} onValueChange={(v) => handleAddressChange('city', v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {municipios.map((m, index) => <SelectItem key={`${m}-${index}`} value={m}>{m}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="p-4 border rounded-lg space-y-4">
-            <div className="flex items-center justify-between mb-4">
-              <Label className="text-base font-semibold">Productos</Label>
-              <ViewSwitcher
-                currentView={preferences.productViewType}
-                onViewChange={setViewType}
-              />
-            </div>
-
-            {preferences.productViewType === 'search' ? (
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-                <div className="flex-grow min-w-0">
-                  <ProductSearchView
-                    products={products}
-                    onProductSelect={handleProductSelection}
-                    isLoading={loadingProducts}
-                    searchInput={productSearchInput}
-                    onSearchInputChange={(value) => setProductSearchInput(value)}
-                    inventoryMap={inventoryMap}
+                  <Label htmlFor="customerPhone">Teléfono</Label>
+                  <Input
+                    id="customerPhone"
+                    value={newOrder.customerPhone || ''}
+                    onChange={(e) => handleFieldChange('customerPhone', e.target.value)}
+                    placeholder="04141234567"
                   />
                 </div>
-                <div className="flex w-full flex-col gap-2 sm:w-[360px]">
-                  <Label className="text-sm text-muted-foreground">Escanear / código de barras</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={barcodeSearch}
-                      onChange={(e) => setBarcodeSearch(e.target.value)}
-                      onKeyDown={handleBarcodeInputKeyDown}
-                      ref={barcodeInputRef}
-                      placeholder="Escanea aquí o pega el código"
-                      className="flex-1"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setIsBarcodeScannerOpen(true)}
-                      title="Escanear con cámara"
-                    >
-                      <Scan className="h-4 w-4" />
-                      <span className="sr-only">Abrir escáner</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleBarcodeLookup()}
-                      disabled={!barcodeSearch.trim()}
-                    >
-                      Agregar
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={continuousScan ? "secondary" : "outline"}
-                      size="sm"
-                      onClick={() => {
-                        const next = !continuousScan;
-                        setContinuousScan(next);
-                        setIsBarcodeScannerOpen(next);
-                        if (next) {
-                          barcodeInputRef.current?.focus();
-                        }
-                      }}
-                      title="Modo escáner continuo (mantiene cámara abierta)"
-                    >
-                      <Scan className="h-4 w-4 mr-2" />
-                      {continuousScan ? "Escáner activo" : "Escáner en vivo"}
-                    </Button>
-                  </div>
-                  {isBarcodeLookup && (
-                    <span className="text-xs text-blue-600 dark:text-blue-300">Buscando producto por código...</span>
-                  )}
+                <div className="space-y-2">
+                  <Label htmlFor="customerAddress">Dirección</Label>
+                  <SearchableSelect
+                    options={addressOptions}
+                    onSelection={handleCustomerAddressSelection}
+                    value={getCustomerAddressValue()}
+                    placeholder="Escriba la dirección..."
+                    isCreatable={true}
+                  />
                 </div>
               </div>
-            ) : preferences.productViewType === 'list' ? (
-              <ProductListView
-                products={products}
-                onProductSelect={handleProductSelection}
-                inventoryMap={inventoryMap}
-              />
-            ) : (
-              <ProductGridView
-                products={products}
-                onProductSelect={handleProductSelection}
-                gridColumns={preferences.gridColumns}
-                showImages={preferences.showProductImages}
-                showDescription={preferences.showProductDescription}
-                enableCategoryFilter={preferences.enableCategoryFilter}
-                inventoryMap={inventoryMap}
-              />
-            )}
-            <div className="border rounded-lg mt-4"><Table><TableHeader><TableRow><TableHead>Producto</TableHead><TableHead className="w-24">Cant.</TableHead><TableHead className="w-32">Unidad</TableHead><TableHead>Precio Unit.</TableHead><TableHead>Total</TableHead>{canApplyDiscounts && <TableHead className="w-28 text-center">Descuentos</TableHead>}<TableHead className="w-20 text-center">Borrar</TableHead></TableRow></TableHeader><TableBody>
-              {newOrder.items.length > 0 ? (
-                newOrder.items.map(item => (
-                  <TableRow key={item.productId}>
-                    <TableCell>
-                      {item.name}
-                      <div className="text-sm text-muted-foreground">{item.sku}</div>
-                      {item.hasMultipleSellingUnits && (
-                        <div className="text-xs text-blue-600 dark:text-blue-300 mt-1">Multi-unidad</div>
-                      )}
-                      {item.modifiers && item.modifiers.length > 0 && (
-                        <div className="text-xs text-muted-foreground mt-2 space-y-1">
-                          {item.modifiers.map((mod, index) => {
-                            const adjustment = (Number(mod.priceAdjustment) || 0) * (mod.quantity || 1);
-                            return (
-                              <div key={`${mod.modifierId || mod.name}-${index}`} className="flex items-center gap-1">
-                                <span>• {mod.name}{mod.quantity > 1 ? ` x${mod.quantity}` : ''}</span>
-                                {adjustment !== 0 && (
-                                  <span>
-                                    ({adjustment > 0 ? '+' : ''}${adjustment.toFixed(2)})
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                      {item.specialInstructions && (
-                        <div className="text-xs text-orange-600 dark:text-orange-300 italic mt-2">
-                          ⚠ {item.specialInstructions}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-2">
-                        {item.isSoldByWeight && (
-                          <ToggleGroup
-                            type="single"
-                            size="sm"
-                            value={item.quantityEntryMode || 'quantity'}
-                            onValueChange={(value) => handleItemEntryModeChange(item.productId, value)}
-                            className="justify-start"
-                          >
-                            <ToggleGroupItem value="quantity" aria-label="Ingresar por peso">
-                              Peso
-                            </ToggleGroupItem>
-                            <ToggleGroupItem value="amount" aria-label="Ingresar por monto">
-                              $
-                            </ToggleGroupItem>
-                          </ToggleGroup>
-                        )}
-                        {item.isSoldByWeight && item.quantityEntryMode === 'amount' ? (
-                          <div className="space-y-1">
-                            <div className="flex items-center">
-                              <Input
-                                type="text"
-                                inputMode="decimal"
-                                value={item.amountInput ?? ''}
-                                onChange={(e) => handleItemAmountChange(item.productId, e.target.value)}
-                                placeholder="Monto"
-                                className="w-24 h-8 text-center"
-                              />
-                              <span className="ml-2 text-xs text-muted-foreground">USD</span>
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              ≈ {formatDecimalString(getItemQuantityValue(item))}{' '}
-                              {item.hasMultipleSellingUnits
-                                ? item.selectedUnit || item.unitOfMeasure
-                                : item.unitOfMeasure}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex items-center">
-                            <Input
-                              type="text"
-                              inputMode={item.isSoldByWeight || item.hasMultipleSellingUnits ? "decimal" : "numeric"}
-                              value={item.quantity}
-                              onChange={(e) => handleItemQuantityChange(item.productId, e.target.value, item.isSoldByWeight || item.hasMultipleSellingUnits)}
-                              className="w-20 h-8 text-center"
-                            />
-                            {!item.hasMultipleSellingUnits && (
-                              <span className="ml-2 text-xs text-muted-foreground">{item.unitOfMeasure}</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {item.hasMultipleSellingUnits && item.sellingUnits ? (
-                        <Select
-                          value={item.selectedUnit}
-                          onValueChange={(value) => handleUnitChange(item.productId, value)}
-                        >
-                          <SelectTrigger className="h-8 w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {item.sellingUnits.filter(u => u.isActive !== false).map((unit) => (
-                              <SelectItem key={unit.abbreviation} value={unit.abbreviation}>
-                                {unit.name} ({unit.abbreviation})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {item.promotionInfo ? (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm line-through text-muted-foreground">
-                              ${item.promotionInfo.originalPrice.toFixed(2)}
-                            </span>
-                            <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                              ${getItemFinalUnitPrice(item).toFixed(2)}
-                            </span>
-                          </div>
-                          <div className="text-xs text-green-600 dark:text-green-400">
-                            🎉 -{item.promotionInfo.discountPercentage}% descuento
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          ${getItemFinalUnitPrice(item).toFixed(2)}
-                          {item.modifiers && item.modifiers.length > 0 && (
-                            <div className="text-xs text-muted-foreground">
-                              Base: ${(Number(item.unitPrice) || 0).toFixed(2)}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      ${(getItemFinalUnitPrice(item) * getItemQuantityValue(item)).toFixed(2)}
-                      {!canApplyDiscounts && item.discountPercentage > 0 && (
-                        <div className="text-xs text-green-600 dark:text-green-400 font-semibold mt-1">
-                          Descuento: -{item.discountPercentage}%
-                        </div>
-                      )}
-                    </TableCell>
-                    {canApplyDiscounts && (
-                      <TableCell className="text-center">
-                        <div className="flex flex-col items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenItemDiscount(item)}
-                            title="Aplicar descuento"
-                            className="h-8 w-8"
-                          >
-                            <Percent className="h-4 w-4 text-blue-500" />
-                          </Button>
-                          {item.discountPercentage > 0 && (
-                            <div className="text-xs text-green-600 dark:text-green-400 font-semibold">
-                              -{item.discountPercentage}%
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                    )}
-                    <TableCell className="text-center">
-                      <Button variant="ghost" size="icon" onClick={() => removeProductFromOrder(item.productId)}>
-                        <Trash2 className="h-4 w-4 text-red-500" />
+            </div>
+
+            {/* Location Picker - if delivery */}
+            {newOrder.deliveryMethod === 'delivery' && (
+              <div className="p-4 border rounded-lg space-y-4 bg-card">
+                <Label className="text-base font-semibold">Ubicación de Entrega</Label>
+
+                {newOrder.customerLocation && newOrder.customerId && newOrder.useExistingLocation && (
+                  <div className="p-3 rounded-lg border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-900/30 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium text-blue-900 dark:text-blue-200">
+                        Ubicación guardada del cliente
+                      </Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setNewOrder(prev => ({ ...prev, useExistingLocation: false }))}
+                      >
+                        Cambiar ubicación
                       </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan="6" className="text-center">
-                    No hay productos en la orden
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody></Table></div>
-        </div>
+                    </div>
+                    {newOrder.customerLocation.formattedAddress && (
+                      <p className="text-sm text-blue-700 dark:text-blue-200">
+                        {newOrder.customerLocation.formattedAddress}
+                      </p>
+                    )}
+                  </div>
+                )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-                <Label htmlFor="notes">Notas Adicionales</Label>
-                <Textarea id="notes" value={newOrder.notes} onChange={(e) => handleFieldChange('notes', e.target.value)} placeholder="Instrucciones especiales, detalles de entrega, etc." />
-            </div>
-            <div className="space-y-4">
-              <div className="bg-muted/50 p-4 rounded-lg space-y-2 text-sm">
-                <div className="flex justify-between items-center">
-                  <span>Subtotal:</span>
-                  <div className="flex items-center gap-2">
-                    <span>${totals.subtotal.toFixed(2)}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleOpenGeneralDiscount}
-                      title="Aplicar descuento general"
-                      className="h-6 w-6 p-0"
-                    >
-                      <Percent className="h-3 w-3 text-blue-500" />
-                    </Button>
-                  </div>
-                </div>
-                {newOrder.generalDiscountPercentage > 0 && (
-                  <div className="flex justify-between text-green-600 dark:text-green-400">
-                    <span>Descuento ({newOrder.generalDiscountPercentage}%):</span>
-                    <span>-${totals.generalDiscountAmount.toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between"><span>IVA (16%):</span><span>${totals.ivaAfterDiscount.toFixed(2)}</span></div>
-                {totals.igtf > 0 && (
-                  <div className="flex justify-between text-orange-600 dark:text-orange-300">
-                    <span>IGTF (3%):</span><span>${totals.igtf.toFixed(2)}</span>
-                  </div>
-                )}
-                {totals.shipping > 0 && (
-                  <div className="flex justify-between text-blue-600 dark:text-blue-300">
-                    <span>Envío:</span>
-                    <span>
-                      {calculatingShipping ? 'Calculando...' : `$${totals.shipping.toFixed(2)}`}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between font-bold text-base border-t pt-2 mt-2"><span>Total:</span><span>${totals.total.toFixed(2)}</span></div>
-                {bcvRate && (
-                  <div className="flex flex-col gap-1 border-t pt-2 mt-2">
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Tasa BCV:</span>
-                      <span>1 USD = {bcvRate.toFixed(2)} Bs</span>
-                    </div>
-                    <div className="flex justify-between font-bold text-lg text-green-600">
-                      <span>Total en Bolívares:</span>
-                      <span>{(totals.total * bcvRate).toFixed(2)} Bs</span>
-                    </div>
-                  </div>
-                )}
-                {loadingRate && !bcvRate && (
-                  <div className="text-xs text-muted-foreground text-center mt-2">
-                    Cargando tasa de cambio...
+                {(!newOrder.useExistingLocation || !newOrder.customerLocation || !newOrder.customerId) && (
+                  <div>
+                    <LocationPicker
+                      label="Selecciona la ubicación en el mapa"
+                      value={newOrder.customerLocation}
+                      onChange={(location) => setNewOrder(prev => ({ ...prev, customerLocation: location }))}
+                    />
+                    {!newOrder.customerId && newOrder.customerLocation && (
+                      <p className="text-sm text-green-600 dark:text-green-400 mt-2">
+                        ✓ Esta ubicación se guardará automáticamente en el perfil del cliente
+                      </p>
+                    )}
+                    {newOrder.customerId && newOrder.customerLocation && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => setNewOrder(prev => ({ ...prev, useExistingLocation: true }))}
+                      >
+                        Usar ubicación guardada
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
-              {/* Payment selector moved to footer for desktop */}
-            </div>
-        </div>
-      </CardContent>
-      <CardFooter className="flex flex-col sm:flex-row justify-end items-center pt-6 gap-4">
-        {/* Mobile layout */}
-        <div className="sm:hidden w-full space-y-2">
-            <Button onClick={handleCreateOrder} disabled={isCreateDisabled} size="lg" className="bg-[#FB923C] text-white hover:bg-[#F97316] w-full">Crear Orden</Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setNewOrder(initialOrderState);
-                setSelectedTable('none');
-              }}
-              className="w-full"
-            >
-              Limpiar Formulario
-            </Button>
-        </div>
+            )}
 
-        {/* Desktop layout */}
-        <div className="hidden sm:flex justify-end items-center gap-2 w-full">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setNewOrder(initialOrderState);
-              setSelectedTable('none');
-            }}
-            className="w-auto"
-          >
-            Limpiar Formulario
-          </Button>
-          <Button id="create-order-button" onClick={handleCreateOrder} disabled={isCreateDisabled} size="lg" className="bg-[#FB923C] text-white hover:bg-[#F97316] w-48">Crear Orden</Button>
+            {/* Shipping Address - if envio_nacional */}
+            {newOrder.deliveryMethod === 'envio_nacional' && (
+              <div className="p-4 border rounded-lg space-y-4 bg-card">
+                <Label className="text-base font-semibold">Dirección de Entrega Nacional</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Dirección</Label>
+                    <Textarea
+                      value={newOrder.shippingAddress.street}
+                      onChange={(e) => handleAddressChange('street', e.target.value)}
+                      placeholder="Ej: Av. Bolívar, Edificio ABC, Piso 1, Apto 1A"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Estado</Label>
+                      <Select value={newOrder.shippingAddress.state} onValueChange={(v) => handleAddressChange('state', v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {venezuelaData.map(e => <SelectItem key={e.estado} value={e.estado}>{e.estado}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Municipio / Ciudad</Label>
+                      <Select value={newOrder.shippingAddress.city} onValueChange={(v) => handleAddressChange('city', v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {municipios.map((m, index) => <SelectItem key={`${m}-${index}`} value={m}>{m}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Restaurant Tables - if enabled */}
+            {restaurantEnabled && (
+              <div className="p-4 border rounded-lg space-y-4 bg-card">
+                <Label className="text-base font-semibold">Mesa (Opcional)</Label>
+                <Select value={selectedTable} onValueChange={(value) => setSelectedTable(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona una mesa disponible..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin mesa asignada</SelectItem>
+                    {tables.map((table) => (
+                      <SelectItem key={table._id} value={table._id}>
+                        Mesa {table.tableNumber} · {table.section} · {table.maxCapacity} personas
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {tables.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No hay mesas disponibles en este momento.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Order Summary - OrderSidebar */}
+            <OrderSidebar
+              customerName={newOrder.customerName}
+              customerRif={`${newOrder.taxType}-${newOrder.customerRif}`}
+              taxType={newOrder.taxType}
+              customerPhone={newOrder.customerPhone}
+              customerAddress={newOrder.customerAddress}
+              items={newOrder.items}
+              itemsTableContent={renderItemsTable()}
+              fullItemsTable={renderFullItemsTable()}
+              deliveryMethod={newOrder.deliveryMethod}
+              deliveryContent={renderDeliveryContent()}
+              totals={totals}
+              shippingCost={shippingCost}
+              calculatingShipping={calculatingShipping}
+              bcvRate={bcvRate}
+              loadingRate={loadingRate}
+              onCreateOrder={handleCreateOrder}
+              isCreateDisabled={isCreateDisabled}
+              notes={newOrder.notes}
+              onNotesChange={(value) => handleFieldChange('notes', value)}
+              handleFieldChange={handleFieldChange}
+              generalDiscountPercentage={newOrder.generalDiscountPercentage}
+              onOpenGeneralDiscount={canApplyDiscounts ? handleOpenGeneralDiscount : undefined}
+              canApplyDiscounts={canApplyDiscounts}
+            />
+          </div>
         </div>
-      </CardFooter>
-      </Card>
+      )}
 
       <BarcodeScannerDialog
         open={isBarcodeScannerOpen}
