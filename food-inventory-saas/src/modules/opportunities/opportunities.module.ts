@@ -18,6 +18,7 @@ import {
 } from "../../schemas/message-activity.schema";
 import { PlaybooksModule } from "../playbooks/playbooks.module";
 import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
+import { BillingModule } from "../billing/billing.module";
 
 @Module({
   imports: [
@@ -33,9 +34,10 @@ import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
     ]),
     NotificationsModule,
     PlaybooksModule,
+    BillingModule,
   ],
   controllers: [OpportunitiesController],
   providers: [OpportunitiesService],
   exports: [OpportunitiesService],
 })
-export class OpportunitiesModule {}
+export class OpportunitiesModule { }

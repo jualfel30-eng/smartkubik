@@ -31,6 +31,7 @@ import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import { ConfigService } from "@nestjs/config";
 import { google } from "googleapis";
 import { decrypt } from "../../utils/encryption.util";
+import { BillingService } from "../billing/billing.service";
 
 @Injectable()
 export class OpportunitiesService {
@@ -50,6 +51,7 @@ export class OpportunitiesService {
     private readonly notificationsService: NotificationsService,
     private readonly playbooksService: PlaybooksService,
     private readonly configService: ConfigService,
+    private readonly billingService: BillingService,
   ) { }
 
   // Reglas simples de enrutamiento: round-robin por territorio
@@ -182,6 +184,10 @@ export class OpportunitiesService {
   async findOne(id: string, tenantId: string) {
     const opp = await this.opportunityModel
       .findOne({ _id: id, tenantId })
+      .populate("quoteIds")
+      .populate("invoiceIds")
+      .populate("customerId")
+      .populate("ownerId")
       .lean();
     if (!opp) {
       throw new HttpException("Oportunidad no encontrada", HttpStatus.NOT_FOUND);
@@ -601,22 +607,45 @@ export class OpportunitiesService {
 
     let customer: CustomerDocument | null = null;
     if (email) {
-      customer = await this.customerModel.findOne({ tenantId, email }).lean();
+      customer = await this.customerModel.findOne({
+        tenantId,
+        'contacts': { $elemMatch: { type: 'email', value: email } }
+      }).lean();
     }
     if (!customer && phone) {
-      customer = await this.customerModel.findOne({ tenantId, phone }).lean();
+      customer = await this.customerModel.findOne({
+        tenantId,
+        'contacts': { $elemMatch: { type: { $in: ['phone', 'mobile'] }, value: phone } }
+      }).lean();
     }
 
     if (customer) {
       return { ...dto, customerId: customer._id.toString() };
     }
 
+    const contacts: any[] = [];
+    if (email) contacts.push({ type: 'email', value: email, isPrimary: true });
+    if (phone) contacts.push({ type: 'phone', value: phone, isPrimary: !email });
+
     const created = await this.customerModel.create({
       tenantId,
       name: (dto as any).decisionMaker || dto.name || "Nuevo contacto",
-      email,
-      phone,
+      contacts,
       source: dto.source,
+      // Default required fields
+      customerNumber: `Lead-${Date.now()}`,
+      customerType: 'Lead',
+      street: 'Pendiente', // or derived
+      city: 'Pendiente',
+      state: 'Pendiente',
+      country: 'Venezuela',
+      addresses: [{ // Required by schema
+        type: 'Principal',
+        street: 'Pendiente',
+        city: 'Pendiente',
+        state: 'Pendiente',
+        country: 'Venezuela'
+      }]
     });
     return { ...dto, customerId: created._id.toString() };
   }
@@ -744,6 +773,114 @@ export class OpportunitiesService {
     await this.notifyCalendarEvent(opp, activity);
     await this.syncGoogleEvent(opp, activity);
     return activity;
+  }
+
+  async generateQuote(id: string, user: any) {
+    const opp = await this.findOne(id, user.tenantId);
+    if (!opp.customerId) {
+      throw new HttpException("La oportunidad debe tener un cliente asignado", HttpStatus.BAD_REQUEST);
+    }
+    const customer = await this.customerModel.findById(opp.customerId);
+    if (!customer) {
+      throw new HttpException("Cliente no encontrado", HttpStatus.NOT_FOUND);
+    }
+
+    // Create Quote using BillingService
+    const doc = await this.billingService.create({
+      type: 'quote',
+      seriesId: (await this.billingService.getDefaultSeriesId(user.tenantId, 'quote')),
+      customerName: customer.name || customer.companyName || 'Cliente',
+      customerTaxId: customer.taxInfo?.taxId || 'N/A',
+      customerData: {
+        email: customer.contacts?.find(c => c.type === 'email')?.value,
+        phone: customer.contacts?.find(c => c.type === 'phone' || c.type === 'mobile')?.value,
+        address: customer.addresses?.[0] ? `${customer.addresses[0].street}, ${customer.addresses[0].city}` : undefined
+      },
+      items: [{
+        description: `Cotización para ${opp.name}`,
+        quantity: 1,
+        unitPrice: opp.amount || 0,
+        total: opp.amount || 0,
+        tax: { type: 'Exento', rate: 0 } // Default simple item
+      }],
+      totals: {
+        subtotal: opp.amount || 0,
+        grandTotal: opp.amount || 0,
+        currency: opp.currency || 'USD',
+        exchangeRate: 1
+      },
+      relatedOrderId: opp._id.toString()
+    }, user.tenantId);
+
+    // Link generic Quote to Opportunity
+    opp.quoteIds.push(doc._id);
+    await this.opportunityModel.updateOne({ _id: opp._id }, { $push: { quoteIds: doc._id } });
+
+    return doc;
+  }
+
+  async generateInvoice(id: string, user: any) {
+    const opp = await this.findOne(id, user.tenantId);
+    if (!opp.customerId) {
+      throw new HttpException("La oportunidad debe tener un cliente asignado", HttpStatus.BAD_REQUEST);
+    }
+
+    const customer = await this.customerModel.findById(opp.customerId);
+    if (!customer) {
+      throw new HttpException("Cliente no encontrado", HttpStatus.NOT_FOUND);
+    }
+
+    // Create Invoice (Draft)
+    const doc = await this.billingService.create({
+      type: 'invoice',
+      seriesId: (await this.billingService.getDefaultSeriesId(user.tenantId, 'invoice')),
+      customerName: customer.name || customer.companyName || 'Cliente',
+      customerTaxId: customer.taxInfo?.taxId || 'N/A',
+      customerData: {
+        email: customer.contacts?.find(c => c.type === 'email')?.value,
+        phone: customer.contacts?.find(c => c.type === 'phone' || c.type === 'mobile')?.value,
+        address: customer.addresses?.[0] ? `${customer.addresses[0].street}, ${customer.addresses[0].city}` : undefined
+      },
+      items: [{
+        description: `Facturación de ${opp.name}`,
+        quantity: 1,
+        unitPrice: opp.amount || 0,
+        total: opp.amount || 0,
+        tax: { type: 'Exento', rate: 0 }
+      }],
+      totals: {
+        subtotal: opp.amount || 0,
+        grandTotal: opp.amount || 0,
+        currency: opp.currency || 'USD',
+        exchangeRate: 1
+      },
+      relatedOrderId: opp._id.toString()
+    }, user.tenantId);
+
+    // Link Invoice and Auto-Win
+    opp.invoiceIds.push(doc._id);
+    await this.opportunityModel.updateOne(
+      { _id: opp._id },
+      {
+        $push: { invoiceIds: doc._id },
+        // Auto win if not already won
+        ...(opp.stage !== 'Cierre ganado' ? {
+          $set: { stage: 'Cierre ganado', probability: 100 },
+          $push: {
+            stageHistory: {
+              fromStage: opp.stage,
+              toStage: 'Cierre ganado',
+              changedAt: new Date(),
+              changedBy: user.userId,
+              probability: 100,
+              valueWeighted: opp.amount
+            }
+          }
+        } : {})
+      }
+    );
+
+    return doc;
   }
 
   async findOpenOpportunityByContact(email: string, tenantId: string) {
@@ -933,42 +1070,81 @@ export class OpportunitiesService {
   private async triggerPlaybooks(opp: OpportunityDocument) {
     const playbooks = await this.playbooksService.findAll(opp.tenantId?.toString?.() || "");
     if (!playbooks?.length) return;
-    const triggers = [`stage:${opp.stage}`, `source:${opp.source || "unknown"}`];
+
     for (const pb of playbooks) {
-      if (!pb.triggers || pb.triggers.length === 0) continue;
-      const matches = pb.triggers.every((t) => triggers.includes(t));
+      if (!pb.active) continue;
+
+      // Check Triggers
+      let matches = false;
+      if (pb.triggerType === "stage_entry" && pb.triggerStage === opp.stage) {
+        matches = true;
+      } else if (pb.triggerType === "source" && pb.triggerSource === opp.source) {
+        matches = true;
+      }
+
       if (!matches) continue;
-      const delayMs = (pb.delayMinutes || 0) * 60 * 1000;
-      setTimeout(async () => {
-        try {
-          if (pb.actionType === "task" && pb.taskTitle) {
-            await this.notificationsService.enqueueInAppNotification({
-              tenantId: opp.tenantId?.toString?.(),
-              userId: opp.ownerId?.toString?.(),
-              title: pb.taskTitle,
-              message: `Playbook: ${pb.name} para ${opp.name}`,
-              metadata: { opportunityId: opp._id?.toString?.(), playbookId: (pb as any)._id?.toString?.() },
-            });
+
+      // Execute Steps
+      for (const step of pb.steps || []) {
+        if (!step.active) continue;
+
+        const delayMs = (step.delayMinutes || 0) * 60 * 1000;
+
+        // Note: Using setTimeout is fragile for production (lost on restart), 
+        // but keeping it consistent with the existing logic for now. 
+        // Ideally should use a job queue (Bull).
+        setTimeout(async () => {
+          try {
+            // TASK
+            if (step.type === "task" && step.taskTitle) {
+              await this.notificationsService.enqueueInAppNotification({
+                tenantId: opp.tenantId?.toString?.(),
+                userId: opp.ownerId?.toString?.(),
+                title: step.taskTitle,
+                message: step.taskDescription || `Playbook: ${pb.name} para ${opp.name}`,
+                metadata: {
+                  opportunityId: opp._id?.toString?.(),
+                  playbookId: pb._id?.toString?.(),
+                  stepName: step.name
+                },
+              });
+            }
+
+            // EMAIL
+            if (step.type === "email") {
+              // TODO: Implement actual email sending logic or call email service
+              // Logging activity as placeholder matching previous logic
+              await this.logEmailActivity(
+                opp._id.toString(),
+                {
+                  direction: "outbound",
+                  subject: step.messageSubject || `Playbook ${pb.name}`,
+                  body: step.messageBody || `Playbook ${pb.name} disparado para ${opp.name}`,
+                  from: "system",
+                  to: [], // Needs recipient
+                  channel: "email",
+                  threadId: opp.threadId,
+                },
+                { tenantId: opp.tenantId },
+              );
+            }
+
+            // NOTIFICATION
+            if (step.type === "notification") {
+              await this.notificationsService.enqueueInAppNotification({
+                tenantId: opp.tenantId?.toString?.(),
+                userId: opp.ownerId?.toString?.(),
+                title: step.notificationTitle || "Notificación de Playbook",
+                message: step.notificationMessage || `Paso: ${step.name}`,
+                metadata: { opportunityId: opp._id?.toString?.() },
+              });
+            }
+
+          } catch (err) {
+            this.logger.warn(`Playbook ${pb.name} step ${step.name} failed: ${err?.message}`);
           }
-          if (pb.actionType === "email") {
-            await this.logEmailActivity(
-              opp._id.toString(),
-              {
-                direction: "outbound",
-                subject: pb.taskTitle || `Playbook ${pb.name}`,
-                body: `Playbook ${pb.name} disparado para ${opp.name}`,
-                from: "system",
-                to: [],
-                channel: "email",
-                threadId: opp.threadId,
-              },
-              { tenantId: opp.tenantId },
-            );
-          }
-        } catch (err) {
-          this.logger.warn(`Playbook ${pb.name} falló: ${err?.message}`);
-        }
-      }, delayMs);
+        }, delayMs);
+      }
     }
   }
 
@@ -1065,11 +1241,16 @@ export class OpportunitiesService {
   }
 
   private async ensureCustomerInTenant(customerId: string, tenantId: string) {
-    const exists = await this.customerModel.exists({
-      _id: customerId,
-      tenantId,
-    });
-    if (!exists) {
+    const customer = await this.customerModel.findById(customerId).select('tenantId').lean();
+
+    if (!customer) {
+      throw new HttpException(
+        "El cliente no existe",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (customer.tenantId?.toString() !== tenantId.toString()) {
       throw new HttpException(
         "El cliente no pertenece al tenant",
         HttpStatus.BAD_REQUEST,

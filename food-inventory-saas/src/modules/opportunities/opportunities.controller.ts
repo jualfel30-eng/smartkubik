@@ -238,4 +238,19 @@ export class OpportunitiesController {
     const data = await this.opportunitiesService.logCalendarActivity(id, payload, req.user);
     return { success: true, data };
   }
+  @Post(":id/quote")
+  @Permissions("billing_create")
+  @ApiOperation({ summary: "Generar cotización desde oportunidad" })
+  async generateQuote(@Param("id") id: string, @Request() req) {
+    const data = await this.opportunitiesService.generateQuote(id, req.user);
+    return { success: true, data };
+  }
+
+  @Post(":id/invoice")
+  @Permissions("billing_create")
+  @ApiOperation({ summary: "Generar factura desde oportunidad" })
+  async generateInvoice(@Param("id") id: string, @Request() req) {
+    const data = await this.opportunitiesService.generateInvoice(id, req.user);
+    return { success: true, data };
+  }
 }

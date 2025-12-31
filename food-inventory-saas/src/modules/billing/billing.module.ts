@@ -41,6 +41,7 @@ import { Order, OrderSchema } from "../../schemas/order.schema";
 import { RedisLockService } from "./redis-lock.service";
 import { ImprentaFailureController } from "./imprenta-failure.controller";
 import { ImprentaFailureService } from "./imprenta-failure.service";
+import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
 import { SalesBookPdfService } from "./sales-book-pdf.service";
 import { BillingEvidencesController } from "./billing-evidences.controller";
 import { BillingEvidencesService } from "./billing-evidences.service";
@@ -63,6 +64,7 @@ import { InvoicePdfService } from "./invoice-pdf.service";
       { name: SequenceLock.name, schema: SequenceLockSchema },
       { name: ImprentaFailure.name, schema: ImprentaFailureSchema },
       { name: Order.name, schema: OrderSchema },
+      { name: Tenant.name, schema: TenantSchema },
     ]),
     forwardRef(() => ChatModule),
   ],

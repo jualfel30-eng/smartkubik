@@ -43,10 +43,9 @@ export class SeniatExportService {
    * Format follows Venezuelan SENIAT electronic invoicing standard
    */
   private buildSeniatXML(invoice: BillingDocument): string {
-    const documentDate = new Date(invoice.documentDate).toISOString().split('T')[0];
-    const issueDate = invoice.issueDate
-      ? new Date(invoice.issueDate).toISOString().split('T')[0]
-      : documentDate;
+    const docDate = invoice.issueDate || (invoice as any).createdAt || new Date();
+    const documentDate = new Date(docDate).toISOString().split('T')[0];
+    const issueDate = documentDate;
 
     // Escape XML special characters
     const escape = (str: string) => {
@@ -58,6 +57,10 @@ export class SeniatExportService {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&apos;');
     };
+
+    // Calculate tax total helper
+    const getTaxAmount = () => (invoice.totals?.taxes || []).reduce((sum, t) => sum + (t.amount || 0), 0);
+    const taxAmount = getTaxAmount();
 
     // Build XML
     let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
@@ -74,79 +77,86 @@ export class SeniatExportService {
 
     // Issuer section (empresa emisora)
     xml += '  <Emisor>\n';
-    xml += `    <RIF>${escape(invoice.issuerInfo?.taxId || '')}</RIF>\n`;
-    xml += `    <RazonSocial>${escape(invoice.issuerInfo?.name || '')}</RazonSocial>\n`;
-    if (invoice.issuerInfo?.address) {
-      xml += `    <Direccion>${escape(invoice.issuerInfo.address)}</Direccion>\n`;
-    }
-    if (invoice.issuerInfo?.phone) {
-      xml += `    <Telefono>${escape(invoice.issuerInfo.phone)}</Telefono>\n`;
+    xml += `    <RIF>${escape(invoice.emitter?.taxId || '')}</RIF>\n`;
+    xml += `    <RazonSocial>${escape(invoice.emitter?.businessName || '')}</RazonSocial>\n`;
+    if (invoice.emitter?.fiscalAddress) {
+      xml += `    <Direccion>${escape(invoice.emitter.fiscalAddress)}</Direccion>\n`;
     }
     xml += '  </Emisor>\n';
 
     // Customer section (cliente)
     xml += '  <Receptor>\n';
-    xml += `    <RIF>${escape(invoice.customerInfo?.taxId || '')}</RIF>\n`;
-    xml += `    <RazonSocial>${escape(invoice.customerInfo?.name || '')}</RazonSocial>\n`;
-    if (invoice.customerInfo?.address) {
-      xml += `    <Direccion>${escape(invoice.customerInfo.address)}</Direccion>\n`;
+    xml += `    <RIF>${escape(invoice.customer?.taxId || '')}</RIF>\n`;
+    xml += `    <RazonSocial>${escape(invoice.customer?.name || '')}</RazonSocial>\n`;
+    if (invoice.customer?.address) {
+      xml += `    <Direccion>${escape(invoice.customer.address)}</Direccion>\n`;
     }
-    if (invoice.customerInfo?.phone) {
-      xml += `    <Telefono>${escape(invoice.customerInfo.phone)}</Telefono>\n`;
+    if (invoice.customer?.phone) {
+      xml += `    <Telefono>${escape(invoice.customer.phone)}</Telefono>\n`;
     }
     xml += '  </Receptor>\n';
 
     // Line items
     xml += '  <Detalle>\n';
-    invoice.lines.forEach((line, index) => {
-      xml += `    <Linea numero="${index + 1}">\n`;
-      xml += `      <CodigoProducto>${escape(line.productCode || '')}</CodigoProducto>\n`;
-      xml += `      <Descripcion>${escape(line.description)}</Descripcion>\n`;
-      xml += `      <Cantidad>${line.quantity}</Cantidad>\n`;
-      xml += `      <UnidadMedida>${escape(line.unitOfMeasure || 'UND')}</UnidadMedida>\n`;
-      xml += `      <PrecioUnitario>${line.unitPrice.toFixed(2)}</PrecioUnitario>\n`;
+    if (invoice.items) {
+      invoice.items.forEach((line, index) => {
+        xml += `    <Linea numero="${index + 1}">\n`;
+        // Product code might not be directly available, using description or placeholder
+        xml += `      <CodigoProducto>${index + 1}</CodigoProducto>\n`;
+        xml += `      <Descripcion>${escape(line.description)}</Descripcion>\n`;
+        xml += `      <Cantidad>${line.quantity}</Cantidad>\n`;
+        xml += `      <UnidadMedida>UND</UnidadMedida>\n`;
+        xml += `      <PrecioUnitario>${line.unitPrice.toFixed(2)}</PrecioUnitario>\n`;
 
-      if (line.discountAmount && line.discountAmount > 0) {
-        xml += `      <Descuento>${line.discountAmount.toFixed(2)}</Descuento>\n`;
-      }
+        const discountVal = line.discount?.value || 0;
+        if (discountVal > 0) {
+          xml += `      <Descuento>${discountVal.toFixed(2)}</Descuento>\n`;
+        }
 
-      const lineTotal = (line.quantity * line.unitPrice) - (line.discountAmount || 0);
-      xml += `      <MontoLinea>${lineTotal.toFixed(2)}</MontoLinea>\n`;
-      xml += '    </Linea>\n';
-    });
+        const lineTotal = line.total || ((line.quantity * line.unitPrice) - discountVal);
+        xml += `      <MontoLinea>${lineTotal.toFixed(2)}</MontoLinea>\n`;
+        xml += '    </Linea>\n';
+      });
+    }
     xml += '  </Detalle>\n';
 
     // Totals section
-    xml += '  <Totales>\n';
-    xml += `    <SubTotal>${invoice.subtotalAmount.toFixed(2)}</SubTotal>\n`;
+    const subtotal = invoice.totals?.subtotal || 0;
+    const discounts = invoice.totals?.discounts || 0;
+    const grandTotal = invoice.totals?.grandTotal || 0;
+    const currency = invoice.totals?.currency || 'VES';
+    const exchangeRate = invoice.totals?.exchangeRate || 1;
 
-    if (invoice.discountAmount && invoice.discountAmount > 0) {
-      xml += `    <DescuentoGlobal>${invoice.discountAmount.toFixed(2)}</DescuentoGlobal>\n`;
+    xml += '  <Totales>\n';
+    xml += `    <SubTotal>${subtotal.toFixed(2)}</SubTotal>\n`;
+
+    if (discounts > 0) {
+      xml += `    <DescuentoGlobal>${discounts.toFixed(2)}</DescuentoGlobal>\n`;
     }
 
-    xml += `    <BaseImponible>${(invoice.subtotalAmount - (invoice.discountAmount || 0)).toFixed(2)}</BaseImponible>\n`;
-    xml += `    <MontoImpuesto>${invoice.taxAmount.toFixed(2)}</MontoImpuesto>\n`;
-    xml += `    <MontoTotal>${invoice.totalAmount.toFixed(2)}</MontoTotal>\n`;
-    xml += `    <Moneda>${escape(invoice.currency)}</Moneda>\n`;
+    const taxableBase = subtotal - discounts;
+    xml += `    <BaseImponible>${taxableBase.toFixed(2)}</BaseImponible>\n`;
+    xml += `    <MontoImpuesto>${taxAmount.toFixed(2)}</MontoImpuesto>\n`;
+    xml += `    <MontoTotal>${grandTotal.toFixed(2)}</MontoTotal>\n`;
+    xml += `    <Moneda>${escape(currency)}</Moneda>\n`;
 
-    if (invoice.exchangeRate && invoice.exchangeRate !== 1) {
-      xml += `    <TasaCambio>${invoice.exchangeRate.toFixed(4)}</TasaCambio>\n`;
+    if (exchangeRate !== 1) {
+      xml += `    <TasaCambio>${exchangeRate.toFixed(4)}</TasaCambio>\n`;
     }
 
     xml += '  </Totales>\n';
 
     // Tax information
-    if (invoice.taxAmount > 0) {
+    if (taxAmount > 0) {
       xml += '  <Impuestos>\n';
       xml += '    <Impuesto>\n';
       xml += '      <Tipo>IVA</Tipo>\n';
 
-      const taxBase = invoice.subtotalAmount - (invoice.discountAmount || 0);
-      const taxRate = taxBase > 0 ? (invoice.taxAmount / taxBase) * 100 : 0;
+      const taxRate = taxableBase > 0 ? (taxAmount / taxableBase) * 100 : 0;
 
       xml += `      <Alicuota>${taxRate.toFixed(2)}</Alicuota>\n`;
-      xml += `      <BaseImponible>${taxBase.toFixed(2)}</BaseImponible>\n`;
-      xml += `      <Monto>${invoice.taxAmount.toFixed(2)}</Monto>\n`;
+      xml += `      <BaseImponible>${taxableBase.toFixed(2)}</BaseImponible>\n`;
+      xml += `      <Monto>${taxAmount.toFixed(2)}</Monto>\n`;
       xml += '    </Impuesto>\n';
       xml += '  </Impuestos>\n';
     }
@@ -163,62 +173,48 @@ export class SeniatExportService {
 
     // Payment information
     xml += '  <CondicionesPago>\n';
-    xml += `    <TerminosPago>${invoice.paymentTermDays || 0} días</TerminosPago>\n`;
 
-    if (invoice.dueDate) {
-      const dueDateStr = new Date(invoice.dueDate).toISOString().split('T')[0];
+    let days = 0;
+    if (invoice.paymentTerms?.dueDate && invoice.issueDate) {
+      const diff = new Date(invoice.paymentTerms.dueDate).getTime() - new Date(invoice.issueDate).getTime();
+      days = Math.max(0, Math.ceil(diff / (1000 * 3600 * 24)));
+    }
+    xml += `    <TerminosPago>${days} días</TerminosPago>\n`;
+
+    if (invoice.paymentTerms?.dueDate) {
+      const dueDateStr = new Date(invoice.paymentTerms.dueDate).toISOString().split('T')[0];
       xml += `    <FechaVencimiento>${dueDateStr}</FechaVencimiento>\n`;
     }
 
     xml += '  </CondicionesPago>\n';
 
-    // Additional notes
-    if (invoice.notes) {
-      xml += '  <Observaciones>\n';
-      xml += `    <Nota>${escape(invoice.notes)}</Nota>\n`;
-      xml += '  </Observaciones>\n';
-    }
+    // Additional notes - Removed as property 'notes' does not exist on BillingDocument schema
+    // if (invoice.notes) { ... }
 
     xml += '</FacturaElectronica>\n';
 
     return xml;
   }
 
-  /**
-   * Map internal document type to SENIAT type code
-   */
-  private mapDocumentType(type: string): string {
-    const typeMap: Record<string, string> = {
-      invoice: '01', // Factura
-      credit_note: '02', // Nota de Crédito
-      debit_note: '03', // Nota de Débito
-    };
+  // ... (keep mapDocumentType)
 
-    return typeMap[type] || '01';
-  }
-
-  /**
-   * Generate QR code for invoice verification
-   * @param invoice - Billing document
-   * @returns Base64 encoded QR code image
-   */
   async generateQRCode(invoice: BillingDocument): Promise<string> {
     this.logger.debug(`Generating QR code for invoice ${invoice.documentNumber}`);
 
     try {
       // Build verification URL with invoice data
       const verificationData = {
-        rif: invoice.issuerInfo?.taxId,
+        rif: invoice.emitter?.taxId,
         type: this.mapDocumentType(invoice.type),
         number: invoice.documentNumber,
         control: invoice.controlNumber,
-        date: new Date(invoice.documentDate).toISOString().split('T')[0],
-        amount: invoice.totalAmount.toFixed(2),
+        date: new Date(invoice.issueDate || (invoice as any).createdAt || new Date()).toISOString().split('T')[0],
+        amount: (invoice.totals?.grandTotal || 0).toFixed(2),
       };
 
       // Create URL with query parameters
       const queryString = Object.entries(verificationData)
-        .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+        .map(([key, value]) => `${key}=${encodeURIComponent(value || '')}`)
         .join('&');
 
       const verificationUrl = `${this.SENIAT_VERIFICATION_BASE_URL}?${queryString}`;
@@ -237,6 +233,37 @@ export class SeniatExportService {
       this.logger.error(`Error generating QR code for ${invoice.documentNumber}`, error);
       throw error;
     }
+  }
+
+  // ... (keep signDocument, validateXML, generateCompleteExport, calculateHash)
+
+  private buildVerificationUrl(invoice: BillingDocument): string {
+    const params = {
+      rif: invoice.emitter?.taxId || '',
+      type: this.mapDocumentType(invoice.type),
+      number: invoice.documentNumber,
+      control: invoice.controlNumber || '',
+    };
+
+    const queryString = Object.entries(params)
+      .filter(([, value]) => value)
+      .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+      .join('&');
+
+    return `${this.SENIAT_VERIFICATION_BASE_URL}?${queryString}`;
+  }
+
+  /**
+   * Map internal document type to SENIAT type code
+   */
+  private mapDocumentType(type: string): string {
+    const typeMap: Record<string, string> = {
+      invoice: '01', // Factura
+      credit_note: '02', // Nota de Crédito
+      debit_note: '03', // Nota de Débito
+    };
+
+    return typeMap[type] || '01';
   }
 
   /**
@@ -370,26 +397,5 @@ export class SeniatExportService {
    */
   private calculateHash(xml: string): string {
     return crypto.createHash('sha256').update(xml, 'utf8').digest('hex');
-  }
-
-  /**
-   * Build verification URL for invoice
-   * @param invoice - Billing document
-   * @returns Verification URL
-   */
-  private buildVerificationUrl(invoice: BillingDocument): string {
-    const params = {
-      rif: invoice.issuerInfo?.taxId || '',
-      type: this.mapDocumentType(invoice.type),
-      number: invoice.documentNumber,
-      control: invoice.controlNumber || '',
-    };
-
-    const queryString = Object.entries(params)
-      .filter(([, value]) => value)
-      .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
-      .join('&');
-
-    return `${this.SENIAT_VERIFICATION_BASE_URL}?${queryString}`;
   }
 }

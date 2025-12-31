@@ -101,7 +101,7 @@ export class BillingController {
       throw new BadRequestException("Phone number required");
     }
 
-    const pdfBuffer = this.invoicePdfService.generate(doc as any);
+    const pdfBuffer = await this.invoicePdfService.generate(doc as any);
     const base64Pdf = pdfBuffer.toString("base64");
     const mediaUrl = `data:application/pdf;base64,${base64Pdf}`;
     const filename = `factura-${doc.documentNumber}.pdf`;
@@ -140,7 +140,7 @@ export class BillingController {
     }
 
     // Generate PDF from provided data
-    const pdfBuffer = this.invoicePdfService.generate(invoiceData);
+    const pdfBuffer = await this.invoicePdfService.generate(invoiceData);
     const base64Pdf = pdfBuffer.toString("base64");
     const mediaUrl = `data:application/pdf;base64,${base64Pdf}`;
     const filename = `factura-${invoiceData.documentNumber || "draft"}.pdf`;
@@ -263,6 +263,33 @@ export class BillingController {
     });
 
     res.send(xmlBuffer);
+  }
+
+  @Get("documents/:id/pdf")
+  @Permissions("billing_read")
+  @ApiOperation({ summary: "Descargar Factura PDF" })
+  async downloadPdf(
+    @Param("id") id: string,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const tenantId = req.user.tenantId;
+    const doc = await this.billingService.getById(id, tenantId);
+
+    if (!doc) {
+      throw new NotFoundException("Document Not Found");
+    }
+
+    const pdfBuffer = await this.invoicePdfService.generate(doc as any);
+    const filename = `factura-${doc.documentNumber || id}.pdf`;
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="${filename}"`,
+      "Content-Length": pdfBuffer.length,
+    });
+
+    res.send(pdfBuffer);
   }
 
   @Get("stats/electronic-invoices")

@@ -56,6 +56,26 @@ export class BillingService {
     return this.billingModel.findOne({ _id: id, tenantId }).lean();
   }
 
+  async getDefaultSeriesId(tenantId: string, type: string): Promise<string> {
+    const series = await this.sequenceModel.findOne({
+      tenantId,
+      type,
+      isDefault: true,
+      status: 'active'
+    });
+    if (series) return series._id.toString();
+
+    // Fallback: any active series
+    const anySeries = await this.sequenceModel.findOne({
+      tenantId,
+      type,
+      status: 'active'
+    });
+    if (anySeries) return anySeries._id.toString();
+
+    throw new NotFoundException(`No active series found for type ${type}`);
+  }
+
   async create(dto: CreateBillingDocumentDto, tenantId: string) {
     const series = await this.sequenceModel.findOne({
       _id: dto.seriesId,
@@ -151,15 +171,23 @@ export class BillingService {
       tenantId,
     });
 
-    const control = await this.imprentaProvider.requestControlNumber({
-      documentId: doc._id.toString(),
-      tenantId,
-      seriesId: doc.seriesId.toString(),
-      documentNumber: doc.documentNumber,
-      type: doc.type,
-    });
+    let control: { controlNumber: string | null; hash?: string; provider?: string; assignedAt?: Date; metadata?: any; verificationUrl?: string } = {
+      controlNumber: null
+    };
 
-    doc.controlNumber = control.controlNumber;
+    // Requests ControlNumber only for fiscal documents (Invoice/Credit Note)
+    // Quotes do NOT require Fiscal Control/Imprenta Digital
+    if (doc.type !== 'quote') {
+      control = await this.imprentaProvider.requestControlNumber({
+        documentId: doc._id.toString(),
+        tenantId,
+        seriesId: doc.seriesId.toString(),
+        documentNumber: doc.documentNumber,
+        type: doc.type,
+      });
+    }
+
+    doc.controlNumber = control.controlNumber || undefined;
     doc.status = "issued";
     doc.issueDate = new Date();
     await doc.save();
@@ -188,29 +216,32 @@ export class BillingService {
         currency: doc.totals?.currency,
       })) || [];
 
-    await this.evidenceModel.create({
-      documentId: doc._id,
-      hash: control.hash || hashPayload,
-      imprenta: {
-        controlNumber: control.controlNumber,
-        provider: control.provider,
-        assignedAt: control.assignedAt,
-        metadata: control.metadata,
-      },
-      totalsSnapshot: {
-        ...doc.totals,
-        taxes: taxesSnapshot,
-      },
-      imprentaRequest: {
-        documentId: doc._id.toString(),
-        seriesId: doc.seriesId.toString(),
-        documentNumber: doc.documentNumber,
-        type: doc.type,
-      },
-      imprentaResponse: control,
-      verificationUrl: control.verificationUrl,
-      tenantId,
-    });
+    // Register Evidence only if control number was assigned (Fiscal)
+    if (control.controlNumber) {
+      await this.evidenceModel.create({
+        documentId: doc._id,
+        hash: control.hash || hashPayload,
+        imprenta: {
+          controlNumber: control.controlNumber,
+          provider: control.provider,
+          assignedAt: control.assignedAt,
+          metadata: control.metadata,
+        },
+        totalsSnapshot: {
+          ...doc.totals,
+          taxes: taxesSnapshot,
+        },
+        imprentaRequest: {
+          documentId: doc._id.toString(),
+          seriesId: doc.seriesId.toString(),
+          documentNumber: doc.documentNumber,
+          type: doc.type,
+        },
+        imprentaResponse: control,
+        verificationUrl: control.verificationUrl,
+        tenantId,
+      });
+    }
 
     await this.auditModel.create({
       documentId: doc._id,
@@ -241,22 +272,25 @@ export class BillingService {
     const subtotal = doc.totals?.subtotal || 0;
     const total = doc.totals?.grandTotal || 0;
 
-    this.eventEmitter.emit("billing.document.issued", {
-      documentId: doc._id.toString(),
-      tenantId,
-      seriesId: doc.seriesId.toString(),
-      controlNumber: doc.controlNumber,
-      type: doc.type,
-      documentNumber: doc.documentNumber,
-      issueDate: doc.issueDate.toISOString(),
-      customerName: doc.customer?.name,
-      customerRif: doc.customer?.taxId,
-      customerAddress: doc.customer?.address,
-      subtotal,
-      taxAmount,
-      total,
-      taxes: doc.totals?.taxes || [],
-    });
+    // Only listen for accounting integration if it is NOT a quote
+    if (doc.type !== 'quote') {
+      this.eventEmitter.emit("billing.document.issued", {
+        documentId: doc._id.toString(),
+        tenantId,
+        seriesId: doc.seriesId.toString(),
+        controlNumber: doc.controlNumber,
+        type: doc.type,
+        documentNumber: doc.documentNumber,
+        issueDate: doc.issueDate.toISOString(),
+        customerName: doc.customer?.name,
+        customerRif: doc.customer?.taxId,
+        customerAddress: doc.customer?.address,
+        subtotal,
+        taxAmount,
+        total,
+        taxes: doc.totals?.taxes || [],
+      });
+    }
 
     // Update order with billing document reference
     if (doc.references?.orderId && (doc.type === 'invoice' || doc.type === 'delivery_note')) {
@@ -839,7 +873,7 @@ export class BillingService {
         let potentialOrders: any[] = [];
 
         // Window: Invoice CreatedAt - 2 hours to Invoice CreatedAt + 5 mins
-        const invoiceDate = new Date(doc.createdAt);
+        const invoiceDate = new Date((doc as any).createdAt);
         const twoHoursAgo = new Date(invoiceDate.getTime() - 2 * 60 * 60 * 1000);
         const fiveMinsAfter = new Date(invoiceDate.getTime() + 5 * 60 * 1000);
 

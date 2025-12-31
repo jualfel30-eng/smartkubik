@@ -109,7 +109,7 @@ export class OrdersService {
     createOrderDto: CreateOrderDto,
     user: any,
   ): Promise<OrderDocument> {
-    const { customerId, customerName, customerRif, taxType, items, payments } =
+    const { customerId, customerName, customerRif, taxType, items, payments, customerAddress, customerPhone } =
       createOrderDto;
     const tenant = await this.tenantModel.findById(user.tenantId);
     if (!tenant || tenant.usage.currentOrders >= tenant.limits.maxOrders) {
@@ -121,19 +121,84 @@ export class OrdersService {
     let customer: CustomerDocument | null = null;
     if (customerId) {
       customer = await this.customerModel.findById(customerId).exec();
+      // Update existing customer from ID if needed
+      if (customer) {
+        let updated = false;
+        if (customerPhone && !customer.contacts.some(c => c.value === customerPhone)) {
+          customer.contacts.push({ type: 'phone', value: customerPhone, isPrimary: false, isActive: true } as any);
+          updated = true;
+        }
+        if (customerAddress && !customer.addresses.some(a => a.street === customerAddress)) {
+          customer.addresses.push({
+            type: 'billing',
+            street: customerAddress,
+            city: 'Valencia',
+            state: 'Carabobo',
+            country: 'Venezuela',
+            isDefault: false
+          } as any);
+          updated = true;
+        }
+        if (updated) {
+          await customer.save();
+        }
+      }
     } else if (customerRif && customerName) {
       customer = await this.customerModel
         .findOne({ "taxInfo.taxId": customerRif, tenantId: user.tenantId })
         .exec();
       if (!customer) {
+        const contacts: any[] = [];
+        if (customerPhone) {
+          contacts.push({ type: 'phone', value: customerPhone, isPrimary: true });
+        }
+
+        const addresses: any[] = [];
+        if (customerAddress) {
+          addresses.push({
+            type: 'billing',
+            street: customerAddress,
+            city: 'Valencia', // Default fallback
+            state: 'Carabobo', // Default fallback
+            country: 'Venezuela',
+            isDefault: true
+          });
+        }
+
         customer = await new this.customerModel({
           name: customerName,
           customerType: "individual",
           customerNumber: `CUST-${Date.now()}`,
           taxInfo: { taxId: customerRif, taxType, taxName: customerName },
+          contacts,
+          addresses,
           createdBy: user.id,
           tenantId: user.tenantId,
         }).save();
+      } else {
+        // Should update existing customer if new info is provided?
+        let updated = false;
+
+        if (customerPhone && !customer.contacts.some(c => c.value === customerPhone)) {
+          customer.contacts.push({ type: 'phone', value: customerPhone, isPrimary: false, isActive: true } as any);
+          updated = true;
+        }
+
+        if (customerAddress && !customer.addresses.some(a => a.street === customerAddress)) {
+          customer.addresses.push({
+            type: 'billing',
+            street: customerAddress,
+            city: 'Valencia',
+            state: 'Carabobo',
+            country: 'Venezuela',
+            isDefault: false
+          } as any);
+          updated = true;
+        }
+
+        if (updated) {
+          await customer.save();
+        }
       }
     }
 

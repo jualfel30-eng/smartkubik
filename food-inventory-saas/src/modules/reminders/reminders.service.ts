@@ -16,7 +16,7 @@ export class RemindersService {
     @InjectModel(Opportunity.name)
     private readonly opportunityModel: Model<OpportunityDocument>,
     private readonly notificationsService: NotificationsService,
-  ) {}
+  ) { }
 
   /**
    * Crear recordatorio
@@ -193,7 +193,7 @@ export class RemindersService {
             tenantId: reminder.tenantId.toString(),
             userId: reminder.userId?.toString(),
             title: reminder.title,
-            message: reminder.message,
+            message: reminder.message || '',
             metadata: {
               reminderId: reminder._id.toString(),
               opportunityId: reminder.opportunityId?.toString(),

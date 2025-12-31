@@ -25,7 +25,7 @@ import {
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class CalendarsController {
-  constructor(private readonly calendarsService: CalendarsService) {}
+  constructor(private readonly calendarsService: CalendarsService) { }
 
   @Post()
   @ApiOperation({ summary: "Crear un nuevo calendario" })
@@ -98,7 +98,7 @@ export class CalendarsController {
   @ApiOperation({ summary: "Sincronizar todos los calendarios del usuario con Google" })
   async syncAllToGoogle(@Request() req) {
     const calendars = await this.calendarsService.findAll(req.user);
-    const results = [];
+    const results: any[] = [];
 
     for (const calendar of calendars) {
       if (calendar.canEdit && !calendar.googleSync?.enabled) {

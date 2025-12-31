@@ -15,6 +15,7 @@ import {
 import { ActivitiesService } from "../activities/activities.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { Opportunity, OpportunityDocument } from "../../schemas/opportunity.schema";
+import { ActivityType, ActivityDirection } from "../../schemas/activity.schema";
 
 @Injectable()
 export class PlaybooksService {
@@ -30,7 +31,7 @@ export class PlaybooksService {
     @Inject(forwardRef(() => ActivitiesService))
     private readonly activitiesService: ActivitiesService,
     private readonly notificationsService: NotificationsService,
-  ) {}
+  ) { }
 
   async create(
     createPlaybookDto: CreatePlaybookDto,
@@ -295,7 +296,7 @@ export class PlaybooksService {
 
     const activity = await this.activitiesService.create(
       {
-        type: "task",
+        type: ActivityType.TASK,
         subject: step.taskTitle || `Task from playbook: ${playbook.name}`,
         body: step.taskDescription,
         scheduledAt: dueDate,
@@ -320,8 +321,8 @@ export class PlaybooksService {
     // Crear actividad de email (outbound)
     const activity = await this.activitiesService.create(
       {
-        type: "email",
-        direction: "outbound",
+        type: ActivityType.EMAIL,
+        direction: ActivityDirection.OUTBOUND,
         subject: step.messageSubject || `Message from ${playbook.name}`,
         body: step.messageBody,
         customerId: opportunity.customerId.toString(),
@@ -348,8 +349,8 @@ export class PlaybooksService {
     // Crear actividad de WhatsApp (outbound)
     const activity = await this.activitiesService.create(
       {
-        type: "whatsapp",
-        direction: "outbound",
+        type: ActivityType.WHATSAPP,
+        direction: ActivityDirection.OUTBOUND,
         subject: `WhatsApp message from ${playbook.name}`,
         body: step.messageBody,
         customerId: opportunity.customerId.toString(),
