@@ -172,6 +172,18 @@ export class CreateOrderDto {
   @IsEnum(["V", "E", "J", "G"])
   taxType?: string;
 
+  @ApiPropertyOptional({ description: "Dirección del cliente (para creación)" })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  customerAddress?: string;
+
+  @ApiPropertyOptional({ description: "Teléfono del cliente (para creación)" })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  customerPhone?: string;
+
   @ApiProperty({ description: "Items de la orden", type: [CreateOrderItemDto] })
   @IsArray()
   @ArrayMinSize(1)

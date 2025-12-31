@@ -454,3 +454,14 @@ export class SqlDecisionDto {
   @IsString()
   reason?: string;
 }
+
+export class LinkDocumentDto {
+  @ApiProperty({ description: "ID del documento (BillingDocument)" })
+  @IsMongoId()
+  documentId: string;
+
+  @ApiProperty({ description: "Tipo de documento", enum: ["quote", "invoice"] })
+  @IsString()
+  @IsIn(["quote", "invoice"])
+  type: "quote" | "invoice";
+}

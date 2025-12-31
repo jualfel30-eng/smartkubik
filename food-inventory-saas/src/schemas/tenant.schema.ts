@@ -97,6 +97,9 @@ export class TenantSettings {
   @Prop({ type: String, default: "standard" })
   invoiceFormat: string; // 'standard' | 'thermal'
 
+  @Prop({ type: String, default: 'logistics' })
+  fulfillmentStrategy?: 'logistics' | 'hybrid' | 'immediate' | 'counter';
+
   @Prop({ type: Object })
   documentTemplates: {
     invoice: {

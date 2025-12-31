@@ -174,6 +174,12 @@ export class Opportunity {
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;
 
+  @Prop({ type: [Types.ObjectId], ref: "BillingDocument", default: [] })
+  quoteIds: Types.ObjectId[];
+
+  @Prop({ type: [Types.ObjectId], ref: "BillingDocument", default: [] })
+  invoiceIds: Types.ObjectId[];
+
   @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })
   tenantId: Types.ObjectId;
 }

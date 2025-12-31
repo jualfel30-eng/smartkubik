@@ -65,6 +65,7 @@ export class Calendar {
     calendarId: string; // ID del calendario secundario en Google
     lastSyncAt?: Date;
     syncStatus?: "active" | "error" | "disabled";
+    syncToken?: string; // Token de sincronización incremental
     errorMessage?: string;
     // Información del watch channel para notificaciones push
     watchChannel?: {

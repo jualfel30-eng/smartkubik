@@ -99,6 +99,13 @@ export class CalendarResponseDto {
     calendarId?: string;
     lastSyncAt?: Date;
     syncStatus?: string;
+    syncToken?: string;
+    watchChannel?: {
+      id: string;
+      resourceId: string;
+      expiration: number;
+      token: string;
+    };
   };
   visibility: {
     public: boolean;
