@@ -65,6 +65,7 @@ import {
   Sparkles,
   Zap,
   AlertCircle,
+  PlusCircle,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { Toaster as ShadcnToaster } from '@/components/ui/toaster';
@@ -99,10 +100,13 @@ import {
 
 // Lazy load the components
 const CRMManagement = lazy(() => import('@/components/CRMManagement.jsx'));
-const OrdersManagement = lazy(() => import('@/components/orders/v2/OrdersManagementV2.jsx').then(module => ({ default: module.OrdersManagementV2 })));
+const OrdersManagement = lazy(() => import('@/components/CRMManagement.jsx')); // Legacy name kept for safety but check usage
+const OrdersPOS = lazy(() => import('@/components/orders/v2/OrdersPOS.jsx').then(module => ({ default: module.OrdersPOS })));
+const OrdersHistory = lazy(() => import('@/components/orders/v2/OrdersHistoryV2.jsx').then(module => ({ default: module.OrdersHistoryV2 })));
 const CalendarView = lazy(() => import('@/components/CalendarView.jsx').then(module => ({ default: module.CalendarView })));
 const CalendarManagement = lazy(() => import('@/components/CalendarManagement.jsx').then(module => ({ default: module.CalendarManagement })));
 const CalendarModule = lazy(() => import('@/components/CalendarModule.jsx').then(module => ({ default: module.CalendarModule })));
+const ShiftManagement = lazy(() => import('@/components/ShiftManagement.jsx'));
 const Login = lazy(() => import('./pages/Login'));
 const LoginV2 = lazy(() => import('./pages/LoginV2'));
 const Register = lazy(() => import('./pages/Register'));
@@ -161,6 +165,7 @@ const BillingCreateForm = lazy(() => import('@/components/billing/BillingCreateF
 const BillingDocumentDetail = lazy(() => import('@/components/billing/BillingDocumentDetail.jsx'));
 const BillingSequencesManager = lazy(() => import('@/components/billing/BillingSequencesManager.jsx'));
 const FulfillmentDashboard = lazy(() => import('@/components/fulfillment/FulfillmentDashboard.jsx').then(module => ({ default: module.FulfillmentDashboard })));
+
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -304,7 +309,16 @@ function TenantLayout() {
 
   const navLinks = [
     { name: 'Panel de Control', href: 'dashboard', icon: LayoutDashboard, permission: 'dashboard_read' },
-    { name: 'Órdenes', href: 'orders', icon: ShoppingCart, permission: 'orders_read' },
+    {
+      name: 'Órdenes',
+      href: 'orders',
+      icon: ShoppingCart,
+      permission: 'orders_read',
+      children: [
+        { name: 'Nueva Orden', href: 'orders/new', icon: PlusCircle },
+        { name: 'Historial', href: 'orders/history', icon: List },
+      ]
+    },
     { name: 'Entregas', href: 'fulfillment', icon: Truck, permission: 'orders_read' },
     { name: 'WhatsApp', href: 'whatsapp', icon: MessageSquare, permission: 'chat_read' },
     {
@@ -473,11 +487,26 @@ function TenantLayout() {
       permission: 'payroll_employees_read',
       requiresModule: 'payroll',
       children: [
-        { name: 'Nómina', href: 'payroll/runs', icon: BarChart3 },
-        { name: 'Estructuras', href: 'payroll/structures', icon: Layers },
-        { name: 'Ausencias', href: 'payroll/absences', icon: CalendarDays },
-        { name: 'Calendario', href: 'payroll/calendar', icon: CalendarDays },
-        { name: 'Empleados', href: 'payroll/employees', icon: Users },
+        {
+          name: 'Gestión de Equipo',
+          href: 'payroll/employees',
+          icon: Users,
+          children: [
+            { name: 'Empleados', href: 'payroll/employees', icon: Users },
+            { name: 'Turnos', href: 'hr/shifts', icon: Clock },
+            { name: 'Ausencias', href: 'payroll/absences', icon: CalendarDays },
+          ]
+        },
+        {
+          name: 'Nómina',
+          href: 'payroll/runs',
+          icon: BarChart3,
+          children: [
+            { name: 'Nómina', href: 'payroll/runs', icon: BarChart3 },
+            { name: 'Calendario', href: 'payroll/calendar', icon: CalendarDays },
+            { name: 'Estructuras', href: 'payroll/structures', icon: Layers },
+          ]
+        }
       ],
     },
     { name: 'Compras', href: 'purchases', icon: Truck, permission: 'purchases_read' },
@@ -900,6 +929,12 @@ function TenantLayout() {
             <div className="flex items-center gap-2">
               <ShiftTimer />
               <ThemeToggle />
+              <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
+                <Settings className="h-5 w-5" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={handleLogout}>
+                <LogOut className="h-5 w-5" />
+              </Button>
             </div>
           </div>
           <div className="hidden items-center justify-between border-b border-border bg-card px-6 py-4 md:flex">
@@ -1010,9 +1045,15 @@ function TenantLayout() {
                       : <Navigate to="/dashboard" replace />
                   }
                 />
-                <Route path="orders" element={
+                <Route path="orders" element={<Navigate to="orders/new" replace />} />
+                <Route path="orders/new" element={
                   <CrmProvider>
-                    <OrdersManagement />
+                    <OrdersPOS />
+                  </CrmProvider>
+                } />
+                <Route path="orders/history" element={
+                  <CrmProvider>
+                    <OrdersHistory />
                   </CrmProvider>
                 } />
                 <Route path="fulfillment" element={<FulfillmentDashboard />} />
@@ -1071,6 +1112,12 @@ function TenantLayout() {
                     <MarketingPage />
                   </CrmProvider>
                 } />
+                <Route
+                  path="hr/shifts"
+                  element={
+                    <ShiftManagement />
+                  }
+                />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="reports" element={<ReportsPage />} />
                 <Route path="*" element={<Navigate to="dashboard" />} />
@@ -1101,6 +1148,7 @@ function AppContent() {
       <Toaster richColors />
       <ShadcnToaster />
       <Suspense fallback={<LoadingFallback />}>
+
         <Routes>
           <Route path="/" element={<SmartKubikLanding />} />
           <Route path="/blog" element={<BlogIndex />} />
