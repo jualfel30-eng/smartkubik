@@ -68,7 +68,15 @@ export const fetchApi = async (url, options = {}) => {
     return null;
   }
 
-  return response.json();
+  const text = await response.text();
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch (error) {
+    console.error("Failed to parse JSON success response:", text);
+    // If it was a success status but invalid JSON, return null or throw?
+    // Given the previous crash, returning null/empty is safer to keep the app alive.
+    return {};
+  }
 };
 
 export const fetchJournalEntries = (page = 1, limit = 20, isAutomatic = undefined) => {
