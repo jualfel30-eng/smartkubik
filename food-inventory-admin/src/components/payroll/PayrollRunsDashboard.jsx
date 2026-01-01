@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth.jsx";
 import { fetchApi } from "@/lib/api";
+import { HRNavigation } from '@/components/payroll/HRNavigation.jsx';
 import { Button } from "@/components/ui/button.jsx";
 import { Badge } from "@/components/ui/badge.jsx";
 import {
@@ -180,7 +181,7 @@ const summarizeRunStructures = (run) => {
     ...structure,
     structureName:
       structure.structureName &&
-      structure.structureName !== structure.structureId
+        structure.structureName !== structure.structureId
         ? structure.structureName
         : `Estructura ${index + 1}`,
   }));
@@ -216,14 +217,14 @@ const formatCurrency = (value, currency = "USD") => {
   }
 };
 
-  const formatDate = (value) => {
-    if (!value) return "—";
-    try {
-      return new Date(value).toLocaleDateString();
-    } catch {
-      return value;
-    }
-  };
+const formatDate = (value) => {
+  if (!value) return "—";
+  try {
+    return new Date(value).toLocaleDateString();
+  } catch {
+    return value;
+  }
+};
 
 const formatDateTime = (value) => {
   if (!value) return "—";
@@ -1274,7 +1275,7 @@ const PayrollRunsDashboard = () => {
       const text = e.target?.result || "";
       const result =
         file.name.toLowerCase().endsWith(".csv") ||
-        file.type === "text/csv"
+          file.type === "text/csv"
           ? parseRatesCsv(text)
           : parseRatesJson(text);
       setImportPreview(result.data);
@@ -1534,6 +1535,7 @@ const PayrollRunsDashboard = () => {
 
   return (
     <div className="space-y-6">
+      <HRNavigation />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Nómina y payroll runs</h1>
@@ -1579,877 +1581,1632 @@ const PayrollRunsDashboard = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="special" className="space-y-4">
-        <TabsList className="flex w-full flex-wrap gap-2">
-          <TabsTrigger value="special" className="flex-1 sm:flex-none">
-            Ejecuciones especiales
-          </TabsTrigger>
-          <TabsTrigger value="liquidations" className="flex-1 sm:flex-none">
-            Liquidaciones VE
-          </TabsTrigger>
+      <Tabs defaultValue="operations" className="space-y-4">
+        <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="operations">Operaciones</TabsTrigger>
+          <TabsTrigger value="reports">Reportes y Auditoría</TabsTrigger>
+          <TabsTrigger value="settings">Configuración</TabsTrigger>
         </TabsList>
-        <TabsContent value="special" className="mt-0">
-          <Card>
-            <CardHeader className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <CardTitle>
-                  Ejecuciones especiales (aguinaldos/liquidaciones/bonos)
-                </CardTitle>
-                <CardDescription>
-                  Pagos únicos fuera de la nómina regular.
-                </CardDescription>
+
+        <TabsContent value="operations" className="space-y-4">
+          <Tabs defaultValue="runs">
+            <TabsList className="bg-muted/50 p-1">
+              <TabsTrigger value="runs">Nómina Regular</TabsTrigger>
+              <TabsTrigger value="special">Especiales</TabsTrigger>
+              <TabsTrigger value="liquidations">Liquidaciones</TabsTrigger>
+            </TabsList>
+            <TabsContent value="runs" className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-3">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Costo neto actual
+                    </CardTitle>
+                    <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold">
+                      {formatCurrency(latestRun?.netPay || 0, currency)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {previousRun
+                        ? `${latestRun?.netPay >= previousRun.netPay ? "▲" : "▼"} ${formatCurrency(Math.abs((latestRun?.netPay || 0) - (previousRun?.netPay || 0)), currency)} vs anterior`
+                        : "Sin histórico previo"}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Deducciones totales
+                    </CardTitle>
+                    <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold">
+                      {formatCurrency(latestRun?.deductions || 0, currency)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Retenciones y aportes legales de la última ejecución.
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Empleados procesados
+                    </CardTitle>
+                    <ClipboardList className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold">
+                      {latestRun?.totalEmployees || 0}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Periodo {formatDate(latestRun?.periodEnd)}
+                    </p>
+                  </CardContent>
+                </Card>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={loadSpecialRuns}
-                disabled={loadingSpecialRuns}
-              >
-                {loadingSpecialRuns ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                )}
-                Actualizar
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid gap-2 md:grid-cols-5">
-                <div className="md:col-span-1">
-                  <Label>Tipo</Label>
-                  <Select
-                    value={specialForm.type}
-                    onValueChange={(value) =>
-                      setSpecialForm((prev) => ({ ...prev, type: value }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="bonus">Bono</SelectItem>
-                      <SelectItem value="thirteenth">Aguinaldo</SelectItem>
-                      <SelectItem value="severance">Liquidación</SelectItem>
-                      <SelectItem value="vacation_bonus">
-                        Bono vacacional
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="md:col-span-1">
-                  <Label>Etiqueta</Label>
-                  <Input
-                    value={specialForm.label}
-                    onChange={(e) =>
-                      setSpecialForm((prev) => ({
-                        ...prev,
-                        label: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>Inicio</Label>
-                  <Input
-                    type="date"
-                    value={specialForm.periodStart}
-                    onChange={(e) =>
-                      setSpecialForm((prev) => ({
-                        ...prev,
-                        periodStart: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>Fin</Label>
-                  <Input
-                    type="date"
-                    value={specialForm.periodEnd}
-                    onChange={(e) =>
-                      setSpecialForm((prev) => ({
-                        ...prev,
-                        periodEnd: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>Monto total</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={specialForm.totalAmount}
-                      onChange={(e) =>
-                        setSpecialForm((prev) => ({
-                          ...prev,
-                          totalAmount: e.target.value,
-                        }))
-                      }
-                    />
-                    <Button
-                      size="sm"
-                      onClick={handleCreateSpecial}
-                      disabled={creatingSpecial}
+              <Card>
+                <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <CardTitle>Historial de nóminas</CardTitle>
+                    <CardDescription>
+                      Filtra por frecuencia y estado para comparar ejecuciones.
+                    </CardDescription>
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                    <Select
+                      value={filters.periodType}
+                      onValueChange={(value) => handleFilterChange("periodType", value)}
                     >
-                      {creatingSpecial ? (
+                      <SelectTrigger className="w-full sm:w-48">
+                        <SelectValue placeholder="Frecuencia" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PERIOD_FILTERS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={filters.status}
+                      onValueChange={(value) => handleFilterChange("status", value)}
+                    >
+                      <SelectTrigger className="w-full sm:w-48">
+                        <SelectValue placeholder="Estado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STATUS_FILTERS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {filters.calendarId ? (
+                      <div className="flex items-center gap-2 text-xs">
+                        <Badge variant="outline" className="px-2">
+                          Calendario: {filters.calendarId.slice(-6)}
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-xs"
+                          onClick={() =>
+                            setFilters((prev) => ({ ...prev, calendarId: "" }))
+                          }
+                        >
+                          Limpiar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs"
+                          onClick={() =>
+                            navigate(
+                              `/payroll/calendar?calendarId=${filters.calendarId}`,
+                            )
+                          }
+                        >
+                          Ver calendario
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="overflow-x-auto rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Período</TableHead>
+                          <TableHead>Frecuencia</TableHead>
+                          <TableHead>Estado</TableHead>
+                          <TableHead>Empleados</TableHead>
+                          <TableHead>Bruto</TableHead>
+                          <TableHead>Neto</TableHead>
+                          <TableHead>Acciones</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {loadingRuns ? (
+                          <TableRow>
+                            <TableCell colSpan={7} className="text-center">
+                              <Loader2 className="mx-auto h-5 w-5 animate-spin" />
+                            </TableCell>
+                          </TableRow>
+                        ) : runs.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={7}
+                              className="text-center text-sm text-muted-foreground"
+                            >
+                              Aún no se han generado nóminas.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          runs.map((run) => {
+                            const structureSummary = summarizeRunStructures(run);
+                            return (
+                              <TableRow key={run._id}>
+                                <TableCell>
+                                  <div className="font-medium">
+                                    {run.label || "Sin título"}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {formatDate(run.periodStart)} -{" "}
+                                    {formatDate(run.periodEnd)}
+                                  </div>
+                                  {structureSummary && (
+                                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                                      <Badge variant="secondary" className="text-xs">
+                                        {structureSummary.coveragePercent || 0}%
+                                        cobertura
+                                      </Badge>
+                                      {structureSummary.structures
+                                        .slice(0, 2)
+                                        .map((structure) => (
+                                          <Badge
+                                            key={`${structure.structureId}-${structure.structureVersion || "latest"}`}
+                                            variant="outline"
+                                            className="cursor-pointer text-xs"
+                                            onClick={() =>
+                                              openStructureBuilder(
+                                                structure.structureId,
+                                              )
+                                            }
+                                          >
+                                            {structure.structureName || "Estructura"}
+                                            {structure.structureVersion
+                                              ? ` · v${structure.structureVersion}`
+                                              : ""}
+                                            <span className="ml-1 text-muted-foreground">
+                                              · {structure.employees}
+                                            </span>
+                                          </Badge>
+                                        ))}
+                                      {structureSummary.structures.length > 2 && (
+                                        <Badge variant="outline" className="text-xs">
+                                          +{structureSummary.structures.length - 2}
+                                        </Badge>
+                                      )}
+                                      {structureSummary.legacyEmployees > 0 && (
+                                        <Badge className="border-amber-200 bg-amber-50 text-amber-900">
+                                          {structureSummary.legacyEmployees} sin
+                                          estructura
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  )}
+                                </TableCell>
+                                <TableCell className="capitalize">
+                                  {run.periodType}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant={statusVariantMap[run.status] || "outline"}
+                                    className="capitalize"
+                                  >
+                                    {run.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>{run.totalEmployees}</TableCell>
+                                <TableCell>
+                                  {formatCurrency(run.grossPay, currency)}
+                                </TableCell>
+                                <TableCell>
+                                  {formatCurrency(run.netPay, currency)}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex flex-wrap gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => openDetail(run)}
+                                    >
+                                      Detalles
+                                    </Button>
+                                    {run.calendarId ? (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() =>
+                                          navigate(
+                                            `/payroll/calendar?calendarId=${run.calendarId}`,
+                                          )
+                                        }
+                                      >
+                                        Calendario
+                                      </Button>
+                                    ) : null}
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => downloadRun(run._id, "csv")}
+                                      disabled={exportingRunKey === `${run._id}-csv`}
+                                    >
+                                      {exportingRunKey === `${run._id}-csv` ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <>
+                                          <Download className="mr-1 h-4 w-4" />
+                                          CSV
+                                        </>
+                                      )}
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => downloadRun(run._id, "pdf")}
+                                      disabled={exportingRunKey === `${run._id}-pdf`}
+                                    >
+                                      {exportingRunKey === `${run._id}-pdf` ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <>
+                                          <FileText className="mr-1 h-4 w-4" />
+                                          PDF
+                                        </>
+                                      )}
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>
+                      Página {pagination.page} de {pagination.totalPages || 1}
+                    </span>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={pagination.page <= 1}
+                        onClick={() => handlePageChange(-1)}
+                      >
+                        Anterior
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={pagination.page >= (pagination.totalPages || 1)}
+                        onClick={() => handlePageChange(1)}
+                      >
+                        Siguiente
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <CardTitle>Conceptos de nómina</CardTitle>
+                      <CardDescription>
+                        Sincroniza cuentas contables para cada concepto y evita asientos
+                        huérfanos.
+                      </CardDescription>
+                    </div>
+                    <Badge variant="secondary" className="text-xs font-normal">
+                      {concepts.length} conceptos
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    {conceptStats.earning} devengos · {conceptStats.deduction}{" "}
+                    deducciones · {conceptStats.employer} aportes patronales.
+                  </p>
+                  {conceptWarnings.length > 0 && (
+                    <Alert variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Asignaciones contables pendientes</AlertTitle>
+                      <AlertDescription>
+                        {conceptWarnings.length} concepto(s) sin cuenta de débito o
+                        crédito. Configúralos para mantener la trazabilidad de los
+                        asientos.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  <div className="overflow-x-auto rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Código</TableHead>
+                          <TableHead>Nombre</TableHead>
+                          <TableHead>Tipo</TableHead>
+                          <TableHead>Débito</TableHead>
+                          <TableHead>Crédito</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {loadingConcepts ? (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center">
+                              <Loader2 className="mx-auto h-5 w-5 animate-spin" />
+                            </TableCell>
+                          </TableRow>
+                        ) : concepts.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={5}
+                              className="text-center text-sm text-muted-foreground"
+                            >
+                              No hay conceptos configurados todavía.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          concepts.map((concept) => (
+                            <TableRow key={concept._id}>
+                              <TableCell>{concept.code}</TableCell>
+                              <TableCell>{concept.name}</TableCell>
+                              <TableCell className="capitalize">
+                                {concept.conceptType}
+                              </TableCell>
+                              <TableCell>
+                                {concept.debitAccountId ? (
+                                  concept.debitAccountId
+                                ) : (
+                                  <Badge variant="outline" className="text-[11px]">
+                                    Pendiente
+                                  </Badge>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {concept.creditAccountId ? (
+                                  concept.creditAccountId
+                                ) : (
+                                  <Badge variant="outline" className="text-[11px]">
+                                    Pendiente
+                                  </Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            <TabsContent value="special" className="mt-0">
+              <Card>
+                <CardHeader className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <CardTitle>
+                      Ejecuciones especiales (aguinaldos/liquidaciones/bonos)
+                    </CardTitle>
+                    <CardDescription>
+                      Pagos únicos fuera de la nómina regular.
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={loadSpecialRuns}
+                    disabled={loadingSpecialRuns}
+                  >
+                    {loadingSpecialRuns ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                    )}
+                    Actualizar
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid gap-2 md:grid-cols-5">
+                    <div className="md:col-span-1">
+                      <Label>Tipo</Label>
+                      <Select
+                        value={specialForm.type}
+                        onValueChange={(value) =>
+                          setSpecialForm((prev) => ({ ...prev, type: value }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="bonus">Bono</SelectItem>
+                          <SelectItem value="thirteenth">Aguinaldo</SelectItem>
+                          <SelectItem value="severance">Liquidación</SelectItem>
+                          <SelectItem value="vacation_bonus">
+                            Bono vacacional
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="md:col-span-1">
+                      <Label>Etiqueta</Label>
+                      <Input
+                        value={specialForm.label || ""}
+                        onChange={(e) =>
+                          setSpecialForm((prev) => ({
+                            ...prev,
+                            label: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label>Inicio</Label>
+                      <Input
+                        type="date"
+                        value={specialForm.periodStart || ""}
+                        onChange={(e) =>
+                          setSpecialForm((prev) => ({
+                            ...prev,
+                            periodStart: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label>Fin</Label>
+                      <Input
+                        type="date"
+                        value={specialForm.periodEnd || ""}
+                        onChange={(e) =>
+                          setSpecialForm((prev) => ({
+                            ...prev,
+                            periodEnd: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div>
+                      <Label>Monto total</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={specialForm.totalAmount || ""}
+                          onChange={(e) =>
+                            setSpecialForm((prev) => ({
+                              ...prev,
+                              totalAmount: e.target.value,
+                            }))
+                          }
+                        />
+                        <Button
+                          size="sm"
+                          onClick={handleCreateSpecial}
+                          disabled={creatingSpecial}
+                        >
+                          {creatingSpecial ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                          )}
+                          Crear
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  {specialRuns.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Sin ejecuciones especiales.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Tipo</TableHead>
+                            <TableHead>Etiqueta</TableHead>
+                            <TableHead>Período</TableHead>
+                            <TableHead>Empleados</TableHead>
+                            <TableHead className="text-right">Neto</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Acciones</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {specialRuns.map((run) => (
+                            <TableRow key={run._id}>
+                              <TableCell className="capitalize">
+                                {run.type?.replace("_", " ")}
+                              </TableCell>
+                              <TableCell>{run.label || "—"}</TableCell>
+                              <TableCell>
+                                {formatDate(run.periodStart)} -{" "}
+                                {formatDate(run.periodEnd)}
+                              </TableCell>
+                              <TableCell>
+                                {run.totalEmployees || run.employees?.length || 0}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {formatCurrency(
+                                  run.netPay || run.grossPay || 0,
+                                  currency,
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant={
+                                    statusVariantMap[run.status] || "outline"
+                                  }
+                                  className="capitalize"
+                                >
+                                  {run.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap gap-2">
+                                  <Button
+                                    size="xs"
+                                    variant="outline"
+                                    onClick={() => handleSpecialPreview(run._id)}
+                                    disabled={previewingSpecialId === run._id}
+                                  >
+                                    {previewingSpecialId === run._id ? (
+                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <FileText className="mr-1 h-3 w-3" />
+                                    )}
+                                    Preview
+                                  </Button>
+                                  {run.status === "draft" ||
+                                    run.status === "calculated" ? (
+                                    <Button
+                                      size="xs"
+                                      onClick={() => handleApproveSpecial(run._id)}
+                                      disabled={
+                                        !canWritePayroll ||
+                                        processingSpecialId === `${run._id}-approve`
+                                      }
+                                    >
+                                      {processingSpecialId ===
+                                        `${run._id}-approve` ? (
+                                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                      ) : null}
+                                      Aprobar
+                                    </Button>
+                                  ) : null}
+                                  {run.status === "approved" ? (
+                                    <Button
+                                      size="xs"
+                                      variant="secondary"
+                                      onClick={() => handlePaySpecial(run._id)}
+                                      disabled={
+                                        !canWritePayroll ||
+                                        processingSpecialId === `${run._id}-pay`
+                                      }
+                                    >
+                                      {processingSpecialId === `${run._id}-pay` ? (
+                                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                      ) : null}
+                                      Pagar
+                                    </Button>
+                                  ) : null}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                  {specialPreview ? (
+                    <Alert>
+                      <FileText className="h-4 w-4" />
+                      <AlertTitle>Preview contable</AlertTitle>
+                      <AlertDescription>
+                        Débito:{" "}
+                        {formatCurrency(
+                          specialPreview.totals?.debit || 0,
+                          currency,
+                        )}{" "}
+                        ({specialPreview.entries?.[0]?.debitAccount || "—"}) ·
+                        Crédito:{" "}
+                        {formatCurrency(
+                          specialPreview.totals?.credit || 0,
+                          currency,
+                        )}{" "}
+                        ({specialPreview.entries?.[0]?.creditAccount || "—"}) —{" "}
+                        {specialPreview.entries?.[0]?.conceptName || "—"}
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
+                </CardContent>
+              </Card>
+            </TabsContent>
+            <TabsContent value="liquidations" className="mt-0">
+              <Card>
+                <CardHeader className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <CardTitle>Liquidaciones VE</CardTitle>
+                    <CardDescription>
+                      Configura cuentas y ejecuta liquidaciones con las reglas
+                      vigentes.
+                    </CardDescription>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadLiquidationRules}
+                      disabled={loadingLiquidationRules}
+                    >
+                      {loadingLiquidationRules ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       ) : (
                         <RefreshCw className="mr-2 h-4 w-4" />
                       )}
-                      Crear
+                      Reglas
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadLiquidationRuns}
+                      disabled={loadingLiquidationRuns}
+                    >
+                      {loadingLiquidationRuns ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                      )}
+                      Runs
                     </Button>
                   </div>
-                </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="rounded-md border p-3 space-y-3">
+                    <p className="text-sm font-medium">
+                      Cuentas contables y parámetros
+                    </p>
+                    <div className="grid gap-2 md:grid-cols-3">
+                      <div>
+                        <Label>Días/año</Label>
+                        <Input
+                          type="number"
+                          value={liquidationRuleForm.daysPerYear}
+                          onChange={(e) =>
+                            setLiquidationRuleForm((prev) => ({
+                              ...prev,
+                              daysPerYear: Number(e.target.value),
+                            }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label>Días mínimos</Label>
+                        <Input
+                          type="number"
+                          value={liquidationRuleForm.minDaysPerYear}
+                          onChange={(e) =>
+                            setLiquidationRuleForm((prev) => ({
+                              ...prev,
+                              minDaysPerYear: Number(e.target.value),
+                            }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label>Factor integral</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={liquidationRuleForm.integralSalaryFactor}
+                          onChange={(e) =>
+                            setLiquidationRuleForm((prev) => ({
+                              ...prev,
+                              integralSalaryFactor: Number(e.target.value),
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="grid gap-2 md:grid-cols-3">
+                      <div>
+                        <Label>Días vacaciones</Label>
+                        <Input
+                          type="number"
+                          value={liquidationRuleForm.vacationDays}
+                          onChange={(e) =>
+                            setLiquidationRuleForm((prev) => ({
+                              ...prev,
+                              vacationDays: Number(e.target.value),
+                            }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label>Días utilidades</Label>
+                        <Input
+                          type="number"
+                          value={liquidationRuleForm.utilitiesDays}
+                          onChange={(e) =>
+                            setLiquidationRuleForm((prev) => ({
+                              ...prev,
+                              utilitiesDays: Number(e.target.value),
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="grid gap-2 md:grid-cols-3">
+                      <div>
+                        <Label>Débito prestaciones</Label>
+                        <Input
+                          value={liquidationRuleForm.accounts.severanceDebit || ""}
+                          onChange={(e) =>
+                            setLiquidationRuleForm((prev) => ({
+                              ...prev,
+                              accounts: {
+                                ...prev.accounts,
+                                severanceDebit: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label>Crédito prestaciones</Label>
+                        <Input
+                          value={liquidationRuleForm.accounts.severanceCredit || ""}
+                          onChange={(e) =>
+                            setLiquidationRuleForm((prev) => ({
+                              ...prev,
+                              accounts: {
+                                ...prev.accounts,
+                                severanceCredit: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <Button
+                          size="sm"
+                          onClick={handleCreateLiquidationRule}
+                          disabled={creatingLiquidationRule}
+                        >
+                          {creatingLiquidationRule ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                          )}
+                          Guardar regla VE
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="grid gap-2 md:grid-cols-3">
+                      <div>
+                        <Label>Débito vacaciones</Label>
+                        <Input
+                          value={liquidationRuleForm.accounts.vacationDebit || ""}
+                          onChange={(e) =>
+                            setLiquidationRuleForm((prev) => ({
+                              ...prev,
+                              accounts: {
+                                ...prev.accounts,
+                                vacationDebit: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label>Crédito vacaciones</Label>
+                        <Input
+                          value={liquidationRuleForm.accounts.vacationCredit || ""}
+                          onChange={(e) =>
+                            setLiquidationRuleForm((prev) => ({
+                              ...prev,
+                              accounts: {
+                                ...prev.accounts,
+                                vacationCredit: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="grid gap-2 md:grid-cols-3">
+                      <div>
+                        <Label>Débito utilidades</Label>
+                        <Input
+                          value={liquidationRuleForm.accounts.utilitiesDebit || ""}
+                          onChange={(e) =>
+                            setLiquidationRuleForm((prev) => ({
+                              ...prev,
+                              accounts: {
+                                ...prev.accounts,
+                                utilitiesDebit: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label>Crédito utilidades</Label>
+                        <Input
+                          value={liquidationRuleForm.accounts.utilitiesCredit || ""}
+                          onChange={(e) =>
+                            setLiquidationRuleForm((prev) => ({
+                              ...prev,
+                              accounts: {
+                                ...prev.accounts,
+                                utilitiesCredit: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border p-3 space-y-3">
+                    <p className="text-sm font-medium">Ejecutar liquidación VE</p>
+                    <div className="grid gap-2 md:grid-cols-3">
+                      <div>
+                        <Label>Regla</Label>
+                        <Select
+                          value={liquidationRunForm.ruleSetId}
+                          onValueChange={(value) =>
+                            setLiquidationRunForm((prev) => ({
+                              ...prev,
+                              ruleSetId: value,
+                            }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona regla" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {liquidationRules.map((rule) => (
+                              <SelectItem key={rule._id} value={rule._id}>
+                                {rule.country} · v{rule.version}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Etiqueta</Label>
+                        <Input
+                          value={liquidationRunForm.label || ""}
+                          onChange={(e) =>
+                            setLiquidationRunForm((prev) => ({
+                              ...prev,
+                              label: e.target.value,
+                            }))
+                          }
+                          placeholder="Liquidación masiva"
+                        />
+                      </div>
+                      <div>
+                        <Label>Fecha terminación</Label>
+                        <Input
+                          type="date"
+                          value={liquidationRunForm.terminationDate || ""}
+                          onChange={(e) =>
+                            setLiquidationRunForm((prev) => ({
+                              ...prev,
+                              terminationDate: e.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        onClick={handleCreateLiquidationRun}
+                        disabled={creatingLiquidationRun}
+                      >
+                        {creatingLiquidationRun ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <BarChart3 className="mr-2 h-4 w-4" />
+                        )}
+                        Crear y calcular
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={loadLiquidationRuns}
+                        disabled={loadingLiquidationRuns}
+                      >
+                        {loadingLiquidationRuns ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                        )}
+                        Refrescar runs
+                      </Button>
+                    </div>
+                    {liquidationRuns.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        Sin liquidaciones.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Etiqueta</TableHead>
+                              <TableHead>Estado</TableHead>
+                              <TableHead className="text-right">Neto</TableHead>
+                              <TableHead>Acciones</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {liquidationRuns.map((run) => (
+                              <TableRow key={run._id}>
+                                <TableCell>{run.label || run._id}</TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant={
+                                      statusVariantMap[run.status] || "outline"
+                                    }
+                                    className="capitalize"
+                                  >
+                                    {run.status}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {formatCurrency(run.netPayable || 0, currency)}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex flex-wrap gap-2">
+                                    <Button
+                                      size="xs"
+                                      variant="ghost"
+                                      onClick={() =>
+                                        handlePreviewLiquidationRun(run._id)
+                                      }
+                                      disabled={previewingLiquidationId === run._id}
+                                    >
+                                      {previewingLiquidationId === run._id ? (
+                                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                      ) : (
+                                        <FileText className="mr-1 h-3 w-3" />
+                                      )}
+                                      Preview
+                                    </Button>
+                                    <Button
+                                      size="xs"
+                                      variant="outline"
+                                      onClick={() =>
+                                        handleExportLiquidationRun(run._id, "csv")
+                                      }
+                                      disabled={
+                                        exportingLiquidationId === `${run._id}-csv`
+                                      }
+                                    >
+                                      {exportingLiquidationId ===
+                                        `${run._id}-csv` ? (
+                                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                      ) : (
+                                        <Download className="mr-1 h-3 w-3" />
+                                      )}
+                                      CSV
+                                    </Button>
+                                    <Button
+                                      size="xs"
+                                      variant="outline"
+                                      onClick={() =>
+                                        handleExportLiquidationRun(run._id, "pdf")
+                                      }
+                                      disabled={
+                                        exportingLiquidationId === `${run._id}-pdf`
+                                      }
+                                    >
+                                      {exportingLiquidationId ===
+                                        `${run._id}-pdf` ? (
+                                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                      ) : (
+                                        <Download className="mr-1 h-3 w-3" />
+                                      )}
+                                      PDF
+                                    </Button>
+                                    {run.status === "calculated" ||
+                                      run.status === "draft" ? (
+                                      <Button
+                                        size="xs"
+                                        onClick={() =>
+                                          handleApproveLiquidationRun(run._id)
+                                        }
+                                        disabled={
+                                          !canWritePayroll ||
+                                          processingLiquidationId ===
+                                          `${run._id}-approve`
+                                        }
+                                      >
+                                        {processingLiquidationId ===
+                                          `${run._id}-approve` ? (
+                                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                        ) : null}
+                                        Aprobar
+                                      </Button>
+                                    ) : null}
+                                    {run.status === "approved" ? (
+                                      <Button
+                                        size="xs"
+                                        variant="secondary"
+                                        onClick={() =>
+                                          handlePayLiquidationRun(run._id)
+                                        }
+                                        disabled={
+                                          !canWritePayroll ||
+                                          processingLiquidationId ===
+                                          `${run._id}-pay`
+                                        }
+                                      >
+                                        {processingLiquidationId ===
+                                          `${run._id}-pay` ? (
+                                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                        ) : null}
+                                        Pagar
+                                      </Button>
+                                    ) : null}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                    {liquidationPreview ? (
+                      <Alert>
+                        <FileText className="h-4 w-4" />
+                        <AlertTitle>Preview contable</AlertTitle>
+                        <AlertDescription>
+                          Débito:{" "}
+                          {formatCurrency(
+                            liquidationPreview.totals?.debit || 0,
+                            currency,
+                          )}{" "}
+                          (
+                          {liquidationPreview.debitAccount ||
+                            liquidationPreview.entries?.[0]?.debitAccount ||
+                            "—"}
+                          ) · Crédito:{" "}
+                          {formatCurrency(
+                            liquidationPreview.totals?.credit || 0,
+                            currency,
+                          )}{" "}
+                          (
+                          {liquidationPreview.creditAccount ||
+                            liquidationPreview.entries?.[0]?.creditAccount ||
+                            "—"}
+                          ) —{" "}
+                          {liquidationPreview.runLabel ||
+                            liquidationPreview.entries?.[0]?.conceptName ||
+                            "Liquidación"}
+                        </AlertDescription>
+                      </Alert>
+                    ) : null}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
+        <TabsContent value="reports" className="space-y-4">
+          <Card className="mt-6">
+            <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <CardTitle>Reporting de nómina</CardTitle>
+                <CardDescription>KPIs, costos y ausentismo filtrados por fecha y departamento.</CardDescription>
               </div>
-              {specialRuns.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Sin ejecuciones especiales.
-                </p>
-              ) : (
-                <div className="overflow-x-auto rounded-md border">
+              <div className="flex flex-wrap gap-2">
+                <Input
+                  type="date"
+                  value={reportFilters.from || ""}
+                  onChange={(e) => setReportFilters((p) => ({ ...p, from: e.target.value }))}
+                  className="w-36"
+                  placeholder="Desde"
+                />
+                <Input
+                  type="date"
+                  value={reportFilters.to || ""}
+                  onChange={(e) => setReportFilters((p) => ({ ...p, to: e.target.value }))}
+                  className="w-36"
+                  placeholder="Hasta"
+                />
+                <Input
+                  value={reportFilters.department || ""}
+                  onChange={(e) => setReportFilters((p) => ({ ...p, department: e.target.value }))}
+                  className="w-36"
+                  placeholder="Departamento"
+                />
+                <Input
+                  value={reportFilters.structureId || ""}
+                  onChange={(e) => setReportFilters((p) => ({ ...p, structureId: e.target.value }))}
+                  className="w-40"
+                  placeholder="Estructura"
+                />
+                <Button onClick={loadReports} disabled={loadingReports} variant="outline">
+                  {loadingReports ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  Actualizar
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-4">
+                <KpiCard label="Costo bruto" value={reportSummary?.totals?.grossPay || 0} currency={currency} />
+                <KpiCard label="Deducciones" value={reportSummary?.totals?.deductions || 0} currency={currency} />
+                <KpiCard label="Aportes patronales" value={reportSummary?.totals?.employerCosts || 0} currency={currency} />
+                <KpiCard label="Empleados" value={reportSummary?.totals?.employees || 0} />
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-md border">
+                  <div className="flex items-center justify-between border-b px-4 py-2">
+                    <div>
+                      <div className="text-sm font-semibold">Costos por departamento</div>
+                      <div className="text-xs text-muted-foreground">Bruto, deducciones, patronal</div>
+                    </div>
+                  </div>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead>Etiqueta</TableHead>
-                        <TableHead>Período</TableHead>
-                        <TableHead>Empleados</TableHead>
-                        <TableHead className="text-right">Neto</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Acciones</TableHead>
+                        <TableHead>Depto</TableHead>
+                        <TableHead>Bruto</TableHead>
+                        <TableHead>Deducciones</TableHead>
+                        <TableHead>Patronal</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {specialRuns.map((run) => (
-                        <TableRow key={run._id}>
-                          <TableCell className="capitalize">
-                            {run.type?.replace("_", " ")}
-                          </TableCell>
-                          <TableCell>{run.label || "—"}</TableCell>
-                          <TableCell>
-                            {formatDate(run.periodStart)} -{" "}
-                            {formatDate(run.periodEnd)}
-                          </TableCell>
-                          <TableCell>
-                            {run.totalEmployees || run.employees?.length || 0}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(
-                              run.netPay || run.grossPay || 0,
-                              currency,
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                statusVariantMap[run.status] || "outline"
-                              }
-                              className="capitalize"
-                            >
-                              {run.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-2">
-                              <Button
-                                size="xs"
-                                variant="outline"
-                                onClick={() => handleSpecialPreview(run._id)}
-                                disabled={previewingSpecialId === run._id}
-                              >
-                                {previewingSpecialId === run._id ? (
-                                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                ) : (
-                                  <FileText className="mr-1 h-3 w-3" />
-                                )}
-                                Preview
-                              </Button>
-                              {run.status === "draft" ||
-                              run.status === "calculated" ? (
-                                <Button
-                                  size="xs"
-                                  onClick={() => handleApproveSpecial(run._id)}
-                                  disabled={
-                                    !canWritePayroll ||
-                                    processingSpecialId === `${run._id}-approve`
-                                  }
-                                >
-                                  {processingSpecialId ===
-                                  `${run._id}-approve` ? (
-                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                  ) : null}
-                                  Aprobar
-                                </Button>
-                              ) : null}
-                              {run.status === "approved" ? (
-                                <Button
-                                  size="xs"
-                                  variant="secondary"
-                                  onClick={() => handlePaySpecial(run._id)}
-                                  disabled={
-                                    !canWritePayroll ||
-                                    processingSpecialId === `${run._id}-pay`
-                                  }
-                                >
-                                  {processingSpecialId === `${run._id}-pay` ? (
-                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                  ) : null}
-                                  Pagar
-                                </Button>
-                              ) : null}
-                            </div>
+                      {(reportSummary?.byDepartment || []).length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-sm text-muted-foreground text-center">
+                            Sin datos
                           </TableCell>
                         </TableRow>
-                      ))}
+                      ) : (
+                        reportSummary.byDepartment.map((row) => (
+                          <TableRow key={row.department}>
+                            <TableCell>{row.department}</TableCell>
+                            <TableCell>{formatCurrency(row.grossPay, currency)}</TableCell>
+                            <TableCell>{formatCurrency(row.deductions, currency)}</TableCell>
+                            <TableCell>{formatCurrency(row.employerCosts, currency)}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
                     </TableBody>
                   </Table>
                 </div>
-              )}
-              {specialPreview ? (
-                <Alert>
-                  <FileText className="h-4 w-4" />
-                  <AlertTitle>Preview contable</AlertTitle>
-                  <AlertDescription>
-                    Débito:{" "}
-                    {formatCurrency(
-                      specialPreview.totals?.debit || 0,
-                      currency,
-                    )}{" "}
-                    ({specialPreview.entries?.[0]?.debitAccount || "—"}) ·
-                    Crédito:{" "}
-                    {formatCurrency(
-                      specialPreview.totals?.credit || 0,
-                      currency,
-                    )}{" "}
-                    ({specialPreview.entries?.[0]?.creditAccount || "—"}) —{" "}
-                    {specialPreview.entries?.[0]?.conceptName || "—"}
-                  </AlertDescription>
-                </Alert>
-              ) : null}
+
+                <div className="rounded-md border">
+                  <div className="flex items-center justify-between border-b px-4 py-2">
+                    <div>
+                      <div className="text-sm font-semibold">Top deducciones/aportes</div>
+                      <div className="text-xs text-muted-foreground">Conceptos con mayor impacto</div>
+                    </div>
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Concepto</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(reportDeductions?.concepts || []).length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-sm text-muted-foreground text-center">
+                            Sin datos
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        reportDeductions.concepts.map((c) => (
+                          <TableRow key={c._id}>
+                            <TableCell>{c.conceptName || c._id}</TableCell>
+                            <TableCell className="capitalize">{c.conceptType}</TableCell>
+                            <TableCell>{formatCurrency(c.total, currency)}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="rounded-md border p-2">
+                  <div className="flex items-center justify-between px-2 pb-2">
+                    <div>
+                      <div className="text-sm font-semibold">Tendencia de costos</div>
+                      <div className="text-xs text-muted-foreground">Bruto vs. Neto</div>
+                    </div>
+                  </div>
+                  <ChartContainer
+                    className="h-72"
+                    config={{
+                      grossPay: { label: "Bruto", color: "hsl(var(--primary))" },
+                      netPay: { label: "Neto", color: "hsl(var(--chart-2, 200 80% 50%))" },
+                    }}
+                  >
+                    <LineChart data={reportSummary?.series || []}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="periodEnd" tickFormatter={(v) => formatDate(v)} />
+                      <YAxis />
+                      <RechartsTooltip content={<ChartTooltipContent />} />
+                      <Legend content={<ChartLegendContent />} />
+                      <Line type="monotone" dataKey="grossPay" stroke="var(--color-grossPay)" dot={false} />
+                      <Line type="monotone" dataKey="netPay" stroke="var(--color-netPay)" dot={false} />
+                    </LineChart>
+                  </ChartContainer>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-md border p-2">
+                  <div className="flex items-center justify-between px-2 pb-2">
+                    <div>
+                      <div className="text-sm font-semibold">Distribución de deducciones/aportes</div>
+                      <div className="text-xs text-muted-foreground">Top conceptos</div>
+                    </div>
+                  </div>
+                  <ChartContainer
+                    className="h-72"
+                    config={{
+                      total: { label: "Total", color: "hsl(var(--primary))" },
+                    }}
+                  >
+                    <PieChart>
+                      <Pie
+                        data={reportDeductions?.concepts || []}
+                        dataKey="total"
+                        nameKey="conceptName"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        label={(entry) => entry.conceptName || entry._id}
+                      >
+                        {(reportDeductions?.concepts || []).map((_, idx) => (
+                          <Cell key={idx} fill="var(--color-total)" opacity={1 - idx * 0.05} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip content={<ChartTooltipContent />} />
+                    </PieChart>
+                  </ChartContainer>
+                </div>
+
+                <div className="rounded-md border p-2">
+                  <div className="flex items-center justify-between px-2 pb-2">
+                    <div>
+                      <div className="text-sm font-semibold">Serie por departamento</div>
+                      <div className="text-xs text-muted-foreground">Bruto + deducciones + patronal</div>
+                    </div>
+                  </div>
+                  <ChartContainer
+                    className="h-72"
+                    config={{
+                      grossPay: { label: "Bruto", color: "hsl(var(--primary))" },
+                      deductions: { label: "Deducciones", color: "hsl(var(--chart-3, 280 70% 50%))" },
+                      employerCosts: { label: "Patronal", color: "hsl(var(--chart-4, 140 70% 45%))" },
+                    }}
+                  >
+                    <BarChart data={reportSummary?.byDepartment || []}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="department" />
+                      <YAxis />
+                      <RechartsTooltip content={<ChartTooltipContent />} />
+                      <Legend content={<ChartLegendContent />} />
+                      <Bar dataKey="grossPay" stackId="a" fill="var(--color-grossPay)" />
+                      <Bar dataKey="deductions" stackId="a" fill="var(--color-deductions)" />
+                      <Bar dataKey="employerCosts" stackId="a" fill="var(--color-employerCosts)" />
+                    </BarChart>
+                  </ChartContainer>
+                </div>
+              </div>
+
+              <div className="rounded-md border">
+                <div className="flex items-center justify-between border-b px-4 py-2">
+                  <div>
+                    <div className="text-sm font-semibold">Ausentismo</div>
+                    <div className="text-xs text-muted-foreground">
+                      Solicitudes aprobadas: {reportAbsenteeism?.totals?.totalRequests || 0} · Días: {reportAbsenteeism?.totals?.totalDays || 0}
+                    </div>
+                  </div>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Empleado</TableHead>
+                      <TableHead>Días</TableHead>
+                      <TableHead>Solicitudes</TableHead>
+                      <TableHead>Tipos</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(reportAbsenteeism?.byEmployee || []).length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-sm text-muted-foreground">
+                          Sin registros de ausencias
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      reportAbsenteeism.byEmployee.map((emp) => (
+                        <TableRow key={emp.employeeId}>
+                          <TableCell>{emp.employeeName}</TableCell>
+                          <TableCell>{emp.totalDays}</TableCell>
+                          <TableCell>{emp.requests}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {Object.entries(emp.leaveTypes || {})
+                              .map(([k, v]) => `${k}: ${v}`)
+                              .join(", ")}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <CardTitle>Auditoría de nómina</CardTitle>
+                <CardDescription>Eventos y cambios en runs, conceptos y estructuras.</CardDescription>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Input
+                  placeholder="Entidad (run/concept/structure)"
+                  value={auditFilters.entity || ""}
+                  onChange={(e) => setAuditFilters((p) => ({ ...p, entity: e.target.value }))}
+                  className="w-52"
+                />
+                <Input
+                  placeholder="ID entidad"
+                  value={auditFilters.entityId || ""}
+                  onChange={(e) => setAuditFilters((p) => ({ ...p, entityId: e.target.value }))}
+                  className="w-48"
+                />
+                <Input
+                  type="date"
+                  value={auditFilters.from || ""}
+                  onChange={(e) => setAuditFilters((p) => ({ ...p, from: e.target.value }))}
+                  className="w-36"
+                />
+                <Input
+                  type="date"
+                  value={auditFilters.to || ""}
+                  onChange={(e) => setAuditFilters((p) => ({ ...p, to: e.target.value }))}
+                  className="w-36"
+                />
+                <Button variant="outline" onClick={loadAuditLogsGlobal} disabled={loadingAudit}>
+                  {loadingAudit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  Filtrar
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Entidad</TableHead>
+                      <TableHead>Acción</TableHead>
+                      <TableHead>Usuario</TableHead>
+                      <TableHead>Detalle</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loadingAudit ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center">
+                          <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+                        </TableCell>
+                      </TableRow>
+                    ) : auditLogs.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
+                          Sin eventos de auditoría
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      auditLogs.map((log) => (
+                        <TableRow key={log._id || `${log.entity}-${log.createdAt}`}>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {formatDateTime(log.createdAt)}
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {log.entity} {log.entityId ? `(${log.entityId})` : ""}
+                          </TableCell>
+                          <TableCell className="text-xs capitalize">{log.action}</TableCell>
+                          <TableCell className="text-xs">
+                            {(log.userId && log.userId.toString()) || "SYSTEM"}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {log.before || log.after
+                              ? JSON.stringify({ before: log.before, after: log.after })
+                              : "—"}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
-        <TabsContent value="liquidations" className="mt-0">
+        <TabsContent value="settings" className="space-y-4">
           <Card>
             <CardHeader className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <CardTitle>Liquidaciones VE</CardTitle>
+                <CardTitle>Localización de nómina (VE)</CardTitle>
                 <CardDescription>
-                  Configura cuentas y ejecuta liquidaciones con las reglas
-                  vigentes.
+                  Selecciona el paquete activo y revisa las tasas vigentes.
                 </CardDescription>
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={loadLiquidationRules}
-                  disabled={loadingLiquidationRules}
+                  onClick={loadLocalizations}
+                  disabled={loadingLocalizations}
                 >
-                  {loadingLiquidationRules ? (
+                  {loadingLocalizations ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <RefreshCw className="mr-2 h-4 w-4" />
                   )}
-                  Reglas
+                  Recargar
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
-                  onClick={loadLiquidationRuns}
-                  disabled={loadingLiquidationRuns}
+                  onClick={() => setImportDialogOpen(true)}
                 >
-                  {loadingLiquidationRuns ? (
+                  Importar CSV/JSON
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  disabled={!activeLocalizationId || activatingLocalization}
+                  onClick={async () => {
+                    if (!activeLocalizationId) return;
+                    setActivatingLocalization(true);
+                    try {
+                      await handleActivateLocalization(activeLocalizationId);
+                    } finally {
+                      setActivatingLocalization(false);
+                    }
+                  }}
+                >
+                  {activatingLocalization ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                  )}
-                  Runs
+                  ) : null}
+                  Activar versión seleccionada
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="rounded-md border p-3 space-y-3">
-                <p className="text-sm font-medium">
-                  Cuentas contables y parámetros
-                </p>
-                <div className="grid gap-2 md:grid-cols-3">
-                  <div>
-                    <Label>Días/año</Label>
-                    <Input
-                      type="number"
-                      value={liquidationRuleForm.daysPerYear}
-                      onChange={(e) =>
-                        setLiquidationRuleForm((prev) => ({
-                          ...prev,
-                          daysPerYear: Number(e.target.value),
-                        }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Días mínimos</Label>
-                    <Input
-                      type="number"
-                      value={liquidationRuleForm.minDaysPerYear}
-                      onChange={(e) =>
-                        setLiquidationRuleForm((prev) => ({
-                          ...prev,
-                          minDaysPerYear: Number(e.target.value),
-                        }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Factor integral</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={liquidationRuleForm.integralSalaryFactor}
-                      onChange={(e) =>
-                        setLiquidationRuleForm((prev) => ({
-                          ...prev,
-                          integralSalaryFactor: Number(e.target.value),
-                        }))
-                      }
-                    />
-                  </div>
+            <CardContent className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-4">
+                <div>
+                  <Label>País</Label>
+                  <Input value="VE" disabled />
                 </div>
-                <div className="grid gap-2 md:grid-cols-3">
-                  <div>
-                    <Label>Días vacaciones</Label>
-                    <Input
-                      type="number"
-                      value={liquidationRuleForm.vacationDays}
-                      onChange={(e) =>
-                        setLiquidationRuleForm((prev) => ({
-                          ...prev,
-                          vacationDays: Number(e.target.value),
-                        }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Días utilidades</Label>
-                    <Input
-                      type="number"
-                      value={liquidationRuleForm.utilitiesDays}
-                      onChange={(e) =>
-                        setLiquidationRuleForm((prev) => ({
-                          ...prev,
-                          utilitiesDays: Number(e.target.value),
-                        }))
-                      }
-                    />
-                  </div>
+                <div>
+                  <Label>Versión activa</Label>
+                  <Select
+                    value={activeLocalizationId || ""}
+                    onValueChange={(val) => setActiveLocalizationId(val)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona versión" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {localizations.map((loc) => (
+                        <SelectItem key={loc._id} value={loc._id}>
+                          {loc.label || "Sin etiqueta"} · v{loc.version || 1} ·{" "}
+                          {loc.status}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="grid gap-2 md:grid-cols-3">
-                  <div>
-                    <Label>Débito prestaciones</Label>
-                    <Input
-                      value={liquidationRuleForm.accounts.severanceDebit}
-                      onChange={(e) =>
-                        setLiquidationRuleForm((prev) => ({
-                          ...prev,
-                          accounts: {
-                            ...prev.accounts,
-                            severanceDebit: e.target.value,
-                          },
-                        }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Crédito prestaciones</Label>
-                    <Input
-                      value={liquidationRuleForm.accounts.severanceCredit}
-                      onChange={(e) =>
-                        setLiquidationRuleForm((prev) => ({
-                          ...prev,
-                          accounts: {
-                            ...prev.accounts,
-                            severanceCredit: e.target.value,
-                          },
-                        }))
-                      }
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <Button
-                      size="sm"
-                      onClick={handleCreateLiquidationRule}
-                      disabled={creatingLiquidationRule}
-                    >
-                      {creatingLiquidationRule ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                      )}
-                      Guardar regla VE
-                    </Button>
-                  </div>
+                <div>
+                  <Label>Etiqueta</Label>
+                  <Input
+                    value={localizationForm.label || ""}
+                    onChange={(e) =>
+                      setLocalizationForm((prev) => ({
+                        ...prev,
+                        label: e.target.value,
+                      }))
+                    }
+                    placeholder="Tasas vigentes"
+                  />
                 </div>
-                <div className="grid gap-2 md:grid-cols-3">
-                  <div>
-                    <Label>Débito vacaciones</Label>
-                    <Input
-                      value={liquidationRuleForm.accounts.vacationDebit}
-                      onChange={(e) =>
-                        setLiquidationRuleForm((prev) => ({
-                          ...prev,
-                          accounts: {
-                            ...prev.accounts,
-                            vacationDebit: e.target.value,
-                          },
-                        }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Crédito vacaciones</Label>
-                    <Input
-                      value={liquidationRuleForm.accounts.vacationCredit}
-                      onChange={(e) =>
-                        setLiquidationRuleForm((prev) => ({
-                          ...prev,
-                          accounts: {
-                            ...prev.accounts,
-                            vacationCredit: e.target.value,
-                          },
-                        }))
-                      }
-                    />
-                  </div>
+                <div>
+                  <Label>Versión</Label>
+                  <Input
+                    type="number"
+                    value={localizationForm.version || ""}
+                    onChange={(e) =>
+                      setLocalizationForm((prev) => ({
+                        ...prev,
+                        version: e.target.value,
+                      }))
+                    }
+                    placeholder="1"
+                  />
                 </div>
-                <div className="grid gap-2 md:grid-cols-3">
-                  <div>
-                    <Label>Débito utilidades</Label>
-                    <Input
-                      value={liquidationRuleForm.accounts.utilitiesDebit}
-                      onChange={(e) =>
-                        setLiquidationRuleForm((prev) => ({
-                          ...prev,
-                          accounts: {
-                            ...prev.accounts,
-                            utilitiesDebit: e.target.value,
-                          },
-                        }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label>Crédito utilidades</Label>
-                    <Input
-                      value={liquidationRuleForm.accounts.utilitiesCredit}
-                      onChange={(e) =>
-                        setLiquidationRuleForm((prev) => ({
-                          ...prev,
-                          accounts: {
-                            ...prev.accounts,
-                            utilitiesCredit: e.target.value,
-                          },
-                        }))
-                      }
-                    />
-                  </div>
+                <div>
+                  <Label>Vigente desde</Label>
+                  <Input
+                    type="date"
+                    value={localizationForm.validFrom || ""}
+                    onChange={(e) =>
+                      setLocalizationForm((prev) => ({
+                        ...prev,
+                        validFrom: e.target.value,
+                      }))
+                    }
+                  />
                 </div>
               </div>
-
-              <div className="rounded-md border p-3 space-y-3">
-                <p className="text-sm font-medium">Ejecutar liquidación VE</p>
-                <div className="grid gap-2 md:grid-cols-3">
-                  <div>
-                    <Label>Regla</Label>
-                    <Select
-                      value={liquidationRunForm.ruleSetId}
-                      onValueChange={(value) =>
-                        setLiquidationRunForm((prev) => ({
-                          ...prev,
-                          ruleSetId: value,
-                        }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona regla" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {liquidationRules.map((rule) => (
-                          <SelectItem key={rule._id} value={rule._id}>
-                            {rule.country} · v{rule.version}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Etiqueta</Label>
-                    <Input
-                      value={liquidationRunForm.label}
-                      onChange={(e) =>
-                        setLiquidationRunForm((prev) => ({
-                          ...prev,
-                          label: e.target.value,
-                        }))
-                      }
-                      placeholder="Liquidación masiva"
-                    />
-                  </div>
-                  <div>
-                    <Label>Fecha terminación</Label>
-                    <Input
-                      type="date"
-                      value={liquidationRunForm.terminationDate}
-                      onChange={(e) =>
-                        setLiquidationRunForm((prev) => ({
-                          ...prev,
-                          terminationDate: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    onClick={handleCreateLiquidationRun}
-                    disabled={creatingLiquidationRun}
-                  >
-                    {creatingLiquidationRun ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <BarChart3 className="mr-2 h-4 w-4" />
-                    )}
-                    Crear y calcular
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={loadLiquidationRuns}
-                    disabled={loadingLiquidationRuns}
-                  >
-                    {loadingLiquidationRuns ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                    )}
-                    Refrescar runs
-                  </Button>
-                </div>
-                {liquidationRuns.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    Sin liquidaciones.
-                  </p>
-                ) : (
-                  <div className="overflow-x-auto rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Etiqueta</TableHead>
-                          <TableHead>Estado</TableHead>
-                          <TableHead className="text-right">Neto</TableHead>
-                          <TableHead>Acciones</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {liquidationRuns.map((run) => (
-                          <TableRow key={run._id}>
-                            <TableCell>{run.label || run._id}</TableCell>
-                            <TableCell>
-                              <Badge
-                                variant={
-                                  statusVariantMap[run.status] || "outline"
-                                }
-                                className="capitalize"
-                              >
-                                {run.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {formatCurrency(run.netPayable || 0, currency)}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex flex-wrap gap-2">
-                                <Button
-                                  size="xs"
-                                  variant="ghost"
-                                  onClick={() =>
-                                    handlePreviewLiquidationRun(run._id)
-                                  }
-                                  disabled={previewingLiquidationId === run._id}
-                                >
-                                  {previewingLiquidationId === run._id ? (
-                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <FileText className="mr-1 h-3 w-3" />
-                                  )}
-                                  Preview
-                                </Button>
-                                <Button
-                                  size="xs"
-                                  variant="outline"
-                                  onClick={() =>
-                                    handleExportLiquidationRun(run._id, "csv")
-                                  }
-                                  disabled={
-                                    exportingLiquidationId === `${run._id}-csv`
-                                  }
-                                >
-                                  {exportingLiquidationId ===
-                                  `${run._id}-csv` ? (
-                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <Download className="mr-1 h-3 w-3" />
-                                  )}
-                                  CSV
-                                </Button>
-                                <Button
-                                  size="xs"
-                                  variant="outline"
-                                  onClick={() =>
-                                    handleExportLiquidationRun(run._id, "pdf")
-                                  }
-                                  disabled={
-                                    exportingLiquidationId === `${run._id}-pdf`
-                                  }
-                                >
-                                  {exportingLiquidationId ===
-                                  `${run._id}-pdf` ? (
-                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <Download className="mr-1 h-3 w-3" />
-                                  )}
-                                  PDF
-                                </Button>
-                                {run.status === "calculated" ||
-                                run.status === "draft" ? (
-                                  <Button
-                                    size="xs"
-                                    onClick={() =>
-                                      handleApproveLiquidationRun(run._id)
-                                    }
-                                    disabled={
-                                      !canWritePayroll ||
-                                      processingLiquidationId ===
-                                        `${run._id}-approve`
-                                    }
-                                  >
-                                    {processingLiquidationId ===
-                                    `${run._id}-approve` ? (
-                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                    ) : null}
-                                    Aprobar
-                                  </Button>
-                                ) : null}
-                                {run.status === "approved" ? (
-                                  <Button
-                                    size="xs"
-                                    variant="secondary"
-                                    onClick={() =>
-                                      handlePayLiquidationRun(run._id)
-                                    }
-                                    disabled={
-                                      !canWritePayroll ||
-                                      processingLiquidationId ===
-                                        `${run._id}-pay`
-                                    }
-                                  >
-                                    {processingLiquidationId ===
-                                    `${run._id}-pay` ? (
-                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                    ) : null}
-                                    Pagar
-                                  </Button>
-                                ) : null}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-                {liquidationPreview ? (
-                  <Alert>
-                    <FileText className="h-4 w-4" />
-                    <AlertTitle>Preview contable</AlertTitle>
-                    <AlertDescription>
-                      Débito:{" "}
-                      {formatCurrency(
-                        liquidationPreview.totals?.debit || 0,
-                        currency,
-                      )}{" "}
-                      (
-                      {liquidationPreview.debitAccount ||
-                        liquidationPreview.entries?.[0]?.debitAccount ||
-                        "—"}
-                      ) · Crédito:{" "}
-                      {formatCurrency(
-                        liquidationPreview.totals?.credit || 0,
-                        currency,
-                      )}{" "}
-                      (
-                      {liquidationPreview.creditAccount ||
-                        liquidationPreview.entries?.[0]?.creditAccount ||
-                        "—"}
-                      ) —{" "}
-                      {liquidationPreview.runLabel ||
-                        liquidationPreview.entries?.[0]?.conceptName ||
-                        "Liquidación"}
-                    </AlertDescription>
-                  </Alert>
-                ) : null}
+              <div className="space-y-2">
+                <Label>Tasas (JSON)</Label>
+                <Textarea
+                  rows={4}
+                  value={localizationForm.ratesText || ""}
+                  onChange={(e) =>
+                    setLocalizationForm((prev) => ({
+                      ...prev,
+                      ratesText: e.target.value,
+                    }))
+                  }
+                />
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      <Card>
-        <CardHeader className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <CardTitle>Localización de nómina (VE)</CardTitle>
-            <CardDescription>
-              Selecciona el paquete activo y revisa las tasas vigentes.
-            </CardDescription>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={loadLocalizations}
-              disabled={loadingLocalizations}
-            >
-              {loadingLocalizations ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="mr-2 h-4 w-4" />
-              )}
-              Recargar
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setImportDialogOpen(true)}
-            >
-              Importar CSV/JSON
-            </Button>
-            <Button
-              variant="default"
-              size="sm"
-              disabled={!activeLocalizationId || activatingLocalization}
-              onClick={async () => {
-                if (!activeLocalizationId) return;
-                setActivatingLocalization(true);
-                try {
-                  await handleActivateLocalization(activeLocalizationId);
-                } finally {
-                  setActivatingLocalization(false);
-                }
-              }}
-            >
-              {activatingLocalization ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              Activar versión seleccionada
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid gap-3 md:grid-cols-4">
-            <div>
-              <Label>País</Label>
-              <Input value="VE" disabled />
-            </div>
-            <div>
-              <Label>Versión activa</Label>
-              <Select
-                value={activeLocalizationId || ""}
-                onValueChange={(val) => setActiveLocalizationId(val)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona versión" />
-                </SelectTrigger>
-                <SelectContent>
-                  {localizations.map((loc) => (
-                    <SelectItem key={loc._id} value={loc._id}>
-                      {loc.label || "Sin etiqueta"} · v{loc.version || 1} ·{" "}
-                      {loc.status}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Etiqueta</Label>
-              <Input
-                value={localizationForm.label}
-                onChange={(e) =>
-                  setLocalizationForm((prev) => ({
-                    ...prev,
-                    label: e.target.value,
-                  }))
-                }
-                placeholder="Tasas vigentes"
-              />
-            </div>
-            <div>
-              <Label>Versión</Label>
-              <Input
-                type="number"
-                value={localizationForm.version}
-                onChange={(e) =>
-                  setLocalizationForm((prev) => ({
-                    ...prev,
-                    version: e.target.value,
-                  }))
-                }
-                placeholder="1"
-              />
-            </div>
-            <div>
-              <Label>Vigente desde</Label>
-              <Input
-                type="date"
-                value={localizationForm.validFrom}
-                onChange={(e) =>
-                  setLocalizationForm((prev) => ({
-                    ...prev,
-                    validFrom: e.target.value,
-                  }))
-                }
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Tasas (JSON)</Label>
-            <Textarea
-              rows={4}
-              value={localizationForm.ratesText}
-              onChange={(e) =>
-                setLocalizationForm((prev) => ({
-                  ...prev,
-                  ratesText: e.target.value,
-                }))
-              }
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              onClick={handleCreateLocalization}
-              disabled={creatingLocalization}
-            >
-              {creatingLocalization ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="mr-2 h-4 w-4" />
-              )}
-              Crear versión
-            </Button>
-          </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleCreateLocalization}
+                  disabled={creatingLocalization}
+                >
+                  {creatingLocalization ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
+                  Crear versión
+                </Button>
+              </div>
               <div className="rounded-md border bg-muted/50 p-3 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline">VE</Badge>
@@ -2481,602 +3238,253 @@ const PayrollRunsDashboard = () => {
                   )}
                 </pre>
               </div>
-          {localizations.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Sin paquetes todavía.
-            </p>
-          ) : (
-            <div className="overflow-x-auto rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>País</TableHead>
-                    <TableHead>Versión</TableHead>
-                    <TableHead>Etiqueta</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Vigencia</TableHead>
-                    <TableHead>Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {localizations.map((loc) => (
-                    <TableRow key={loc._id}>
-                      <TableCell>{loc.country}</TableCell>
-                      <TableCell>{loc.version || 1}</TableCell>
-                      <TableCell>{loc.label || "Sin nombre"}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            loc.status === "active" ? "default" : "outline"
-                          }
-                          className="capitalize"
-                        >
-                          {loc.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {loc.validFrom ? formatDate(loc.validFrom) : "N/D"}
-                        {loc.validTo ? ` → ${formatDate(loc.validTo)}` : ""}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-2">
-                          {loc.status !== "pending" && (
-                            <Button
-                              size="xs"
-                              variant="outline"
-                              onClick={() => handleSubmitLocalization(loc._id)}
-                              disabled={
-                                submittingLocalizationId === loc._id ||
-                                !canWritePayroll
+              {localizations.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Sin paquetes todavía.
+                </p>
+              ) : (
+                <div className="overflow-x-auto rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>País</TableHead>
+                        <TableHead>Versión</TableHead>
+                        <TableHead>Etiqueta</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead>Vigencia</TableHead>
+                        <TableHead>Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {localizations.map((loc) => (
+                        <TableRow key={loc._id}>
+                          <TableCell>{loc.country}</TableCell>
+                          <TableCell>{loc.version || 1}</TableCell>
+                          <TableCell>{loc.label || "Sin nombre"}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                loc.status === "active" ? "default" : "outline"
                               }
+                              className="capitalize"
                             >
-                              {submittingLocalizationId === loc._id ? (
-                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                              ) : null}
-                              Enviar a aprobación
-                            </Button>
-                          )}
-                          <Button
-                            size="xs"
-                            variant="outline"
-                            onClick={() => handleActivateLocalization(loc._id)}
-                            disabled={
-                              !canWritePayroll || loc.status === "active"
-                            }
-                          >
-                            Activar
-                          </Button>
-                          <Button
-                            size="xs"
-                            variant="ghost"
-                            onClick={() => setActiveLocalizationId(loc._id)}
-                          >
-                            Historial / tasas
-                          </Button>
-                          <Button
-                            size="xs"
-                            variant="ghost"
-                            onClick={() => setViewLocalization(loc)}
-                          >
-                            Ver tasas
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <CardTitle>Integraciones externas (Webhooks)</CardTitle>
-            <CardDescription>Configura endpoint, secreto y prueba el envío de eventos de nómina.</CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <Switch
-              checked={webhookConfig.enabled}
-              onCheckedChange={(val) =>
-                setWebhookConfig((prev) => ({ ...prev, enabled: val }))
-              }
-            />
-            <span className="text-sm text-muted-foreground">
-              {webhookConfig.enabled ? "Habilitado" : "Deshabilitado"}
-            </span>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Endpoint</Label>
-              <Input
-                value={webhookConfig.endpointUrl}
-                onChange={(e) =>
-                  setWebhookConfig((prev) => ({
-                    ...prev,
-                    endpointUrl: e.target.value,
-                  }))
-                }
-                placeholder="https://mi-app.com/webhooks/payroll"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Secreto (HMAC)</Label>
-              <Input
-                value={webhookConfig.secret}
-                onChange={(e) =>
-                  setWebhookConfig((prev) => ({ ...prev, secret: e.target.value }))
-                }
-                placeholder="secreto para firma"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Reintentos</Label>
-              <Input
-                type="number"
-                min={1}
-                max={10}
-                value={webhookConfig.maxRetries}
-                onChange={(e) =>
-                  setWebhookConfig((prev) => ({
-                    ...prev,
-                    maxRetries: Number(e.target.value),
-                  }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Delay entre reintentos (ms)</Label>
-              <Input
-                type="number"
-                min={500}
-                step={100}
-                value={webhookConfig.retryDelayMs}
-                onChange={(e) =>
-                  setWebhookConfig((prev) => ({
-                    ...prev,
-                    retryDelayMs: Number(e.target.value),
-                  }))
-                }
-              />
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              onClick={handleSaveWebhook}
-              disabled={savingWebhook || loadingWebhook}
-            >
-              {savingWebhook ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Guardar
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleTestWebhook}
-              disabled={testingWebhook || loadingWebhook}
-            >
-              {testingWebhook ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Enviar prueba
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <CardTitle>Auditoría de nómina</CardTitle>
-            <CardDescription>Eventos y cambios en runs, conceptos y estructuras.</CardDescription>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Input
-              placeholder="Entidad (run/concept/structure)"
-              value={auditFilters.entity}
-              onChange={(e) => setAuditFilters((p) => ({ ...p, entity: e.target.value }))}
-              className="w-52"
-            />
-            <Input
-              placeholder="ID entidad"
-              value={auditFilters.entityId}
-              onChange={(e) => setAuditFilters((p) => ({ ...p, entityId: e.target.value }))}
-              className="w-48"
-            />
-            <Input
-              type="date"
-              value={auditFilters.from}
-              onChange={(e) => setAuditFilters((p) => ({ ...p, from: e.target.value }))}
-              className="w-36"
-            />
-            <Input
-              type="date"
-              value={auditFilters.to}
-              onChange={(e) => setAuditFilters((p) => ({ ...p, to: e.target.value }))}
-              className="w-36"
-            />
-            <Button variant="outline" onClick={loadAuditLogsGlobal} disabled={loadingAudit}>
-              {loadingAudit ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-              Filtrar
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="overflow-x-auto rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Entidad</TableHead>
-                  <TableHead>Acción</TableHead>
-                  <TableHead>Usuario</TableHead>
-                  <TableHead>Detalle</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loadingAudit ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center">
-                      <Loader2 className="mx-auto h-4 w-4 animate-spin" />
-                    </TableCell>
-                  </TableRow>
-                ) : auditLogs.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
-                      Sin eventos de auditoría
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  auditLogs.map((log) => (
-                    <TableRow key={log._id || `${log.entity}-${log.createdAt}`}>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {formatDateTime(log.createdAt)}
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {log.entity} {log.entityId ? `(${log.entityId})` : ""}
-                      </TableCell>
-                      <TableCell className="text-xs capitalize">{log.action}</TableCell>
-                      <TableCell className="text-xs">
-                        {(log.userId && log.userId.toString()) || "SYSTEM"}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {log.before || log.after
-                          ? JSON.stringify({ before: log.before, after: log.after })
-                          : "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Importar tasas (VE)</DialogTitle>
-            <DialogDescription>
-              Sube un archivo CSV (clave,valor) o JSON con el objeto de tasas. Solo aplica a Venezuela.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Input
-              type="file"
-              accept=".csv, text/csv, application/json, .json"
-              onChange={(e) => handleImportFile(e.target.files?.[0])}
-            />
-            <Textarea
-              rows={6}
-              placeholder="O pega aquí JSON/CSV"
-              onChange={(e) => {
-                const text = e.target.value;
-                const isCsv = text.includes(",") && !text.trim().startsWith("{");
-                const result = isCsv ? parseRatesCsv(text) : parseRatesJson(text);
-                setImportPreview(result.data);
-                setImportErrors(result.errors || []);
-                setImportFileName(isCsv ? "pasted.csv" : "pasted.json");
-              }}
-            />
-            {importErrors.length > 0 && (
-              <Alert variant="destructive">
-                <AlertTitle>Errores</AlertTitle>
-                <AlertDescription>
-                  <ul className="list-disc pl-4">
-                    {importErrors.map((err) => (
-                      <li key={err}>{err}</li>
-                    ))}
-                  </ul>
-                </AlertDescription>
-              </Alert>
-            )}
-            {importPreview && (
-              <div className="rounded-md border bg-muted/40 p-3">
-                <div className="text-sm text-muted-foreground mb-2">
-                  Vista previa ({importFileName || "sin nombre"})
-                </div>
-                <pre className="max-h-64 overflow-auto text-xs">
-                  {JSON.stringify(importPreview, null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleConfirmImport}
-              disabled={!importPreview || importErrors.length > 0 || creatingLocalization}
-            >
-              {creatingLocalization ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Crear versión
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Card className="mt-6">
-        <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <CardTitle>Reporting de nómina</CardTitle>
-            <CardDescription>KPIs, costos y ausentismo filtrados por fecha y departamento.</CardDescription>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Input
-              type="date"
-              value={reportFilters.from}
-              onChange={(e) => setReportFilters((p) => ({ ...p, from: e.target.value }))}
-              className="w-36"
-              placeholder="Desde"
-            />
-            <Input
-              type="date"
-              value={reportFilters.to}
-              onChange={(e) => setReportFilters((p) => ({ ...p, to: e.target.value }))}
-              className="w-36"
-              placeholder="Hasta"
-            />
-            <Input
-              value={reportFilters.department}
-              onChange={(e) => setReportFilters((p) => ({ ...p, department: e.target.value }))}
-              className="w-36"
-              placeholder="Departamento"
-            />
-            <Input
-              value={reportFilters.structureId}
-              onChange={(e) => setReportFilters((p) => ({ ...p, structureId: e.target.value }))}
-              className="w-40"
-              placeholder="Estructura"
-            />
-            <Button onClick={loadReports} disabled={loadingReports} variant="outline">
-              {loadingReports ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-              Actualizar
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-4">
-            <KpiCard label="Costo bruto" value={reportSummary?.totals?.grossPay || 0} currency={currency} />
-            <KpiCard label="Deducciones" value={reportSummary?.totals?.deductions || 0} currency={currency} />
-            <KpiCard label="Aportes patronales" value={reportSummary?.totals?.employerCosts || 0} currency={currency} />
-            <KpiCard label="Empleados" value={reportSummary?.totals?.employees || 0} />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-md border">
-              <div className="flex items-center justify-between border-b px-4 py-2">
-                <div>
-                  <div className="text-sm font-semibold">Costos por departamento</div>
-                  <div className="text-xs text-muted-foreground">Bruto, deducciones, patronal</div>
-                </div>
-              </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Depto</TableHead>
-                    <TableHead>Bruto</TableHead>
-                    <TableHead>Deducciones</TableHead>
-                    <TableHead>Patronal</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(reportSummary?.byDepartment || []).length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-sm text-muted-foreground text-center">
-                        Sin datos
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    reportSummary.byDepartment.map((row) => (
-                      <TableRow key={row.department}>
-                        <TableCell>{row.department}</TableCell>
-                        <TableCell>{formatCurrency(row.grossPay, currency)}</TableCell>
-                        <TableCell>{formatCurrency(row.deductions, currency)}</TableCell>
-                        <TableCell>{formatCurrency(row.employerCosts, currency)}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-
-            <div className="rounded-md border">
-              <div className="flex items-center justify-between border-b px-4 py-2">
-                <div>
-                  <div className="text-sm font-semibold">Top deducciones/aportes</div>
-                  <div className="text-xs text-muted-foreground">Conceptos con mayor impacto</div>
-                </div>
-              </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Concepto</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(reportDeductions?.concepts || []).length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-sm text-muted-foreground text-center">
-                        Sin datos
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    reportDeductions.concepts.map((c) => (
-                      <TableRow key={c._id}>
-                        <TableCell>{c.conceptName || c._id}</TableCell>
-                        <TableCell className="capitalize">{c.conceptType}</TableCell>
-                        <TableCell>{formatCurrency(c.total, currency)}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-
-            <div className="rounded-md border p-2">
-              <div className="flex items-center justify-between px-2 pb-2">
-                <div>
-                  <div className="text-sm font-semibold">Tendencia de costos</div>
-                  <div className="text-xs text-muted-foreground">Bruto vs. Neto</div>
-                </div>
-              </div>
-              <ChartContainer
-                className="h-72"
-                config={{
-                  grossPay: { label: "Bruto", color: "hsl(var(--primary))" },
-                  netPay: { label: "Neto", color: "hsl(var(--chart-2, 200 80% 50%))" },
-                }}
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={reportSummary?.series || []}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="periodEnd" tickFormatter={(v) => formatDate(v)} />
-                    <YAxis />
-                    <RechartsTooltip content={<ChartTooltipContent />} />
-                    <Legend content={<ChartLegendContent />} />
-                    <Line type="monotone" dataKey="grossPay" stroke="var(--color-grossPay)" dot={false} />
-                    <Line type="monotone" dataKey="netPay" stroke="var(--color-netPay)" dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-md border p-2">
-              <div className="flex items-center justify-between px-2 pb-2">
-                <div>
-                  <div className="text-sm font-semibold">Distribución de deducciones/aportes</div>
-                  <div className="text-xs text-muted-foreground">Top conceptos</div>
-                </div>
-              </div>
-              <ChartContainer
-                className="h-72"
-                config={{
-                  total: { label: "Total", color: "hsl(var(--primary))" },
-                }}
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={reportDeductions?.concepts || []}
-                      dataKey="total"
-                      nameKey="conceptName"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label={(entry) => entry.conceptName || entry._id}
-                    >
-                      {(reportDeductions?.concepts || []).map((_, idx) => (
-                        <Cell key={idx} fill="var(--color-total)" opacity={1 - idx * 0.05} />
+                              {loc.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {loc.validFrom ? formatDate(loc.validFrom) : "N/D"}
+                            {loc.validTo ? ` → ${formatDate(loc.validTo)}` : ""}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-2">
+                              {loc.status !== "pending" && (
+                                <Button
+                                  size="xs"
+                                  variant="outline"
+                                  onClick={() => handleSubmitLocalization(loc._id)}
+                                  disabled={
+                                    submittingLocalizationId === loc._id ||
+                                    !canWritePayroll
+                                  }
+                                >
+                                  {submittingLocalizationId === loc._id ? (
+                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                  ) : null}
+                                  Enviar a aprobación
+                                </Button>
+                              )}
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                onClick={() => handleActivateLocalization(loc._id)}
+                                disabled={
+                                  !canWritePayroll || loc.status === "active"
+                                }
+                              >
+                                Activar
+                              </Button>
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                onClick={() => setActiveLocalizationId(loc._id)}
+                              >
+                                Historial / tasas
+                              </Button>
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                onClick={() => setViewLocalization(loc)}
+                              >
+                                Ver tasas
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </Pie>
-                    <RechartsTooltip content={<ChartTooltipContent />} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            </div>
-
-            <div className="rounded-md border p-2">
-              <div className="flex items-center justify-between px-2 pb-2">
-                <div>
-                  <div className="text-sm font-semibold">Serie por departamento</div>
-                  <div className="text-xs text-muted-foreground">Bruto + deducciones + patronal</div>
+                    </TableBody>
+                  </Table>
                 </div>
-              </div>
-              <ChartContainer
-                className="h-72"
-                config={{
-                  grossPay: { label: "Bruto", color: "hsl(var(--primary))" },
-                  deductions: { label: "Deducciones", color: "hsl(var(--chart-3, 280 70% 50%))" },
-                  employerCosts: { label: "Patronal", color: "hsl(var(--chart-4, 140 70% 45%))" },
-                }}
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={reportSummary?.byDepartment || []}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="department" />
-                    <YAxis />
-                    <RechartsTooltip content={<ChartTooltipContent />} />
-                    <Legend content={<ChartLegendContent />} />
-                    <Bar dataKey="grossPay" stackId="a" fill="var(--color-grossPay)" />
-                    <Bar dataKey="deductions" stackId="a" fill="var(--color-deductions)" />
-                    <Bar dataKey="employerCosts" stackId="a" fill="var(--color-employerCosts)" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            </div>
-          </div>
-
-          <div className="rounded-md border">
-            <div className="flex items-center justify-between border-b px-4 py-2">
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
-                <div className="text-sm font-semibold">Ausentismo</div>
-                <div className="text-xs text-muted-foreground">
-                  Solicitudes aprobadas: {reportAbsenteeism?.totals?.totalRequests || 0} · Días: {reportAbsenteeism?.totals?.totalDays || 0}
+                <CardTitle>Integraciones externas (Webhooks)</CardTitle>
+                <CardDescription>Configura endpoint, secreto y prueba el envío de eventos de nómina.</CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={webhookConfig.enabled}
+                  onCheckedChange={(val) =>
+                    setWebhookConfig((prev) => ({ ...prev, enabled: val }))
+                  }
+                />
+                <span className="text-sm text-muted-foreground">
+                  {webhookConfig.enabled ? "Habilitado" : "Deshabilitado"}
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Endpoint</Label>
+                  <Input
+                    value={webhookConfig.endpointUrl || ""}
+                    onChange={(e) =>
+                      setWebhookConfig((prev) => ({
+                        ...prev,
+                        endpointUrl: e.target.value,
+                      }))
+                    }
+                    placeholder="https://mi-app.com/webhooks/payroll"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Secreto (HMAC)</Label>
+                  <Input
+                    value={webhookConfig.secret || ""}
+                    onChange={(e) =>
+                      setWebhookConfig((prev) => ({ ...prev, secret: e.target.value }))
+                    }
+                    placeholder="secreto para firma"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Reintentos</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={webhookConfig.maxRetries || ""}
+                    onChange={(e) =>
+                      setWebhookConfig((prev) => ({
+                        ...prev,
+                        maxRetries: Number(e.target.value),
+                      }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Delay entre reintentos (ms)</Label>
+                  <Input
+                    type="number"
+                    min={500}
+                    step={100}
+                    value={webhookConfig.retryDelayMs || ""}
+                    onChange={(e) =>
+                      setWebhookConfig((prev) => ({
+                        ...prev,
+                        retryDelayMs: Number(e.target.value),
+                      }))
+                    }
+                  />
                 </div>
               </div>
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Empleado</TableHead>
-                  <TableHead>Días</TableHead>
-                  <TableHead>Solicitudes</TableHead>
-                  <TableHead>Tipos</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(reportAbsenteeism?.byEmployee || []).length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-sm text-muted-foreground">
-                      Sin registros de ausencias
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  reportAbsenteeism.byEmployee.map((emp) => (
-                    <TableRow key={emp.employeeId}>
-                      <TableCell>{emp.employeeName}</TableCell>
-                      <TableCell>{emp.totalDays}</TableCell>
-                      <TableCell>{emp.requests}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {Object.entries(emp.leaveTypes || {})
-                          .map(([k, v]) => `${k}: ${v}`)
-                          .join(", ")}
-                      </TableCell>
-                    </TableRow>
-                  ))
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={handleSaveWebhook}
+                  disabled={savingWebhook || loadingWebhook}
+                >
+                  {savingWebhook ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Guardar
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleTestWebhook}
+                  disabled={testingWebhook || loadingWebhook}
+                >
+                  {testingWebhook ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Enviar prueba
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+          <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Importar tasas (VE)</DialogTitle>
+                <DialogDescription>
+                  Sube un archivo CSV (clave,valor) o JSON con el objeto de tasas. Solo aplica a Venezuela.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                <Input
+                  type="file"
+                  accept=".csv, text/csv, application/json, .json"
+                  onChange={(e) => handleImportFile(e.target.files?.[0])}
+                />
+                <Textarea
+                  rows={6}
+                  placeholder="O pega aquí JSON/CSV"
+                  onChange={(e) => {
+                    const text = e.target.value;
+                    const isCsv = text.includes(",") && !text.trim().startsWith("{");
+                    const result = isCsv ? parseRatesCsv(text) : parseRatesJson(text);
+                    setImportPreview(result.data);
+                    setImportErrors(result.errors || []);
+                    setImportFileName(isCsv ? "pasted.csv" : "pasted.json");
+                  }}
+                />
+                {importErrors.length > 0 && (
+                  <Alert variant="destructive">
+                    <AlertTitle>Errores</AlertTitle>
+                    <AlertDescription>
+                      <ul className="list-disc pl-4">
+                        {importErrors.map((err) => (
+                          <li key={err}>{err}</li>
+                        ))}
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
                 )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                {importPreview && (
+                  <div className="rounded-md border bg-muted/40 p-3">
+                    <div className="text-sm text-muted-foreground mb-2">
+                      Vista previa ({importFileName || "sin nombre"})
+                    </div>
+                    <pre className="max-h-64 overflow-auto text-xs">
+                      {JSON.stringify(importPreview, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleConfirmImport}
+                  disabled={!importPreview || importErrors.length > 0 || creatingLocalization}
+                >
+                  {creatingLocalization ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Crear versión
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </TabsContent>
+      </Tabs>
       <Dialog open={!!viewLocalization} onOpenChange={(open) => !open && setViewLocalization(null)}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -3115,413 +3523,6 @@ const PayrollRunsDashboard = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Costo neto actual
-            </CardTitle>
-            <BarChart3 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">
-              {formatCurrency(latestRun?.netPay || 0, currency)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {previousRun
-                ? `${latestRun?.netPay >= previousRun.netPay ? "▲" : "▼"} ${formatCurrency(Math.abs((latestRun?.netPay || 0) - (previousRun?.netPay || 0)), currency)} vs anterior`
-                : "Sin histórico previo"}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Deducciones totales
-            </CardTitle>
-            <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">
-              {formatCurrency(latestRun?.deductions || 0, currency)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Retenciones y aportes legales de la última ejecución.
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Empleados procesados
-            </CardTitle>
-            <ClipboardList className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">
-              {latestRun?.totalEmployees || 0}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Periodo {formatDate(latestRun?.periodEnd)}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>Historial de nóminas</CardTitle>
-            <CardDescription>
-              Filtra por frecuencia y estado para comparar ejecuciones.
-            </CardDescription>
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-            <Select
-              value={filters.periodType}
-              onValueChange={(value) => handleFilterChange("periodType", value)}
-            >
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Frecuencia" />
-              </SelectTrigger>
-              <SelectContent>
-                {PERIOD_FILTERS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={filters.status}
-              onValueChange={(value) => handleFilterChange("status", value)}
-            >
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
-              <SelectContent>
-                {STATUS_FILTERS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {filters.calendarId ? (
-              <div className="flex items-center gap-2 text-xs">
-                <Badge variant="outline" className="px-2">
-                  Calendario: {filters.calendarId.slice(-6)}
-                </Badge>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-xs"
-                  onClick={() =>
-                    setFilters((prev) => ({ ...prev, calendarId: "" }))
-                  }
-                >
-                  Limpiar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs"
-                  onClick={() =>
-                    navigate(
-                      `/payroll/calendar?calendarId=${filters.calendarId}`,
-                    )
-                  }
-                >
-                  Ver calendario
-                </Button>
-              </div>
-            ) : null}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="overflow-x-auto rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Período</TableHead>
-                  <TableHead>Frecuencia</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Empleados</TableHead>
-                  <TableHead>Bruto</TableHead>
-                  <TableHead>Neto</TableHead>
-                  <TableHead>Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loadingRuns ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center">
-                      <Loader2 className="mx-auto h-5 w-5 animate-spin" />
-                    </TableCell>
-                  </TableRow>
-                ) : runs.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={7}
-                      className="text-center text-sm text-muted-foreground"
-                    >
-                      Aún no se han generado nóminas.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  runs.map((run) => {
-                    const structureSummary = summarizeRunStructures(run);
-                    return (
-                      <TableRow key={run._id}>
-                        <TableCell>
-                          <div className="font-medium">
-                            {run.label || "Sin título"}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {formatDate(run.periodStart)} -{" "}
-                            {formatDate(run.periodEnd)}
-                          </div>
-                          {structureSummary && (
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                              <Badge variant="secondary" className="text-xs">
-                                {structureSummary.coveragePercent || 0}%
-                                cobertura
-                              </Badge>
-                              {structureSummary.structures
-                                .slice(0, 2)
-                                .map((structure) => (
-                                  <Badge
-                                    key={`${structure.structureId}-${structure.structureVersion || "latest"}`}
-                                    variant="outline"
-                                    className="cursor-pointer text-xs"
-                                    onClick={() =>
-                                      openStructureBuilder(
-                                        structure.structureId,
-                                      )
-                                    }
-                                  >
-                                    {structure.structureName || "Estructura"}
-                                    {structure.structureVersion
-                                      ? ` · v${structure.structureVersion}`
-                                      : ""}
-                                    <span className="ml-1 text-muted-foreground">
-                                      · {structure.employees}
-                                    </span>
-                                  </Badge>
-                                ))}
-                              {structureSummary.structures.length > 2 && (
-                                <Badge variant="outline" className="text-xs">
-                                  +{structureSummary.structures.length - 2}
-                                </Badge>
-                              )}
-                              {structureSummary.legacyEmployees > 0 && (
-                                <Badge className="border-amber-200 bg-amber-50 text-amber-900">
-                                  {structureSummary.legacyEmployees} sin
-                                  estructura
-                                </Badge>
-                              )}
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell className="capitalize">
-                          {run.periodType}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={statusVariantMap[run.status] || "outline"}
-                            className="capitalize"
-                          >
-                            {run.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{run.totalEmployees}</TableCell>
-                        <TableCell>
-                          {formatCurrency(run.grossPay, currency)}
-                        </TableCell>
-                        <TableCell>
-                          {formatCurrency(run.netPay, currency)}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openDetail(run)}
-                            >
-                              Detalles
-                            </Button>
-                            {run.calendarId ? (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() =>
-                                  navigate(
-                                    `/payroll/calendar?calendarId=${run.calendarId}`,
-                                  )
-                                }
-                              >
-                                Calendario
-                              </Button>
-                            ) : null}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => downloadRun(run._id, "csv")}
-                              disabled={exportingRunKey === `${run._id}-csv`}
-                            >
-                              {exportingRunKey === `${run._id}-csv` ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <>
-                                  <Download className="mr-1 h-4 w-4" />
-                                  CSV
-                                </>
-                              )}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => downloadRun(run._id, "pdf")}
-                              disabled={exportingRunKey === `${run._id}-pdf`}
-                            >
-                              {exportingRunKey === `${run._id}-pdf` ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <>
-                                  <FileText className="mr-1 h-4 w-4" />
-                                  PDF
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>
-              Página {pagination.page} de {pagination.totalPages || 1}
-            </span>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={pagination.page <= 1}
-                onClick={() => handlePageChange(-1)}
-              >
-                Anterior
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={pagination.page >= (pagination.totalPages || 1)}
-                onClick={() => handlePageChange(1)}
-              >
-                Siguiente
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <CardTitle>Conceptos de nómina</CardTitle>
-              <CardDescription>
-                Sincroniza cuentas contables para cada concepto y evita asientos
-                huérfanos.
-              </CardDescription>
-            </div>
-            <Badge variant="secondary" className="text-xs font-normal">
-              {concepts.length} conceptos
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            {conceptStats.earning} devengos · {conceptStats.deduction}{" "}
-            deducciones · {conceptStats.employer} aportes patronales.
-          </p>
-          {conceptWarnings.length > 0 && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Asignaciones contables pendientes</AlertTitle>
-              <AlertDescription>
-                {conceptWarnings.length} concepto(s) sin cuenta de débito o
-                crédito. Configúralos para mantener la trazabilidad de los
-                asientos.
-              </AlertDescription>
-            </Alert>
-          )}
-          <div className="overflow-x-auto rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Débito</TableHead>
-                  <TableHead>Crédito</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loadingConcepts ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center">
-                      <Loader2 className="mx-auto h-5 w-5 animate-spin" />
-                    </TableCell>
-                  </TableRow>
-                ) : concepts.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={5}
-                      className="text-center text-sm text-muted-foreground"
-                    >
-                      No hay conceptos configurados todavía.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  concepts.map((concept) => (
-                    <TableRow key={concept._id}>
-                      <TableCell>{concept.code}</TableCell>
-                      <TableCell>{concept.name}</TableCell>
-                      <TableCell className="capitalize">
-                        {concept.conceptType}
-                      </TableCell>
-                      <TableCell>
-                        {concept.debitAccountId ? (
-                          concept.debitAccountId
-                        ) : (
-                          <Badge variant="outline" className="text-[11px]">
-                            Pendiente
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {concept.creditAccountId ? (
-                          concept.creditAccountId
-                        ) : (
-                          <Badge variant="outline" className="text-[11px]">
-                            Pendiente
-                          </Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
@@ -3559,7 +3560,7 @@ const PayrollRunsDashboard = () => {
                 <Label>Inicio</Label>
                 <Input
                   type="date"
-                  value={newRunForm.periodStart}
+                  value={newRunForm.periodStart || ""}
                   onChange={(event) =>
                     setNewRunForm((prev) => ({
                       ...prev,
@@ -3572,7 +3573,7 @@ const PayrollRunsDashboard = () => {
                 <Label>Fin</Label>
                 <Input
                   type="date"
-                  value={newRunForm.periodEnd}
+                  value={newRunForm.periodEnd || ""}
                   onChange={(event) =>
                     setNewRunForm((prev) => ({
                       ...prev,
@@ -3586,7 +3587,7 @@ const PayrollRunsDashboard = () => {
               <Label>Etiqueta</Label>
               <Input
                 placeholder="Ej. Nómina marzo"
-                value={newRunForm.label}
+                value={newRunForm.label || ""}
                 onChange={(event) =>
                   setNewRunForm((prev) => ({
                     ...prev,
@@ -3749,7 +3750,7 @@ const PayrollRunsDashboard = () => {
                 Total a pagar:{" "}
                 {formatCurrency(
                   (selectedRun?.netPay || 0) *
-                    (payMethod.igtf ? 1 + payMethod.igtfRate : 1),
+                  (payMethod.igtf ? 1 + payMethod.igtfRate : 1),
                   currency,
                 )}
               </div>
@@ -3989,7 +3990,7 @@ const PayrollRunsDashboard = () => {
                           Total a pagar:{" "}
                           {formatCurrency(
                             (selectedRun.netPay || 0) *
-                              (payMethod.igtf ? 1 + payMethod.igtfRate : 1),
+                            (payMethod.igtf ? 1 + payMethod.igtfRate : 1),
                             currency,
                           )}
                         </div>
