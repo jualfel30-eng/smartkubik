@@ -258,10 +258,8 @@ const WhatsAppInbox = () => {
         toast.warning('El storefront está desactivado. Actívalo en Configuración > Storefront.');
       }
 
-      // Build the production storefront URL (use custom domain or default)
-      const storefrontUrl = storefrontConfig.customDomain
-        ? `https://${storefrontConfig.customDomain}`
-        : `https://storefront.smartkubik.com/${storefrontConfig.domain}`;
+      // Build the production storefront URL using the tenant's subdomain
+      const storefrontUrl = `https://${storefrontConfig.domain}.smartkubik.com`;
 
       // Get the custom message template or use default
       const welcomeMessage = storefrontConfig.whatsappIntegration?.welcomeMessage ||
