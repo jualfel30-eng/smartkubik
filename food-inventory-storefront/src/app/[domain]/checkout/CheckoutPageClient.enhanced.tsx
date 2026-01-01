@@ -270,7 +270,7 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
     }
 
     if (name === 'shippingMethod') {
-      setFormData((prev) => ({ ...prev, [name]: value }));
+      setFormData((prev) => ({ ...prev, [name]: value as 'pickup' | 'delivery' }));
       if (value === 'pickup') {
         setDeliveryCost(0);
         setLocationData(null);
@@ -285,7 +285,7 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
   const generateWhatsAppLink = () => {
     const phone = config.whatsappIntegration?.businessPhone || config.contactInfo.phone;
     const message = `Hola! Acabo de completar mi orden #${orderNumber}. ¿Podrían confirmarla?`;
-    return `https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+    return `https://wa.me/${(phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
   };
 
   if (loading) {
@@ -416,9 +416,8 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                         name="customerName"
                         value={formData.customerName}
                         onChange={handleInputChange}
-                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${
-                          errors.customerName ? 'border-red-500' : isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
-                        }`}
+                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${errors.customerName ? 'border-red-500' : isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
+                          }`}
                       />
                       {errors.customerName && <p className="mt-1 text-sm text-red-400">{errors.customerName}</p>}
                     </div>
@@ -432,9 +431,8 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                         name="customerEmail"
                         value={formData.customerEmail}
                         onChange={handleInputChange}
-                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${
-                          errors.customerEmail ? 'border-red-500' : isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
-                        }`}
+                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${errors.customerEmail ? 'border-red-500' : isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
+                          }`}
                       />
                       {errors.customerEmail && <p className="mt-1 text-sm text-red-400">{errors.customerEmail}</p>}
                     </div>
@@ -449,9 +447,8 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                         value={formData.customerPhone}
                         onChange={handleInputChange}
                         placeholder="+58 412 1234567"
-                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${
-                          errors.customerPhone ? 'border-red-500' : isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
-                        }`}
+                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${errors.customerPhone ? 'border-red-500' : isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
+                          }`}
                       />
                       {errors.customerPhone && <p className="mt-1 text-sm text-red-400">{errors.customerPhone}</p>}
                     </div>
@@ -466,11 +463,10 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                   </h2>
                   <div className="space-y-4">
                     <div className="flex gap-4">
-                      <label className={`flex-1 flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition ${
-                        formData.shippingMethod === 'pickup'
-                          ? 'border-[var(--primary-color)] bg-blue-50 dark:bg-blue-900/20'
-                          : isDarkMode ? 'border-gray-700' : 'border-gray-300'
-                      }`}>
+                      <label className={`flex-1 flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition ${formData.shippingMethod === 'pickup'
+                        ? 'border-[var(--primary-color)] bg-blue-50 dark:bg-blue-900/20'
+                        : isDarkMode ? 'border-gray-700' : 'border-gray-300'
+                        }`}>
                         <input
                           type="radio"
                           name="shippingMethod"
@@ -482,11 +478,10 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                         <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>Retiro en tienda (Gratis)</span>
                       </label>
 
-                      <label className={`flex-1 flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition ${
-                        formData.shippingMethod === 'delivery'
-                          ? 'border-[var(--primary-color)] bg-blue-50 dark:bg-blue-900/20'
-                          : isDarkMode ? 'border-gray-700' : 'border-gray-300'
-                      }`}>
+                      <label className={`flex-1 flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition ${formData.shippingMethod === 'delivery'
+                        ? 'border-[var(--primary-color)] bg-blue-50 dark:bg-blue-900/20'
+                        : isDarkMode ? 'border-gray-700' : 'border-gray-300'
+                        }`}>
                         <input
                           type="radio"
                           name="shippingMethod"
@@ -510,9 +505,8 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                             name="customerAddress"
                             value={formData.customerAddress}
                             onChange={handleInputChange}
-                            className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${
-                              errors.customerAddress ? 'border-red-500' : isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
-                            }`}
+                            className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${errors.customerAddress ? 'border-red-500' : isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
+                              }`}
                           />
                           {errors.customerAddress && <p className="mt-1 text-sm text-red-400">{errors.customerAddress}</p>}
                         </div>
@@ -571,11 +565,10 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                       {paymentMethods.map((method) => (
                         <label
                           key={method.methodId}
-                          className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition ${
-                            formData.selectedPaymentMethod === method.methodId
-                              ? 'border-[var(--primary-color)] bg-blue-50 dark:bg-blue-900/20'
-                              : isDarkMode ? 'border-gray-700' : 'border-gray-300'
-                          }`}
+                          className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition ${formData.selectedPaymentMethod === method.methodId
+                            ? 'border-[var(--primary-color)] bg-blue-50 dark:bg-blue-900/20'
+                            : isDarkMode ? 'border-gray-700' : 'border-gray-300'
+                            }`}
                         >
                           <input
                             type="radio"
@@ -614,9 +607,8 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                     value={formData.notes}
                     onChange={handleInputChange}
                     rows={3}
-                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${
-                      isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
-                    }`}
+                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
+                      }`}
                     placeholder="Instrucciones especiales, referencias, etc."
                   />
                 </div>

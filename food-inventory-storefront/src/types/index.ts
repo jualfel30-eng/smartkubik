@@ -2,7 +2,7 @@
 
 export interface StorefrontConfig {
   _id: string;
-  tenantId: string | { _id: string; [key: string]: any };
+  tenantId: string | { _id: string;[key: string]: any };
   isActive: boolean;
   domain: string;
   name?: string;
@@ -35,6 +35,11 @@ export interface StorefrontConfig {
       state?: string;
       country?: string;
     };
+  };
+  whatsappIntegration?: {
+    enabled: boolean;
+    businessPhone?: string;
+    messageTemplate?: string;
   };
   externalLinks?: {
     reserveWithGoogle?: string;
@@ -94,7 +99,20 @@ export interface OrderData {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
-  customerAddress: string;
+  customerAddress?: string;
+  shippingMethod?: 'pickup' | 'delivery' | 'envio_nacional';
+  shippingAddress?: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode?: string;
+    country: string;
+    coordinates?: {
+      lat: number;
+      lng: number;
+    };
+  };
+  selectedPaymentMethod?: string;
   items: {
     productId: string;
     quantity: number;

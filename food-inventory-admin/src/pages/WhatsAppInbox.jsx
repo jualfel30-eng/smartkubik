@@ -258,11 +258,12 @@ const WhatsAppInbox = () => {
         toast.warning('El storefront está desactivado. Actívalo en Configuración > Storefront.');
       }
 
-      // Build the storefront URL
-      const storefrontUrl = `http://localhost:3001/${storefrontConfig.domain}`;
+      // Build the production storefront URL (use custom domain or default)
+      const storefrontUrl = storefrontConfig.customDomain
+        ? `https://${storefrontConfig.customDomain}`
+        : `https://storefront.smartkubik.com/${storefrontConfig.domain}`;
 
       // Get the custom message template or use default
-      const buttonText = storefrontConfig.whatsappIntegration?.buttonText || '🛒 Ver Tienda Online';
       const welcomeMessage = storefrontConfig.whatsappIntegration?.welcomeMessage ||
         `¡Hola! 👋\n\nTe comparto el enlace a nuestra tienda online donde puedes ver todos nuestros productos y hacer tu pedido:\n\n${storefrontUrl}\n\n¿En qué puedo ayudarte?`;
 
@@ -273,7 +274,7 @@ const WhatsAppInbox = () => {
           ? welcomeMessage
           : `${welcomeMessage}\n\n${storefrontUrl}`;
 
-      // Send the message via socket
+      // Send the message via socket (this will make the URL clickable in WhatsApp)
       sendMessage(finalMessage);
       toast.success('Enlace del storefront enviado');
     } catch (err) {
