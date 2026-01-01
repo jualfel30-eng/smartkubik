@@ -70,6 +70,33 @@ export class ContactInfoConfig {
 }
 const ContactInfoConfigSchema = SchemaFactory.createForClass(ContactInfoConfig);
 
+@Schema()
+export class WhatsAppIntegrationConfig {
+  @Prop({ type: Boolean, default: false })
+  enabled: boolean;
+
+  @Prop({ type: String })
+  businessPhone?: string; // WhatsApp Business phone number
+
+  @Prop({ type: String })
+  buttonText?: string; // Custom button text (default: "Ver en WhatsApp")
+
+  @Prop({ type: String })
+  messageTemplate?: string; // Template for the storefront link message
+
+  @Prop({ type: Boolean, default: true })
+  autoSendOrderConfirmation: boolean; // Auto-send order confirmation via WhatsApp
+
+  @Prop({ type: Boolean, default: true })
+  sendPaymentInstructions: boolean; // Send payment details via WhatsApp
+
+  @Prop({ type: Boolean, default: true })
+  sendDeliveryUpdates: boolean; // Send delivery status updates
+}
+const WhatsAppIntegrationConfigSchema = SchemaFactory.createForClass(
+  WhatsAppIntegrationConfig,
+);
+
 @Schema({ timestamps: true })
 export class StorefrontConfig {
   @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })
@@ -103,6 +130,9 @@ export class StorefrontConfig {
 
   @Prop({ type: ContactInfoConfigSchema, required: true })
   contactInfo: ContactInfoConfig;
+
+  @Prop({ type: WhatsAppIntegrationConfigSchema })
+  whatsappIntegration?: WhatsAppIntegrationConfig;
 }
 
 export const StorefrontConfigSchema =

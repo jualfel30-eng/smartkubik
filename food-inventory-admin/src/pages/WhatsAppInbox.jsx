@@ -6,7 +6,7 @@ import { useCrmContext } from '@/context/CrmContext';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
 
-import { ShoppingBag, Calendar, Menu, ChevronLeft, Smile, CreditCard, Send } from 'lucide-react';
+import { ShoppingBag, Calendar, Menu, ChevronLeft, Smile, CreditCard, Send, Store } from 'lucide-react';
 import { ActionPanel } from '../components/chat/ActionPanel';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -241,6 +241,53 @@ const WhatsAppInbox = () => {
     }
   };
 
+  const handleShareStorefront = async () => {
+    if (!activeConversation) return;
+
+    try {
+      // Fetch storefront config to get the domain
+      const response = await api.get('/storefront');
+      const storefrontConfig = response.data || response;
+
+      if (!storefrontConfig || !storefrontConfig.domain) {
+        toast.error('No se ha configurado el storefront aún. Por favor configúralo primero en Configuración > Storefront.');
+        return;
+      }
+
+      if (!storefrontConfig.isActive) {
+        toast.warning('El storefront está desactivado. Actívalo en Configuración > Storefront.');
+      }
+
+      // Build the storefront URL
+      const storefrontUrl = `http://localhost:3001/${storefrontConfig.domain}`;
+
+      // Get the custom message template or use default
+      const buttonText = storefrontConfig.whatsappIntegration?.buttonText || '🛒 Ver Tienda Online';
+      const welcomeMessage = storefrontConfig.whatsappIntegration?.welcomeMessage ||
+        `¡Hola! 👋\n\nTe comparto el enlace a nuestra tienda online donde puedes ver todos nuestros productos y hacer tu pedido:\n\n${storefrontUrl}\n\n¿En qué puedo ayudarte?`;
+
+      // Replace any {storefrontUrl} placeholder in the welcome message
+      const finalMessage = welcomeMessage.includes('{storefrontUrl}')
+        ? welcomeMessage.replace('{storefrontUrl}', storefrontUrl)
+        : welcomeMessage.includes(storefrontUrl)
+          ? welcomeMessage
+          : `${welcomeMessage}\n\n${storefrontUrl}`;
+
+      // Send the message via socket
+      sendMessage(finalMessage);
+      toast.success('Enlace del storefront enviado');
+    } catch (err) {
+      console.error("Error sharing storefront:", err);
+
+      // Check if it's a 404 error (storefront not configured)
+      if (err?.response?.status === 404 || err?.message?.includes('404') || err?.message?.includes('not found')) {
+        toast.error('No se ha configurado el storefront. Por favor configúralo primero.');
+      } else {
+        toast.error('Error al enviar el enlace del storefront');
+      }
+    }
+  };
+
   const addEmoji = (emoji) => {
     setNewMessage(prev => prev + emoji);
   };
@@ -377,6 +424,17 @@ const WhatsAppInbox = () => {
                     </div>
                   </PopoverContent>
                 </Popover>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleShareStorefront}
+                  title="Compartir Enlace de Tienda"
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <Store className="h-4 w-4 mr-2" />
+                  Storefront
+                </Button>
 
                 <Button
                   variant="ghost"

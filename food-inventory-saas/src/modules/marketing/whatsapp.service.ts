@@ -775,6 +775,96 @@ export class WhatsAppService {
     return results;
   }
 
+  /**
+   * Send a simple text message (no template)
+   */
+  async sendTextMessage(
+    tenantId: string,
+    to: string,
+    message: string,
+    customerId?: string,
+  ): Promise<{ success: boolean; deliveryId: string; error?: string }> {
+    this.logger.log(
+      `Sending WhatsApp text message to ${to} for tenant ${tenantId}`,
+    );
+
+    try {
+      const tenant = await this.tenantModel.findById(tenantId).exec();
+      if (!tenant) {
+        throw new NotFoundException(`Tenant ${tenantId} not found`);
+      }
+
+      const whapiToken = await this.resolveWhapiToken(tenant);
+      const config = new Configuration({
+        basePath: "https://gate.whapi.cloud",
+        headers: {
+          Authorization: `Bearer ${whapiToken}`,
+        },
+      });
+
+      const messagesApi = new MessagesApi(config);
+
+      // Send the text message using Whapi SDK
+      const response = await messagesApi.sendMessageText({
+        senderText: {
+          to,
+          body: message,
+        },
+      });
+
+      // Create delivery record
+      const delivery = new this.deliveryModel({
+        tenantId: new Types.ObjectId(tenantId),
+        customerId: customerId ? new Types.ObjectId(customerId) : undefined,
+        channel: "whatsapp",
+        recipient: to,
+        message,
+        status: "sent",
+        provider: "whapi",
+        providerMessageId: (response as any).id || undefined,
+        providerResponse: response,
+        sentAt: new Date(),
+      });
+
+      const saved = await delivery.save();
+
+      this.logger.log(
+        `WhatsApp text message sent successfully to ${to}, delivery ID: ${saved._id}`,
+      );
+
+      return {
+        success: true,
+        deliveryId: saved._id.toString(),
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to send WhatsApp text message to ${to}: ${error.message}`,
+        error.stack,
+      );
+
+      // Create failed delivery record
+      const delivery = new this.deliveryModel({
+        tenantId: new Types.ObjectId(tenantId),
+        customerId: customerId ? new Types.ObjectId(customerId) : undefined,
+        channel: "whatsapp",
+        recipient: to,
+        message,
+        status: "failed",
+        provider: "whapi",
+        errorMessage: error.message,
+        queuedAt: new Date(),
+      });
+
+      const saved = await delivery.save();
+
+      return {
+        success: false,
+        deliveryId: saved._id.toString(),
+        error: error.message,
+      };
+    }
+  }
+
   // ==================== Helper Methods ====================
 
   private async resolveWhapiToken(tenant: TenantDocument): Promise<string> {

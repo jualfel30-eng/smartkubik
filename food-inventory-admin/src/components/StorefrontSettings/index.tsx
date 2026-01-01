@@ -5,9 +5,11 @@ import { SEOEditor } from './SEOEditor';
 import { DomainSettings } from './DomainSettings';
 import { SocialMediaEditor } from './SocialMediaEditor';
 import { ContactInfoEditor } from './ContactInfoEditor';
+import { WhatsAppIntegrationEditor } from './WhatsAppIntegrationEditor';
+import { PaymentMethodsEditor } from './PaymentMethodsEditor';
 import { PreviewModal } from './PreviewModal';
 
-type TabType = 'theme' | 'seo' | 'domain' | 'social' | 'contact';
+type TabType = 'theme' | 'seo' | 'domain' | 'social' | 'contact' | 'whatsapp' | 'payments';
 
 export default function StorefrontSettings() {
   const { config, loading, error, saving, updateConfig, createConfig, resetConfig, deleteConfig } = useStorefrontConfig();
@@ -97,6 +99,8 @@ export default function StorefrontSettings() {
     { id: 'domain' as TabType, label: '🔗 Dominio', icon: '🔗' },
     { id: 'social' as TabType, label: '📱 Redes Sociales', icon: '📱' },
     { id: 'contact' as TabType, label: '📞 Contacto', icon: '📞' },
+    { id: 'whatsapp' as TabType, label: '💬 WhatsApp', icon: '💬' },
+    { id: 'payments' as TabType, label: '💳 Métodos de Pago', icon: '💳' },
   ];
 
   return (
@@ -180,6 +184,12 @@ export default function StorefrontSettings() {
             )}
             {activeTab === 'contact' && (
               <ContactInfoEditor config={config} onUpdate={updateConfig} saving={saving} />
+            )}
+            {activeTab === 'whatsapp' && (
+              <WhatsAppIntegrationEditor config={config} onUpdate={updateConfig} saving={saving} />
+            )}
+            {activeTab === 'payments' && (
+              <PaymentMethodsEditor />
             )}
           </div>
         </div>

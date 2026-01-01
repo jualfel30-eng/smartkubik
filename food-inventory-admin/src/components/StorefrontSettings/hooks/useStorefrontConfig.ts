@@ -37,6 +37,15 @@ export interface StorefrontConfig {
       postalCode: string;
     };
   };
+  whatsappIntegration?: {
+    enabled: boolean;
+    businessPhone?: string;
+    welcomeMessage?: string;
+    buttonText?: string;
+    autoSendOrderConfirmation?: boolean;
+    sendPaymentInstructions?: boolean;
+    includeStoreLink?: boolean;
+  };
   suggestedDomain?: string;
 }
 
