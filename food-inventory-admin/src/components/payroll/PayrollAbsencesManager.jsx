@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth.jsx';
 import { fetchApi } from '@/lib/api.js';
+import { HRNavigation } from '@/components/payroll/HRNavigation.jsx';
 import {
   Card,
   CardContent,
@@ -254,6 +255,7 @@ export default function PayrollAbsencesManager() {
 
   return (
     <div className="space-y-6">
+      <HRNavigation />
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Ausencias y permisos</h1>

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth.jsx';
 import { fetchApi, fetchChartOfAccounts } from '@/lib/api';
+import { HRNavigation } from '@/components/payroll/HRNavigation.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
@@ -772,6 +773,7 @@ const PayrollStructuresManager = () => {
 
   return (
     <div className="space-y-6">
+      <HRNavigation />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Estructuras de nómina</h1>
@@ -1288,51 +1290,51 @@ const PayrollStructuresManager = () => {
                           );
                         })}
                       </TableBody>
-                  </Table>
-                </ScrollArea>
-                {previewLogs.length > 0 && (
-                  <div className="mt-4 space-y-2 rounded-md bg-muted/40 p-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">Bitácora de reglas ({previewLogs.length})</p>
-                      {previewSkippedLogs.length > 0 && (
-                        <Badge variant="destructive">{previewSkippedLogs.length} saltadas</Badge>
-                      )}
-                    </div>
-                    <ScrollArea className="h-40">
-                      <div className="space-y-2 pr-2 text-xs">
-                        {previewLogs.map((log) => (
-                          <div
-                            key={`${log.ruleId}-${log.conceptId}`}
-                            className="rounded border bg-background p-2"
-                          >
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="outline">{log.ruleId?.slice(-6)}</Badge>
-                              <span className="font-medium">
-                                {conceptMap.get(log.conceptId)?.name || log.conceptId}
-                              </span>
-                              {log.skipped ? (
-                                <Badge variant="destructive">Omitida ({log.reason})</Badge>
-                              ) : (
-                                <Badge variant="secondary">Aplicada</Badge>
-                              )}
-                            </div>
-                            <div className="mt-1 flex flex-wrap gap-4">
-                              <span>Base: {log.baseAmount?.toFixed?.(2) ?? log.baseAmount}</span>
-                              <span>Resultado: {log.amount?.toFixed?.(2) ?? log.amount}</span>
-                              {log.references?.length > 0 && (
-                                <span>Refs: {log.references.join(', ')}</span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                    </Table>
+                  </ScrollArea>
+                  {previewLogs.length > 0 && (
+                    <div className="mt-4 space-y-2 rounded-md bg-muted/40 p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">Bitácora de reglas ({previewLogs.length})</p>
+                        {previewSkippedLogs.length > 0 && (
+                          <Badge variant="destructive">{previewSkippedLogs.length} saltadas</Badge>
+                        )}
                       </div>
-                    </ScrollArea>
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                      <ScrollArea className="h-40">
+                        <div className="space-y-2 pr-2 text-xs">
+                          {previewLogs.map((log) => (
+                            <div
+                              key={`${log.ruleId}-${log.conceptId}`}
+                              className="rounded border bg-background p-2"
+                            >
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="outline">{log.ruleId?.slice(-6)}</Badge>
+                                <span className="font-medium">
+                                  {conceptMap.get(log.conceptId)?.name || log.conceptId}
+                                </span>
+                                {log.skipped ? (
+                                  <Badge variant="destructive">Omitida ({log.reason})</Badge>
+                                ) : (
+                                  <Badge variant="secondary">Aplicada</Badge>
+                                )}
+                              </div>
+                              <div className="mt-1 flex flex-wrap gap-4">
+                                <span>Base: {log.baseAmount?.toFixed?.(2) ?? log.baseAmount}</span>
+                                <span>Resultado: {log.amount?.toFixed?.(2) ?? log.amount}</span>
+                                {log.references?.length > 0 && (
+                                  <span>Refs: {log.references.join(', ')}</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </>
       )}
 
