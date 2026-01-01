@@ -60,7 +60,7 @@ export function SearchableSelect({
       openMenuOnFocus
       unstyled
       classNames={classNames}
-      filterOption={null}
+
       formatCreateLabel={isCreatable ? (inputValue) => `Crear nuevo: "${inputValue}"` : undefined}
       noOptionsMessage={() => "No se encontraron resultados"}
       isLoading={isLoading}

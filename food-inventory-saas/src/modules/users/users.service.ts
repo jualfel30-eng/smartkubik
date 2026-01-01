@@ -8,7 +8,7 @@ export class UsersService {
   constructor(
     @InjectModel(User.name)
     private userModel: Model<UserDocument>,
-  ) {}
+  ) { }
 
   async searchByEmail(email: string): Promise<User[]> {
     if (!email) {
@@ -23,5 +23,9 @@ export class UsersService {
       .select("_id firstName lastName email")
       .limit(10)
       .exec();
+  }
+
+  async findAll(filter: any = {}): Promise<User[]> {
+    return this.userModel.find(filter).select("-password").exec();
   }
 }

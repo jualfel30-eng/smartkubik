@@ -37,20 +37,20 @@ const queueImports =
   process.env.DISABLE_BULLMQ === "true"
     ? []
     : [
-        BullModule.registerQueue({
-          name: APPOINTMENT_REMINDERS_QUEUE,
-        }),
-      ];
+      BullModule.registerQueue({
+        name: APPOINTMENT_REMINDERS_QUEUE,
+      }),
+    ];
 
 const queueProviders =
   process.env.DISABLE_BULLMQ === "true"
     ? [
-        {
-          provide: getQueueToken(APPOINTMENT_REMINDERS_QUEUE),
-          useValue: null,
-        },
-        AppointmentQueueService,
-      ]
+      {
+        provide: getQueueToken(APPOINTMENT_REMINDERS_QUEUE),
+        useValue: null,
+      },
+      AppointmentQueueService,
+    ]
     : [AppointmentQueueService, AppointmentReminderProcessor];
 
 @Module({
@@ -68,7 +68,7 @@ const queueProviders =
     ...queueImports,
     BankAccountsModule,
     AccountingModule,
-    NotificationsModule,
+    forwardRef(() => NotificationsModule),
     forwardRef(() => WhapiModule),
     forwardRef(() => HospitalityIntegrationsModule),
   ],
@@ -94,4 +94,4 @@ const queueProviders =
     AppointmentAuditService,
   ],
 })
-export class AppointmentsModule {}
+export class AppointmentsModule { }

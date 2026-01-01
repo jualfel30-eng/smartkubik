@@ -115,6 +115,7 @@ import { BillingModule } from "./modules/billing/billing.module";
 import { CalendarsModule } from "./modules/calendars/calendars.module";
 import { ActivitiesModule } from "./modules/activities/activities.module";
 import { RemindersModule } from "./modules/reminders/reminders.module";
+import { TenantPaymentConfigModule } from "./modules/tenant-payment-config/tenant-payment-config.module";
 
 @Module({
   imports: [
@@ -413,6 +414,7 @@ import { RemindersModule } from "./modules/reminders/reminders.module";
     CalendarsModule,
     ActivitiesModule,
     RemindersModule,
+    TenantPaymentConfigModule,
   ],
   controllers: [AppController, TenantController],
   providers: [

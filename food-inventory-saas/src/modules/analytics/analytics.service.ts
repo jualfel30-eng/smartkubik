@@ -82,7 +82,7 @@ export class AnalyticsService {
     private readonly customerModel: Model<CustomerDocument>,
     private readonly featureFlagsService: FeatureFlagsService,
     private readonly menuEngineeringService: MenuEngineeringService,
-  ) {}
+  ) { }
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM, {
     name: "dailyPerformanceKPIs",
@@ -134,7 +134,9 @@ export class AnalyticsService {
     }
 
     const userHours = shifts.reduce<Record<string, number>>((acc, shift) => {
-      const userId = shift.userId.toString();
+      const id = shift.userId || shift.employeeId;
+      if (!id) return acc;
+      const userId = id.toString();
       acc[userId] = (acc[userId] || 0) + (shift.durationInHours ?? 0);
       return acc;
     }, {});
@@ -225,7 +227,9 @@ export class AnalyticsService {
     }
 
     const userHours = shifts.reduce<Record<string, number>>((acc, shift) => {
-      const userId = shift.userId.toString();
+      const id = shift.userId || shift.employeeId;
+      if (!id) return acc;
+      const userId = id.toString();
       acc[userId] = (acc[userId] || 0) + (shift.durationInHours ?? 0);
       return acc;
     }, {});
@@ -354,19 +358,19 @@ export class AnalyticsService {
     const dateProjection =
       groupBy === "day"
         ? {
-            $dateToString: {
-              format: "%Y-%m-%d",
-              date: "$createdAt",
-              timezone: "UTC",
-            },
-          }
+          $dateToString: {
+            format: "%Y-%m-%d",
+            date: "$createdAt",
+            timezone: "UTC",
+          },
+        }
         : {
-            $dateToString: {
-              format: "%Y-%m",
-              date: "$createdAt",
-              timezone: "UTC",
-            },
-          };
+          $dateToString: {
+            format: "%Y-%m",
+            date: "$createdAt",
+            timezone: "UTC",
+          },
+        };
 
     const matchStage = {
       tenantId: tenantKey,
@@ -1584,7 +1588,7 @@ export class AnalyticsService {
 
     const upsellConversionRate = appointments.length
       ? appointments.filter((item) => (item.addons || []).length > 0).length /
-        appointments.length
+      appointments.length
       : 0;
 
     const reminderEffectiveness = remindersSent

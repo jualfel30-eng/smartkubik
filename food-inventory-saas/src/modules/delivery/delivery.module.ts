@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { DeliveryService } from "./delivery.service";
 import { DeliveryController } from "./delivery.controller";
+import { DeliveryPublicController } from "./delivery-public.controller";
 import {
   DeliveryRates,
   DeliveryRatesSchema,
@@ -13,7 +14,7 @@ import {
       { name: DeliveryRates.name, schema: DeliveryRatesSchema },
     ]),
   ],
-  controllers: [DeliveryController],
+  controllers: [DeliveryController, DeliveryPublicController],
   providers: [DeliveryService],
   exports: [DeliveryService],
 })

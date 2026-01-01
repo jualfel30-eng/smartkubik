@@ -47,24 +47,18 @@ const formatCurrency = (amount) =>
 const STEPS = [
   {
     id: 1,
-    name: 'Resumen de Orden',
-    description: 'Verificar productos y seleccionar tipo de entrega',
-    icon: Package,
+    name: 'Resumen y Pago',
+    description: 'Verificar orden y registrar el pago',
+    icon: CreditCard, // Changed icon to represent the main action better
   },
   {
     id: 2,
-    name: 'Registro de Pago',
-    description: 'Registrar y confirmar pagos',
-    icon: CreditCard,
-  },
-  {
-    id: 3,
     name: 'Emitir Factura',
     description: 'Generar documento fiscal',
     icon: FileText,
   },
   {
-    id: 4,
+    id: 3,
     name: 'Confirmación',
     description: 'Finalizar y actualizar inventario',
     icon: CheckCheck,
@@ -145,14 +139,12 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
 
   const determineInitialStep = (ord) => {
     // Determine which step to start on based on order state
-    if (!ord.fulfillmentType || ord.fulfillmentType === 'store') {
-      setCurrentStep(1); // Need to select fulfillment type
-    } else if (ord.paymentStatus === 'pending' || ord.paymentStatus === 'partial') {
-      setCurrentStep(2); // Need payment
+    if (!ord.fulfillmentType || ord.fulfillmentType === 'store' || ord.paymentStatus === 'pending' || ord.paymentStatus === 'partial') {
+      setCurrentStep(1); // Review & Payment
     } else if (ord.paymentStatus === 'paid' && !ord.billingDocumentId) {
-      setCurrentStep(3); // Paid but not invoiced
+      setCurrentStep(2); // Paid but not invoiced
     } else if (ord.billingDocumentId && ord.billingDocumentType !== 'none') {
-      setCurrentStep(4); // Invoiced, ready to confirm
+      setCurrentStep(3); // Invoiced, ready to confirm
     } else {
       setCurrentStep(1); // Default
     }
@@ -175,13 +167,12 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
   // Step validation - recalculates on every render to ensure button state is always current
   const canProceedToStep = (stepId) => {
     if (stepId === 1) return true;
-    if (stepId === 2) return fulfillmentType !== null;
-    if (stepId === 3) {
-      // Can only invoice if fully paid - check directly from orderData
-      return orderData?.paymentStatus === 'paid';
+    if (stepId === 2) {
+      // PROCEED TO INVOICE: Needs fulfillment type selected AND fully paid
+      return fulfillmentType !== null && orderData?.paymentStatus === 'paid';
     }
-    if (stepId === 4) {
-      // Can only confirm if invoice exists - check directly from orderData
+    if (stepId === 3) {
+      // PROCEED TO CONFIRMATION: Needs invoice
       return orderData?.billingDocumentId && orderData?.billingDocumentType !== 'none';
     }
     return false;
@@ -240,7 +231,7 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
 
     // Auto-advance
     if (updatedOrder?.paymentStatus === 'paid') {
-      setCurrentStep(3);
+      setCurrentStep(2); // Auto-advance to Invoice step (Step 2)
     } else {
       if (!paymentResponseOrder) {
         toast.message('El estado del pago se está actualizando...');
@@ -266,33 +257,64 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
     }
   };
 
+  const handleViewInvoice = async (docId) => {
+    if (!docId) return;
+    try {
+      const baseUrl = import.meta.env.VITE_API_URL || 'https://api.smartkubik.com/api/v1';
+      // Retrieve token from local storage manually to ensure we have it for the fetch
+      // even if useAuth hook isn't fully exposed in this scope context yet
+      const token = localStorage.getItem('accessToken');
+
+      const response = await fetch(`${baseUrl}/billing/documents/${docId}/pdf`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) throw new Error('Factura no encontrada (404)');
+        if (response.status === 401) throw new Error('No autorizado (401)');
+        throw new Error('Error al descargar PDF');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+
+      // Setup cleanup
+      setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Error al visualizar factura:', { description: error.message });
+    }
+  };
+
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
-        return <Step1OrderSummary
+        return <Step1SummaryAndPayment
           order={orderData}
           fulfillmentType={fulfillmentType}
           onFulfillmentTypeChange={handleFulfillmentTypeChange}
-        />;
-      case 2:
-        return <Step2Payment
-          order={orderData}
           isPaid={isPaid}
           isPartiallyPaid={isPartiallyPaid}
           balance={balance}
           onOpenPaymentDialog={() => setShowPaymentDialog(true)}
         />;
-      case 3:
+      case 2:
         return <Step3Billing
           order={orderData}
           hasInvoice={hasInvoice}
           onOpenBillingDrawer={() => setShowBillingDrawer(true)}
+          onViewInvoice={handleViewInvoice}
         />;
-      case 4:
+      case 3:
         return <Step4Confirmation
           order={orderData}
           onComplete={handleComplete}
           isProcessing={isProcessing}
+          onViewInvoice={handleViewInvoice}
         />;
       default:
         return null;
@@ -334,7 +356,7 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
               setOrderData(orderWithInvoice);
 
               toast.success('Factura verificada. Avanzando...');
-              setCurrentStep(4);
+              setCurrentStep(3);
               return; // Skip the refresh check
             }
 
@@ -350,14 +372,14 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
             // If invoice was created, auto-advance to next step
             if (updated?.billingDocumentId && updated?.billingDocumentType !== 'none') {
               toast.success('Factura verificada. Avanzando...');
-              setCurrentStep(4);
+              setCurrentStep(3);
             } else {
               // Retry once more
               await new Promise(resolve => setTimeout(resolve, 1000));
               const retry = await refreshOrder();
               if (retry?.billingDocumentId) {
                 toast.success('Factura verificada. Avanzando...');
-                setCurrentStep(4);
+                setCurrentStep(3);
               }
             }
           }}
@@ -474,74 +496,52 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
 
 // ==================== STEP COMPONENTS ====================
 
-function Step1OrderSummary({ order, fulfillmentType, onFulfillmentTypeChange }) {
+function Step1SummaryAndPayment({ order, fulfillmentType, onFulfillmentTypeChange, isPaid, isPartiallyPaid, balance, onOpenPaymentDialog }) {
+  // Use stored VES amount from order
+  const totalAmountVes = order.totalAmountVes || 0;
+  // Calculate implied rate if not explicitly stored (avoid division by zero)
+  const impliedRate = order.totalAmount > 0 ? (totalAmountVes / order.totalAmount) : 0;
+
   return (
     <div className="space-y-6">
+      {/* Products Section */}
       <div>
-        <h3 className="text-lg font-semibold mb-4">Productos en la Orden</h3>
-        <div className="border rounded-lg overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Producto</TableHead>
-                <TableHead className="text-center">Cant.</TableHead>
-                <TableHead className="text-right">Precio</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {order.items?.map((item, idx) => (
-                <TableRow key={idx}>
-                  <TableCell>
-                    <div className="max-w-[180px]">
-                      <div className="truncate text-sm">{item.productName}</div>
-                      {item.selectedUnit && (
-                        <Badge variant="outline" className="text-xs mt-1">{item.selectedUnit}</Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center text-sm">{item.quantity}</TableCell>
-                  <TableCell className="text-right text-sm whitespace-nowrap">{formatCurrency(item.unitPrice)}</TableCell>
-                  <TableCell className="text-right text-sm whitespace-nowrap font-medium">{formatCurrency(item.totalPrice)}</TableCell>
+        <h3 className="text-sm font-semibold mb-2">Productos</h3>
+        <div className="border rounded-lg overflow-hidden">
+          <div className="max-h-[250px] overflow-y-auto">
+            <Table>
+              <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
+                <TableRow>
+                  <TableHead>Producto</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
-
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Totales</h3>
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span>Subtotal:</span>
-            <span className="font-medium">{formatCurrency(order.subtotal)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>IVA (16%):</span>
-            <span className="font-medium">{formatCurrency(order.ivaTotal)}</span>
-          </div>
-          {order.igtfTotal > 0 && (
-            <div className="flex justify-between text-orange-600">
-              <span>IGTF (3%):</span>
-              <span className="font-medium">{formatCurrency(order.igtfTotal)}</span>
-            </div>
-          )}
-          <div className="flex justify-between">
-            <span>Envío:</span>
-            <span className="font-medium">{formatCurrency(order.shippingCost)}</span>
-          </div>
-          <Separator />
-          <div className="flex justify-between text-base font-bold">
-            <span>Total:</span>
-            <span>{formatCurrency(order.totalAmount)}</span>
+              </TableHeader>
+              <TableBody>
+                {order.items?.map((item, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell className="py-2">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium truncate max-w-[200px]">{item.productName}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {item.quantity} x {formatCurrency(item.unitPrice)}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right py-2 font-medium">
+                      {formatCurrency(item.totalPrice)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         </div>
       </div>
 
+      {/* Delivery Type Section - Compact */}
       <div>
-        <h3 className="text-lg font-semibold mb-4">Tipo de Entrega</h3>
-        <div className="grid grid-cols-2 gap-3">
+        <h3 className="text-sm font-semibold mb-2">Tipo de Entrega</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {FULFILLMENT_TYPES.map((type) => {
             const TypeIcon = type.icon;
             const isSelected = fulfillmentType === type.id;
@@ -550,127 +550,112 @@ function Step1OrderSummary({ order, fulfillmentType, onFulfillmentTypeChange }) 
                 key={type.id}
                 onClick={() => onFulfillmentTypeChange(type.id)}
                 className={`
-                  p-4 rounded-lg border-2 transition-all
-                  ${isSelected ? 'border-primary bg-primary/5' : 'border-muted hover:border-primary/50'}
+                  flex flex-col items-center justify-center p-2 rounded-md border text-center transition-all h-20
+                  ${isSelected ? 'border-primary bg-primary/10 text-primary' : 'border-muted hover:border-primary/50 text-muted-foreground'}
                 `}
               >
-                <div className="flex flex-col items-center text-center gap-2">
-                  <TypeIcon className={`h-8 w-8 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
-                  <span className={`font-semibold ${isSelected ? 'text-primary' : ''}`}>
-                    {type.label}
-                  </span>
-                  <span className="text-xs text-muted-foreground">{type.description}</span>
-                </div>
+                <TypeIcon className={`h-5 w-5 mb-1 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
+                <span className="text-xs font-medium leading-tight">
+                  {type.label}
+                </span>
               </button>
             );
           })}
         </div>
       </div>
-    </div>
-  );
-}
 
-function Step2Payment({ order, isPaid, isPartiallyPaid, balance, onOpenPaymentDialog }) {
-  return (
-    <div className="space-y-6">
-      <div className="p-4 rounded-lg bg-muted">
-        <div className="flex justify-between items-center mb-2">
-          <span className="font-semibold">Monto Total:</span>
-          <span className="text-xl font-bold">{formatCurrency(order.totalAmount)}</span>
-        </div>
-        <div className="flex justify-between items-center mb-2">
-          <span>Monto Pagado:</span>
-          <span className="text-lg font-semibold text-green-600">{formatCurrency(order.paidAmount)}</span>
-        </div>
-        <Separator className="my-2" />
-        <div className="flex justify-between items-center">
-          <span className="font-semibold">Balance Pendiente:</span>
-          <span className={`text-xl font-bold ${balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-            {formatCurrency(balance)}
-          </span>
+      {/* Totals Section */}
+      <div className="bg-muted/30 p-4 rounded-lg border">
+        <div className="space-y-1 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Subtotal:</span>
+            <span>{formatCurrency(order.subtotal)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">IVA (16%):</span>
+            <span>{formatCurrency(order.ivaTotal)}</span>
+          </div>
+          {order.igtfTotal > 0 && (
+            <div className="flex justify-between text-orange-600">
+              <span>IGTF (3%):</span>
+              <span>{formatCurrency(order.igtfTotal)}</span>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Envío:</span>
+            <span>{formatCurrency(order.shippingCost)}</span>
+          </div>
+          <Separator className="my-2" />
+          <div className="flex justify-between text-base font-bold">
+            <span>Total:</span>
+            <span>{formatCurrency(order.totalAmount)}</span>
+          </div>
+
+          {/* BCV Conversion Display */}
+          {totalAmountVes > 0 && (
+            <>
+              <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                <span>Tasa BCV:</span>
+                <span>Bs. {impliedRate.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm font-semibold text-blue-600 dark:text-blue-400 mt-1">
+                <span>Total en Bs.:</span>
+                <span>Bs. {totalAmountVes.toFixed(2)}</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      {isPaid ? (
-        <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-900">
-          <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
-            <CheckCircle2 className="h-5 w-5" />
-            <span className="font-semibold">Pago Completado</span>
-          </div>
-          <p className="text-sm text-green-600 dark:text-green-500 mt-1">
-            La orden ha sido pagada en su totalidad.
-          </p>
-        </div>
-      ) : (
-        <div className="p-4 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-900">
-          <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-400 mb-2">
-            <AlertCircle className="h-5 w-5" />
-            <span className="font-semibold">
-              {isPartiallyPaid ? 'Pago Parcial' : 'Pago Pendiente'}
+      {/* Payment Section */}
+      <div>
+        <div className="flex justify-between items-center mb-2">
+          <h3 className="text-lg font-semibold">Pago</h3>
+          <div className="text-sm">
+            <span className="text-muted-foreground mr-2">Pendiente:</span>
+            <span className={`font-bold ${balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+              {formatCurrency(balance)}
             </span>
           </div>
-          <p className="text-sm text-yellow-600 dark:text-yellow-500 mb-3">
-            {isPartiallyPaid
-              ? 'La orden tiene un balance pendiente. Registra el pago restante para continuar.'
-              : 'Esta orden aún no ha sido pagada. Registra un pago para continuar.'}
-          </p>
-          <Button onClick={onOpenPaymentDialog} className="w-full">
-            <CreditCard className="h-4 w-4 mr-2" />
-            Registrar Pago
-          </Button>
         </div>
-      )}
 
-      {order.paymentRecords && order.paymentRecords.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-3">Historial de Pagos</h3>
-          <div className="border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Método</TableHead>
-                  <TableHead className="text-right">Monto</TableHead>
-                  <TableHead className="text-center">Estado</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {order.paymentRecords.map((payment, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell>
-                      <Badge variant="outline">{payment.method}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {formatCurrency(payment.amount)}
-                      {payment.igtf > 0 && (
-                        <div className="text-xs text-orange-600">
-                          + {formatCurrency(payment.igtf)} IGTF
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={payment.isConfirmed ? 'success' : 'secondary'}>
-                        {payment.isConfirmed ? 'Confirmado' : 'Pendiente'}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+        {isPaid ? (
+          <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-900 flex items-center gap-2 text-green-700 dark:text-green-400">
+            <CheckCircle2 className="h-5 w-5" />
+            <span className="font-semibold">Orden Pagada</span>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="space-y-3">
+            {/* Mini Payment History (only if there are partial payments) */}
+            {order.paymentRecords && order.paymentRecords.length > 0 && (
+              <div className="space-y-1 mb-2">
+                {order.paymentRecords.map((p, idx) => (
+                  <div key={idx} className="flex justify-between text-xs bg-muted/50 p-1.5 rounded">
+                    <span>{p.method}</span>
+                    <span className="font-medium">{formatCurrency(p.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <Button
+              onClick={onOpenPaymentDialog}
+              className="w-full"
+              size="lg"
+            >
+              <CreditCard className="h-4 w-4 mr-2" />
+              {isPartiallyPaid ? `Pagar Restante (${formatCurrency(balance)})` : 'Registrar Pago Completo'}
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-const viewOriginalInvoice = (docId) => {
-  if (!docId) return;
-  // Open in new tab using the backend endpoint for invoice PDF
-  const baseUrl = import.meta.env.VITE_API_URL || 'https://api.smartkubik.com/api/v1';
-  window.open(`${baseUrl}/billing/invoices/${docId}/pdf`, '_blank');
-};
 
-function Step3Billing({ order, hasInvoice, onOpenBillingDrawer }) {
+
+function Step3Billing({ order, hasInvoice, onOpenBillingDrawer, onViewInvoice }) {
   return (
     <div className="space-y-6">
       {hasInvoice ? (
@@ -690,7 +675,7 @@ function Step3Billing({ order, hasInvoice, onOpenBillingDrawer }) {
           </div>
 
           <Button
-            onClick={() => viewOriginalInvoice(order.billingDocumentId)}
+            onClick={() => onViewInvoice(order.billingDocumentId)}
             variant="outline"
             className="w-full"
           >
@@ -729,11 +714,10 @@ function Step3Billing({ order, hasInvoice, onOpenBillingDrawer }) {
   );
 }
 
-function Step4Confirmation({ order, onComplete, isProcessing }) {
+function Step4Confirmation({ order, onComplete, isProcessing, onViewInvoice }) {
   const handlePrint = () => {
     if (order.billingDocumentId) {
-      const baseUrl = import.meta.env.VITE_API_URL || 'https://api.smartkubik.com/api/v1';
-      window.open(`${baseUrl}/billing/invoices/${order.billingDocumentId}/pdf`, '_blank');
+      onViewInvoice(order.billingDocumentId);
     }
   };
 
@@ -752,7 +736,8 @@ function Step4Confirmation({ order, onComplete, isProcessing }) {
   const handleWhatsApp = () => {
     if (!order.billingDocumentId) return;
     const baseUrl = import.meta.env.VITE_API_URL || 'https://api.smartkubik.com/api/v1';
-    const pdfUrl = `${baseUrl}/billing/invoices/${order.billingDocumentId}/pdf`;
+    // Note: This link might still require auth if opened in a browser that doesn't share session
+    const pdfUrl = `${baseUrl}/billing/documents/${order.billingDocumentId}/pdf`;
     const message = `Hola ${order.customerName}, aquí tienes tu factura: ${pdfUrl}`;
     window.open(`https://wa.me/${order.customerPhone?.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
   };
@@ -826,6 +811,7 @@ function Step4Confirmation({ order, onComplete, isProcessing }) {
           <Download className="h-5 w-5" />
           <span className="text-xs">Descargar</span>
         </Button>
+
       </div>
       <Separator />
 

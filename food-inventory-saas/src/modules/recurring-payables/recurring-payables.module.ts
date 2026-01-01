@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { RecurringPayablesController } from "./recurring-payables.controller";
 import { RecurringPayablesService } from "./recurring-payables.service";
@@ -18,10 +18,10 @@ import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
       { name: Payable.name, schema: PayableSchema }, // Needed to create new payables
       { name: Tenant.name, schema: TenantSchema }, // Needed for TenantGuard
     ]),
-    PayablesModule, // Import PayablesModule if service is used
-    CustomersModule,
+    forwardRef(() => PayablesModule), // Import PayablesModule if service is used
+    forwardRef(() => CustomersModule),
   ],
   controllers: [RecurringPayablesController],
   providers: [RecurringPayablesService],
 })
-export class RecurringPayablesModule {}
+export class RecurringPayablesModule { }

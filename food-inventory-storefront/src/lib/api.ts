@@ -707,3 +707,64 @@ export async function getCustomerOrders(token: string, tenantId: string): Promis
     throw error;
   }
 }
+
+/**
+ * Obtiene los métodos de pago activos de un tenant (público)
+ */
+export async function getPaymentMethods(tenantId: string): Promise<any[]> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/v1/public/tenant-payment-config/${tenantId}/payment-methods`,
+      {
+        next: {
+          revalidate: 300,
+          tags: [`payment-methods-${tenantId}`]
+        }
+      }
+    );
+
+    if (!res.ok) {
+      throw new Error('Failed to fetch payment methods');
+    }
+
+    const result = await res.json();
+    return result.data || [];
+  } catch (error) {
+    console.error('Error fetching payment methods:', error);
+    return [];
+  }
+}
+
+/**
+ * Calcula el costo de delivery basado en coordenadas (público)
+ */
+export async function calculateDeliveryCost(
+  tenantId: string,
+  location: { lat: number; lng: number },
+  orderAmount?: number
+): Promise<{ cost: number; distance?: number; zone?: string; freeDelivery?: boolean }> {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/public/delivery/calculate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        tenantId,
+        customerLocation: location,
+        orderAmount,
+      }),
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      throw new Error('Failed to calculate delivery cost');
+    }
+
+    const result = await res.json();
+    return result.data;
+  } catch (error) {
+    console.error('Error calculating delivery cost:', error);
+    return { cost: 0 };
+  }
+}

@@ -35,6 +35,7 @@ import { TodoList } from './TodoList';
 import { CalendarLegend } from './CalendarLegend';
 import { useTodos } from '@/hooks/use-todos';
 import { useCalendars } from '@/hooks/use-calendars';
+import { ShiftDialogContent } from './ShiftDialogContent';
 
 const DAYS_OF_WEEK = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const DAYS_OF_WEEK_FULL = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -52,7 +53,7 @@ const TIME_SLOTS = [
   '20:00', '20:30', '21:00', '21:30', '22:00', '22:30', '23:00', '23:30'
 ];
 
-export function CalendarView() {
+export function CalendarView({ mode = 'events' }) {
   const [view, setView] = useState('month');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState([]);
@@ -97,8 +98,31 @@ export function CalendarView() {
 
       const start = rangeStart.toISOString();
       const end = rangeEnd.toISOString();
-      const response = await fetchApi(`/events?start=${start}&end=${end}`);
-      setEvents(response.data || []);
+
+      let endpoint = `/events?start=${start}&end=${end}`;
+      if (mode === 'shifts') {
+        endpoint = `/shifts/roster?start=${start}&end=${end}`;
+      }
+
+      const response = await fetchApi(endpoint);
+
+      if (mode === 'shifts') {
+        // Map shifts to events format
+        const mappedShifts = (response.data || []).map(shift => ({
+          id: shift._id,
+          title: shift.userId?.name || 'Empleado',
+          start: shift.scheduledStart || shift.clockIn,
+          end: shift.scheduledEnd || shift.clockOut,
+          allDay: false,
+          backgroundColor: shift.status === 'completed' ? '#10B981' : (shift.type === 'scheduled' ? '#3B82F6' : '#F59E0B'),
+          extendedProps: shift,
+          type: 'shift'
+        }));
+        setEvents(mappedShifts);
+      } else {
+        setEvents(response.data || []);
+      }
+
     } catch (error) {
       console.error('Error loading events:', error);
       toast.error('Error al cargar eventos', { description: error.message });
@@ -106,7 +130,7 @@ export function CalendarView() {
     } finally {
       setLoading(false);
     }
-  }, [currentDate, view]);
+  }, [currentDate, view, mode]);
 
   useEffect(() => {
     fetchEvents();
@@ -115,6 +139,8 @@ export function CalendarView() {
   const allCalendarEvents = useMemo(() => {
     // Filtrar eventos por calendarios seleccionados
     let eventsList = [...events];
+
+    if (mode === 'shifts') return eventsList; // No filtering for shifts yet
 
     if (selectedCalendarIds.length > 0) {
       eventsList = eventsList.filter(event => {
@@ -567,91 +593,103 @@ export function CalendarView() {
         <SheetContent className="w-full sm:max-w-2xl overflow-y-auto dark:bg-gray-900 dark:border-gray-800">
           <SheetHeader>
             <SheetTitle className="dark:text-gray-100">
-              {selectedEvent ? 'Editar Evento' : 'Nuevo Evento'}
+              {selectedEvent ? (mode === 'shifts' ? 'Editar Turno' : 'Editar Evento') : (mode === 'shifts' ? 'Programar Turno' : 'Nuevo Evento')}
             </SheetTitle>
             <SheetDescription className="dark:text-gray-400">
-              Completa la información del evento
+              Information del {mode === 'shifts' ? 'turno' : 'evento'}
             </SheetDescription>
           </SheetHeader>
 
-          <form onSubmit={handleSaveEvent} className="space-y-4 mt-12 px-12">
-            <div>
-              <Label htmlFor="title">Título *</Label>
-              <Input
-                id="title"
-                value={eventForm.title}
-                onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
-                required
-                className="dark:bg-gray-800 dark:border-gray-700"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="description">Descripción</Label>
-              <Textarea
-                id="description"
-                value={eventForm.description}
-                onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
-                className="dark:bg-gray-800 dark:border-gray-700"
-                rows={3}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+          {mode === 'shifts' ? (
+            <ShiftDialogContent
+              event={selectedEvent}
+              onClose={() => setShowEventDialog(false)}
+              onSave={() => {
+                fetchEvents();
+                setShowEventDialog(false);
+              }}
+            />
+          ) : (
+            <form onSubmit={handleSaveEvent} className="space-y-4 mt-12 px-12">
+              {/* Existing form content... I need to include it all or it will be lost if I replace the whole block */}
               <div>
-                <Label htmlFor="start">Inicio *</Label>
+                <Label htmlFor="title">Título *</Label>
                 <Input
-                  id="start"
-                  type="datetime-local"
-                  value={eventForm.start}
-                  onChange={(e) => setEventForm({ ...eventForm, start: e.target.value })}
+                  id="title"
+                  value={eventForm.title}
+                  onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
                   required
                   className="dark:bg-gray-800 dark:border-gray-700"
                 />
               </div>
+
               <div>
-                <Label htmlFor="end">Fin</Label>
-                <Input
-                  id="end"
-                  type="datetime-local"
-                  value={eventForm.end}
-                  onChange={(e) => setEventForm({ ...eventForm, end: e.target.value })}
+                <Label htmlFor="description">Descripción</Label>
+                <Textarea
+                  id="description"
+                  value={eventForm.description}
+                  onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
                   className="dark:bg-gray-800 dark:border-gray-700"
+                  rows={3}
                 />
               </div>
-            </div>
 
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="allDay"
-                checked={eventForm.allDay}
-                onChange={(e) => setEventForm({ ...eventForm, allDay: e.target.checked })}
-                className="rounded"
-              />
-              <Label htmlFor="allDay">Evento de todo el día</Label>
-            </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="start">Inicio *</Label>
+                  <Input
+                    id="start"
+                    type="datetime-local"
+                    value={eventForm.start}
+                    onChange={(e) => setEventForm({ ...eventForm, start: e.target.value })}
+                    required
+                    className="dark:bg-gray-800 dark:border-gray-700"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="end">Fin</Label>
+                  <Input
+                    id="end"
+                    type="datetime-local"
+                    value={eventForm.end}
+                    onChange={(e) => setEventForm({ ...eventForm, end: e.target.value })}
+                    className="dark:bg-gray-800 dark:border-gray-700"
+                  />
+                </div>
+              </div>
 
-            <div className="flex gap-2 pt-8 px-12 border-t dark:border-gray-700">
-              {selectedEvent && !selectedEvent.id?.startsWith('todo-') && (
-                <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={() => handleDeleteEvent(selectedEvent.id)}
-                  className="dark:bg-red-900 dark:hover:bg-red-800"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Eliminar
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="allDay"
+                  checked={eventForm.allDay}
+                  onChange={(e) => setEventForm({ ...eventForm, allDay: e.target.checked })}
+                  className="rounded"
+                />
+                <Label htmlFor="allDay">Evento de todo el día</Label>
+              </div>
+
+              <div className="flex gap-2 pt-8 px-12 border-t dark:border-gray-700">
+                {selectedEvent && !selectedEvent.id?.startsWith('todo-') && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => handleDeleteEvent(selectedEvent.id)}
+                    className="dark:bg-red-900 dark:hover:bg-red-800"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Eliminar
+                  </Button>
+                )}
+                <Button type="button" variant="outline" className="flex-1 dark:border-gray-700 dark:hover:bg-gray-800" onClick={() => setShowEventDialog(false)}>
+                  Cancelar
                 </Button>
-              )}
-              <Button type="button" variant="outline" className="flex-1 dark:border-gray-700 dark:hover:bg-gray-800" onClick={() => setShowEventDialog(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" className="flex-1">
-                {selectedEvent ? 'Actualizar' : 'Crear'}
-              </Button>
-            </div>
-          </form>
+                <Button type="submit" className="flex-1">
+                  {selectedEvent ? 'Actualizar' : 'Crear'}
+                </Button>
+              </div>
+            </form>
+          )}
         </SheetContent>
       </Sheet>
     </div>
@@ -742,9 +780,8 @@ const WeekView = ({ currentDate, events, handleDayClick }) => {
         {weekDates.map((date, idx) => (
           <div
             key={idx}
-            className={`p-2 text-center border-l dark:border-gray-700 ${
-              isToday(date) ? 'bg-blue-100 dark:bg-blue-900/30' : ''
-            }`}
+            className={`p-2 text-center border-l dark:border-gray-700 ${isToday(date) ? 'bg-blue-100 dark:bg-blue-900/30' : ''
+              }`}
           >
             <div className="text-xs text-gray-600 dark:text-gray-400">{DAYS_OF_WEEK[idx]}</div>
             <div className={`text-sm font-semibold ${isToday(date) ? 'text-blue-600 dark:text-blue-400' : 'dark:text-gray-200'}`}>

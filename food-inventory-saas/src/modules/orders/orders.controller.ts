@@ -445,4 +445,68 @@ export class OrdersController {
       );
     }
   }
+
+  @Get("analytics/by-source")
+  @Permissions("orders_read")
+  @ApiOperation({
+    summary: "Get sales analytics by source (POS, Storefront, WhatsApp)",
+    description: "Returns sales metrics grouped by order source for the specified date range"
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Analytics retrieved successfully",
+    schema: {
+      type: "object",
+      properties: {
+        success: { type: "boolean" },
+        data: {
+          type: "object",
+          properties: {
+            bySource: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  source: { type: "string", example: "storefront" },
+                  totalOrders: { type: "number", example: 42 },
+                  totalRevenue: { type: "number", example: 1250.50 },
+                  averageOrderValue: { type: "number", example: 29.77 }
+                }
+              }
+            },
+            summary: {
+              type: "object",
+              properties: {
+                totalOrders: { type: "number" },
+                totalRevenue: { type: "number" },
+                averageOrderValue: { type: "number" }
+              }
+            }
+          }
+        }
+      }
+    }
+  })
+  async getAnalyticsBySource(
+    @Query("startDate") startDate?: string,
+    @Query("endDate") endDate?: string,
+    @Request() req?,
+  ) {
+    try {
+      const analytics = await this.ordersService.getAnalyticsBySource(
+        req.user.tenantId,
+        startDate ? new Date(startDate) : undefined,
+        endDate ? new Date(endDate) : undefined,
+      );
+      return {
+        success: true,
+        data: analytics,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error retrieving analytics",
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 }

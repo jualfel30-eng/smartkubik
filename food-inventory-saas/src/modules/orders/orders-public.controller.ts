@@ -77,7 +77,15 @@ export class CreatePublicOrderDto {
     state: string;
     zipCode?: string;
     country: string;
+    coordinates?: {
+      lat: number;
+      lng: number;
+    };
   };
+
+  @IsOptional()
+  @IsString()
+  selectedPaymentMethod?: string;
 
   @IsOptional()
   @IsString()

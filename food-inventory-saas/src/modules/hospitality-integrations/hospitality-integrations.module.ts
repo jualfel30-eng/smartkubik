@@ -17,7 +17,7 @@ import { HOSPITALITY_PMS_SYNC_QUEUE } from "./constants";
     }),
     MongooseModule.forFeature([{ name: Tenant.name, schema: TenantSchema }]),
     forwardRef(() => AppointmentsModule),
-    CustomersModule,
+    forwardRef(() => CustomersModule),
   ],
   controllers: [HospitalityIntegrationsController],
   providers: [
@@ -27,4 +27,4 @@ import { HOSPITALITY_PMS_SYNC_QUEUE } from "./constants";
   ],
   exports: [PmsIntegrationService, CalendarIntegrationService],
 })
-export class HospitalityIntegrationsModule {}
+export class HospitalityIntegrationsModule { }

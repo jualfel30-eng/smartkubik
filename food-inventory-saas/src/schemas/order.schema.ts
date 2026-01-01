@@ -326,6 +326,30 @@ export class Order {
   @Prop({ type: String, required: true, default: "retail" })
   type: string;
 
+  // ========================================
+  // ORDER SOURCE TRACKING (POS, Storefront, WhatsApp)
+  // ========================================
+
+  @Prop({
+    type: String,
+    enum: ["pos", "storefront", "whatsapp", "api", "manual"],
+    default: "pos",
+  })
+  source: string;
+
+  @Prop({ type: Object })
+  sourceMetadata?: {
+    channel?: string;
+    campaignId?: Types.ObjectId;
+    referralCode?: string;
+    sourceUrl?: string;
+    whatsappPhone?: string;
+    whatsappMessageId?: string;
+    storefrontDomain?: string;
+    userAgent?: string;
+    ipAddress?: string;
+  };
+
   @Prop({ type: Date })
   confirmedAt?: Date;
 
@@ -485,6 +509,7 @@ OrderSchema.index({ assignedTo: 1, status: 1, tenantId: 1 });
 OrderSchema.index({ totalAmount: -1, createdAt: -1, tenantId: 1 });
 OrderSchema.index({ tableId: 1, tenantId: 1 });
 OrderSchema.index({ isSplit: 1, activeSplitId: 1, tenantId: 1 });
+OrderSchema.index({ source: 1, createdAt: -1, tenantId: 1 });
 
 // Índice de texto para búsqueda
 OrderSchema.index({

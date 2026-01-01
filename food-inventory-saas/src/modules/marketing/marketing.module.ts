@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { MarketingController } from "./marketing.controller";
 import { MarketingService } from "./marketing.service";
@@ -113,11 +113,11 @@ import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
       { name: Tenant.name, schema: TenantSchema },
     ]),
     // PHASE 3: Import ProductAffinityModule for CRM data access
-    ProductAffinityModule,
+    forwardRef(() => ProductAffinityModule),
     // PHASE 3: Import NotificationsModule for campaign sending
-    NotificationsModule,
+    forwardRef(() => NotificationsModule),
     // PHASE 8: Import SuperAdminModule for Whapi token access
-    SuperAdminModule,
+    forwardRef(() => SuperAdminModule),
   ],
   controllers: [
     MarketingController,
@@ -165,4 +165,4 @@ import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
     WhatsAppService,
   ],
 })
-export class MarketingModule {}
+export class MarketingModule { }

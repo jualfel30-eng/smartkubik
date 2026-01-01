@@ -41,10 +41,13 @@ import { toast } from 'sonner';
 import { fetchApi } from '@/lib/api';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { OpportunityDetailDialog } from '@/components/OpportunityDetailDialog.jsx';
 import OpportunityStagesManagement from './crm/OpportunityStagesManagement.jsx';
+import { OwnerSelect } from './crm/OwnerSelect.jsx';
 import { PlaybooksManagement } from './PlaybooksManagement.jsx';
 import { ActivityTimeline } from './ActivityTimeline.jsx';
 import { RemindersWidget } from './RemindersWidget.jsx';
+import { HRNavigation } from '@/components/payroll/HRNavigation.jsx';
 
 const DEFAULT_PAGE_LIMIT = 25;
 const SEARCH_PAGE_LIMIT = 100;
@@ -199,6 +202,8 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
 
   // Sync state with URL changes (back/forward navigation)
   useEffect(() => {
+    if (forceEmployeeTab) return;
+
     const tab = searchParams.get('tab') || 'all';
     if (tab === 'pipeline') {
       if (activeTopTab !== 'pipeline') setActiveTopTab('pipeline');
@@ -214,7 +219,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
       if (activeTopTab !== 'contacts') setActiveTopTab('contacts');
       if (filterType !== tab) setFilterType(tab);
     }
-  }, [searchParams, activeTopTab, filterType]);
+  }, [searchParams, activeTopTab, filterType, forceEmployeeTab]);
 
   const [filteredData, setFilteredData] = useState([]);
   const [filterTier] = useState('all');
@@ -234,7 +239,9 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
   const [opportunitySearch, setOpportunitySearch] = useState('');
   const [isOpportunityDialogOpen, setIsOpportunityDialogOpen] = useState(false);
   const [isStageDialogOpen, setIsStageDialogOpen] = useState(false);
+  const [isDetailViewOpen, setIsDetailViewOpen] = useState(false);
   const [activeOpportunity, setActiveOpportunity] = useState(null);
+  const [activeDetailOpp, setActiveDetailOpp] = useState(null);
   const [pipelineView, setPipelineView] = useState('table'); // table | kanban
   const defaultStages = [
     'Prospecto',
@@ -641,46 +648,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     return { overdue, dueSoon };
   }, [opportunities]);
 
-  const OwnerSelect = ({ value, onChange, disabled }) => {
-    return (
-      <div className="space-y-1">
-        <Label>Owner (usuario)</Label>
-        <div className="flex gap-2">
-          <Input
-            placeholder="Buscar por email"
-            value={ownerSearchTerm}
-            onChange={(e) => setOwnerSearchTerm(e.target.value)}
-            disabled={disabled}
-          />
-          <Button type="button" variant="outline" onClick={() => searchOwners(ownerSearchTerm)} disabled={ownersLoading || disabled}>
-            {ownersLoading ? '...' : 'Buscar'}
-          </Button>
-        </div>
-        {owners.length > 0 ? (
-          <Select value={value || ''} onValueChange={onChange} disabled={disabled}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecciona owner" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">Sin owner</SelectItem>
-              {owners.map((o) => (
-                <SelectItem key={o._id} value={o._id}>
-                  {o.firstName ? `${o.firstName} ${o.lastName || ''}`.trim() : o.email}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <Input
-            placeholder="OwnerId (opcional)"
-            value={value || ''}
-            onChange={(e) => onChange(e.target.value)}
-            disabled={disabled}
-          />
-        )}
-      </div>
-    );
-  };
+
 
   const openStageDialog = (opp) => {
     setActiveOpportunity(opp);
@@ -1655,16 +1623,21 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
   console.log('DEBUG USER ROLE:', user?.role); 
   */
 
+
+
   return (
     <div className="space-y-6">
+      {forceEmployeeTab && <HRNavigation />}
       <Tabs value={activeTopTab} onValueChange={handleTopTabChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 max-w-[1000px]">
-          <TabsTrigger value="contacts">Contactos</TabsTrigger>
-          <TabsTrigger value="pipeline">Embudo de Ventas</TabsTrigger>
-          <TabsTrigger value="playbooks">Playbooks</TabsTrigger>
-          <TabsTrigger value="reminders">Recordatorios</TabsTrigger>
-          {isAdmin && <TabsTrigger value="settings">Configuración</TabsTrigger>}
-        </TabsList>
+        {!forceEmployeeTab && (
+          <TabsList className="grid w-full grid-cols-5 max-w-[1000px]">
+            <TabsTrigger value="contacts">Contactos</TabsTrigger>
+            <TabsTrigger value="pipeline">Embudo de Ventas</TabsTrigger>
+            <TabsTrigger value="playbooks">Playbooks</TabsTrigger>
+            <TabsTrigger value="reminders">Recordatorios</TabsTrigger>
+            {isAdmin && <TabsTrigger value="settings">Configuración</TabsTrigger>}
+          </TabsList>
+        )}
         <TabsContent value="contacts" className="space-y-6">
 
           {showCommunicationsIntelligence && !isEmployeeTab && (
@@ -2448,7 +2421,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                     <>
                       <div className="rounded-md border">
                         <Table>
-                          <TableHeader><TableRow><TableHead>Contacto</TableHead><TableHead>Tier RFM</TableHead><TableHead>Tipo</TableHead><TableHead>Contacto Principal</TableHead><TableHead>Gastos Totales</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader>
+                          <TableHeader><TableRow><TableHead>Contacto</TableHead><TableHead>Tier RFM</TableHead><TableHead>Tipo</TableHead><TableHead>Dirección</TableHead><TableHead>Email</TableHead><TableHead>Contacto Principal</TableHead><TableHead>Gastos Totales</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader>
                           <TableBody>
                             {filteredData.map((customer) => {
                               const primaryContact = customer.contacts?.find(c => c.isPrimary) || customer.contacts?.[0];
@@ -2461,7 +2434,26 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                                   <TableCell>{getTierBadge(customer.tier)}</TableCell>
                                   <TableCell>{getContactTypeBadge(customer.customerType)}</TableCell>
                                   <TableCell>
-                                    {primaryContact?.value && <div className="text-sm flex items-center gap-2"><Mail className="h-3 w-3" /> {primaryContact.value}</div>}
+                                    <div className="text-sm max-w-[200px] truncate" title={customer.addresses?.find(a => a.isDefault)?.street || customer.addresses?.[0]?.street || ''}>
+                                      {customer.addresses?.find(a => a.isDefault)?.street || customer.addresses?.[0]?.street || '-'}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="text-sm flex items-center gap-2">
+                                      {customer.contacts?.find(c => c.type === 'email')?.value ? (
+                                        <>
+                                          <Mail className="h-3 w-3" />
+                                          <span className="truncate max-w-[150px]" title={customer.contacts.find(c => c.type === 'email').value}>
+                                            {customer.contacts.find(c => c.type === 'email').value}
+                                          </span>
+                                        </>
+                                      ) : '-'}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    {primaryContact?.value && primaryContact.type !== 'email' ? (
+                                      <div className="text-sm flex items-center gap-2"><Phone className="h-3 w-3" /> {primaryContact.value}</div>
+                                    ) : '-'}
                                   </TableCell>
                                   <TableCell><div className="font-medium">${customer.metrics?.totalSpent?.toFixed(2) || '0.00'}</div></TableCell>
                                   <TableCell>
@@ -2928,9 +2920,21 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                               {opp.nextStepDue ? new Date(opp.nextStepDue).toISOString().slice(0, 10) : '—'}
                             </TableCell>
                             <TableCell>
-                              <Button variant="outline" size="sm" onClick={() => openStageDialog(opp)}>
-                                Cambiar etapa
-                              </Button>
+                              <div className="flex gap-2 mb-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setActiveDetailOpp(opp);
+                                    setIsDetailViewOpen(true);
+                                  }}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => openStageDialog(opp)}>
+                                  Cambiar etapa
+                                </Button>
+                              </div>
                               <div className="mt-2 flex gap-2">
                                 <Button variant="secondary" size="xs" onClick={() => handleMqlDecision(opp._id, 'accepted')}>
                                   MQL ✓
@@ -2977,6 +2981,10 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                             onQuickMove={handleQuickMoveStage}
                             onMqlDecision={handleMqlDecision}
                             onSqlDecision={handleSqlDecision}
+                            onOpenDetail={(opp) => {
+                              setActiveDetailOpp(opp);
+                              setIsDetailViewOpen(true);
+                            }}
                             stageOptions={stageOptions}
                           />
                         );
@@ -3168,6 +3176,11 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
               value={newOpportunity.ownerId}
               onChange={(value) => setNewOpportunity((prev) => ({ ...prev, ownerId: value }))}
               disabled={!canViewAllOpportunities}
+              searchTerm={ownerSearchTerm}
+              onSearchChange={setOwnerSearchTerm}
+              onSearch={searchOwners}
+              loading={ownersLoading}
+              owners={owners}
             />
           </div>
           <DialogFooter>
@@ -3371,6 +3384,11 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
               value={stageForm.ownerId}
               onChange={(value) => setStageForm((prev) => ({ ...prev, ownerId: value }))}
               disabled={!canViewAllOpportunities}
+              searchTerm={ownerSearchTerm}
+              onSearchChange={setOwnerSearchTerm}
+              onSearch={searchOwners}
+              loading={ownersLoading}
+              owners={owners}
             />
             {(stageForm.stage === 'Propuesta' ||
               stageForm.stage === 'Negociación' ||
@@ -3544,6 +3562,16 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
         </DialogContent>
       </Dialog>
 
+      <OpportunityDetailDialog
+        open={isDetailViewOpen}
+        onOpenChange={(open) => {
+          setIsDetailViewOpen(open);
+          if (!open) setActiveDetailOpp(null);
+        }}
+        opportunity={activeDetailOpp}
+        onRefresh={refreshOpportunities}
+      />
+
       {/* Customer Detail Dialog */}
       <CustomerDetailDialog
         customer={selectedCustomer}
@@ -3561,7 +3589,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
 
 export default CRMManagement;
 
-function KanbanColumn({ stage, cards, onDrop, onQuickMove, onMqlDecision, onSqlDecision, stageOptions }) {
+function KanbanColumn({ stage, cards, onDrop, onQuickMove, onMqlDecision, onSqlDecision, onOpenDetail, stageOptions }) {
   const [{ isOver }, drop] = useDrop(
     () => ({
       accept: 'OPPORTUNITY_CARD',
@@ -3593,6 +3621,7 @@ function KanbanColumn({ stage, cards, onDrop, onQuickMove, onMqlDecision, onSqlD
             onQuickMove={onQuickMove}
             onMqlDecision={onMqlDecision}
             onSqlDecision={onSqlDecision}
+            onOpenDetail={onOpenDetail}
             stageOptions={stageOptions}
           />
         ))}
@@ -3601,7 +3630,7 @@ function KanbanColumn({ stage, cards, onDrop, onQuickMove, onMqlDecision, onSqlD
   );
 }
 
-function KanbanCard({ opp, onQuickMove, onMqlDecision, onSqlDecision, stageOptions }) {
+function KanbanCard({ opp, onQuickMove, onMqlDecision, onSqlDecision, onOpenDetail, stageOptions }) {
   const [, drag] = useDrag(() => ({ type: 'OPPORTUNITY_CARD', opp }), [opp]);
   const dueDate = opp.nextStepDue ? new Date(opp.nextStepDue) : null;
   const today = new Date();
@@ -3614,7 +3643,12 @@ function KanbanCard({ opp, onQuickMove, onMqlDecision, onSqlDecision, stageOptio
       ref={drag}
       className="rounded-md border bg-background p-2 shadow-sm space-y-1 cursor-grab active:cursor-grabbing"
     >
-      <div className="font-medium text-sm">{opp.name || 'Sin nombre'}</div>
+      <div className="flex justify-between items-start">
+        <div className="font-medium text-sm">{opp.name || 'Sin nombre'}</div>
+        <Button variant="ghost" size="xs" className="h-4 w-4 p-0" onClick={() => onOpenDetail && onOpenDetail(opp)}>
+          <Eye className="h-3 w-3" />
+        </Button>
+      </div>
       <div className="text-xs text-muted-foreground">
         Cliente: {opp.customerId?.name || opp.customerId?.companyName || '—'}
       </div>

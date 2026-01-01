@@ -45,6 +45,7 @@ import { PromotionsService } from "../promotions/promotions.service";
 import { WhapiService } from "../whapi/whapi.service";
 import { InventoryMovementsService } from "../inventory/inventory-movements.service";
 import { MovementType } from "../../dto/inventory-movement.dto";
+import { WhatsAppOrderNotificationsService } from "./whatsapp-order-notifications.service";
 
 @Injectable()
 export class OrdersService {
@@ -73,6 +74,7 @@ export class OrdersService {
     private readonly promotionsService: PromotionsService,
     private readonly whapiService: WhapiService,
     private readonly inventoryMovementsService: InventoryMovementsService,
+    private readonly whatsappOrderNotificationsService: WhatsAppOrderNotificationsService,
     private readonly eventEmitter: EventEmitter2,
     @InjectConnection() private readonly connection: Connection,
   ) { }
@@ -926,7 +928,34 @@ export class OrdersService {
     const subtotal = orderItems.reduce((sum, i) => sum + i.totalPrice, 0);
     const ivaTotal = 0;
     const igtfTotal = 0;
-    const shippingCost = dto.shippingMethod === "delivery" ? 5 : 0;
+
+    // Calculate dynamic delivery cost using DeliveryService
+    let shippingCost = 0;
+    let deliveryDistance: number | undefined;
+    let deliveryZone: string | undefined;
+
+    if (dto.shippingMethod === "delivery" && dto.shippingAddress?.coordinates) {
+      try {
+        const deliveryCost = await this.deliveryService.calculateDeliveryCost({
+          tenantId: dto.tenantId,
+          method: "delivery",
+          customerLocation: dto.shippingAddress.coordinates,
+          orderAmount: subtotal,
+        });
+        shippingCost = deliveryCost.cost || 0;
+        deliveryDistance = deliveryCost.distance;
+        deliveryZone = deliveryCost.zone;
+      } catch (error) {
+        this.logger.warn(
+          `Could not calculate delivery cost for order, using default: ${error.message}`,
+        );
+        shippingCost = 5; // Fallback to default if calculation fails
+      }
+    } else if (dto.shippingMethod === "delivery") {
+      // Delivery without coordinates - use default
+      shippingCost = 5;
+    }
+
     const totalAmount = subtotal + ivaTotal + shippingCost;
 
     const orderNumber = await this.generatePublicOrderNumber();
@@ -950,12 +979,20 @@ export class OrdersService {
       status: "pending",
       channel: "storefront",
       type: "retail",
+      source: "storefront",
+      sourceMetadata: {
+        channel: "web",
+        storefrontDomain: dto.customerEmail?.split("@")[1], // Placeholder, should come from frontend
+        userAgent: undefined, // Should be passed from frontend
+      },
       shipping:
         dto.shippingMethod || dto.shippingAddress
           ? {
             method: dto.shippingMethod || "pickup",
             address: dto.shippingAddress,
             cost: shippingCost,
+            distance: deliveryDistance,
+            notes: deliveryZone ? `Zona: ${deliveryZone}` : undefined,
           }
           : undefined,
       notes: dto.notes,
@@ -980,41 +1017,12 @@ export class OrdersService {
         ),
     );
 
-    // Send WhatsApp confirmation (async, don't block response)
+    // Send WhatsApp confirmation with payment instructions (async, don't block response)
     setImmediate(async () => {
       try {
-        const customerPhone =
-          dto.customerPhone ||
-          customer.whatsappNumber ||
-          customer.contacts?.find(
-            (c) => c.type === "whatsapp" || c.type === "phone",
-          )?.value;
-
-        if (customerPhone) {
-          await this.whapiService.sendOrderConfirmation(
-            dto.tenantId,
-            customerPhone,
-            {
-              orderNumber: saved.orderNumber,
-              customerName: dto.customerName,
-              totalAmount: saved.totalAmount,
-              items: saved.items.map((item) => ({
-                productName: item.productName,
-                quantity: item.quantity,
-                unitPrice: item.unitPrice,
-              })),
-              shippingMethod: dto.shippingMethod,
-              shippingAddress: dto.shippingAddress
-                ? `${dto.shippingAddress.street || ""}, ${dto.shippingAddress.city || ""}, ${dto.shippingAddress.state || ""}`.trim()
-                : undefined,
-              notes: dto.notes,
-            },
-          );
-        } else {
-          this.logger.warn(
-            `No WhatsApp/phone number found for public order ${saved.orderNumber} - skipping confirmation`,
-          );
-        }
+        await this.whatsappOrderNotificationsService.sendOrderConfirmation(
+          saved,
+        );
       } catch (error) {
         this.logger.error(
           `Failed to send WhatsApp order confirmation for public order ${saved.orderNumber}: ${error.message}`,
@@ -2430,6 +2438,82 @@ export class OrdersService {
       processed: orders.length,
       fixed: fixedCount,
       errors
+    };
+  }
+
+  /**
+   * Get sales analytics grouped by order source
+   */
+  async getAnalyticsBySource(
+    tenantId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<any> {
+    const matchQuery: any = { tenantId };
+
+    if (startDate || endDate) {
+      matchQuery.createdAt = {};
+      if (startDate) {
+        matchQuery.createdAt.$gte = startDate;
+      }
+      if (endDate) {
+        matchQuery.createdAt.$lte = endDate;
+      }
+    }
+
+    const analytics = await this.orderModel.aggregate([
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: "$source",
+          totalOrders: { $sum: 1 },
+          totalRevenue: { $sum: "$totalAmount" },
+          averageOrderValue: { $avg: "$totalAmount" },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          source: "$_id",
+          totalOrders: 1,
+          totalRevenue: { $round: ["$totalRevenue", 2] },
+          averageOrderValue: { $round: ["$averageOrderValue", 2] },
+        },
+      },
+      { $sort: { totalRevenue: -1 } },
+    ]);
+
+    const summary = await this.orderModel.aggregate([
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: null,
+          totalOrders: { $sum: 1 },
+          totalRevenue: { $sum: "$totalAmount" },
+          averageOrderValue: { $avg: "$totalAmount" },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          totalOrders: 1,
+          totalRevenue: { $round: ["$totalRevenue", 2] },
+          averageOrderValue: { $round: ["$averageOrderValue", 2] },
+        },
+      },
+    ]);
+
+    return {
+      bySource: analytics,
+      summary: summary[0] || {
+        totalOrders: 0,
+        totalRevenue: 0,
+        averageOrderValue: 0,
+      },
+      dateRange: {
+        startDate: startDate?.toISOString(),
+        endDate: endDate?.toISOString(),
+      },
     };
   }
 }

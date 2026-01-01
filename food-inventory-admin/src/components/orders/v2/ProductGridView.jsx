@@ -159,14 +159,14 @@ const ProductGridView = ({
             return (
               <Card
                 key={product._id}
-                className={`overflow-hidden cursor-pointer transition-all hover:shadow-lg border-0 ${
+                className={`overflow-hidden cursor-pointer transition-all hover:shadow-lg border bg-background p-0 ${
                   !inStock ? 'opacity-60 cursor-not-allowed' : ''
                 }`}
                 onClick={() => inStock && onProductSelect({ product })}
               >
                 {/* Imagen del producto - 70% sin borde superior */}
                 {showImages && (
-                  <div className="relative aspect-[4/3] bg-muted flex items-center justify-center overflow-hidden rounded-t-lg">
+                  <div className="relative aspect-[4/3] bg-muted flex items-center justify-center overflow-hidden rounded-t-lg border-b">
                     {imageUrl ? (
                       <img
                         src={imageUrl}
