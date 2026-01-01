@@ -27,7 +27,7 @@ export class StorefrontService {
     private storefrontConfigModel: Model<StorefrontConfigDocument>,
     @InjectModel(Tenant.name)
     private tenantModel: Model<TenantDocument>,
-  ) {}
+  ) { }
 
   /**
    * Crear configuración de storefront para un tenant
@@ -292,6 +292,13 @@ export class StorefrontService {
           ...updateDto.contactInfo.address,
         };
       }
+    }
+
+    if (updateDto.whatsappIntegration) {
+      updateData.whatsappIntegration = {
+        ...existingConfig.whatsappIntegration,
+        ...updateDto.whatsappIntegration,
+      };
     }
 
     const updatedConfig = await this.storefrontConfigModel

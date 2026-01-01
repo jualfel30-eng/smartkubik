@@ -200,6 +200,57 @@ export class UpdateContactInfoConfigDto {
   address?: UpdateAddressDto;
 }
 
+export class UpdateWhatsAppIntegrationConfigDto {
+  @ApiPropertyOptional({
+    description: "Habilitar integración de WhatsApp",
+  })
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @ApiPropertyOptional({
+    description: "Teléfono de WhatsApp Business",
+  })
+  @IsOptional()
+  @IsString()
+  businessPhone?: string;
+
+  @ApiPropertyOptional({
+    description: "Texto del botón de WhatsApp",
+  })
+  @IsOptional()
+  @IsString()
+  buttonText?: string;
+
+  @ApiPropertyOptional({
+    description: "Plantilla del mensaje",
+  })
+  @IsOptional()
+  @IsString()
+  messageTemplate?: string;
+
+  @ApiPropertyOptional({
+    description: "Enviar confirmación de orden automáticamente",
+  })
+  @IsOptional()
+  @IsBoolean()
+  autoSendOrderConfirmation?: boolean;
+
+  @ApiPropertyOptional({
+    description: "Enviar instrucciones de pago",
+  })
+  @IsOptional()
+  @IsBoolean()
+  sendPaymentInstructions?: boolean;
+
+  @ApiPropertyOptional({
+    description: "Enviar actualizaciones de delivery",
+  })
+  @IsOptional()
+  @IsBoolean()
+  sendDeliveryUpdates?: boolean;
+}
+
 export class UpdateStorefrontConfigDto {
   @ApiPropertyOptional({
     description: "Dominio del storefront (slug único)",
@@ -267,6 +318,15 @@ export class UpdateStorefrontConfigDto {
   @ValidateNested()
   @Type(() => UpdateContactInfoConfigDto)
   contactInfo?: UpdateContactInfoConfigDto;
+
+  @ApiPropertyOptional({
+    description: "Configuración de integración con WhatsApp",
+    type: UpdateWhatsAppIntegrationConfigDto,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => UpdateWhatsAppIntegrationConfigDto)
+  whatsappIntegration?: UpdateWhatsAppIntegrationConfigDto;
 
   @ApiPropertyOptional({
     description: "Estado de activación del storefront",

@@ -1,5 +1,13 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document, Types } from "mongoose";
+import {
+  IsString,
+  IsBoolean,
+  IsOptional,
+  IsNumber,
+  IsObject,
+  IsArray,
+} from "class-validator";
 
 export type StorefrontConfigDocument = StorefrontConfig & Document;
 
@@ -72,24 +80,38 @@ const ContactInfoConfigSchema = SchemaFactory.createForClass(ContactInfoConfig);
 
 @Schema()
 export class WhatsAppIntegrationConfig {
+  @IsBoolean()
+  @IsOptional()
   @Prop({ type: Boolean, default: false })
   enabled: boolean;
 
+  @IsString()
+  @IsOptional()
   @Prop({ type: String })
   businessPhone?: string; // WhatsApp Business phone number
 
+  @IsString()
+  @IsOptional()
   @Prop({ type: String })
   buttonText?: string; // Custom button text (default: "Ver en WhatsApp")
 
+  @IsString()
+  @IsOptional()
   @Prop({ type: String })
   messageTemplate?: string; // Template for the storefront link message
 
+  @IsBoolean()
+  @IsOptional()
   @Prop({ type: Boolean, default: true })
   autoSendOrderConfirmation: boolean; // Auto-send order confirmation via WhatsApp
 
+  @IsBoolean()
+  @IsOptional()
   @Prop({ type: Boolean, default: true })
   sendPaymentInstructions: boolean; // Send payment details via WhatsApp
 
+  @IsBoolean()
+  @IsOptional()
   @Prop({ type: Boolean, default: true })
   sendDeliveryUpdates: boolean; // Send delivery status updates
 }

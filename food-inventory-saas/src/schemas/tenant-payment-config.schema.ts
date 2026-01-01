@@ -1,25 +1,42 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document, Types } from "mongoose";
+import {
+  IsString,
+  IsBoolean,
+  IsOptional,
+  IsNumber,
+  IsObject,
+} from "class-validator";
 
 export type TenantPaymentConfigDocument = TenantPaymentConfig & Document;
 
 @Schema()
 export class PaymentMethodConfig {
+  @IsString()
   @Prop({ type: String, required: true })
   methodId: string; // 'efectivo_usd', 'transferencia_usd', 'zelle_usd', etc.
 
+  @IsString()
   @Prop({ type: String, required: true })
   name: string; // Display name
 
+  @IsBoolean()
+  @IsOptional()
   @Prop({ type: Boolean, default: true })
   isActive: boolean;
 
+  @IsBoolean()
+  @IsOptional()
   @Prop({ type: Boolean, default: false })
   igtfApplicable: boolean;
 
+  @IsString()
+  @IsOptional()
   @Prop({ type: String })
   currency?: string; // 'USD', 'VES'
 
+  @IsObject()
+  @IsOptional()
   @Prop({ type: Object })
   accountDetails?: {
     bankName?: string;
@@ -35,9 +52,13 @@ export class PaymentMethodConfig {
     pagoMovilCI?: string;
   };
 
+  @IsString()
+  @IsOptional()
   @Prop({ type: String })
   instructions?: string; // Custom instructions for customers
 
+  @IsNumber()
+  @IsOptional()
   @Prop({ type: Number, default: 0 })
   displayOrder: number; // Order in which to display the method
 }
