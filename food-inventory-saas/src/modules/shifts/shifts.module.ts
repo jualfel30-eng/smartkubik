@@ -12,4 +12,4 @@ import { Shift, ShiftSchema } from "../../schemas/shift.schema";
   providers: [ShiftsService],
   exports: [ShiftsService],
 })
-export class ShiftsModule {}
+export class ShiftsModule { }
