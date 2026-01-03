@@ -1,0 +1,2019 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartKubik | El ERP del Futuro</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        navy: {
+                            900: '#0A0F1C',
+                            800: '#0F172A',
+                            700: '#1E293B',
+                        },
+                        cyan: {
+                            400: '#06B6D4',
+                            500: '#06B6D4', // Adjusted for consistency
+                        },
+                        emerald: {
+                            400: '#10B981',
+                            500: '#10B981',
+                        },
+                        violet: {
+                            500: '#8B5CF6',
+                        },
+                        text: {
+                            primary: '#F8FAFC',
+                            secondary: '#94A3B8',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    animation: {
+                        'mesh': 'meshFloat 20s ease-in-out infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                        'pulse-glow': 'pulseGlow 2s infinite',
+                        'fade-in-up': 'fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                    },
+                    keyframes: {
+                        meshFloat: {
+                            '0%, 100%': { backgroundPosition: '0% 0%' },
+                            '50%': { backgroundPosition: '100% 100%' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-20px)' },
+                        },
+                        pulseGlow: {
+                            '0%, 100%': { boxShadow: '0 0 20px rgba(6, 182, 212, 0.4)' },
+                            '50%': { boxShadow: '0 0 40px rgba(16, 185, 129, 0.6)' },
+                        },
+                        fadeInUp: {
+                            'from': { opacity: '0', transform: 'translateY(30px)' },
+                            'to': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom Styles for "Maximalismo Visual" */
+        body {
+            background-color: #0A0F1C;
+            color: #F8FAFC;
+            overflow-x: hidden;
+        }
+
+        /* Hero Background - Gradient Mesh */
+        .hero-bg {
+            background:
+                radial-gradient(ellipse at 20% 30%, rgba(6, 182, 212, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 70%, rgba(16, 185, 129, 0.12) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 60%),
+                linear-gradient(180deg, #0A0F1C 0%, #1E293B 100%);
+            background-size: 150% 150%;
+            animation: meshFloat 20s ease-in-out infinite;
+        }
+
+        /* Glassmorphism */
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow:
+                0 4px 24px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+
+        .glass:hover {
+            border-color: rgba(6, 182, 212, 0.3);
+            box-shadow:
+                0 8px 32px rgba(0, 0, 0, 0.4),
+                0 0 0 1px rgba(6, 182, 212, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        /* Gradient Text */
+        .text-gradient {
+            background: linear-gradient(135deg, #06B6D4, #10B981);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Primary CTA Gradient */
+        .btn-primary {
+            background: linear-gradient(135deg, #06B6D4, #10B981);
+            box-shadow: 0 0 30px rgba(6, 182, 212, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 0 50px rgba(6, 182, 212, 0.6);
+        }
+
+        /* Secondary CTA */
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(16, 185, 129, 0.1));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .btn-secondary:hover {
+            border-color: rgba(6, 182, 212, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary:hover::before {
+            opacity: 1;
+        }
+
+        /* 3D Dashboard Mockup CSS */
+        .dashboard-mockup {
+            perspective: 1000px;
+            transform-style: preserve-3d;
+        }
+
+        .dashboard-container {
+            transform: rotateX(10deg) rotateY(-5deg);
+            transition: transform 0.5s ease;
+        }
+
+        .dashboard-container:hover {
+            transform: rotateX(5deg) rotateY(-2deg) scale(1.01);
+        }
+
+        /* Animated Grid Background Overlay */
+        .grid-overlay {
+            background-size: 50px 50px;
+            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+        }
+    </style>
+</head>
+
+<body class="antialiased selection:bg-cyan-500 selection:text-white">
+
+    <!-- NAVIGATION -->
+    <nav class="fixed w-full z-50 transition-all duration-300 top-0 glass border-b-0 rounded-none bg-opacity-80">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-20">
+                <!-- Logo -->
+                <div class="flex-shrink-0 flex items-center gap-2 cursor-pointer">
+                    <div
+                        class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-emerald-500 flex items-center justify-center">
+                        <span class="text-white font-bold text-xl">S</span>
+                    </div>
+                    <span class="font-display font-bold text-2xl text-white tracking-tight">SmartKubik</span>
+                </div>
+
+                <!-- Desktop Menu -->
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-8">
+                        <a href="#features"
+                            class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                            data-i18n="nav_features">Módulos</a>
+                        <a href="#industries"
+                            class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                            data-i18n="nav_industries">Industrias</a>
+                        <a href="#pricing"
+                            class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                            data-i18n="nav_pricing">Precios</a>
+                        <a href="#demo"
+                            class="text-gray-300 hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors">Demo</a>
+                    </div>
+                </div>
+
+                <!-- Right Actions -->
+                <div class="hidden md:flex items-center gap-4">
+                    <button id="lang-toggle" onclick="toggleLanguage()"
+                        class="text-gray-400 hover:text-white font-medium text-sm transition-colors border border-white/10 px-3 py-1 rounded-full hover:bg-white/5">
+                        🇺🇸 EN
+                    </button>
+                    <a href="#" class="text-white hover:text-cyan-400 font-medium text-sm transition-colors"
+                        data-i18n="nav_login">
+                        Iniciar Sesión
+                    </a>
+                    <a href="#trial" class="btn-primary px-6 py-2.5 rounded-full text-white font-bold text-sm"
+                        data-i18n="hero_cta_primary">
+                        Prueba Gratis
+                    </a>
+                </div>
+
+                <!-- Mobile menu button -->
+                <div class="-mr-2 flex md:hidden">
+                    <button type="button"
+                        class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none">
+                        <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- SECTION 1: HERO -->
+    <section class="relative min-h-screen flex items-center pt-20 hero-bg overflow-hidden">
+        <!-- Grid Overlay -->
+        <div class="absolute inset-0 grid-overlay opacity-30 pointer-events-none"></div>
+
+        <!-- Floating Orbs (Additional Ambient Light) -->
+        <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/20 rounded-full blur-[128px] animate-pulse"></div>
+        <div
+            class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-500/20 rounded-full blur-[128px] animate-pulse delay-1000">
+        </div>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
+            <div class="grid lg:grid-cols-2 gap-12 items-center">
+
+                <!-- Hero Content -->
+                <div class="text-left space-y-8 animate-fade-in-up">
+                    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-cyan-500/30">
+                        <span class="relative flex h-3 w-3">
+                            <span
+                                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+                        </span>
+                        <span class="text-cyan-300 text-sm font-medium tracking-wide uppercase"
+                            data-i18n="hero_pre">Nueva Generación ERP
+                            2026</span>
+                    </div>
+
+                    <h1 class="text-5xl lg:text-7xl font-display font-extrabold tracking-tight leading-tight">
+                        <span data-i18n="hero_title">Deja de Administrar <span
+                                class="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-amber-500">Caos</span>.<br>Empieza
+                            a Administrar <span class="text-gradient">Tu Negocio</span>.</span>
+                    </h1>
+
+                    <p class="text-xl text-text-secondary max-w-lg leading-relaxed">
+                        Un solo sistema para inventario, ventas, contabilidad y nómina.
+                        Con <strong class="text-white">Inteligencia Artificial</strong> que trabaja mientras tú
+                        descansas.
+                    </p>
+
+                    <div class="flex flex-col sm:flex-row gap-4 pt-4">
+                        <a href="#"
+                            class="btn-primary text-center px-8 py-4 rounded-xl text-white font-bold text-lg shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-2">
+                            <span data-i18n="hero_cta_primary">Prueba Gratis 14 Días</span>
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                            </svg>
+                        </a>
+                        <a href="#"
+                            class="btn-secondary text-center px-8 py-4 rounded-xl text-white font-semibold text-lg flex items-center justify-center gap-2 group">
+                            <span
+                                class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
+                                <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z" />
+                                </svg>
+                            </span>
+                            <span data-i18n="hero_cta_secondary">Ver Demo de 3 Min</span>
+                        </a>
+                    </div>
+
+                    <div class="flex items-center gap-6 text-sm text-text-secondary pt-4">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>Sin tarjeta de crédito</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            <span>Setup en 15 min</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-lg">🇻🇪</span>
+                            <span>100% Venezuela Ready</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hero Visual (3D Mockup) -->
+                <div class="relative hidden lg:block perspective-container animate-float"
+                    style="animation-duration: 8s;">
+                    <!-- Decorative Elements behind -->
+                    <div
+                        class="absolute -top-20 -right-20 w-72 h-72 bg-gradient-to-br from-cyan-500/30 to-purple-500/30 rounded-full blur-3xl">
+                    </div>
+
+                    <!-- Main Dashboard Card -->
+                    <div
+                        class="glass rounded-2xl p-2 md:p-4 transform rotate-y-12 rotate-x-6 hover:rotate-0 transition-transform duration-700 ease-out shadow-2xl border border-white/10 relative z-20 bg-navy-900/80">
+                        <!-- Mockup Header -->
+                        <div class="flex gap-2 mb-4 border-b border-white/5 pb-2">
+                            <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                            <div class="w-3 h-3 rounded-full bg-amber-500"></div>
+                            <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                        </div>
+
+                        <!-- Mockup Body (Simplified UI) -->
+                        <div class="space-y-4">
+                            <!-- Stats Row -->
+                            <div class="grid grid-cols-3 gap-4">
+                                <div class="bg-white/5 rounded-lg p-3 border border-white/5">
+                                    <div class="text-xs text-gray-400">Ventas Hoy</div>
+                                    <div class="text-xl font-mono font-bold text-emerald-400">$2,450.00</div>
+                                    <div class="text-xs text-emerald-500/80">↗ 12% vs ayer</div>
+                                </div>
+                                <div class="bg-white/5 rounded-lg p-3 border border-white/5">
+                                    <div class="text-xs text-gray-400">Órdenes</div>
+                                    <div class="text-xl font-mono font-bold text-white">48</div>
+                                    <div class="text-xs text-gray-500">3 pendientes</div>
+                                </div>
+                                <div class="bg-white/5 rounded-lg p-3 border border-white/5">
+                                    <div class="text-xs text-gray-400">Inventario</div>
+                                    <div class="text-xl font-mono font-bold text-amber-400">Low</div>
+                                    <div class="text-xs text-amber-500/80">5 alertas</div>
+                                </div>
+                            </div>
+
+                            <!-- Graph Area Placeholder -->
+                            <div
+                                class="h-32 bg-gradient-to-t from-cyan-500/10 to-transparent rounded-lg border border-white/5 relative overflow-hidden flex items-end px-2 gap-1">
+                                <!-- Bars simulation -->
+                                <div class="w-1/6 bg-cyan-500/40 h-[40%] rounded-t-sm"></div>
+                                <div class="w-1/6 bg-cyan-500/50 h-[60%] rounded-t-sm"></div>
+                                <div class="w-1/6 bg-cyan-500/60 h-[30%] rounded-t-sm"></div>
+                                <div class="w-1/6 bg-cyan-500/70 h-[80%] rounded-t-sm"></div>
+                                <div class="w-1/6 bg-cyan-500/80 h-[55%] rounded-t-sm"></div>
+                                <div
+                                    class="w-1/6 bg-emerald-500 h-[90%] rounded-t-sm shadow-[0_0_15px_rgba(16,185,129,0.5)]">
+                                </div>
+                            </div>
+
+                            <!-- Floating Notification -->
+                            <div class="absolute -right-12 top-20 glass p-3 rounded-xl border-l-4 border-l-emerald-500 shadow-xl animate-bounce"
+                                style="animation-duration: 3s;">
+                                <div class="flex items-center gap-3">
+                                    <div
+                                        class="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center text-green-400">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-bold text-white">Nueva Venta #1024</div>
+                                        <div class="text-xs text-gray-400">Hace 2 min • $150.00</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 2: PAIN POINTS -->
+    <section class="py-24 bg-[#050810] relative overflow-hidden">
+        <!-- Background accents -->
+        <div class="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-red-500/20 to-transparent">
+        </div>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-5xl font-display font-bold mb-6" data-i18n="pain_title">¿Te suena familiar?
+                </h2>
+                <p class="text-xl text-text-secondary max-w-2xl mx-auto" data-i18n="pain_subtitle">
+                    Si te sientes identificado con esto, no estás solo.
+                </p>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Pain Point 1 -->
+                <div
+                    class="glass p-8 rounded-2xl border-l-4 border-l-red-500/50 hover:border-l-red-500 transition-all duration-300 group">
+                    <div
+                        class="bg-red-500/10 w-14 h-14 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                        <span class="text-3xl">📊</span>
+                    </div>
+                    <p class="text-lg text-gray-300 leading-relaxed">
+                        "Uso Excel, QuickBooks, WhatsApp Business, y 3 apps más... y <span
+                            class="text-white font-semibold">ninguna habla con la otra</span>."
+                    </p>
+                </div>
+
+                <!-- Pain Point 2 -->
+                <div
+                    class="glass p-8 rounded-2xl border-l-4 border-l-amber-500/50 hover:border-l-amber-500 transition-all duration-300 group">
+                    <div
+                        class="bg-amber-500/10 w-14 h-14 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                        <span class="text-3xl">📦</span>
+                    </div>
+                    <p class="text-lg text-gray-300 leading-relaxed">
+                        "Se me venden productos que ya no tengo. O <span class="text-white font-semibold">se
+                            vencen</span> porque nadie me avisó."
+                    </p>
+                </div>
+
+                <!-- Pain Point 3 -->
+                <div
+                    class="glass p-8 rounded-2xl border-l-4 border-l-red-500/50 hover:border-l-red-500 transition-all duration-300 group">
+                    <div
+                        class="bg-red-500/10 w-14 h-14 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                        <span class="text-3xl">💸</span>
+                    </div>
+                    <p class="text-lg text-gray-300 leading-relaxed">
+                        "Gasto más de <span class="text-white font-semibold">$800/mes</span> en suscripciones y todavía
+                        no sé si gano o pierdo dinero."
+                    </p>
+                </div>
+
+                <!-- Pain Point 4 -->
+                <div
+                    class="glass p-8 rounded-2xl border-l-4 border-l-amber-500/50 hover:border-l-amber-500 transition-all duration-300 group">
+                    <div
+                        class="bg-amber-500/10 w-14 h-14 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                        <span class="text-3xl">⏰</span>
+                    </div>
+                    <p class="text-lg text-gray-300 leading-relaxed">
+                        "Paso 3 horas al día contestando WhatsApp. No puedo ni <span
+                            class="text-white font-semibold">almorzar tranquilo</span>."
+                    </p>
+                </div>
+
+                <!-- Pain Point 5 -->
+                <div
+                    class="glass p-8 rounded-2xl border-l-4 border-l-red-500/50 hover:border-l-red-500 transition-all duration-300 group">
+                    <div
+                        class="bg-red-500/10 w-14 h-14 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                        <span class="text-3xl">📱</span>
+                    </div>
+                    <p class="text-lg text-gray-300 leading-relaxed">
+                        "Quiero vender online pero <span class="text-white font-semibold">no tengo tiempo</span> de
+                        manejar otra plataforma."
+                    </p>
+                </div>
+
+                <!-- Pain Point 6 -->
+                <div
+                    class="glass p-8 rounded-2xl border-l-4 border-l-amber-500/50 hover:border-l-amber-500 transition-all duration-300 group">
+                    <div
+                        class="bg-amber-500/10 w-14 h-14 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                        <span class="text-3xl">😓</span>
+                    </div>
+                    <p class="text-lg text-gray-300 leading-relaxed">
+                        "Los reportes para el contador me toman <span class="text-white font-semibold">un día
+                            entero</span>. Cada mes."
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-12 text-center">
+                <p class="text-text-secondary">
+                    Si marcaste 2 o más... no es tu culpa. <br>
+                    <span class="text-white text-lg font-semibold">Tu negocio creció, tus herramientas no.</span>
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 3: THE BRIDGE -->
+    <section class="py-32 relative overflow-hidden bg-gradient-to-b from-[#050810] via-navy-900 to-navy-800">
+        <!-- Sunrise Light Effect -->
+        <div
+            class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-96 bg-cyan-900/20 blur-[100px] rounded-full pointer-events-none">
+        </div>
+
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 text-center relative z-10 w-full">
+            <h3 class="text-2xl font-light text-cyan-400 mb-8 tracking-wide uppercase">Imagina un lunes donde...</h3>
+
+            <div class="space-y-6 mb-16 text-left inline-block">
+                <div class="flex items-center gap-4 text-xl md:text-2xl text-gray-200">
+                    <div
+                        class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
+                        ✓</div>
+                    <span>Abres <span class="text-white font-bold">UNA sola app</span> y ves todo tu negocio</span>
+                </div>
+                <div class="flex items-center gap-4 text-xl md:text-2xl text-gray-200">
+                    <div
+                        class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
+                        ✓</div>
+                    <span>Tu WhatsApp responde solo a las 2am</span>
+                </div>
+                <div class="flex items-center gap-4 text-xl md:text-2xl text-gray-200">
+                    <div
+                        class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
+                        ✓</div>
+                    <span>Sabes exactamente cuánto ganaste esta semana</span>
+                </div>
+                <div class="flex items-center gap-4 text-xl md:text-2xl text-gray-200">
+                    <div
+                        class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
+                        ✓</div>
+                    <span>Tu inventario se actualiza con cada venta</span>
+                </div>
+            </div>
+
+            <div class="relative">
+                <div class="absolute inset-0 flex items-center" aria-hidden="true">
+                    <div class="w-full border-t border-white/10"></div>
+                </div>
+                <div class="relative flex justify-center">
+                    <span class="px-3 bg-navy-900 text-lg text-gray-500">La solución</span>
+                </div>
+            </div>
+
+            <h2
+                class="mt-8 text-6xl md:text-8xl font-display font-black tracking-tighter text-gradient animate-pulse-glow">
+                Eso es SmartKubik.
+            </h2>
+        </div>
+    </section>
+
+    <!-- SECTION 4: WHAT IS SMARTKUBIK (Modules) -->
+    <section id="features" class="py-24 bg-navy-800 relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl md:text-5xl font-display font-bold mb-6"><span data-i18n="modules_title_prefix">Un
+                        Solo Sistema.</span> <span class="text-white" data-i18n="modules_title_suffix">Todo Tu
+                        Negocio.</span></h2>
+                <p class="text-xl text-text-secondary max-w-3xl mx-auto" data-i18n="modules_subtitle">
+                    Conecta todo: ventas, inventario, clientes, contabilidad, empleados, marketing... en una sola
+                    plataforma inteligente.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Module 1 -->
+                <div class="glass p-6 rounded-2xl hover:-translate-y-2 transition-transform duration-300">
+                    <div
+                        class="w-12 h-12 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center text-2xl mb-4">
+                        💰</div>
+                    <h3 class="text-xl font-bold text-white mb-2">POS & Ventas</h3>
+                    <p class="text-gray-400 text-sm">Vende en tienda, web y WhatsApp. Todo sincronizado.</p>
+                </div>
+                <!-- Module 2 -->
+                <div class="glass p-6 rounded-2xl hover:-translate-y-2 transition-transform duration-300">
+                    <div
+                        class="w-12 h-12 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-2xl mb-4">
+                        📦</div>
+                    <h3 class="text-xl font-bold text-white mb-2">Inventario</h3>
+                    <p class="text-gray-400 text-sm">Multi-almacén, lotes, alertas de vencimiento y bajo stock.</p>
+                </div>
+                <!-- Module 3 -->
+                <div class="glass p-6 rounded-2xl hover:-translate-y-2 transition-transform duration-300">
+                    <div
+                        class="w-12 h-12 rounded-lg bg-green-500/20 text-green-400 flex items-center justify-center text-2xl mb-4">
+                        🧾</div>
+                    <h3 class="text-xl font-bold text-white mb-2">Contabilidad</h3>
+                    <p class="text-gray-400 text-sm">P&L, Balance, Impuestos automáticos (Venezuela Ready).</p>
+                </div>
+                <!-- Module 4 -->
+                <div class="glass p-6 rounded-2xl hover:-translate-y-2 transition-transform duration-300">
+                    <div
+                        class="w-12 h-12 rounded-lg bg-pink-500/20 text-pink-400 flex items-center justify-center text-2xl mb-4">
+                        👥</div>
+                    <h3 class="text-xl font-bold text-white mb-2">CRM 360°</h3>
+                    <p class="text-gray-400 text-sm">Historial completo, segmentación y programas de lealtad.</p>
+                </div>
+                <!-- Module 5 -->
+                <div class="glass p-6 rounded-2xl hover:-translate-y-2 transition-transform duration-300">
+                    <div
+                        class="w-12 h-12 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center text-2xl mb-4">
+                        📧</div>
+                    <h3 class="text-xl font-bold text-white mb-2">Marketing</h3>
+                    <p class="text-gray-400 text-sm">Campañas automáticas por email y WhatsApp.</p>
+                </div>
+                <!-- Module 6 -->
+                <div class="glass p-6 rounded-2xl hover:-translate-y-2 transition-transform duration-300">
+                    <div
+                        class="w-12 h-12 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-2xl mb-4">
+                        👔</div>
+                    <h3 class="text-xl font-bold text-white mb-2">Nómina</h3>
+                    <p class="text-gray-400 text-sm">Cálculos automáticos, recibos digitales y cumplimiento legal.</p>
+                </div>
+                <!-- Module 7 -->
+                <div class="glass p-6 rounded-2xl hover:-translate-y-2 transition-transform duration-300">
+                    <div
+                        class="w-12 h-12 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center text-2xl mb-4">
+                        🏭</div>
+                    <h3 class="text-xl font-bold text-white mb-2">Producción</h3>
+                    <p class="text-gray-400 text-sm">BOM, costos reales, órdenes de producción y mermas.</p>
+                </div>
+                <!-- Module 8 -->
+                <div class="glass p-6 rounded-2xl hover:-translate-y-2 transition-transform duration-300">
+                    <div
+                        class="w-12 h-12 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-2xl mb-4">
+                        📅</div>
+                    <h3 class="text-xl font-bold text-white mb-2">Citas</h3>
+                    <p class="text-gray-400 text-sm">Reservas online, recordatorios automáticos por WhatsApp.</p>
+                </div>
+                <!-- Module 9 - AI SPECIAL -->
+                <div
+                    class="glass p-6 rounded-2xl hover:-translate-y-2 transition-transform duration-300 border-cyan-500/50 relative overflow-hidden group cursor-pointer">
+                    <div
+                        class="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-emerald-500/10 opacity-0 group-hover:opacity-100 transition-opacity">
+                    </div>
+
+                    <div class="flex justify-between items-start mb-4">
+                        <div
+                            class="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500 to-emerald-500 text-white flex items-center justify-center text-2xl shadow-lg shadow-cyan-500/20">
+                            🤖</div>
+                        <span
+                            class="px-2 py-1 bg-cyan-500/20 text-cyan-300 text-xs font-bold rounded uppercase border border-cyan-500/30">Incluido</span>
+                    </div>
+
+                    <h3 class="text-xl font-bold text-white mb-2 relative z-10">Asistente IA</h3>
+                    <p class="text-gray-300 text-sm relative z-10">Pregúntale lo que quieras: "¿Cuánto vendí hoy?"
+                        Responde al instante.</p>
+                </div>
+            </div>
+
+            <div class="mt-12 text-center">
+                <a href="#demo"
+                    class="text-cyan-400 hover:text-cyan-300 font-semibold flex items-center justify-center gap-2 group">
+                    Explorar Todos los Módulos
+                    <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 5: INDUSTRIES (Tabs) -->
+    <section id="industries" class="py-24 bg-[#050810] relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-5xl font-display font-bold mb-6">No Es Software Genérico. <br
+                        class="hidden md:block"> <span class="text-gradient">Está Diseñado Para Tu Industria.</span>
+                </h2>
+            </div>
+
+            <!-- Tabs Navigation -->
+            <div
+                class="flex overflow-x-auto space-x-2 md:space-x-4 pb-4 mb-8 no-scrollbar justify-start md:justify-center">
+                <button onclick="switchTab('restaurantes')"
+                    class="tab-btn active px-6 py-3 rounded-full text-sm font-bold whitespace-nowrap transition-all border border-transparent bg-white/10 text-white border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
+                    data-tab="restaurantes">
+                    🍽️ Restaurantes
+                </button>
+                <button onclick="switchTab('retail')"
+                    class="tab-btn px-6 py-3 rounded-full text-sm font-bold whitespace-nowrap transition-all border border-transparent text-gray-400 hover:text-white hover:bg-white/5"
+                    data-tab="retail">
+                    🛍️ Tiendas
+                </button>
+                <button onclick="switchTab('manufactura')"
+                    class="tab-btn px-6 py-3 rounded-full text-sm font-bold whitespace-nowrap transition-all border border-transparent text-gray-400 hover:text-white hover:bg-white/5"
+                    data-tab="manufactura">
+                    🏭 Fábricas
+                </button>
+                <button onclick="switchTab('servicios')"
+                    class="tab-btn px-6 py-3 rounded-full text-sm font-bold whitespace-nowrap transition-all border border-transparent text-gray-400 hover:text-white hover:bg-white/5"
+                    data-tab="servicios">
+                    💼 Servicios
+                </button>
+                <button onclick="switchTab('logistica')"
+                    class="tab-btn px-6 py-3 rounded-full text-sm font-bold whitespace-nowrap transition-all border border-transparent text-gray-400 hover:text-white hover:bg-white/5"
+                    data-tab="logistica">
+                    🚚 Logística
+                </button>
+                <button onclick="switchTab('hoteles')"
+                    class="tab-btn px-6 py-3 rounded-full text-sm font-bold whitespace-nowrap transition-all border border-transparent text-gray-400 hover:text-white hover:bg-white/5"
+                    data-tab="hoteles">
+                    🏨 Hoteles
+                </button>
+            </div>
+
+            <!-- Tab Content: Restaurantes (Default) -->
+            <div id="tab-restaurantes" class="tab-content animate-fade-in-up">
+                <div class="glass rounded-3xl p-8 md:p-12 border border-white/5">
+                    <div class="grid lg:grid-cols-2 gap-12 items-center">
+                        <div>
+                            <h3 class="text-3xl font-bold text-white mb-6">Para Restaurantes que Quieren <span
+                                    class="text-emerald-400">Llenar Mesas</span>, No Papeles</h3>
+                            <div class="grid sm:grid-cols-2 gap-6">
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">🗺️</div>
+                                    <div class="font-bold text-white">Mesas en Tiempo Real</div>
+                                    <div class="text-sm text-gray-400">Ve qué mesas están libres, ocupadas o reservadas.
+                                        Reorganiza con drag & drop.</div>
+                                </div>
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">📺</div>
+                                    <div class="font-bold text-white">KDS (Cocina)</div>
+                                    <div class="text-sm text-gray-400">Las órdenes llegan directo a la cocina. Cero
+                                        papel, cero errores.</div>
+                                </div>
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">💸</div>
+                                    <div class="font-bold text-white">Cuentas Separadas</div>
+                                    <div class="text-sm text-gray-400">Divide la cuenta por persona o plato fácilmente.
+                                    </div>
+                                </div>
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">📊</div>
+                                    <div class="font-bold text-white">Menu Engineering</div>
+                                    <div class="text-sm text-gray-400">Descubre qué platos son rentables y cuáles debes
+                                        quitar.</div>
+                                </div>
+                            </div>
+                            <div class="mt-8 pt-8 border-t border-white/10">
+                                <div class="flex items-center gap-4">
+                                    <div
+                                        class="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl">
+                                        🎯</div>
+                                    <p class="text-gray-300">Produce más rápido, reduce el caos del servicio y <strong
+                                            class="text-white">aumenta la rotación de mesas un 20%</strong>.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div
+                            class="bg-navy-900 rounded-xl border border-white/10 h-80 md:h-[500px] flex items-center justify-center relative overflow-hidden group">
+                            <!-- Placeholder visual -->
+                            <div class="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-emerald-500/5"></div>
+                            <div class="text-gray-500 group-hover:scale-105 transition-transform duration-500">
+                                [Floor Plan Interactive Mockup]
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Retail -->
+            <div id="tab-retail" class="tab-content hidden animate-fade-in-up">
+                <div class="glass rounded-3xl p-8 md:p-12 border border-white/5">
+                    <div class="grid lg:grid-cols-2 gap-12 items-center">
+                        <div>
+                            <h3 class="text-3xl font-bold text-white mb-6">Para Tiendas que Venden <span
+                                    class="text-cyan-400">Online y Offline</span> Sincronizado</h3>
+                            <div class="grid sm:grid-cols-2 gap-6">
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">🔄</div>
+                                    <div class="font-bold text-white">Omnicanal Real</div>
+                                    <div class="text-sm text-gray-400">Vende en tienda física y el stock se descuenta de
+                                        tu web al instante.</div>
+                                </div>
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">🎁</div>
+                                    <div class="font-bold text-white">Fidelización</div>
+                                    <div class="text-sm text-gray-400">Puntos, gift cards y promociones automáticas por
+                                        WhatsApp.</div>
+                                </div>
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">📦</div>
+                                    <div class="font-bold text-white">Código de Barras</div>
+                                    <div class="text-sm text-gray-400">Scanner ultra-rápido compatible con cualquier
+                                        lector.</div>
+                                </div>
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">👗</div>
+                                    <div class="font-bold text-white">Tallas y Colores</div>
+                                    <div class="text-sm text-gray-400">Matriz de variantes para ropa y calzado.</div>
+                                </div>
+                            </div>
+                            <div class="mt-8 pt-8 border-t border-white/10">
+                                <div class="flex items-center gap-4">
+                                    <div
+                                        class="w-12 h-12 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-2xl">
+                                        🛍️</div>
+                                    <p class="text-gray-300">Evita sobreventa, <strong class="text-white">vende
+                                            24/7</strong> y ten control total de tu mercancía.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div
+                            class="bg-navy-900 rounded-xl border border-white/10 h-80 md:h-[500px] flex items-center justify-center relative overflow-hidden group">
+                            <div
+                                class="absolute inset-0 flex items-center justify-center p-8 bg-[url('https://images.unsplash.com/photo-1441986300917-64674bd600d8?q=80&w=2940&auto=format&fit=crop')] bg-cover bg-center opacity-40 group-hover:opacity-60 transition-opacity">
+                            </div>
+                            <div class="relative z-10 glass p-6 rounded-xl border border-white/20 max-w-xs text-center">
+                                <div class="font-bold text-white text-xl mb-1">POS Retail</div>
+                                <div class="text-sm text-gray-300 mb-4">Escanea & Vende</div>
+                                <div class="bg-black/40 rounded p-2 text-left font-mono text-xs text-emerald-400">Item:
+                                    Camisa Polo Talla M<br>Stock: 4 unidades<br>Precio: $45.00</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Manufactura -->
+            <div id="tab-manufactura" class="tab-content hidden animate-fade-in-up">
+                <div class="glass rounded-3xl p-8 md:p-12 border border-white/5">
+                    <div class="grid lg:grid-cols-2 gap-12 items-center">
+                        <div>
+                            <h3 class="text-3xl font-bold text-white mb-6">Control Total de <span
+                                    class="text-orange-400">Costos de Producción</span> y Materia Prima</h3>
+                            <div class="grid sm:grid-cols-2 gap-6">
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">🏭</div>
+                                    <div class="font-bold text-white">Órdenes de Producción</div>
+                                    <div class="text-sm text-gray-400">Transforma materia prima en producto terminado
+                                        automáticamente.</div>
+                                </div>
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">📝</div>
+                                    <div class="font-bold text-white">Recetas / BOM</div>
+                                    <div class="text-sm text-gray-400">Define exactamente qué insumos lleva cada
+                                        producto.</div>
+                                </div>
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">💰</div>
+                                    <div class="font-bold text-white">Hojas de Costo</div>
+                                    <div class="text-sm text-gray-400">Sabe exactamente cuánto te cuesta producir una
+                                        unidad.</div>
+                                </div>
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">📦</div>
+                                    <div class="font-bold text-white">Lotes y Vencimientos</div>
+                                    <div class="text-sm text-gray-400">Trazabilidad completa para alimentos o químicos.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-8 pt-8 border-t border-white/10">
+                                <div class="flex items-center gap-4">
+                                    <div
+                                        class="w-12 h-12 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center text-2xl">
+                                        📉</div>
+                                    <p class="text-gray-300">Detecta mermas ocultas y <strong class="text-white">baja
+                                            tus costos operativos hasta un 15%</strong>.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div
+                            class="bg-navy-900 rounded-xl border border-white/10 h-80 md:h-[500px] flex items-center justify-center relative overflow-hidden group">
+                            <div
+                                class="absolute inset-0 flex items-center justify-center p-8 bg-[url('https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?q=80&w=2940&auto=format&fit=crop')] bg-cover bg-center opacity-40 group-hover:opacity-60 transition-opacity">
+                            </div>
+                            <div class="relative z-10 glass p-6 rounded-xl border border-white/20">
+                                <div class="font-bold text-white mb-2">Orden #PRD-9023</div>
+                                <div class="w-full bg-gray-700 h-2 rounded-full mb-2 overflow-hidden">
+                                    <div class="bg-orange-400 h-full w-2/3"></div>
+                                </div>
+                                <div class="text-xs text-gray-300">En Progreso • 67%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Servicios -->
+            <div id="tab-servicios" class="tab-content hidden animate-fade-in-up">
+                <div class="glass rounded-3xl p-8 md:p-12 border border-white/5">
+                    <div class="grid lg:grid-cols-2 gap-12 items-center">
+                        <div>
+                            <h3 class="text-3xl font-bold text-white mb-6">Vende tu Tiempo y Conocimiento <span
+                                    class="text-purple-400">Sin Perder Tiempo</span></h3>
+                            <div class="grid sm:grid-cols-2 gap-6">
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">📅</div>
+                                    <div class="font-bold text-white">Agenda Inteligente</div>
+                                    <div class="text-sm text-gray-400">tus clientes reservan online según tu
+                                        disponibilidad real.</div>
+                                </div>
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">🔔</div>
+                                    <div class="font-bold text-white">Recordatorios Automatizados</div>
+                                    <div class="text-sm text-gray-400">WhatsApp automático para confirmar cita y evitar
+                                        faltas.</div>
+                                </div>
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">🧾</div>
+                                    <div class="font-bold text-white">Presupuestos y Facturas</div>
+                                    <div class="text-sm text-gray-400">Envía cotizaciones PDF profesionales en segundos.
+                                    </div>
+                                </div>
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">📂</div>
+                                    <div class="font-bold text-white">CRM de Proyectos</div>
+                                    <div class="text-sm text-gray-400">Seguimiento de etapas, tareas y costos por
+                                        cliente.</div>
+                                </div>
+                            </div>
+                            <div class="mt-8 pt-8 border-t border-white/10">
+                                <div class="flex items-center gap-4">
+                                    <div
+                                        class="w-12 h-12 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-2xl">
+                                        ⏳</div>
+                                    <p class="text-gray-300">Elimina las cadenas de emails y <strong
+                                            class="text-white">cobra más rápido</strong> por tu trabajo.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div
+                            class="bg-navy-900 rounded-xl border border-white/10 h-80 md:h-[500px] flex items-center justify-center relative overflow-hidden group">
+                            <div
+                                class="absolute inset-0 flex items-center justify-center p-8 bg-[url('https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=2832&auto=format&fit=crop')] bg-cover bg-center opacity-40 group-hover:opacity-60 transition-opacity">
+                            </div>
+                            <div class="relative z-10 glass p-6 rounded-xl border border-white/20 w-64">
+                                <div class="flex justify-between items-center mb-4">
+                                    <div class="font-bold text-white">Lun, 14 Oct</div>
+                                    <div class="text-xs text-gray-400">Hoy</div>
+                                </div>
+                                <div class="space-y-2">
+                                    <div
+                                        class="bg-purple-500/20 border-l-2 border-purple-500 p-2 text-xs text-gray-200">
+                                        <strong>09:00 AM</strong> Consultoría Sr. Pérez
+                                    </div>
+                                    <div class="bg-blue-500/20 border-l-2 border-blue-500 p-2 text-xs text-gray-200">
+                                        <strong>11:30 AM</strong> Revisión Proyecto X
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Logistica -->
+            <div id="tab-logistica" class="tab-content hidden animate-fade-in-up">
+                <div class="glass rounded-3xl p-8 md:p-12 border border-white/5">
+                    <div class="grid lg:grid-cols-2 gap-12 items-center">
+                        <div>
+                            <h3 class="text-3xl font-bold text-white mb-6">Optimiza Rutas y <span
+                                    class="text-blue-400">Controla Envíos</span> al Milímetro</h3>
+                            <div class="grid sm:grid-cols-2 gap-6">
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">🚚</div>
+                                    <div class="font-bold text-white">Gestión de Flotas</div>
+                                    <div class="text-sm text-gray-400">Control de mantenimiento, gasolina y choferes.
+                                    </div>
+                                </div>
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">📍</div>
+                                    <div class="font-bold text-white">Rastreo de Guías</div>
+                                    <div class="text-sm text-gray-400">Sepa dónde está cada paquete y notifique al
+                                        cliente.</div>
+                                </div>
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">🏭</div>
+                                    <div class="font-bold text-white">WMS (Bodegas)</div>
+                                    <div class="text-sm text-gray-400">Ubicaciones exactas en racks, picking y packing
+                                        eficiente.</div>
+                                </div>
+                            </div>
+                            <div class="mt-8 pt-8 border-t border-white/10">
+                                <div class="flex items-center gap-4">
+                                    <div
+                                        class="w-12 h-12 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-2xl">
+                                        🚛</div>
+                                    <p class="text-gray-300">Entrega a tiempo, reduce costos de combustible y <strong
+                                            class="text-white">evita pérdidas de inventario</strong>.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div
+                            class="bg-navy-900 rounded-xl border border-white/10 h-80 md:h-[500px] flex items-center justify-center relative overflow-hidden group">
+                            <div
+                                class="absolute inset-0 flex items-center justify-center p-8 bg-[url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=2940&auto=format&fit=crop')] bg-cover bg-center opacity-40 group-hover:opacity-60 transition-opacity">
+                            </div>
+                            <div class="relative z-10 glass p-6 rounded-xl border border-white/20 text-center">
+                                <div class="text-4xl text-blue-400 mb-2">🚚💨</div>
+                                <div class="font-bold text-white">Ruta #829 En Camino</div>
+                                <div class="text-xs text-gray-400">ETA: 14:30 PM</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Hoteles -->
+            <div id="tab-hoteles" class="tab-content hidden animate-fade-in-up">
+                <div class="glass rounded-3xl p-8 md:p-12 border border-white/5">
+                    <div class="grid lg:grid-cols-2 gap-12 items-center">
+                        <div>
+                            <h3 class="text-3xl font-bold text-white mb-6">Gestión Hotelera que <span
+                                    class="text-pink-400">Enamora a Huéspedes</span></h3>
+                            <div class="grid sm:grid-cols-2 gap-6">
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">🏨</div>
+                                    <div class="font-bold text-white">PMS Completo</div>
+                                    <div class="text-sm text-gray-400">Check-in, Check-out, reservas y asignación de
+                                        habitaciones.</div>
+                                </div>
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">🧹</div>
+                                    <div class="font-bold text-white">Housekeeping</div>
+                                    <div class="text-sm text-gray-400">App para mucamas: estado de limpieza en tiempo
+                                        real.</div>
+                                </div>
+                                <div class="bg-white/5 p-4 rounded-xl">
+                                    <div class="text-2xl mb-2">🍽️</div>
+                                    <div class="font-bold text-white">Cargos a Habitación</div>
+                                    <div class="text-sm text-gray-400">Integra restaurante y servicios directo a la
+                                        cuenta del huésped.</div>
+                                </div>
+                            </div>
+                            <div class="mt-8 pt-8 border-t border-white/10">
+                                <div class="flex items-center gap-4">
+                                    <div
+                                        class="w-12 h-12 rounded-full bg-pink-500/20 text-pink-400 flex items-center justify-center text-2xl">
+                                        🛎️</div>
+                                    <p class="text-gray-300">Ofrece una experiencia de 5 estrellas y <strong
+                                            class="text-white">aumenta tu ocupación</strong>.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div
+                            class="bg-navy-900 rounded-xl border border-white/10 h-80 md:h-[500px] flex items-center justify-center relative overflow-hidden group">
+                            <div
+                                class="absolute inset-0 flex items-center justify-center p-8 bg-[url('https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=2940&auto=format&fit=crop')] bg-cover bg-center opacity-40 group-hover:opacity-60 transition-opacity">
+                            </div>
+                            <div class="relative z-10 glass p-6 rounded-xl border border-white/20">
+                                <div class="flex justify-between gap-8 mb-2 border-b border-white/10 pb-2">
+                                    <div class="text-white font-bold">Hab. 302</div>
+                                    <div class="text-green-400 text-xs font-bold uppercase">Limpia</div>
+                                </div>
+                                <div class="text-xs text-gray-300">Huésped: Sr. Smith<br>Salida: Mañana</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 6: AI ASSISTANT -->
+    <section class="py-24 relative overflow-hidden">
+        <!-- AI Aura Background -->
+        <div class="absolute inset-0 bg-gradient-to-r from-cyan-900/20 via-navy-900 to-purple-900/20"></div>
+        <div
+            class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-cyan-500/10 rounded-full blur-[100px] animate-pulse">
+        </div>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
+            <div class="grid lg:grid-cols-2 gap-16 items-center">
+                <!-- Chat Interface -->
+                <div
+                    class="glass rounded-3xl p-6 border border-cyan-500/30 shadow-[0_0_50px_rgba(6,182,212,0.15)] order-2 lg:order-1">
+                    <div class="flex items-center gap-4 mb-6 pb-4 border-b border-white/10">
+                        <div
+                            class="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-400 to-emerald-500 flex items-center justify-center shadow-lg shadow-cyan-500/40">
+                            <span class="text-white text-xl">🤖</span>
+                        </div>
+                        <div>
+                            <div class="font-bold text-white">SmartKubik AI</div>
+                            <div class="text-xs text-emerald-400 flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                Online
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-6">
+                        <!-- User Message -->
+                        <div class="flex justify-end">
+                            <div class="bg-gray-700/50 text-white rounded-2xl rounded-tr-none px-4 py-3 max-w-[85%]">
+                                <p>¿Cuánto vendí esta semana?</p>
+                            </div>
+                        </div>
+
+                        <!-- AI Response -->
+                        <div class="flex justify-start">
+                            <div
+                                class="glass border border-cyan-500/20 text-gray-200 rounded-2xl rounded-tl-none px-4 py-3 max-w-[90%] shadow-lg">
+                                <p class="mb-2">Esta semana vendiste <strong class="text-white">$4,320</strong>.</p>
+                                <p class="text-sm">Eso es un <span class="text-emerald-400 font-bold">↑ 12% más</span>
+                                    que la semana pasada. Tu producto estrella fue "Hamburguesa Clásica" con 47
+                                    unidades.</p>
+                            </div>
+                        </div>
+
+                        <!-- User Message -->
+                        <div class="flex justify-end">
+                            <div class="bg-gray-700/50 text-white rounded-2xl rounded-tr-none px-4 py-3 max-w-[85%]">
+                                <p>Reserva una mesa para 4 personas mañana a las 8pm a nombre de García</p>
+                            </div>
+                        </div>
+
+                        <!-- AI Response -->
+                        <div class="flex justify-start">
+                            <div
+                                class="glass border border-cyan-500/20 text-gray-200 rounded-2xl rounded-tl-none px-4 py-3 max-w-[90%] shadow-lg">
+                                <p>Listo. Mesa 7 reservada para <strong>García</strong>, 4 personas, mañana 8:00 PM.</p>
+                                <div class="mt-2 flex items-center gap-2 text-xs text-gray-400 bg-black/20 p-2 rounded">
+                                    <span class="text-green-400">✓</span> Confirmación enviada por WhatsApp al cliente
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Input Mockup -->
+                    <div class="mt-6 relative">
+                        <div
+                            class="w-full bg-navy-900/50 border border-white/10 rounded-full h-12 px-4 flex items-center text-gray-500 italic text-sm">
+                            Escribe algo...
+                        </div>
+                        <div
+                            class="absolute right-2 top-2 w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center text-white">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M5 12h14M12 5l7 7-7 7" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Capabilities -->
+                <div class="order-1 lg:order-2">
+                    <h2 class="text-4xl lg:text-5xl font-display font-bold mb-6 text-white">
+                        Tu Asistente de Negocios que <span class="text-gradient">Nunca Duerme</span>.
+                    </h2>
+                    <p class="text-xl text-text-secondary mb-12">
+                        Inteligencia Artificial integrada en todo el sistema. Pregunta lo que quieras en español normal.
+                        No es un chatbot, es tu copiloto.
+                    </p>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div class="flex gap-4">
+                            <div
+                                class="w-10 h-10 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xl flex-shrink-0">
+                                📊</div>
+                            <div>
+                                <h4 class="font-bold text-white">Responde Preguntas</h4>
+                                <p class="text-sm text-gray-400">Sobre ventas, inventario, finanzas...</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <div
+                                class="w-10 h-10 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center text-xl flex-shrink-0">
+                                ⚡</div>
+                            <div>
+                                <h4 class="font-bold text-white">Ejecuta Acciones</h4>
+                                <p class="text-sm text-gray-400">Crea citas, busca datos, envía correos.</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <div
+                                class="w-10 h-10 rounded-lg bg-green-500/20 text-green-400 flex items-center justify-center text-xl flex-shrink-0">
+                                💬</div>
+                            <div>
+                                <h4 class="font-bold text-white">Auto-WhatsApp</h4>
+                                <p class="text-sm text-gray-400">Atiende clientes a las 3am automáticamente.</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4">
+                            <div
+                                class="w-10 h-10 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl flex-shrink-0">
+                                📈</div>
+                            <div>
+                                <h4 class="font-bold text-white">Análisis Predictivo</h4>
+                                <p class="text-sm text-gray-400">"Tu martes será lento, lanza una promo."</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-10">
+                        <a href="#"
+                            class="btn-primary inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-bold">
+                            Ver la IA en Acción
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 7: WHATSAPP INTEGRATED -->
+    <section class="py-24 bg-navy-900 border-t border-white/5 relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+            <div class="text-center mb-16">
+                <div
+                    class="inline-flex items-center gap-2 px-4 py-1 rounded-full bg-[#25D366]/10 border border-[#25D366]/20 text-[#25D366] text-sm font-bold mb-4">
+                    <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                        <path
+                            d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                    </svg>
+                    <span>Integración Nativa 2026</span>
+                </div>
+                <h2 class="text-4xl md:text-5xl font-display font-bold mb-6">WhatsApp No Es Solo para Chatear. <br><span
+                        class="text-white">Es Tu Nuevo Canal de Ventas.</span></h2>
+                <p class="text-xl text-text-secondary max-w-3xl mx-auto">
+                    78% de los negocios en LATAM usan WhatsApp para vender. SmartKubik lo profesionaliza con IA, CRM y
+                    automatización.
+                </p>
+            </div>
+
+            <!-- WhatsApp Mockup & Features -->
+            <div class="grid lg:grid-cols-2 gap-12">
+                <!-- Mockup -->
+                <div class="relative group">
+                    <div
+                        class="absolute -inset-1 bg-gradient-to-r from-[#25D366] to-emerald-600 rounded-3xl blur opacity-25 group-hover:opacity-50 transition duration-1000">
+                    </div>
+                    <div class="relative bg-navy-900 rounded-3xl border border-white/10 overflow-hidden h-[500px] flex">
+                        <!-- Sidebar list (partial) -->
+                        <div class="w-1/3 border-r border-white/5 bg-navy-800/50 p-4 hidden md:block">
+                            <div class="space-y-4">
+                                <div
+                                    class="flex items-center gap-3 p-3 bg-white/5 rounded-xl border-l-2 border-[#25D366]">
+                                    <div class="w-10 h-10 rounded-full bg-blue-500/20"></div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="text-sm font-bold text-white truncate">Juan Pérez</div>
+                                        <div class="text-xs text-green-400 truncate">Reservando...</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3 p-3 rounded-xl opacity-50">
+                                    <div class="w-10 h-10 rounded-full bg-pink-500/20"></div>
+                                    <div>
+                                        <div class="text-sm font-bold text-white">María L.</div>
+                                        <div class="text-xs text-gray-400">Gracias!</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Chat Area -->
+                        <div class="flex-1 flex flex-col bg-[#0b141a]">
+                            <!-- Header -->
+                            <div class="h-16 border-b border-white/5 flex items-center px-6 bg-navy-800/50">
+                                <div class="w-8 h-8 rounded-full bg-blue-500/20 mr-3"></div>
+                                <div>
+                                    <div class="text-white font-bold text-sm">Juan Pérez</div>
+                                    <div class="text-xs text-gray-400">Cliente VIP • LTV $1,200</div>
+                                </div>
+                            </div>
+
+                            <!-- Messages -->
+                            <div class="flex-1 p-6 space-y-4 overflow-y-auto">
+                                <div class="flex justify-start">
+                                    <div
+                                        class="bg-[#202c33] p-3 rounded-lg rounded-tl-none max-w-[80%] text-sm text-gray-200">
+                                        Hola, ¿tienen la camisa azul en talla M?
+                                        <div class="text-[10px] text-gray-500 text-right mt-1">10:42 AM</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex justify-end">
+                                    <div
+                                        class="bg-[#005c4b] p-3 rounded-lg rounded-tr-none max-w-[80%] text-sm text-gray-100 shadow-md">
+                                        <div
+                                            class="flex items-center gap-1 text-[10px] text-emerald-300 font-bold mb-1">
+                                            <span>🤖 SmartKubik AI</span>
+                                        </div>
+                                        Sí, Juan! Nos quedan 2 unidades en la tienda del centro. ¿Quieres que te reserve
+                                        una?
+                                        <div
+                                            class="text-[10px] text-green-200 text-right mt-1 flex items-center justify-end gap-1">
+                                            10:42 AM <span class="text-blue-300">✓✓</span></div>
+                                    </div>
+                                </div>
+
+                                <div class="flex justify-start">
+                                    <div
+                                        class="bg-[#202c33] p-3 rounded-lg rounded-tl-none max-w-[80%] text-sm text-gray-200">
+                                        Sí por favor, paso hoy en la tarde.
+                                        <div class="text-[10px] text-gray-500 text-right mt-1">10:43 AM</div>
+                                    </div>
+                                </div>
+
+                                <div class="flex justify-center my-2">
+                                    <div
+                                        class="bg-navy-800 text-xs text-gray-400 px-3 py-1 rounded-full border border-white/5">
+                                        Orden #4829 creada automáticamente
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Features Grid -->
+                <div class="grid sm:grid-cols-2 gap-6">
+                    <div class="glass p-5 rounded-xl border-l-[3px] border-l-[#25D366]">
+                        <h4 class="font-bold text-white mb-2">📥 Inbox Centralizado</h4>
+                        <p class="text-sm text-gray-400">Tu equipo y la IA responden desde un solo lugar.</p>
+                    </div>
+                    <div class="glass p-5 rounded-xl border-l-[3px] border-l-[#25D366]">
+                        <h4 class="font-bold text-white mb-2">🤖 Auto-Respuestas</h4>
+                        <p class="text-sm text-gray-400">La IA responde dudas de stock y precios 24/7.</p>
+                    </div>
+                    <div class="glass p-5 rounded-xl border-l-[3px] border-l-[#25D366]">
+                        <h4 class="font-bold text-white mb-2">📢 Campañas Masivas</h4>
+                        <p class="text-sm text-gray-400">Envía promos a clientes que no compran hace 30 días.</p>
+                    </div>
+                    <div class="glass p-5 rounded-xl border-l-[3px] border-l-[#25D366]">
+                        <h4 class="font-bold text-white mb-2">🛒 Órdenes Directas</h4>
+                        <p class="text-sm text-gray-400">Convierte chats en ventas reales registradas en el ERP.</p>
+                    </div>
+
+                    <div
+                        class="sm:col-span-2 mt-4 p-4 rounded-xl bg-white/5 italic text-gray-300 border border-white/5">
+                        <span class="text-2xl block mb-2">"</span>
+                        Un cliente me escribió a las 2am. La IA respondió y tomó la reserva. Yo me enteré al día
+                        siguiente. El cliente llegó feliz.
+                        <div class="mt-2 text-sm not-italic font-bold text-white">— Restaurante La Terraza</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 8: VIDEO DEMO -->
+    <section id="demo" class="py-24 relative overflow-hidden bg-[#050810]">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 w-full text-center">
+            <h2 class="text-3xl md:text-5xl font-display font-bold mb-8">Ve SmartKubik en Acción <span
+                    class="text-cyan-400 text-lg align-top ml-2">(90 Segundos)</span></h2>
+
+            <div
+                class="relative rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/10 group cursor-pointer">
+                <!-- Video Thumbnail / Placeholder -->
+                <div class="aspect-video bg-navy-800 flex items-center justify-center relative">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                    <!-- Play Button -->
+                    <div
+                        class="w-20 h-20 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 group-hover:scale-110 transition-transform relative z-10">
+                        <div class="absolute inset-0 rounded-full border border-cyan-500/50 animate-ping opacity-75">
+                        </div>
+                        <svg class="w-8 h-8 text-white fill-current ml-1" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                        </svg>
+                    </div>
+                    <div class="absolute bottom-6 left-6 text-left">
+                        <div class="font-bold text-white text-lg">Demo Completa: Restaurante & Retail</div>
+                        <div class="text-sm text-gray-400">Ver cómo funciona POS, Inventario y WhatsApp</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8">
+                <a href="#trial"
+                    class="text-gray-400 hover:text-white underline decoration-cyan-500/50 hover:decoration-cyan-500 transition-all">Quiero
+                    Probarlo Ahora sin ver video</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 9: COMPARISON -->
+    <section class="py-24 bg-navy-900 border-y border-white/5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-5xl font-display font-bold mb-6">Lo Que Pagas Hoy vs. <span
+                        class="text-gradient">Lo Que Podrías Pagar</span></h2>
+            </div>
+
+            <div class="grid lg:grid-cols-2 gap-12 items-start">
+                <!-- Current Stack Table -->
+                <div class="glass p-8 rounded-3xl border-red-500/20">
+                    <h3 class="text-xl font-bold text-gray-400 mb-6">Tu Stack Actual (Fragmentado)</h3>
+                    <div class="space-y-4">
+                        <div class="flex justify-between py-3 border-b border-white/5 text-gray-400">
+                            <span>QuickBooks / Contabilidad</span>
+                            <span>$90/mes</span>
+                        </div>
+                        <div class="flex justify-between py-3 border-b border-white/5 text-gray-400">
+                            <span>Sistema de Inventario</span>
+                            <span>$150/mes</span>
+                        </div>
+                        <div class="flex justify-between py-3 border-b border-white/5 text-gray-400">
+                            <span>POS (2 cajas)</span>
+                            <span>$165/mes</span>
+                        </div>
+                        <div class="flex justify-between py-3 border-b border-white/5 text-gray-400">
+                            <span>Marketing & CRM</span>
+                            <span>$350/mes</span>
+                        </div>
+                        <div class="flex justify-between py-3 border-b border-white/5 text-gray-400">
+                            <span>Plataforma E-commerce</span>
+                            <span>$79/mes</span>
+                        </div>
+                        <div class="flex justify-between py-3 border-b border-white/5 text-gray-400">
+                            <span>Integraciones (Zapier, etc)</span>
+                            <span>$49/mes</span>
+                        </div>
+                    </div>
+                    <div class="mt-8 pt-6 border-t border-white/10 flex justify-between items-end">
+                        <span class="text-gray-400 font-medium">Total Mensual</span>
+                        <span class="text-3xl font-bold text-red-400">$883<span
+                                class="text-sm text-gray-500 font-normal">/mes</span></span>
+                    </div>
+                </div>
+
+                <!-- SmartKubik Table -->
+                <div class="glass p-8 rounded-3xl border-emerald-500/30 bg-emerald-900/5 relative overflow-hidden">
+                    <div
+                        class="absolute top-0 right-0 bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-bl-xl">
+                        MEJOR OPCIÓN</div>
+                    <h3 class="text-xl font-bold text-white mb-6">SmartKubik (Todo Incluido)</h3>
+                    <div class="space-y-4">
+                        <div
+                            class="flex justify-between py-3 border-b border-white/5 text-white bg-white/5 px-2 rounded">
+                            <span>Contabilidad + Impuestos</span>
+                            <span class="text-emerald-400 font-bold">Incluido</span>
+                        </div>
+                        <div
+                            class="flex justify-between py-3 border-b border-white/5 text-white bg-white/5 px-2 rounded">
+                            <span>Inventario Avanzado</span>
+                            <span class="text-emerald-400 font-bold">Incluido</span>
+                        </div>
+                        <div
+                            class="flex justify-between py-3 border-b border-white/5 text-white bg-white/5 px-2 rounded">
+                            <span>POS Ilimitado</span>
+                            <span class="text-emerald-400 font-bold">Incluido</span>
+                        </div>
+                        <div
+                            class="flex justify-between py-3 border-b border-white/5 text-white bg-white/5 px-2 rounded">
+                            <span>CRM + Marketing + WhatsApp</span>
+                            <span class="text-emerald-400 font-bold">Incluido</span>
+                        </div>
+                        <div
+                            class="flex justify-between py-3 border-b border-white/5 text-white bg-white/5 px-2 rounded">
+                            <span>E-commerce Nativo</span>
+                            <span class="text-emerald-400 font-bold">Incluido</span>
+                        </div>
+                        <div
+                            class="flex justify-between py-3 border-b border-white/5 text-white bg-white/5 px-2 rounded">
+                            <span>Integraciones</span>
+                            <span class="text-emerald-400 font-bold">Incluido</span>
+                        </div>
+                    </div>
+                    <div class="mt-8 pt-6 border-t border-white/10 flex justify-between items-end">
+                        <span class="text-white font-medium">Total Mensual (8 usuarios)</span>
+                        <span class="text-3xl font-bold text-emerald-400">$280<span
+                                class="text-sm text-gray-400 font-normal">/mes</span></span>
+                    </div>
+
+                    <div class="mt-6 bg-emerald-500/20 border border-emerald-500/30 rounded-xl p-4 text-center">
+                        <p class="text-emerald-300 font-bold text-lg">Ahorras $7,236 al año 🎉</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Competitor Matrix -->
+            <div class="mt-24 overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-white/10">
+                            <th class="py-4 pl-4 text-gray-400 font-medium">Feature</th>
+                            <th
+                                class="py-4 px-4 text-center font-bold text-white text-xl bg-cyan-500/10 rounded-t-xl border-t border-x border-cyan-500/20 min-w-[180px]">
+                                SmartKubik</th>
+                            <th class="py-4 px-4 text-center text-gray-500 font-medium min-w-[140px]">Odoo</th>
+                            <th class="py-4 px-4 text-center text-gray-500 font-medium min-w-[140px]">SAP B1</th>
+                            <th class="py-4 px-4 text-center text-gray-500 font-medium min-w-[140px]">QuickBooks</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm md:text-base">
+                        <tr class="border-b border-white/5">
+                            <td class="py-4 pl-4 text-white">Todos los módulos incluidos</td>
+                            <td
+                                class="py-4 px-4 text-center bg-cyan-500/5 border-x border-cyan-500/10 text-emerald-400 text-lg">
+                                ✅</td>
+                            <td class="py-4 px-4 text-center text-gray-500">💰 Extra</td>
+                            <td class="py-4 px-4 text-center text-gray-500">💰 Extra</td>
+                            <td class="py-4 px-4 text-center text-red-400">❌</td>
+                        </tr>
+                        <tr class="border-b border-white/5">
+                            <td class="py-4 pl-4 text-white">Configuración < 1 día</td>
+                            <td
+                                class="py-4 px-4 text-center bg-cyan-500/5 border-x border-cyan-500/10 text-emerald-400 text-lg">
+                                ✅</td>
+                            <td class="py-4 px-4 text-center text-gray-500">❌ Semanas</td>
+                            <td class="py-4 px-4 text-center text-gray-500">❌ Meses</td>
+                            <td class="py-4 px-4 text-center text-amber-500">⚠️</td>
+                        </tr>
+                        <tr class="border-b border-white/5">
+                            <td class="py-4 pl-4 text-white">Inteligencia Artificial</td>
+                            <td
+                                class="py-4 px-4 text-center bg-cyan-500/5 border-x border-cyan-500/10 text-emerald-400 text-lg">
+                                ✅ Incluida</td>
+                            <td class="py-4 px-4 text-center text-red-400">❌</td>
+                            <td class="py-4 px-4 text-center text-red-400">❌</td>
+                            <td class="py-4 px-4 text-center text-red-400">❌</td>
+                        </tr>
+                        <tr class="border-b border-white/5">
+                            <td class="py-4 pl-4 text-white">WhatsApp Nativo</td>
+                            <td
+                                class="py-4 px-4 text-center bg-cyan-500/5 border-x border-cyan-500/10 text-emerald-400 text-lg">
+                                ✅ Nativo</td>
+                            <td class="py-4 px-4 text-center text-gray-500">❌ 3rd party</td>
+                            <td class="py-4 px-4 text-center text-gray-500">❌ 3rd party</td>
+                            <td class="py-4 px-4 text-center text-red-400">❌</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 10: PRICING -->
+    <section id="pricing" class="py-24 bg-[#050810] relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-5xl font-display font-bold mb-6">Precio Simple. Todo Incluido. <br><span
+                        class="text-white">Sin Trucos.</span></h2>
+                <p class="text-xl text-text-secondary">98 módulos, IA incluida, WhatsApp nativo. Un precio por usuario.
+                </p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8 items-center max-w-6xl mx-auto">
+                <!-- Starter -->
+                <div class="glass p-8 rounded-3xl border border-white/10 hover:border-white/20 transition-all">
+                    <h3 class="text-2xl font-bold text-white mb-2">Starter</h3>
+                    <div class="text-4xl font-bold font-mono text-white mb-6">$29<span
+                            class="text-lg font-normal text-gray-400">/mes</span></div>
+                    <p class="text-gray-400 text-sm mb-6">Para pequeños negocios que quieren orden.</p>
+                    <a href="#"
+                        class="btn-secondary w-full py-3 rounded-xl flex justify-center text-white font-bold mb-8">Empezar
+                        Gratis</a>
+                    <ul class="space-y-4 text-sm text-gray-300">
+                        <li class="flex gap-3"><span class="text-emerald-400">✓</span> 1-5 usuarios</li>
+                        <li class="flex gap-3"><span class="text-emerald-400">✓</span> Todos los módulos</li>
+                        <li class="flex gap-3"><span class="text-emerald-400">✓</span> 1 ubicación</li>
+                        <li class="flex gap-3"><span class="text-emerald-400">✓</span> Soporte por Email</li>
+                        <li class="flex gap-3"><span class="text-emerald-400">✓</span> IA Incluida</li>
+                    </ul>
+                </div>
+
+                <!-- Professional -->
+                <div
+                    class="glass p-8 rounded-3xl border border-cyan-500/50 bg-cyan-900/5 relative transform md:scale-105 shadow-[0_0_30px_rgba(6,182,212,0.15)] z-10">
+                    <div
+                        class="absolute top-0 left-1/2 -translate-x-1/2 bg-gradient-to-r from-cyan-500 to-emerald-500 text-white text-xs font-bold px-4 py-1 rounded-b-lg">
+                        MÁS POPULAR</div>
+                    <h3 class="text-2xl font-bold text-white mb-2">Professional</h3>
+                    <div class="text-4xl font-bold font-mono text-white mb-6">$59<span
+                            class="text-lg font-normal text-gray-400">/mes</span></div>
+                    <p class="text-gray-400 text-sm mb-6">Para negocios en crecimiento y expansión.</p>
+                    <a href="#"
+                        class="btn-primary w-full py-3 rounded-xl flex justify-center text-white font-bold mb-8">Empezar
+                        Gratis</a>
+                    <ul class="space-y-4 text-sm text-gray-300">
+                        <li class="flex gap-3"><span class="text-emerald-400">✓</span> 6-20 usuarios</li>
+                        <li class="flex gap-3"><span class="text-emerald-400">✓</span> <strong>Multi-ubicación</strong>
+                        </li>
+                        <li class="flex gap-3"><span class="text-emerald-400">✓</span> Soporte Prioritario</li>
+                        <li class="flex gap-3"><span class="text-emerald-400">✓</span> Reportes Avanzados</li>
+                        <li class="flex gap-3"><span class="text-emerald-400">✓</span> WhatsApp CRM Full</li>
+                    </ul>
+                </div>
+
+                <!-- Enterprise -->
+                <div class="glass p-8 rounded-3xl border border-white/10 hover:border-white/20 transition-all">
+                    <h3 class="text-2xl font-bold text-white mb-2">Enterprise</h3>
+                    <div class="text-4xl font-bold font-mono text-white mb-6">$99<span
+                            class="text-lg font-normal text-gray-400">/mes</span></div>
+                    <p class="text-gray-400 text-sm mb-6">Para organizaciones con múltiples sucursales.</p>
+                    <a href="#"
+                        class="btn-secondary w-full py-3 rounded-xl flex justify-center text-white font-bold mb-8">Contactar
+                        Ventas</a>
+                    <ul class="space-y-4 text-sm text-gray-300">
+                        <li class="flex gap-3"><span class="text-emerald-400">✓</span> 21+ usuarios</li>
+                        <li class="flex gap-3"><span class="text-emerald-400">✓</span> Ubicaciones ilimitadas</li>
+                        <li class="flex gap-3"><span class="text-emerald-400">✓</span> Soporte Dedicado</li>
+                        <li class="flex gap-3"><span class="text-emerald-400">✓</span> Integraciones Custom</li>
+                        <li class="flex gap-3"><span class="text-emerald-400">✓</span> SLA Garantizado</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div
+                class="mt-16 text-center max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-gray-400">
+                <div class="glass p-3 rounded-lg flex items-center justify-center gap-2"><span
+                        class="text-emerald-400">✓</span> Sin costo de setup</div>
+                <div class="glass p-3 rounded-lg flex items-center justify-center gap-2"><span
+                        class="text-emerald-400">✓</span> Sin cargos por módulos</div>
+                <div class="glass p-3 rounded-lg flex items-center justify-center gap-2"><span
+                        class="text-emerald-400">✓</span> Migración gratis</div>
+                <div class="glass p-3 rounded-lg flex items-center justify-center gap-2"><span
+                        class="text-emerald-400">✓</span> Cancela cuando quieras</div>
+                <div class="glass p-3 rounded-lg flex items-center justify-center gap-2"><span
+                        class="text-emerald-400">✓</span> Sin límite de datos</div>
+                <div class="glass p-3 rounded-lg flex items-center justify-center gap-2"><span
+                        class="text-emerald-400">✓</span> 20% dcto anual</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 11: TESTIMONIALS -->
+    <section class="py-24 bg-[#050810] relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-5xl font-display font-bold mb-6">Negocios Reales. <span
+                        class="text-gradient">Resultados Reales.</span></h2>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- Testimonial 1 -->
+                <div class="glass p-8 rounded-3xl relative">
+                    <div class="text-6xl text-cyan-500/20 font-serif absolute top-4 left-4">"</div>
+                    <p class="text-gray-300 italic mb-6 relative z-10">
+                        Antes cerraba el mes sin saber si había ganado o perdido dinero. Ahora abro SmartKubik y veo
+                        todo en tiempo real. La IA hasta me dice qué platos debería promocionar.
+                    </p>
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-xl">👩‍🍳
+                        </div>
+                        <div>
+                            <div class="font-bold text-white">María González</div>
+                            <div class="text-xs text-gray-500">Dueña, Restaurante El Fogón</div>
+                            <div class="text-xs text-gray-500">📍 Caracas, Venezuela</div>
+                        </div>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-white/5">
+                        <div class="flex items-center gap-2 text-emerald-400 font-bold">
+                            <span>⬆️ 32% ventas</span>
+                            <span class="text-xs text-gray-500 font-normal">en 3 meses</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Testimonial 2 -->
+                <div class="glass p-8 rounded-3xl relative">
+                    <div class="text-6xl text-cyan-500/20 font-serif absolute top-4 left-4">"</div>
+                    <p class="text-gray-300 italic mb-6 relative z-10">
+                        Mi tienda online se creó sola. Literalmente. Agregué mis productos y aparecieron en mi web. Las
+                        ventas por WhatsApp ahora se registran automáticamente.
+                    </p>
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-xl">👕
+                        </div>
+                        <div>
+                            <div class="font-bold text-white">Carlos Mendoza</div>
+                            <div class="text-xs text-gray-500">Dueño, Tienda Moda Urbana</div>
+                            <div class="text-xs text-gray-500">📍 Medellín, Colombia</div>
+                        </div>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-white/5">
+                        <div class="flex items-center gap-2 text-emerald-400 font-bold">
+                            <span>⬇️ De 5 apps a 1</span>
+                            <span class="text-xs text-gray-500 font-normal">Ahorro $700/mes</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Testimonial 3 -->
+                <div class="glass p-8 rounded-3xl relative">
+                    <div class="text-6xl text-cyan-500/20 font-serif absolute top-4 left-4">"</div>
+                    <p class="text-gray-300 italic mb-6 relative z-10">
+                        Mis clientes reservan citas desde mi página web. Reciben recordatorio automático por WhatsApp.
+                        Los no-shows bajaron a casi cero.
+                    </p>
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-xl">🔧
+                        </div>
+                        <div>
+                            <div class="font-bold text-white">Roberto Herrera</div>
+                            <div class="text-xs text-gray-500">Dueño, Taller AutoPro</div>
+                            <div class="text-xs text-gray-500">📍 CDMX, México</div>
+                        </div>
+                    </div>
+                    <div class="mt-6 pt-4 border-t border-white/5">
+                        <div class="flex items-center gap-2 text-emerald-400 font-bold">
+                            <span>⬇️ 80% menos no-shows</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 12: FAQ -->
+    <section class="py-24 bg-navy-900 border-t border-white/5">
+        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl font-display font-bold mb-6">Preguntas Frecuentes</h2>
+            </div>
+
+            <div class="space-y-4">
+                <!-- FAQ Item 1 -->
+                <div class="glass rounded-xl overflow-hidden">
+                    <button class="w-full px-6 py-4 text-left flex justify-between items-center focus:outline-none"
+                        onclick="toggleFaq(this)">
+                        <span class="font-bold text-white">¿Necesito ser experto en tecnología para usarlo?</span>
+                        <svg class="w-5 h-5 text-cyan-400 transform transition-transform" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div class="px-6 pb-4 hidden text-gray-400 text-sm">
+                        No. SmartKubik está diseñado para dueños de negocio, no para programadores. Si sabes usar
+                        WhatsApp, sabes usar SmartKubik. Además, la IA te ayuda: pregúntale lo que no entiendas.
+                    </div>
+                </div>
+
+                <!-- FAQ Item 2 -->
+                <div class="glass rounded-xl overflow-hidden">
+                    <button class="w-full px-6 py-4 text-left flex justify-between items-center focus:outline-none"
+                        onclick="toggleFaq(this)">
+                        <span class="font-bold text-white">¿Cuánto tiempo toma configurarlo?</span>
+                        <svg class="w-5 h-5 text-cyan-400 transform transition-transform" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div class="px-6 pb-4 hidden text-gray-400 text-sm">
+                        La mayoría de negocios están operando en menos de 1 día. El wizard de configuración te guía paso
+                        a paso. Si tienes datos en Excel, puedes importarlos fácilmente.
+                    </div>
+                </div>
+
+                <!-- FAQ Item 3 -->
+                <div class="glass rounded-xl overflow-hidden">
+                    <button class="w-full px-6 py-4 text-left flex justify-between items-center focus:outline-none"
+                        onclick="toggleFaq(this)">
+                        <span class="font-bold text-white">¿Mis datos están seguros?</span>
+                        <svg class="w-5 h-5 text-cyan-400 transform transition-transform" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div class="px-6 pb-4 hidden text-gray-400 text-sm">
+                        Absolutamente. Usamos encriptación de nivel bancario, servidores en la nube con 99.9% uptime,
+                        backups automáticos, y auditoría completa. Tu información nunca se comparte con nadie.
+                    </div>
+                </div>
+
+                <!-- FAQ Item 4 -->
+                <div class="glass rounded-xl overflow-hidden">
+                    <button class="w-full px-6 py-4 text-left flex justify-between items-center focus:outline-none"
+                        onclick="toggleFaq(this)">
+                        <span class="font-bold text-white">¿Qué pasa si no me gusta?</span>
+                        <svg class="w-5 h-5 text-cyan-400 transform transition-transform" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div class="px-6 pb-4 hidden text-gray-400 text-sm">
+                        Tienes 14 días gratis sin tarjeta de crédito. Si decides no continuar, cancela con un click. Sin
+                        preguntas, sin penalidades.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 13: URGENCY -->
+    <section class="py-24 relative overflow-hidden bg-gradient-to-br from-navy-900 via-[#0a0f1c] to-red-900/10">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 w-full text-center relative z-10">
+            <h2 class="text-3xl md:text-5xl font-display font-bold mb-12">Cada Día que Pasa, <br>Tu Negocio Pierde
+                Dinero.</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                <div class="bg-red-500/10 border border-red-500/20 p-6 rounded-2xl">
+                    <div class="text-3xl mb-2">⏰</div>
+                    <div class="font-bold text-white">3 horas/día</div>
+                    <div class="text-sm text-gray-400">perdidas en WhatsApp</div>
+                </div>
+                <div class="bg-red-500/10 border border-red-500/20 p-6 rounded-2xl">
+                    <div class="text-3xl mb-2">💸</div>
+                    <div class="font-bold text-white">$500+/mes</div>
+                    <div class="text-sm text-gray-400">en apps innecesarias</div>
+                </div>
+                <div class="bg-red-500/10 border border-red-500/20 p-6 rounded-2xl">
+                    <div class="text-3xl mb-2">📉</div>
+                    <div class="font-bold text-white">20% ventas</div>
+                    <div class="text-sm text-gray-400">perdidas por desorden</div>
+                </div>
+            </div>
+
+            <p class="text-xl text-gray-300 mb-12 max-w-2xl mx-auto">
+                No es que no puedas seguir como estás. Puedes. Pero cada mes que pasa sin un sistema integrado es dinero
+                perdido y estrés acumulado.
+                <br><br>
+                <span class="text-white font-bold">La pregunta no es SI necesitas SmartKubik. Es cuánto más vas a
+                    esperar.</span>
+            </p>
+
+            <div class="glass p-8 rounded-3xl border border-cyan-500/30 inline-block max-w-2xl w-full">
+                <div class="text-left mb-6">
+                    <span
+                        class="bg-cyan-500 text-white text-xs font-bold px-2 py-1 rounded uppercase mb-2 inline-block">Oferta
+                        Especial</span>
+                    <h3 class="text-2xl font-bold text-white">Empieza hoy y recibe:</h3>
+                </div>
+                <ul class="text-left space-y-3 mb-8 text-gray-300">
+                    <li class="flex gap-2"><span class="text-emerald-400">✅</span> Setup guiado gratis (valor $200)</li>
+                    <li class="flex gap-2"><span class="text-emerald-400">✅</span> Migración de datos incluida</li>
+                    <li class="flex gap-2"><span class="text-emerald-400">✅</span> 14 días sin tarjeta de crédito</li>
+                </ul>
+                <a href="#trial"
+                    class="btn-primary w-full py-4 rounded-xl text-white font-bold text-lg block text-center shadow-lg hover:shadow-cyan-500/50 transition-all">
+                    Empezar Mi Prueba Gratis →
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- SECTION 14: FOOTER CTA -->
+    <section
+        class="py-24 bg-gradient-to-r from-cyan-900 to-emerald-900 border-t border-white/10 relative overflow-hidden">
+        <div class="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 w-full text-center relative z-10">
+            <h2 class="text-4xl md:text-6xl font-display font-black text-white mb-6 tracking-tight">
+                ¿Listo para Dejar de Administrar Caos?
+            </h2>
+            <p class="text-xl text-cyan-100 mb-12">Un sistema. Todo tu negocio. Desde $25/usuario/mes.</p>
+
+            <div class="flex flex-col sm:flex-row justify-center gap-6">
+                <div class="text-center">
+                    <a href="#trial"
+                        class="bg-white text-emerald-900 px-8 py-4 rounded-xl font-bold text-lg shadow-xl hover:scale-105 transition-transform inline-block w-full sm:w-auto">
+                        Prueba Gratis 14 Días
+                    </a>
+                    <p class="text-cyan-200 text-sm mt-2">Sin tarjeta • Setup en 15 min</p>
+                </div>
+                <div class="text-center">
+                    <a href="#demo"
+                        class="bg-transparent border-2 border-white/30 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-white/10 transition-colors inline-block w-full sm:w-auto">
+                        Agendar Demo Personalizada
+                    </a>
+                    <p class="text-cyan-200 text-sm mt-2">30 min con experto • Tu negocio</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER LINKS -->
+    <footer class="bg-[#050810] py-12 border-t border-white/5 text-sm">
+        <div
+            class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-8">
+            <div class="text-gray-500">
+                <span class="font-bold text-white text-lg block mb-1">SmartKubik</span>
+                © 2026 SmartKubik Inc. Todos los derechos reservados.
+            </div>
+            <div class="flex gap-8 text-gray-400">
+                <a href="#" class="hover:text-white">Términos</a>
+                <a href="#" class="hover:text-white">Privacidad</a>
+                <a href="#" class="hover:text-white">Seguridad</a>
+                <a href="#" class="hover:text-white">Contacto</a>
+            </div>
+            <div class="flex gap-4">
+                <a href="#" class="text-gray-400 hover:text-white text-xl">LinkedIn</a>
+                <a href="#" class="text-gray-400 hover:text-white text-xl">Instagram</a>
+                <a href="#" class="text-gray-400 hover:text-white text-xl">WhatsApp</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- SCRIPTS -->
+    <script>
+        // TABS LOGIC
+        function switchTab(tabId) {
+            // Hide all contents
+            document.querySelectorAll('.tab-content').forEach(el => {
+                el.classList.add('hidden');
+            });
+            // Show target content
+            const target = document.getElementById('tab-' + tabId);
+            if (target) {
+                target.classList.remove('hidden');
+                // Re-trigger animation
+                target.classList.remove('animate-fade-in-up');
+                void target.offsetWidth; // trigger reflow
+                target.classList.add('animate-fade-in-up');
+            } else {
+                // Should show a placeholder if content doesn't exist yet for other tabs
+                // For this demo, we'll just show the Restaurants one again or alert
+                // document.getElementById('tab-restaurantes').classList.remove('hidden');
+            }
+
+            // Update buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                if (btn.dataset.tab === tabId) {
+                    btn.classList.add('active', 'bg-white/10', 'text-white', 'border-cyan-500/50', 'shadow-[0_0_15px_rgba(6,182,212,0.3)]');
+                    btn.classList.remove('text-gray-400');
+                } else {
+                    btn.classList.remove('active', 'bg-white/10', 'text-white', 'border-cyan-500/50', 'shadow-[0_0_15px_rgba(6,182,212,0.3)]');
+                    btn.classList.add('text-gray-400');
+                }
+            });
+        }
+
+        // FAQ LOGIC
+        function toggleFaq(button) {
+            const content = button.nextElementSibling;
+            const icon = button.querySelector('svg');
+
+            if (content.classList.contains('hidden')) {
+                content.classList.remove('hidden');
+                icon.classList.add('rotate-180');
+                button.classList.add('text-cyan-400');
+            } else {
+                content.classList.add('hidden');
+                icon.classList.remove('rotate-180');
+                button.classList.remove('text-cyan-400');
+            }
+        }
+
+        // Sticky Header Effect
+        window.addEventListener('scroll', () => {
+            const nav = document.querySelector('nav');
+            if (window.scrollY > 50) {
+                nav.classList.add('bg-navy-900/90', 'backdrop-blur-xl', 'shadow-xl');
+                nav.classList.remove('bg-opacity-80', 'glass');
+            } else {
+                nav.classList.remove('bg-navy-900/90', 'backdrop-blur-xl', 'shadow-xl');
+                nav.classList.add('bg-opacity-80', 'glass');
+            }
+        });
+        // TRANSLATIONS
+        const translations = {
+            es: {
+                nav_features: "Funcionalidades",
+                nav_industries: "Industrias",
+                nav_pricing: "Precios",
+                nav_login: "Iniciar Sesión",
+                hero_pre: "Nueva Generación ERP 2026",
+                hero_title: "Deja de Administrar <span class='text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-amber-500'>Caos</span>.<br>Empieza a Administrar <span class='text-gradient'>Tu Negocio</span>.",
+                hero_subtitle: "Un solo sistema para inventario, ventas, contabilidad y nómina. Con <strong class='text-white'>Inteligencia Artificial</strong> que trabaja mientras tú descansas.",
+                hero_cta_primary: "Prueba Gratis 14 Días",
+                hero_cta_secondary: "Ver Demo de 3 Min",
+                pain_title: "Tu Negocio Funciona, Pero...",
+                pain_subtitle: "¿Sientes que estás perdiendo dinero y control?",
+                modules_title_prefix: "Un Solo Sistema.",
+                modules_title_suffix: "Todo Tu Negocio.",
+                modules_subtitle: "Conecta todo: ventas, inventario, clientes, contabilidad, empleados, marketing... en una sola plataforma inteligente."
+            },
+            en: {
+                nav_features: "Features",
+                nav_industries: "Industries",
+                nav_pricing: "Pricing",
+                nav_login: "Login",
+                hero_pre: "New Gen ERP 2026",
+                hero_title: "Stop Managing <span class='text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-amber-500'>Chaos</span>.<br>Start Managing <span class='text-gradient'>Your Business</span>.",
+                hero_subtitle: "One system for inventory, sales, accounting, and payroll. With <strong class='text-white'>Artificial Intelligence</strong> that works while you sleep.",
+                hero_cta_primary: "Start 14-Day Free Trial",
+                hero_cta_secondary: "Watch 3 Min Demo",
+                pain_title: "Your Business Works, But...",
+                pain_subtitle: "Do you feel like you're losing money and control?",
+                modules_title_prefix: "One Single System.",
+                modules_title_suffix: "Your Entire Business.",
+                modules_subtitle: "Connect everything: sales, inventory, clients, accounting, employees, marketing... in one intelligent platform."
+            }
+        };
+
+        let currentLang = 'es';
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'es' ? 'en' : 'es';
+            updateContent();
+            updateToggleButton();
+        }
+
+        function updateContent() {
+            document.querySelectorAll('[data-i18n]').forEach(element => {
+                const key = element.getAttribute('data-i18n');
+                if (translations[currentLang][key]) {
+                    element.innerHTML = translations[currentLang][key]; // Use innerHTML to keep formatting like <br>
+                }
+            });
+        }
+
+        function updateToggleButton() {
+            const btn = document.getElementById('lang-toggle');
+            if (btn) {
+                btn.innerHTML = currentLang === 'es' ? '🇺🇸 EN' : '🇪🇸 ES';
+            }
+        }
+    </script>
+
+</body>
+
+</html>
