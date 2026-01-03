@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, Check, Star, Users, TrendingUp, Shield, Zap, BarChart3, MessageCircle, Calendar, Package, CreditCard, Settings, PlayCircle, ArrowRight, Menu, X, Sun, Moon } from 'lucide-react';
+import { useTheme } from '@/components/ThemeProvider';
 import SmartKubikLogoDark from '@/assets/logo-smartkubik.png';
 import SmartKubikLogoLight from '@/assets/logo-smartkubik-light.png';
 
 const SmartKubikLanding = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [isVisible, setIsVisible] = useState({});
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -26,8 +27,10 @@ const SmartKubikLanding = () => {
   }, []);
 
   const toggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode);
+    setTheme(theme === 'dark' ? 'light' : 'dark');
   };
+
+  const isDarkMode = theme === 'dark';
   const logoSrc = isDarkMode ? SmartKubikLogoDark : SmartKubikLogoLight;
 
   const features = [
@@ -139,15 +142,15 @@ const SmartKubikLanding = () => {
   };
 
   const themeClasses = {
-    bg: isDarkMode ? 'bg-gray-900' : 'bg-white',
-    bgSecondary: isDarkMode ? 'bg-gray-800' : 'bg-gray-50',
-    bgCard: isDarkMode ? 'bg-gray-800' : 'bg-white',
-    text: isDarkMode ? 'text-gray-100' : 'text-gray-900',
-    textSecondary: isDarkMode ? 'text-gray-300' : 'text-gray-600',
-    textMuted: isDarkMode ? 'text-gray-400' : 'text-gray-500',
-    border: isDarkMode ? 'border-gray-700' : 'border-gray-200',
-    borderLight: isDarkMode ? 'border-gray-600' : 'border-gray-100',
-    navBg: isDarkMode ? 'bg-gray-900/95' : 'bg-white/95',
+    bg: 'bg-background',
+    bgSecondary: 'bg-accent',
+    bgCard: 'bg-card',
+    text: 'text-foreground',
+    textSecondary: 'text-muted-foreground',
+    textMuted: 'text-muted-foreground',
+    border: 'border-border',
+    borderLight: 'border-border',
+    navBg: 'bg-background/95',
   };
 
   return (
@@ -218,7 +221,7 @@ const SmartKubikLanding = () => {
               <a href="#features" className={`text-sm ${themeClasses.textSecondary} hover:${themeClasses.text} transition-colors duration-200`}>Características</a>
               <a href="#benefits" className={`text-sm ${themeClasses.textSecondary} hover:${themeClasses.text} transition-colors duration-200`}>Beneficios</a>
               <a href="#pricing" className={`text-sm ${themeClasses.textSecondary} hover:${themeClasses.text} transition-colors duration-200`}>Precios</a>
-              <Link to="/blog" className={`text-sm ${themeClasses.textSecondary} hover:${themeClasses.text} transition-colors duration-200`}>Blog</Link>
+              <Link to="/docs" className={`text-sm ${themeClasses.textSecondary} hover:${themeClasses.text} transition-colors duration-200`}>Documentación</Link>
               <Link to="/blog" className={`text-sm ${themeClasses.textSecondary} hover:${themeClasses.text} transition-colors duration-200`}>Blog</Link>
               <button
                 onClick={toggleDarkMode}
@@ -250,7 +253,7 @@ const SmartKubikLanding = () => {
               <a href="#features" className={`block text-sm ${themeClasses.textSecondary}`}>Características</a>
               <a href="#benefits" className={`block text-sm ${themeClasses.textSecondary}`}>Beneficios</a>
               <a href="#pricing" className={`block text-sm ${themeClasses.textSecondary}`}>Precios</a>
-              <Link to="/blog" className={`block text-sm ${themeClasses.textSecondary}`}>Blog</Link>
+              <Link to="/docs" className={`block text-sm ${themeClasses.textSecondary}`}>Documentación</Link>
               <Link to="/blog" className={`block text-sm ${themeClasses.textSecondary}`}>Blog</Link>
               <button
                 onClick={toggleDarkMode}

@@ -5,7 +5,7 @@ import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(),tailwindcss()],
+  plugins: [react(), tailwindcss()],
   assetsInclude: ['**/*.lottie'],
   test: {
     globals: true,
@@ -29,5 +29,13 @@ export default defineConfig({
       'localhost',
       '127.0.0.1'
     ]
+  },
+  build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        app: path.resolve(__dirname, 'app.html'),
+      },
+    },
   }
 })

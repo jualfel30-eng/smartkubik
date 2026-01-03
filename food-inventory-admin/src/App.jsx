@@ -130,8 +130,12 @@ const RecurringEntries = lazy(() => import('@/components/accounting/RecurringEnt
 const ReportsPage = lazy(() => import('./pages/ReportsPage.jsx'));
 const SuperAdminLayout = lazy(() => import('./layouts/SuperAdminLayout'));
 const SmartKubikLanding = lazy(() => import('./pages/SmartKubikLanding'));
+const SmartKubikLandingV2 = lazy(() => import('./pages/SmartKubikLandingV2'));
 const BlogIndex = lazy(() => import('./pages/BlogIndex.jsx'));
 const BlogPost = lazy(() => import('./pages/BlogPost.jsx'));
+const DocsLanding = lazy(() => import('./pages/DocsLanding.jsx'));
+const DocsCategoryPage = lazy(() => import('./pages/DocsCategoryPage.jsx'));
+const DocsArticle = lazy(() => import('./pages/DocsArticle.jsx'));
 const ComprasManagement = lazy(() => import('@/components/ComprasManagement.jsx'));
 const BankAccountsManagement = lazy(() => import('@/components/BankAccountsManagement.jsx'));
 const BankReconciliationView = lazy(() => import('@/components/BankReconciliationView.jsx'));
@@ -1150,9 +1154,13 @@ function AppContent() {
       <Suspense fallback={<LoadingFallback />}>
 
         <Routes>
+          <Route path="/v2" element={<SmartKubikLandingV2 />} />
           <Route path="/" element={<SmartKubikLanding />} />
           <Route path="/blog" element={<BlogIndex />} />
           <Route path="/blog/:slug" element={<BlogPost />} />
+          <Route path="/docs" element={<DocsLanding />} />
+          <Route path="/docs/:category" element={<DocsCategoryPage />} />
+          <Route path="/docs/:category/:slug" element={<DocsArticle />} />
           <Route path="/login" element={<LoginV2 />} />
           <Route path="/register" element={<Register />} />
           <Route path="/confirm-account" element={<ConfirmAccount />} />

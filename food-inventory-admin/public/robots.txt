@@ -1,0 +1,28 @@
+# SmartKubik Robots.txt
+# Allow all crawlers to index public content
+
+User-agent: *
+Allow: /
+Allow: /docs
+Allow: /docs/*
+Allow: /blog
+Allow: /blog/*
+Allow: /register
+Allow: /login
+
+# Disallow authenticated areas
+Disallow: /dashboard
+Disallow: /inventory-management
+Disallow: /orders
+Disallow: /crm
+Disallow: /settings
+Disallow: /accounting
+Disallow: /calendar
+Disallow: /super-admin
+Disallow: /organizations
+
+# Disallow API endpoints
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://smartkubik.com/sitemap.xml

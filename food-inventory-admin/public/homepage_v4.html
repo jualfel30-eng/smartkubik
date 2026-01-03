@@ -139,6 +139,13 @@
             background-clip: text;
         }
 
+        /* Performance Optimizations for Scroll Stack */
+        .stack-card {
+            will-change: transform, opacity;
+            transform: translateZ(0);
+            backface-visibility: hidden;
+        }
+
         /* V3 Buttons */
         .btn-primary {
             background: linear-gradient(135deg, #06B6D4, #10B981);
@@ -373,17 +380,17 @@
 
                     <!-- CTAs -->
                     <div class="flex flex-col sm:flex-row gap-4 pt-4">
-                        <a href="#"
-                            class="btn-primary text-center px-8 py-4 rounded-xl text-white font-bold text-lg shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-2 hover:scale-105 transition-transform">
-                            <span class="lang-es">Prueba Gratis 14 Días</span>
-                            <span class="lang-en hidden">Start Free 14-Day Trial</span>
+                        <a href="/register"
+                            class="btn-primary inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-white font-bold text-lg shadow-[0_0_40px_rgba(6,182,212,0.4)] hover:shadow-[0_0_60px_rgba(6,182,212,0.6)] hover:scale-105 transition-all">
+                            <span class="lang-es">Empezar Ahora</span>
+                            <span class="lang-en hidden">Start Now</span>
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M13 7l5 5m0 0l-5 5m5-5H6" />
                             </svg>
                         </a>
-                        <a href="#"
-                            class="btn-secondary text-center px-8 py-4 rounded-xl text-white font-semibold text-lg flex items-center justify-center gap-2 group">
+                        <a href="#demo"
+                            class="btn-secondary inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-white font-semibold text-lg hover:bg-white/5 transition-all">
                             <span
                                 class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
                                 <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
@@ -516,11 +523,12 @@
                     </div>
                 </div>
             </div>
+
         </div>
     </section>
 
     <!-- SECTION 2: LA BARRA DE DOLOR (From V2) -->
-    <section class="py-24 px-4 bg-black/30">
+    <section class="py-32 md:py-48 px-4 bg-black/30">
         <div class="max-w-7xl mx-auto">
 
             <!-- Headline -->
@@ -622,101 +630,266 @@
         </div>
     </section>
 
-    <!-- SECTION 3: THE BRIDGE (From V3) -->
-    <section class="py-32 relative overflow-hidden bg-gradient-to-b from-[#050810] via-navy-900 to-navy-800">
-        <!-- Sunrise Light Effect -->
-        <div
-            class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl h-96 bg-cyan-900/20 blur-[100px] rounded-full pointer-events-none">
-        </div>
+    <!-- SECTION 3: SCROLL STACK (Vanilla JS Implementation) -->
+    <section id="section-scroll-stack" class="relative bg-navy-900" style="height: 250vh;">
+        <!-- Height defines scroll duration -->
+        <div class="sticky top-0 h-screen w-full flex flex-col items-center justify-center overflow-hidden">
 
-        <div class="max-w-4xl mx-auto px-4 sm:px-6 text-center relative z-10 w-full">
-            <h3 class="text-2xl font-light text-cyan-400 mb-8 tracking-wide uppercase">
-                <span class="lang-es">Imagina un lunes donde...</span>
-                <span class="lang-en hidden">Imagine a Monday where...</span>
-            </h3>
-
-            <div class="space-y-6 mb-16 text-left inline-block">
-                <div class="flex items-center gap-4 text-xl md:text-2xl text-gray-200">
-                    <div
-                        class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
-                        ✓</div>
-                    <span>
-                        <span class="lang-es">Abres <span class="text-white font-bold">UNA sola app</span> y ves todo tu
-                            negocio</span>
-                        <span class="lang-en hidden">You open <span class="text-white font-bold">ONE app</span> and see
-                            your entire business</span>
-                    </span>
-                </div>
-                <div class="flex items-center gap-4 text-xl md:text-2xl text-gray-200">
-                    <div
-                        class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
-                        ✓</div>
-                    <span>
-                        <span class="lang-es">Tu WhatsApp responde solo a las 2am</span>
-                        <span class="lang-en hidden">Your WhatsApp answers by itself at 2am</span>
-                    </span>
-                </div>
-                <div class="flex items-center gap-4 text-xl md:text-2xl text-gray-200">
-                    <div
-                        class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
-                        ✓</div>
-                    <span>
-                        <span class="lang-es">Sabes exactamente cuánto ganaste esta semana</span>
-                        <span class="lang-en hidden">You know exactly how much you made this week</span>
-                    </span>
-                </div>
-                <div class="flex items-center gap-4 text-xl md:text-2xl text-gray-200">
-                    <div
-                        class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
-                        ✓</div>
-                    <span>
-                        <span class="lang-es">Tu inventario se actualiza con cada venta</span>
-                        <span class="lang-en hidden">Your inventory updates with every sale</span>
-                    </span>
+            <!-- Dynamic Background -->
+            <div class="absolute inset-0 pointer-events-none">
+                <div
+                    class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-cyan-900/20 blur-[120px] rounded-full mix-blend-screen animate-pulse-slow">
                 </div>
             </div>
 
-            <div class="relative">
-                <div class="absolute inset-0 flex items-center" aria-hidden="true">
-                    <div class="w-full border-t border-white/10"></div>
-                </div>
-                <div class="relative flex justify-center">
-                    <span class="px-3 bg-navy-900 text-lg text-gray-500">
-                        <span class="lang-es">La solución</span>
-                        <span class="lang-en hidden">The solution</span>
-                    </span>
-                </div>
+            <!-- Bottom Mask (Blur effect for entering cards) -->
+            <div
+                class="absolute bottom-0 left-0 w-full h-64 md:h-80 bg-gradient-to-t from-navy-900 via-navy-900 to-transparent z-20 pointer-events-none">
             </div>
 
-            <h2
-                class="mt-8 text-6xl md:text-8xl font-display font-black tracking-tighter text-gradient animate-pulse-glow">
-                <span class="lang-es">Eso es SmartKubik.</span>
-                <span class="lang-en hidden">That's SmartKubik.</span>
-            </h2>
+            <div class="relative z-10 w-full max-w-5xl px-4 flex flex-col items-center h-full justify-center">
+
+                <!-- Initial Title -->
+                <h3 id="stack-title"
+                    class="text-3xl md:text-5xl font-bold text-white mb-4 tracking-wide transition-all duration-700 transform drop-shadow-lg">
+                    <span class="lang-es">Imagina un lunes donde...</span>
+                    <span class="lang-en hidden">Imagine a Monday where...</span>
+                </h3>
+
+                <!-- Cards Container -->
+                <div class="relative w-full max-w-2xl h-[400px] md:h-[300px] perspective-[1000px]">
+                    <!-- Cards will be controlled by JS -->
+
+                    <!-- Card 1 -->
+                    <div
+                        class="stack-card absolute top-0 left-0 w-full glass-card p-8 rounded-3xl border border-white/10 shadow-2xl origin-top will-change-transform bg-navy-900/80">
+                        <div class="flex items-start gap-6">
+                            <div
+                                class="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0 text-3xl shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+                                ✓</div>
+                            <div>
+                                <p class="text-xl md:text-2xl text-gray-200 leading-relaxed font-medium">
+                                    <span class="lang-es">Abres <span class="text-white font-bold">UNA sola app</span> y
+                                        ves todo tu negocio. Adiós al caos.</span>
+                                    <span class="lang-en hidden">You open <span class="text-white font-bold">ONE
+                                            app</span> and see your entire business. Goodbye chaos.</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 2 -->
+                    <div
+                        class="stack-card absolute top-0 left-0 w-full glass-card p-8 rounded-3xl border border-white/10 shadow-2xl origin-top will-change-transform bg-navy-900/85">
+                        <div class="flex items-start gap-6">
+                            <div
+                                class="w-14 h-14 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center flex-shrink-0 text-3xl shadow-[0_0_15px_rgba(6,182,212,0.3)]">
+                                🤖</div>
+                            <div>
+                                <p class="text-xl md:text-2xl text-gray-200 leading-relaxed font-medium">
+                                    <span class="lang-es">Tu WhatsApp responde solo a las 2am. <br><span
+                                            class="text-cyan-400 text-lg italic">"Hola, aquí tienes nuestro
+                                            menú..."</span></span>
+                                    <span class="lang-en hidden">Your WhatsApp answers by itself at 2am. <br><span
+                                            class="text-cyan-400 text-lg italic">"Hi, here is our menu..."</span></span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 3 -->
+                    <div
+                        class="stack-card absolute top-0 left-0 w-full glass-card p-8 rounded-3xl border border-white/10 shadow-2xl origin-top will-change-transform bg-navy-900/90">
+                        <div class="flex items-start gap-6">
+                            <div
+                                class="w-14 h-14 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center flex-shrink-0 text-3xl shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+                                💰</div>
+                            <div>
+                                <p class="text-xl md:text-2xl text-gray-200 leading-relaxed font-medium">
+                                    <span class="lang-es">Sabes exactamente cuánto ganaste esta semana. Al
+                                        centavo.</span>
+                                    <span class="lang-en hidden">You know exactly how much you made this week. To the
+                                        penny.</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Card 4 -->
+                    <div
+                        class="stack-card absolute top-0 left-0 w-full glass-card p-8 rounded-3xl border border-white/10 shadow-2xl origin-top will-change-transform bg-navy-900/95">
+                        <div class="flex items-start gap-6">
+                            <div
+                                class="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 text-3xl shadow-[0_0_15px_rgba(245,158,11,0.3)]">
+                                📦</div>
+                            <div>
+                                <p class="text-xl md:text-2xl text-gray-200 leading-relaxed font-medium">
+                                    <span class="lang-es">Tu inventario se actualiza con cada venta.</span>
+                                    <span class="lang-en hidden">Updates with every sale. Never sell what you don't have
+                                        again.</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Final Title -->
+                <div id="stack-footer" class="mt-8 opacity-0 translate-y-10 transition-all duration-700 text-center">
+                    <div class="relative flex justify-center mb-6">
+                        <span
+                            class="px-4 py-1 rounded-full bg-white/5 border border-white/10 text-sm text-cyan-300 uppercase tracking-widest">
+                            <span class="lang-es">La Solución</span>
+                            <span class="lang-en hidden">The Solution</span>
+                        </span>
+                    </div>
+                    <h2
+                        class="text-5xl md:text-7xl font-display font-black tracking-tighter text-gradient animate-pulse-glow">
+                        <span class="lang-es">Eso es SmartKubik.</span>
+                        <span class="lang-en hidden">That's SmartKubik.</span>
+                    </h2>
+                </div>
+
+            </div>
         </div>
 
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const section = document.querySelector('#section-scroll-stack');
+                const cards = document.querySelectorAll('.stack-card');
+                const title = document.querySelector('#stack-title');
+                const footer = document.querySelector('#stack-footer');
 
+                // Config
+                const cardGap = 20; // Pixels betwen stacked cards
+                const scaleStep = 0.05; // Scale difference per card
+
+                // Cache dimensions to avoid layout thrashing
+                let sectionTop = 0;
+                let sectionHeight = 0;
+                let scrollDistance = 0;
+                let viewportHeight = window.innerHeight;
+
+                function updateDimensions() {
+                    if (!section) return;
+                    const rect = section.getBoundingClientRect();
+                    // We need the absolute top position relative to the document, 
+                    // BUT for sticky scroll progress we need to compare window.scrollY to the element's start.
+                    // Actually, a simpler way for sticky tracking:
+                    // The element is sticky. Its "progress" is defined by how far we've scrolled past its natural top.
+
+                    // Let's use the offsetTop approach which is stable.
+                    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                    const rectTop = rect.top + scrollTop;
+
+                    sectionTop = rectTop;
+                    sectionHeight = section.offsetHeight;
+                    scrollDistance = sectionHeight - viewportHeight;
+                }
+
+                // Initial calculation
+                updateDimensions();
+                window.addEventListener('resize', () => {
+                    viewportHeight = window.innerHeight;
+                    updateDimensions();
+                });
+
+                function handleScroll() {
+                    if (!section) return;
+
+                    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+                    // Calculate progress based on scroll position relative to section start
+                    let rawProgress = (scrollTop - sectionTop) / scrollDistance;
+
+                    // Clamp progress
+                    let progress = Math.max(0, Math.min(1, rawProgress));
+
+                    // Title Animation (Fade out instantly)
+                    if (progress > 0.0) {
+                        title.style.opacity = '0';
+                        title.style.transform = 'translateY(-20px)';
+                    } else {
+                        title.style.opacity = '1';
+                        title.style.transform = 'translateY(0)';
+                    }
+
+                    // Cards Logic
+                    cards.forEach((card, index) => {
+                        // FORCE GPU layer for these cards to prevent repaints
+                        // card.style.willChange = 'transform, opacity'; // Added in CSS ideally, but ensuring here.
+
+                        // Calculate specific trigger points for each card
+                        const cardStart = 0.0 + (index * 0.12);
+
+                        let cardProgress = (progress - cardStart) / 0.15;
+                        cardProgress = Math.max(0, Math.min(1, cardProgress));
+
+                        // Entrance: Translate Y from lower down to 0
+                        const easeOut = 1 - Math.pow(1 - cardProgress, 3);
+                        let translateY = (1 - easeOut) * (window.innerHeight * 0.55);
+
+                        // Stacking Logic
+                        const currentCardFloat = (progress - 0.0) / 0.12;
+                        let depth = Math.max(0, currentCardFloat - (index + 1));
+
+                        // Apply stacking effects based on depth
+                        let stackOffset = - (depth * cardGap);
+                        let scale = 1 - (depth * scaleStep);
+                        // REMOVED DYNAMIC BLUR - Major performance killer
+                        // let blur = depth * 1; 
+                        let opacity = 1 - (depth * 0.15);
+
+                        // Apply transforms
+                        const finalY = translateY + stackOffset;
+                        card.style.transform = `translate3d(0, ${finalY}px, 0) scale(${Math.max(0.8, scale)})`;
+                        card.style.opacity = Math.max(0, opacity);
+                        // card.style.filter = `blur(${blur}px)`; // DISABLED for performance
+                    });
+
+                    // Footer Animation
+                    if (progress > 0.55) {
+                        footer.style.opacity = '1';
+                        footer.style.transform = 'translateY(0)';
+                    } else {
+                        footer.style.opacity = '0';
+                        footer.style.transform = 'translateY(40px)';
+                    }
+                }
+
+                // Optimize with RAF
+                let ticking = false;
+                window.addEventListener('scroll', () => {
+                    if (!ticking) {
+                        window.requestAnimationFrame(() => {
+                            handleScroll();
+                            ticking = false;
+                        });
+                        ticking = true;
+                    }
+                }, { passive: true });
+
+                // Initial call
+                handleScroll();
+            });
+        </script>
     </section>
 
     <!-- SECTION 4: QUÉ ES SMARTKUBIK (From V2: Modules Cards) -->
-    <section id="modulos" class="py-24 px-4">
+    <section id="modulos" class="py-16 md:pt-0 pb-16 px-4 -mt-32 relative z-20">
         <div class="max-w-7xl mx-auto">
 
             <!-- Headline -->
             <div class="text-center mb-16">
-                <h2 class="text-4xl md:text-5xl font-bold mb-4">
-                    <span class="lang-es">Un Solo Sistema. Todo Tu Negocio.<br><span class="gradient-text">Desde
-                            $29/Usuario.</span></span>
-                    <span class="lang-en hidden">One System. Your Entire Business.<br><span class="gradient-text">From
-                            $29/User.</span></span>
+                <h2 class="text-4xl md:text-5xl font-bold mb-6">
+                    <span class="lang-es">Todas las caras de tu negocio en un solo lugar.<br><span
+                            class="gradient-text">Desde $29/Usuario.</span></span>
+                    <span class="lang-en hidden">All sides of your business in one place.<br><span
+                            class="gradient-text">From $29/User.</span></span>
                 </h2>
-                <p class="text-xl text-text-secondary max-w-3xl mx-auto mt-6">
-                    <span class="lang-es">SmartKubik es el sistema nervioso de tu negocio. Conecta todo: ventas,
-                        inventario, clientes, contabilidad, empleados, marketing... en una sola plataforma
-                        inteligente.</span>
-                    <span class="lang-en hidden">SmartKubik is your business's nervous system. It connects everything:
-                        sales, inventory, customers, accounting, employees, marketing... in one intelligent
-                        platform.</span>
+                <p class="text-xl text-text-secondary max-w-2xl mx-auto">
+                    <span class="lang-es">El sistema operativo completo para empresas modernas.</span>
+                    <span class="lang-en hidden">The complete operating system for modern businesses.</span>
                 </p>
             </div>
 
@@ -884,7 +1057,7 @@
     </section>
 
     <!-- SECTION 5: INDUSTRIES (From V3: Interactive Tabs) -->
-    <section id="industrias" class="py-24 bg-[#050810] relative">
+    <section id="industrias" class="pt-32 pb-64 md:pt-48 md:pb-80 bg-[#050810] relative">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
             <div class="text-center mb-16">
                 <h2 class="text-3xl md:text-5xl font-display font-bold mb-6">
@@ -2331,7 +2504,7 @@
                                 class="text-lg font-normal text-gray-400">/mes</span></div>
                         <p class="text-gray-400 text-sm mb-6 lang-es">Para pequeños negocios que quieren orden.</p>
                         <p class="text-gray-400 text-sm mb-6 lang-en hidden">For small businesses that want order.</p>
-                        <a href="#"
+                        <a href="/register"
                             class="btn-secondary w-full py-3 rounded-xl flex justify-center text-white font-bold mb-8">
                             <span class="lang-es">Empezar Gratis</span>
                             <span class="lang-en hidden">Start for Free</span>
@@ -2364,12 +2537,12 @@
                         <h3 class="text-2xl font-bold text-white mb-2">Professional</h3>
                         <div class="text-4xl font-bold font-mono text-white mb-6">$59<span
                                 class="text-lg font-normal text-gray-400">/mes</span></div>
-                        <p class="text-gray-400 text-sm mb-6 lang-es">Para negocios en crecimiento y expansión.</p>
-                        <p class="text-gray-400 text-sm mb-6 lang-en hidden">For growing and expanding businesses.</p>
-                        <a href="#"
-                            class="btn-primary w-full py-3 rounded-xl flex justify-center text-white font-bold mb-8">
-                            <span class="lang-es">Empezar Gratis</span>
-                            <span class="lang-en hidden">Start for Free</span>
+                        <p class="text-gray-400 text-sm mb-6 lang-es">Para empresas que crecen rápido.</p>
+                        <p class="text-gray-400 text-sm mb-6 lang-en hidden">For fast-growing companies.</p>
+                        <a href="/register"
+                            class="btn-primary w-full py-3 rounded-xl flex justify-center text-white font-bold mb-8 shadow-lg shadow-cyan-500/25">
+                            <span class="lang-es">Prueba Gratis 14 Días</span>
+                            <span class="lang-en hidden">Start Free 14-Day Trial</span>
                         </a>
                         <ul class="space-y-4 text-sm text-gray-300">
                             <li class="flex gap-3"><span class="text-emerald-400">✓</span> <span class="lang-es">6-20
@@ -2393,10 +2566,9 @@
                         <h3 class="text-2xl font-bold text-white mb-2">Enterprise</h3>
                         <div class="text-4xl font-bold font-mono text-white mb-6">$99<span
                                 class="text-lg font-normal text-gray-400">/mes</span></div>
-                        <p class="text-gray-400 text-sm mb-6 lang-es">Para organizaciones con múltiples sucursales.</p>
-                        <p class="text-gray-400 text-sm mb-6 lang-en hidden">For organizations with multiple branches.
-                        </p>
-                        <a href="#"
+                        <p class="text-gray-400 text-sm mb-6 lang-es">Para grandes operaciones y franquicias.</p>
+                        <p class="text-gray-400 text-sm mb-6 lang-en hidden">For large operations and franchises.</p>
+                        <a href="/register"
                             class="btn-secondary w-full py-3 rounded-xl flex justify-center text-white font-bold mb-8">
                             <span class="lang-es">Contactar Ventas</span>
                             <span class="lang-en hidden">Contact Sales</span>

@@ -1,0 +1,2074 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartKubik | Deja de Administrar Caos. Empieza a Administrar Tu Negocio.</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Tailwind Configuration -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        'deep-navy': '#0A0F1C',
+                        'slate-surface': '#0F172A',
+                        'slate-surface-2': '#1E293B',
+                        'cyan-electric': '#06B6D4',
+                        'emerald': '#10B981',
+                        'violet-subtle': '#8B5CF6',
+                        'amber': '#F59E0B',
+                        'rose': '#EC4899',
+                        'text-primary': '#F8FAFC',
+                        'text-secondary': '#94A3B8',
+                        'text-tertiary': '#64748B',
+                    },
+                    backgroundImage: {
+                        'gradient-main': 'linear-gradient(135deg, #06B6D4, #10B981)',
+                        'gradient-mesh': 'radial-gradient(ellipse at 20% 30%, rgba(6, 182, 212, 0.15) 0%, transparent 50%), radial-gradient(ellipse at 80% 70%, rgba(16, 185, 129, 0.12) 0%, transparent 50%), radial-gradient(ellipse at 50% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 60%), linear-gradient(180deg, #0A0F1C 0%, #1E293B 100%)',
+                    },
+                    keyframes: {
+                        'fade-in-up': {
+                            '0%': { opacity: '0', transform: 'translateY(30px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        },
+                        'mesh-float': {
+                            '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+                            '33%': { transform: 'translate(30px, -30px) scale(1.1)' },
+                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' }
+                        },
+                        'glow-pulse': {
+                            '0%, 100%': { boxShadow: '0 0 20px rgba(6, 182, 212, 0.3)' },
+                            '50%': { boxShadow: '0 0 40px rgba(6, 182, 212, 0.6), 0 0 60px rgba(16, 185, 129, 0.4)' }
+                        },
+                        'slide-in': {
+                            '0%': { transform: 'translateX(-100%)', opacity: '0' },
+                            '100%': { transform: 'translateX(0)', opacity: '1' }
+                        }
+                    },
+                    animation: {
+                        'fade-in-up': 'fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                        'mesh-float': 'mesh-float 20s ease-in-out infinite',
+                        'glow-pulse': 'glow-pulse 3s ease-in-out infinite',
+                        'slide-in': 'slide-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #0A0F1C;
+            color: #F8FAFC;
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0F172A;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #06B6D4, #10B981);
+            border-radius: 5px;
+        }
+
+        /* Glassmorphism */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+
+        .glass-card:hover {
+            border-color: rgba(6, 182, 212, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(6, 182, 212, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        /* Gradient text */
+        .gradient-text {
+            background: linear-gradient(135deg, #06B6D4, #10B981);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Orb effects */
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.6;
+            animation: mesh-float 20s ease-in-out infinite;
+        }
+
+        .orb-cyan {
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.4) 0%, rgba(6, 182, 212, 0) 70%);
+        }
+
+        .orb-emerald {
+            background: radial-gradient(circle, rgba(16, 185, 129, 0.3) 0%, rgba(16, 185, 129, 0) 70%);
+        }
+
+        .orb-violet {
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, rgba(139, 92, 246, 0) 70%);
+        }
+
+        /* Stagger animation delays */
+        .stagger-1 { animation-delay: 0.1s; }
+        .stagger-2 { animation-delay: 0.2s; }
+        .stagger-3 { animation-delay: 0.3s; }
+        .stagger-4 { animation-delay: 0.4s; }
+        .stagger-5 { animation-delay: 0.5s; }
+        .stagger-6 { animation-delay: 0.6s; }
+    </style>
+</head>
+
+<body class="antialiased">
+
+    <!-- Background Effects -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <!-- Animated Orbs -->
+        <div class="orb orb-cyan w-96 h-96 top-[-10%] left-[-5%]"></div>
+        <div class="orb orb-emerald w-[500px] h-[500px] bottom-[-15%] right-[-10%]" style="animation-delay: -5s;"></div>
+        <div class="orb orb-violet w-80 h-80 top-[40%] right-[20%]" style="animation-delay: -10s;"></div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 py-4 px-4 lg:px-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="glass-card rounded-full px-6 py-3 flex justify-between items-center">
+                <!-- Logo -->
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-main flex items-center justify-center">
+                        <span class="text-deep-navy font-bold text-xl">S</span>
+                    </div>
+                    <span class="font-bold text-xl tracking-tight hidden sm:block">SmartKubik</span>
+                </div>
+
+                <!-- Nav Links - Desktop -->
+                <div class="hidden md:flex items-center gap-8 text-sm font-medium text-text-secondary">
+                    <a href="#modulos" class="hover:text-cyan-electric transition-colors">Módulos</a>
+                    <a href="#industrias" class="hover:text-cyan-electric transition-colors">Industrias</a>
+                    <a href="#ia" class="hover:text-cyan-electric transition-colors">IA</a>
+                    <a href="#pricing" class="hover:text-cyan-electric transition-colors">Precio</a>
+                </div>
+
+                <!-- Language Toggle & CTA -->
+                <div class="flex items-center gap-4">
+                    <button id="langToggle" class="text-sm text-text-secondary hover:text-text-primary transition-colors hidden sm:block">
+                        <span class="lang-es">🇪🇸 ES</span>
+                        <span class="lang-en hidden">🇺🇸 EN</span>
+                    </button>
+                    <button class="bg-gradient-main text-white px-6 py-2 rounded-full font-bold text-sm hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] transition-all">
+                        <span class="lang-es">Prueba Gratis</span>
+                        <span class="lang-en hidden">Try Free</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="relative z-10">
+
+        <!-- SECCIÓN 1: HERO -->
+        <section class="min-h-screen flex items-center justify-center px-4 pt-32 pb-20">
+            <div class="max-w-7xl mx-auto text-center">
+
+                <!-- Pre-headline Badge -->
+                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-8 animate-fade-in-up">
+                    <span class="w-2 h-2 rounded-full bg-emerald animate-pulse"></span>
+                    <span class="text-xs font-semibold tracking-wide text-emerald uppercase lang-es">Para dueños de negocios cansados de usar 5 programas diferentes</span>
+                    <span class="text-xs font-semibold tracking-wide text-emerald uppercase lang-en hidden">For business owners tired of juggling 5 different programs</span>
+                </div>
+
+                <!-- Main Headline -->
+                <h1 class="text-5xl md:text-7xl lg:text-8xl font-bold leading-[1.1] mb-6 animate-fade-in-up stagger-1">
+                    <span class="lang-es">Deja de Administrar Caos.<br><span class="gradient-text">Empieza a Administrar<br>Tu Negocio.</span></span>
+                    <span class="lang-en hidden">Stop Managing Chaos.<br><span class="gradient-text">Start Managing<br>Your Business.</span></span>
+                </h1>
+
+                <!-- Subheadline -->
+                <p class="text-lg md:text-xl text-text-secondary max-w-3xl mx-auto mb-6 leading-relaxed animate-fade-in-up stagger-2">
+                    <span class="lang-es">Un solo sistema para inventario, ventas, contabilidad, nómina, marketing y más. Con inteligencia artificial que trabaja mientras tú descansas.</span>
+                    <span class="lang-en hidden">One system for inventory, sales, accounting, payroll, marketing, and more. With AI that works while you rest.</span>
+                </p>
+
+                <!-- Proof Point -->
+                <div class="flex items-center justify-center gap-2 mb-10 text-text-secondary animate-fade-in-up stagger-3">
+                    <svg class="w-5 h-5 text-emerald" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                    </svg>
+                    <span class="font-medium lang-es">Ya funciona en restaurantes, tiendas, fábricas y servicios profesionales</span>
+                    <span class="font-medium lang-en hidden">Already powering restaurants, retail stores, factories, and service businesses</span>
+                </div>
+
+                <!-- CTAs -->
+                <div class="flex flex-col sm:flex-row gap-4 justify-center mb-8 animate-fade-in-up stagger-4">
+                    <button class="bg-gradient-main text-white px-8 py-4 rounded-xl font-bold text-lg hover:shadow-[0_0_40px_rgba(6,182,212,0.6)] transition-all transform hover:scale-105">
+                        <span class="lang-es">Prueba Gratis 14 Días</span>
+                        <span class="lang-en hidden">Start Free 14-Day Trial</span>
+                    </button>
+                    <button class="glass-card px-8 py-4 rounded-xl font-semibold text-lg hover:bg-white/5 transition-all flex items-center justify-center gap-2 group">
+                        <span class="lang-es">Ver Demo de 3 Minutos</span>
+                        <span class="lang-en hidden">Watch 3-Minute Demo</span>
+                        <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Micro-copy -->
+                <p class="text-sm text-text-tertiary animate-fade-in-up stagger-5">
+                    <span class="lang-es">Sin tarjeta de crédito. Configura tu negocio en 15 minutos.</span>
+                    <span class="lang-en hidden">No credit card required. Set up your business in 15 minutes.</span>
+                </p>
+
+                <!-- Dashboard Preview -->
+                <div class="mt-16 animate-fade-in-up stagger-6">
+                    <div class="relative max-w-6xl mx-auto">
+                        <!-- Glow Effect -->
+                        <div class="absolute inset-0 bg-gradient-main opacity-20 blur-3xl"></div>
+
+                        <!-- Dashboard Mockup -->
+                        <div class="glass-card rounded-3xl p-2 md:p-4 relative">
+                            <div class="bg-slate-surface-2 rounded-2xl overflow-hidden aspect-video">
+                                <!-- Dashboard UI Simulation -->
+                                <div class="p-6 h-full flex flex-col">
+                                    <!-- Header Bar -->
+                                    <div class="flex justify-between items-center mb-6">
+                                        <div class="flex items-center gap-4">
+                                            <div class="w-32 h-8 bg-white/5 rounded-lg"></div>
+                                            <div class="w-48 h-8 bg-white/5 rounded-lg"></div>
+                                        </div>
+                                        <div class="flex gap-2">
+                                            <div class="w-8 h-8 bg-white/5 rounded-full"></div>
+                                            <div class="w-8 h-8 bg-emerald/20 rounded-full border border-emerald/50"></div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Stats Cards -->
+                                    <div class="grid grid-cols-4 gap-4 mb-6">
+                                        <div class="glass-card rounded-xl p-4">
+                                            <div class="text-xs text-text-tertiary mb-2">Ventas Hoy</div>
+                                            <div class="text-2xl font-bold font-mono text-emerald">$4,320</div>
+                                            <div class="text-xs text-emerald mt-1">↑ 12%</div>
+                                        </div>
+                                        <div class="glass-card rounded-xl p-4">
+                                            <div class="text-xs text-text-tertiary mb-2">Órdenes</div>
+                                            <div class="text-2xl font-bold font-mono">127</div>
+                                        </div>
+                                        <div class="glass-card rounded-xl p-4">
+                                            <div class="text-xs text-text-tertiary mb-2">Clientes</div>
+                                            <div class="text-2xl font-bold font-mono">1,248</div>
+                                        </div>
+                                        <div class="glass-card rounded-xl p-4">
+                                            <div class="text-xs text-text-tertiary mb-2">Inventario</div>
+                                            <div class="text-2xl font-bold font-mono text-cyan-electric">$42K</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Chart Area -->
+                                    <div class="flex-1 glass-card rounded-xl p-4 flex items-end gap-1">
+                                        <div class="flex-1 bg-gradient-to-t from-cyan-electric/40 to-cyan-electric/10 rounded-t h-[40%]"></div>
+                                        <div class="flex-1 bg-gradient-to-t from-cyan-electric/40 to-cyan-electric/10 rounded-t h-[60%]"></div>
+                                        <div class="flex-1 bg-gradient-to-t from-cyan-electric/40 to-cyan-electric/10 rounded-t h-[45%]"></div>
+                                        <div class="flex-1 bg-gradient-to-t from-cyan-electric/40 to-cyan-electric/10 rounded-t h-[75%]"></div>
+                                        <div class="flex-1 bg-gradient-to-t from-cyan-electric/40 to-cyan-electric/10 rounded-t h-[55%]"></div>
+                                        <div class="flex-1 bg-gradient-to-t from-emerald/40 to-emerald/10 rounded-t h-[85%] shadow-[0_0_20px_rgba(16,185,129,0.4)]"></div>
+                                        <div class="flex-1 bg-gradient-to-t from-cyan-electric/20 to-cyan-electric/5 rounded-t h-[70%] opacity-50 border-t-2 border-dashed border-text-tertiary"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trust Badges -->
+                <div class="mt-12 flex flex-wrap justify-center items-center gap-6 text-xs text-text-tertiary">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-emerald" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="lang-es">Datos seguros</span>
+                        <span class="lang-en hidden">Secure data</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-emerald" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/>
+                        </svg>
+                        <span>99.9% uptime</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span>🇻🇪 🇨🇴 🇲🇽</span>
+                        <span class="lang-es">Cumplimiento fiscal</span>
+                        <span class="lang-en hidden">Tax compliance</span>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- SECCIÓN 2: LA BARRA DE DOLOR -->
+        <section class="py-24 px-4 bg-black/30">
+            <div class="max-w-7xl mx-auto">
+
+                <!-- Headline -->
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl md:text-5xl font-bold mb-4">
+                        <span class="lang-es">¿Te suena familiar?</span>
+                        <span class="lang-en hidden">Sound familiar?</span>
+                    </h2>
+                </div>
+
+                <!-- Pain Points Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+                    <!-- Pain 1 -->
+                    <div class="glass-card rounded-2xl p-6 border-amber/20 hover:border-amber/40 transition-all group">
+                        <div class="text-4xl mb-4">📊</div>
+                        <p class="text-text-secondary leading-relaxed lang-es">
+                            "Uso Excel, QuickBooks, WhatsApp Business, y 3 apps más... y ninguna habla con la otra."
+                        </p>
+                        <p class="text-text-secondary leading-relaxed lang-en hidden">
+                            "I use Excel, QuickBooks, WhatsApp Business, and 3 other apps... and none of them talk to each other."
+                        </p>
+                    </div>
+
+                    <!-- Pain 2 -->
+                    <div class="glass-card rounded-2xl p-6 border-amber/20 hover:border-amber/40 transition-all group">
+                        <div class="text-4xl mb-4">📦</div>
+                        <p class="text-text-secondary leading-relaxed lang-es">
+                            "Se me venden productos que ya no tengo. O se vencen porque nadie me avisó."
+                        </p>
+                        <p class="text-text-secondary leading-relaxed lang-en hidden">
+                            "I sell products I don't have. Or they expire because no one warned me."
+                        </p>
+                    </div>
+
+                    <!-- Pain 3 -->
+                    <div class="glass-card rounded-2xl p-6 border-amber/20 hover:border-amber/40 transition-all group">
+                        <div class="text-4xl mb-4">💸</div>
+                        <p class="text-text-secondary leading-relaxed lang-es">
+                            "Gasto más de $800/mes en suscripciones y todavía no sé si gano o pierdo dinero."
+                        </p>
+                        <p class="text-text-secondary leading-relaxed lang-en hidden">
+                            "I spend $800+/month on subscriptions and still don't know if I'm making or losing money."
+                        </p>
+                    </div>
+
+                    <!-- Pain 4 -->
+                    <div class="glass-card rounded-2xl p-6 border-amber/20 hover:border-amber/40 transition-all group">
+                        <div class="text-4xl mb-4">⏰</div>
+                        <p class="text-text-secondary leading-relaxed lang-es">
+                            "Paso 3 horas al día contestando WhatsApp. No puedo ni almorzar tranquilo."
+                        </p>
+                        <p class="text-text-secondary leading-relaxed lang-en hidden">
+                            "I spend 3 hours a day answering WhatsApp. I can't even have lunch in peace."
+                        </p>
+                    </div>
+
+                    <!-- Pain 5 -->
+                    <div class="glass-card rounded-2xl p-6 border-amber/20 hover:border-amber/40 transition-all group">
+                        <div class="text-4xl mb-4">📱</div>
+                        <p class="text-text-secondary leading-relaxed lang-es">
+                            "Quiero vender online pero no tengo tiempo de manejar otra plataforma."
+                        </p>
+                        <p class="text-text-secondary leading-relaxed lang-en hidden">
+                            "I want to sell online but don't have time to manage another platform."
+                        </p>
+                    </div>
+
+                    <!-- Pain 6 -->
+                    <div class="glass-card rounded-2xl p-6 border-amber/20 hover:border-amber/40 transition-all group">
+                        <div class="text-4xl mb-4">😓</div>
+                        <p class="text-text-secondary leading-relaxed lang-es">
+                            "Los reportes para el contador me toman un día entero. Cada mes."
+                        </p>
+                        <p class="text-text-secondary leading-relaxed lang-en hidden">
+                            "Monthly reports for my accountant take an entire day. Every. Single. Month."
+                        </p>
+                    </div>
+
+                </div>
+
+                <!-- Closing Statement -->
+                <div class="text-center mt-12">
+                    <p class="text-xl text-text-secondary">
+                        <span class="lang-es">Si marcaste 2 o más... no es tu culpa. <span class="text-white font-bold">Tu negocio creció, tus herramientas no.</span></span>
+                        <span class="lang-en hidden">If you checked 2 or more... it's not your fault. <span class="text-white font-bold">Your business grew. Your tools didn't.</span></span>
+                    </p>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- SECCIÓN 3: TRANSICIÓN / PUENTE -->
+        <section class="py-24 px-4 relative overflow-hidden">
+            <!-- Gradient Transition Effect -->
+            <div class="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-transparent"></div>
+
+            <div class="max-w-4xl mx-auto text-center relative z-10">
+
+                <!-- Imagina text -->
+                <p class="text-xl text-text-secondary mb-8">
+                    <span class="lang-es">Imagina un lunes donde...</span>
+                    <span class="lang-en hidden">Imagine a Monday where...</span>
+                </p>
+
+                <!-- Checkmarks List -->
+                <div class="space-y-4 mb-12">
+                    <div class="flex items-start gap-4 justify-center animate-fade-in-up stagger-1">
+                        <svg class="w-6 h-6 text-emerald flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="text-lg md:text-xl text-text-primary lang-es">Abres UNA sola app y ves todo tu negocio</span>
+                        <span class="text-lg md:text-xl text-text-primary lang-en hidden">You open ONE app and see your entire business</span>
+                    </div>
+
+                    <div class="flex items-start gap-4 justify-center animate-fade-in-up stagger-2">
+                        <svg class="w-6 h-6 text-emerald flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="text-lg md:text-xl text-text-primary lang-es">Tu WhatsApp responde solo a las 2am</span>
+                        <span class="text-lg md:text-xl text-text-primary lang-en hidden">Your WhatsApp answers by itself at 2am</span>
+                    </div>
+
+                    <div class="flex items-start gap-4 justify-center animate-fade-in-up stagger-3">
+                        <svg class="w-6 h-6 text-emerald flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="text-lg md:text-xl text-text-primary lang-es">Sabes exactamente cuánto ganaste esta semana</span>
+                        <span class="text-lg md:text-xl text-text-primary lang-en hidden">You know exactly how much you made this week</span>
+                    </div>
+
+                    <div class="flex items-start gap-4 justify-center animate-fade-in-up stagger-4">
+                        <svg class="w-6 h-6 text-emerald flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="text-lg md:text-xl text-text-primary lang-es">Tu inventario se actualiza con cada venta</span>
+                        <span class="text-lg md:text-xl text-text-primary lang-en hidden">Your inventory updates with every sale</span>
+                    </div>
+
+                    <div class="flex items-start gap-4 justify-center animate-fade-in-up stagger-5">
+                        <svg class="w-6 h-6 text-emerald flex-shrink-0 mt-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="text-lg md:text-xl text-text-primary lang-es">Y tu contador recibe todo automáticamente</span>
+                        <span class="text-lg md:text-xl text-text-primary lang-en hidden">And your accountant receives everything automatically</span>
+                    </div>
+                </div>
+
+                <!-- Big Headline -->
+                <h2 class="text-5xl md:text-7xl font-bold gradient-text animate-fade-in-up stagger-6">
+                    <span class="lang-es">Eso es SmartKubik.</span>
+                    <span class="lang-en hidden">That's SmartKubik.</span>
+                </h2>
+
+            </div>
+        </section>
+
+        <!-- SECCIÓN 4: QUÉ ES SMARTKUBIK -->
+        <section id="modulos" class="py-24 px-4">
+            <div class="max-w-7xl mx-auto">
+
+                <!-- Headline -->
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl md:text-5xl font-bold mb-4">
+                        <span class="lang-es">Un Solo Sistema. Todo Tu Negocio.<br><span class="gradient-text">Desde $29/Usuario.</span></span>
+                        <span class="lang-en hidden">One System. Your Entire Business.<br><span class="gradient-text">From $29/User.</span></span>
+                    </h2>
+                    <p class="text-xl text-text-secondary max-w-3xl mx-auto mt-6">
+                        <span class="lang-es">SmartKubik es el sistema nervioso de tu negocio. Conecta todo: ventas, inventario, clientes, contabilidad, empleados, marketing... en una sola plataforma inteligente.</span>
+                        <span class="lang-en hidden">SmartKubik is your business's nervous system. It connects everything: sales, inventory, customers, accounting, employees, marketing... in one intelligent platform.</span>
+                    </p>
+                </div>
+
+                <!-- Modules Grid (3x3) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+
+                    <!-- Módulo 1: POS -->
+                    <div class="glass-card rounded-2xl p-8 hover:-translate-y-2 transition-all group">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-electric/20 to-cyan-electric/5 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                            <span class="text-4xl">💰</span>
+                        </div>
+                        <h3 class="text-2xl font-bold mb-3 lang-es">POS & Ventas</h3>
+                        <h3 class="text-2xl font-bold mb-3 lang-en hidden">POS & Sales</h3>
+                        <p class="text-text-secondary lang-es">Vende en tienda, web y WhatsApp</p>
+                        <p class="text-text-secondary lang-en hidden">Sell in-store, web and WhatsApp</p>
+                    </div>
+
+                    <!-- Módulo 2: Inventario -->
+                    <div class="glass-card rounded-2xl p-8 hover:-translate-y-2 transition-all group">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald/20 to-emerald/5 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                            <span class="text-4xl">📦</span>
+                        </div>
+                        <h3 class="text-2xl font-bold mb-3 lang-es">Inventario</h3>
+                        <h3 class="text-2xl font-bold mb-3 lang-en hidden">Inventory</h3>
+                        <p class="text-text-secondary lang-es">Multi-almacén, lotes, alertas</p>
+                        <p class="text-text-secondary lang-en hidden">Multi-warehouse, batches, alerts</p>
+                    </div>
+
+                    <!-- Módulo 3: Contabilidad -->
+                    <div class="glass-card rounded-2xl p-8 hover:-translate-y-2 transition-all group">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-subtle/20 to-violet-subtle/5 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                            <span class="text-4xl">🧾</span>
+                        </div>
+                        <h3 class="text-2xl font-bold mb-3 lang-es">Contabilidad</h3>
+                        <h3 class="text-2xl font-bold mb-3 lang-en hidden">Accounting</h3>
+                        <p class="text-text-secondary lang-es">P&L, Balance, Impuestos automáticos</p>
+                        <p class="text-text-secondary lang-en hidden">P&L, Balance, Automated taxes</p>
+                    </div>
+
+                    <!-- Módulo 4: CRM -->
+                    <div class="glass-card rounded-2xl p-8 hover:-translate-y-2 transition-all group">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-rose/20 to-rose/5 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                            <span class="text-4xl">👥</span>
+                        </div>
+                        <h3 class="text-2xl font-bold mb-3">CRM</h3>
+                        <p class="text-text-secondary lang-es">Clientes 360°, pipeline, lealtad</p>
+                        <p class="text-text-secondary lang-en hidden">360° customers, pipeline, loyalty</p>
+                    </div>
+
+                    <!-- Módulo 5: Marketing -->
+                    <div class="glass-card rounded-2xl p-8 hover:-translate-y-2 transition-all group">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber/20 to-amber/5 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                            <span class="text-4xl">📧</span>
+                        </div>
+                        <h3 class="text-2xl font-bold mb-3">Marketing</h3>
+                        <p class="text-text-secondary lang-es">Campañas automáticas multi-canal</p>
+                        <p class="text-text-secondary lang-en hidden">Automated multi-channel campaigns</p>
+                    </div>
+
+                    <!-- Módulo 6: Nómina -->
+                    <div class="glass-card rounded-2xl p-8 hover:-translate-y-2 transition-all group">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-electric/20 to-emerald/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                            <span class="text-4xl">👔</span>
+                        </div>
+                        <h3 class="text-2xl font-bold mb-3 lang-es">Nómina</h3>
+                        <h3 class="text-2xl font-bold mb-3 lang-en hidden">Payroll</h3>
+                        <p class="text-text-secondary lang-es">Paga correctamente, cumple la ley</p>
+                        <p class="text-text-secondary lang-en hidden">Pay correctly, comply with the law</p>
+                    </div>
+
+                    <!-- Módulo 7: Producción -->
+                    <div class="glass-card rounded-2xl p-8 hover:-translate-y-2 transition-all group">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-subtle/20 to-rose/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                            <span class="text-4xl">🏭</span>
+                        </div>
+                        <h3 class="text-2xl font-bold mb-3 lang-es">Producción</h3>
+                        <h3 class="text-2xl font-bold mb-3 lang-en hidden">Manufacturing</h3>
+                        <p class="text-text-secondary lang-es">BOM, órdenes, costos</p>
+                        <p class="text-text-secondary lang-en hidden">BOM, orders, costing</p>
+                    </div>
+
+                    <!-- Módulo 8: Citas -->
+                    <div class="glass-card rounded-2xl p-8 hover:-translate-y-2 transition-all group">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald/20 to-cyan-electric/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                            <span class="text-4xl">📅</span>
+                        </div>
+                        <h3 class="text-2xl font-bold mb-3 lang-es">Citas</h3>
+                        <h3 class="text-2xl font-bold mb-3 lang-en hidden">Appointments</h3>
+                        <p class="text-text-secondary lang-es">Reservas online, calendar sync</p>
+                        <p class="text-text-secondary lang-en hidden">Online bookings, calendar sync</p>
+                    </div>
+
+                    <!-- Módulo 9: E-Commerce -->
+                    <div class="glass-card rounded-2xl p-8 hover:-translate-y-2 transition-all group">
+                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-rose/20 to-amber/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                            <span class="text-4xl">🛒</span>
+                        </div>
+                        <h3 class="text-2xl font-bold mb-3">E-Commerce</h3>
+                        <p class="text-text-secondary lang-es">Tu tienda online automática</p>
+                        <p class="text-text-secondary lang-en hidden">Your automatic online store</p>
+                    </div>
+
+                </div>
+
+                <!-- IA Destacada -->
+                <div class="glass-card rounded-3xl p-8 md:p-12 border-cyan-electric/30 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-cyan-electric/20 to-emerald/20 rounded-full blur-3xl"></div>
+
+                    <div class="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                        <div class="w-20 h-20 rounded-2xl bg-gradient-main flex items-center justify-center flex-shrink-0 animate-glow-pulse">
+                            <span class="text-5xl">🤖</span>
+                        </div>
+                        <div class="flex-1 text-center md:text-left">
+                            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-electric/20 text-cyan-electric text-sm font-bold mb-3">
+                                <span class="lang-es">INCLUIDO</span>
+                                <span class="lang-en hidden">INCLUDED</span>
+                            </div>
+                            <h3 class="text-3xl font-bold mb-3">
+                                <span class="lang-es">Asistente con Inteligencia Artificial</span>
+                                <span class="lang-en hidden">AI Assistant</span>
+                            </h3>
+                            <p class="text-xl text-text-secondary">
+                                <span class="lang-es">Pregúntale lo que quieras: "¿Cuánto vendí hoy?" "¿Qué se está acabando?" — Responde al instante.</span>
+                                <span class="lang-en hidden">Ask anything: "How much did I sell today?" "What's running low?" — Answers instantly.</span>
+                            </p>
+                        </div>
+                        <button class="glass-card px-6 py-3 rounded-xl font-semibold hover:bg-white/10 transition-all whitespace-nowrap">
+                            Ver más →
+                        </button>
+                    </div>
+                </div>
+
+                <!-- CTA -->
+                <div class="text-center mt-12">
+                    <button class="glass-card px-8 py-4 rounded-xl font-semibold text-lg hover:bg-white/10 transition-all inline-flex items-center gap-2 group">
+                        <span>Explorar Todos los Módulos</span>
+                        <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                        </svg>
+                    </button>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- SECCIÓN 5: PARA TU TIPO DE NEGOCIO -->
+        <section id="industrias" class="py-24 px-4 bg-black/20">
+            <div class="max-w-7xl mx-auto">
+
+                <!-- Headline -->
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl md:text-5xl font-bold mb-4">
+                        <span class="lang-es">No Es Software Genérico.<br><span class="gradient-text">Está Diseñado Para Tu Industria.</span></span>
+                        <span class="lang-en hidden">Not Generic Software.<br><span class="gradient-text">Built For Your Industry.</span></span>
+                    </h2>
+                </div>
+
+                <!-- Tabs -->
+                <div class="flex flex-wrap justify-center gap-4 mb-12">
+                    <button class="industry-tab px-6 py-3 rounded-xl glass-card font-semibold hover:bg-white/10 transition-all border-b-2 border-cyan-electric" data-industry="restaurantes">
+                        🍽️ Restaurantes
+                    </button>
+                    <button class="industry-tab px-6 py-3 rounded-xl glass-card font-semibold hover:bg-white/10 transition-all" data-industry="tiendas">
+                        🛍️ Tiendas
+                    </button>
+                    <button class="industry-tab px-6 py-3 rounded-xl glass-card font-semibold hover:bg-white/10 transition-all" data-industry="fabricas">
+                        🏭 Fábricas
+                    </button>
+                    <button class="industry-tab px-6 py-3 rounded-xl glass-card font-semibold hover:bg-white/10 transition-all" data-industry="servicios">
+                        💼 Servicios
+                    </button>
+                    <button class="industry-tab px-6 py-3 rounded-xl glass-card font-semibold hover:bg-white/10 transition-all" data-industry="logistica">
+                        🚚 Logística
+                    </button>
+                    <button class="industry-tab px-6 py-3 rounded-xl glass-card font-semibold hover:bg-white/10 transition-all" data-industry="hoteles">
+                        🏨 Hoteles
+                    </button>
+                </div>
+
+                <!-- Tab Content Container -->
+                <div id="industryContent">
+
+                <!-- Tab Content: Restaurantes -->
+                <div class="industry-content grid grid-cols-1 lg:grid-cols-2 gap-12 items-center" data-industry="restaurantes">
+
+                    <!-- Visual -->
+                    <div class="glass-card rounded-3xl p-8">
+                        <div class="bg-slate-surface-2 rounded-2xl p-6 aspect-square flex items-center justify-center">
+                            <!-- Floor Plan Mockup -->
+                            <div class="grid grid-cols-4 gap-3 w-full h-full">
+                                <!-- Tables -->
+                                <div class="col-span-1 bg-emerald/20 border-2 border-emerald rounded-xl flex items-center justify-center">
+                                    <span class="font-mono text-sm">Mesa 1</span>
+                                </div>
+                                <div class="col-span-1 bg-red-500/20 border-2 border-red-500 rounded-xl flex items-center justify-center">
+                                    <span class="font-mono text-sm">Mesa 2</span>
+                                </div>
+                                <div class="col-span-1 bg-emerald/20 border-2 border-emerald rounded-xl flex items-center justify-center">
+                                    <span class="font-mono text-sm">Mesa 3</span>
+                                </div>
+                                <div class="col-span-1 bg-amber/20 border-2 border-amber rounded-xl flex items-center justify-center">
+                                    <span class="font-mono text-sm">Mesa 4</span>
+                                </div>
+                                <div class="col-span-2 bg-red-500/20 border-2 border-red-500 rounded-xl flex items-center justify-center">
+                                    <span class="font-mono text-sm">Mesa 5 (6p)</span>
+                                </div>
+                                <div class="col-span-2 bg-emerald/20 border-2 border-emerald rounded-xl flex items-center justify-center">
+                                    <span class="font-mono text-sm">Mesa 6 (6p)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex gap-4 mt-4 text-sm">
+                            <div class="flex items-center gap-2">
+                                <div class="w-3 h-3 rounded-full bg-emerald"></div>
+                                <span class="text-text-tertiary">Disponible</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                                <span class="text-text-tertiary">Ocupada</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <div class="w-3 h-3 rounded-full bg-amber"></div>
+                                <span class="text-text-tertiary">Reservada</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Features -->
+                    <div>
+                        <h3 class="text-3xl font-bold mb-6">Para Restaurantes que Quieren Llenar Mesas, No Papeles</h3>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">🗺️</div>
+                                <h4 class="font-bold mb-2">Mesas en Tiempo Real</h4>
+                                <p class="text-sm text-text-secondary">Ve qué mesas están libres, ocupadas o reservadas.</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">📺</div>
+                                <h4 class="font-bold mb-2">Pantalla de Cocina (KDS)</h4>
+                                <p class="text-sm text-text-secondary">Las órdenes llegan solas a la cocina.</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">📅</div>
+                                <h4 class="font-bold mb-2">Reservaciones</h4>
+                                <p class="text-sm text-text-secondary">Tus clientes reservan online.</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">💸</div>
+                                <h4 class="font-bold mb-2">División de Cuentas</h4>
+                                <p class="text-sm text-text-secondary">Divide por persona, por plato, o como quieras.</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">💵</div>
+                                <h4 class="font-bold mb-2">Propinas Justas</h4>
+                                <p class="text-sm text-text-secondary">Distribución automática. Transparente.</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">📊</div>
+                                <h4 class="font-bold mb-2">Menu Engineering</h4>
+                                <p class="text-sm text-text-secondary">Descubre qué platos son rentables.</p>
+                            </div>
+                        </div>
+
+                        <!-- Resultado -->
+                        <div class="mt-6 glass-card rounded-xl p-5 border-emerald/30">
+                            <div class="flex items-center gap-3">
+                                <span class="text-2xl">🎯</span>
+                                <div>
+                                    <div class="font-bold text-emerald">Resultado:</div>
+                                    <p class="text-text-secondary">Reduce el caos del servicio, llena más mesas, y sabe exactamente cuánto gana cada plato.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Tab Content: Tiendas -->
+                <div class="industry-content hidden grid-cols-1 lg:grid-cols-2 gap-12 items-center" data-industry="tiendas">
+                    <div class="glass-card rounded-3xl p-8">
+                        <div class="bg-slate-surface-2 rounded-2xl p-6 aspect-square flex items-center justify-center text-6xl">
+                            🛍️
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-3xl font-bold mb-6">Para Tiendas que Quieren Vender Más, No Contar Más</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">🏪</div>
+                                <h4 class="font-bold mb-2">Multi-Tienda</h4>
+                                <p class="text-sm text-text-secondary">Administra todas tus sucursales desde un solo lugar.</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">📱</div>
+                                <h4 class="font-bold mb-2">E-commerce Integrado</h4>
+                                <p class="text-sm text-text-secondary">Vende online y en tienda con el mismo inventario.</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">👥</div>
+                                <h4 class="font-bold mb-2">Programa de Lealtad</h4>
+                                <p class="text-sm text-text-secondary">Puntos, descuentos y promociones automáticas.</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">📊</div>
+                                <h4 class="font-bold mb-2">Análisis de Ventas</h4>
+                                <p class="text-sm text-text-secondary">Qué se vende, cuándo y a quién.</p>
+                            </div>
+                        </div>
+                        <div class="mt-6 glass-card rounded-xl p-5 border-emerald/30">
+                            <div class="flex items-center gap-3">
+                                <span class="text-2xl">🎯</span>
+                                <div>
+                                    <div class="font-bold text-emerald">Resultado:</div>
+                                    <p class="text-text-secondary">Inventario siempre actualizado, clientes fieles que regresan.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Fábricas -->
+                <div class="industry-content hidden grid-cols-1 lg:grid-cols-2 gap-12 items-center" data-industry="fabricas">
+                    <div class="glass-card rounded-3xl p-8">
+                        <div class="bg-slate-surface-2 rounded-2xl p-6 aspect-square flex items-center justify-center text-6xl">
+                            🏭
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-3xl font-bold mb-6">Para Fábricas que Quieren Producir, No Buscar Papeles</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">⚙️</div>
+                                <h4 class="font-bold mb-2">Órdenes de Producción</h4>
+                                <p class="text-sm text-text-secondary">De materia prima a producto terminado.</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">📦</div>
+                                <h4 class="font-bold mb-2">Control de Lotes</h4>
+                                <p class="text-sm text-text-secondary">Trazabilidad completa de cada producción.</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">💰</div>
+                                <h4 class="font-bold mb-2">Costeo Real</h4>
+                                <p class="text-sm text-text-secondary">Sabe cuánto cuesta fabricar cada unidad.</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">🔔</div>
+                                <h4 class="font-bold mb-2">Alertas de Material</h4>
+                                <p class="text-sm text-text-secondary">Nunca pares la producción por falta de insumos.</p>
+                            </div>
+                        </div>
+                        <div class="mt-6 glass-card rounded-xl p-5 border-emerald/30">
+                            <div class="flex items-center gap-3">
+                                <span class="text-2xl">🎯</span>
+                                <div>
+                                    <div class="font-bold text-emerald">Resultado:</div>
+                                    <p class="text-text-secondary">Producción eficiente, costos controlados, cero paradas.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Servicios -->
+                <div class="industry-content hidden grid-cols-1 lg:grid-cols-2 gap-12 items-center" data-industry="servicios">
+                    <div class="glass-card rounded-3xl p-8">
+                        <div class="bg-slate-surface-2 rounded-2xl p-6 aspect-square flex items-center justify-center text-6xl">
+                            💼
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-3xl font-bold mb-6">Para Servicios Profesionales que Facturan Tiempo</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">⏱️</div>
+                                <h4 class="font-bold mb-2">Time Tracking</h4>
+                                <p class="text-sm text-text-secondary">Registra horas por proyecto y cliente.</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">📋</div>
+                                <h4 class="font-bold mb-2">Gestión de Proyectos</h4>
+                                <p class="text-sm text-text-secondary">Tareas, plazos y equipo en un solo lugar.</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">💵</div>
+                                <h4 class="font-bold mb-2">Facturación Automática</h4>
+                                <p class="text-sm text-text-secondary">De horas trabajadas a factura en segundos.</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">📊</div>
+                                <h4 class="font-bold mb-2">Rentabilidad por Proyecto</h4>
+                                <p class="text-sm text-text-secondary">Qué clientes y proyectos son rentables.</p>
+                            </div>
+                        </div>
+                        <div class="mt-6 glass-card rounded-xl p-5 border-emerald/30">
+                            <div class="flex items-center gap-3">
+                                <span class="text-2xl">🎯</span>
+                                <div>
+                                    <div class="font-bold text-emerald">Resultado:</div>
+                                    <p class="text-text-secondary">Factura todas tus horas, cobra a tiempo, crece rentable.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Logística -->
+                <div class="industry-content hidden grid-cols-1 lg:grid-cols-2 gap-12 items-center" data-industry="logistica">
+                    <div class="glass-card rounded-3xl p-8">
+                        <div class="bg-slate-surface-2 rounded-2xl p-6 aspect-square flex items-center justify-center text-6xl">
+                            🚚
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-3xl font-bold mb-6">Para Logística que Quiere Mover, No Buscar</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">📍</div>
+                                <h4 class="font-bold mb-2">Tracking en Tiempo Real</h4>
+                                <p class="text-sm text-text-secondary">Dónde está cada envío, siempre.</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">🗺️</div>
+                                <h4 class="font-bold mb-2">Optimización de Rutas</h4>
+                                <p class="text-sm text-text-secondary">IA calcula la ruta más eficiente.</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">📦</div>
+                                <h4 class="font-bold mb-2">Gestión de Flotas</h4>
+                                <p class="text-sm text-text-secondary">Vehículos, choferes, mantenimiento.</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">💵</div>
+                                <h4 class="font-bold mb-2">Costeo por Ruta</h4>
+                                <p class="text-sm text-text-secondary">Cuánto cuesta cada entrega realmente.</p>
+                            </div>
+                        </div>
+                        <div class="mt-6 glass-card rounded-xl p-5 border-emerald/30">
+                            <div class="flex items-center gap-3">
+                                <span class="text-2xl">🎯</span>
+                                <div>
+                                    <div class="font-bold text-emerald">Resultado:</div>
+                                    <p class="text-text-secondary">Entregas a tiempo, costos controlados, clientes satisfechos.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Hoteles -->
+                <div class="industry-content hidden grid-cols-1 lg:grid-cols-2 gap-12 items-center" data-industry="hoteles">
+                    <div class="glass-card rounded-3xl p-8">
+                        <div class="bg-slate-surface-2 rounded-2xl p-6 aspect-square flex items-center justify-center text-6xl">
+                            🏨
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-3xl font-bold mb-6">Para Hoteles que Quieren Huéspedes Felices</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">🛏️</div>
+                                <h4 class="font-bold mb-2">Gestión de Habitaciones</h4>
+                                <p class="text-sm text-text-secondary">Disponibilidad, check-in/out automático.</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">💳</div>
+                                <h4 class="font-bold mb-2">Reservas Multi-Canal</h4>
+                                <p class="text-sm text-text-secondary">Booking, Airbnb, directo - todo sincronizado.</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">🍽️</div>
+                                <h4 class="font-bold mb-2">Servicios Extras</h4>
+                                <p class="text-sm text-text-secondary">Restaurante, spa, room service integrado.</p>
+                            </div>
+                            <div class="glass-card rounded-xl p-5">
+                                <div class="text-2xl mb-2">📊</div>
+                                <h4 class="font-bold mb-2">Revenue Management</h4>
+                                <p class="text-sm text-text-secondary">Precios dinámicos según demanda.</p>
+                            </div>
+                        </div>
+                        <div class="mt-6 glass-card rounded-xl p-5 border-emerald/30">
+                            <div class="flex items-center gap-3">
+                                <span class="text-2xl">🎯</span>
+                                <div>
+                                    <div class="font-bold text-emerald">Resultado:</div>
+                                    <p class="text-text-secondary">Ocupación máxima, ingresos optimizados, huéspedes satisfechos.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                </div><!-- End industryContent -->
+
+            </div>
+        </section>
+
+        <!-- SECCIÓN 6: LA IA QUE TRABAJA POR TI -->
+        <section id="ia" class="py-24 px-4 relative overflow-hidden">
+            <!-- Special Glow -->
+            <div class="absolute inset-0 bg-gradient-to-b from-cyan-electric/5 to-transparent pointer-events-none"></div>
+
+            <div class="max-w-7xl mx-auto relative z-10">
+
+                <!-- Headline -->
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl md:text-6xl font-bold mb-4">
+                        <span class="lang-es">Tu Asistente de Negocios que <span class="gradient-text">Nunca Duerme.</span><br>Nunca Pide Aumento.</span>
+                        <span class="lang-en hidden">Your Business Assistant That <span class="gradient-text">Never Sleeps.</span><br>Never Asks for a Raise.</span>
+                    </h2>
+                    <p class="text-xl text-text-secondary max-w-3xl mx-auto mt-6">
+                        <span class="lang-es">Inteligencia Artificial integrada en todo el sistema. Pregunta lo que quieras en español normal.</span>
+                        <span class="lang-en hidden">AI integrated into the entire system. Ask anything in plain language.</span>
+                    </p>
+                </div>
+
+                <!-- Chat Interface + Capabilities -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+
+                    <!-- Chat Interface -->
+                    <div class="glass-card rounded-3xl p-6 border-cyan-electric/30">
+                        <div class="flex items-center gap-3 mb-6 pb-4 border-b border-white/10">
+                            <div class="w-10 h-10 rounded-full bg-gradient-main flex items-center justify-center">
+                                <span class="text-xl">🤖</span>
+                            </div>
+                            <div>
+                                <div class="font-bold">SmartKubik IA</div>
+                                <div class="text-xs text-emerald flex items-center gap-1">
+                                    <span class="w-2 h-2 rounded-full bg-emerald animate-pulse"></span>
+                                    En línea
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Messages -->
+                        <div class="space-y-4 mb-4">
+                            <!-- User message -->
+                            <div class="flex justify-end">
+                                <div class="bg-gradient-main text-white rounded-2xl rounded-tr-sm px-4 py-3 max-w-[80%]">
+                                    ¿Cuánto vendí esta semana?
+                                </div>
+                            </div>
+
+                            <!-- AI response -->
+                            <div class="flex justify-start">
+                                <div class="glass-card rounded-2xl rounded-tl-sm px-4 py-3 max-w-[85%]">
+                                    Esta semana vendiste <span class="font-bold text-emerald">$4,320</span>. Eso es <span class="font-bold text-emerald">12% más</span> que la semana pasada. Tu producto más vendido fue "Hamburguesa Clásica" con 47 unidades.
+                                </div>
+                            </div>
+
+                            <!-- User message -->
+                            <div class="flex justify-end">
+                                <div class="bg-gradient-main text-white rounded-2xl rounded-tr-sm px-4 py-3 max-w-[80%]">
+                                    ¿Qué productos se están acabando?
+                                </div>
+                            </div>
+
+                            <!-- AI response -->
+                            <div class="flex justify-start">
+                                <div class="glass-card rounded-2xl rounded-tl-sm px-4 py-3 max-w-[85%]">
+                                    Tienes 3 productos con stock crítico:<br>
+                                    • Coca-Cola 600ml (5 unidades)<br>
+                                    • Servilletas (1 paquete)<br>
+                                    • Pan de hamburguesa (12 unidades)<br><br>
+                                    ¿Quieres que cree una orden de compra?
+                                </div>
+                            </div>
+
+                            <!-- User message -->
+                            <div class="flex justify-end">
+                                <div class="bg-gradient-main text-white rounded-2xl rounded-tr-sm px-4 py-3 max-w-[80%]">
+                                    Reserva una mesa para 4 personas mañana a las 8pm a nombre de García
+                                </div>
+                            </div>
+
+                            <!-- AI response with typing indicator -->
+                            <div class="flex justify-start">
+                                <div class="glass-card rounded-2xl rounded-tl-sm px-4 py-3 max-w-[85%]">
+                                    Listo. Mesa 7 reservada para García, 4 personas, mañana 8pm. Ya envié confirmación por WhatsApp al número registrado. ✅
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Input (disabled for demo) -->
+                        <div class="glass-card rounded-xl p-3 flex items-center gap-2 opacity-50">
+                            <input type="text" placeholder="Escribe tu pregunta..." class="flex-1 bg-transparent outline-none" disabled>
+                            <button class="w-8 h-8 rounded-lg bg-gradient-main flex items-center justify-center" disabled>
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Capabilities Grid -->
+                    <div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                            <div class="glass-card rounded-xl p-6">
+                                <div class="text-3xl mb-3">📊</div>
+                                <h4 class="font-bold mb-2">Responde Preguntas</h4>
+                                <p class="text-sm text-text-secondary">Sobre ventas, inventario, clientes, finanzas. En español normal.</p>
+                            </div>
+
+                            <div class="glass-card rounded-xl p-6">
+                                <div class="text-3xl mb-3">⚡</div>
+                                <h4 class="font-bold mb-2">Ejecuta Acciones</h4>
+                                <p class="text-sm text-text-secondary">Crea citas, modifica reservas, busca información.</p>
+                            </div>
+
+                            <div class="glass-card rounded-xl p-6">
+                                <div class="text-3xl mb-3">💬</div>
+                                <h4 class="font-bold mb-2">WhatsApp Automático</h4>
+                                <p class="text-sm text-text-secondary">Responde a tus clientes a las 3am. Toma órdenes, confirma reservas.</p>
+                            </div>
+
+                            <div class="glass-card rounded-xl p-6">
+                                <div class="text-3xl mb-3">📈</div>
+                                <h4 class="font-bold mb-2">Análisis Predictivo</h4>
+                                <p class="text-sm text-text-secondary">"Tu martes suele ser 30% más lento. Considera una promoción."</p>
+                            </div>
+
+                            <div class="glass-card rounded-xl p-6">
+                                <div class="text-3xl mb-3">🧠</div>
+                                <h4 class="font-bold mb-2">Aprende de Tu Negocio</h4>
+                                <p class="text-sm text-text-secondary">Mientras más lo uses, más inteligente se vuelve.</p>
+                            </div>
+
+                            <div class="glass-card rounded-xl p-6">
+                                <div class="text-3xl mb-3">🔒</div>
+                                <h4 class="font-bold mb-2">Solo Tu Información</h4>
+                                <p class="text-sm text-text-secondary">Datos 100% privados. No se comparte con nadie.</p>
+                            </div>
+
+                        </div>
+
+                        <!-- Destacado -->
+                        <div class="mt-6 glass-card rounded-xl p-6 border-cyan-electric/30 bg-gradient-to-br from-cyan-electric/5 to-emerald/5">
+                            <div class="flex items-start gap-3">
+                                <span class="text-3xl">🤯</span>
+                                <div>
+                                    <div class="font-bold text-lg mb-2">Esto no es un chatbot genérico.</div>
+                                    <p class="text-text-secondary">Es una IA que conoce TU negocio, TUS productos, TUS clientes.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CTA -->
+                        <div class="mt-6">
+                            <button class="glass-card px-6 py-3 rounded-xl font-semibold hover:bg-white/10 transition-all inline-flex items-center gap-2 group w-full justify-center">
+                                <span>Ver la IA en Acción</span>
+                                <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </section>
+
+        <!-- SECCIÓN 7: WHATSAPP INTEGRADO -->
+        <section class="py-24 px-4 bg-black/20">
+            <div class="max-w-7xl mx-auto">
+
+                <!-- Headline -->
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl md:text-5xl font-bold mb-4">
+                        WhatsApp No Es Solo para Chatear.<br>
+                        <span class="gradient-text">Es Tu Nuevo Canal de Ventas.</span>
+                    </h2>
+                    <p class="text-xl text-text-secondary max-w-3xl mx-auto mt-6">
+                        78% de los negocios en LATAM usan WhatsApp para vender. Pero lo hacen manual, sin CRM, sin historial. <span class="text-white font-bold">Eso termina hoy.</span>
+                    </p>
+                </div>
+
+                <!-- Content Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-12">
+
+                    <!-- WhatsApp Inbox Mockup -->
+                    <div class="glass-card rounded-3xl p-6">
+                        <div class="flex items-center gap-3 mb-4 pb-4 border-b border-white/10">
+                            <svg class="w-8 h-8 text-[#25D366]" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                            </svg>
+                            <div>
+                                <div class="font-bold">WhatsApp Inbox</div>
+                                <div class="text-xs text-text-tertiary">Todas tus conversaciones</div>
+                            </div>
+                        </div>
+
+                        <!-- Conversations List -->
+                        <div class="space-y-2">
+                            <div class="glass-card rounded-xl p-3 hover:bg-white/5 cursor-pointer transition-all">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-electric to-emerald flex items-center justify-center flex-shrink-0 text-sm font-bold">
+                                        JG
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex justify-between items-start">
+                                            <div class="font-semibold">Juan García</div>
+                                            <div class="text-xs text-text-tertiary">10:45</div>
+                                        </div>
+                                        <div class="text-sm text-text-tertiary truncate">Hola! Vi que tienen el nuevo producto...</div>
+                                    </div>
+                                    <div class="w-5 h-5 rounded-full bg-emerald flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                        2
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="glass-card rounded-xl p-3 hover:bg-white/5 cursor-pointer transition-all">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-violet-subtle to-rose flex items-center justify-center flex-shrink-0 text-sm font-bold">
+                                        MR
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex justify-between items-start">
+                                            <div class="font-semibold">María Rodríguez</div>
+                                            <div class="text-xs text-text-tertiary">Ayer</div>
+                                        </div>
+                                        <div class="text-sm text-text-tertiary truncate flex items-center gap-1">
+                                            <svg class="w-4 h-4 text-cyan-electric" fill="currentColor" viewBox="0 0 20 20">
+                                                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
+                                                <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/>
+                                            </svg>
+                                            Leído
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="glass-card rounded-xl p-3 hover:bg-white/5 cursor-pointer transition-all border-l-2 border-[#25D366]">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-amber to-rose flex items-center justify-center flex-shrink-0">
+                                        <span class="text-xl">🤖</span>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex justify-between items-start">
+                                            <div class="font-semibold">Carlos López <span class="text-xs text-[#25D366]">(IA respondió)</span></div>
+                                            <div class="text-xs text-text-tertiary">14:20</div>
+                                        </div>
+                                        <div class="text-sm text-text-tertiary truncate">Orden creada automáticamente #1247</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Features Grid -->
+                    <div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                            <div class="glass-card rounded-xl p-6">
+                                <div class="text-3xl mb-3">📥</div>
+                                <h4 class="font-bold mb-2">Inbox Centralizado</h4>
+                                <p class="text-sm text-text-secondary">Todas las conversaciones en un lugar. Múltiples agentes pueden responder.</p>
+                            </div>
+
+                            <div class="glass-card rounded-xl p-6">
+                                <div class="text-3xl mb-3">🤖</div>
+                                <h4 class="font-bold mb-2">Auto-Respuestas IA</h4>
+                                <p class="text-sm text-text-secondary">El cliente pregunta por un producto a las 11pm. La IA responde al instante.</p>
+                            </div>
+
+                            <div class="glass-card rounded-xl p-6">
+                                <div class="text-3xl mb-3">📢</div>
+                                <h4 class="font-bold mb-2">Campañas Masivas</h4>
+                                <p class="text-sm text-text-secondary">Envía promociones a segmentos. "Clientes VIP que no compran hace 30 días."</p>
+                            </div>
+
+                            <div class="glass-card rounded-xl p-6">
+                                <div class="text-3xl mb-3">🛒</div>
+                                <h4 class="font-bold mb-2">Órdenes por WhatsApp</h4>
+                                <p class="text-sm text-text-secondary">Cliente pide → IA confirma → Orden creada → Factura enviada. Automático.</p>
+                            </div>
+
+                            <div class="glass-card rounded-xl p-6">
+                                <div class="text-3xl mb-3">📋</div>
+                                <h4 class="font-bold mb-2">Todo en el CRM</h4>
+                                <p class="text-sm text-text-secondary">Cada conversación queda en el perfil del cliente. Historial completo.</p>
+                            </div>
+
+                            <div class="glass-card rounded-xl p-6">
+                                <div class="text-3xl mb-3">📊</div>
+                                <h4 class="font-bold mb-2">Métricas</h4>
+                                <p class="text-sm text-text-secondary">Mensajes enviados, tasa de respuesta, conversiones. Mide lo que funciona.</p>
+                            </div>
+
+                        </div>
+
+                        <!-- Testimonial -->
+                        <div class="mt-6 glass-card rounded-xl p-6 border-emerald/30">
+                            <div class="flex gap-4">
+                                <div class="text-4xl flex-shrink-0">"</div>
+                                <div>
+                                    <p class="text-text-secondary italic mb-3">
+                                        Un cliente me escribió a las 2am preguntando si teníamos mesas disponibles. La IA respondió, tomó la reserva, y confirmó. Yo me enteré al día siguiente. El cliente llegó feliz.
+                                    </p>
+                                    <div class="font-bold">— Restaurante La Terraza</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Closing -->
+                        <div class="mt-6 text-center md:text-left">
+                            <div class="inline-flex items-center gap-2 text-lg font-bold">
+                                <span>💬</span>
+                                <span>Deja de ser esclavo del teléfono. SmartKubik responde por ti.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </section>
+
+        <!-- SECCIÓN 10: PRICING -->
+        <section id="pricing" class="py-24 px-4">
+            <div class="max-w-7xl mx-auto">
+
+                <!-- Headline -->
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl md:text-5xl font-bold mb-4">
+                        <span class="lang-es">Precio Simple. <span class="gradient-text">Todo Incluido.</span> Sin Trucos.</span>
+                        <span class="lang-en hidden">Simple Pricing. <span class="gradient-text">Everything Included.</span> No Tricks.</span>
+                    </h2>
+                    <p class="text-xl text-text-secondary max-w-2xl mx-auto mt-6">
+                        <span class="lang-es">98 módulos, IA incluida, WhatsApp nativo. Un precio.</span>
+                        <span class="lang-en hidden">98 modules, AI included, native WhatsApp. One price.</span>
+                    </p>
+                </div>
+
+                <!-- Pricing Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+
+                    <!-- Starter -->
+                    <div class="glass-card rounded-3xl p-8 hover:border-cyan-electric/30 transition-all">
+                        <div class="text-sm font-semibold text-text-tertiary mb-2">🌱 Starter</div>
+                        <div class="flex items-baseline gap-2 mb-6">
+                            <span class="text-5xl font-bold font-mono">$29</span>
+                            <span class="text-text-tertiary">/usuario/mes</span>
+                        </div>
+
+                        <ul class="space-y-3 mb-8">
+                            <li class="flex items-center gap-2 text-text-secondary">
+                                <svg class="w-5 h-5 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                1-5 usuarios
+                            </li>
+                            <li class="flex items-center gap-2 text-text-secondary">
+                                <svg class="w-5 h-5 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Todos los módulos
+                            </li>
+                            <li class="flex items-center gap-2 text-text-secondary">
+                                <svg class="w-5 h-5 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                1 ubicación
+                            </li>
+                            <li class="flex items-center gap-2 text-text-secondary">
+                                <svg class="w-5 h-5 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Soporte por email
+                            </li>
+                            <li class="flex items-center gap-2 text-text-secondary">
+                                <svg class="w-5 h-5 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                WhatsApp incluido
+                            </li>
+                            <li class="flex items-center gap-2 text-text-secondary">
+                                <svg class="w-5 h-5 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                IA incluida
+                            </li>
+                        </ul>
+
+                        <button class="w-full glass-card px-6 py-3 rounded-xl font-semibold hover:bg-white/10 transition-all">
+                            Empezar Gratis →
+                        </button>
+                    </div>
+
+                    <!-- Professional (Destacado) -->
+                    <div class="glass-card rounded-3xl p-8 border-cyan-electric/50 relative transform md:scale-105 bg-gradient-to-br from-cyan-electric/5 to-emerald/5">
+                        <!-- Badge -->
+                        <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-main px-4 py-1 rounded-full text-sm font-bold whitespace-nowrap">
+                            Más Popular
+                        </div>
+
+                        <div class="text-sm font-semibold text-cyan-electric mb-2">🚀 Professional</div>
+                        <div class="flex items-baseline gap-2 mb-6">
+                            <span class="text-5xl font-bold font-mono">$59</span>
+                            <span class="text-text-tertiary">/usuario/mes</span>
+                        </div>
+
+                        <ul class="space-y-3 mb-8">
+                            <li class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-cyan-electric flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                6-20 usuarios
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-cyan-electric flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Todos los módulos
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-cyan-electric flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Multi-ubicación
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-cyan-electric flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Soporte prioritario
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-cyan-electric flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                WhatsApp incluido
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-cyan-electric flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                IA incluida
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-cyan-electric flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Reportes avanzados
+                            </li>
+                        </ul>
+
+                        <button class="w-full bg-gradient-main text-white px-6 py-3 rounded-xl font-bold hover:shadow-[0_0_30px_rgba(6,182,212,0.6)] transition-all">
+                            Empezar Gratis →
+                        </button>
+                    </div>
+
+                    <!-- Enterprise -->
+                    <div class="glass-card rounded-3xl p-8 hover:border-cyan-electric/30 transition-all">
+                        <div class="text-sm font-semibold text-text-tertiary mb-2">🏢 Enterprise</div>
+                        <div class="flex items-baseline gap-2 mb-6">
+                            <span class="text-5xl font-bold font-mono">$99</span>
+                            <span class="text-text-tertiary">/usuario/mes</span>
+                        </div>
+
+                        <ul class="space-y-3 mb-8">
+                            <li class="flex items-center gap-2 text-text-secondary">
+                                <svg class="w-5 h-5 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                21+ usuarios
+                            </li>
+                            <li class="flex items-center gap-2 text-text-secondary">
+                                <svg class="w-5 h-5 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Todos los módulos
+                            </li>
+                            <li class="flex items-center gap-2 text-text-secondary">
+                                <svg class="w-5 h-5 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Ubicaciones ilimitadas
+                            </li>
+                            <li class="flex items-center gap-2 text-text-secondary">
+                                <svg class="w-5 h-5 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Soporte dedicado
+                            </li>
+                            <li class="flex items-center gap-2 text-text-secondary">
+                                <svg class="w-5 h-5 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                WhatsApp incluido
+                            </li>
+                            <li class="flex items-center gap-2 text-text-secondary">
+                                <svg class="w-5 h-5 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                IA incluida
+                            </li>
+                            <li class="flex items-center gap-2 text-text-secondary">
+                                <svg class="w-5 h-5 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Integraciones custom
+                            </li>
+                            <li class="flex items-center gap-2 text-text-secondary">
+                                <svg class="w-5 h-5 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                SLA garantizado
+                            </li>
+                        </ul>
+
+                        <button class="w-full glass-card px-6 py-3 rounded-xl font-semibold hover:bg-white/10 transition-all">
+                            Contactar Ventas →
+                        </button>
+                    </div>
+
+                </div>
+
+                <!-- Sin Sorpresas -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
+                    <div class="glass-card rounded-xl p-4 flex items-center gap-3">
+                        <svg class="w-5 h-5 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="text-text-secondary">Sin costo de setup</span>
+                    </div>
+                    <div class="glass-card rounded-xl p-4 flex items-center gap-3">
+                        <svg class="w-5 h-5 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="text-text-secondary">Sin cargos por módulos</span>
+                    </div>
+                    <div class="glass-card rounded-xl p-4 flex items-center gap-3">
+                        <svg class="w-5 h-5 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="text-text-secondary">Sin límite de transacciones</span>
+                    </div>
+                    <div class="glass-card rounded-xl p-4 flex items-center gap-3">
+                        <svg class="w-5 h-5 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="text-text-secondary">Cancela cuando quieras</span>
+                    </div>
+                    <div class="glass-card rounded-xl p-4 flex items-center gap-3">
+                        <svg class="w-5 h-5 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="text-text-secondary">Migración gratis</span>
+                    </div>
+                    <div class="glass-card rounded-xl p-4 flex items-center gap-3">
+                        <svg class="w-5 h-5 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="text-text-secondary">20% descuento anual</span>
+                    </div>
+                </div>
+
+                <!-- Calculadora -->
+                <div class="glass-card rounded-3xl p-8 md:p-12 max-w-3xl mx-auto">
+                    <h3 class="text-2xl font-bold mb-6 text-center">Calculadora Interactiva</h3>
+
+                    <div class="mb-6">
+                        <label class="block text-text-secondary mb-3">¿Cuántos usuarios tienes?</label>
+                        <input type="range" min="1" max="30" value="8" class="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-cyan-electric" id="userSlider">
+                        <div class="text-center mt-2">
+                            <span class="text-4xl font-bold font-mono" id="userCount">8</span>
+                            <span class="text-text-tertiary ml-2">usuarios</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div class="text-center">
+                            <div class="text-sm text-text-tertiary mb-2">Tu costo mensual</div>
+                            <div class="text-5xl font-bold font-mono gradient-text" id="monthlyCost">$280</div>
+                            <div class="text-xs text-text-tertiary mt-1">/mes</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-sm text-text-tertiary mb-2">Vs. alternativas fragmentadas</div>
+                            <div class="text-5xl font-bold font-mono text-text-tertiary line-through">~$1,200</div>
+                            <div class="text-xs text-text-tertiary mt-1">/mes</div>
+                        </div>
+                    </div>
+
+                    <div class="text-center glass-card rounded-2xl p-6 bg-gradient-to-br from-emerald/10 to-cyan-electric/10 border-emerald/30">
+                        <div class="text-sm text-text-secondary mb-2">Ahorras</div>
+                        <div class="text-4xl font-bold text-emerald mb-1" id="savings">$920</div>
+                        <div class="text-lg text-text-secondary">
+                            = <span class="font-bold text-emerald" id="annualSavings">$11,040</span>/año 🎉
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- SECCIÓN 13: URGENCIA SUAVE -->
+        <section class="py-24 px-4 bg-gradient-to-b from-black/40 to-black/20">
+            <div class="max-w-7xl mx-auto">
+
+                <!-- Headline -->
+                <div class="text-center mb-12">
+                    <h2 class="text-4xl md:text-5xl font-bold mb-6">
+                        Cada Día que Pasa,<br>
+                        <span class="gradient-text">Tu Negocio Pierde Dinero en Ineficiencias</span>
+                    </h2>
+                </div>
+
+                <!-- Grid de Pérdidas -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                    <div class="glass-card rounded-2xl p-8 text-center border-amber/20">
+                        <div class="text-5xl mb-4">⏰</div>
+                        <div class="text-3xl font-bold font-mono mb-2">3 horas/día</div>
+                        <p class="text-text-secondary">contestando WhatsApp manualmente</p>
+                    </div>
+                    <div class="glass-card rounded-2xl p-8 text-center border-amber/20">
+                        <div class="text-5xl mb-4">💸</div>
+                        <div class="text-3xl font-bold font-mono mb-2">$500+/mes</div>
+                        <p class="text-text-secondary">en suscripciones fragmentadas</p>
+                    </div>
+                    <div class="glass-card rounded-2xl p-8 text-center border-amber/20">
+                        <div class="text-5xl mb-4">📉</div>
+                        <div class="text-3xl font-bold font-mono mb-2">20% de ventas</div>
+                        <p class="text-text-secondary">perdidas por inventario mal manejado</p>
+                    </div>
+                </div>
+
+                <!-- Texto Emocional -->
+                <div class="max-w-3xl mx-auto text-center mb-12">
+                    <p class="text-xl text-text-secondary leading-relaxed mb-6">
+                        No es que no puedas seguir como estás. Puedes. Pero cada mes que pasa sin un sistema integrado es un mes de dinero perdido, tiempo desperdiciado, y estrés acumulado.
+                    </p>
+                    <p class="text-2xl font-bold">
+                        La pregunta no es SI necesitas SmartKubik. Es <span class="gradient-text">cuánto más vas a esperar</span>.
+                    </p>
+                </div>
+
+                <!-- CTA con Valor Agregado -->
+                <div class="max-w-2xl mx-auto glass-card rounded-3xl p-8 md:p-12 border-cyan-electric/30 bg-gradient-to-br from-cyan-electric/5 to-emerald/5">
+                    <div class="flex items-center gap-3 mb-6">
+                        <span class="text-4xl">🎁</span>
+                        <h3 class="text-2xl font-bold">Empieza hoy y recibe:</h3>
+                    </div>
+
+                    <ul class="space-y-3 mb-8">
+                        <li class="flex items-center gap-3">
+                            <svg class="w-6 h-6 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                            <span class="text-lg">Setup guiado gratis <span class="text-text-tertiary">(valor $200)</span></span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <svg class="w-6 h-6 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                            <span class="text-lg">Migración de datos incluida</span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <svg class="w-6 h-6 text-emerald flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                            <span class="text-lg">14 días sin tarjeta de crédito</span>
+                        </li>
+                    </ul>
+
+                    <button class="w-full bg-gradient-main text-white px-8 py-4 rounded-xl font-bold text-lg hover:shadow-[0_0_40px_rgba(6,182,212,0.6)] transition-all transform hover:scale-105">
+                        Empezar Mi Prueba Gratis →
+                    </button>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- SECCIÓN: FAQ -->
+        <section class="py-24 px-4 bg-black/20">
+            <div class="max-w-4xl mx-auto">
+
+                <!-- Headline -->
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl md:text-5xl font-bold mb-4">
+                        <span class="lang-es">Preguntas Frecuentes</span>
+                        <span class="lang-en hidden">Frequently Asked Questions</span>
+                    </h2>
+                    <p class="text-xl text-text-secondary">
+                        <span class="lang-es">Todo lo que necesitas saber</span>
+                        <span class="lang-en hidden">Everything you need to know</span>
+                    </p>
+                </div>
+
+                <!-- FAQ Accordion -->
+                <div class="space-y-4">
+
+                    <!-- FAQ 1 -->
+                    <div class="glass-card rounded-2xl overflow-hidden">
+                        <button class="faq-question w-full text-left px-8 py-6 flex justify-between items-center hover:bg-white/5 transition-all">
+                            <span class="text-lg font-bold">
+                                <span class="lang-es">¿Necesito conocimientos técnicos para usar SmartKubik?</span>
+                                <span class="lang-en hidden">Do I need technical knowledge to use SmartKubik?</span>
+                            </span>
+                            <svg class="faq-icon w-6 h-6 flex-shrink-0 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div class="faq-answer hidden px-8 pb-6">
+                            <p class="text-text-secondary">
+                                <span class="lang-es">No. SmartKubik está diseñado para dueños de negocio, no para programadores. Si sabes usar WhatsApp, puedes usar SmartKubik. Además, nuestro equipo te ayuda a configurar todo en menos de 15 minutos.</span>
+                                <span class="lang-en hidden">No. SmartKubik is designed for business owners, not programmers. If you can use WhatsApp, you can use SmartKubik. Plus, our team helps you set everything up in under 15 minutes.</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- FAQ 2 -->
+                    <div class="glass-card rounded-2xl overflow-hidden">
+                        <button class="faq-question w-full text-left px-8 py-6 flex justify-between items-center hover:bg-white/5 transition-all">
+                            <span class="text-lg font-bold">
+                                <span class="lang-es">¿Qué pasa con mis datos si cancelo?</span>
+                                <span class="lang-en hidden">What happens to my data if I cancel?</span>
+                            </span>
+                            <svg class="faq-icon w-6 h-6 flex-shrink-0 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div class="faq-answer hidden px-8 pb-6">
+                            <p class="text-text-secondary">
+                                <span class="lang-es">Tus datos son tuyos. Antes de cancelar, puedes exportar todo (inventario, clientes, ventas, contabilidad) en Excel o CSV. Y guardamos tu información por 90 días por si cambias de opinión.</span>
+                                <span class="lang-en hidden">Your data is yours. Before canceling, you can export everything (inventory, customers, sales, accounting) in Excel or CSV. And we keep your information for 90 days in case you change your mind.</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- FAQ 3 -->
+                    <div class="glass-card rounded-2xl overflow-hidden">
+                        <button class="faq-question w-full text-left px-8 py-6 flex justify-between items-center hover:bg-white/5 transition-all">
+                            <span class="text-lg font-bold">
+                                <span class="lang-es">¿Funciona sin internet?</span>
+                                <span class="lang-en hidden">Does it work offline?</span>
+                            </span>
+                            <svg class="faq-icon w-6 h-6 flex-shrink-0 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div class="faq-answer hidden px-8 pb-6">
+                            <p class="text-text-secondary">
+                                <span class="lang-es">Sí. El POS funciona sin internet y sincroniza automáticamente cuando vuelve la conexión. Esto es especialmente útil para negocios en zonas con internet inestable.</span>
+                                <span class="lang-en hidden">Yes. The POS works offline and automatically syncs when the connection returns. This is especially useful for businesses in areas with unstable internet.</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- FAQ 4 -->
+                    <div class="glass-card rounded-2xl overflow-hidden">
+                        <button class="faq-question w-full text-left px-8 py-6 flex justify-between items-center hover:bg-white/5 transition-all">
+                            <span class="text-lg font-bold">
+                                <span class="lang-es">¿Puedo empezar con algunos módulos y agregar más después?</span>
+                                <span class="lang-en hidden">Can I start with some modules and add more later?</span>
+                            </span>
+                            <svg class="faq-icon w-6 h-6 flex-shrink-0 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div class="faq-answer hidden px-8 pb-6">
+                            <p class="text-text-secondary">
+                                <span class="lang-es">Absolutamente. Muchos clientes empiezan solo con POS e Inventario, y luego activan Contabilidad, Nómina, etc. cuando están listos. Puedes activar/desactivar módulos en cualquier momento.</span>
+                                <span class="lang-en hidden">Absolutely. Many clients start with just POS and Inventory, then activate Accounting, Payroll, etc. when they're ready. You can activate/deactivate modules at any time.</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- FAQ 5 -->
+                    <div class="glass-card rounded-2xl overflow-hidden">
+                        <button class="faq-question w-full text-left px-8 py-6 flex justify-between items-center hover:bg-white/5 transition-all">
+                            <span class="text-lg font-bold">
+                                <span class="lang-es">¿Cómo funciona el soporte técnico?</span>
+                                <span class="lang-en hidden">How does technical support work?</span>
+                            </span>
+                            <svg class="faq-icon w-6 h-6 flex-shrink-0 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div class="faq-answer hidden px-8 pb-6">
+                            <p class="text-text-secondary">
+                                <span class="lang-es">Tienes soporte por WhatsApp, email y videollamada. En todos los planes. Tiempo de respuesta promedio: menos de 2 horas en días laborales. Y la IA integrada resuelve el 70% de las dudas al instante.</span>
+                                <span class="lang-en hidden">You have support via WhatsApp, email, and video call. On all plans. Average response time: less than 2 hours on business days. And the integrated AI solves 70% of questions instantly.</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- FAQ 6 -->
+                    <div class="glass-card rounded-2xl overflow-hidden">
+                        <button class="faq-question w-full text-left px-8 py-6 flex justify-between items-center hover:bg-white/5 transition-all">
+                            <span class="text-lg font-bold">
+                                <span class="lang-es">¿Cumple con las leyes fiscales de mi país?</span>
+                                <span class="lang-en hidden">Does it comply with my country's tax laws?</span>
+                            </span>
+                            <svg class="faq-icon w-6 h-6 flex-shrink-0 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div class="faq-answer hidden px-8 pb-6">
+                            <p class="text-text-secondary">
+                                <span class="lang-es">Sí. SmartKubik genera facturas electrónicas según las normativas de Venezuela, Colombia y México. También generamos reportes listos para tu contador (P&L, Balance, flujo de caja, retenciones, IVA, etc.).</span>
+                                <span class="lang-en hidden">Yes. SmartKubik generates electronic invoices according to the regulations of Venezuela, Colombia, and Mexico. We also generate reports ready for your accountant (P&L, Balance Sheet, cash flow, withholdings, VAT, etc.).</span>
+                            </p>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </section>
+
+        <!-- SECCIÓN 14: FOOTER CTA -->
+        <section class="py-24 px-4 bg-gradient-to-b from-black/20 to-deep-navy relative overflow-hidden">
+            <!-- Enhanced Gradient Background -->
+            <div class="absolute inset-0 bg-gradient-main opacity-10"></div>
+
+            <div class="max-w-4xl mx-auto text-center relative z-10">
+
+                <h2 class="text-5xl md:text-7xl font-bold mb-6">
+                    <span class="lang-es">¿Listo para Dejar de<br><span class="gradient-text">Administrar Caos?</span></span>
+                    <span class="lang-en hidden">Ready to Stop<br><span class="gradient-text">Managing Chaos?</span></span>
+                </h2>
+
+                <p class="text-2xl text-text-secondary mb-12">
+                    <span class="lang-es">Un sistema. Todo tu negocio. Desde $29/usuario/mes.</span>
+                    <span class="lang-en hidden">One system. Your entire business. From $29/user/month.</span>
+                </p>
+
+                <!-- Dual CTAs -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div class="glass-card rounded-2xl p-8 hover:border-cyan-electric/50 transition-all">
+                        <h3 class="text-2xl font-bold mb-3">
+                            <span class="lang-es">Prueba Gratis 14 Días</span>
+                            <span class="lang-en hidden">Free 14-Day Trial</span>
+                        </h3>
+                        <p class="text-text-secondary mb-6">
+                            <span class="lang-es">Sin tarjeta de crédito<br>Configura en 15 minutos<br>Empieza a vender hoy</span>
+                            <span class="lang-en hidden">No credit card required<br>Set up in 15 minutes<br>Start selling today</span>
+                        </p>
+                        <button class="w-full bg-gradient-main text-white px-6 py-3 rounded-xl font-bold hover:shadow-[0_0_30px_rgba(6,182,212,0.6)] transition-all">
+                            <span class="lang-es">Empezar Ahora →</span>
+                            <span class="lang-en hidden">Start Now →</span>
+                        </button>
+                    </div>
+
+                    <div class="glass-card rounded-2xl p-8 hover:border-emerald/50 transition-all">
+                        <h3 class="text-2xl font-bold mb-3">
+                            <span class="lang-es">Agendar Demo Personalizada</span>
+                            <span class="lang-en hidden">Schedule Custom Demo</span>
+                        </h3>
+                        <p class="text-text-secondary mb-6">
+                            <span class="lang-es">Hablamos de tu negocio específico<br>30 minutos con un experto<br>Te mostramos todo</span>
+                            <span class="lang-en hidden">We discuss your specific business<br>30 minutes with an expert<br>We show you everything</span>
+                        </p>
+                        <button class="w-full glass-card px-6 py-3 rounded-xl font-bold hover:bg-white/10 transition-all">
+                            <span class="lang-es">Agendar Demo →</span>
+                            <span class="lang-en hidden">Schedule Demo →</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Contact -->
+                <p class="text-text-tertiary">
+                    <span class="lang-es">¿Preguntas? Escríbenos por <a href="#" class="text-cyan-electric hover:underline">WhatsApp</a> o <a href="#" class="text-cyan-electric hover:underline">Email</a>. Respondemos en menos de 2 horas.</span>
+                    <span class="lang-en hidden">Questions? Write us on <a href="#" class="text-cyan-electric hover:underline">WhatsApp</a> or <a href="#" class="text-cyan-electric hover:underline">Email</a>. We respond in under 2 hours.</span>
+                </p>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-white/10 bg-black/50 backdrop-blur-xl py-16 px-4">
+        <div class="max-w-7xl mx-auto">
+
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-12 mb-12">
+
+                <!-- Brand -->
+                <div class="md:col-span-2">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-main flex items-center justify-center">
+                            <span class="text-deep-navy font-bold text-xl">S</span>
+                        </div>
+                        <span class="font-bold text-xl">SmartKubik</span>
+                    </div>
+                    <p class="text-text-secondary leading-relaxed mb-6">
+                        El último ERP que tu negocio necesitará.
+                    </p>
+                    <div class="flex gap-4">
+                        <a href="#" class="w-10 h-10 rounded-lg glass-card flex items-center justify-center hover:bg-white/10 transition-all">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84"/></svg>
+                        </a>
+                        <a href="#" class="w-10 h-10 rounded-lg glass-card flex items-center justify-center hover:bg-white/10 transition-all">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+                        </a>
+                        <a href="#" class="w-10 h-10 rounded-lg glass-card flex items-center justify-center hover:bg-white/10 transition-all">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- SmartKubik -->
+                <div>
+                    <h4 class="font-bold mb-4">SmartKubik</h4>
+                    <ul class="space-y-2 text-sm text-text-secondary">
+                        <li><a href="#" class="hover:text-cyan-electric transition-colors">Sobre Nosotros</a></li>
+                        <li><a href="#" class="hover:text-cyan-electric transition-colors">Contacto</a></li>
+                        <li><a href="#" class="hover:text-cyan-electric transition-colors">Trabaja con Nosotros</a></li>
+                    </ul>
+                </div>
+
+                <!-- Producto -->
+                <div>
+                    <h4 class="font-bold mb-4">Producto</h4>
+                    <ul class="space-y-2 text-sm text-text-secondary">
+                        <li><a href="#" class="hover:text-cyan-electric transition-colors">Módulos</a></li>
+                        <li><a href="#" class="hover:text-cyan-electric transition-colors">Precios</a></li>
+                        <li><a href="#" class="hover:text-cyan-electric transition-colors">Integraciones</a></li>
+                        <li><a href="#" class="hover:text-cyan-electric transition-colors">Seguridad</a></li>
+                    </ul>
+                </div>
+
+                <!-- Legal -->
+                <div>
+                    <h4 class="font-bold mb-4">Legal</h4>
+                    <ul class="space-y-2 text-sm text-text-secondary">
+                        <li><a href="#" class="hover:text-cyan-electric transition-colors">Términos</a></li>
+                        <li><a href="#" class="hover:text-cyan-electric transition-colors">Privacidad</a></li>
+                        <li><a href="#" class="hover:text-cyan-electric transition-colors">Cookies</a></li>
+                    </ul>
+                </div>
+
+            </div>
+
+            <!-- Bottom Bar -->
+            <div class="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="text-sm text-text-tertiary">
+                    © 2026 SmartKubik Inc. Todos los derechos reservados.
+                </div>
+                <div class="flex items-center gap-4 text-sm">
+                    <button class="text-text-secondary hover:text-text-primary transition-colors flex items-center gap-2">
+                        🇪🇸 Español
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </footer>
+
+    <!-- Simple Pricing Calculator Script -->
+    <script>
+        const slider = document.getElementById('userSlider');
+        const userCount = document.getElementById('userCount');
+        const monthlyCost = document.getElementById('monthlyCost');
+        const savings = document.getElementById('savings');
+        const annualSavings = document.getElementById('annualSavings');
+
+        slider.addEventListener('input', function() {
+            const users = parseInt(this.value);
+            userCount.textContent = users;
+
+            let pricePerUser = 29;
+            if (users >= 6 && users <= 20) {
+                pricePerUser = 59;
+            } else if (users >= 21) {
+                pricePerUser = 99;
+            }
+
+            const monthly = users * pricePerUser;
+            const alternative = users * 150; // Estimado de alternativas
+            const monthlySavings = alternative - monthly;
+            const yearly = monthlySavings * 12;
+
+            monthlyCost.textContent = `$${monthly}`;
+            savings.textContent = `$${monthlySavings}`;
+            annualSavings.textContent = `$${yearly.toLocaleString()}`;
+        });
+    </script>
+
+    <!-- Industry Tabs Script -->
+    <script>
+        // Industry tabs functionality
+        const industryTabs = document.querySelectorAll('.industry-tab');
+        const industryContents = document.querySelectorAll('.industry-content');
+
+        industryTabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                const targetIndustry = this.getAttribute('data-industry');
+
+                // Remove active state from all tabs
+                industryTabs.forEach(t => {
+                    t.classList.remove('border-b-2', 'border-cyan-electric');
+                    t.classList.add('border-b-2', 'border-transparent');
+                });
+
+                // Add active state to clicked tab
+                this.classList.remove('border-transparent');
+                this.classList.add('border-cyan-electric');
+
+                // Hide all content
+                industryContents.forEach(content => {
+                    content.classList.add('hidden');
+                    content.classList.remove('grid');
+                });
+
+                // Show target content
+                const targetContent = document.querySelector(`.industry-content[data-industry="${targetIndustry}"]`);
+                if (targetContent) {
+                    targetContent.classList.remove('hidden');
+                    targetContent.classList.add('grid');
+                }
+            });
+        });
+    </script>
+
+    <!-- FAQ Accordion Script -->
+    <script>
+        const faqQuestions = document.querySelectorAll('.faq-question');
+
+        faqQuestions.forEach(question => {
+            question.addEventListener('click', function() {
+                const answer = this.nextElementSibling;
+                const icon = this.querySelector('.faq-icon');
+
+                // Toggle answer visibility
+                answer.classList.toggle('hidden');
+
+                // Rotate icon
+                icon.classList.toggle('rotate-180');
+            });
+        });
+    </script>
+
+    <!-- Language Toggle Script -->
+    <script>
+        const langToggle = document.getElementById('langToggle');
+        let currentLang = 'es'; // Default language
+
+        langToggle.addEventListener('click', function() {
+            // Toggle language
+            currentLang = currentLang === 'es' ? 'en' : 'es';
+
+            // Hide all language elements
+            document.querySelectorAll('.lang-es, .lang-en').forEach(el => {
+                el.classList.add('hidden');
+            });
+
+            // Show current language elements
+            document.querySelectorAll(`.lang-${currentLang}`).forEach(el => {
+                el.classList.remove('hidden');
+            });
+
+            // Update document language attribute
+            document.documentElement.setAttribute('lang', currentLang);
+        });
+    </script>
+
+</body>
+
+</html>
