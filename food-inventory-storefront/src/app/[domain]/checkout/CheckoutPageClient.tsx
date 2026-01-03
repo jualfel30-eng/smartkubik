@@ -126,7 +126,7 @@ export function CheckoutPageClient({ config }: CheckoutPageClientProps) {
         items: cartItems.map((item) => ({
           productId: item.product._id,
           quantity: item.quantity,
-          price: item.unitPrice || item.product.price,
+          unitPrice: item.unitPrice || item.product.price,
           selectedUnit: item.selectedUnit,
           conversionFactor: item.conversionFactor,
         })),
@@ -279,9 +279,8 @@ export function CheckoutPageClient({ config }: CheckoutPageClientProps) {
                         name="customerName"
                         value={formData.customerName}
                         onChange={handleInputChange}
-                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${
-                          errors.customerName ? 'border-red-500' : isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
-                        }`}
+                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${errors.customerName ? 'border-red-500' : isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
+                          }`}
                       />
                       {errors.customerName && (
                         <p className="mt-1 text-sm text-red-400">{errors.customerName}</p>
@@ -299,9 +298,8 @@ export function CheckoutPageClient({ config }: CheckoutPageClientProps) {
                         name="customerEmail"
                         value={formData.customerEmail}
                         onChange={handleInputChange}
-                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${
-                          errors.customerEmail ? 'border-red-500' : isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
-                        }`}
+                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${errors.customerEmail ? 'border-red-500' : isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
+                          }`}
                       />
                       {errors.customerEmail && (
                         <p className="mt-1 text-sm text-red-400">{errors.customerEmail}</p>
@@ -319,9 +317,8 @@ export function CheckoutPageClient({ config }: CheckoutPageClientProps) {
                         name="customerPhone"
                         value={formData.customerPhone}
                         onChange={handleInputChange}
-                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${
-                          errors.customerPhone ? 'border-red-500' : isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
-                        }`}
+                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${errors.customerPhone ? 'border-red-500' : isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
+                          }`}
                       />
                       {errors.customerPhone && (
                         <p className="mt-1 text-sm text-red-400">{errors.customerPhone}</p>
@@ -339,9 +336,8 @@ export function CheckoutPageClient({ config }: CheckoutPageClientProps) {
                         name="customerAddress"
                         value={formData.customerAddress}
                         onChange={handleInputChange}
-                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${
-                          errors.customerAddress ? 'border-red-500' : isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
-                        }`}
+                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${errors.customerAddress ? 'border-red-500' : isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
+                          }`}
                       />
                       {errors.customerAddress && (
                         <p className="mt-1 text-sm text-red-400">{errors.customerAddress}</p>
@@ -359,9 +355,8 @@ export function CheckoutPageClient({ config }: CheckoutPageClientProps) {
                         value={formData.notes}
                         onChange={handleInputChange}
                         rows={3}
-                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${
-                          isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
-                        }`}
+                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
+                          }`}
                         placeholder="Instrucciones especiales, referencias, etc."
                       />
                     </div>

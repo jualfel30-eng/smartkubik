@@ -73,14 +73,12 @@ export async function configureApp(
   const envAllowedOrigins = corsOrigin ? corsOrigin.split(",") : [];
 
   // En desarrollo, permitir cualquier puerto localhost
-  const allowedOrigins =
-    process.env.NODE_ENV !== "production"
-      ? [
-        ...envAllowedOrigins,
-        /^http:\/\/localhost:\d+$/,
-        /^http:\/\/127\.0\.0\.1:\d+$/,
-      ]
-      : envAllowedOrigins;
+  // Permitir localhost en todos los entornos para facilitar pruebas locales contra producción
+  const allowedOrigins = [
+    ...envAllowedOrigins,
+    /^http:\/\/localhost:\d+$/,
+    /^http:\/\/127\.0\.0\.1:\d+$/,
+  ];
 
   app.enableCors({
     origin: allowedOrigins,

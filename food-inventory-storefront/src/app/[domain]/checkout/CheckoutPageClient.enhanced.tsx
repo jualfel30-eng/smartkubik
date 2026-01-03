@@ -243,7 +243,7 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
         items: cartItems.map((item) => ({
           productId: item.product._id,
           quantity: item.quantity,
-          price: item.unitPrice || item.product.price,
+          unitPrice: item.unitPrice || item.product.price,
           selectedUnit: item.selectedUnit,
           conversionFactor: item.conversionFactor,
         })),

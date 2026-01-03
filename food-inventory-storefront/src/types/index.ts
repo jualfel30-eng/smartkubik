@@ -116,7 +116,7 @@ export interface OrderData {
   items: {
     productId: string;
     quantity: number;
-    price: number;
+    unitPrice: number;
     selectedUnit?: string;
     conversionFactor?: number;
   }[];
