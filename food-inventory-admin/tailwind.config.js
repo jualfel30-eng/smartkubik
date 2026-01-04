@@ -19,7 +19,7 @@ module.exports = {
     extend: {
       fontFamily: {
         'inter': ['Inter', 'sans-serif'],
-        'display': ['Rubik', 'sans-serif'],
+        'display': ['Plus Jakarta Sans', 'Rubik', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -54,6 +54,22 @@ module.exports = {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        // Custom colors from landing-backup.html
+        navy: {
+          900: '#0A0F1C',
+          800: '#0F172A',
+          700: '#1E293B',
+        },
+        'deep-navy': '#0A0F1C',
+        'slate-surface': '#0F172A',
+        'slate-surface-2': '#1E293B',
+        'cyan-electric': '#06B6D4',
+        'violet-subtle': '#8B5CF6',
+        text: {
+          primary: '#F8FAFC',
+          secondary: '#94A3B8',
+          tertiary: '#64748B',
         },
       },
       keyframes: {

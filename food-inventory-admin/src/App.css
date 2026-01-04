@@ -113,12 +113,15 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
-    @apply bg-background text-foreground;
+    background-color: #0A0F1C !important;
+    color: #F8FAFC !important;
   }
 }
 
 @layer components {
+
   /* Force consistent icon size in sidebar - always 20px */
   [data-sidebar="menu-button"] svg {
     width: 20px !important;
@@ -132,7 +135,7 @@
 
 /* Custom styles for FullCalendar */
 .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-frame {
-    background-color: oklch(var(--primary) / 0.1);
+  background-color: oklch(var(--primary) / 0.1);
 }
 
 /* Grid styles */
@@ -156,27 +159,32 @@
   color: white !important;
   border: none !important;
   transition: background-color 0.2s;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
 }
+
 .fc .fc-button-primary:hover {
   background-color: #F97316 !important;
 }
+
 .fc .fc-button-primary:disabled {
   background-color: oklch(var(--muted)) !important;
   color: oklch(var(--muted-foreground) / 0.5) !important;
 }
+
 .fc .fc-button-primary:not(:disabled).fc-button-active,
 .fc .fc-button-primary:not(:disabled):active {
   background-color: #EA580C !important;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.15);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 .dark .fc .fc-button-primary {
-   background-color: #FB923C !important;
+  background-color: #FB923C !important;
 }
+
 .dark .fc .fc-button-primary:hover {
   background-color: #F97316 !important;
 }
+
 .dark .fc .fc-button-primary:not(:disabled).fc-button-active,
 .dark .fc .fc-button-primary:not(:disabled):active {
   background-color: #EA580C !important;
@@ -188,6 +196,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -195,7 +204,54 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
+@keyframes glow-pulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 5px rgba(6, 182, 212, 0.2);
+  }
+
+  50% {
+    box-shadow: 0 0 20px rgba(6, 182, 212, 0.6);
+  }
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+/* Glass Card Global Definition (Interactive) */
+.glass-card {
+  background-color: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  /* ... */
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transform: translateZ(0);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  border-color: rgba(6, 182, 212, 0.5);
+  box-shadow: 0 8px 32px rgba(6, 182, 212, 0.15), 0 0 0 1px rgba(6, 182, 212, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+/* Glass Panel (Static - No Hover Effect) */
+.glass-panel {
+  background-color: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
