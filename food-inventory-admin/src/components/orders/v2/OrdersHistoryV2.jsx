@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -10,7 +12,7 @@ import { PaymentDialogV2 } from './PaymentDialogV2';
 import { OrderStatusSelector } from './OrderStatusSelector';
 import { OrderDetailsDialog } from './OrderDetailsDialog';
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Search, Download, ChefHat, Settings } from "lucide-react";
+import { RefreshCw, Search, Download, ChefHat, Settings, PlusCircle } from "lucide-react";
 import BillingDrawer from '@/components/billing/BillingDrawer';
 import { OrderProcessingDrawer } from '../OrderProcessingDrawer';
 import { useDebounce } from '@/hooks/use-debounce.js';
@@ -29,6 +31,7 @@ const paymentStatusMap = {
 };
 
 export function OrdersHistoryV2() {
+    const navigate = useNavigate();
     const { loadCustomers } = useCrmContext();
     const { tenant, token } = useAuth();
     const verticalConfig = useVerticalConfig();
@@ -427,6 +430,7 @@ export function OrdersHistoryV2() {
         return baseColumns;
     }, [handleOpenProcessingDrawer, restaurantEnabled, sendToKitchen, handleRefresh]);
 
+
     return (
         <div className="space-y-8">
             <div className="flex items-center justify-between">
@@ -436,6 +440,10 @@ export function OrdersHistoryV2() {
                         Consulta, busca y administra todas las órdenes registradas en el sistema.
                     </p>
                 </div>
+                <Button variant="outline" className="gap-2" onClick={() => navigate('/orders/new')}>
+                    <PlusCircle className="h-4 w-4" />
+                    Crear Nueva Orden
+                </Button>
             </div>
 
             <Card>

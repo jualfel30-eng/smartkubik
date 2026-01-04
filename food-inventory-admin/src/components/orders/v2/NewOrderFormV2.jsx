@@ -1144,7 +1144,6 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
     try {
       const response = await fetchApi('/orders', { method: 'POST', body: JSON.stringify(payload) });
       const createdOrder = response.data || response;
-      alert('¡Orden creada con éxito!');
       setNewOrder(initialOrderState);
       setCustomerNameInput('');
       setCustomerRifInput('');

@@ -92,12 +92,16 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
 
     try {
       const updated = await fetchApi(`/orders/${idToFetch}`);
+      if (!updated || !updated._id) {
+        throw new Error("Received invalid order data");
+      }
       // Create a completely new object to force React re-render
       setOrderData({ ...updated });
       if (onUpdate) onUpdate();
       return updated;
     } catch (error) {
       console.error('Error refreshing order:', error);
+      // Do NOT set empty object if error occurs, keep previous data
       return null;
     }
   };

@@ -4,7 +4,12 @@ import { toast } from 'sonner';
 import { OrderProcessingDrawer } from '../OrderProcessingDrawer';
 import { fetchApi } from '@/lib/api';
 
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { History } from 'lucide-react';
+
 export function OrdersPOS() {
+    const navigate = useNavigate();
     const [isProcessingDrawerOpen, setIsProcessingDrawerOpen] = useState(false);
     const [selectedOrderForProcessing, setSelectedOrderForProcessing] = useState(null);
 
@@ -35,6 +40,10 @@ export function OrdersPOS() {
                         Punto de Venta (POS)
                     </p>
                 </div>
+                <Button variant="outline" className="gap-2" onClick={() => navigate('/orders/history')}>
+                    <History className="h-4 w-4" />
+                    Historial de Órdenes
+                </Button>
             </div>
 
             <NewOrderFormV2 onOrderCreated={handleOrderCreated} />

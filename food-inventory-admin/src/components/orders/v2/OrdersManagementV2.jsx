@@ -442,106 +442,123 @@ export function OrdersManagementV2() {
     }
   };
 
+  const [activeView, setActiveView] = useState('create');
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold">Gestión de Pedidos</h1>
           <p className="text-muted-foreground">
-            Crea nuevas órdenes y administra el historial de pedidos.
+            {activeView === 'create'
+              ? 'Crear nuevas órdenes y gestionar ventas.'
+              : 'Consulta y administra el historial de pedidos.'}
           </p>
+        </div>
+        <div>
+          {activeView === 'create' ? (
+            <Button variant="outline" onClick={() => setActiveView('history')}>
+              Historial de Órdenes
+            </Button>
+          ) : (
+            <Button onClick={() => setActiveView('create')}>
+              Crear Nueva Orden
+            </Button>
+          )}
         </div>
       </div>
 
-      <NewOrderFormV2 onOrderCreated={handleOrderCreated} />
-
-      <Card>
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <CardTitle>Historial de Órdenes</CardTitle>
-            <CardDescription>
-              Consulta, busca y administra todas las órdenes registradas.
-            </CardDescription>
-          </div>
-          <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
-            <div className="relative w-full sm:w-auto">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Buscar por cliente, RIF o N°..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8 w-full sm:w-[300px]"
-              />
+      {activeView === 'create' ? (
+        <NewOrderFormV2 onOrderCreated={handleOrderCreated} />
+      ) : (
+        <Card>
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <CardTitle>Historial de Órdenes</CardTitle>
+              <CardDescription>
+                Consulta, busca y administra todas las órdenes registradas.
+              </CardDescription>
             </div>
-            <Button variant="outline" size="sm" onClick={handleExportOrders} className="w-full sm:w-auto">
-              <Download className="h-4 w-4 mr-2" />
-              Exportar CSV
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading} className="w-full sm:w-auto">
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Actualizar
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {attributeOptions.length > 0 && (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-end">
-              <div className="space-y-2">
-                <Label htmlFor="order-attribute-key">Atributo</Label>
-                <Select
-                  id="order-attribute-key"
-                  value={attributeKey}
-                  onValueChange={setAttributeKey}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona atributo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {attributeOptions.map((option) => (
-                      <SelectItem key={option.key} value={option.key}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="order-attribute-value">Valor contiene</Label>
+            <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+              <div className="relative w-full sm:w-auto">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  id="order-attribute-value"
-                  value={attributeValue}
-                  onChange={(event) => setAttributeValue(event.target.value)}
-                  placeholder="Ej: Azul, 38, serial..."
+                  type="search"
+                  placeholder="Buscar por cliente, RIF o N°..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8 w-full sm:w-[300px]"
                 />
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleClearAttributeFilter}
-                  disabled={!attributeKey && !attributeValue}
-                  className="w-full sm:w-auto"
-                >
-                  Limpiar filtro
-                </Button>
-              </div>
+              <Button variant="outline" size="sm" onClick={handleExportOrders} className="w-full sm:w-auto">
+                <Download className="h-4 w-4 mr-2" />
+                Exportar CSV
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading} className="w-full sm:w-auto">
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Actualizar
+              </Button>
             </div>
-          )}
-          {loading && <p>Cargando órdenes...</p>}
-          {error && <p className="text-red-500">Error al cargar las órdenes: {error}</p>}
-          {!loading && !error && (
-            <OrdersDataTableV2
-              columns={columns}
-              data={data.orders}
-              pagination={data.pagination}
-              onPageChange={handlePageChange}
-              pageLimit={pageLimit}
-              onPageLimitChange={handlePageLimitChange}
-            />
-          )}
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {attributeOptions.length > 0 && (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-end">
+                <div className="space-y-2">
+                  <Label htmlFor="order-attribute-key">Atributo</Label>
+                  <Select
+                    id="order-attribute-key"
+                    value={attributeKey}
+                    onValueChange={setAttributeKey}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona atributo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {attributeOptions.map((option) => (
+                        <SelectItem key={option.key} value={option.key}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="order-attribute-value">Valor contiene</Label>
+                  <Input
+                    id="order-attribute-value"
+                    value={attributeValue}
+                    onChange={(event) => setAttributeValue(event.target.value)}
+                    placeholder="Ej: Azul, 38, serial..."
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearAttributeFilter}
+                    disabled={!attributeKey && !attributeValue}
+                    className="w-full sm:w-auto"
+                  >
+                    Limpiar filtro
+                  </Button>
+                </div>
+              </div>
+            )}
+            {loading && <p>Cargando órdenes...</p>}
+            {error && <p className="text-red-500">Error al cargar las órdenes: {error}</p>}
+            {!loading && !error && (
+              <OrdersDataTableV2
+                columns={columns}
+                data={data.orders}
+                pagination={data.pagination}
+                onPageChange={handlePageChange}
+                pageLimit={pageLimit}
+                onPageLimitChange={handlePageLimitChange}
+              />
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <PaymentDialogV2
         isOpen={isPaymentDialogOpen}
