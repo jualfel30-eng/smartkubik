@@ -3,94 +3,109 @@ import { Link } from 'react-router-dom';
 import SmartKubikLogoDark from '@/assets/logo-smartkubik.png';
 import LightRaysCanvas from '../components/LightRaysCanvas';
 
-// Inject Keyframes and Global Styles from V4
-const styleSheet = document.createElement('style');
-styleSheet.textContent = `
-  /* Global body styles to match backup */
-  body {
-    background-color: #0A0F1C !important;
-    color: #F8FAFC !important;
-  }
-
-  /* Custom color classes */
-  .bg-navy-900 { background-color: #0A0F1C !important; }
-  .bg-navy-800 { background-color: #0F172A !important; }
-  .bg-navy-700 { background-color: #1E293B !important; }
-  .text-cyan-electric { color: #06B6D4 !important; }
-  .bg-cyan-electric { background-color: #06B6D4 !important; }
-  .border-cyan-electric { border-color: #06B6D4 !important; }
-  .text-text-secondary { color: #94A3B8 !important; }
-
-  /* Section 6 AI background gradient fix */
-  #ia > div:first-child {
-    background: linear-gradient(to right, rgba(8, 51, 68, 0.2), #0A0F1C, rgba(88, 28, 135, 0.2)) !important;
-  }
-
-  /* Button styles from backup */
-  .btn-primary {
-    background: linear-gradient(135deg, #06B6D4, #10B981) !important;
-    box-shadow: 0 0 30px rgba(6, 182, 212, 0.4) !important;
-    transition: all 0.3s ease !important;
-  }
-
-  .btn-primary:hover {
-    transform: translateY(-2px) scale(1.02) !important;
-    box-shadow: 0 0 50px rgba(6, 182, 212, 0.6) !important;
-  }
-
-  /* Glass card styles from backup - but NOT for stack-card elements */
-  .glass-card:not(.stack-card) {
-    background: rgba(255, 255, 255, 0.03) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
-    transform: translate3d(0, 0, 0) !important;
-    -webkit-transform: translate3d(0, 0, 0) !important;
-    backface-visibility: hidden !important;
-    -webkit-backface-visibility: hidden !important;
-    will-change: auto !important;
-    transition: all 0.3s ease !important;
-  }
-
-  .glass-card:not(.stack-card):hover {
-    border-color: rgba(6, 182, 212, 0.3) !important;
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.4),
-      0 0 0 1px rgba(6, 182, 212, 0.2),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
-  }
-
-  /* Animations */
-  @keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-20px); }
-  }
-  @keyframes bounce {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
-  }
-  .animate-float { animation: float 8s ease-in-out infinite; }
-  .animate-bounce-custom { animation: bounce 3s ease-in-out infinite; }
-  .perspective-container { perspective: 1000px; }
-  .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); }
-  .glass-card { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
-  .stack-card { will-change: transform, opacity; transition: transform 0.1s linear, opacity 0.1s linear; }
-  .rotate-y-12 { transform: rotateY(12deg) rotateX(6deg); }
-  .hover-rotate-0:hover { transform: rotateY(0deg) rotateX(0deg) !important; }
-  @keyframes pulse-slow { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
-  .animate-pulse-slow { animation: pulse-slow 4s ease-in-out infinite; }
-  .text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500 { background: linear-gradient(to right, #06B6D4, #A855F7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-  @keyframes pulse-glow { 0%, 100% { filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.3)); } 50% { filter: drop-shadow(0 0 20px rgba(168, 85, 247, 0.5)); } }
-  .animate-pulse-glow { animation: pulse-glow 3s ease-in-out infinite; }
-`;
-document.head.appendChild(styleSheet);
-
 const SmartKubikLanding = () => {
     const [language, setLanguage] = useState('es');
     const [isDashboardHovered, setIsDashboardHovered] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [activeStep, setActiveStep] = useState(1);
+
+    // Inject critical styles on mount
+    useEffect(() => {
+        const styleId = 'smartkubik-custom-styles';
+        // Remove existing style if present to ensure fresh update
+        const existingStyle = document.getElementById(styleId);
+        if (existingStyle) {
+            existingStyle.remove();
+        }
+
+        const styleSheet = document.createElement('style');
+        styleSheet.id = styleId;
+        styleSheet.textContent = `
+          /* Global body styles to match backup */
+          body {
+            background-color: #0A0F1C !important;
+            color: #F8FAFC !important;
+          }
+
+          /* Custom color classes */
+          .bg-navy-900 { background-color: #0A0F1C !important; }
+          .bg-navy-800 { background-color: #0F172A !important; }
+          .bg-navy-700 { background-color: #1E293B !important; }
+          .text-cyan-electric { color: #06B6D4 !important; }
+          .bg-cyan-electric { background-color: #06B6D4 !important; }
+          .border-cyan-electric { border-color: #06B6D4 !important; }
+          .text-text-secondary { color: #94A3B8 !important; }
+
+          /* Section 6 AI background gradient fix */
+          #ia > div:first-child {
+            background: linear-gradient(to right, rgba(8, 51, 68, 0.2), #0A0F1C, rgba(88, 28, 135, 0.2)) !important;
+          }
+
+          /* Button styles from backup */
+          .btn-primary {
+            background: linear-gradient(135deg, #06B6D4, #10B981) !important;
+            box-shadow: 0 0 30px rgba(6, 182, 212, 0.4) !important;
+            transition: all 0.3s ease !important;
+          }
+
+          .btn-primary:hover {
+            transform: translateY(-2px) scale(1.02) !important;
+            box-shadow: 0 0 50px rgba(6, 182, 212, 0.6) !important;
+          }
+
+          /* Glass card styles from backup - but NOT for stack-card elements */
+          .glass-card:not(.stack-card) {
+            background: rgba(255, 255, 255, 0.03) !important;
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
+            transform: translate3d(0, 0, 0) !important;
+            -webkit-transform: translate3d(0, 0, 0) !important;
+            backface-visibility: hidden !important;
+            -webkit-backface-visibility: hidden !important;
+            will-change: auto !important;
+            transition: all 0.3s ease !important;
+          }
+
+          .glass-card:not(.stack-card):hover {
+            border-color: rgba(6, 182, 212, 0.5) !important;
+            border-width: 2px !important;
+            box-shadow:
+              0 8px 32px rgba(6, 182, 212, 0.15),
+              0 0 0 1px rgba(6, 182, 212, 0.35),
+              inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+          }
+
+          /* Animations */
+          @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+          }
+          @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+          }
+          .animate-float { animation: float 8s ease-in-out infinite; }
+          .animate-bounce-custom { animation: bounce 3s ease-in-out infinite; }
+          .perspective-container { perspective: 1000px; }
+          .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); }
+          .stack-card { will-change: transform, opacity; transition: transform 0.1s linear, opacity 0.1s linear; }
+          .rotate-y-12 { transform: rotateY(12deg) rotateX(6deg); }
+          .hover-rotate-0:hover { transform: rotateY(0deg) rotateX(0deg) !important; }
+          @keyframes pulse-slow { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; } }
+          .animate-pulse-slow { animation: pulse-slow 4s ease-in-out infinite; }
+          .text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500 { background: linear-gradient(to right, #06B6D4, #A855F7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+          @keyframes pulse-glow { 0%, 100% { filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.3)); } 50% { filter: drop-shadow(0 0 20px rgba(168, 85, 247, 0.5)); } }
+          .animate-pulse-glow { animation: pulse-glow 3s ease-in-out infinite; }
+        `;
+        document.head.appendChild(styleSheet);
+
+        return () => {
+            const style = document.getElementById(styleId);
+            if (style) {
+                style.remove();
+            }
+        };
+    }, []);
 
     // Section 6 Sticky Scroll Observer
     useEffect(() => {
@@ -2041,7 +2056,7 @@ const SmartKubikLanding = () => {
             </div>
         </section >
         {/*  SECTION 7: WHATSAPP INTEGRATED  */}
-        < section className="py-24 bg-navy-900 border-t border-white/5 relative" >
+        < section id="whatsapp" className="py-24 bg-navy-900 border-t border-white/5 relative" >
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
                 <div className="text-center mb-16">
                     <div
@@ -2166,7 +2181,7 @@ const SmartKubikLanding = () => {
 
                     {/*  Features Grid  */}
                     <div className="grid sm:grid-cols-2 gap-6">
-                        <div className="glass-card p-5 rounded-xl border-l-[3px] border-l-[#25D366]">
+                        <div className="glass-card p-5 rounded-xl">
                             <h4 className="font-bold text-white mb-2 lang-es">📥 Inbox Centralizado</h4>
                             <h4 className="font-bold text-white mb-2 lang-en hidden">📥 Centralized Inbox</h4>
                             <p className="text-sm text-gray-400 lang-es">Todas las conversaciones en un lugar. Múltiples
@@ -2176,7 +2191,7 @@ const SmartKubikLanding = () => {
                                 agents
                                 can respond.</p>
                         </div>
-                        <div className="glass-card p-5 rounded-xl border-l-[3px] border-l-[#25D366]">
+                        <div className="glass-card p-5 rounded-xl">
                             <h4 className="font-bold text-white mb-2 lang-es">🤖 Auto-Respuestas IA</h4>
                             <h4 className="font-bold text-white mb-2 lang-en hidden">🤖 AI Auto-Replies</h4>
                             <p className="text-sm text-gray-400 lang-es">El cliente pregunta por un producto a las 11pm. La
@@ -2186,7 +2201,7 @@ const SmartKubikLanding = () => {
                                 responds
                                 instantly.</p>
                         </div>
-                        <div className="glass-card p-5 rounded-xl border-l-[3px] border-l-[#25D366]">
+                        <div className="glass-card p-5 rounded-xl">
                             <h4 className="font-bold text-white mb-2 lang-es">📢 Campañas Masivas</h4>
                             <h4 className="font-bold text-white mb-2 lang-en hidden">📢 Mass Campaigns</h4>
                             <p className="text-sm text-gray-400 lang-es">Envía promociones a segmentos. "Clientes VIP que no
@@ -2195,7 +2210,7 @@ const SmartKubikLanding = () => {
                                 who
                                 haven't bought in 30 days."</p>
                         </div>
-                        <div className="glass-card p-5 rounded-xl border-l-[3px] border-l-[#25D366]">
+                        <div className="glass-card p-5 rounded-xl">
                             <h4 className="font-bold text-white mb-2 lang-es">🛒 Órdenes por WhatsApp</h4>
                             <h4 className="font-bold text-white mb-2 lang-en hidden">🛒 WhatsApp Orders</h4>
                             <p className="text-sm text-gray-400 lang-es">Cliente pide → IA confirma → Orden creada → Factura
@@ -2204,7 +2219,7 @@ const SmartKubikLanding = () => {
                                 →
                                 Invoice sent. Automatic.</p>
                         </div>
-                        <div className="glass-card p-5 rounded-xl border-l-[3px] border-l-[#25D366]">
+                        <div className="glass-card p-5 rounded-xl">
                             <h4 className="font-bold text-white mb-2 lang-es">📋 Todo en el CRM</h4>
                             <h4 className="font-bold text-white mb-2 lang-en hidden">📋 Everything in CRM</h4>
                             <p className="text-sm text-gray-400 lang-es">Cada conversación queda en el perfil del cliente.
@@ -2212,7 +2227,7 @@ const SmartKubikLanding = () => {
                             <p className="text-sm text-gray-400 lang-en hidden">Every conversation stays in the client's
                                 profile. Complete history.</p>
                         </div>
-                        <div className="glass-card p-5 rounded-xl border-l-[3px] border-l-[#25D366]">
+                        <div className="glass-card p-5 rounded-xl">
                             <h4 className="font-bold text-white mb-2 lang-es">📊 Métricas</h4>
                             <h4 className="font-bold text-white mb-2 lang-en hidden">📊 Metrics</h4>
                             <p className="text-sm text-gray-400 lang-es">Mensajes enviados, tasa de respuesta, conversiones.
