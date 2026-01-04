@@ -401,6 +401,13 @@ const SmartKubikLanding = () => {
     };
 
     return (<div className="v4-landing-page">
+        {/* Background Effects */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+            {/* Animated Orbs */}
+            <div className="orb orb-cyan w-[800px] h-[800px] top-[-20%] left-[-10%]"></div>
+            <div className="orb orb-emerald w-[1000px] h-[1000px] bottom-[-20%] right-[-20%]" style={{ animationDelay: '-5s' }}></div>
+            <div className="orb orb-violet w-[600px] h-[600px] top-[30%] right-[10%]" style={{ animationDelay: '-10s' }}></div>
+        </div>
 
         {/*  Background Effects (From V2)  */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
@@ -2298,7 +2305,7 @@ const SmartKubikLanding = () => {
         </section >
 
         {/*  SECTION 9: COMPARISON  */}
-        < section className="py-24 border-y border-white/5" >
+        < section id="comparison" className="py-24 border-y border-white/5" >
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
                 <div className="text-center mb-16">
                     <h2 className="text-3xl md:text-5xl font-display font-bold mb-6">
@@ -2501,7 +2508,7 @@ const SmartKubikLanding = () => {
         </section >
 
         {/*  SECTION 10: PRICING  */}
-        < section id="pricing" className="py-24 relative" >
+        < section id="pricing" className="py-24 relative overflow-hidden bg-[#050810]" >
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
                 <div className="text-center mb-16">
                     <h2 className="text-3xl md:text-5xl font-display font-bold mb-6">
@@ -2548,7 +2555,8 @@ const SmartKubikLanding = () => {
 
                     {/*  Professional  */}
                     <div
-                        className="glass-card p-8 rounded-3xl border border-cyan-500/50 bg-cyan-900/5 relative transform md:scale-105 shadow-[0_0_30px_rgba(6,182,212,0.15)] z-10">
+                        id="pro-plan-card"
+                        className="glass-card p-8 rounded-3xl border border-cyan-500/50 bg-cyan-900/5 relative transform md:scale-105 shadow-[0_0_30px_rgba(6,182,212,0.15)] z-10 transition-all duration-300">
                         <div
                             className="absolute top-0 left-1/2 -translate-x-1/2 bg-gradient-to-r from-cyan-500 to-emerald-500 text-white text-xs font-bold px-4 py-1 rounded-b-lg lang-es">
                             MÁS POPULAR</div>
@@ -2818,7 +2826,7 @@ const SmartKubikLanding = () => {
         </section >
 
         {/*  SECTION 14: FAQ  */}
-        < section className="py-24 px-4 bg-black/20 border-t border-white/5" >
+        < section className="py-24 px-4 bg-[#050810] relative overflow-hidden" >
             <div className="max-w-4xl mx-auto">
                 {/*  Headline  */}
                 <div className="text-center mb-16">
@@ -3012,9 +3020,9 @@ const SmartKubikLanding = () => {
 
         {/*  SECTION 15: FINAL CTA (From V2)  */}
         < section
-            className="py-24 px-4 bg-gradient-to-b from-black/20 to-deep-navy border-t border-white/5 relative overflow-hidden" >
-            {/*  Enhanced Gradient Background  */}
-            < div className="absolute inset-0 bg-gradient-main opacity-10" ></div >
+            className="py-24 px-4 bg-gradient-to-b from-black/20 to-[#0A0F1C] border-t border-white/5 relative overflow-hidden" >
+            {/*  Enhanced Gradient Background (From V4)  */}
+            < div className="absolute inset-0 bg-[linear-gradient(135deg,#06B6D4,#10B981)] opacity-10" ></div >
 
             <div className="max-w-4xl mx-auto text-center relative z-10">
                 <h2 className="text-5xl md:text-7xl font-bold mb-6 font-display text-white">
