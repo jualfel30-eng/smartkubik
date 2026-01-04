@@ -95,6 +95,29 @@ export class BillingService {
       });
 
       if (existingInvoice) {
+        // Fix: If it's a DRAFT, we update it and return it (Idempotency/Resume)
+        if (existingInvoice.status === 'draft') {
+          this.logger.log(`Resuming existing draft invoice ${existingInvoice._id} for order ${dto.relatedOrderId}`);
+
+          existingInvoice.customer = {
+            name: dto.customerName || existingInvoice.customer?.name,
+            taxId: dto.customerTaxId || existingInvoice.customer?.taxId,
+            address: dto.customerData?.address || existingInvoice.customer?.address,
+            email: dto.customerData?.email || existingInvoice.customer?.email,
+            phone: dto.customerData?.phone || existingInvoice.customer?.phone,
+          };
+          existingInvoice.items = dto.items;
+          existingInvoice.totals = dto.totals;
+          existingInvoice.currency = dto.currency;
+          existingInvoice.exchangeRate = dto.exchangeRate;
+          existingInvoice.paymentMethod = dto.paymentMethod;
+          existingInvoice.issueDate = dto.issueDate;
+
+          await existingInvoice.save();
+          return existingInvoice;
+        }
+
+        // If it's already ISSUED or VALIDATED, we block duplicates
         throw new BadRequestException(
           `Esta orden ya tiene una factura asociada (${existingInvoice.documentNumber}). ` +
           `Una orden solo puede tener una factura según regulaciones fiscales de Venezuela.`

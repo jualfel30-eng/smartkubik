@@ -647,11 +647,11 @@ export class PaymentsService {
     // Calcular pagos acumulados (evita conflictos de versión /v key)
     const paymentsForOrder = await this.paymentModel
       .find({ orderId: new Types.ObjectId(orderId) })
-      .select("amount amountVes _id")
+      .select("amount amountVes fees _id")
       .lean();
 
     const paidAmount = paymentsForOrder.reduce(
-      (sum, p) => sum + Number(p?.amount || 0),
+      (sum, p) => sum + Number(p?.amount || 0) + Number(p?.fees?.igtf || 0),
       0,
     );
     const paidAmountVes = paymentsForOrder.reduce(
