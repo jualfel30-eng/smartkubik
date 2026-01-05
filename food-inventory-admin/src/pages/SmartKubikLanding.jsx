@@ -110,6 +110,48 @@ const SmartKubikLanding = () => {
           .text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500 { background: linear-gradient(to right, #06B6D4, #A855F7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
           @keyframes pulse-glow { 0%, 100% { filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.3)); } 50% { filter: drop-shadow(0 0 20px rgba(168, 85, 247, 0.5)); } }
           .animate-pulse-glow { animation: pulse-glow 3s ease-in-out infinite; }
+
+          /* Custom overlap adjustments for specific resolutions */
+          @media (max-width: 639px) {
+            /* Móviles pequeños: -120px overlap */
+            #modulos { margin-top: -44vh !important; }
+          }
+          @media (min-width: 640px) and (max-width: 767px) {
+            /* Móviles grandes/tablets pequeños: -200px overlap */
+            #modulos { margin-top: -55vh !important; }
+          }
+          @media (min-width: 768px) and (max-width: 1023px) {
+            /* Tablets: -250px overlap */
+            #modulos { margin-top: -53vh !important; }
+          }
+          @media (min-width: 1024px) and (max-width: 1279px) {
+            /* 1168x755: -220px overlap */
+            #modulos { margin-top: -43vh !important; }
+          }
+          @media (min-width: 1280px) and (max-width: 1299px) {
+            /* 1280x800: -170px overlap */
+            #modulos { margin-top: -36vh !important; }
+          }
+          @media (min-width: 1300px) and (max-width: 1399px) {
+            /* 1312x848: -240px overlap */
+            #modulos { margin-top: -42vh !important; }
+          }
+          @media (min-width: 1400px) and (max-width: 1535px) {
+            /* 1496x967: -320px overlap */
+            #modulos { margin-top: -45.5vh !important; }
+          }
+          @media (min-width: 1536px) and (max-width: 1799px) {
+            /* 1728x1117: -415px overlap */
+            #modulos { margin-top: -47.5vh !important; }
+          }
+          @media (min-width: 1800px) and (max-width: 1999px) {
+            /* 1920x1200: -520px overlap */
+            #modulos { margin-top: -53vh !important; }
+          }
+          @media (min-width: 2000px) {
+            /* 2056x1285+: Keep current value */
+            #modulos { margin-top: -53vh !important; }
+          }
         `;
         document.head.appendChild(styleSheet);
 
@@ -436,9 +478,9 @@ const SmartKubikLanding = () => {
             <div className="max-w-7xl mx-auto">
                 <div id="nav-card" className="glass-card rounded-full px-6 py-3 flex justify-between items-center">
                     {/*  Logo  */}
-                    <div className="flex items-center gap-3">
+                    <a href="#" className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer">
                         <img src="/assets/logo-smartkubik.png" alt="SmartKubik Logo" className="h-8 w-auto" />
-                    </div>
+                    </a>
 
                     {/*  Nav Links - Desktop (V2 Style + New Links)  */}
                     <div className="hidden md:flex items-center gap-8 text-sm font-medium text-text-secondary">
@@ -474,9 +516,11 @@ const SmartKubikLanding = () => {
                         </button>
 
                         <Link to="/login"
-                            className="hidden md:block text-sm font-medium text-text-secondary hover:text-white transition-colors">
-                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Inicia sesión</span>
-                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Log in</span>
+                            className="hidden md:flex items-center justify-center w-9 h-9 rounded-full glass-card text-text-secondary hover:text-white hover:bg-white/10 transition-all group"
+                            title={language === "es" ? "Inicia sesión" : "Log in"}>
+                            <svg className="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
                         </Link>
 
                         <a href="#pricing"
@@ -780,7 +824,8 @@ const SmartKubikLanding = () => {
         </section>
 
         {/*  SECTION 2: LA BARRA DE DOLOR (From V2)  */}
-        <section id="section-2-parallax" className="py-32 md:py-48 px-4 bg-black/30 relative overflow-hidden">
+        {/*  Doubled horizontal padding for more refined look  */}
+        <section id="section-2-parallax" className="py-32 md:py-48 px-12 sm:px-16 lg:px-24 bg-black/30 relative overflow-hidden">
             {/*  Light Rays Background - Parallax Layer 1 (slowest)  */}
             <LightRaysCanvas />
 
@@ -863,29 +908,30 @@ const SmartKubikLanding = () => {
                     className="absolute bottom-0 left-0 w-full h-64 md:h-80 bg-gradient-to-t from-navy-900 via-navy-900 to-transparent z-20 pointer-events-none" >
                 </div >
 
-                <div className="relative z-10 w-full max-w-5xl px-4 flex flex-col items-center h-full justify-center">
+                {/*  Doubled horizontal padding for more refined look  */}
+                <div className="relative z-10 w-full max-w-5xl px-12 sm:px-16 md:px-8 flex flex-col items-center h-full justify-center">
 
                     {/*  Initial Title  */}
                     <h3 id="stack-title"
-                        className="text-3xl md:text-5xl font-bold text-white mb-4 tracking-wide transition-all duration-700 transform drop-shadow-lg"
+                        className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white mb-4 tracking-wide transition-all duration-700 transform drop-shadow-lg"
                         style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Imagina un lunes donde...</span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Imagine a Monday where...</span>
                     </h3>
 
                     {/*  Cards Container  */}
-                    <div className="relative w-full max-w-2xl h-[400px] md:h-[300px] perspective-[1000px]">
+                    <div className="relative w-full max-w-2xl h-[450px] sm:h-[400px] md:h-[300px] perspective-[1000px]">
                         {/*  Cards will be controlled by JS  */}
 
                         {/*  Card 1  */}
                         <div
-                            className="stack-card absolute top-0 left-0 w-full glass-card p-8 rounded-3xl border border-white/10 shadow-2xl origin-top will-change-transform bg-navy-900/80">
-                            <div className="flex items-start gap-6">
+                            className="stack-card absolute top-0 left-0 w-full glass-card p-5 sm:p-6 md:p-8 rounded-2xl md:rounded-3xl border border-white/10 shadow-2xl origin-top will-change-transform bg-navy-900/80">
+                            <div className="flex items-start gap-4 sm:gap-5 md:gap-6">
                                 <div
-                                    className="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0 text-3xl shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+                                    className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0 text-2xl sm:text-3xl shadow-[0_0_15px_rgba(16,185,129,0.3)]">
                                     ✓</div>
                                 <div>
-                                    <p className="text-xl md:text-2xl text-gray-200 leading-relaxed font-medium">
+                                    <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-200 leading-relaxed font-medium">
                                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Abres <span className="text-white font-bold">UNA sola app</span> y
                                             ves todo tu negocio. Adiós al caos.</span>
                                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>You open <span className="text-white font-bold">ONE
@@ -897,18 +943,18 @@ const SmartKubikLanding = () => {
 
                         {/*  Card 2  */}
                         <div
-                            className="stack-card absolute top-0 left-0 w-full glass-card p-8 rounded-3xl border border-white/10 shadow-2xl origin-top will-change-transform bg-navy-900/85">
-                            <div className="flex items-start gap-6">
+                            className="stack-card absolute top-0 left-0 w-full glass-card p-5 sm:p-6 md:p-8 rounded-2xl md:rounded-3xl border border-white/10 shadow-2xl origin-top will-change-transform bg-navy-900/85">
+                            <div className="flex items-start gap-4 sm:gap-5 md:gap-6">
                                 <div
-                                    className="w-14 h-14 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center flex-shrink-0 text-3xl shadow-[0_0_15px_rgba(6,182,212,0.3)]">
+                                    className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center flex-shrink-0 text-2xl sm:text-3xl shadow-[0_0_15px_rgba(6,182,212,0.3)]">
                                     🤖</div>
                                 <div>
-                                    <p className="text-xl md:text-2xl text-gray-200 leading-relaxed font-medium">
+                                    <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-200 leading-relaxed font-medium">
                                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Tu WhatsApp responde solo a las 2am. <br /><span
-                                            className="text-cyan-400 text-lg italic">"Hola, aquí tienes nuestro
+                                            className="text-cyan-400 text-sm sm:text-base md:text-lg italic">"Hola, aquí tienes nuestro
                                             menú..."</span></span>
                                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Your WhatsApp answers by itself at 2am. <br /><span
-                                            className="text-cyan-400 text-lg italic">"Hi, here is our menu..."</span></span>
+                                            className="text-cyan-400 text-sm sm:text-base md:text-lg italic">"Hi, here is our menu..."</span></span>
                                     </p>
                                 </div>
                             </div>
@@ -916,13 +962,13 @@ const SmartKubikLanding = () => {
 
                         {/*  Card 3  */}
                         <div
-                            className="stack-card absolute top-0 left-0 w-full glass-card p-8 rounded-3xl border border-white/10 shadow-2xl origin-top will-change-transform bg-navy-900/90">
-                            <div className="flex items-start gap-6">
+                            className="stack-card absolute top-0 left-0 w-full glass-card p-5 sm:p-6 md:p-8 rounded-2xl md:rounded-3xl border border-white/10 shadow-2xl origin-top will-change-transform bg-navy-900/90">
+                            <div className="flex items-start gap-4 sm:gap-5 md:gap-6">
                                 <div
-                                    className="w-14 h-14 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center flex-shrink-0 text-3xl shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+                                    className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center flex-shrink-0 text-2xl sm:text-3xl shadow-[0_0_15px_rgba(168,85,247,0.3)]">
                                     💰</div>
                                 <div>
-                                    <p className="text-xl md:text-2xl text-gray-200 leading-relaxed font-medium">
+                                    <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-200 leading-relaxed font-medium">
                                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Sabes exactamente cuánto ganaste esta semana. Al
                                             centavo.</span>
                                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>You know exactly how much you made this week. To the
@@ -934,13 +980,13 @@ const SmartKubikLanding = () => {
 
                         {/*  Card 4  */}
                         <div
-                            className="stack-card absolute top-0 left-0 w-full glass-card p-8 rounded-3xl border border-white/10 shadow-2xl origin-top will-change-transform bg-navy-900/95">
-                            <div className="flex items-start gap-6">
+                            className="stack-card absolute top-0 left-0 w-full glass-card p-5 sm:p-6 md:p-8 rounded-2xl md:rounded-3xl border border-white/10 shadow-2xl origin-top will-change-transform bg-navy-900/95">
+                            <div className="flex items-start gap-4 sm:gap-5 md:gap-6">
                                 <div
-                                    className="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 text-3xl shadow-[0_0_15px_rgba(245,158,11,0.3)]">
+                                    className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 text-2xl sm:text-3xl shadow-[0_0_15px_rgba(245,158,11,0.3)]">
                                     📦</div>
                                 <div>
-                                    <p className="text-xl md:text-2xl text-gray-200 leading-relaxed font-medium">
+                                    <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-200 leading-relaxed font-medium">
                                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Tu inventario se actualiza con cada venta.</span>
                                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Updates with every sale. Never sell what you don't have
                                             again.</span>
@@ -952,12 +998,13 @@ const SmartKubikLanding = () => {
                     </div>
 
                     {/*  Final Title - REMOVED CSS TRANSITIONS for smooth scroll physics  */}
-                    <div id="stack-footer" className="mt-8 opacity-0 translate-y-10 text-center">
-                        <div className="relative flex justify-center mb-6">
+                    {/*  Adjusted margins: XL: -150px, 2XL: -100px overlap  */}
+                    <div id="stack-footer" className="mt-8 mb-32 sm:mb-28 md:mb-24 lg:mb-16 xl:mb-20 2xl:mb-20 opacity-0 translate-y-10 text-center">
+                        <div className="relative flex justify-center mb-4 md:mb-6">
                             {/* Badge Removed */}
                         </div>
                         <h2
-                            className="text-5xl md:text-7xl font-display font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500 animate-pulse-glow"
+                            className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-display font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500 animate-pulse-glow px-4"
                             style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
                             <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Eso es SmartKubik.</span>
                             <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>That's SmartKubik.</span>
@@ -973,20 +1020,23 @@ const SmartKubikLanding = () => {
         {/*  Bg color added for mask. -mt-[50vh] pulls it way up. z-30 puts it on top.  */}
         {/*  SECTION 4: QUÉ ES SMARTKUBIK (Masking Effect + Floating Title)  */}
         {/*  BACKGROUND REMOVED from Section to allow Title to float. -mt-[50vh] pulls it way up. z-30 puts it on top.  */}
-        < section id="modulos" className="pt-10 px-0 -mt-[50vh] relative z-30" >
+        {/*  XL: -150px for 1312x848-1535px, 2XL: -520px for 1920x1200+  */}
+        < section id="modulos" className="pt-12 sm:pt-14 md:pt-16 lg:pt-10 xl:pt-10 2xl:pt-10 px-0 -mt-[2vh] sm:-mt-[5vh] md:-mt-[10vh] lg:-mt-[25vh] xl:-mt-[35vh] 2xl:-mt-[53vh] relative z-30" >
 
             {/*  Container for Title (Transparent Background)  */}
-            <div className="max-w-7xl mx-auto px-4">
+            {/*  Doubled horizontal padding for more refined look  */}
+            <div className="max-w-7xl mx-auto px-12 sm:px-16 lg:px-24">
                 {/*  Headline floats over Section 3 content  */}
-                <div className="text-center mb-16">
-                    <h2 className="text-4xl md:text-5xl font-bold mb-6" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+                {/*  Balanced top padding for extra separation on smaller screens  */}
+                <div className="text-center pt-8 sm:pt-10 md:pt-12 lg:pt-6 xl:pt-0 mb-12 md:mb-16">
+                    <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 md:mb-6" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Todas las caras de tu negocio en un solo lugar.<br /><span
                             className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Desde $29/Usuario.</span></span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>All sides of your business in one place.<br /><span
                             className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">From $29/User.</span></span>
                     </h2>
                     {/*  Subtitle  */}
-                    <div className="text-xl text-text-secondary max-w-2xl mx-auto backdrop-blur-sm bg-black/20 rounded-xl p-2 inline-block">
+                    <div className="text-base sm:text-lg lg:text-xl text-text-secondary max-w-2xl mx-auto backdrop-blur-sm bg-black/20 rounded-xl p-2 inline-block">
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>El sistema operativo completo para empresas modernas.</span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>The complete operating system for modern businesses.</span>
                     </div>
@@ -994,140 +1044,141 @@ const SmartKubikLanding = () => {
             </div>
 
             {/*  NEW WRAPPER: Dark Background Mask only for Cards and below  */}
-            <div className="w-full bg-[#0A0F1C] pt-16 pb-16 px-4 relative z-40">
+            {/*  Doubled horizontal padding for more refined look  */}
+            <div className="w-full bg-[#0A0F1C] pt-12 md:pt-16 pb-12 md:pb-16 px-12 sm:px-16 lg:px-24 relative z-40">
                 <div className="max-w-7xl mx-auto">
-                    {/*  Modules Grid (3x3) - Reduced Size (gap-5)  */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-12">
+                    {/*  Modules Grid (3x3) - Responsive sizing  */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 mb-12">
 
                         {/*  Módulo 1: POS  */}
-                        <div className="glass-card rounded-2xl p-6 group">
+                        <div className="glass-card rounded-xl md:rounded-2xl p-4 md:p-6 group">
                             <div
-                                className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-electric/20 to-cyan-electric/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                                <span className="text-3xl">💰</span>
+                                className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-gradient-to-br from-cyan-electric/20 to-cyan-electric/5 flex items-center justify-center mb-3 md:mb-4 group-hover:scale-110 transition-transform duration-300">
+                                <span className="text-2xl md:text-3xl">💰</span>
                             </div>
-                            <h3 className={`text-xl font-display font-bold mb-3 lang-es ${language === "es" ? "" : "hidden"}`}>POS & Ventas</h3>
-                            <h3 className={`text-xl font-display font-bold mb-3 lang-en ${language === "en" ? "" : "hidden"}`}>POS & Sales</h3>
-                            <p className={`text-text-secondary text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Vende en tienda, web y WhatsApp</p>
-                            <p className={`text-text-secondary text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Sell in-store, web and WhatsApp</p>
+                            <h3 className={`text-lg md:text-xl font-display font-bold mb-2 md:mb-3 lang-es ${language === "es" ? "" : "hidden"}`}>POS & Ventas</h3>
+                            <h3 className={`text-lg md:text-xl font-display font-bold mb-2 md:mb-3 lang-en ${language === "en" ? "" : "hidden"}`}>POS & Sales</h3>
+                            <p className={`text-text-secondary text-xs md:text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Vende en tienda, web y WhatsApp</p>
+                            <p className={`text-text-secondary text-xs md:text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Sell in-store, web and WhatsApp</p>
                         </div>
 
                         {/*  Módulo 2: Inventario  */}
-                        <div className="glass-card rounded-2xl p-6 group">
+                        <div className="glass-card rounded-xl md:rounded-2xl p-4 md:p-6 group">
                             <div
-                                className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                                <span className="text-3xl">📦</span>
+                                className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 flex items-center justify-center mb-3 md:mb-4 group-hover:scale-110 transition-transform duration-300">
+                                <span className="text-2xl md:text-3xl">📦</span>
                             </div>
-                            <h3 className={`text-xl font-display font-bold mb-3 lang-es ${language === "es" ? "" : "hidden"}`}>Inventario</h3>
-                            <h3 className={`text-xl font-display font-bold mb-3 lang-en ${language === "en" ? "" : "hidden"}`}>Inventory</h3>
-                            <p className={`text-text-secondary text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Multi-almacén, lotes, alertas</p>
-                            <p className={`text-text-secondary text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Multi-warehouse, batches, alerts</p>
+                            <h3 className={`text-lg md:text-xl font-display font-bold mb-2 md:mb-3 lang-es ${language === "es" ? "" : "hidden"}`}>Inventario</h3>
+                            <h3 className={`text-lg md:text-xl font-display font-bold mb-2 md:mb-3 lang-en ${language === "en" ? "" : "hidden"}`}>Inventory</h3>
+                            <p className={`text-text-secondary text-xs md:text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Multi-almacén, lotes, alertas</p>
+                            <p className={`text-text-secondary text-xs md:text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Multi-warehouse, batches, alerts</p>
                         </div>
 
                         {/*  Módulo 3: Contabilidad  */}
-                        <div className="glass-card rounded-2xl p-6 group">
+                        <div className="glass-card rounded-xl md:rounded-2xl p-4 md:p-6 group">
                             <div
-                                className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-subtle/20 to-violet-subtle/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                                <span className="text-3xl">🧾</span>
+                                className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-gradient-to-br from-violet-subtle/20 to-violet-subtle/5 flex items-center justify-center mb-3 md:mb-4 group-hover:scale-110 transition-transform duration-300">
+                                <span className="text-2xl md:text-3xl">🧾</span>
                             </div>
-                            <h3 className={`text-xl font-display font-bold mb-3 lang-es ${language === "es" ? "" : "hidden"}`}>Contabilidad</h3>
-                            <h3 className={`text-xl font-display font-bold mb-3 lang-en ${language === "en" ? "" : "hidden"}`}>Accounting</h3>
-                            <p className={`text-text-secondary text-sm lang-es ${language === "es" ? "" : "hidden"}`}>P&L, Balance, Impuestos automáticos</p>
-                            <p className={`text-text-secondary text-sm lang-en ${language === "en" ? "" : "hidden"}`}>P&L, Balance, Automated taxes</p>
+                            <h3 className={`text-lg md:text-xl font-display font-bold mb-2 md:mb-3 lang-es ${language === "es" ? "" : "hidden"}`}>Contabilidad</h3>
+                            <h3 className={`text-lg md:text-xl font-display font-bold mb-2 md:mb-3 lang-en ${language === "en" ? "" : "hidden"}`}>Accounting</h3>
+                            <p className={`text-text-secondary text-xs md:text-sm lang-es ${language === "es" ? "" : "hidden"}`}>P&L, Balance, Impuestos automáticos</p>
+                            <p className={`text-text-secondary text-xs md:text-sm lang-en ${language === "en" ? "" : "hidden"}`}>P&L, Balance, Automated taxes</p>
                         </div>
 
                         {/*  Módulo 4: CRM  */}
-                        <div className="glass-card rounded-2xl p-6 group">
+                        <div className="glass-card rounded-xl md:rounded-2xl p-4 md:p-6 group">
                             <div
-                                className="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-500/20 to-rose-500/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                                <span className="text-3xl">👥</span>
+                                className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-gradient-to-br from-rose-500/20 to-rose-500/5 flex items-center justify-center mb-3 md:mb-4 group-hover:scale-110 transition-transform duration-300">
+                                <span className="text-2xl md:text-3xl">👥</span>
                             </div>
-                            <h3 className="text-xl font-display font-bold mb-3">CRM</h3>
-                            <p className={`text-text-secondary text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Clientes 360°, pipeline, lealtad</p>
-                            <p className={`text-text-secondary text-sm lang-en ${language === "en" ? "" : "hidden"}`}>360° customers, pipeline, loyalty</p>
+                            <h3 className="text-lg md:text-xl font-display font-bold mb-2 md:mb-3">CRM</h3>
+                            <p className={`text-text-secondary text-xs md:text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Clientes 360°, pipeline, lealtad</p>
+                            <p className={`text-text-secondary text-xs md:text-sm lang-en ${language === "en" ? "" : "hidden"}`}>360° customers, pipeline, loyalty</p>
                         </div>
 
                         {/*  Módulo 5: Marketing  */}
-                        <div className="glass-card rounded-2xl p-6 group">
+                        <div className="glass-card rounded-xl md:rounded-2xl p-4 md:p-6 group">
                             <div
-                                className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-500/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                                <span className="text-3xl">📧</span>
+                                className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-500/5 flex items-center justify-center mb-3 md:mb-4 group-hover:scale-110 transition-transform duration-300">
+                                <span className="text-2xl md:text-3xl">📧</span>
                             </div>
-                            <h3 className="text-xl font-display font-bold mb-3">Marketing</h3>
-                            <p className={`text-text-secondary text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Campañas automáticas multi-canal</p>
-                            <p className={`text-text-secondary text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Automated multi-channel campaigns</p>
+                            <h3 className="text-lg md:text-xl font-display font-bold mb-2 md:mb-3">Marketing</h3>
+                            <p className={`text-text-secondary text-xs md:text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Campañas automáticas multi-canal</p>
+                            <p className={`text-text-secondary text-xs md:text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Automated multi-channel campaigns</p>
                         </div>
 
                         {/*  Módulo 6: Nómina  */}
-                        <div className="glass-card rounded-2xl p-6 group">
+                        <div className="glass-card rounded-xl md:rounded-2xl p-4 md:p-6 group">
                             <div
-                                className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-electric/20 to-emerald-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                                <span className="text-3xl">👔</span>
+                                className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-gradient-to-br from-cyan-electric/20 to-emerald-500/20 flex items-center justify-center mb-3 md:mb-4 group-hover:scale-110 transition-transform duration-300">
+                                <span className="text-2xl md:text-3xl">👔</span>
                             </div>
-                            <h3 className={`text-xl font-display font-bold mb-3 lang-es ${language === "es" ? "" : "hidden"}`}>Nómina</h3>
-                            <h3 className={`text-xl font-display font-bold mb-3 lang-en ${language === "en" ? "" : "hidden"}`}>Payroll</h3>
-                            <p className={`text-text-secondary text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Paga correctamente, cumple la ley</p>
-                            <p className={`text-text-secondary text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Pay correctly, comply with the law</p>
+                            <h3 className={`text-lg md:text-xl font-display font-bold mb-2 md:mb-3 lang-es ${language === "es" ? "" : "hidden"}`}>Nómina</h3>
+                            <h3 className={`text-lg md:text-xl font-display font-bold mb-2 md:mb-3 lang-en ${language === "en" ? "" : "hidden"}`}>Payroll</h3>
+                            <p className={`text-text-secondary text-xs md:text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Paga correctamente, cumple la ley</p>
+                            <p className={`text-text-secondary text-xs md:text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Pay correctly, comply with the law</p>
                         </div>
 
                         {/*  Módulo 7: Producción  */}
-                        <div className="glass-card rounded-2xl p-6 group">
+                        <div className="glass-card rounded-xl md:rounded-2xl p-4 md:p-6 group">
                             <div
-                                className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-subtle/20 to-rose-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                                <span className="text-3xl">🏭</span>
+                                className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-gradient-to-br from-violet-subtle/20 to-rose-500/20 flex items-center justify-center mb-3 md:mb-4 group-hover:scale-110 transition-transform duration-300">
+                                <span className="text-2xl md:text-3xl">🏭</span>
                             </div>
-                            <h3 className={`text-xl font-display font-bold mb-3 lang-es ${language === "es" ? "" : "hidden"}`}>Producción</h3>
-                            <h3 className={`text-xl font-display font-bold mb-3 lang-en ${language === "en" ? "" : "hidden"}`}>Manufacturing</h3>
-                            <p className={`text-text-secondary text-sm lang-es ${language === "es" ? "" : "hidden"}`}>BOM, órdenes, costos</p>
-                            <p className={`text-text-secondary text-sm lang-en ${language === "en" ? "" : "hidden"}`}>BOM, orders, costing</p>
+                            <h3 className={`text-lg md:text-xl font-display font-bold mb-2 md:mb-3 lang-es ${language === "es" ? "" : "hidden"}`}>Producción</h3>
+                            <h3 className={`text-lg md:text-xl font-display font-bold mb-2 md:mb-3 lang-en ${language === "en" ? "" : "hidden"}`}>Manufacturing</h3>
+                            <p className={`text-text-secondary text-xs md:text-sm lang-es ${language === "es" ? "" : "hidden"}`}>BOM, órdenes, costos</p>
+                            <p className={`text-text-secondary text-xs md:text-sm lang-en ${language === "en" ? "" : "hidden"}`}>BOM, orders, costing</p>
                         </div>
 
                         {/*  Módulo 8: Citas  */}
-                        <div className="glass-card rounded-2xl p-6 group">
+                        <div className="glass-card rounded-xl md:rounded-2xl p-4 md:p-6 group">
                             <div
-                                className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-cyan-electric/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                                <span className="text-3xl">📅</span>
+                                className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-gradient-to-br from-emerald-500/20 to-cyan-electric/20 flex items-center justify-center mb-3 md:mb-4 group-hover:scale-110 transition-transform duration-300">
+                                <span className="text-2xl md:text-3xl">📅</span>
                             </div>
-                            <h3 className={`text-xl font-display font-bold mb-3 lang-es ${language === "es" ? "" : "hidden"}`}>Citas</h3>
-                            <h3 className={`text-xl font-display font-bold mb-3 lang-en ${language === "en" ? "" : "hidden"}`}>Appointments</h3>
-                            <p className={`text-text-secondary text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Reservas online, calendar sync</p>
-                            <p className={`text-text-secondary text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Online bookings, calendar sync</p>
+                            <h3 className={`text-lg md:text-xl font-display font-bold mb-2 md:mb-3 lang-es ${language === "es" ? "" : "hidden"}`}>Citas</h3>
+                            <h3 className={`text-lg md:text-xl font-display font-bold mb-2 md:mb-3 lang-en ${language === "en" ? "" : "hidden"}`}>Appointments</h3>
+                            <p className={`text-text-secondary text-xs md:text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Reservas online, calendar sync</p>
+                            <p className={`text-text-secondary text-xs md:text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Online bookings, calendar sync</p>
                         </div>
 
                         {/*  Módulo 9: E-Commerce  */}
-                        <div className="glass-card rounded-2xl p-6 group">
+                        <div className="glass-card rounded-xl md:rounded-2xl p-4 md:p-6 group">
                             <div
-                                className="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-500/20 to-amber-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                                <span className="text-3xl">🛒</span>
+                                className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-gradient-to-br from-rose-500/20 to-amber-500/20 flex items-center justify-center mb-3 md:mb-4 group-hover:scale-110 transition-transform duration-300">
+                                <span className="text-2xl md:text-3xl">🛒</span>
                             </div>
-                            <h3 className="text-xl font-display font-bold mb-3">E-Commerce</h3>
-                            <p className={`text-text-secondary text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Tu tienda online automática</p>
-                            <p className={`text-text-secondary text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Your automatic online store</p>
+                            <h3 className="text-lg md:text-xl font-display font-bold mb-2 md:mb-3">E-Commerce</h3>
+                            <p className={`text-text-secondary text-xs md:text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Tu tienda online automática</p>
+                            <p className={`text-text-secondary text-xs md:text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Your automatic online store</p>
                         </div>
 
                     </div>
 
-                    {/*  IA Destacada (Reduced)  */}
-                    <div className="glass-card rounded-3xl p-6 md:p-10 border-cyan-electric/30 relative overflow-hidden">
+                    {/*  IA Destacada (Responsive)  */}
+                    <div className="glass-card rounded-2xl md:rounded-3xl p-5 md:p-8 lg:p-10 border-cyan-electric/30 relative overflow-hidden">
                         <div
-                            className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-cyan-electric/20 to-emerald-500/20 rounded-full blur-3xl">
+                            className="absolute top-0 right-0 w-48 h-48 md:w-64 md:h-64 bg-gradient-to-br from-cyan-electric/20 to-emerald-500/20 rounded-full blur-3xl">
                         </div>
 
-                        <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                        <div className="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-8">
                             <div
-                                className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 to-emerald-500 flex items-center justify-center flex-shrink-0 animate-glow-pulse">
-                                <span className="text-4xl">🤖</span>
+                                className="w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-gradient-to-br from-cyan-500 to-emerald-500 flex items-center justify-center flex-shrink-0 animate-glow-pulse">
+                                <span className="text-3xl md:text-4xl">🤖</span>
                             </div>
                             <div className="flex-1 text-center md:text-left">
                                 <div
-                                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-500 text-sm font-bold mb-3">
+                                    className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-cyan-500/20 text-cyan-500 text-xs md:text-sm font-bold mb-2 md:mb-3">
                                     <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>INCLUIDO</span>
                                     <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>INCLUDED</span>
                                 </div>
-                                <h3 className="text-2xl font-display font-bold mb-3">
+                                <h3 className="text-xl md:text-2xl font-display font-bold mb-2 md:mb-3">
                                     <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Asistente con Inteligencia Artificial</span>
                                     <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>AI Assistant</span>
                                 </h3>
-                                <p className="text-lg text-text-secondary">
+                                <p className="text-sm md:text-base lg:text-lg text-text-secondary">
                                     <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Pregúntale lo que quieras: "¿Cuánto vendí hoy?" "¿Qué se está
                                         acabando?" — Responde al instante.</span>
                                     <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Ask anything: "How much did I sell today?" "What's running
@@ -1135,20 +1186,20 @@ const SmartKubikLanding = () => {
                                 </p>
                             </div>
                             <button
-                                className="btn-secondary px-6 py-3 rounded-xl font-semibold text-white hover:bg-white/5 transition-all duration-300 whitespace-nowrap">
+                                className="btn-secondary px-5 py-2.5 md:px-6 md:py-3 rounded-lg md:rounded-xl font-semibold text-sm md:text-base text-white hover:bg-white/5 transition-all duration-300 whitespace-nowrap">
                                 <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ver más →</span>
                                 <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>See more →</span>
                             </button>
                         </div>
                     </div>
 
-                    {/*  CTA (Reduced)  */}
-                    <div className="text-center mt-12">
+                    {/*  CTA (Responsive)  */}
+                    <div className="text-center mt-8 md:mt-12">
                         <button
-                            className="glass-card px-6 py-3 rounded-xl font-semibold text-base hover:bg-white/10 transition-all duration-300 inline-flex items-center gap-2 group">
+                            className="glass-card px-5 py-2.5 md:px-6 md:py-3 rounded-lg md:rounded-xl font-semibold text-sm md:text-base hover:bg-white/10 transition-all duration-300 inline-flex items-center gap-2 group">
                             <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Explorar Todos los Módulos</span>
                             <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Explore All Modules</span>
-                            <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" fill="none"
+                            <svg className="w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform duration-300" fill="none"
                                 stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                                     d="M13 7l5 5m0 0l-5 5m5-5H6" />
@@ -1160,8 +1211,9 @@ const SmartKubikLanding = () => {
         </section >
 
         {/*  SECTION 5: INDUSTRIES (From V3: Interactive Tabs)  */}
+        {/*  Doubled horizontal padding for more refined look  */}
         < section id="industrias" className="pt-32 pb-32 md:pt-48 md:pb-48 bg-[#050810] relative" >
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+            <div className="max-w-7xl mx-auto px-12 sm:px-16 lg:px-24 w-full">
                 <div className="text-center mb-16">
                     <h2 className="text-3xl md:text-5xl font-display font-bold mb-6" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>No Es Software Genérico. <br className="hidden md:block" /> <span
@@ -3213,9 +3265,9 @@ const SmartKubikLanding = () => {
                     {/*  Brand  */}
                     <div className="md:col-span-2">
                         <div className="flex items-center gap-3 mb-4">
-                            <div className="flex items-center gap-3 mb-4">
+                            <a href="#" className="flex items-center gap-3 mb-4 hover:opacity-80 transition-opacity cursor-pointer">
                                 <img src="/assets/logo-smartkubik.png" alt="SmartKubik Logo" className="h-8 w-auto" />
-                            </div>
+                            </a>
                         </div>
                         <p className="text-gray-400 leading-relaxed mb-6">
                             <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>El último ERP que tu negocio necesitará.</span>
