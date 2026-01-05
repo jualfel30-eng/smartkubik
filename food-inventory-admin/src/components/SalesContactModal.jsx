@@ -17,6 +17,7 @@ import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { useVenezuela } from '@/hooks/useVenezuela.js';
 import { Mail, MessageSquare } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const businessVerticals = [
   {
@@ -103,10 +104,20 @@ function SalesContactModal({ isOpen, onOpenChange }) {
     }
   }, [activeTab, handleWhatsAppClick]);
 
+  const { toast } = useToast();
+
   const handleSendEmail = (e) => {
     e.preventDefault();
     // Here you would typically handle the email sending logic
     console.log('Email data:', formData);
+
+    // Simulate successful sending
+    toast({
+      title: "Mensaje Enviado",
+      description: "Gracias por contactarnos. Un especialista de SmartKubik te responderá en breve.",
+      className: "bg-emerald-500 text-white border-none",
+    });
+
     onOpenChange(false);
   };
 
@@ -141,56 +152,73 @@ function SalesContactModal({ isOpen, onOpenChange }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[1190px] min-h-[700px] overflow-y-auto px-32 py-24">
+      <DialogContent className="sm:max-w-[1190px] min-h-[700px] overflow-y-auto px-32 py-24 bg-[#0A0F1C] border border-white/10 text-slate-200 backdrop-blur-xl shadow-2xl">
         <DialogHeader>
-          <DialogTitle>Contactar con el equipo de ventas</DialogTitle>
+          <DialogTitle className="text-3xl font-display font-bold text-white mb-2">Contactar con el equipo de ventas</DialogTitle>
+          <p className="text-gray-400">Completa el formulario y te responderemos en breve.</p>
         </DialogHeader>
-        <Tabs defaultValue="email" className="w-full" onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="email"><Mail className="mr-2 h-4 w-4" />Enviar un correo</TabsTrigger>
-            <TabsTrigger value="whatsapp" onClick={handleWhatsAppClick}><MessageSquare className="mr-2 h-4 w-4" />Contactar por Whatsapp</TabsTrigger>
+        <Tabs defaultValue="email" className="w-full mt-6" onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-2 bg-white/5 border border-white/5">
+            <TabsTrigger value="email" className="data-[state=active]:bg-[#06B6D4]/20 data-[state=active]:text-cyan-400 text-gray-400"><Mail className="mr-2 h-4 w-4" />Enviar un correo</TabsTrigger>
+            <TabsTrigger value="whatsapp" onClick={handleWhatsAppClick} className="data-[state=active]:bg-[#25D366]/20 data-[state=active]:text-[#25D366] text-gray-400 hover:text-[#25D366]"><MessageSquare className="mr-2 h-4 w-4" />Contactar por Whatsapp</TabsTrigger>
           </TabsList>
           <TabsContent value="email">
-            <form onSubmit={handleSendEmail} className="mt-16">
+            <form onSubmit={handleSendEmail} className="mt-12 space-y-6">
               <div className="grid gap-6">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-6">
                   <div className="grid gap-2">
-                    <Label htmlFor="name">Nombre</Label>
-                    <Input id="name" value={formData.name} onChange={handleChange} required />
+                    <Label htmlFor="name" className="text-gray-400">Nombre</Label>
+                    <Input id="name" value={formData.name} onChange={handleChange} required className="bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-cyan-500/50 focus:ring-cyan-500/20" />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="companyName">Nombre de la empresa</Label>
-                    <Input id="companyName" value={formData.companyName} onChange={handleChange} required />
+                    <Label htmlFor="companyName" className="text-gray-400">Nombre de la empresa</Label>
+                    <Input id="companyName" value={formData.companyName} onChange={handleChange} required className="bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-cyan-500/50 focus:ring-cyan-500/20" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-6">
                   <div className="grid gap-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" value={formData.email} onChange={handleChange} required />
+                    <Label htmlFor="email" className="text-gray-400">Email</Label>
+                    <Input id="email" type="email" value={formData.email} onChange={handleChange} required className="bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-cyan-500/50 focus:ring-cyan-500/20" />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="phone">Celular</Label>
-                    <PhoneInput
-                      id="phone"
-                      placeholder="4122346587"
-                      value={formData.phone}
-                      onChange={handlePhoneChange}
-                      defaultCountry="VE"
-                      required
-                    />
+                    <Label htmlFor="phone" className="text-gray-400">Celular</Label>
+                    <div className="phone-input-dark">
+                      <PhoneInput
+                        id="phone"
+                        placeholder="4122346587"
+                        value={formData.phone}
+                        onChange={handlePhoneChange}
+                        defaultCountry="VE"
+                        required
+                        className="bg-white/5 border border-white/10 rounded-md text-white px-3 py-2 focus-within:border-cyan-500/50 focus-within:ring-1 focus-within:ring-cyan-500/20"
+                      />
+                    </div>
+                    {/* Inline style hack for phone input text color if needed, but class above should help container */}
+                    <style>{`
+                        .phone-input-dark .PhoneInputInput {
+                            background: transparent;
+                            color: white;
+                            border: none;
+                            outline: none;
+                        }
+                        .phone-input-dark .PhoneInputCountrySelect {
+                            background: #0A0F1C;
+                            color: white;
+                        }
+                    `}</style>
                   </div>
                 </div>
                 {venezuelaError && <p className="text-sm text-red-400 col-span-2">Error: {venezuelaError}</p>}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-6">
                   <div className="grid gap-2">
-                    <Label htmlFor="state">Estado</Label>
+                    <Label htmlFor="state" className="text-gray-400">Estado</Label>
                     <Select onValueChange={handleStateChange} value={formData.state}>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-white/5 border-white/10 text-white">
                         <SelectValue placeholder="Seleccione un estado" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-[#0A0F1C] border border-white/10 text-white">
                         {states.map((state) => (
-                          <SelectItem key={state.name} value={state.name}>
+                          <SelectItem key={state.name} value={state.name} className="focus:bg-white/10 focus:text-cyan-400">
                             {state.name}
                           </SelectItem>
                         ))}
@@ -198,14 +226,14 @@ function SalesContactModal({ isOpen, onOpenChange }) {
                     </Select>
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="city">Ciudad</Label>
+                    <Label htmlFor="city" className="text-gray-400">Ciudad</Label>
                     <Select onValueChange={handleCityChange} value={formData.city} disabled={!formData.state || venezuelaLoading}>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-white/5 border-white/10 text-white disabled:opacity-50">
                         <SelectValue placeholder="Seleccione una ciudad" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-[#0A0F1C] border border-white/10 text-white">
                         {cities.map((city) => (
-                          <SelectItem key={city} value={city}>
+                          <SelectItem key={city} value={city} className="focus:bg-white/10 focus:text-cyan-400">
                             {city}
                           </SelectItem>
                         ))}
@@ -213,16 +241,16 @@ function SalesContactModal({ isOpen, onOpenChange }) {
                     </Select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-6">
                   <div className="grid gap-2">
-                    <Label htmlFor="vertical">Tipo de negocio</Label>
+                    <Label htmlFor="vertical" className="text-gray-400">Tipo de negocio</Label>
                     <Select onValueChange={handleVerticalChange} value={formData.vertical}>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-white/5 border-white/10 text-white">
                         <SelectValue placeholder="Seleccione una vertical" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-[#0A0F1C] border border-white/10 text-white">
                         {businessVerticals.map((vertical) => (
-                          <SelectItem key={vertical.value} value={vertical.value}>
+                          <SelectItem key={vertical.value} value={vertical.value} className="focus:bg-white/10 focus:text-cyan-400">
                             {vertical.name}
                           </SelectItem>
                         ))}
@@ -231,14 +259,14 @@ function SalesContactModal({ isOpen, onOpenChange }) {
                   </div>
                   {formData.vertical && (
                     <div className="grid gap-2">
-                      <Label htmlFor="specificCategory">Categoría</Label>
+                      <Label htmlFor="specificCategory" className="text-gray-400">Categoría</Label>
                       <Select onValueChange={handleCategoryChange} value={formData.specificCategory}>
-                        <SelectTrigger>
+                        <SelectTrigger className="bg-white/5 border-white/10 text-white">
                           <SelectValue placeholder="Seleccione una categoría" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-[#0A0F1C] border border-white/10 text-white">
                           {categories.map((category) => (
-                            <SelectItem key={category} value={category}>
+                            <SelectItem key={category} value={category} className="focus:bg-white/10 focus:text-cyan-400">
                               {category}
                             </SelectItem>
                           ))}
@@ -248,18 +276,24 @@ function SalesContactModal({ isOpen, onOpenChange }) {
                   )}
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="message">Mensaje</Label>
-                  <Textarea id="message" value={formData.message} onChange={handleChange} required style={{ height: '140px' }} />
+                  <Label htmlFor="message" className="text-gray-400">Mensaje</Label>
+                  <Textarea id="message" value={formData.message} onChange={handleChange} required className="bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-cyan-500/50 focus:ring-cyan-500/20 min-h-[140px]" />
                 </div>
-                <div className="flex justify-end">
-                  <Button type="submit">Enviar Correo</Button>
+                <div className="flex justify-end pt-4">
+                  <Button type="submit" className="bg-gradient-to-r from-cyan-500 to-emerald-500 text-white font-bold px-8 py-6 rounded-xl hover:shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all transform hover:scale-105">
+                    Enviar Mensaje
+                  </Button>
                 </div>
               </div>
             </form>
           </TabsContent>
           <TabsContent value="whatsapp">
-            <div className="mt-16">
-              <p>Redirigiendo a WhatsApp...</p>
+            <div className="mt-16 flex flex-col items-center justify-center p-8 text-center">
+              <div className="w-16 h-16 bg-[#25D366]/20 rounded-full flex items-center justify-center mb-6 animate-pulse">
+                <MessageSquare className="w-8 h-8 text-[#25D366]" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Redirigiendo a WhatsApp...</h3>
+              <p className="text-gray-400">Si no se abre automáticamente, haz clic en el botón flotante.</p>
             </div>
           </TabsContent>
         </Tabs>

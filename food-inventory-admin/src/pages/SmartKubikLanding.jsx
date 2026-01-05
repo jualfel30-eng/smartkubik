@@ -2,12 +2,25 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import SmartKubikLogoDark from '@/assets/logo-smartkubik.png';
 import LightRaysCanvas from '../components/LightRaysCanvas';
+import SalesContactModal from '../components/SalesContactModal';
 
 const SmartKubikLanding = () => {
     const [language, setLanguage] = useState('es');
     const [isDashboardHovered, setIsDashboardHovered] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [activeStep, setActiveStep] = useState(1);
+    const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+
+    // Configuration for Contact Details
+    const CONTACT_CONFIG = {
+        whatsapp: "584244263922", // Format: CountryCode + Number
+        email: "hola@smartkubik.com",
+    };
+
+    const whatsAppLink = `https://wa.me/${CONTACT_CONFIG.whatsapp}?text=Hola%20SmartKubik,%20estoy%20interesado%20en%20profesionalizar%20mi%20negocio%20con%20IA.`;
+    // Email link is no longer needed for mailto, but kept for fallback or display if needed. 
+    // We will use the modal instead.
+    const emailLink = "#"; // Placeholder as we use onClick handler
 
     // Inject critical styles on mount
     useEffect(() => {
@@ -38,7 +51,7 @@ const SmartKubikLanding = () => {
 
           /* Section 6 AI background gradient fix */
           #ia > div:first-child {
-            background: linear-gradient(to right, rgba(8, 51, 68, 0.2), #0A0F1C, rgba(88, 28, 135, 0.2)) !important;
+            background: linear-gradient(to right, rgba(8, 51, 68, 0.2), #0A0F1C, rgba(88, 28, 135, 0.5)) !important;
           }
 
           /* Button styles from backup */
@@ -420,7 +433,7 @@ const SmartKubikLanding = () => {
         {/*  NAVIGATION (From V2: Sticky & Floating Glass Pill)  */}
         <nav className="fixed top-0 w-full z-50 py-4 px-4 lg:px-8">
             <div className="max-w-7xl mx-auto">
-                <div className="glass-card rounded-full px-6 py-3 flex justify-between items-center">
+                <div id="nav-card" className="glass-card rounded-full px-6 py-3 flex justify-between items-center">
                     {/*  Logo  */}
                     <div className="flex items-center gap-3">
                         <img src="/assets/logo-smartkubik.png" alt="SmartKubik Logo" className="h-8 w-auto" />
@@ -428,44 +441,44 @@ const SmartKubikLanding = () => {
 
                     {/*  Nav Links - Desktop (V2 Style + New Links)  */}
                     <div className="hidden md:flex items-center gap-8 text-sm font-medium text-text-secondary">
-                        <Link to="#modulos" className="hover:text-cyan-electric transition-colors">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Módulos</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Features</span>
+                        <Link to="#modulos" className="hover:text-cyan-electric hover:font-bold transition-all">
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Módulos</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Features</span>
                         </Link>
-                        <Link to="#industrias" className="hover:text-cyan-electric transition-colors">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Industrias</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Industries</span>
+                        <Link to="#industrias" className="hover:text-cyan-electric hover:font-bold transition-all">
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Industrias</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Industries</span>
                         </Link>
-                        <Link to="#ia" className="hover:text-cyan-electric transition-colors">IA</Link>
-                        <Link to="#pricing" className="hover:text-cyan-electric transition-colors">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Precio</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Pricing</span>
+                        <Link to="#ia" className="hover:text-cyan-electric hover:font-bold transition-all">IA</Link>
+                        <Link to="#pricing" className="hover:text-cyan-electric hover:font-bold transition-all">
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Precio</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Pricing</span>
                         </Link>
-                        <Link to="/docs" className="hover:text-cyan-electric transition-colors">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Documentación</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Docs</span>
+                        <Link to="/docs" className="hover:text-cyan-electric hover:font-bold transition-all">
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Documentación</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Docs</span>
                         </Link>
-                        <Link to="/blog" className="hover:text-cyan-electric transition-colors">Blog</Link>
+                        <Link to="/blog" className="hover:text-cyan-electric hover:font-bold transition-all">Blog</Link>
                     </div>
 
                     {/*  Language Toggle & CTA (V2 Style + Login/Register)  */}
                     <div className="flex items-center gap-4">
                         <button id="langToggle" onClick={toggleLanguage}
                             className="text-sm text-text-secondary hover:text-text-primary transition-colors hidden sm:block">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>🇪🇸 ES</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>🇺🇸 EN</span>
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>🇪🇸 ES</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>🇺🇸 EN</span>
                         </button>
 
                         <Link to="/login"
                             className="text-sm font-medium text-text-secondary hover:text-white transition-colors">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Inicia sesión</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Log in</span>
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Inicia sesión</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Log in</span>
                         </Link>
 
                         <Link to="/register"
                             className="bg-gradient-main text-white px-6 py-2 rounded-full font-bold text-sm hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] transition-all">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Regístrate</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Sign Up</span>
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Regístrate</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Sign Up</span>
                         </Link>
                     </div>
                 </div>
@@ -503,8 +516,8 @@ const SmartKubikLanding = () => {
                                 <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
                             </span>
                             <span className="text-cyan-300 text-sm font-medium tracking-wide uppercase">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Nueva Generación ERP 2026</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Next Gen ERP 2026</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Nueva Generación ERP 2026</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Next Gen ERP 2026</span>
                             </span>
                         </div>
 
@@ -512,12 +525,12 @@ const SmartKubikLanding = () => {
                         <h1
                             className="text-5xl md:text-5xl lg:text-7xl font-extrabold tracking-tight leading-none"
                             style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>
                                 Deja de Administrar <span
                                     className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-amber-500">Caos</span>.<br />
                                 Empieza a Administrar <span className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Tu Negocio</span>.
                             </span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>
                                 Stop Managing <span
                                     className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-amber-500">Chaos</span>.<br />
                                 Start Managing <span className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Your Business</span>.
@@ -526,12 +539,12 @@ const SmartKubikLanding = () => {
 
                         {/*  Subheadline  */}
                         <p className="text-xl text-gray-400 max-w-lg leading-relaxed">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>
                                 Un solo sistema para inventario, ventas, contabilidad y nómina.
                                 Con <strong className="text-white">Inteligencia Artificial</strong> que trabaja mientras tú
                                 descansas.
                             </span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>
                                 One system for inventory, sales, accounting, and payroll.
                                 With <strong className="text-white">AI</strong> that works while you rest.
                             </span>
@@ -541,8 +554,8 @@ const SmartKubikLanding = () => {
                         <div className="flex flex-col sm:flex-row gap-4 justify-start">
                             <Link to="/register"
                                 className="bg-gradient-to-br from-cyan-500 to-emerald-500 inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-white font-bold text-lg shadow-[0_0_40px_rgba(6,182,212,0.4)] hover:shadow-[0_0_60px_rgba(6,182,212,0.6)] hover:scale-105 transition-all">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Empezar Ahora</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Start Now</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Empezar Ahora</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Start Now</span>
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                                         d="M13 7l5 5m0 0l-5 5m5-5H6" />
@@ -556,8 +569,8 @@ const SmartKubikLanding = () => {
                                         <path d="M8 5v14l11-7z" />
                                     </svg>
                                 </span>
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Ver Demo</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Watch Demo</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ver Demo</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Watch Demo</span>
                             </Link>
                         </div>
 
@@ -568,21 +581,21 @@ const SmartKubikLanding = () => {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                                         d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Sin tarjeta de crédito</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>No credit card required</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Sin tarjeta de crédito</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>No credit card required</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                                         d="M13 10V3L4 14h7v7l9-11h-7z" />
                                 </svg>
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Setup en 15 min</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Setup in 15 min</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Setup en 15 min</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Setup in 15 min</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <span className="text-lg">🇻🇪</span>
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>100% Venezuela Ready</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>100% Venezuela Ready</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>100% Venezuela Ready</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>100% Venezuela Ready</span>
                             </div>
                         </div>
                     </div>
@@ -623,32 +636,32 @@ const SmartKubikLanding = () => {
                                 <div className="grid grid-cols-3 gap-4">
                                     <div className="bg-white/5 rounded-lg p-3 border border-white/5">
                                         <div className="text-xs text-gray-400">
-                                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Ventas Hoy</span>
-                                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Sales Today</span>
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ventas Hoy</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Sales Today</span>
                                         </div>
                                         <div className="text-xl font-mono font-bold text-emerald-400">$2,450.00</div>
                                         <div className="text-xs text-emerald-500/80">↗ 12%</div>
                                     </div>
                                     <div className="bg-white/5 rounded-lg p-3 border border-white/5">
                                         <div className="text-xs text-gray-400">
-                                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Órdenes</span>
-                                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Orders</span>
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Órdenes</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Orders</span>
                                         </div>
                                         <div className="text-xl font-mono font-bold text-white">48</div>
                                         <div className="text-xs text-gray-500">
-                                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>3 pendientes</span>
-                                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>3 pending</span>
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>3 pendientes</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>3 pending</span>
                                         </div>
                                     </div>
                                     <div className="bg-white/5 rounded-lg p-3 border border-white/5">
                                         <div className="text-xs text-gray-400">
-                                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Inventario</span>
-                                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Inventory</span>
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Inventario</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Inventory</span>
                                         </div>
                                         <div className="text-xl font-mono font-bold text-amber-400">Low</div>
                                         <div className="text-xs text-amber-500/80">
-                                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>5 alertas</span>
-                                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>5 alerts</span>
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>5 alertas</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>5 alerts</span>
                                         </div>
                                     </div>
                                 </div>
@@ -680,12 +693,12 @@ const SmartKubikLanding = () => {
                                         </div>
                                         <div>
                                             <div className="text-xs font-bold text-white">
-                                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Nueva Venta #1024</span>
-                                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>New Sale #1024</span>
+                                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Nueva Venta #1024</span>
+                                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>New Sale #1024</span>
                                             </div>
                                             <div className="text-xs text-gray-400">
-                                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Hace 2 min • $150.00</span>
-                                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>2 min ago • $150.00</span>
+                                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Hace 2 min • $150.00</span>
+                                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>2 min ago • $150.00</span>
                                             </div>
                                         </div>
                                     </div>
@@ -708,8 +721,8 @@ const SmartKubikLanding = () => {
                 {/*  Headline - Parallax Layer 2 (faster)  */}
                 <div id="parallax-headline" className="text-center mb-16 relative" data-speed="0.15">
                     <h2 className="text-4xl md:text-5xl font-bold mb-4">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>¿Te suena familiar?</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Sound familiar?</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>¿Te suena familiar?</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Sound familiar?</span>
                     </h2>
                 </div>
 
@@ -743,10 +756,10 @@ const SmartKubikLanding = () => {
                             }}
                         >
                             <div className="text-4xl mb-4">{item.icon}</div>
-                            <p className={`text-text-secondary leading-relaxed lang - es ${language === "es" ? "" : "hidden"} `}>
+                            <p className={`text-text-secondary leading-relaxed lang-es ${language === "es" ? "" : "hidden"} `}>
                                 {item.es}
                             </p>
-                            <p className={`text-text-secondary leading-relaxed lang - en ${language === "en" ? "" : "hidden"} `}>
+                            <p className={`text-text-secondary leading-relaxed lang-en ${language === "en" ? "" : "hidden"} `}>
                                 {item.en}
                             </p>
                         </div>
@@ -757,8 +770,8 @@ const SmartKubikLanding = () => {
                 {/*  Closing Statement  */}
                 <div className="text-center mt-12">
                     <p className="text-xl text-text-secondary">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Si marcaste 2 o más... no es tu culpa. <span className="text-white font-bold">Tu systema actual te está frenando.</span></span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>If you checked 2 or more... it's not your fault. <span className="text-white font-bold">Your current system is holding you back.</span></span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Si marcaste 2 o más... no es tu culpa. <span className="text-white font-bold">Tu systema actual te está frenando.</span></span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>If you checked 2 or more... it's not your fault. <span className="text-white font-bold">Your current system is holding you back.</span></span>
                     </p>
                 </div>
 
@@ -787,8 +800,8 @@ const SmartKubikLanding = () => {
                     {/*  Initial Title  */}
                     <h3 id="stack-title"
                         className="text-3xl md:text-5xl font-bold text-white mb-4 tracking-wide transition-all duration-700 transform drop-shadow-lg">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Imagina un lunes donde...</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Imagine a Monday where...</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Imagina un lunes donde...</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Imagine a Monday where...</span>
                     </h3>
 
                     {/*  Cards Container  */}
@@ -804,9 +817,9 @@ const SmartKubikLanding = () => {
                                     ✓</div>
                                 <div>
                                     <p className="text-xl md:text-2xl text-gray-200 leading-relaxed font-medium">
-                                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Abres <span className="text-white font-bold">UNA sola app</span> y
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Abres <span className="text-white font-bold">UNA sola app</span> y
                                             ves todo tu negocio. Adiós al caos.</span>
-                                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>You open <span className="text-white font-bold">ONE
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>You open <span className="text-white font-bold">ONE
                                             app</span> and see your entire business. Goodbye chaos.</span>
                                     </p>
                                 </div>
@@ -822,10 +835,10 @@ const SmartKubikLanding = () => {
                                     🤖</div>
                                 <div>
                                     <p className="text-xl md:text-2xl text-gray-200 leading-relaxed font-medium">
-                                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Tu WhatsApp responde solo a las 2am. <br /><span
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Tu WhatsApp responde solo a las 2am. <br /><span
                                             className="text-cyan-400 text-lg italic">"Hola, aquí tienes nuestro
                                             menú..."</span></span>
-                                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Your WhatsApp answers by itself at 2am. <br /><span
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Your WhatsApp answers by itself at 2am. <br /><span
                                             className="text-cyan-400 text-lg italic">"Hi, here is our menu..."</span></span>
                                     </p>
                                 </div>
@@ -841,9 +854,9 @@ const SmartKubikLanding = () => {
                                     💰</div>
                                 <div>
                                     <p className="text-xl md:text-2xl text-gray-200 leading-relaxed font-medium">
-                                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Sabes exactamente cuánto ganaste esta semana. Al
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Sabes exactamente cuánto ganaste esta semana. Al
                                             centavo.</span>
-                                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>You know exactly how much you made this week. To the
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>You know exactly how much you made this week. To the
                                             penny.</span>
                                     </p>
                                 </div>
@@ -859,8 +872,8 @@ const SmartKubikLanding = () => {
                                     📦</div>
                                 <div>
                                     <p className="text-xl md:text-2xl text-gray-200 leading-relaxed font-medium">
-                                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Tu inventario se actualiza con cada venta.</span>
-                                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Updates with every sale. Never sell what you don't have
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Tu inventario se actualiza con cada venta.</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Updates with every sale. Never sell what you don't have
                                             again.</span>
                                     </p>
                                 </div>
@@ -876,8 +889,8 @@ const SmartKubikLanding = () => {
                         </div>
                         <h2
                             className="text-5xl md:text-7xl font-display font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500 animate-pulse-glow">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Eso es SmartKubik.</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>That's SmartKubik.</span>
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Eso es SmartKubik.</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>That's SmartKubik.</span>
                         </h2>
                     </div>
 
@@ -897,15 +910,15 @@ const SmartKubikLanding = () => {
                 {/*  Headline floats over Section 3 content  */}
                 <div className="text-center mb-16">
                     <h2 className="text-4xl md:text-5xl font-bold mb-6">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Todas las caras de tu negocio en un solo lugar.<br /><span
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Todas las caras de tu negocio en un solo lugar.<br /><span
                             className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Desde $29/Usuario.</span></span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>All sides of your business in one place.<br /><span
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>All sides of your business in one place.<br /><span
                             className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">From $29/User.</span></span>
                     </h2>
                     {/*  Subtitle  */}
                     <div className="text-xl text-text-secondary max-w-2xl mx-auto backdrop-blur-sm bg-black/20 rounded-xl p-2 inline-block">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>El sistema operativo completo para empresas modernas.</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>The complete operating system for modern businesses.</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>El sistema operativo completo para empresas modernas.</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>The complete operating system for modern businesses.</span>
                     </div>
                 </div>
             </div>
@@ -922,10 +935,10 @@ const SmartKubikLanding = () => {
                                 className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-electric/20 to-cyan-electric/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                                 <span className="text-3xl">💰</span>
                             </div>
-                            <h3 className="text-xl font-display font-bold mb-3 lang-es">POS & Ventas</h3>
-                            <h3 className="text-xl font-display font-bold mb-3 lang-en hidden">POS & Sales</h3>
-                            <p className="text-text-secondary text-sm lang-es">Vende en tienda, web y WhatsApp</p>
-                            <p className="text-text-secondary text-sm lang-en hidden">Sell in-store, web and WhatsApp</p>
+                            <h3 className={`text-xl font-display font-bold mb-3 lang-es ${language === "es" ? "" : "hidden"}`}>POS & Ventas</h3>
+                            <h3 className={`text-xl font-display font-bold mb-3 lang-en ${language === "en" ? "" : "hidden"}`}>POS & Sales</h3>
+                            <p className={`text-text-secondary text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Vende en tienda, web y WhatsApp</p>
+                            <p className={`text-text-secondary text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Sell in-store, web and WhatsApp</p>
                         </div>
 
                         {/*  Módulo 2: Inventario  */}
@@ -934,10 +947,10 @@ const SmartKubikLanding = () => {
                                 className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                                 <span className="text-3xl">📦</span>
                             </div>
-                            <h3 className="text-xl font-display font-bold mb-3 lang-es">Inventario</h3>
-                            <h3 className="text-xl font-display font-bold mb-3 lang-en hidden">Inventory</h3>
-                            <p className="text-text-secondary text-sm lang-es">Multi-almacén, lotes, alertas</p>
-                            <p className="text-text-secondary text-sm lang-en hidden">Multi-warehouse, batches, alerts</p>
+                            <h3 className={`text-xl font-display font-bold mb-3 lang-es ${language === "es" ? "" : "hidden"}`}>Inventario</h3>
+                            <h3 className={`text-xl font-display font-bold mb-3 lang-en ${language === "en" ? "" : "hidden"}`}>Inventory</h3>
+                            <p className={`text-text-secondary text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Multi-almacén, lotes, alertas</p>
+                            <p className={`text-text-secondary text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Multi-warehouse, batches, alerts</p>
                         </div>
 
                         {/*  Módulo 3: Contabilidad  */}
@@ -946,10 +959,10 @@ const SmartKubikLanding = () => {
                                 className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-subtle/20 to-violet-subtle/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                                 <span className="text-3xl">🧾</span>
                             </div>
-                            <h3 className="text-xl font-display font-bold mb-3 lang-es">Contabilidad</h3>
-                            <h3 className="text-xl font-display font-bold mb-3 lang-en hidden">Accounting</h3>
-                            <p className="text-text-secondary text-sm lang-es">P&L, Balance, Impuestos automáticos</p>
-                            <p className="text-text-secondary text-sm lang-en hidden">P&L, Balance, Automated taxes</p>
+                            <h3 className={`text-xl font-display font-bold mb-3 lang-es ${language === "es" ? "" : "hidden"}`}>Contabilidad</h3>
+                            <h3 className={`text-xl font-display font-bold mb-3 lang-en ${language === "en" ? "" : "hidden"}`}>Accounting</h3>
+                            <p className={`text-text-secondary text-sm lang-es ${language === "es" ? "" : "hidden"}`}>P&L, Balance, Impuestos automáticos</p>
+                            <p className={`text-text-secondary text-sm lang-en ${language === "en" ? "" : "hidden"}`}>P&L, Balance, Automated taxes</p>
                         </div>
 
                         {/*  Módulo 4: CRM  */}
@@ -959,8 +972,8 @@ const SmartKubikLanding = () => {
                                 <span className="text-3xl">👥</span>
                             </div>
                             <h3 className="text-xl font-display font-bold mb-3">CRM</h3>
-                            <p className="text-text-secondary text-sm lang-es">Clientes 360°, pipeline, lealtad</p>
-                            <p className="text-text-secondary text-sm lang-en hidden">360° customers, pipeline, loyalty</p>
+                            <p className={`text-text-secondary text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Clientes 360°, pipeline, lealtad</p>
+                            <p className={`text-text-secondary text-sm lang-en ${language === "en" ? "" : "hidden"}`}>360° customers, pipeline, loyalty</p>
                         </div>
 
                         {/*  Módulo 5: Marketing  */}
@@ -970,8 +983,8 @@ const SmartKubikLanding = () => {
                                 <span className="text-3xl">📧</span>
                             </div>
                             <h3 className="text-xl font-display font-bold mb-3">Marketing</h3>
-                            <p className="text-text-secondary text-sm lang-es">Campañas automáticas multi-canal</p>
-                            <p className="text-text-secondary text-sm lang-en hidden">Automated multi-channel campaigns</p>
+                            <p className={`text-text-secondary text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Campañas automáticas multi-canal</p>
+                            <p className={`text-text-secondary text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Automated multi-channel campaigns</p>
                         </div>
 
                         {/*  Módulo 6: Nómina  */}
@@ -980,10 +993,10 @@ const SmartKubikLanding = () => {
                                 className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-electric/20 to-emerald-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                                 <span className="text-3xl">👔</span>
                             </div>
-                            <h3 className="text-xl font-display font-bold mb-3 lang-es">Nómina</h3>
-                            <h3 className="text-xl font-display font-bold mb-3 lang-en hidden">Payroll</h3>
-                            <p className="text-text-secondary text-sm lang-es">Paga correctamente, cumple la ley</p>
-                            <p className="text-text-secondary text-sm lang-en hidden">Pay correctly, comply with the law</p>
+                            <h3 className={`text-xl font-display font-bold mb-3 lang-es ${language === "es" ? "" : "hidden"}`}>Nómina</h3>
+                            <h3 className={`text-xl font-display font-bold mb-3 lang-en ${language === "en" ? "" : "hidden"}`}>Payroll</h3>
+                            <p className={`text-text-secondary text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Paga correctamente, cumple la ley</p>
+                            <p className={`text-text-secondary text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Pay correctly, comply with the law</p>
                         </div>
 
                         {/*  Módulo 7: Producción  */}
@@ -992,10 +1005,10 @@ const SmartKubikLanding = () => {
                                 className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-subtle/20 to-rose-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                                 <span className="text-3xl">🏭</span>
                             </div>
-                            <h3 className="text-xl font-display font-bold mb-3 lang-es">Producción</h3>
-                            <h3 className="text-xl font-display font-bold mb-3 lang-en hidden">Manufacturing</h3>
-                            <p className="text-text-secondary text-sm lang-es">BOM, órdenes, costos</p>
-                            <p className="text-text-secondary text-sm lang-en hidden">BOM, orders, costing</p>
+                            <h3 className={`text-xl font-display font-bold mb-3 lang-es ${language === "es" ? "" : "hidden"}`}>Producción</h3>
+                            <h3 className={`text-xl font-display font-bold mb-3 lang-en ${language === "en" ? "" : "hidden"}`}>Manufacturing</h3>
+                            <p className={`text-text-secondary text-sm lang-es ${language === "es" ? "" : "hidden"}`}>BOM, órdenes, costos</p>
+                            <p className={`text-text-secondary text-sm lang-en ${language === "en" ? "" : "hidden"}`}>BOM, orders, costing</p>
                         </div>
 
                         {/*  Módulo 8: Citas  */}
@@ -1004,10 +1017,10 @@ const SmartKubikLanding = () => {
                                 className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-cyan-electric/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                                 <span className="text-3xl">📅</span>
                             </div>
-                            <h3 className="text-xl font-display font-bold mb-3 lang-es">Citas</h3>
-                            <h3 className="text-xl font-display font-bold mb-3 lang-en hidden">Appointments</h3>
-                            <p className="text-text-secondary text-sm lang-es">Reservas online, calendar sync</p>
-                            <p className="text-text-secondary text-sm lang-en hidden">Online bookings, calendar sync</p>
+                            <h3 className={`text-xl font-display font-bold mb-3 lang-es ${language === "es" ? "" : "hidden"}`}>Citas</h3>
+                            <h3 className={`text-xl font-display font-bold mb-3 lang-en ${language === "en" ? "" : "hidden"}`}>Appointments</h3>
+                            <p className={`text-text-secondary text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Reservas online, calendar sync</p>
+                            <p className={`text-text-secondary text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Online bookings, calendar sync</p>
                         </div>
 
                         {/*  Módulo 9: E-Commerce  */}
@@ -1017,8 +1030,8 @@ const SmartKubikLanding = () => {
                                 <span className="text-3xl">🛒</span>
                             </div>
                             <h3 className="text-xl font-display font-bold mb-3">E-Commerce</h3>
-                            <p className="text-text-secondary text-sm lang-es">Tu tienda online automática</p>
-                            <p className="text-text-secondary text-sm lang-en hidden">Your automatic online store</p>
+                            <p className={`text-text-secondary text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Tu tienda online automática</p>
+                            <p className={`text-text-secondary text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Your automatic online store</p>
                         </div>
 
                     </div>
@@ -1037,24 +1050,24 @@ const SmartKubikLanding = () => {
                             <div className="flex-1 text-center md:text-left">
                                 <div
                                     className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-500 text-sm font-bold mb-3">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>INCLUIDO</span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>INCLUDED</span>
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>INCLUIDO</span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>INCLUDED</span>
                                 </div>
                                 <h3 className="text-2xl font-display font-bold mb-3">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Asistente con Inteligencia Artificial</span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>AI Assistant</span>
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Asistente con Inteligencia Artificial</span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>AI Assistant</span>
                                 </h3>
                                 <p className="text-lg text-text-secondary">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Pregúntale lo que quieras: "¿Cuánto vendí hoy?" "¿Qué se está
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Pregúntale lo que quieras: "¿Cuánto vendí hoy?" "¿Qué se está
                                         acabando?" — Responde al instante.</span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Ask anything: "How much did I sell today?" "What's running
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Ask anything: "How much did I sell today?" "What's running
                                         low?" — Answers instantly.</span>
                                 </p>
                             </div>
                             <button
-                                className="glass-card px-6 py-3 rounded-xl font-semibold hover:bg-white/10 transition-all duration-300 whitespace-nowrap">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Ver más →</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>See more →</span>
+                                className="btn-secondary px-6 py-3 rounded-xl font-semibold text-white hover:bg-white/5 transition-all duration-300 whitespace-nowrap">
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ver más →</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>See more →</span>
                             </button>
                         </div>
                     </div>
@@ -1063,8 +1076,8 @@ const SmartKubikLanding = () => {
                     <div className="text-center mt-12">
                         <button
                             className="glass-card px-6 py-3 rounded-xl font-semibold text-base hover:bg-white/10 transition-all duration-300 inline-flex items-center gap-2 group">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Explorar Todos los Módulos</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Explore All Modules</span>
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Explorar Todos los Módulos</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Explore All Modules</span>
                             <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" fill="none"
                                 stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
@@ -1081,9 +1094,9 @@ const SmartKubikLanding = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
                 <div className="text-center mb-16">
                     <h2 className="text-3xl md:text-5xl font-display font-bold mb-6">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>No Es Software Genérico. <br className="hidden md:block" /> <span
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>No Es Software Genérico. <br className="hidden md:block" /> <span
                             className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Está Diseñado Para Tu Industria.</span></span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Not Generic Software. <br className="hidden md:block" /> <span
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Not Generic Software. <br className="hidden md:block" /> <span
                             className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">It's Designed For Your Industry.</span></span>
                     </h2>
                 </div>
@@ -1094,38 +1107,38 @@ const SmartKubikLanding = () => {
                     <button onClick={() => switchTab('restaurantes')}
                         className="tab-btn active px-6 py-3 rounded-full text-sm font-bold whitespace-nowrap transition-all border border-transparent bg-white/10 text-white border-cyan-electric/50 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
                         data-tab="restaurantes">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>🍽️ Restaurantes</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>🍽️ Restaurants</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>🍽️ Restaurantes</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>🍽️ Restaurants</span>
                     </button>
                     <button onClick={() => switchTab('retail')}
                         className="tab-btn px-6 py-3 rounded-full text-sm font-bold whitespace-nowrap transition-all border border-transparent text-text-secondary hover:text-white hover:bg-white/5"
                         data-tab="retail">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>🛍️ Tiendas</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>🛍️ Retail</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>🛍️ Tiendas</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>🛍️ Retail</span>
                     </button>
                     <button onClick={() => switchTab('manufactura')}
                         className="tab-btn px-6 py-3 rounded-full text-sm font-bold whitespace-nowrap transition-all border border-transparent text-text-secondary hover:text-white hover:bg-white/5"
                         data-tab="manufactura">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>🏭 Fábricas</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>🏭 Factories</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>🏭 Fábricas</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>🏭 Factories</span>
                     </button>
                     <button onClick={() => switchTab('servicios')}
                         className="tab-btn px-6 py-3 rounded-full text-sm font-bold whitespace-nowrap transition-all border border-transparent text-text-secondary hover:text-white hover:bg-white/5"
                         data-tab="servicios">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>💼 Servicios</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>💼 Services</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>💼 Servicios</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>💼 Services</span>
                     </button>
                     <button onClick={() => switchTab('logistica')}
                         className="tab-btn px-6 py-3 rounded-full text-sm font-bold whitespace-nowrap transition-all border border-transparent text-text-secondary hover:text-white hover:bg-white/5"
                         data-tab="logistica">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>🚚 Logística</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>🚚 Logistics</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>🚚 Logística</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>🚚 Logistics</span>
                     </button>
                     <button onClick={() => switchTab('hoteles')}
                         className="tab-btn px-6 py-3 rounded-full text-sm font-bold whitespace-nowrap transition-all border border-transparent text-text-secondary hover:text-white hover:bg-white/5"
                         data-tab="hoteles">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>🏨 Hoteles</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>🏨 Hotels</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>🏨 Hoteles</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>🏨 Hotels</span>
                     </button>
                 </div>
 
@@ -1135,69 +1148,69 @@ const SmartKubikLanding = () => {
                         <div className="grid lg:grid-cols-2 gap-12 items-center">
                             <div>
                                 <h3 className="text-3xl font-display font-bold text-white mb-6">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Para Restaurantes que Quieren <span
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Para Restaurantes que Quieren <span
                                         className="text-emerald-500">Llenar Mesas</span>, No Papeles</span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>For Restaurants That Want to <span
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>For Restaurants That Want to <span
                                         className="text-emerald-500">Fill Tables</span>, Not Paperwork</span>
                                 </h3>
                                 <div className="grid sm:grid-cols-2 gap-6">
                                     {/*  Card 1: Mesas  */}
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">🗺️</div>
-                                        <div className="font-bold text-white lang-es">Mesas en Tiempo Real</div>
-                                        <div className="font-bold text-white lang-en hidden">Real-Time Tables</div>
-                                        <div className="text-sm text-text-secondary lang-es">Ve qué mesas están libres, ocupadas
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Mesas en Tiempo Real</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Real-Time Tables</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Ve qué mesas están libres, ocupadas
                                             o reservadas.</div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">See which tables are free,
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>See which tables are free,
                                             occupied, or reserved.</div>
                                     </div>
                                     {/*  Card 2: KDS  */}
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">📺</div>
-                                        <div className="font-bold text-white lang-es">Pantalla de Cocina (KDS)</div>
-                                        <div className="font-bold text-white lang-en hidden">Kitchen Display System (KDS)</div>
-                                        <div className="text-sm text-text-secondary lang-es">Las órdenes llegan solas a la
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Pantalla de Cocina (KDS)</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Kitchen Display System (KDS)</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Las órdenes llegan solas a la
                                             cocina.</div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">Orders arrive automatically
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Orders arrive automatically
                                             to the kitchen.</div>
                                     </div>
                                     {/*  Card 3: Reservaciones  */}
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">📅</div>
-                                        <div className="font-bold text-white lang-es">Reservaciones</div>
-                                        <div className="font-bold text-white lang-en hidden">Reservations</div>
-                                        <div className="text-sm text-text-secondary lang-es">Tus clientes reservan online.</div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">Your customers book online.
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Reservaciones</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Reservations</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Tus clientes reservan online.</div>
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Your customers book online.
                                         </div>
                                     </div>
                                     {/*  Card 4: Division de Cuentas  */}
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">💸</div>
-                                        <div className="font-bold text-white lang-es">División de Cuentas</div>
-                                        <div className="font-bold text-white lang-en hidden">Bill Splitting</div>
-                                        <div className="text-sm text-text-secondary lang-es">Divide por persona, por plato, o
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>División de Cuentas</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Bill Splitting</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Divide por persona, por plato, o
                                             como quieras.</div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">Split by person, by item, or
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Split by person, by item, or
                                             however you want.</div>
                                     </div>
                                     {/*  Card 5: Propinas Justas  */}
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">💵</div>
-                                        <div className="font-bold text-white lang-es">Propinas Justas</div>
-                                        <div className="font-bold text-white lang-en hidden">Fair Tips</div>
-                                        <div className="text-sm text-text-secondary lang-es">Distribución automática.
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Propinas Justas</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Fair Tips</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Distribución automática.
                                             Transparente.</div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">Automatic distribution.
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Automatic distribution.
                                             Transparent.</div>
                                     </div>
                                     {/*  Card 6: Menu Engineering  */}
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">📊</div>
-                                        <div className="font-bold text-white lang-es">Menu Engineering</div>
-                                        <div className="font-bold text-white lang-en hidden">Menu Engineering</div>
-                                        <div className="text-sm text-text-secondary lang-es">Descubre qué platos son rentables.
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Menu Engineering</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Menu Engineering</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Descubre qué platos son rentables.
                                         </div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">Discover which dishes are
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Discover which dishes are
                                             profitable.</div>
                                     </div>
                                 </div>
@@ -1207,9 +1220,9 @@ const SmartKubikLanding = () => {
                                             className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center text-2xl">
                                             🎯</div>
                                         <p className="text-text-secondary">
-                                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Produce más rápido, reduce el caos y <strong
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Produce más rápido, reduce el caos y <strong
                                                 className="text-white">aumenta la rotación de mesas un 20%</strong>.</span>
-                                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Produce faster, reduce chaos, and <strong
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Produce faster, reduce chaos, and <strong
                                                 className="text-white">increase table turnover by 20%</strong>.</span>
                                         </p>
                                     </div>
@@ -1233,46 +1246,46 @@ const SmartKubikLanding = () => {
                         <div className="grid lg:grid-cols-2 gap-12 items-center">
                             <div>
                                 <h3 className="text-3xl font-display font-bold text-white mb-6">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Para Tiendas que Quieren <span className="text-cyan-electric">Vender
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Para Tiendas que Quieren <span className="text-cyan-electric">Vender
                                         Más</span>, No Contar Más</span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>For Stores That Want to <span
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>For Stores That Want to <span
                                         className="text-cyan-electric">Sell More</span>, Not Count More</span>
                                 </h3>
                                 <div className="grid sm:grid-cols-2 gap-6">
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">🏪</div>
-                                        <div className="font-bold text-white lang-es">Multi-Tienda</div>
-                                        <div className="font-bold text-white lang-en hidden">Multi-Store</div>
-                                        <div className="text-sm text-text-secondary lang-es">Administra todas tus sucursales
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Multi-Tienda</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Multi-Store</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Administra todas tus sucursales
                                             desde un solo lugar.</div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">Manage all your branches
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Manage all your branches
                                             from a single place.</div>
                                     </div>
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">📱</div>
-                                        <div className="font-bold text-white lang-es">E-commerce Integrado</div>
-                                        <div className="font-bold text-white lang-en hidden">Integrated E-commerce</div>
-                                        <div className="text-sm text-text-secondary lang-es">Vende online y en tienda con el
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>E-commerce Integrado</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Integrated E-commerce</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Vende online y en tienda con el
                                             mismo inventario.</div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">Sell online and in-store
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Sell online and in-store
                                             with the same inventory.</div>
                                     </div>
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">👥</div>
-                                        <div className="font-bold text-white lang-es">Programa de Lealtad</div>
-                                        <div className="font-bold text-white lang-en hidden">Loyalty Program</div>
-                                        <div className="text-sm text-text-secondary lang-es">Puntos, descuentos y promociones
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Programa de Lealtad</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Loyalty Program</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Puntos, descuentos y promociones
                                             automáticas.</div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">Points, discounts, and
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Points, discounts, and
                                             automated promotions.</div>
                                     </div>
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">📊</div>
-                                        <div className="font-bold text-white lang-es">Análisis de Ventas</div>
-                                        <div className="font-bold text-white lang-en hidden">Sales Analysis</div>
-                                        <div className="text-sm text-text-secondary lang-es">Qué se vende, cuándo y a quién.
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Análisis de Ventas</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Sales Analysis</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Qué se vende, cuándo y a quién.
                                         </div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">What sells, when, and to
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>What sells, when, and to
                                             whom.</div>
                                     </div>
                                 </div>
@@ -1282,9 +1295,9 @@ const SmartKubikLanding = () => {
                                             className="w-12 h-12 rounded-full bg-cyan-electric/20 text-cyan-electric flex items-center justify-center text-2xl">
                                             🛍️</div>
                                         <p className="text-text-secondary">
-                                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Evita sobreventa, vende 24/7 y ten <strong
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Evita sobreventa, vende 24/7 y ten <strong
                                                 className="text-white">control total de tu mercancía</strong>.</span>
-                                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Avoid overselling, sell 24/7, and have <strong
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Avoid overselling, sell 24/7, and have <strong
                                                 className="text-white">total control of your merchandise</strong>.</span>
                                         </p>
                                     </div>
@@ -1313,46 +1326,46 @@ const SmartKubikLanding = () => {
                         <div className="grid lg:grid-cols-2 gap-12 items-center">
                             <div>
                                 <h3 className="text-3xl font-display font-bold text-white mb-6">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Para Fábricas que Quieren <span
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Para Fábricas que Quieren <span
                                         className="text-amber-500">Producir</span>, No Buscar Papeles</span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>For Factories That Want to <span
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>For Factories That Want to <span
                                         className="text-amber-500">Produce</span>, Not Hunt for Paperwork</span>
                                 </h3>
                                 <div className="grid sm:grid-cols-2 gap-6">
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">⚙️</div>
-                                        <div className="font-bold text-white lang-es">Órdenes de Producción</div>
-                                        <div className="font-bold text-white lang-en hidden">Production Orders</div>
-                                        <div className="text-sm text-text-secondary lang-es">De materia prima a producto
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Órdenes de Producción</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Production Orders</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>De materia prima a producto
                                             terminado.</div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">From raw material to
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>From raw material to
                                             finished product.</div>
                                     </div>
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">📦</div>
-                                        <div className="font-bold text-white lang-es">Control de Lotes</div>
-                                        <div className="font-bold text-white lang-en hidden">Batch Control</div>
-                                        <div className="text-sm text-text-secondary lang-es">Trazabilidad completa de cada
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Control de Lotes</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Batch Control</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Trazabilidad completa de cada
                                             producción.</div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">Complete traceability of
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Complete traceability of
                                             every production run.</div>
                                     </div>
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">💰</div>
-                                        <div className="font-bold text-white lang-es">Costeo Real</div>
-                                        <div className="font-bold text-white lang-en hidden">Real Costing</div>
-                                        <div className="text-sm text-text-secondary lang-es">Sabe cuánto cuesta fabricar cada
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Costeo Real</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Real Costing</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Sabe cuánto cuesta fabricar cada
                                             unidad.</div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">Know exactly how much each
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Know exactly how much each
                                             unit costs to make.</div>
                                     </div>
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">🔔</div>
-                                        <div className="font-bold text-white lang-es">Alertas de Material</div>
-                                        <div className="font-bold text-white lang-en hidden">Material Alerts</div>
-                                        <div className="text-sm text-text-secondary lang-es">Nunca pares la producción por falta
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Alertas de Material</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Material Alerts</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Nunca pares la producción por falta
                                             de insumos.</div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">Never stop production due to
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Never stop production due to
                                             lack of supplies.</div>
                                     </div>
                                 </div>
@@ -1362,9 +1375,9 @@ const SmartKubikLanding = () => {
                                             className="w-12 h-12 rounded-full bg-amber-500/20 text-amber-500 flex items-center justify-center text-2xl">
                                             📈</div>
                                         <p className="text-text-secondary">
-                                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Detecta mermas ocultas y <strong className="text-white">baja
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Detecta mermas ocultas y <strong className="text-white">baja
                                                 tus costos operativos hasta un 15%</strong>.</span>
-                                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Detect hidden waste and <strong
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Detect hidden waste and <strong
                                                 className="text-white">lower your operating costs by up to
                                                 15%</strong>.</span>
                                         </p>
@@ -1391,46 +1404,46 @@ const SmartKubikLanding = () => {
                         <div className="grid lg:grid-cols-2 gap-12 items-center">
                             <div>
                                 <h3 className="text-3xl font-display font-bold text-white mb-6">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Para Servicios Profesionales que <span
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Para Servicios Profesionales que <span
                                         className="text-violet-500">Facturan Tiempo</span></span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>For Professional Services That <span
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>For Professional Services That <span
                                         className="text-violet-500">Bill for Time</span></span>
                                 </h3>
                                 <div className="grid sm:grid-cols-2 gap-6">
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">⏱️</div>
-                                        <div className="font-bold text-white lang-es">Time Tracking</div>
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Time Tracking</div>
                                         <div className="font-bold text-white lang-en hidden">Time Tracking</div>
-                                        <div className="text-sm text-text-secondary lang-es">Registra horas por proyecto y
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Registra horas por proyecto y
                                             cliente.</div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">Track hours by project and
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Track hours by project and
                                             client.</div>
                                     </div>
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">📋</div>
-                                        <div className="font-bold text-white lang-es">Gestión de Proyectos</div>
-                                        <div className="font-bold text-white lang-en hidden">Project Management</div>
-                                        <div className="text-sm text-text-secondary lang-es">Tareas, plazos y equipo en un solo
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Gestión de Proyectos</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Project Management</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Tareas, plazos y equipo en un solo
                                             lugar.</div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">Tasks, deadlines, and team
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Tasks, deadlines, and team
                                             in one place.</div>
                                     </div>
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">💵</div>
-                                        <div className="font-bold text-white lang-es">Facturación Automática</div>
-                                        <div className="font-bold text-white lang-en hidden">Automated Invoicing</div>
-                                        <div className="text-sm text-text-secondary lang-es">De horas trabajadas a factura en
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Facturación Automática</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Automated Invoicing</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>De horas trabajadas a factura en
                                             segundos.</div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">From billable hours to
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>From billable hours to
                                             invoice in seconds.</div>
                                     </div>
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">📊</div>
-                                        <div className="font-bold text-white lang-es">Rentabilidad por Proyecto</div>
-                                        <div className="font-bold text-white lang-en hidden">Project Profitability</div>
-                                        <div className="text-sm text-text-secondary lang-es">Qué clientes y proyectos son
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Rentabilidad por Proyecto</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Project Profitability</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Qué clientes y proyectos son
                                             rentables.</div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">Which clients and projects
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Which clients and projects
                                             are profitable.</div>
                                     </div>
                                 </div>
@@ -1440,9 +1453,9 @@ const SmartKubikLanding = () => {
                                             className="w-12 h-12 rounded-full bg-violet-500/20 text-violet-500 flex items-center justify-center text-2xl">
                                             ⏳</div>
                                         <p className="text-text-secondary">
-                                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Elimina las cadenas de emails y <strong
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Elimina las cadenas de emails y <strong
                                                 className="text-white">cobra más rápido por tu trabajo</strong>.</span>
-                                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Eliminate email chains and <strong
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Eliminate email chains and <strong
                                                 className="text-white">get paid faster for your work</strong>.</span>
                                         </p>
                                     </div>
@@ -1473,46 +1486,46 @@ const SmartKubikLanding = () => {
                         <div className="grid lg:grid-cols-2 gap-12 items-center">
                             <div>
                                 <h3 className="text-3xl font-display font-bold text-white mb-6">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Para Logística que Quiere <span
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Para Logística que Quiere <span
                                         className="text-blue-500">Mover</span>, No Buscar</span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>For Logistics That Wants to <span
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>For Logistics That Wants to <span
                                         className="text-blue-500">Move</span>, Not Search</span>
                                 </h3>
                                 <div className="grid sm:grid-cols-2 gap-6">
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">📍</div>
-                                        <div className="font-bold text-white lang-es">Tracking en Tiempo Real</div>
-                                        <div className="font-bold text-white lang-en hidden">Real-Time Tracking</div>
-                                        <div className="text-sm text-text-secondary lang-es">Dónde está cada envío, siempre.
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Tracking en Tiempo Real</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Real-Time Tracking</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Dónde está cada envío, siempre.
                                         </div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">Where every shipment is,
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Where every shipment is,
                                             always.</div>
                                     </div>
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">🗺️</div>
-                                        <div className="font-bold text-white lang-es">Optimización de Rutas</div>
-                                        <div className="font-bold text-white lang-en hidden">Route Optimization</div>
-                                        <div className="text-sm text-text-secondary lang-es">IA calcula la ruta más eficiente.
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Optimización de Rutas</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Route Optimization</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>IA calcula la ruta más eficiente.
                                         </div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">AI calculates the most
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>AI calculates the most
                                             efficient route.</div>
                                     </div>
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">📦</div>
-                                        <div className="font-bold text-white lang-es">Gestión de Flotas</div>
-                                        <div className="font-bold text-white lang-en hidden">Fleet Management</div>
-                                        <div className="text-sm text-text-secondary lang-es">Vehículos, choferes, mantenimiento.
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Gestión de Flotas</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Fleet Management</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Vehículos, choferes, mantenimiento.
                                         </div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">Vehicles, drivers,
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Vehicles, drivers,
                                             maintenance.</div>
                                     </div>
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">💵</div>
-                                        <div className="font-bold text-white lang-es">Costeo por Ruta</div>
-                                        <div className="font-bold text-white lang-en hidden">Cost Per Route</div>
-                                        <div className="text-sm text-text-secondary lang-es">Cuánto cuesta cada entrega
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Costeo por Ruta</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Cost Per Route</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Cuánto cuesta cada entrega
                                             realmente.</div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">What each delivery really
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>What each delivery really
                                             costs.</div>
                                     </div>
                                 </div>
@@ -1522,9 +1535,9 @@ const SmartKubikLanding = () => {
                                             className="w-12 h-12 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center text-2xl">
                                             🚚</div>
                                         <p className="text-text-secondary">
-                                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Entrega a tiempo, reduce costos de combustible y <strong
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Entrega a tiempo, reduce costos de combustible y <strong
                                                 className="text-white">evita pérdidas de inventario</strong>.</span>
-                                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Deliver on time, reduce fuel costs, and <strong
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Deliver on time, reduce fuel costs, and <strong
                                                 className="text-white">avoid inventory losses</strong>.</span>
                                         </p>
                                     </div>
@@ -1547,46 +1560,46 @@ const SmartKubikLanding = () => {
                         <div className="grid lg:grid-cols-2 gap-12 items-center">
                             <div>
                                 <h3 className="text-3xl font-display font-bold text-white mb-6">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Para Hoteles que Quieren <span className="text-rose-500">Huéspedes
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Para Hoteles que Quieren <span className="text-rose-500">Huéspedes
                                         Felices</span></span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>For Hotels That Want <span className="text-rose-500">Happy
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>For Hotels That Want <span className="text-rose-500">Happy
                                         Guests</span></span>
                                 </h3>
                                 <div className="grid sm:grid-cols-2 gap-6">
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">🛏️</div>
-                                        <div className="font-bold text-white lang-es">Gestión de Habitaciones</div>
-                                        <div className="font-bold text-white lang-en hidden">Room Management</div>
-                                        <div className="text-sm text-text-secondary lang-es">Disponibilidad, check-in/out
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Gestión de Habitaciones</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Room Management</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Disponibilidad, check-in/out
                                             automático.</div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">Availability, automatic
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Availability, automatic
                                             check-in/out.</div>
                                     </div>
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">💳</div>
-                                        <div className="font-bold text-white lang-es">Reservas Multi-Canal</div>
-                                        <div className="font-bold text-white lang-en hidden">Multi-Channel Booking</div>
-                                        <div className="text-sm text-text-secondary lang-es">Booking, Airbnb, directo - todo
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Reservas Multi-Canal</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Multi-Channel Booking</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Booking, Airbnb, directo - todo
                                             sincronizado.</div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">Booking, Airbnb, direct -
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Booking, Airbnb, direct -
                                             all synchronized.</div>
                                     </div>
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">🍽️</div>
-                                        <div className="font-bold text-white lang-es">Servicios Extras</div>
-                                        <div className="font-bold text-white lang-en hidden">Extra Services</div>
-                                        <div className="text-sm text-text-secondary lang-es">Restaurante, spa, room service
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Servicios Extras</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Extra Services</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Restaurante, spa, room service
                                             integrado.</div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">Restaurant, spa, integrated
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Restaurant, spa, integrated
                                             room service.</div>
                                     </div>
                                     <div className="glass-card p-4 rounded-xl">
                                         <div className="text-2xl mb-2">📊</div>
-                                        <div className="font-bold text-white lang-es">Revenue Management</div>
-                                        <div className="font-bold text-white lang-en hidden">Revenue Management</div>
-                                        <div className="text-sm text-text-secondary lang-es">Precios dinámicos según demanda.
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Revenue Management</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Revenue Management</div>
+                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Precios dinámicos según demanda.
                                         </div>
-                                        <div className="text-sm text-text-secondary lang-en hidden">Dynamic pricing based on
+                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Dynamic pricing based on
                                             demand.</div>
                                     </div>
                                 </div>
@@ -1596,9 +1609,9 @@ const SmartKubikLanding = () => {
                                             className="w-12 h-12 rounded-full bg-rose-500/20 text-rose-500 flex items-center justify-center text-2xl">
                                             🛎️</div>
                                         <p className="text-text-secondary">
-                                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Ofrece una experiencia de 5 estrellas y <strong
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ofrece una experiencia de 5 estrellas y <strong
                                                 className="text-white">aumenta tu ocupación</strong>.</span>
-                                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Offer a 5-star experience and <strong
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Offer a 5-star experience and <strong
                                                 className="text-white">increase your occupancy</strong>.</span>
                                         </p>
                                     </div>
@@ -1626,12 +1639,12 @@ const SmartKubikLanding = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center mb-24">
                     <h2 className="text-3xl md:text-5xl font-display font-bold mb-6">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Un Flujo <span className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Automático</span>.</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>One <span className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Automated</span> Flow.</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Un Flujo <span className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Automático</span>.</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>One <span className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Automated</span> Flow.</span>
                     </h2>
                     <p className="text-xl text-gray-400">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Olvídate de copiar y pegar datos. SmartKubik conecta los puntos.</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Forget copying and pasting data. SmartKubik connects the
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Olvídate de copiar y pegar datos. SmartKubik conecta los puntos.</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Forget copying and pasting data. SmartKubik connects the
                             dots.</span>
                     </p>
                 </div>
@@ -1645,17 +1658,20 @@ const SmartKubikLanding = () => {
                         {/*  Step 1 Trigger  */}
                         <div className="step-trigger" data-step="1">
                             <div
-                                style={{ backgroundColor: 'rgba(22, 78, 99, 0.2)' }}
-                                className="glass-panel p-8 rounded-2xl border-l-4 border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)] transition-all duration-500 hover:border-cyan-500/30 hover:shadow-none hover:bg-white/5">
+                                className="step-card p-8 rounded-2xl"
+                                style={{
+                                    backgroundColor: 'rgba(22, 78, 99, 0.1)',
+                                    borderLeft: '4px solid #06B6D4'
+                                }}>
                                 <div className="text-cyan-500 font-bold text-lg mb-2">Paso 01</div>
                                 <h3 className="text-2xl font-display font-bold text-white mb-4">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Entra el Pedido</span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Order Comes In</span>
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Entra el Pedido</span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Order Comes In</span>
                                 </h3>
                                 <p className="text-gray-400">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>El cliente escribe por WhatsApp. SmartKubik detecta la
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>El cliente escribe por WhatsApp. SmartKubik detecta la
                                         intención de compra automáticamente.</span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Customer texts via WhatsApp. SmartKubik automatically
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Customer texts via WhatsApp. SmartKubik automatically
                                         detects purchase intent.</span>
                                 </p>
                             </div>
@@ -1664,17 +1680,20 @@ const SmartKubikLanding = () => {
                         {/*  Step 2 Trigger  */}
                         <div className="step-trigger" data-step="2">
                             <div
-                                style={{ backgroundColor: 'rgba(6, 78, 59, 0.2)' }}
-                                className="glass-panel p-8 rounded-2xl border-l-4 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all duration-500 hover:border-emerald-500/30 hover:shadow-none hover:bg-white/5">
+                                className="step-card p-8 rounded-2xl"
+                                style={{
+                                    backgroundColor: 'rgba(6, 78, 59, 0.1)',
+                                    borderLeft: '4px solid #10B981'
+                                }}>
                                 <div className="text-emerald-500 font-bold text-lg mb-2">Paso 02</div>
                                 <h3 className="text-2xl font-display font-bold text-white mb-4">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Inventario en Tiempo Real</span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Real-Time Inventory</span>
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Inventario en Tiempo Real</span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Real-Time Inventory</span>
                                 </h3>
                                 <p className="text-gray-400">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Se reserva stock al instante. Si es manufactura, se descuentan
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Se reserva stock al instante. Si es manufactura, se descuentan
                                         las materias primas.</span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Stock is reserved instantly. If manufacturing, raw
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Stock is reserved instantly. If manufacturing, raw
                                         materials are deducted.</span>
                                 </p>
                             </div>
@@ -1683,17 +1702,20 @@ const SmartKubikLanding = () => {
                         {/*  Step 3 Trigger  */}
                         <div className="step-trigger" data-step="3">
                             <div
-                                style={{ backgroundColor: 'rgba(88, 28, 135, 0.2)' }}
-                                className="glass-panel p-8 rounded-2xl border-l-4 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)] transition-all duration-500 hover:border-purple-500/30 hover:shadow-none hover:bg-white/5">
+                                className="step-card p-8 rounded-2xl"
+                                style={{
+                                    backgroundColor: 'rgba(88, 28, 135, 0.1)',
+                                    borderLeft: '4px solid #A855F7'
+                                }}>
                                 <div className="text-purple-500 font-bold text-lg mb-2">Paso 03</div>
                                 <h3 className="text-2xl font-display font-bold text-white mb-4">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Factura & Despacho</span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Invoice & Dispatch</span>
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Factura & Despacho</span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Invoice & Dispatch</span>
                                 </h3>
                                 <p className="text-gray-400">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Se genera la factura fiscal y se notifica a logística. Todo
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Se genera la factura fiscal y se notifica a logística. Todo
                                         sin clicks humanos.</span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Fiscal invoice is generated and logistics notified. All
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Fiscal invoice is generated and logistics notified. All
                                         without human clicks.</span>
                                 </p>
                             </div>
@@ -1713,17 +1735,23 @@ const SmartKubikLanding = () => {
                                     className="glass-panel w-full h-full rounded-2xl border border-white/10 p-6 flex flex-col justify-center items-center">
                                     <div
                                         className="w-64 glass-card p-4 rounded-2xl rounded-tr-none mb-4 self-end animate-pulse">
-                                        <div className="text-xs text-cyan-300 mb-1">Cliente (WhatsApp)</div>
-                                        <div className="text-white text-sm">Quiero 20 hamburguesas clásicas para llevar.
+                                        <div className={`text-xs text-cyan-300 mb-1 lang-es ${language === "es" ? "" : "hidden"}`}>Cliente (WhatsApp)</div>
+                                        <div className={`text-xs text-cyan-300 mb-1 lang-en ${language === "en" ? "" : "hidden"}`}>Client (WhatsApp)</div>
+                                        <div className={`text-white text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Quiero 20 hamburguesas clásicas para llevar.
+                                        </div>
+                                        <div className={`text-white text-sm lang-en ${language === "en" ? "" : "hidden"}`}>I want 20 classic burgers to go.
                                         </div>
                                     </div>
                                     <div
                                         className="w-64 glass-card p-4 rounded-2xl rounded-tl-none self-start border border-cyan-500/30">
-                                        <div className="text-xs text-cyan-300 mb-1">SmartKubik AI</div>
-                                        <div className="text-white text-sm">¡Entendido! Creando orden #ORD-992...</div>
+                                        <div className={`text-xs text-cyan-300 mb-1`}>SmartKubik AI</div>
+                                        <div className={`text-white text-sm lang-es ${language === "es" ? "" : "hidden"}`}>¡Entendido! Creando orden #ORD-992...</div>
+                                        <div className={`text-white text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Got it! Creating order #ORD-992...</div>
                                         <div
                                             className="mt-2 bg-cyan-500/20 text-cyan-400 text-xs px-2 py-1 rounded inline-block">
-                                            Procesando...</div>
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>Procesando...</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>Processing...</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1736,7 +1764,8 @@ const SmartKubikLanding = () => {
                                     className="glass-panel w-full h-full rounded-2xl border border-white/10 p-6 flex flex-col justify-center items-center">
                                     <div className="w-72 bg-navy-800 rounded-xl p-4 border border-white/10 shadow-2xl">
                                         <div className="flex justify-between items-center mb-4">
-                                            <div className="text-gray-400 text-sm">Carne Angus (kg)</div>
+                                            <div className={`text-gray-400 text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Carne Angus (kg)</div>
+                                            <div className={`text-gray-400 text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Angus Beef (kg)</div>
                                             <div className="text-emerald-400 text-xs font-bold">-2.5kg</div>
                                         </div>
                                         <div className="w-full bg-gray-700 h-2 rounded-full mb-1">
@@ -1745,7 +1774,8 @@ const SmartKubikLanding = () => {
                                         </div>
 
                                         <div className="flex justify-between items-center mt-6 mb-4">
-                                            <div className="text-gray-400 text-sm">Pan Brioche (uni)</div>
+                                            <div className={`text-gray-400 text-sm lang-es ${language === "es" ? "" : "hidden"}`}>Pan Brioche (uni)</div>
+                                            <div className={`text-gray-400 text-sm lang-en ${language === "en" ? "" : "hidden"}`}>Brioche Bun (unit)</div>
                                             <div className="text-emerald-400 text-xs font-bold">-20 u</div>
                                         </div>
                                         <div className="w-full bg-gray-700 h-2 rounded-full mb-1">
@@ -1755,7 +1785,8 @@ const SmartKubikLanding = () => {
 
                                         <div className="mt-6 flex items-center justify-center gap-2">
                                             <div className="w-3 h-3 rounded-full bg-green-500 animate-ping"></div>
-                                            <span className="text-xs text-green-400">Stock Actualizado</span>
+                                            <span className={`text-xs text-green-400 lang-es ${language === "es" ? "" : "hidden"}`}>Stock Actualizado</span>
+                                            <span className={`text-xs text-green-400 lang-en ${language === "en" ? "" : "hidden"}`}>Stock Updated</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1770,12 +1801,14 @@ const SmartKubikLanding = () => {
                                     <div
                                         className="w-64 bg-white/95 text-black rounded-lg p-6 shadow-[0_0_40px_rgba(168,85,247,0.3)] rotate-3 hover:rotate-0 transition-transform duration-500">
                                         <div className="flex justify-between items-center mb-6">
-                                            <div className="font-bold text-lg">FACTURA</div>
+                                            <div className={`font-bold text-lg lang-es ${language === "es" ? "" : "hidden"}`}>FACTURA</div>
+                                            <div className={`font-bold text-lg lang-en ${language === "en" ? "" : "hidden"}`}>INVOICE</div>
                                             <div className="text-xs text-gray-500">#F-2024-001</div>
                                         </div>
                                         <div className="space-y-2 mb-6 border-b border-gray-200 pb-4">
                                             <div className="flex justify-between text-sm">
-                                                <span>20x Hamburguesa</span>
+                                                <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>20x Hamburguesa</span>
+                                                <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>20x Burger</span>
                                                 <span>$240.00</span>
                                             </div>
                                             <div className="flex justify-between text-sm font-bold pt-2">
@@ -1789,7 +1822,8 @@ const SmartKubikLanding = () => {
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                                                     d="M5 13l4 4L19 7" />
                                             </svg>
-                                            <span className="text-xs font-bold font-mono">ENVIADO A FISCO</span>
+                                            <span className={`text-xs font-bold font-mono lang-es ${language === "es" ? "" : "hidden"}`}>ENVIADO A FISCO</span>
+                                            <span className={`text-xs font-bold font-mono lang-en ${language === "en" ? "" : "hidden"}`}>SENT TO TAX AUTHORITY</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1833,8 +1867,8 @@ const SmartKubikLanding = () => {
                             <div className="flex justify-end">
                                 <div
                                     className="bg-gray-700/50 text-white rounded-2xl rounded-tr-none px-4 py-3 max-w-[85%]">
-                                    <p className={`lang - es ${language === "es" ? "" : "hidden"} `}>¿Cuánto vendí esta semana?</p>
-                                    <p className={`lang - en ${language === "en" ? "" : "hidden"} `}>How much did I sell this week?</p>
+                                    <p className={`lang-es ${language === "es" ? "" : "hidden"} `}>¿Cuánto vendí esta semana?</p>
+                                    <p className={`lang-en ${language === "en" ? "" : "hidden"} `}>How much did I sell this week?</p>
                                 </div>
                             </div>
 
@@ -1842,14 +1876,14 @@ const SmartKubikLanding = () => {
                             <div className="flex justify-start">
                                 <div
                                     className="glass-card border border-cyan-500/20 text-gray-200 rounded-2xl rounded-tl-none px-4 py-3 max-w-[90%] shadow-lg">
-                                    <div className={`lang - es ${language === "es" ? "" : "hidden"} `}>
+                                    <div className={`lang-es ${language === "es" ? "" : "hidden"} `}>
                                         <p className="mb-2">Esta semana vendiste <strong className="text-white">$4,320</strong>.
                                         </p>
                                         <p className="text-sm">Eso es un <span className="text-emerald-400 font-bold">↑ 12%
                                             más</span> que la semana pasada. Tu producto estrella fue "Hamburguesa
                                             Clásica" con 47 unidades.</p>
                                     </div>
-                                    <div className={`lang - en ${language === "en" ? "" : "hidden"} `}>
+                                    <div className={`lang-en ${language === "en" ? "" : "hidden"} `}>
                                         <p className="mb-2">This week you sold <strong className="text-white">$4,320</strong>.
                                         </p>
                                         <p className="text-sm">That's <span className="text-emerald-400 font-bold">↑ 12%
@@ -1863,10 +1897,10 @@ const SmartKubikLanding = () => {
                             <div className="flex justify-end">
                                 <div
                                     className="bg-gray-700/50 text-white rounded-2xl rounded-tr-none px-4 py-3 max-w-[85%]">
-                                    <p className={`lang - es ${language === "es" ? "" : "hidden"} `}>Reserva una mesa para 4 personas mañana a las 8pm a nombre de
+                                    <p className={`lang-es ${language === "es" ? "" : "hidden"} `}>Reserva una mesa para 4 personas mañana a las 8pm a nombre de
                                         García
                                     </p>
-                                    <p className={`lang - en ${language === "en" ? "" : "hidden"} `}>Book a table for 4 people tomorrow at 8pm under Garcia</p>
+                                    <p className={`lang-en ${language === "en" ? "" : "hidden"} `}>Book a table for 4 people tomorrow at 8pm under Garcia</p>
                                 </div>
                             </div>
 
@@ -1874,7 +1908,7 @@ const SmartKubikLanding = () => {
                             <div className="flex justify-start">
                                 <div
                                     className="glass-card border border-cyan-500/20 text-gray-200 rounded-2xl rounded-tl-none px-4 py-3 max-w-[90%] shadow-lg">
-                                    <div className={`lang - es ${language === "es" ? "" : "hidden"} `}>
+                                    <div className={`lang-es ${language === "es" ? "" : "hidden"} `}>
                                         <p>Listo. Mesa 7 reservada para <strong>García</strong>, 4 personas, mañana 8:00
                                             PM.
                                         </p>
@@ -1884,7 +1918,7 @@ const SmartKubikLanding = () => {
                                             cliente
                                         </div>
                                     </div>
-                                    <div className={`lang - en ${language === "en" ? "" : "hidden"} `}>
+                                    <div className={`lang-en ${language === "en" ? "" : "hidden"} `}>
                                         <p>Done. Table 7 reserved for <strong>Garcia</strong>, 4 people, tomorrow 8:00
                                             PM.
                                         </p>
@@ -1902,8 +1936,8 @@ const SmartKubikLanding = () => {
                         <div className="mt-6 relative">
                             <div
                                 className="w-full bg-navy-900/50 border border-white/10 rounded-full h-12 px-4 flex items-center text-gray-500 italic text-sm">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Escribe algo...</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Type something...</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Escribe algo...</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Type something...</span>
                             </div>
                             <div
                                 className="absolute right-2 top-2 w-8 h-8 bg-cyan-electric rounded-full flex items-center justify-center text-white">
@@ -1918,16 +1952,16 @@ const SmartKubikLanding = () => {
                     {/*  Capabilities  */}
                     <div className="order-1 lg:order-2">
                         <h2 className="text-4xl lg:text-5xl font-display font-bold mb-6 text-white">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Tu Asistente de Negocios que <span className="text-cyan-electric">Nunca
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Tu Asistente de Negocios que <span className="text-cyan-electric">Nunca
                                 Duerme</span>.</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Your Business Assistant That <span
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Your Business Assistant That <span
                                 className="text-cyan-electric">Never
                                 Sleeps</span>.</span>
                         </h2>
                         <p className="text-xl text-text-secondary mb-12">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Inteligencia Artificial integrada en todo el sistema. Pregunta lo que
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Inteligencia Artificial integrada en todo el sistema. Pregunta lo que
                                 quieras en español normal. No es un chatbot, es tu copiloto.</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Artificial Intelligence integrated throughout the system. Ask
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Artificial Intelligence integrated throughout the system. Ask
                                 whatever you want in natural language. It's not a chatbot, it's your copilot.</span>
                         </p>
 
@@ -1937,11 +1971,11 @@ const SmartKubikLanding = () => {
                                     className="w-10 h-10 rounded-lg bg-cyan-electric/20 text-cyan-electric flex items-center justify-center text-xl flex-shrink-0">
                                     📊</div>
                                 <div>
-                                    <h4 className="font-bold text-white lang-es">Responde Preguntas</h4>
-                                    <h4 className="font-bold text-white lang-en hidden">Answers Questions</h4>
-                                    <p className="text-sm text-text-secondary lang-es">Sobre ventas, inventario, finanzas...
+                                    <h4 className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Responde Preguntas</h4>
+                                    <h4 className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Answers Questions</h4>
+                                    <p className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Sobre ventas, inventario, finanzas...
                                     </p>
-                                    <p className="text-sm text-text-secondary lang-en hidden">About sales, inventory,
+                                    <p className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>About sales, inventory,
                                         finance...
                                     </p>
                                 </div>
@@ -1951,12 +1985,12 @@ const SmartKubikLanding = () => {
                                     className="w-10 h-10 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center text-xl flex-shrink-0">
                                     ⚡</div>
                                 <div>
-                                    <h4 className="font-bold text-white lang-es">Ejecuta Acciones</h4>
-                                    <h4 className="font-bold text-white lang-en hidden">Executes Actions</h4>
-                                    <p className="text-sm text-text-secondary lang-es">Crea citas, busca datos, envía
+                                    <h4 className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Ejecuta Acciones</h4>
+                                    <h4 className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Executes Actions</h4>
+                                    <p className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Crea citas, busca datos, envía
                                         correos.
                                     </p>
-                                    <p className="text-sm text-text-secondary lang-en hidden">Creates appointments, finds
+                                    <p className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Creates appointments, finds
                                         data,
                                         sends emails.</p>
                                 </div>
@@ -1966,11 +2000,11 @@ const SmartKubikLanding = () => {
                                     className="w-10 h-10 rounded-lg bg-green-500/20 text-green-400 flex items-center justify-center text-xl flex-shrink-0">
                                     💬</div>
                                 <div>
-                                    <h4 className="font-bold text-white lang-es">Auto-WhatsApp</h4>
-                                    <h4 className="font-bold text-white lang-en hidden">Auto-WhatsApp</h4>
-                                    <p className="text-sm text-text-secondary lang-es">Atiende clientes a las 3am
+                                    <h4 className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Auto-WhatsApp</h4>
+                                    <h4 className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Auto-WhatsApp</h4>
+                                    <p className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Atiende clientes a las 3am
                                         automáticamente.</p>
-                                    <p className="text-sm text-text-secondary lang-en hidden">Serves customers at 3am
+                                    <p className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Serves customers at 3am
                                         automatically.</p>
                                 </div>
                             </div>
@@ -1979,12 +2013,12 @@ const SmartKubikLanding = () => {
                                     className="w-10 h-10 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl flex-shrink-0">
                                     📈</div>
                                 <div>
-                                    <h4 className="font-bold text-white lang-es">Análisis Predictivo</h4>
-                                    <h4 className="font-bold text-white lang-en hidden">Predictive Analysis</h4>
-                                    <p className="text-sm text-text-secondary lang-es">"Tu martes será lento, lanza una
+                                    <h4 className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Análisis Predictivo</h4>
+                                    <h4 className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Predictive Analysis</h4>
+                                    <p className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>"Tu martes será lento, lanza una
                                         promo."
                                     </p>
-                                    <p className="text-sm text-text-secondary lang-en hidden">"Your Tuesday will be slow,
+                                    <p className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>"Your Tuesday will be slow,
                                         launch
                                         a promo."</p>
                                 </div>
@@ -1994,12 +2028,12 @@ const SmartKubikLanding = () => {
                                     className="w-10 h-10 rounded-lg bg-red-500/20 text-red-500 flex items-center justify-center text-xl flex-shrink-0">
                                     🧠</div>
                                 <div>
-                                    <h4 className="font-bold text-white lang-es">Aprende de Tu Negocio</h4>
-                                    <h4 className="font-bold text-white lang-en hidden">Learns from Your Business</h4>
-                                    <p className="text-sm text-text-secondary lang-es">Mientras más lo uses, más inteligente
+                                    <h4 className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Aprende de Tu Negocio</h4>
+                                    <h4 className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Learns from Your Business</h4>
+                                    <p className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Mientras más lo uses, más inteligente
                                         se
                                         vuelve.</p>
-                                    <p className="text-sm text-text-secondary lang-en hidden">The more you use it, the
+                                    <p className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>The more you use it, the
                                         smarter
                                         it gets.</p>
                                 </div>
@@ -2009,12 +2043,12 @@ const SmartKubikLanding = () => {
                                     className="w-10 h-10 rounded-lg bg-blue-500/20 text-blue-500 flex items-center justify-center text-xl flex-shrink-0">
                                     🔒</div>
                                 <div>
-                                    <h4 className="font-bold text-white lang-es">Solo Tu Información</h4>
-                                    <h4 className="font-bold text-white lang-en hidden">Your Information Only</h4>
-                                    <p className="text-sm text-text-secondary lang-es">Datos 100% privados. No se comparte
+                                    <h4 className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Solo Tu Información</h4>
+                                    <h4 className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Your Information Only</h4>
+                                    <p className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Datos 100% privados. No se comparte
                                         con
                                         nadie.</p>
-                                    <p className="text-sm text-text-secondary lang-en hidden">100% private data. Shared with
+                                    <p className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>100% private data. Shared with
                                         no
                                         one.</p>
                                 </div>
@@ -2029,16 +2063,16 @@ const SmartKubikLanding = () => {
                                 <div className="relative z-10 flex gap-4">
                                     <div className="text-3xl">🤯</div>
                                     <div>
-                                        <h4 className="font-bold text-white text-lg mb-1 lang-es">Esto no es un chatbot
+                                        <h4 className={`font-bold text-white text-lg mb-1 lang-es ${language === "es" ? "" : "hidden"}`}>Esto no es un chatbot
                                             genérico.</h4>
-                                        <h4 className="font-bold text-white text-lg mb-1 lang-en hidden">This is not a
+                                        <h4 className={`font-bold text-white text-lg mb-1 lang-en ${language === "en" ? "" : "hidden"}`}>This is not a
                                             generic
                                             chatbot.</h4>
-                                        <p className="text-text-secondary lang-es">Es una IA que conoce <strong
+                                        <p className={`text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Es una IA que conoce <strong
                                             className="text-cyan-electric">TU</strong> negocio, <strong
                                                 className="text-cyan-electric">TUS</strong> productos, <strong
                                                     className="text-cyan-electric">TUS</strong> clientes.</p>
-                                        <p className="text-text-secondary lang-en hidden">It's an AI that knows <strong
+                                        <p className={`text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>It's an AI that knows <strong
                                             className="text-cyan-electric">YOUR</strong> business, <strong
                                                 className="text-cyan-electric">YOUR</strong> products, <strong
                                                     className="text-cyan-electric">YOUR</strong> clients.</p>
@@ -2050,8 +2084,8 @@ const SmartKubikLanding = () => {
                         <div className="mt-10">
                             <Link to="/register"
                                 className="btn-primary inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-bold transition-all hover:scale-105">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Ver la IA en Acción</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>See AI in Action</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ver la IA en Acción</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>See AI in Action</span>
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                                         d="M13 7l5 5m0 0l-5 5m5-5H6" />
@@ -2072,20 +2106,20 @@ const SmartKubikLanding = () => {
                             <path
                                 d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                         </svg>
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Integración Nativa 2026</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Native Integration 2026</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Integración Nativa 2026</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Native Integration 2026</span>
                     </div>
                     <h2 className="text-4xl md:text-5xl font-display font-bold mb-6">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>WhatsApp No Es Solo para Chatear. <br /><span className="text-white">Es Tu Nuevo
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>WhatsApp No Es Solo para Chatear. <br /><span className="text-white">Es Tu Nuevo
                             Canal de Ventas.</span></span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>WhatsApp Is Not Just for Chatting. <br /><span
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>WhatsApp Is Not Just for Chatting. <br /><span
                             className="text-white">It's
                             Your New Sales Channel.</span></span>
                     </h2>
                     <p className="text-xl text-text-secondary max-w-3xl mx-auto">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>78% de los negocios en LATAM usan WhatsApp para vender. SmartKubik lo
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>78% de los negocios en LATAM usan WhatsApp para vender. SmartKubik lo
                             profesionaliza con IA, CRM y automatización.</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>78% of businesses in LATAM use WhatsApp to sell. SmartKubik
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>78% of businesses in LATAM use WhatsApp to sell. SmartKubik
                             professionalizes it with AI, CRM, and automation.</span>
                     </p>
                 </div>
@@ -2107,16 +2141,16 @@ const SmartKubikLanding = () => {
                                         <div className="w-10 h-10 rounded-full bg-blue-500/20"></div>
                                         <div className="flex-1 min-w-0">
                                             <div className="text-sm font-bold text-white truncate">Juan Pérez</div>
-                                            <div className="text-xs text-green-400 truncate lang-es">Reservando...</div>
-                                            <div className="text-xs text-green-400 truncate lang-en hidden">Booking...</div>
+                                            <div className={`text-xs text-green-400 truncate lang-es ${language === "es" ? "" : "hidden"}`}>Reservando...</div>
+                                            <div className={`text-xs text-green-400 truncate lang-en ${language === "en" ? "" : "hidden"}`}>Booking...</div>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3 p-3 rounded-xl opacity-50">
                                         <div className="w-10 h-10 rounded-full bg-pink-500/20"></div>
                                         <div>
                                             <div className="text-sm font-bold text-white">María L.</div>
-                                            <div className="text-xs text-gray-400 lang-es">Gracias!</div>
-                                            <div className="text-xs text-gray-400 lang-en hidden">Thanks!</div>
+                                            <div className={`text-xs text-gray-400 lang-es ${language === "es" ? "" : "hidden"}`}>Gracias!</div>
+                                            <div className={`text-xs text-gray-400 lang-en ${language === "en" ? "" : "hidden"}`}>Thanks!</div>
                                         </div>
                                     </div>
                                 </div>
@@ -2129,8 +2163,8 @@ const SmartKubikLanding = () => {
                                     <div className="w-8 h-8 rounded-full bg-blue-500/20 mr-3"></div>
                                     <div>
                                         <div className="text-white font-bold text-sm">Juan Pérez</div>
-                                        <div className="text-xs text-gray-400 lang-es">Cliente VIP • LTV $1,200</div>
-                                        <div className="text-xs text-gray-400 lang-en hidden">VIP Client • LTV $1,200</div>
+                                        <div className={`text-xs text-gray-400 lang-es ${language === "es" ? "" : "hidden"}`}>Cliente VIP • LTV $1,200</div>
+                                        <div className={`text-xs text-gray-400 lang-en ${language === "en" ? "" : "hidden"}`}>VIP Client • LTV $1,200</div>
                                     </div>
                                 </div>
 
@@ -2139,8 +2173,8 @@ const SmartKubikLanding = () => {
                                     <div className="flex justify-start">
                                         <div
                                             className="bg-[#202c33] p-3 rounded-lg rounded-tl-none max-w-[80%] text-sm text-gray-200">
-                                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Hola, ¿tienen la camisa azul en talla M?</span>
-                                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Hi, do you have the blue shirt in size
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Hola, ¿tienen la camisa azul en talla M?</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Hi, do you have the blue shirt in size
                                                 M?</span>
                                             <div className="text-[10px] text-gray-500 text-right mt-1">10:42 AM</div>
                                         </div>
@@ -2153,10 +2187,10 @@ const SmartKubikLanding = () => {
                                                 className="flex items-center gap-1 text-[10px] text-emerald-300 font-bold mb-1">
                                                 <span>🤖 SmartKubik AI</span>
                                             </div>
-                                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Sí, Juan! Nos quedan 2 unidades en la tienda del
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Sí, Juan! Nos quedan 2 unidades en la tienda del
                                                 centro.
                                                 ¿Quieres que te reserve una?</span>
-                                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Yes, Juan! We have 2 units left downtown. Would
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Yes, Juan! We have 2 units left downtown. Would
                                                 you
                                                 like me to reserve one?</span>
                                             <div
@@ -2168,8 +2202,8 @@ const SmartKubikLanding = () => {
                                     <div className="flex justify-start">
                                         <div
                                             className="bg-[#202c33] p-3 rounded-lg rounded-tl-none max-w-[80%] text-sm text-gray-200">
-                                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Sí por favor, paso hoy en la tarde.</span>
-                                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Yes please, I'll stop by this afternoon.</span>
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Sí por favor, paso hoy en la tarde.</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Yes please, I'll stop by this afternoon.</span>
                                             <div className="text-[10px] text-gray-500 text-right mt-1">10:43 AM</div>
                                         </div>
                                     </div>
@@ -2177,8 +2211,8 @@ const SmartKubikLanding = () => {
                                     <div className="flex justify-center my-2">
                                         <div
                                             className="bg-navy-800 text-xs text-gray-400 px-3 py-1 rounded-full border border-white/5">
-                                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Orden #4829 creada automáticamente</span>
-                                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Order #4829 created automatically</span>
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Orden #4829 creada automáticamente</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Order #4829 created automatically</span>
                                         </div>
                                     </div>
                                 </div>
@@ -2189,66 +2223,66 @@ const SmartKubikLanding = () => {
                     {/*  Features Grid  */}
                     <div className="grid sm:grid-cols-2 gap-6">
                         <div className="glass-card p-5 rounded-xl">
-                            <h4 className="font-bold text-white mb-2 lang-es">📥 Inbox Centralizado</h4>
-                            <h4 className="font-bold text-white mb-2 lang-en hidden">📥 Centralized Inbox</h4>
-                            <p className="text-sm text-gray-400 lang-es">Todas las conversaciones en un lugar. Múltiples
+                            <h4 className={`font-bold text-white mb-2 lang-es ${language === "es" ? "" : "hidden"}`}>📥 Inbox Centralizado</h4>
+                            <h4 className={`font-bold text-white mb-2 lang-en ${language === "en" ? "" : "hidden"}`}>📥 Centralized Inbox</h4>
+                            <p className={`text-sm text-gray-400 lang-es ${language === "es" ? "" : "hidden"}`}>Todas las conversaciones en un lugar. Múltiples
                                 agentes
                                 pueden responder.</p>
-                            <p className="text-sm text-gray-400 lang-en hidden">All conversations in one place. Multiple
+                            <p className={`text-sm text-gray-400 lang-en ${language === "en" ? "" : "hidden"}`}>All conversations in one place. Multiple
                                 agents
                                 can respond.</p>
                         </div>
                         <div className="glass-card p-5 rounded-xl">
-                            <h4 className="font-bold text-white mb-2 lang-es">🤖 Auto-Respuestas IA</h4>
-                            <h4 className="font-bold text-white mb-2 lang-en hidden">🤖 AI Auto-Replies</h4>
-                            <p className="text-sm text-gray-400 lang-es">El cliente pregunta por un producto a las 11pm. La
+                            <h4 className={`font-bold text-white mb-2 lang-es ${language === "es" ? "" : "hidden"}`}>🤖 Auto-Respuestas IA</h4>
+                            <h4 className={`font-bold text-white mb-2 lang-en ${language === "en" ? "" : "hidden"}`}>🤖 AI Auto-Replies</h4>
+                            <p className={`text-sm text-gray-400 lang-es ${language === "es" ? "" : "hidden"}`}>El cliente pregunta por un producto a las 11pm. La
                                 IA
                                 responde al instante.</p>
-                            <p className="text-sm text-gray-400 lang-en hidden">Customer asks for a product at 11pm. AI
+                            <p className={`text-sm text-gray-400 lang-en ${language === "en" ? "" : "hidden"}`}>Customer asks for a product at 11pm. AI
                                 responds
                                 instantly.</p>
                         </div>
                         <div className="glass-card p-5 rounded-xl">
-                            <h4 className="font-bold text-white mb-2 lang-es">📢 Campañas Masivas</h4>
-                            <h4 className="font-bold text-white mb-2 lang-en hidden">📢 Mass Campaigns</h4>
-                            <p className="text-sm text-gray-400 lang-es">Envía promociones a segmentos. "Clientes VIP que no
+                            <h4 className={`font-bold text-white mb-2 lang-es ${language === "es" ? "" : "hidden"}`}>📢 Campañas Masivas</h4>
+                            <h4 className={`font-bold text-white mb-2 lang-en ${language === "en" ? "" : "hidden"}`}>📢 Mass Campaigns</h4>
+                            <p className={`text-sm text-gray-400 lang-es ${language === "es" ? "" : "hidden"}`}>Envía promociones a segmentos. "Clientes VIP que no
                                 compran hace 30 días."</p>
-                            <p className="text-sm text-gray-400 lang-en hidden">Send promotions to segments. "VIP clients
+                            <p className={`text-sm text-gray-400 lang-en ${language === "en" ? "" : "hidden"}`}>Send promotions to segments. "VIP clients
                                 who
                                 haven't bought in 30 days."</p>
                         </div>
                         <div className="glass-card p-5 rounded-xl">
-                            <h4 className="font-bold text-white mb-2 lang-es">🛒 Órdenes por WhatsApp</h4>
-                            <h4 className="font-bold text-white mb-2 lang-en hidden">🛒 WhatsApp Orders</h4>
-                            <p className="text-sm text-gray-400 lang-es">Cliente pide → IA confirma → Orden creada → Factura
+                            <h4 className={`font-bold text-white mb-2 lang-es ${language === "es" ? "" : "hidden"}`}>🛒 Órdenes por WhatsApp</h4>
+                            <h4 className={`font-bold text-white mb-2 lang-en ${language === "en" ? "" : "hidden"}`}>🛒 WhatsApp Orders</h4>
+                            <p className={`text-sm text-gray-400 lang-es ${language === "es" ? "" : "hidden"}`}>Cliente pide → IA confirma → Orden creada → Factura
                                 enviada. Automático.</p>
-                            <p className="text-sm text-gray-400 lang-en hidden">Client orders → AI confirms → Order created
+                            <p className={`text-sm text-gray-400 lang-en ${language === "en" ? "" : "hidden"}`}>Client orders → AI confirms → Order created
                                 →
                                 Invoice sent. Automatic.</p>
                         </div>
                         <div className="glass-card p-5 rounded-xl">
-                            <h4 className="font-bold text-white mb-2 lang-es">📋 Todo en el CRM</h4>
-                            <h4 className="font-bold text-white mb-2 lang-en hidden">📋 Everything in CRM</h4>
-                            <p className="text-sm text-gray-400 lang-es">Cada conversación queda en el perfil del cliente.
+                            <h4 className={`font-bold text-white mb-2 lang-es ${language === "es" ? "" : "hidden"}`}>📋 Todo en el CRM</h4>
+                            <h4 className={`font-bold text-white mb-2 lang-en ${language === "en" ? "" : "hidden"}`}>📋 Everything in CRM</h4>
+                            <p className={`text-sm text-gray-400 lang-es ${language === "es" ? "" : "hidden"}`}>Cada conversación queda en el perfil del cliente.
                                 Historial completo.</p>
-                            <p className="text-sm text-gray-400 lang-en hidden">Every conversation stays in the client's
+                            <p className={`text-sm text-gray-400 lang-en ${language === "en" ? "" : "hidden"}`}>Every conversation stays in the client's
                                 profile. Complete history.</p>
                         </div>
                         <div className="glass-card p-5 rounded-xl">
-                            <h4 className="font-bold text-white mb-2 lang-es">📊 Métricas</h4>
-                            <h4 className="font-bold text-white mb-2 lang-en hidden">📊 Metrics</h4>
-                            <p className="text-sm text-gray-400 lang-es">Mensajes enviados, tasa de respuesta, conversiones.
+                            <h4 className={`font-bold text-white mb-2 lang-es ${language === "es" ? "" : "hidden"}`}>📊 Métricas</h4>
+                            <h4 className={`font-bold text-white mb-2 lang-en ${language === "en" ? "" : "hidden"}`}>📊 Metrics</h4>
+                            <p className={`text-sm text-gray-400 lang-es ${language === "es" ? "" : "hidden"}`}>Mensajes enviados, tasa de respuesta, conversiones.
                                 Mide lo que funciona.</p>
-                            <p className="text-sm text-gray-400 lang-en hidden">Messages sent, response rate, conversions.
+                            <p className={`text-sm text-gray-400 lang-en ${language === "en" ? "" : "hidden"}`}>Messages sent, response rate, conversions.
                                 Measure what works.</p>
                         </div>
 
                         <div className="sm:col-span-2 mt-3 text-center md:text-left">
                             <div className="inline-flex items-center gap-2 text-lg font-bold text-white">
                                 <span>💬</span>
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Deja de ser esclavo del teléfono. SmartKubik responde por
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Deja de ser esclavo del teléfono. SmartKubik responde por
                                     ti.</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Stop being a slave to the phone. SmartKubik answers for
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Stop being a slave to the phone. SmartKubik answers for
                                     you.</span>
                             </div>
                         </div>
@@ -2261,9 +2295,9 @@ const SmartKubikLanding = () => {
         < section id="demo" className="py-24 relative overflow-hidden bg-[#050810]" >
             <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 w-full text-center">
                 <h2 className="text-3xl md:text-5xl font-display font-bold mb-8">
-                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Ve SmartKubik en Acción <span className="text-cyan-400 text-lg align-top ml-2">(90
+                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ve SmartKubik en Acción <span className="text-cyan-400 text-lg align-top ml-2">(90
                         Segundos)</span></span>
-                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>See SmartKubik in Action <span
+                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>See SmartKubik in Action <span
                         className="text-cyan-400 text-lg align-top ml-2">(90 Seconds)</span></span>
                 </h2>
 
@@ -2283,12 +2317,12 @@ const SmartKubikLanding = () => {
                             </svg>
                         </div>
                         <div className="absolute bottom-6 left-6 text-left">
-                            <div className="font-bold text-white text-lg lang-es">Demo Completa: Restaurante & Retail</div>
-                            <div className="font-bold text-white text-lg lang-en hidden">Full Demo: Restaurant & Retail
+                            <div className={`font-bold text-white text-lg lang-es ${language === "es" ? "" : "hidden"}`}>Demo Completa: Restaurante & Retail</div>
+                            <div className={`font-bold text-white text-lg lang-en ${language === "en" ? "" : "hidden"}`}>Full Demo: Restaurant & Retail
                             </div>
-                            <div className="text-sm text-gray-400 lang-es">Ver cómo funciona POS, Inventario y WhatsApp
+                            <div className={`text-sm text-gray-400 lang-es ${language === "es" ? "" : "hidden"}`}>Ver cómo funciona POS, Inventario y WhatsApp
                             </div>
-                            <div className="text-sm text-gray-400 lang-en hidden">See how POS, Inventory and WhatsApp work
+                            <div className={`text-sm text-gray-400 lang-en ${language === "en" ? "" : "hidden"}`}>See how POS, Inventory and WhatsApp work
                             </div>
                         </div>
                     </div>
@@ -2297,8 +2331,8 @@ const SmartKubikLanding = () => {
                 <div className="mt-8">
                     <Link to="#trial"
                         className="text-gray-400 hover:text-white underline decoration-cyan-500/50 hover:decoration-cyan-500 transition-all">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Quiero Probarlo Ahora sin ver video</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>I Want to Try It Now (Skip Video)</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Quiero Probarlo Ahora sin ver video</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>I Want to Try It Now (Skip Video)</span>
                     </Link>
                 </div>
             </div>
@@ -2309,9 +2343,9 @@ const SmartKubikLanding = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
                 <div className="text-center mb-16">
                     <h2 className="text-3xl md:text-5xl font-display font-bold mb-6">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Lo Que Pagas Hoy vs. <span className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Lo Que Podrías
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Lo Que Pagas Hoy vs. <span className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Lo Que Podrías
                             Pagar</span></span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>What You Pay Today vs. <span className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">What You Could
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>What You Pay Today vs. <span className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">What You Could
                             Pay</span></span>
                     </h2>
                 </div>
@@ -2319,44 +2353,44 @@ const SmartKubikLanding = () => {
                 <div className="grid lg:grid-cols-2 gap-12 items-start">
                     {/*  Current Stack Table  */}
                     <div className="glass-card p-8 rounded-3xl border-red-500/20">
-                        <h3 className="text-xl font-bold text-gray-400 mb-6 lang-es">Tu Stack Actual (Fragmentado)</h3>
-                        <h3 className="text-xl font-bold text-gray-400 mb-6 lang-en hidden">Your Current Stack (Fragmented)
+                        <h3 className={`text-xl font-bold text-gray-400 mb-6 lang-es ${language === "es" ? "" : "hidden"}`}>Tu Stack Actual (Fragmentado)</h3>
+                        <h3 className={`text-xl font-bold text-gray-400 mb-6 lang-en ${language === "en" ? "" : "hidden"}`}>Your Current Stack (Fragmented)
                         </h3>
                         <div className="space-y-4">
                             <div className="flex justify-between py-3 border-b border-white/5 text-gray-400">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>QuickBooks / Contabilidad</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>QuickBooks / Accounting</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>QuickBooks / Contabilidad</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>QuickBooks / Accounting</span>
                                 <span>$90/mes</span>
                             </div>
                             <div className="flex justify-between py-3 border-b border-white/5 text-gray-400">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Sistema de Inventario</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Inventory System</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Sistema de Inventario</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Inventory System</span>
                                 <span>$150/mes</span>
                             </div>
                             <div className="flex justify-between py-3 border-b border-white/5 text-gray-400">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>POS (2 cajas)</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>POS (2 registers)</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>POS (2 cajas)</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>POS (2 registers)</span>
                                 <span>$165/mes</span>
                             </div>
                             <div className="flex justify-between py-3 border-b border-white/5 text-gray-400">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Marketing & CRM</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Marketing & CRM</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Marketing & CRM</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Marketing & CRM</span>
                                 <span>$350/mes</span>
                             </div>
                             <div className="flex justify-between py-3 border-b border-white/5 text-gray-400">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Plataforma E-commerce</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>E-commerce Platform</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Plataforma E-commerce</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>E-commerce Platform</span>
                                 <span>$79/mes</span>
                             </div>
                             <div className="flex justify-between py-3 border-b border-white/5 text-gray-400">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Integraciones (Zapier, etc)</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Integrations (Zapier, etc)</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Integraciones (Zapier, etc)</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Integrations (Zapier, etc)</span>
                                 <span>$49/mes</span>
                             </div>
                         </div>
                         <div className="mt-8 pt-6 border-t border-white/10 flex justify-between items-end">
-                            <span className="text-gray-400 font-medium lang-es">Total Mensual</span>
-                            <span className="text-gray-400 font-medium lang-en hidden">Monthly Total</span>
+                            <span className={`text-gray-400 font-medium lang-es ${language === "es" ? "" : "hidden"}`}>Total Mensual</span>
+                            <span className={`text-gray-400 font-medium lang-en ${language === "en" ? "" : "hidden"}`}>Monthly Total</span>
                             <span className="text-3xl font-bold text-red-400">$883<span
                                 className="text-sm text-gray-500 font-normal">/mes</span></span>
                         </div>
@@ -2366,66 +2400,66 @@ const SmartKubikLanding = () => {
                     <div
                         className="glass-card p-8 rounded-3xl border-emerald-500/30 bg-emerald-900/5 relative overflow-hidden">
                         <div
-                            className="absolute top-0 right-0 bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-bl-xl lang-es">
+                            className={`absolute top-0 right-0 bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-bl-xl lang-es ${language === "es" ? "" : "hidden"}`}>
                             MEJOR OPCIÓN</div>
                         <div
-                            className="absolute top-0 right-0 bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-bl-xl lang-en hidden">
+                            className={`absolute top-0 right-0 bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-bl-xl lang-en ${language === "en" ? "" : "hidden"}`}>
                             BEST CHOICE</div>
                         <h3 className="text-xl font-bold text-white mb-6">SmartKubik</h3>
                         <div className="space-y-4">
                             <div
                                 className="flex justify-between py-3 border-b border-white/5 text-white bg-white/5 px-2 rounded">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Contabilidad + Impuestos</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Accounting + Taxes</span>
-                                <span className="text-emerald-400 font-bold lang-es">Incluido</span>
-                                <span className="text-emerald-400 font-bold lang-en hidden">Included</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Contabilidad + Impuestos</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Accounting + Taxes</span>
+                                <span className={`text-emerald-400 font-bold lang-es ${language === "es" ? "" : "hidden"}`}>Incluido</span>
+                                <span className={`text-emerald-400 font-bold lang-en ${language === "en" ? "" : "hidden"}`}>Included</span>
                             </div>
                             <div
                                 className="flex justify-between py-3 border-b border-white/5 text-white bg-white/5 px-2 rounded">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Inventario Avanzado</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Advanced Inventory</span>
-                                <span className="text-emerald-400 font-bold lang-es">Incluido</span>
-                                <span className="text-emerald-400 font-bold lang-en hidden">Included</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Inventario Avanzado</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Advanced Inventory</span>
+                                <span className={`text-emerald-400 font-bold lang-es ${language === "es" ? "" : "hidden"}`}>Incluido</span>
+                                <span className={`text-emerald-400 font-bold lang-en ${language === "en" ? "" : "hidden"}`}>Included</span>
                             </div>
                             <div
                                 className="flex justify-between py-3 border-b border-white/5 text-white bg-white/5 px-2 rounded">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>POS Ilimitado</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Unlimited POS</span>
-                                <span className="text-emerald-400 font-bold lang-es">Incluido</span>
-                                <span className="text-emerald-400 font-bold lang-en hidden">Included</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>POS Ilimitado</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Unlimited POS</span>
+                                <span className={`text-emerald-400 font-bold lang-es ${language === "es" ? "" : "hidden"}`}>Incluido</span>
+                                <span className={`text-emerald-400 font-bold lang-en ${language === "en" ? "" : "hidden"}`}>Included</span>
                             </div>
                             <div
                                 className="flex justify-between py-3 border-b border-white/5 text-white bg-white/5 px-2 rounded">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>CRM + Marketing + WhatsApp</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>CRM + Marketing + WhatsApp</span>
-                                <span className="text-emerald-400 font-bold lang-es">Incluido</span>
-                                <span className="text-emerald-400 font-bold lang-en hidden">Included</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>CRM + Marketing + WhatsApp</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>CRM + Marketing + WhatsApp</span>
+                                <span className={`text-emerald-400 font-bold lang-es ${language === "es" ? "" : "hidden"}`}>Incluido</span>
+                                <span className={`text-emerald-400 font-bold lang-en ${language === "en" ? "" : "hidden"}`}>Included</span>
                             </div>
                             <div
                                 className="flex justify-between py-3 border-b border-white/5 text-white bg-white/5 px-2 rounded">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>E-commerce Nativo</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Native E-commerce</span>
-                                <span className="text-emerald-400 font-bold lang-es">Incluido</span>
-                                <span className="text-emerald-400 font-bold lang-en hidden">Included</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>E-commerce Nativo</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Native E-commerce</span>
+                                <span className={`text-emerald-400 font-bold lang-es ${language === "es" ? "" : "hidden"}`}>Incluido</span>
+                                <span className={`text-emerald-400 font-bold lang-en ${language === "en" ? "" : "hidden"}`}>Included</span>
                             </div>
                             <div
                                 className="flex justify-between py-3 border-b border-white/5 text-white bg-white/5 px-2 rounded">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Integraciones</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Integrations</span>
-                                <span className="text-emerald-400 font-bold lang-es">Incluido</span>
-                                <span className="text-emerald-400 font-bold lang-en hidden">Included</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Integraciones</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Integrations</span>
+                                <span className={`text-emerald-400 font-bold lang-es ${language === "es" ? "" : "hidden"}`}>Incluido</span>
+                                <span className={`text-emerald-400 font-bold lang-en ${language === "en" ? "" : "hidden"}`}>Included</span>
                             </div>
                         </div>
                         <div className="mt-8 pt-6 border-t border-white/10 flex justify-between items-end">
-                            <span className="text-white font-medium lang-es">Total Mensual (8 usuarios)</span>
-                            <span className="text-white font-medium lang-en hidden">Monthly Total (8 users)</span>
+                            <span className={`text-white font-medium lang-es ${language === "es" ? "" : "hidden"}`}>Total Mensual (8 usuarios)</span>
+                            <span className={`text-white font-medium lang-en ${language === "en" ? "" : "hidden"}`}>Monthly Total (8 users)</span>
                             <span className="text-3xl font-bold text-emerald-400">$280<span
                                 className="text-sm text-gray-400 font-normal">/mes</span></span>
                         </div>
 
                         <div className="mt-6 bg-emerald-500/20 border border-emerald-500/30 rounded-xl p-4 text-center">
-                            <p className="text-emerald-300 font-bold text-lg lang-es">Ahorras $7,236 al año 🎉</p>
-                            <p className="text-emerald-300 font-bold text-lg lang-en hidden">Save $7,236 per year 🎉</p>
+                            <p className={`text-emerald-300 font-bold text-lg lang-es ${language === "es" ? "" : "hidden"}`}>Ahorras $7,236 al año 🎉</p>
+                            <p className={`text-emerald-300 font-bold text-lg lang-en ${language === "en" ? "" : "hidden"}`}>Save $7,236 per year 🎉</p>
                         </div>
                     </div>
                 </div>
@@ -2448,40 +2482,40 @@ const SmartKubikLanding = () => {
                         <tbody className="text-sm md:text-base">
                             <tr className="border-b border-white/5">
                                 <td className="py-4 pl-4 text-white">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Todos los módulos incluidos</span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>All modules included</span>
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Todos los módulos incluidos</span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>All modules included</span>
                                 </td>
                                 <td
                                     className="py-4 px-4 text-center bg-cyan-500/5 border-x border-cyan-500/10 text-emerald-400 text-lg">
                                     ✅</td>
-                                <td className="py-4 px-4 text-center text-gray-500 lang-es">💰 Extra</td>
-                                <td className="py-4 px-4 text-center text-gray-500 lang-en hidden">💰 Extra</td>
-                                <td className="py-4 px-4 text-center text-gray-500 lang-es">💰 Extra</td>
-                                <td className="py-4 px-4 text-center text-gray-500 lang-en hidden">💰 Extra</td>
+                                <td className={`py-4 px-4 text-center text-gray-500 lang-es ${language === "es" ? "" : "hidden"}`}>💰 Extra</td>
+                                <td className={`py-4 px-4 text-center text-gray-500 lang-en ${language === "en" ? "" : "hidden"}`}>💰 Extra</td>
+                                <td className={`py-4 px-4 text-center text-gray-500 lang-es ${language === "es" ? "" : "hidden"}`}>💰 Extra</td>
+                                <td className={`py-4 px-4 text-center text-gray-500 lang-en ${language === "en" ? "" : "hidden"}`}>💰 Extra</td>
                                 <td className="py-4 px-4 text-center text-red-400">❌</td>
                             </tr>
                             <tr className="border-b border-white/5">
                                 <td className="py-4 pl-4 text-white">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Configuración &lt; 1 día</span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Setup &lt; 1 day</span>
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Configuración &lt; 1 día</span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Setup &lt; 1 day</span>
                                 </td>
                                 <td
                                     className="py-4 px-4 text-center bg-cyan-500/5 border-x border-cyan-500/10 text-emerald-400 text-lg">
                                     ✅</td>
-                                <td className="py-4 px-4 text-center text-gray-500"><span className={`lang - es ${language === "es" ? "" : "hidden"} `}>❌
-                                    Semanas</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>❌ Weeks</span></td>
-                                <td className="py-4 px-4 text-center text-gray-500"><span className={`lang - es ${language === "es" ? "" : "hidden"} `}>❌
-                                    Meses</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>❌ Months</span></td>
+                                <td className="py-4 px-4 text-center text-gray-500"><span className={`lang-es ${language === "es" ? "" : "hidden"} `}>❌
+                                    Semanas</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>❌ Weeks</span></td>
+                                <td className="py-4 px-4 text-center text-gray-500"><span className={`lang-es ${language === "es" ? "" : "hidden"} `}>❌
+                                    Meses</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>❌ Months</span></td>
                                 <td className="py-4 px-4 text-center text-amber-500">⚠️</td>
                             </tr>
                             <tr className="border-b border-white/5">
                                 <td className="py-4 pl-4 text-white">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Inteligencia Artificial</span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Artificial Intelligence</span>
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Inteligencia Artificial</span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Artificial Intelligence</span>
                                 </td>
                                 <td
                                     className="py-4 px-4 text-center bg-cyan-500/5 border-x border-cyan-500/10 text-emerald-400 text-lg">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>✅ Incluida</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>✅
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>✅ Incluida</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>✅
                                         Included</span>
                                 </td>
                                 <td className="py-4 px-4 text-center text-red-400">❌</td>
@@ -2490,12 +2524,12 @@ const SmartKubikLanding = () => {
                             </tr>
                             <tr className="border-b border-white/5">
                                 <td className="py-4 pl-4 text-white">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>WhatsApp Nativo</span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Native WhatsApp</span>
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>WhatsApp Nativo</span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Native WhatsApp</span>
                                 </td>
                                 <td
                                     className="py-4 px-4 text-center bg-cyan-500/5 border-x border-cyan-500/10 text-emerald-400 text-lg">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>✅ Nativo</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>✅ Native</span>
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>✅ Nativo</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>✅ Native</span>
                                 </td>
                                 <td className="py-4 px-4 text-center text-gray-500">❌ 3rd party</td>
                                 <td className="py-4 px-4 text-center text-gray-500">❌ 3rd party</td>
@@ -2512,14 +2546,14 @@ const SmartKubikLanding = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
                 <div className="text-center mb-16">
                     <h2 className="text-3xl md:text-5xl font-display font-bold mb-6">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Precio Simple. Todo Incluido. <br /><span className="text-white">Sin
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Precio Simple. Todo Incluido. <br /><span className="text-white">Sin
                             Trucos.</span></span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Simple Price. All Included. <br /><span className="text-white">No
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Simple Price. All Included. <br /><span className="text-white">No
                             Tricks.</span></span>
                     </h2>
                     <p className="text-xl text-text-secondary">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>98 módulos, IA incluida, WhatsApp nativo. Un precio por usuario.</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>98 modules, AI included, native WhatsApp. One price per
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>98 módulos, IA incluida, WhatsApp nativo. Un precio por usuario.</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>98 modules, AI included, native WhatsApp. One price per
                             user.</span>
                     </p>
                 </div>
@@ -2530,26 +2564,26 @@ const SmartKubikLanding = () => {
                         <h3 className="text-2xl font-bold text-white mb-2">Starter</h3>
                         <div className="text-4xl font-bold font-mono text-white mb-6">$29<span
                             className="text-lg font-normal text-gray-400">/mes</span></div>
-                        <p className="text-gray-400 text-sm mb-6 lang-es">Para pequeños negocios que quieren orden.</p>
-                        <p className="text-gray-400 text-sm mb-6 lang-en hidden">For small businesses that want order.</p>
+                        <p className={`text-gray-400 text-sm mb-6 lang-es ${language === "es" ? "" : "hidden"}`}>Para pequeños negocios que quieren orden.</p>
+                        <p className={`text-gray-400 text-sm mb-6 lang-en ${language === "en" ? "" : "hidden"}`}>For small businesses that want order.</p>
                         <Link to="/register"
                             className="btn-secondary w-full py-3 rounded-xl flex justify-center text-white font-bold mb-8">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Empezar Gratis</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Start for Free</span>
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Empezar Gratis</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Start for Free</span>
                         </Link>
                         <ul className="space-y-4 text-sm text-gray-300">
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>1-5
-                                usuarios</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>1-5 users</span></li>
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Todos
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>1-5
+                                usuarios</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>1-5 users</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Todos
                                 los
-                                módulos</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>All modules</span></li>
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>1
-                                ubicación</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>1 location</span></li>
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Soporte
+                                módulos</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>All modules</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>1
+                                ubicación</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>1 location</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Soporte
                                 por
-                                Email</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Email Support</span></li>
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>IA
-                                Incluida</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>AI Included</span></li>
+                                Email</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Email Support</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>IA
+                                Incluida</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>AI Included</span></li>
                         </ul>
                     </div>
 
@@ -2558,35 +2592,35 @@ const SmartKubikLanding = () => {
                         id="pro-plan-card"
                         className="glass-card p-8 rounded-3xl border border-cyan-500/50 bg-cyan-900/5 relative transform md:scale-105 shadow-[0_0_30px_rgba(6,182,212,0.15)] z-10 transition-all duration-300">
                         <div
-                            className="absolute top-0 left-1/2 -translate-x-1/2 bg-gradient-to-r from-cyan-500 to-emerald-500 text-white text-xs font-bold px-4 py-1 rounded-b-lg lang-es">
+                            className={`absolute top-0 left-1/2 -translate-x-1/2 bg-gradient-to-r from-cyan-500 to-emerald-500 text-white text-xs font-bold px-4 py-1 rounded-b-lg lang-es ${language === "es" ? "" : "hidden"}`}>
                             MÁS POPULAR</div>
                         <div
-                            className="absolute top-0 left-1/2 -translate-x-1/2 bg-gradient-to-r from-cyan-500 to-emerald-500 text-white text-xs font-bold px-4 py-1 rounded-b-lg lang-en hidden">
+                            className={`absolute top-0 left-1/2 -translate-x-1/2 bg-gradient-to-r from-cyan-500 to-emerald-500 text-white text-xs font-bold px-4 py-1 rounded-b-lg lang-en ${language === "en" ? "" : "hidden"}`}>
                             MOST POPULAR</div>
                         <h3 className="text-2xl font-bold text-white mb-2">Professional</h3>
                         <div className="text-4xl font-bold font-mono text-white mb-6">$59<span
                             className="text-lg font-normal text-gray-400">/mes</span></div>
-                        <p className="text-gray-400 text-sm mb-6 lang-es">Para empresas que crecen rápido.</p>
-                        <p className="text-gray-400 text-sm mb-6 lang-en hidden">For fast-growing companies.</p>
+                        <p className={`text-gray-400 text-sm mb-6 lang-es ${language === "es" ? "" : "hidden"}`}>Para empresas que crecen rápido.</p>
+                        <p className={`text-gray-400 text-sm mb-6 lang-en ${language === "en" ? "" : "hidden"}`}>For fast-growing companies.</p>
                         <Link to="/register"
                             className="btn-primary w-full py-3 rounded-xl flex justify-center text-white font-bold mb-8 shadow-lg shadow-cyan-500/25">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Prueba Gratis 14 Días</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Start Free 14-Day Trial</span>
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Prueba Gratis 14 Días</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Start Free 14-Day Trial</span>
                         </Link>
                         <ul className="space-y-4 text-sm text-gray-300">
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>6-20
-                                usuarios</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>6-20 users</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>6-20
+                                usuarios</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>6-20 users</span></li>
                             <li className="flex gap-3"><span className="text-emerald-400">✓</span> <strong
-                                className={`lang - es ${language === "es" ? "" : "hidden"} `}>Multi-ubicación</strong><strong
-                                    className={`lang - en ${language === "en" ? "" : "hidden"} `}>Multi-location</strong></li>
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Soporte
-                                Prioritario</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Priority Support</span></li>
+                                className={`lang-es ${language === "es" ? "" : "hidden"} `}>Multi-ubicación</strong><strong
+                                    className={`lang-en ${language === "en" ? "" : "hidden"} `}>Multi-location</strong></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Soporte
+                                Prioritario</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Priority Support</span></li>
                             <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span
-                                className={`lang - es ${language === "es" ? "" : "hidden"} `}>Reportes
-                                Avanzados</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Advanced Reports</span></li>
+                                className={`lang-es ${language === "es" ? "" : "hidden"} `}>Reportes
+                                Avanzados</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Advanced Reports</span></li>
                             <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span
-                                className={`lang - es ${language === "es" ? "" : "hidden"} `}>WhatsApp
-                                CRM Full</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>WhatsApp CRM Full</span></li>
+                                className={`lang-es ${language === "es" ? "" : "hidden"} `}>WhatsApp
+                                CRM Full</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>WhatsApp CRM Full</span></li>
                         </ul>
                     </div>
 
@@ -2595,26 +2629,26 @@ const SmartKubikLanding = () => {
                         <h3 className="text-2xl font-bold text-white mb-2">Enterprise</h3>
                         <div className="text-4xl font-bold font-mono text-white mb-6">$99<span
                             className="text-lg font-normal text-gray-400">/mes</span></div>
-                        <p className="text-gray-400 text-sm mb-6 lang-es">Para grandes operaciones y franquicias.</p>
-                        <p className="text-gray-400 text-sm mb-6 lang-en hidden">For large operations and franchises.</p>
+                        <p className={`text-gray-400 text-sm mb-6 lang-es ${language === "es" ? "" : "hidden"}`}>Para grandes operaciones y franquicias.</p>
+                        <p className={`text-gray-400 text-sm mb-6 lang-en ${language === "en" ? "" : "hidden"}`}>For large operations and franchises.</p>
                         <Link to="/register"
                             className="btn-secondary w-full py-3 rounded-xl flex justify-center text-white font-bold mb-8">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Contactar Ventas</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Contact Sales</span>
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Contactar Ventas</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Contact Sales</span>
                         </Link>
                         <ul className="space-y-4 text-sm text-gray-300">
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>21+
-                                usuarios</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>21+ users</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>21+
+                                usuarios</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>21+ users</span></li>
                             <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span
-                                className={`lang - es ${language === "es" ? "" : "hidden"} `}>Ubicaciones
-                                ilimitadas</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Unlimited locations</span></li>
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Soporte
-                                Dedicado</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Dedicated Support</span></li>
+                                className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ubicaciones
+                                ilimitadas</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Unlimited locations</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Soporte
+                                Dedicado</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Dedicated Support</span></li>
                             <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span
-                                className={`lang - es ${language === "es" ? "" : "hidden"} `}>Integraciones Custom</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Custom
+                                className={`lang-es ${language === "es" ? "" : "hidden"} `}>Integraciones Custom</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Custom
                                     Integrations</span></li>
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>SLA
-                                Garantizado</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Guaranteed SLA</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>SLA
+                                Garantizado</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Guaranteed SLA</span></li>
                         </ul>
                     </div>
                 </div>
@@ -2623,33 +2657,33 @@ const SmartKubikLanding = () => {
                     className="mt-16 text-center max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-3 gap-4 text-sm text-gray-400">
                     <div className="glass-card p-3 rounded-lg flex items-center justify-center gap-2">
                         <span className="text-emerald-400">✓</span>
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Sin costo de setup</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>No setup cost</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Sin costo de setup</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>No setup cost</span>
                     </div>
                     <div className="glass-card p-3 rounded-lg flex items-center justify-center gap-2">
                         <span className="text-emerald-400">✓</span>
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Sin cargos por módulos</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>No module fees</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Sin cargos por módulos</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>No module fees</span>
                     </div>
                     <div className="glass-card p-3 rounded-lg flex items-center justify-center gap-2">
                         <span className="text-emerald-400">✓</span>
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Migración gratis</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Free migration</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Migración gratis</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Free migration</span>
                     </div>
                     <div className="glass-card p-3 rounded-lg flex items-center justify-center gap-2">
                         <span className="text-emerald-400">✓</span>
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Cancela cuando quieras</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Cancel anytime</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Cancela cuando quieras</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Cancel anytime</span>
                     </div>
                     <div className="glass-card p-3 rounded-lg flex items-center justify-center gap-2">
                         <span className="text-emerald-400">✓</span>
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Sin límite de datos</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Unlimited data</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Sin límite de datos</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Unlimited data</span>
                     </div>
                     <div className="glass-card p-3 rounded-lg flex items-center justify-center gap-2">
                         <span className="text-emerald-400">✓</span>
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>20% dcto anual</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>20% annual discount</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>20% dcto anual</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>20% annual discount</span>
                     </div>
                 </div>
             </div>
@@ -2660,14 +2694,14 @@ const SmartKubikLanding = () => {
             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
                 <div className="glass-card rounded-3xl p-8 md:p-12 max-w-3xl mx-auto">
                     <h3 className="text-2xl font-bold mb-6 text-center text-white">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Calculadora Interactiva</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Interactive Calculator</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Calculadora Interactiva</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Interactive Calculator</span>
                     </h3>
 
                     <div className="mb-6">
                         <label className="block text-gray-400 mb-3">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>¿Cuántos usuarios tienes?</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>How many users do you have?</span>
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>¿Cuántos usuarios tienes?</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>How many users do you have?</span>
                         </label>
                         <input type="range" min="1" max="30" defaultValue="8"
                             className="w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
@@ -2675,8 +2709,8 @@ const SmartKubikLanding = () => {
                         <div className="text-center mt-2">
                             <span className="text-4xl font-bold font-mono text-white" id="userCount">8</span>
                             <span className="text-gray-500 ml-2">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>usuarios</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>users</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>usuarios</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>users</span>
                             </span>
                         </div>
                     </div>
@@ -2684,26 +2718,26 @@ const SmartKubikLanding = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div className="text-center">
                             <div className="text-sm text-gray-400 mb-2">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Tu costo mensual</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Your monthly cost</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Tu costo mensual</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Your monthly cost</span>
                             </div>
                             <div className="text-5xl font-bold font-mono text-cyan-400" id="monthlyCost">$59</div>
                             <div className="text-xs text-gray-500 mt-1">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>/mes</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>/month</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>/mes</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>/month</span>
                             </div>
                         </div>
                         <div className="text-center">
                             <div className="text-sm text-gray-400 mb-2">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Vs. alternativas fragmentadas</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Vs. fragmented alternatives</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Vs. alternativas fragmentadas</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Vs. fragmented alternatives</span>
                             </div>
                             <div className="text-5xl font-bold font-mono text-gray-600 line-through" id="competitorCost">
                                 ~$1,200
                             </div>
                             <div className="text-xs text-gray-500 mt-1">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>/mes</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>/month</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>/mes</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>/month</span>
                             </div>
                         </div>
                     </div>
@@ -2711,14 +2745,14 @@ const SmartKubikLanding = () => {
                     <div
                         className="text-center glass-card rounded-2xl p-6 bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border-emerald-500/30">
                         <div className="text-sm text-gray-400 mb-2">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Ahorras</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>You save</span>
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ahorras</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>You save</span>
                         </div>
                         <div className="text-4xl font-bold text-emerald-400 mb-1" id="savings">$1,141</div>
                         <div className="text-lg text-gray-400">
                             = <span className="font-bold text-emerald-400" id="annualSavings">$13,692</span>
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>/año 🎉</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>/year 🎉</span>
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>/año 🎉</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>/year 🎉</span>
                         </div>
                     </div>
                 </div>
@@ -2732,35 +2766,35 @@ const SmartKubikLanding = () => {
                     {/*  Left Column: Problem  */}
                     <div>
                         <h2 className="text-3xl md:text-5xl font-display font-bold mb-8 text-left">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Cada Día que Pasa, <br />Tu Negocio Pierde Dinero.</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Every Day That Passes, <br />Your Business Loses Money.</span>
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Cada Día que Pasa, <br />Tu Negocio Pierde Dinero.</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Every Day That Passes, <br />Your Business Loses Money.</span>
                         </h2>
 
                         <div className="space-y-4">
                             <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-2xl flex items-center gap-4">
                                 <div className="text-3xl">⏰</div>
                                 <div className="text-left">
-                                    <div className="font-bold text-white lang-es">3 horas/día</div>
-                                    <div className="font-bold text-white lang-en hidden">3 hours/day</div>
-                                    <div className="text-sm text-gray-400 lang-es">perdidas en WhatsApp</div>
-                                    <div className="text-sm text-gray-400 lang-en hidden">lost on WhatsApp</div>
+                                    <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>3 horas/día</div>
+                                    <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>3 hours/day</div>
+                                    <div className={`text-sm text-gray-400 lang-es ${language === "es" ? "" : "hidden"}`}>perdidas en WhatsApp</div>
+                                    <div className={`text-sm text-gray-400 lang-en ${language === "en" ? "" : "hidden"}`}>lost on WhatsApp</div>
                                 </div>
                             </div>
                             <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-2xl flex items-center gap-4">
                                 <div className="text-3xl">💸</div>
                                 <div className="text-left">
                                     <div className="font-bold text-white">$500+/mes</div>
-                                    <div className="text-sm text-gray-400 lang-es">en apps innecesarias</div>
-                                    <div className="text-sm text-gray-400 lang-en hidden">on unnecessary apps</div>
+                                    <div className={`text-sm text-gray-400 lang-es ${language === "es" ? "" : "hidden"}`}>en apps innecesarias</div>
+                                    <div className={`text-sm text-gray-400 lang-en ${language === "en" ? "" : "hidden"}`}>on unnecessary apps</div>
                                 </div>
                             </div>
                             <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-2xl flex items-center gap-4">
                                 <div className="text-3xl">📉</div>
                                 <div className="text-left">
-                                    <div className="font-bold text-white lang-es">20% ventas</div>
-                                    <div className="font-bold text-white lang-en hidden">20% sales</div>
-                                    <div className="text-sm text-gray-400 lang-es">perdidas por desorden</div>
-                                    <div className="text-sm text-gray-400 lang-en hidden">lost due to disorganization</div>
+                                    <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>20% ventas</div>
+                                    <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>20% sales</div>
+                                    <div className={`text-sm text-gray-400 lang-es ${language === "es" ? "" : "hidden"}`}>perdidas por desorden</div>
+                                    <div className={`text-sm text-gray-400 lang-en ${language === "en" ? "" : "hidden"}`}>lost due to disorganization</div>
                                 </div>
                             </div>
                         </div>
@@ -2769,17 +2803,17 @@ const SmartKubikLanding = () => {
                     {/*  Right Column: Solution & Offer  */}
                     <div>
                         <p className="text-xl text-gray-300 mb-8 text-left">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>No es que no puedas seguir como estás. Puedes. Pero cada mes que pasa
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>No es que no puedas seguir como estás. Puedes. Pero cada mes que pasa
                                 sin
                                 un sistema integrado es dinero perdido y estrés acumulado.</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>It's not that you can't go on like this. You can. But every
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>It's not that you can't go on like this. You can. But every
                                 month
                                 that passes without an integrated system is money lost and accumulated stress.</span>
                             <br /><br />
-                            <span className="text-white font-bold lang-es">La pregunta no es SI necesitas SmartKubik. Es
+                            <span className={`text-white font-bold lang-es ${language === "es" ? "" : "hidden"}`}>La pregunta no es SI necesitas SmartKubik. Es
                                 cuánto
                                 más vas a esperar.</span>
-                            <span className="text-white font-bold lang-en hidden">The question isn't IF you need SmartKubik.
+                            <span className={`text-white font-bold lang-en ${language === "en" ? "" : "hidden"}`}>The question isn't IF you need SmartKubik.
                                 It's how much longer you will wait.</span>
                         </p>
 
@@ -2787,37 +2821,37 @@ const SmartKubikLanding = () => {
                             <div className="text-left mb-6">
                                 <span
                                     className="bg-cyan-500 text-white text-xs font-bold px-2 py-1 rounded uppercase mb-2 inline-block">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Oferta Especial</span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Special Offer</span>
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Oferta Especial</span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Special Offer</span>
                                 </span>
                                 <h3 className="text-2xl font-bold text-white">
-                                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Empieza hoy y recibe:</span>
-                                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Start today and receive:</span>
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Empieza hoy y recibe:</span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Start today and receive:</span>
                                 </h3>
                             </div>
                             <ul className="text-left space-y-3 mb-8 text-gray-300">
                                 <li className="flex gap-2"><span className="text-emerald-400">✅</span> <span
-                                    className={`lang - es ${language === "es" ? "" : "hidden"} `}>Setup
-                                    guiado gratis (valor $200)</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Free guided setup
+                                    className={`lang-es ${language === "es" ? "" : "hidden"} `}>Setup
+                                    guiado gratis (valor $200)</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Free guided setup
                                         ($200
                                         value)</span>
                                 </li>
                                 <li className="flex gap-2"><span className="text-emerald-400">✅</span> <span
-                                    className={`lang - es ${language === "es" ? "" : "hidden"} `}>Migración
-                                    de datos incluida</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Data migration
+                                    className={`lang-es ${language === "es" ? "" : "hidden"} `}>Migración
+                                    de datos incluida</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Data migration
                                         included</span>
                                 </li>
-                                <li className="flex gap-2"><span className="text-emerald-400">✅</span> <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>14
+                                <li className="flex gap-2"><span className="text-emerald-400">✅</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>14
                                     días
                                     sin
-                                    tarjeta de crédito</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>14 days without credit
+                                    tarjeta de crédito</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>14 days without credit
                                         card</span>
                                 </li>
                             </ul>
                             <Link to="/register"
                                 className="btn-primary w-full py-4 rounded-xl text-white font-bold text-lg block text-center shadow-lg hover:shadow-cyan-500/50 transition-all">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Empezar Mi Prueba Gratis →</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Start My Free Trial →</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Empezar Mi Prueba Gratis →</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Start My Free Trial →</span>
                             </Link>
                         </div>
                     </div>
@@ -2831,12 +2865,12 @@ const SmartKubikLanding = () => {
                 {/*  Headline  */}
                 <div className="text-center mb-16">
                     <h2 className="text-4xl md:text-5xl font-bold mb-4 font-display">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Preguntas Frecuentes</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Frequently Asked Questions</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Preguntas Frecuentes</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Frequently Asked Questions</span>
                     </h2>
                     <p className="text-xl text-gray-400">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Todo lo que necesitas saber</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Everything you need to know</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Todo lo que necesitas saber</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Everything you need to know</span>
                     </p>
                 </div>
 
@@ -2848,8 +2882,8 @@ const SmartKubikLanding = () => {
                         <button
                             className="faq-question w-full text-left px-8 py-6 flex justify-between items-center hover:bg-white/5 transition-all">
                             <span className="text-lg font-bold text-white">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>¿Necesito conocimientos técnicos para usar SmartKubik?</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Do I need technical knowledge to use SmartKubik?</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>¿Necesito conocimientos técnicos para usar SmartKubik?</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Do I need technical knowledge to use SmartKubik?</span>
                             </span>
                             <svg className="faq-icon w-6 h-6 flex-shrink-0 text-cyan-400 transform transition-transform"
                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2859,11 +2893,11 @@ const SmartKubikLanding = () => {
                         </button>
                         <div className="faq-answer hidden px-8 pb-6 bg-white/5">
                             <p className="text-gray-300 leading-relaxed">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>No. SmartKubik está diseñado para dueños de negocio, no para
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>No. SmartKubik está diseñado para dueños de negocio, no para
                                     programadores. Si sabes usar WhatsApp, puedes usar SmartKubik. Además, nuestro
                                     equipo te
                                     ayuda a configurar todo en menos de 15 minutos.</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>No. SmartKubik is designed for business owners, not
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>No. SmartKubik is designed for business owners, not
                                     programmers. If you can use WhatsApp, you can use SmartKubik. Plus, our team helps
                                     you
                                     set everything up in under 15 minutes.</span>
@@ -2876,8 +2910,8 @@ const SmartKubikLanding = () => {
                         <button
                             className="faq-question w-full text-left px-8 py-6 flex justify-between items-center hover:bg-white/5 transition-all">
                             <span className="text-lg font-bold text-white">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>¿Qué pasa con mis datos si cancelo?</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>What happens to my data if I cancel?</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>¿Qué pasa con mis datos si cancelo?</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>What happens to my data if I cancel?</span>
                             </span>
                             <svg className="faq-icon w-6 h-6 flex-shrink-0 text-cyan-400 transform transition-transform"
                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2887,11 +2921,11 @@ const SmartKubikLanding = () => {
                         </button>
                         <div className="faq-answer hidden px-8 pb-6 bg-white/5">
                             <p className="text-gray-300 leading-relaxed">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Tus datos son tuyos. Antes de cancelar, puedes exportar todo
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Tus datos son tuyos. Antes de cancelar, puedes exportar todo
                                     (inventario, clientes, ventas, contabilidad) en Excel o CSV. Y guardamos tu
                                     información
                                     por 90 días por si cambias de opinión.</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Your data is yours. Before canceling, you can export
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Your data is yours. Before canceling, you can export
                                     everything
                                     (inventory, customers, sales, accounting) in Excel or CSV. And we keep your
                                     information
@@ -2905,8 +2939,8 @@ const SmartKubikLanding = () => {
                         <button
                             className="faq-question w-full text-left px-8 py-6 flex justify-between items-center hover:bg-white/5 transition-all">
                             <span className="text-lg font-bold text-white">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>¿Funciona sin internet?</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Does it work offline?</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>¿Funciona sin internet?</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Does it work offline?</span>
                             </span>
                             <svg className="faq-icon w-6 h-6 flex-shrink-0 text-cyan-400 transform transition-transform"
                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2916,11 +2950,11 @@ const SmartKubikLanding = () => {
                         </button>
                         <div className="faq-answer hidden px-8 pb-6 bg-white/5">
                             <p className="text-gray-300 leading-relaxed">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Sí. El POS funciona sin internet y sincroniza automáticamente
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Sí. El POS funciona sin internet y sincroniza automáticamente
                                     cuando
                                     vuelve la conexión. Esto es especialmente útil para negocios en zonas con internet
                                     inestable.</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Yes. The POS works offline and automatically syncs when the
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Yes. The POS works offline and automatically syncs when the
                                     connection returns. This is especially useful for businesses in areas with unstable
                                     internet.</span>
                             </p>
@@ -2932,8 +2966,8 @@ const SmartKubikLanding = () => {
                         <button
                             className="faq-question w-full text-left px-8 py-6 flex justify-between items-center hover:bg-white/5 transition-all">
                             <span className="text-lg font-bold text-white">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>¿Puedo empezar con algunos módulos y agregar más después?</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Can I start with some modules and add more later?</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>¿Puedo empezar con algunos módulos y agregar más después?</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Can I start with some modules and add more later?</span>
                             </span>
                             <svg className="faq-icon w-6 h-6 flex-shrink-0 text-cyan-400 transform transition-transform"
                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2943,12 +2977,12 @@ const SmartKubikLanding = () => {
                         </button>
                         <div className="faq-answer hidden px-8 pb-6 bg-white/5">
                             <p className="text-gray-300 leading-relaxed">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Absolutamente. Muchos clientes empiezan solo con POS e Inventario,
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Absolutamente. Muchos clientes empiezan solo con POS e Inventario,
                                     y
                                     luego activan Contabilidad, Nómina, etc. cuando están listos. Puedes
                                     activar/desactivar
                                     módulos en cualquier momento.</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Absolutely. Many clients start with just POS and Inventory,
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Absolutely. Many clients start with just POS and Inventory,
                                     then activate Accounting, Payroll, etc. when they're ready. You can
                                     activate/deactivate
                                     modules at any time.</span>
@@ -2961,8 +2995,8 @@ const SmartKubikLanding = () => {
                         <button
                             className="faq-question w-full text-left px-8 py-6 flex justify-between items-center hover:bg-white/5 transition-all">
                             <span className="text-lg font-bold text-white">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>¿Cómo funciona el soporte técnico?</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>How does technical support work?</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>¿Cómo funciona el soporte técnico?</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>How does technical support work?</span>
                             </span>
                             <svg className="faq-icon w-6 h-6 flex-shrink-0 text-cyan-400 transform transition-transform"
                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2972,10 +3006,10 @@ const SmartKubikLanding = () => {
                         </button>
                         <div className="faq-answer hidden px-8 pb-6 bg-white/5">
                             <p className="text-gray-300 leading-relaxed">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Tienes soporte por WhatsApp, email y videollamada. En todos los
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Tienes soporte por WhatsApp, email y videollamada. En todos los
                                     planes. Tiempo de respuesta promedio: menos de 2 horas en días laborales. Y la IA
                                     integrada resuelve el 70% de las dudas al instante.</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>You have support via WhatsApp, email, and video call. On
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>You have support via WhatsApp, email, and video call. On
                                     all
                                     plans. Average response time: less than 2 hours on business days. And the integrated
                                     AI
@@ -2989,8 +3023,8 @@ const SmartKubikLanding = () => {
                         <button
                             className="faq-question w-full text-left px-8 py-6 flex justify-between items-center hover:bg-white/5 transition-all">
                             <span className="text-lg font-bold text-white">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>¿Cumple con las leyes fiscales de mi país?</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Does it comply with my country's tax laws?</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>¿Cumple con las leyes fiscales de mi país?</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Does it comply with my country's tax laws?</span>
                             </span>
                             <svg className="faq-icon w-6 h-6 flex-shrink-0 text-cyan-400 transform transition-transform"
                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -3000,12 +3034,12 @@ const SmartKubikLanding = () => {
                         </button>
                         <div className="faq-answer hidden px-8 pb-6 bg-white/5">
                             <p className="text-gray-300 leading-relaxed">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Sí. SmartKubik genera facturas electrónicas según las normativas
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Sí. SmartKubik genera facturas electrónicas según las normativas
                                     de
                                     Venezuela, Colombia y México. También generamos reportes listos para tu contador
                                     (P&L,
                                     Balance, flujo de caja, retenciones, IVA, etc.).</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Yes. SmartKubik generates electronic invoices according to
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Yes. SmartKubik generates electronic invoices according to
                                     the
                                     regulations of Venezuela, Colombia, and Mexico. We also generate reports ready for
                                     your
@@ -3026,73 +3060,76 @@ const SmartKubikLanding = () => {
 
             <div className="max-w-4xl mx-auto text-center relative z-10">
                 <h2 className="text-5xl md:text-7xl font-bold mb-6 font-display text-white">
-                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>¿Listo para Dejar de<br /><span className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Administrar
+                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>¿Listo para Dejar de<br /><span className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Administrar
                         Caos?</span></span>
-                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Ready to Stop<br /><span className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Managing
+                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Ready to Stop<br /><span className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Managing
                         Chaos?</span></span>
                 </h2>
 
                 <p className="text-2xl text-gray-400 mb-12">
-                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Un sistema. Todo tu negocio. Desde $29/usuario/mes.</span>
-                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>One system. Your entire business. From $29/user/month.</span>
+                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Un sistema. Todo tu negocio. Desde $29/usuario/mes.</span>
+                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>One system. Your entire business. From $29/user/month.</span>
                 </p>
 
                 {/*  Dual CTAs  */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 text-left">
                     <div
-                        className="glass-card rounded-2xl p-8 hover:border-cyan-500/50 transition-all group cursor-pointer">
+                        className="glass-card rounded-2xl p-8 hover:border-cyan-500/50 transition-all group cursor-pointer hover:!translate-y-0">
                         <h3 className="text-2xl font-bold mb-3 text-white">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Prueba Gratis 14 Días</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Free 14-Day Trial</span>
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Prueba Gratis 14 Días</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Free 14-Day Trial</span>
                         </h3>
                         <p className="text-gray-400 mb-6">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Sin tarjeta de crédito<br />Configura en 15 minutos<br />Empieza a vender
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Sin tarjeta de crédito<br />Configura en 15 minutos<br />Empieza a vender
                                 hoy</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>No credit card required<br />Set up in 15 minutes<br />Start
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>No credit card required<br />Set up in 15 minutes<br />Start
                                 selling
                                 today</span>
                         </p>
                         <Link to="/register" style={{ display: 'contents' }}>
                             <button
                                 className="w-full bg-gradient-to-br from-cyan-500 to-emerald-500 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg group-hover:shadow-cyan-500/40">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Empezar Ahora →</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Start Now →</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Empezar Ahora →</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Start Now →</span>
                             </button>
                         </Link>
                     </div>
 
                     <div
-                        className="glass-card rounded-2xl p-8 hover:border-emerald-500/50 transition-all group cursor-pointer">
+                        className="glass-card rounded-2xl p-8 hover:border-emerald-500/50 transition-all group cursor-pointer hover:!translate-y-0">
                         <h3 className="text-2xl font-bold mb-3 text-white">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Agendar Demo Personalizada</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Schedule Custom Demo</span>
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Agendar Demo Personalizada</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Schedule Custom Demo</span>
                         </h3>
                         <p className="text-gray-400 mb-6">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Hablamos de tu negocio específico<br />30 minutos con un experto<br />Te
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Hablamos de tu negocio específico<br />30 minutos con un experto<br />Te
                                 mostramos todo</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>We discuss your specific business<br />30 minutes with an
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>We discuss your specific business<br />30 minutes with an
                                 expert<br />We show you everything</span>
                         </p>
-                        <Link to="#demo" style={{ display: 'contents' }}>
+                        <a href={whatsAppLink} target="_blank" rel="noopener noreferrer" style={{ display: 'contents' }}>
                             <button
                                 className="w-full glass-card px-6 py-3 rounded-xl font-bold hover:bg-white/10 transition-all text-white border border-white/10">
-                                <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Agendar Demo →</span>
-                                <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Schedule Demo →</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Agendar Demo →</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Schedule Demo →</span>
                             </button>
-                        </Link>
+                        </a>
                     </div>
                 </div>
 
                 {/*  Contact  */}
                 <p className="text-gray-500">
-                    <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>¿Preguntas? Escríbenos por <Link to="#"
-                        className="text-cyan-400 hover:underline">WhatsApp</Link> o <Link to="#"
-                            className="text-cyan-400 hover:underline">Email</Link>. Respondemos en menos de 2 horas.</span>
-                    <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Questions? Write us on <Link to="#"
-                        className="text-cyan-400 hover:underline">WhatsApp</Link> or <Link to="#"
-                            className="text-cyan-400 hover:underline">Email</Link>. We respond in under 2 hours.</span>
+                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>¿Preguntas? Escríbenos por <a href={whatsAppLink} target="_blank" rel="noopener noreferrer"
+                        className="text-cyan-400 hover:underline">WhatsApp</a> o <button onClick={() => setIsContactModalOpen(true)}
+                            className="text-cyan-400 hover:underline bg-transparent border-none cursor-pointer p-0 font-inherit">Email</button>. Respondemos en menos de 2 horas.</span>
+                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Questions? Write us on <a href={whatsAppLink} target="_blank" rel="noopener noreferrer"
+                        className="text-cyan-400 hover:underline">WhatsApp</a> or <button onClick={() => setIsContactModalOpen(true)}
+                            className="text-cyan-400 hover:underline bg-transparent border-none cursor-pointer p-0 font-inherit">Email</button>. We respond in under 2 hours.</span>
                 </p>
             </div>
+
+            {/* Contact Modal */}
+            <SalesContactModal isOpen={isContactModalOpen} onOpenChange={setIsContactModalOpen} />
         </section >
 
         {/*  FOOTER (From V2)  */}
@@ -3107,8 +3144,8 @@ const SmartKubikLanding = () => {
                             </div>
                         </div>
                         <p className="text-gray-400 leading-relaxed mb-6">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>El último ERP que tu negocio necesitará.</span>
-                            <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>The last ERP your business will ever need.</span>
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>El último ERP que tu negocio necesitará.</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>The last ERP your business will ever need.</span>
                         </p>
                         <div className="flex gap-4">
                             <Link to="#"
@@ -3139,33 +3176,33 @@ const SmartKubikLanding = () => {
                     <div>
                         <h4 className="font-bold mb-4 text-white">SmartKubik</h4>
                         <ul className="space-y-2 text-sm text-gray-400">
-                            <li><Link to="#" className="hover:text-cyan-400 transition-colors lang-es">Sobre Nosotros</Link><Link
-                                to="#" className="hover:text-cyan-400 transition-colors lang-en hidden">About Us</Link>
+                            <li><Link to="#" className={`hover:text-cyan-400 transition-colors lang-es ${language === "es" ? "" : "hidden"}`}>Sobre Nosotros</Link><Link
+                                to="#" className={`hover:text-cyan-400 transition-colors lang-en ${language === "en" ? "" : "hidden"}`}>About Us</Link>
                             </li>
-                            <li><Link to="#" className="hover:text-cyan-400 transition-colors lang-es">Contacto</Link><Link
-                                to="#" className="hover:text-cyan-400 transition-colors lang-en hidden">Contact</Link>
+                            <li><Link to="#" className={`hover:text-cyan-400 transition-colors lang-es ${language === "es" ? "" : "hidden"}`}>Contacto</Link><Link
+                                to="#" className={`hover:text-cyan-400 transition-colors lang-en ${language === "en" ? "" : "hidden"}`}>Contact</Link>
                             </li>
-                            <li><Link to="#" className="hover:text-cyan-400 transition-colors lang-es">Trabaja con
+                            <li><Link to="#" className={`hover:text-cyan-400 transition-colors lang-es ${language === "es" ? "" : "hidden"}`}>Trabaja con
                                 Nosotros</Link><Link to="#"
-                                    className="hover:text-cyan-400 transition-colors lang-en hidden">Carrers</Link></li>
+                                    className={`hover:text-cyan-400 transition-colors lang-en ${language === "en" ? "" : "hidden"}`}>Carrers</Link></li>
                         </ul>
                     </div>
                     {/*  Column 2  */}
                     <div>
                         <h4 className="font-bold mb-4 text-white">
-                            <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>Producto</span><span className={`lang - en ${language === "en" ? "" : "hidden"} `}>Product</span>
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Producto</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Product</span>
                         </h4>
                         <ul className="space-y-2 text-sm text-gray-400">
-                            <li><Link to="#" className="hover:text-cyan-400 transition-colors lang-es">Módulos</Link><Link to="#"
-                                className="hover:text-cyan-400 transition-colors lang-en hidden">Modules</Link></li>
-                            <li><Link to="#" className="hover:text-cyan-400 transition-colors lang-es">Precios</Link><Link to="#"
-                                className="hover:text-cyan-400 transition-colors lang-en hidden">Pricing</Link></li>
-                            <li><Link to="#" className="hover:text-cyan-400 transition-colors lang-es">Integraciones</Link><Link
+                            <li><Link to="#" className={`hover:text-cyan-400 transition-colors lang-es ${language === "es" ? "" : "hidden"}`}>Módulos</Link><Link to="#"
+                                className={`hover:text-cyan-400 transition-colors lang-en ${language === "en" ? "" : "hidden"}`}>Modules</Link></li>
+                            <li><Link to="#" className={`hover:text-cyan-400 transition-colors lang-es ${language === "es" ? "" : "hidden"}`}>Precios</Link><Link to="#"
+                                className={`hover:text-cyan-400 transition-colors lang-en ${language === "en" ? "" : "hidden"}`}>Pricing</Link></li>
+                            <li><Link to="#" className={`hover:text-cyan-400 transition-colors lang-es ${language === "es" ? "" : "hidden"}`}>Integraciones</Link><Link
                                 to="#"
-                                className="hover:text-cyan-400 transition-colors lang-en hidden">Integrations</Link>
+                                className={`hover:text-cyan-400 transition-colors lang-en ${language === "en" ? "" : "hidden"}`}>Integrations</Link>
                             </li>
-                            <li><Link to="#" className="hover:text-cyan-400 transition-colors lang-es">Seguridad</Link><Link
-                                to="#" className="hover:text-cyan-400 transition-colors lang-en hidden">Security</Link>
+                            <li><Link to="#" className={`hover:text-cyan-400 transition-colors lang-es ${language === "es" ? "" : "hidden"}`}>Seguridad</Link><Link
+                                to="#" className={`hover:text-cyan-400 transition-colors lang-en ${language === "en" ? "" : "hidden"}`}>Security</Link>
                             </li>
                         </ul>
                     </div>
@@ -3173,13 +3210,13 @@ const SmartKubikLanding = () => {
                     <div>
                         <h4 className="font-bold mb-4 text-white">Legal</h4>
                         <ul className="space-y-2 text-sm text-gray-400">
-                            <li><Link to="#" className="hover:text-cyan-400 transition-colors lang-es">Términos</Link><Link
-                                to="#" className="hover:text-cyan-400 transition-colors lang-en hidden">Terms</Link></li>
-                            <li><Link to="#" className="hover:text-cyan-400 transition-colors lang-es">Privacidad</Link><Link
-                                to="#" className="hover:text-cyan-400 transition-colors lang-en hidden">Privacy</Link>
+                            <li><Link to="#" className={`hover:text-cyan-400 transition-colors lang-es ${language === "es" ? "" : "hidden"}`}>Términos</Link><Link
+                                to="#" className={`hover:text-cyan-400 transition-colors lang-en ${language === "en" ? "" : "hidden"}`}>Terms</Link></li>
+                            <li><Link to="#" className={`hover:text-cyan-400 transition-colors lang-es ${language === "es" ? "" : "hidden"}`}>Privacidad</Link><Link
+                                to="#" className={`hover:text-cyan-400 transition-colors lang-en ${language === "en" ? "" : "hidden"}`}>Privacy</Link>
                             </li>
-                            <li><Link to="#" className="hover:text-cyan-400 transition-colors lang-es">Cookies</Link><Link to="#"
-                                className="hover:text-cyan-400 transition-colors lang-en hidden">Cookies</Link></li>
+                            <li><Link to="#" className={`hover:text-cyan-400 transition-colors lang-es ${language === "es" ? "" : "hidden"}`}>Cookies</Link><Link to="#"
+                                className={`hover:text-cyan-400 transition-colors lang-en ${language === "en" ? "" : "hidden"}`}>Cookies</Link></li>
                         </ul>
                     </div>
                 </div>
@@ -3187,8 +3224,8 @@ const SmartKubikLanding = () => {
                 {/*  Bottom Bar  */}
                 <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
                     <div className="text-sm text-gray-500">
-                        <span className={`lang - es ${language === "es" ? "" : "hidden"} `}>© 2026 SmartKubik Inc. Todos los derechos reservados.</span>
-                        <span className={`lang - en ${language === "en" ? "" : "hidden"} `}>© 2026 SmartKubik Inc. All rights reserved.</span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>© 2026 SmartKubik Inc. Todos los derechos reservados.</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>© 2026 SmartKubik Inc. All rights reserved.</span>
                     </div>
                     <div className="flex items-center gap-4 text-sm">
                         {/*  Language Toggle in Footer (Optional separate control or link to top)  */}
@@ -3201,6 +3238,32 @@ const SmartKubikLanding = () => {
         {/*  Light Rays WebGL Effect  */}
 
         {/*  Parallax Effect for Section 2  */}
+
+        {/*  WhatsApp Floating Widget  */}
+        <a
+            href={whatsAppLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="fixed bottom-6 right-6 z-50 group"
+        >
+            <div className="relative">
+                {/* Ping Effect */}
+                <div className="absolute inset-0 bg-[#25D366] rounded-full animate-ping opacity-20 group-hover:opacity-40 transition-opacity"></div>
+
+                {/* Main Button */}
+                <div className="relative bg-[#25D366] hover:bg-[#20bd5a] text-white p-4 rounded-full shadow-[0_4px_20px_rgba(37,211,102,0.4)] transition-all duration-300 transform group-hover:scale-110 flex items-center justify-center border border-white/20 backdrop-blur-sm">
+                    <svg className="w-8 h-8 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                    </svg>
+                </div>
+
+                {/* Tooltip / Badge */}
+                <div className="absolute right-full mr-4 top-1/2 -translate-y-1/2 bg-white text-navy-900 px-3 py-1 rounded-lg text-sm font-bold shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden md:block">
+                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>¡Chatea con nosotros!</span>
+                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Chat with us!</span>
+                </div>
+            </div>
+        </a>
 
     </div >
     );

@@ -131,6 +131,32 @@
     max-width: 20px !important;
     max-height: 20px !important;
   }
+
+  /* Glass Card Global Definition (Interactive) */
+  .glass-card {
+    background-color: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transform: translateZ(0);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Specific Override for Header Nav - Lower Intensity (40%) */
+  #nav-card:hover {
+    border-color: rgba(6, 182, 212, 0.4) !important;
+  }
+
+  .glass-card:hover {
+    border-color: rgba(6, 182, 212, 0.6) !important;
+    /* Increased opacity to 0.60 */
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    /* Slightly stronger shadow */
+    transform: none;
+    /* Removed !important to allow inline JS transforms (Section 3) to work */
+    border-width: 1px !important;
+  }
 }
 
 /* Custom styles for FullCalendar */
@@ -229,32 +255,16 @@
   animation: glow-pulse 3s ease-in-out infinite;
 }
 
-/* Glass Card Global Definition (Interactive) */
-.glass-card {
-  background-color: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  transform: translateZ(0);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.glass-card:hover {
-  border-color: rgba(6, 182, 212, 0.3);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(6, 182, 212, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  transform: translateY(-2px);
-}
-
-/* Glass Card for AI Chat in Section 6 - Special cyan border and glow */
-#ia .glass-card:not(.stack-card) {
+/* Glass Card for AI Chat in Section 6 - Special cyan border and glow (only workflow-visual cards) */
+#ia .workflow-visual .glass-card {
   border: 1px solid rgba(6, 182, 212, 0.3) !important;
   box-shadow: 0 0 50px rgba(6, 182, 212, 0.15) !important;
 }
 
-#ia .glass-card:not(.stack-card):hover {
-  border: 2px solid rgba(6, 182, 212, 0.5) !important;
-  box-shadow: 0 8px 32px rgba(6, 182, 212, 0.15), 0 0 0 1px rgba(6, 182, 212, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+#ia .workflow-visual .glass-card:hover {
+  border: 1px solid rgba(6, 182, 212, 0.25) !important;
+  box-shadow: 0 8px 32px rgba(6, 182, 212, 0.15), 0 0 0 1px rgba(6, 182, 212, 0.175), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  transform: translateY(-2px);
 }
 
 /* WhatsApp Section Cards - Keep green left border in normal state, change color on hover */
@@ -264,9 +274,9 @@
 }
 
 #whatsapp .glass-card:hover {
-  border: 1px solid rgba(6, 182, 212, 0.3) !important;
-  border-left: 3px solid rgba(6, 182, 212, 0.3) !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(6, 182, 212, 0.2) !important;
+  border: 1px solid rgba(6, 182, 212, 0.15) !important;
+  border-left: 3px solid rgba(6, 182, 212, 0.15) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(6, 182, 212, 0.1) !important;
   transform: translateY(-2px);
 }
 
@@ -280,8 +290,8 @@
 }
 
 #comparison .glass-card:hover {
-  border: 1px solid rgba(6, 182, 212, 0.3) !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(6, 182, 212, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(6, 182, 212, 0.15) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(6, 182, 212, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
   transform: translateY(-2px);
 }
 
@@ -383,5 +393,39 @@ Link.btn-secondary:hover::before {
 }
 
 /* Specific Step Card Backgrounds (Section 6) */
-/* Specific Step Card Backgrounds (Section 6) */
-/* Removed to favor inline styles with higher opacity for visibility */
+/* Now defined in @layer components for proper cascading */
+
+@layer utilities {
+
+  /* Section 6 AI - Step trigger cards - BRAND NEW CLASS */
+  .step-card {
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+    transform: translateZ(0) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    cursor: pointer !important;
+  }
+
+  #ia .step-trigger[data-step="1"] .step-card {
+    background-color: rgba(22, 78, 99, 0.1) !important;
+    border-left: 4px solid #06B6D4 !important;
+  }
+
+  #ia .step-trigger[data-step="2"] .step-card {
+    background-color: rgba(6, 78, 59, 0.1) !important;
+    border-left: 4px solid #10B981 !important;
+  }
+
+  #ia .step-trigger[data-step="3"] .step-card {
+    background-color: rgba(88, 28, 135, 0.1) !important;
+    border-left: 4px solid #A855F7 !important;
+  }
+
+  .step-card:hover {
+    transform: translateX(4px) !important;
+    border-color: rgba(6, 182, 212, 0.3) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(6, 182, 212, 0.2) !important;
+  }
+}
