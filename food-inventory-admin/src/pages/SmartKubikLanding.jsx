@@ -35,6 +35,7 @@ const SmartKubikLanding = () => {
         styleSheet.id = styleId;
         styleSheet.textContent = `
           /* Global body styles to match backup */
+          html { scroll-behavior: smooth !important; }
           body {
             background-color: #0A0F1C !important;
             color: #F8FAFC !important;
@@ -441,19 +442,22 @@ const SmartKubikLanding = () => {
 
                     {/*  Nav Links - Desktop (V2 Style + New Links)  */}
                     <div className="hidden md:flex items-center gap-8 text-sm font-medium text-text-secondary">
-                        <Link to="#modulos" className="hover:text-cyan-electric hover:font-bold transition-all">
+                        <a href="#modulos" className="hover:text-cyan-electric hover:font-bold transition-all">
                             <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Módulos</span>
                             <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Features</span>
-                        </Link>
-                        <Link to="#industrias" className="hover:text-cyan-electric hover:font-bold transition-all">
+                        </a>
+                        <a href="#industrias" className="hover:text-cyan-electric hover:font-bold transition-all">
                             <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Industrias</span>
                             <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Industries</span>
-                        </Link>
-                        <Link to="#ia" className="hover:text-cyan-electric hover:font-bold transition-all">IA</Link>
-                        <Link to="#pricing" className="hover:text-cyan-electric hover:font-bold transition-all">
-                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Precio</span>
+                        </a>
+                        <a href="#ia" className="hover:text-cyan-electric hover:font-bold transition-all">IA</a>
+                        <a href="#whatsapp" className="hover:text-cyan-electric hover:font-bold transition-all">
+                            WhatsApp
+                        </a>
+                        <a href="#pricing" className="hover:text-cyan-electric hover:font-bold transition-all">
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Precios</span>
                             <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Pricing</span>
-                        </Link>
+                        </a>
                         <Link to="/docs" className="hover:text-cyan-electric hover:font-bold transition-all">
                             <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Documentación</span>
                             <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Docs</span>
@@ -470,19 +474,83 @@ const SmartKubikLanding = () => {
                         </button>
 
                         <Link to="/login"
-                            className="text-sm font-medium text-text-secondary hover:text-white transition-colors">
+                            className="hidden md:block text-sm font-medium text-text-secondary hover:text-white transition-colors">
                             <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Inicia sesión</span>
                             <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Log in</span>
                         </Link>
 
-                        <Link to="/register"
-                            className="bg-gradient-main text-white px-6 py-2 rounded-full font-bold text-sm hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] transition-all">
+                        <a href="#pricing"
+                            className="hidden md:inline-flex bg-gradient-to-br from-cyan-500 to-emerald-500 text-white px-6 py-2 rounded-full font-bold text-sm hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] transition-all">
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Regístrate</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Sign Up</span>
+                        </a>
+
+                        {/*  Mobile Menu Toggle  */}
+                        <button
+                            className="md:hidden text-white p-2"
+                            onClick={() => setIsMenuOpen(!isMenuOpen)}
+                        >
+                            {isMenuOpen ? (
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            ) : (
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                                </svg>
+                            )}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/*  Mobile Menu Overlay  */}
+            {isMenuOpen && (
+                <div className="fixed inset-0 z-[60] bg-navy-900/95 backdrop-blur-xl flex flex-col justify-center items-center md:hidden animate-fade-in">
+                    <button
+                        className="absolute top-6 right-6 text-white/50 hover:text-white p-2"
+                        onClick={() => setIsMenuOpen(false)}
+                    >
+                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+
+                    <div className="flex flex-col items-center gap-8 text-xl font-medium text-white">
+                        <a href="#modulos" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Módulos</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Features</span>
+                        </a>
+                        <a href="#industrias" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Industrias</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Industries</span>
+                        </a>
+                        <a href="#ia" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">IA</a>
+                        <a href="#whatsapp" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">WhatsApp</a>
+                        <a href="#pricing" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Precios</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Pricing</span>
+                        </a>
+                        <Link to="/docs" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Documentación</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Docs</span>
+                        </Link>
+                        <Link to="/blog" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">Blog</Link>
+
+                        <div className="h-px w-24 bg-white/10 my-4"></div>
+
+                        <Link to="/login" onClick={() => setIsMenuOpen(false)} className="text-text-secondary hover:text-white transition-colors">
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Inicia sesión</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Log in</span>
+                        </Link>
+                        <Link to="/register" onClick={() => setIsMenuOpen(false)}
+                            className="bg-gradient-to-br from-cyan-500 to-emerald-500 text-white px-8 py-3 rounded-full font-bold hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] transition-all">
                             <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Regístrate</span>
                             <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Sign Up</span>
                         </Link>
                     </div>
                 </div>
-            </div>
+            )}
         </nav>
 
         {/*  SECTION 1: HERO (From V3: High Impact 2-Column with 3D Mockup)  */}
@@ -552,7 +620,7 @@ const SmartKubikLanding = () => {
 
                         {/*  CTAs  */}
                         <div className="flex flex-col sm:flex-row gap-4 justify-start">
-                            <Link to="/register"
+                            <a href="#pricing"
                                 className="bg-gradient-to-br from-cyan-500 to-emerald-500 inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-white font-bold text-lg shadow-[0_0_40px_rgba(6,182,212,0.4)] hover:shadow-[0_0_60px_rgba(6,182,212,0.6)] hover:scale-105 transition-all">
                                 <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Empezar Ahora</span>
                                 <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Start Now</span>
@@ -560,7 +628,7 @@ const SmartKubikLanding = () => {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                                         d="M13 7l5 5m0 0l-5 5m5-5H6" />
                                 </svg>
-                            </Link>
+                            </a>
                             <Link to="#demo"
                                 className="btn-secondary inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl text-white font-semibold text-lg hover:bg-white/5 transition-all">
                                 <span
@@ -720,7 +788,7 @@ const SmartKubikLanding = () => {
 
                 {/*  Headline - Parallax Layer 2 (faster)  */}
                 <div id="parallax-headline" className="text-center mb-16 relative" data-speed="0.15">
-                    <h2 className="text-4xl md:text-5xl font-bold mb-4">
+                    <h2 className="text-4xl md:text-5xl font-bold mb-4" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>¿Te suena familiar?</span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Sound familiar?</span>
                     </h2>
@@ -799,7 +867,8 @@ const SmartKubikLanding = () => {
 
                     {/*  Initial Title  */}
                     <h3 id="stack-title"
-                        className="text-3xl md:text-5xl font-bold text-white mb-4 tracking-wide transition-all duration-700 transform drop-shadow-lg">
+                        className="text-3xl md:text-5xl font-bold text-white mb-4 tracking-wide transition-all duration-700 transform drop-shadow-lg"
+                        style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Imagina un lunes donde...</span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Imagine a Monday where...</span>
                     </h3>
@@ -888,7 +957,8 @@ const SmartKubikLanding = () => {
                             {/* Badge Removed */}
                         </div>
                         <h2
-                            className="text-5xl md:text-7xl font-display font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500 animate-pulse-glow">
+                            className="text-5xl md:text-7xl font-display font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500 animate-pulse-glow"
+                            style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
                             <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Eso es SmartKubik.</span>
                             <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>That's SmartKubik.</span>
                         </h2>
@@ -909,7 +979,7 @@ const SmartKubikLanding = () => {
             <div className="max-w-7xl mx-auto px-4">
                 {/*  Headline floats over Section 3 content  */}
                 <div className="text-center mb-16">
-                    <h2 className="text-4xl md:text-5xl font-bold mb-6">
+                    <h2 className="text-4xl md:text-5xl font-bold mb-6" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Todas las caras de tu negocio en un solo lugar.<br /><span
                             className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Desde $29/Usuario.</span></span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>All sides of your business in one place.<br /><span
@@ -1093,7 +1163,7 @@ const SmartKubikLanding = () => {
         < section id="industrias" className="pt-32 pb-32 md:pt-48 md:pb-48 bg-[#050810] relative" >
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
                 <div className="text-center mb-16">
-                    <h2 className="text-3xl md:text-5xl font-display font-bold mb-6">
+                    <h2 className="text-3xl md:text-5xl font-display font-bold mb-6" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>No Es Software Genérico. <br className="hidden md:block" /> <span
                             className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Está Diseñado Para Tu Industria.</span></span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Not Generic Software. <br className="hidden md:block" /> <span
@@ -1837,10 +1907,14 @@ const SmartKubikLanding = () => {
 
         {/*  SECTION 6: AI ASSISTANT  */}
         < section id="ia" className="py-24 relative overflow-hidden" >
-            {/*  AI Aura Background  */}
-            < div className="absolute inset-0 bg-gradient-to-r from-cyan-900/20 via-navy-900 to-purple-900/20" ></div >
-            <div
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-cyan-500/10 rounded-full blur-[100px] animate-pulse">
+            {/*  AI Aura Background - Layering Strategy: Orb ON TOP of Gradient  */}
+            {/* 1. The Gradient (Bottom Layer) */}
+            <div className="absolute inset-0 bg-gradient-to-r from-cyan-900 via-navy-900 to-purple-900" style={{ opacity: 0.3 }}></div>
+            {/* 2. The Orb (Top Layer - Custom Pulsating Animation - Centered via Layout) */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-50">
+                <div
+                    className="w-[500px] h-[500px] bg-cyan-500 rounded-full blur-[200px] animate-pulse-scale">
+                </div>
             </div>
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">

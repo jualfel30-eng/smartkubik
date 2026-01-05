@@ -18,8 +18,9 @@ module.exports = {
     },
     extend: {
       fontFamily: {
+        'sans': ['"Plus Jakarta Sans"', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        'display': ['"Plus Jakarta Sans"', 'Rubik', 'sans-serif'],
         'inter': ['Inter', 'sans-serif'],
-        'display': ['Plus Jakarta Sans', 'Rubik', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
