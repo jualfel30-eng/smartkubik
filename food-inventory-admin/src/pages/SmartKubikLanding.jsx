@@ -292,26 +292,38 @@ const SmartKubikLanding = () => {
         setLanguage(prev => prev === 'es' ? 'en' : 'es');
     };
 
-    // Scroll Stack Animation Logic - Exact V4 Replica
+    // Scroll Stack Animation Logic - Optimized for Mobile/iOS
     useEffect(() => {
-        const handleScroll = () => {
-            const section = document.querySelector('#section-scroll-stack');
-            const cards = document.querySelectorAll('.stack-card');
-            const title = document.querySelector('#stack-title');
-            const footer = document.querySelector('#stack-footer');
+        let metrics = {
+            sectionTop: 0,
+            sectionHeight: 0,
+            scrollDistance: 0,
+            viewportHeight: 0
+        };
 
-            if (!section || cards.length === 0) return;
+        const section = document.querySelector('#section-scroll-stack');
+        const cards = document.querySelectorAll('.stack-card');
+        const title = document.querySelector('#stack-title');
+        const footer = document.querySelector('#stack-footer');
 
-            // Cache dimensions logic (simplified for React hook)
+        const calculateMetrics = () => {
+            if (!section) return;
             const rect = section.getBoundingClientRect();
             const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-            const sectionTop = rect.top + scrollTop;
-            const sectionHeight = section.offsetHeight;
-            const viewportHeight = window.innerHeight;
-            const scrollDistance = sectionHeight - viewportHeight;
 
-            // Calculate progress (0 to 1)
-            let rawProgress = (scrollTop - sectionTop) / scrollDistance;
+            metrics.sectionTop = rect.top + scrollTop;
+            metrics.sectionHeight = section.offsetHeight;
+            metrics.viewportHeight = window.innerHeight;
+            metrics.scrollDistance = metrics.sectionHeight - metrics.viewportHeight;
+        };
+
+        const handleScroll = () => {
+            if (!section || cards.length === 0) return;
+
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+            // Calculate progress (0 to 1) using CACHED metrics
+            let rawProgress = (scrollTop - metrics.sectionTop) / metrics.scrollDistance;
             let progress = Math.max(0, Math.min(1, rawProgress));
 
             // Title - KEEP VISIBLE (Pinned) UNTIL EXIT
@@ -363,7 +375,7 @@ const SmartKubikLanding = () => {
                 // Entrance: Translate Y from lower down to 0
                 const easeOut = 1 - Math.pow(1 - cardProgress, 3);
                 // Start VERY low (80% of viewport) to be hidden by bottom mask
-                let translateY = (1 - easeOut) * (viewportHeight * 0.8);
+                let translateY = (1 - easeOut) * (metrics.viewportHeight * 0.8);
 
                 // Stacking Logic
                 const currentCardFloat = (progress - 0.0) / 0.12;
@@ -452,11 +464,19 @@ const SmartKubikLanding = () => {
             }
         };
 
+        // Initial measurement
+        calculateMetrics();
+
+        window.addEventListener('resize', calculateMetrics); // Recalculate on resize/orientation change
         window.addEventListener('scroll', onScroll, { passive: true });
+
         // Initial call to set positions
         handleScroll();
 
-        return () => window.removeEventListener('scroll', onScroll);
+        return () => {
+            window.removeEventListener('scroll', onScroll);
+            window.removeEventListener('resize', calculateMetrics);
+        };
     }, []);
 
     // Parallax Effect Hook
@@ -1044,7 +1064,7 @@ const SmartKubikLanding = () => {
                 </div >
 
                 {/*  Doubled horizontal padding for more refined look  */}
-                <div className="relative z-10 w-full max-w-5xl px-12 sm:px-16 md:px-8 flex flex-col items-center h-full justify-center">
+                <div className="relative z-10 w-full max-w-5xl px-12 sm:px-16 md:px-8 flex flex-col items-center h-full justify-start pt-32 md:justify-center md:pt-0">
 
                     {/*  Initial Title - Increased mb for separation  */}
                     <h3 id="stack-title"
@@ -1139,7 +1159,7 @@ const SmartKubikLanding = () => {
                             {/* Badge Removed */}
                         </div>
                         <h2
-                            className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-display font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500 animate-pulse-glow px-4"
+                            className="text-5xl sm:text-5xl md:text-5xl lg:text-6xl xl:text-7xl font-display font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500 animate-pulse-glow px-4"
                             style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
                             <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Eso es SmartKubik.</span>
                             <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>That's SmartKubik.</span>
