@@ -133,15 +133,15 @@ const SmartKubikLanding = () => {
           /* Custom overlap adjustments for specific resolutions - WITH PROGRESSIVE PADDING */
           @media (max-width: 639px) {
             /* Móviles pequeños: -120px overlap */
-            #modulos { margin-top: -44vh !important; }
+            #modulos { margin-top: calc(-44vh + 25px) !important; }
             /* COMPACT TYPOGRAPHY FOR MOBILE */
-            h1 { font-size: 1.75rem !important; line-height: 1.1 !important; } /* 28px */
+            h1 { font-size: 3rem !important; line-height: 1.1 !important; } /* 48px - Restored Hero Size */
             h2 { font-size: 1.375rem !important; line-height: 1.2 !important; } /* 22px */
             p, li, .text-base, .text-lg { font-size: 15px !important; }
           }
           @media (min-width: 640px) and (max-width: 767px) {
             /* Móviles grandes/tablets pequeños: -200px overlap */
-            #modulos { margin-top: -55vh !important; }
+            #modulos { margin-top: calc(-55vh + 25px) !important; }
           }
           @media (min-width: 768px) and (max-width: 1023px) {
             /* Tablets: -250px overlap */
@@ -465,9 +465,18 @@ const SmartKubikLanding = () => {
         };
 
         // Initial measurement
+        let lastWidth = window.innerWidth;
+        const onResize = () => {
+            // Ignore vertical-only resizes (mobile address bar) to prevent glitches
+            if (window.innerWidth !== lastWidth) {
+                lastWidth = window.innerWidth;
+                calculateMetrics();
+            }
+        };
+
         calculateMetrics();
 
-        window.addEventListener('resize', calculateMetrics); // Recalculate on resize/orientation change
+        window.addEventListener('resize', onResize);
         window.addEventListener('scroll', onScroll, { passive: true });
 
         // Initial call to set positions
@@ -475,7 +484,7 @@ const SmartKubikLanding = () => {
 
         return () => {
             window.removeEventListener('scroll', onScroll);
-            window.removeEventListener('resize', calculateMetrics);
+            window.removeEventListener('resize', onResize);
         };
     }, []);
 
@@ -1159,8 +1168,8 @@ const SmartKubikLanding = () => {
                             {/* Badge Removed */}
                         </div>
                         <h2
-                            className="text-5xl sm:text-5xl md:text-5xl lg:text-6xl xl:text-7xl font-display font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500 animate-pulse-glow px-4"
-                            style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+                            className="!text-5xl sm:text-5xl md:text-5xl lg:text-6xl xl:text-7xl font-display font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500 animate-pulse-glow px-4"
+                            style={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontSize: '3rem' }}>
                             <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Eso es SmartKubik.</span>
                             <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>That's SmartKubik.</span>
                         </h2>
