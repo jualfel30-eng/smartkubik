@@ -131,6 +131,7 @@ const ReportsPage = lazy(() => import('./pages/ReportsPage.jsx'));
 const SuperAdminLayout = lazy(() => import('./layouts/SuperAdminLayout'));
 const SmartKubikLanding = lazy(() => import('./pages/SmartKubikLanding'));
 const SmartKubikLandingV2 = lazy(() => import('./pages/SmartKubikLandingV2'));
+const WebVentasSectionDemo = lazy(() => import('./pages/WebVentasSectionDemo'));
 const BlogIndex = lazy(() => import('./pages/BlogIndex.jsx'));
 const BlogPost = lazy(() => import('./pages/BlogPost.jsx'));
 const DocsLanding = lazy(() => import('./pages/DocsLanding.jsx'));
@@ -1155,6 +1156,7 @@ function AppContent() {
 
         <Routes>
           <Route path="/v2" element={<SmartKubikLandingV2 />} />
+          <Route path="/demo-web-ventas" element={<WebVentasSectionDemo />} />
           <Route path="/" element={<SmartKubikLanding />} />
           <Route path="/blog" element={<BlogIndex />} />
           <Route path="/blog/:slug" element={<BlogPost />} />

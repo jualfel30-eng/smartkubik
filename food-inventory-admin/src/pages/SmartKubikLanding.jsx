@@ -4,12 +4,31 @@ import SmartKubikLogoDark from '@/assets/logo-smartkubik.png';
 import LightRaysCanvas from '../components/LightRaysCanvas';
 import SalesContactModal from '../components/SalesContactModal';
 
+// Industry Backgrounds
+import RestaurantBg from '@/assets/industries/restaurant.png';
+import RetailBg from '@/assets/industries/retail.png';
+import ManufacturaBg from '@/assets/industries/manufactura.png';
+import ServicesBg from '@/assets/industries/services.png';
+import LogisticsBg from '@/assets/industries/logistics.png';
+import HotelsBg from '@/assets/industries/hotels.png';
+
+// Restaurant Mockups
+import ErpTables from '@/assets/industries/erp_tables.png';
+import ErpKds from '@/assets/industries/erp_kds.png';
+import ErpReservations from '@/assets/industries/erp_reservations.png';
+import ErpBillSplitting from '@/assets/industries/erp_billsplitting.png';
+import ErpTips from '@/assets/industries/erp_tips.png';
+import ErpMenu from '@/assets/industries/erp_menu.png';
+
 const SmartKubikLanding = () => {
     const [language, setLanguage] = useState('es');
     const [isDashboardHovered, setIsDashboardHovered] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [activeStep, setActiveStep] = useState(1);
     const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+
+    // Industry Active Feature States
+    const [activeRestaurantFeature, setActiveRestaurantFeature] = useState(null); // Default: None (Show generic bg + card)
 
     // Configuration for Contact Details
     const CONTACT_CONFIG = {
@@ -111,10 +130,14 @@ const SmartKubikLanding = () => {
           @keyframes pulse-glow { 0%, 100% { filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.3)); } 50% { filter: drop-shadow(0 0 20px rgba(168, 85, 247, 0.5)); } }
           .animate-pulse-glow { animation: pulse-glow 3s ease-in-out infinite; }
 
-          /* Custom overlap adjustments for specific resolutions */
+          /* Custom overlap adjustments for specific resolutions - WITH PROGRESSIVE PADDING */
           @media (max-width: 639px) {
             /* Móviles pequeños: -120px overlap */
             #modulos { margin-top: -44vh !important; }
+            /* COMPACT TYPOGRAPHY FOR MOBILE */
+            h1 { font-size: 1.75rem !important; line-height: 1.1 !important; } /* 28px */
+            h2 { font-size: 1.375rem !important; line-height: 1.2 !important; } /* 22px */
+            p, li, .text-base, .text-lg { font-size: 15px !important; }
           }
           @media (min-width: 640px) and (max-width: 767px) {
             /* Móviles grandes/tablets pequeños: -200px overlap */
@@ -124,33 +147,109 @@ const SmartKubikLanding = () => {
             /* Tablets: -250px overlap */
             #modulos { margin-top: -53vh !important; }
           }
+
+          /* PROGRESSIVE PADDING SYSTEM (1024px - 1799px) */
+          /* Logic: As resolution decreases, padding INCREASES to simulate "zooming out" */
+          
+          /* PRICING EXCEPTION: Prevent pricing cards from crushing */
+          @media (min-width: 1024px) {
+            #pricing .max-w-7xl {
+              max-width: 90% !important; 
+              padding-left: 2rem !important;
+              padding-right: 2rem !important;
+            }
+          }
+
           @media (min-width: 1024px) and (max-width: 1279px) {
-            /* 1168x755: -220px overlap */
-            #modulos { margin-top: -43vh !important; }
+            /* 1024px - 1279px (Includes 1168px - Air/Small Laptop)
+               RELAXED PADDING: 4rem (was 8rem) 
+               FIX: Removed 'section' selector to allow full-width backgrounds */
+            #modulos { margin-top: -40vh !important; }
+            .max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl {
+              padding-left: 4rem !important;
+              padding-right: 4rem !important;
+            }
+            .max-w-7xl { max-width: 60rem !important; } /* Relaxed width constraint */
+            
+            /* TUNED TYPOGRAPHY: H1 Restored, H2/H3 Compact */
+            h1 { font-size: 2.75rem !important; line-height: 1.1 !important; } /* 44px - RESTORED PRESENCE */
+            h2 { font-size: 1.5rem !important; line-height: 1.2 !important; } /* 24px - Compact */
+            h3 { font-size: 1.25rem !important; line-height: 1.3 !important; } /* 20px - Compact */
+            /* Force 14px Body Text for High Density */
+            p, li, .text-base, .text-lg, span.text-base, div.text-base { 
+                font-size: 14px !important; 
+                line-height: 1.5 !important;
+            }
+            /* GLOBAL CARD TEXT EXCEPTION (13px) */
+            #parallax-cards p, .glass-card p, .glass-card .text-sm, .stack-card p { font-size: 13px !important; }
           }
-          @media (min-width: 1280px) and (max-width: 1299px) {
-            /* 1280x800: -170px overlap */
-            #modulos { margin-top: -36vh !important; }
+
+          @media (min-width: 1280px) and (max-width: 1439px) {
+            /* 1280px - 1439px (13" Pro / Standard Laptop)
+               RELAXED PADDING: 4.5rem (was 6rem) */
+            #modulos { margin-top: -38vh !important; }
+            .max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl {
+              padding-left: 4.5rem !important;
+              padding-right: 4.5rem !important;
+            }
+            .max-w-7xl { max-width: 72rem !important; } /* Wide enough */
+            
+            /* TUNED TYPOGRAPHY */
+            h1 { font-size: 3rem !important; line-height: 1.2 !important; } /* 48px - IMPACTFUL */
+            h2 { font-size: 1.5rem !important; line-height: 1.3 !important; } /* 24px - Compact */
+            /* Force 14px Body Text for High Density */
+            p, li, .text-base, .text-lg, span.text-base, div.text-base { 
+                font-size: 14px !important; 
+                line-height: 1.5 !important;
+            }
+            /* GLOBAL CARD TEXT EXCEPTION (13px) */
+            #parallax-cards p, .glass-card p, .glass-card .text-sm, .stack-card p { font-size: 13px !important; }
           }
-          @media (min-width: 1300px) and (max-width: 1399px) {
-            /* 1312x848: -240px overlap */
-            #modulos { margin-top: -42vh !important; }
+
+          @media (min-width: 1440px) and (max-width: 1535px) {
+             /* 1440px - 1535px (High Res Laptop)
+                Ranges up to 15" Laptops.
+                RELAXED PADDING: 4.5rem (was 5rem) */
+            #modulos { margin-top: -45vh !important; }
+            .max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl {
+              padding-left: 4.5rem !important;
+              padding-right: 4.5rem !important;
+            }
+            .max-w-7xl { max-width: 76rem !important; }
+            
+            /* TUNED TYPOGRAPHY */
+            h1 { font-size: 3rem !important; line-height: 1.2 !important; } /* 48px */
+            h2 { font-size: 1.5rem !important; line-height: 1.3 !important; } /* 24px */
+            /* Force 14px Body Text for High Density */
+            p, li, .text-base, .text-lg, span.text-base, div.text-base { 
+                font-size: 14px !important; 
+                line-height: 1.5 !important;
+            }
+            /* GLOBAL CARD TEXT EXCEPTION (13px) */
+            #parallax-cards p, .glass-card p, .glass-card .text-sm, .stack-card p { font-size: 13px !important; }
           }
-          @media (min-width: 1400px) and (max-width: 1535px) {
-            /* 1496x967: -320px overlap */
-            #modulos { margin-top: -45.5vh !important; }
-          }
+
           @media (min-width: 1536px) and (max-width: 1799px) {
-            /* 1728x1117: -415px overlap */
-            #modulos { margin-top: -47.5vh !important; }
+             /* 1536px - 1799px (16" Pro / 2K Monitors)
+                LIGHT PADDING: 4rem (64px) side padding 
+                TYPOGRAPHY: Intact (Standard Design) - Starts getting bigger here */
+            #modulos { margin-top: calc(-47.5vh + 10px) !important; }
+            .max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl {
+              padding-left: 4rem !important;
+              padding-right: 4rem !important;
+            }
+            .max-w-7xl { max-width: 72rem !important; }
           }
+
+          /* Large Screens */
           @media (min-width: 1800px) and (max-width: 1999px) {
             /* 1920x1200: -520px overlap */
-            #modulos { margin-top: -53vh !important; }
+            #modulos { margin-top: calc(-53vh + 10px) !important; }
+            /* Keep standard padding & typography */
           }
           @media (min-width: 2000px) {
             /* 2056x1285+: Keep current value */
-            #modulos { margin-top: -53vh !important; }
+            #modulos { margin-top: calc(-53vh + 10px) !important; }
           }
         `;
         document.head.appendChild(styleSheet);
@@ -215,22 +314,44 @@ const SmartKubikLanding = () => {
             let rawProgress = (scrollTop - sectionTop) / scrollDistance;
             let progress = Math.max(0, Math.min(1, rawProgress));
 
-            // Title Animation (Delayed Fade)
+            // Title - KEEP VISIBLE (Pinned) UNTIL EXIT
+            // Exit Logic: Mimic Card Stacking Physics
+            // Last card settles at ~0.51. We start Title "stacking back" at 0.50.
+            let titleDepth = 0;
+            if (progress > 0.50) {
+                titleDepth = (progress - 0.50) / 0.10; // Rate of moving back
+            }
+
             if (title) {
-                if (progress > 0.08) {
-                    title.style.opacity = '0';
-                    title.style.transform = 'translateY(-20px)';
-                    title.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                if (titleDepth > 0) {
+                    // Mimic Card Stacking: Scale down + Fade
+                    // Scale: 1 -> 0.8
+                    const exitScale = Math.max(0.8, 1 - (titleDepth * 0.05));
+
+                    // Opacity: Aggressive fade matching "depth > 0.2" logic of cards
+                    // We accelerate it slightly to ensure it's gone by the time "Eso es SmartKubik" is fully up
+                    let exitOpacity = 1;
+                    if (titleDepth > 0.1) {
+                        exitOpacity = Math.max(0, 1 - ((titleDepth - 0.1) * 2));
+                    }
+
+                    title.style.transform = `scale(${exitScale})`;
+                    title.style.opacity = exitOpacity.toString();
                 } else {
                     title.style.opacity = '1';
-                    title.style.transform = 'translateY(0)';
-                    title.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                    title.style.transform = 'scale(1)';
                 }
             }
 
             // Cards Logic
             const cardGap = 20;
             const scaleStep = 0.05;
+
+            // Global exit phase for cards - Starts later to clear the stagfe
+            let cardsExitPhase = 0;
+            if (progress > 0.55) {
+                cardsExitPhase = (progress - 0.55) / 0.15;
+            }
 
             cards.forEach((card, index) => {
                 // Calculate specific trigger points for each card
@@ -275,6 +396,14 @@ const SmartKubikLanding = () => {
                     opacity = opacity * Math.min(1, easeOut * 2);
                 }
 
+                // SYNCHRONIZED BACKWARDS EXIT
+                if (cardsExitPhase > 0) {
+                    // Scale down further
+                    scale = scale * (1 - (cardsExitPhase * 0.2));
+                    // Fade out
+                    opacity = opacity * (1 - (cardsExitPhase * 3));
+                }
+
                 // Apply transforms
                 const finalY = translateY + stackOffset;
                 card.style.transform = `translate3d(0, ${finalY}px, 0) scale(${Math.max(0.8, scale)})`;
@@ -283,11 +412,13 @@ const SmartKubikLanding = () => {
                 card.style.filter = `blur(${blur}px)`;
             });
 
-            // Footer Animation - Static Hold (The "Docking" Effect)
+            // Footer Animation - REVERTED to "Static Hold / Docking" (The V4 Original)
             if (footer) {
+                footer.style.transition = 'none'; // Keep transition disabled for JS control
+
                 if (progress > 0.5) {
                     // Phase 1: Rise to Center (0.5 to 0.75)
-                    // Phase 2: HOLD (0.75 to 1.0)
+                    // Phase 2: HOLD (0.75 to 1.0) - The "Docking" Effect
 
                     let holdProgress = (progress - 0.5) / 0.25; // Normalizes 0.5->0.75 to 0->1
                     holdProgress = Math.min(1, holdProgress); // Clamp at 1 (HOLD)
@@ -501,8 +632,8 @@ const SmartKubikLanding = () => {
                             <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Pricing</span>
                         </a>
                         <Link to="/docs" className="hover:text-cyan-electric hover:font-bold transition-all">
-                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Documentación</span>
-                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Docs</span>
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ayuda</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Help</span>
                         </Link>
                         <Link to="/blog" className="hover:text-cyan-electric hover:font-bold transition-all">Blog</Link>
                     </div>
@@ -523,11 +654,11 @@ const SmartKubikLanding = () => {
                             </svg>
                         </Link>
 
-                        <a href="#pricing"
+                        <Link to="/register"
                             className="hidden md:inline-flex bg-gradient-to-br from-cyan-500 to-emerald-500 text-white px-6 py-2 rounded-full font-bold text-sm hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] transition-all">
                             <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Regístrate</span>
                             <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Sign Up</span>
-                        </a>
+                        </Link>
 
                         {/*  Mobile Menu Toggle  */}
                         <button
@@ -576,8 +707,8 @@ const SmartKubikLanding = () => {
                             <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Pricing</span>
                         </a>
                         <Link to="/docs" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">
-                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Documentación</span>
-                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Docs</span>
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ayuda</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Help</span>
                         </Link>
                         <Link to="/blog" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">Blog</Link>
 
@@ -837,6 +968,10 @@ const SmartKubikLanding = () => {
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>¿Te suena familiar?</span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Sound familiar?</span>
                     </h2>
+                    <p className="text-xl text-text-secondary mt-6 max-w-2xl mx-auto">
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Si te identificas con esto, no estás solo.</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>If you identify with this, you are not alone.</span>
+                    </p>
                 </div>
 
                 {/*  Pain Points Grid - Parallax Layer 3 (normal)  */}
@@ -883,8 +1018,8 @@ const SmartKubikLanding = () => {
                 {/*  Closing Statement  */}
                 <div className="text-center mt-12">
                     <p className="text-xl text-text-secondary">
-                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Si marcaste 2 o más... no es tu culpa. <span className="text-white font-bold">Tu systema actual te está frenando.</span></span>
-                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>If you checked 2 or more... it's not your fault. <span className="text-white font-bold">Your current system is holding you back.</span></span>
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Si marcaste 2 o más... no es tu culpa. <span className="text-white font-bold block mt-2 md:inline md:mt-0">Tu negocio creció, tus herramientas no.</span></span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>If you checked 2 or more... it's not your fault. <span className="text-white font-bold block mt-2 md:inline md:mt-0">Your business grew, your tools didn't.</span></span>
                     </p>
                 </div>
 
@@ -911,16 +1046,16 @@ const SmartKubikLanding = () => {
                 {/*  Doubled horizontal padding for more refined look  */}
                 <div className="relative z-10 w-full max-w-5xl px-12 sm:px-16 md:px-8 flex flex-col items-center h-full justify-center">
 
-                    {/*  Initial Title  */}
+                    {/*  Initial Title - Increased mb for separation  */}
                     <h3 id="stack-title"
-                        className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white mb-4 tracking-wide transition-all duration-700 transform drop-shadow-lg"
+                        className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white mb-12 lg:mb-16 tracking-wide transition-all duration-700 transform drop-shadow-lg"
                         style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Imagina un lunes donde...</span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Imagine a Monday where...</span>
                     </h3>
 
-                    {/*  Cards Container  */}
-                    <div className="relative w-full max-w-2xl h-[450px] sm:h-[400px] md:h-[300px] perspective-[1000px]">
+                    {/*  Cards Container - Increased margin top to mt-12  */}
+                    <div className="relative w-full max-w-2xl h-[450px] sm:h-[400px] md:h-[300px] perspective-[1000px] mt-12">
                         {/*  Cards will be controlled by JS  */}
 
                         {/*  Card 1  */}
@@ -1036,9 +1171,9 @@ const SmartKubikLanding = () => {
                             className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">From $29/User.</span></span>
                     </h2>
                     {/*  Subtitle  */}
-                    <div className="text-base sm:text-lg lg:text-xl text-text-secondary max-w-2xl mx-auto backdrop-blur-sm bg-black/20 rounded-xl p-2 inline-block">
-                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>El sistema operativo completo para empresas modernas.</span>
-                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>The complete operating system for modern businesses.</span>
+                    <div className="text-base sm:text-lg lg:text-xl text-text-secondary max-w-4xl mx-auto backdrop-blur-sm bg-black/20 rounded-xl p-4 inline-block">
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>El sistema nervioso de tu negocio. Conecta y automatiza todo lo que necesitas en una sola plataforma inteligente.</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>The nervous system of your business. Connects and automates everything you need in a single intelligent platform.</span>
                     </div>
                 </div>
             </div>
@@ -1179,10 +1314,8 @@ const SmartKubikLanding = () => {
                                     <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>AI Assistant</span>
                                 </h3>
                                 <p className="text-sm md:text-base lg:text-lg text-text-secondary">
-                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Pregúntale lo que quieras: "¿Cuánto vendí hoy?" "¿Qué se está
-                                        acabando?" — Responde al instante.</span>
-                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Ask anything: "How much did I sell today?" "What's running
-                                        low?" — Answers instantly.</span>
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Pregúntale lo que quieras desde Whatsapp: "¿Cuánto vendí hoy?" "¿Qué se está acabando?" — Responde al instante. ¡El empleado eficiente y veloz que no descansa!</span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Ask anything via WhatsApp: "How much did I sell today?" "What's running low?" — Answers instantly. The efficient, tireless employee that never sleeps!</span>
                                 </p>
                             </div>
                             <button
@@ -1225,7 +1358,7 @@ const SmartKubikLanding = () => {
 
                 {/*  Tabs Navigation  */}
                 <div
-                    className="flex overflow-x-auto space-x-2 md:space-x-4 pb-4 mb-8 no-scrollbar justify-start md:justify-center">
+                    className="flex overflow-x-auto space-x-2 md:space-x-4 py-4 mb-8 no-scrollbar justify-start md:justify-center">
                     <button onClick={() => switchTab('restaurantes')}
                         className="tab-btn active px-6 py-3 rounded-full text-sm font-bold whitespace-nowrap transition-all border border-transparent bg-white/10 text-white border-cyan-electric/50 shadow-[0_0_15px_rgba(6,182,212,0.3)]"
                         data-tab="restaurantes">
@@ -1275,66 +1408,67 @@ const SmartKubikLanding = () => {
                                     <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>For Restaurants That Want to <span
                                         className="text-emerald-500">Fill Tables</span>, Not Paperwork</span>
                                 </h3>
-                                <div className="grid sm:grid-cols-2 gap-6">
-                                    {/*  Card 1: Mesas  */}
-                                    <div className="glass-card p-4 rounded-xl">
+                                <div className="grid sm:grid-cols-2 gap-4">
+                                    {/*  Feature 1: Mesas  */}
+                                    <button
+                                        onClick={() => setActiveRestaurantFeature('tables')}
+                                        className={`glass-card p-4 rounded-xl text-left transition-all hover:scale-105 ${activeRestaurantFeature === 'tables' ? 'border-emerald-500 ring-1 ring-emerald-500 bg-white/5' : 'border-white/10'}`}>
                                         <div className="text-2xl mb-2">🗺️</div>
                                         <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Mesas en Tiempo Real</div>
                                         <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Real-Time Tables</div>
-                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Ve qué mesas están libres, ocupadas
-                                            o reservadas.</div>
-                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>See which tables are free,
-                                            occupied, or reserved.</div>
-                                    </div>
-                                    {/*  Card 2: KDS  */}
-                                    <div className="glass-card p-4 rounded-xl">
+                                        <div className={`text-xs text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Gestión visual de tu salón.</div>
+                                        <div className={`text-xs text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Visual floor management.</div>
+                                    </button>
+                                    {/*  Feature 2: KDS  */}
+                                    <button
+                                        onClick={() => setActiveRestaurantFeature('kds')}
+                                        className={`glass-card p-4 rounded-xl text-left transition-all hover:scale-105 ${activeRestaurantFeature === 'kds' ? 'border-emerald-500 ring-1 ring-emerald-500 bg-white/5' : 'border-white/10'}`}>
                                         <div className="text-2xl mb-2">📺</div>
-                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Pantalla de Cocina (KDS)</div>
-                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Kitchen Display System (KDS)</div>
-                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Las órdenes llegan solas a la
-                                            cocina.</div>
-                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Orders arrive automatically
-                                            to the kitchen.</div>
-                                    </div>
-                                    {/*  Card 3: Reservaciones  */}
-                                    <div className="glass-card p-4 rounded-xl">
+                                        <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Pantalla de Cocina</div>
+                                        <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Kitchen Display System</div>
+                                        <div className={`text-xs text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Cero gritos, cero errores.</div>
+                                        <div className={`text-xs text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>No shouting, no errors.</div>
+                                    </button>
+                                    {/*  Feature 3: Reservaciones  */}
+                                    <button
+                                        onClick={() => setActiveRestaurantFeature('reservations')}
+                                        className={`glass-card p-4 rounded-xl text-left transition-all hover:scale-105 ${activeRestaurantFeature === 'reservations' ? 'border-emerald-500 ring-1 ring-emerald-500 bg-white/5' : 'border-white/10'}`}>
                                         <div className="text-2xl mb-2">📅</div>
                                         <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Reservaciones</div>
                                         <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Reservations</div>
-                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Tus clientes reservan online.</div>
-                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Your customers book online.
-                                        </div>
-                                    </div>
-                                    {/*  Card 4: Division de Cuentas  */}
-                                    <div className="glass-card p-4 rounded-xl">
+                                        <div className={`text-xs text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Agenda inteligente.</div>
+                                        <div className={`text-xs text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Smart scheduling.</div>
+                                    </button>
+                                    {/*  Feature 4: Division de Cuentas  */}
+                                    <button
+                                        onClick={() => setActiveRestaurantFeature('split')}
+                                        className={`glass-card p-4 rounded-xl text-left transition-all hover:scale-105 ${activeRestaurantFeature === 'split' ? 'border-emerald-500 ring-1 ring-emerald-500 bg-white/5' : 'border-white/10'}`}>
                                         <div className="text-2xl mb-2">💸</div>
                                         <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>División de Cuentas</div>
                                         <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Bill Splitting</div>
-                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Divide por persona, por plato, o
-                                            como quieras.</div>
-                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Split by person, by item, or
-                                            however you want.</div>
-                                    </div>
-                                    {/*  Card 5: Propinas Justas  */}
-                                    <div className="glass-card p-4 rounded-xl">
+                                        <div className={`text-xs text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Sin dolores de cabeza.</div>
+                                        <div className={`text-xs text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>No more headaches.</div>
+                                    </button>
+                                    {/*  Feature 5: Propinas Justas  */}
+                                    <button
+                                        onClick={() => setActiveRestaurantFeature('tips')}
+                                        className={`glass-card p-4 rounded-xl text-left transition-all hover:scale-105 ${activeRestaurantFeature === 'tips' ? 'border-emerald-500 ring-1 ring-emerald-500 bg-white/5' : 'border-white/10'}`}>
                                         <div className="text-2xl mb-2">💵</div>
                                         <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Propinas Justas</div>
                                         <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Fair Tips</div>
-                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Distribución automática.
-                                            Transparente.</div>
-                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Automatic distribution.
-                                            Transparent.</div>
-                                    </div>
-                                    {/*  Card 6: Menu Engineering  */}
-                                    <div className="glass-card p-4 rounded-xl">
+                                        <div className={`text-xs text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Reparto automático.</div>
+                                        <div className={`text-xs text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Automatic splitting.</div>
+                                    </button>
+                                    {/*  Feature 6: Menu Engineering  */}
+                                    <button
+                                        onClick={() => setActiveRestaurantFeature('menu')}
+                                        className={`glass-card p-4 rounded-xl text-left transition-all hover:scale-105 ${activeRestaurantFeature === 'menu' ? 'border-emerald-500 ring-1 ring-emerald-500 bg-white/5' : 'border-white/10'}`}>
                                         <div className="text-2xl mb-2">📊</div>
                                         <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>Menu Engineering</div>
                                         <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>Menu Engineering</div>
-                                        <div className={`text-sm text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Descubre qué platos son rentables.
-                                        </div>
-                                        <div className={`text-sm text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Discover which dishes are
-                                            profitable.</div>
-                                    </div>
+                                        <div className={`text-xs text-text-secondary lang-es ${language === "es" ? "" : "hidden"}`}>Maximiza ganancias.</div>
+                                        <div className={`text-xs text-text-secondary lang-en ${language === "en" ? "" : "hidden"}`}>Maximize profits.</div>
+                                    </button>
                                 </div>
                                 <div className="mt-8 pt-8 border-t border-white/10">
                                     <div className="flex items-center gap-4">
@@ -1350,13 +1484,82 @@ const SmartKubikLanding = () => {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Dynamic Visual Display */}
                             <div
-                                className="bg-navy-900 rounded-xl border border-white/10 h-80 md:h-[500px] flex items-center justify-center relative overflow-hidden group">
-                                {/*  Placeholder visual  */}
-                                <div className="absolute inset-0 bg-gradient-to-br from-cyan-electric/5 to-emerald-500/5"></div>
-                                <div className="text-text-tertiary group-hover:scale-105 transition-transform duration-500">
-                                    [Floor Plan Interactive Mockup]
-                                </div>
+                                className="rounded-xl border border-white/10 h-80 md:h-[500px] flex items-center justify-center relative overflow-hidden group">
+
+                                {/* Default View: Background + Reservation Card */}
+                                {!activeRestaurantFeature && (
+                                    <>
+                                        <div className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" style={{ backgroundImage: `url(${RestaurantBg})` }}></div>
+                                        <div className="absolute inset-0 z-10 bg-navy-900/60"></div>
+                                        {/*  Placeholder visual  */}
+                                        <div className="absolute inset-0 z-20 bg-gradient-to-br from-cyan-electric/5 to-emerald-500/5"></div>
+                                        <div className="relative z-30 glass-card p-6 rounded-xl border border-white/20 w-72 text-left shadow-2xl animate-fade-in">
+                                            <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-lg">🍽️</div>
+                                                    <div>
+                                                        <div className="text-white font-bold text-lg">Mesa 12</div>
+                                                        <div className="text-emerald-400 text-xs font-bold uppercase tracking-wider">Reservada</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Cliente</div>
+                                                    <div className="text-white font-medium flex items-center gap-2">
+                                                        <span>Familia Rodríguez</span>
+                                                        <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Hora</div>
+                                                        <div className="text-white">8:00 PM</div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-xs text-text-secondary uppercase tracking-widest mb-1">Personas</div>
+                                                        <div className="text-white">4 Pax</div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="bg-black/30 rounded-lg p-3 flex items-start gap-3 mt-2">
+                                                    <div className="text-amber-400 mt-0.5">📝</div>
+                                                    <div className="text-xs text-gray-300 italic">"Preferiblemente en la terraza cerca de la vista."</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
+                                {/* Active Feature View: Full Image */}
+                                {activeRestaurantFeature && (
+                                    <div className="absolute inset-0 z-40 bg-navy-900 animate-fade-in">
+                                        <img
+                                            src={
+                                                activeRestaurantFeature === 'tables' ? ErpTables :
+                                                    activeRestaurantFeature === 'kds' ? ErpKds :
+                                                        activeRestaurantFeature === 'reservations' ? ErpReservations :
+                                                            activeRestaurantFeature === 'split' ? ErpBillSplitting :
+                                                                activeRestaurantFeature === 'tips' ? ErpTips :
+                                                                    activeRestaurantFeature === 'menu' ? ErpMenu : ErpTables
+                                            }
+                                            alt="Feature Preview"
+                                            className="w-full h-full object-contain"
+                                        />
+                                        {/* Close/Reset Button */}
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setActiveRestaurantFeature(null); }}
+                                            className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-colors border border-white/10 z-50">
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                        </button>
+                                    </div>
+                                )}
+
                             </div>
                         </div>
                     </div>
@@ -1426,12 +1629,12 @@ const SmartKubikLanding = () => {
                                 </div>
                             </div>
                             <div
-                                className="bg-navy-900 rounded-xl border border-white/10 h-80 md:h-[500px] flex items-center justify-center relative overflow-hidden group">
+                                className="rounded-xl border border-white/10 h-80 md:h-[500px] flex items-center justify-center relative overflow-hidden group">
+                                {/* Background Image */}
+                                <div className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" style={{ backgroundImage: `url(${RetailBg})` }}></div>
+                                <div className="absolute inset-0 z-10 bg-navy-900/60"></div>
                                 <div
-                                    className="absolute inset-0 flex items-center justify-center p-8 bg-neutral-900 opacity-40 group-hover:opacity-60 transition-opacity">
-                                </div>
-                                <div
-                                    className="relative z-10 glass-card p-6 rounded-xl border border-white/20 max-w-xs text-center">
+                                    className="relative z-20 glass-card p-6 rounded-xl border border-white/20 max-w-xs text-center">
                                     <div className="font-bold text-white text-xl mb-1">POS Retail</div>
                                     <div className="text-sm text-gray-300 mb-4">Escanea & Vende</div>
                                     <div className="bg-black/40 rounded p-2 text-left font-mono text-xs text-emerald-400">Item:
@@ -1507,8 +1710,11 @@ const SmartKubikLanding = () => {
                                 </div>
                             </div>
                             <div
-                                className="bg-navy-900 rounded-xl border border-white/10 h-80 md:h-[500px] flex items-center justify-center relative overflow-hidden group">
-                                <div className="relative z-10 glass-card p-6 rounded-xl border border-white/20">
+                                className="rounded-xl border border-white/10 h-80 md:h-[500px] flex items-center justify-center relative overflow-hidden group">
+                                {/* Background Image */}
+                                <div className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" style={{ backgroundImage: `url(${ManufacturaBg})` }}></div>
+                                <div className="absolute inset-0 z-10 bg-navy-900/60"></div>
+                                <div className="relative z-20 glass-card p-6 rounded-xl border border-white/20">
                                     <div className="font-bold text-white mb-2">Orden #PRD-9023</div>
                                     <div className="w-full bg-gray-700 h-2 rounded-full mb-2 overflow-hidden">
                                         <div className="bg-amber-500 h-full w-2/3"></div>
@@ -1584,8 +1790,11 @@ const SmartKubikLanding = () => {
                                 </div>
                             </div>
                             <div
-                                className="bg-navy-900 rounded-xl border border-white/10 h-80 md:h-[500px] flex items-center justify-center relative overflow-hidden group">
-                                <div className="relative z-10 glass-card p-6 rounded-xl border border-white/20 w-64">
+                                className="rounded-xl border border-white/10 h-80 md:h-[500px] flex items-center justify-center relative overflow-hidden group">
+                                {/* Background Image */}
+                                <div className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" style={{ backgroundImage: `url(${ServicesBg})` }}></div>
+                                <div className="absolute inset-0 z-10 bg-navy-900/60"></div>
+                                <div className="relative z-20 glass-card p-6 rounded-xl border border-white/20 w-64">
                                     <div className="flex justify-between items-center mb-4">
                                         <div className="font-bold text-white">Lun, 14 Oct</div>
                                         <div className="text-xs text-gray-400">Hoy</div>
@@ -1666,8 +1875,11 @@ const SmartKubikLanding = () => {
                                 </div>
                             </div>
                             <div
-                                className="bg-navy-900 rounded-xl border border-white/10 h-80 md:h-[500px] flex items-center justify-center relative overflow-hidden group">
-                                <div className="relative z-10 glass-card p-6 rounded-xl border border-white/20 text-center">
+                                className="rounded-xl border border-white/10 h-80 md:h-[500px] flex items-center justify-center relative overflow-hidden group">
+                                {/* Background Image */}
+                                <div className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" style={{ backgroundImage: `url(${LogisticsBg})` }}></div>
+                                <div className="absolute inset-0 z-10 bg-navy-900/60"></div>
+                                <div className="relative z-20 glass-card p-6 rounded-xl border border-white/20 text-center">
                                     <div className="text-4xl text-blue-500 mb-2">🚚💨</div>
                                     <div className="font-bold text-white">Ruta #829 En Camino</div>
                                 </div>
@@ -1740,8 +1952,11 @@ const SmartKubikLanding = () => {
                                 </div>
                             </div>
                             <div
-                                className="bg-navy-900 rounded-xl border border-white/10 h-80 md:h-[500px] flex items-center justify-center relative overflow-hidden group">
-                                <div className="relative z-10 glass-card p-6 rounded-xl border border-white/20">
+                                className="rounded-xl border border-white/10 h-80 md:h-[500px] flex items-center justify-center relative overflow-hidden group">
+                                {/* Background Image */}
+                                <div className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110" style={{ backgroundImage: `url(${HotelsBg})` }}></div>
+                                <div className="absolute inset-0 z-10 bg-navy-900/60"></div>
+                                <div className="relative z-20 glass-card p-6 rounded-xl border border-white/20">
                                     <div className="flex justify-between gap-8 mb-2 border-b border-white/10 pb-2">
                                         <div className="text-white font-bold">Hab. 302</div>
                                         <div className="text-green-400 text-xs font-bold uppercase">Limpia</div>
@@ -1755,6 +1970,231 @@ const SmartKubikLanding = () => {
 
             </div>
         </section >
+
+        {/*  SECTION 6: TU WEB DE VENTAS (NEW) */}
+        <section id="tu-web" className="py-24 relative overflow-hidden bg-navy-900">
+            {/* Background Gradient Mesh */}
+            <div className="absolute inset-0 opacity-50 pointer-events-none"
+                style={{
+                    background: `
+                        radial-gradient(ellipse at 30% 40%, rgba(6, 182, 212, 0.12) 0%, transparent 50%),
+                        radial-gradient(ellipse at 70% 60%, rgba(16, 185, 129, 0.10) 0%, transparent 50%),
+                        radial-gradient(ellipse at 50% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 45%),
+                        linear-gradient(180deg, #0F172A 0%, #1E293B 100%)
+                     `
+                }}>
+            </div>
+
+            <div className="container max-w-7xl mx-auto px-6 relative z-10">
+
+                {/* Header */}
+                <div className="text-center max-w-4xl mx-auto mb-16">
+                    <span className="text-cyan-400 text-sm font-medium tracking-wide uppercase mb-4 block">
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>Incluido sin costo extra</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>Included at no extra cost</span>
+                    </span>
+                    <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>
+                            Tu Negocio Abierto <span className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-400 to-emerald-400">24/7</span>.<br />
+                            Tu Web Vende Por Ti.
+                        </span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>
+                            Your Business Open <span className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-400 to-emerald-400">24/7</span>.<br />
+                            Your Website Sells For You.
+                        </span>
+                    </h2>
+                    <p className="text-xl text-gray-400 leading-relaxed">
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>
+                            SmartKubik genera automáticamente tu página web conectada al sistema.
+                            Tus clientes compran productos, reservan servicios o agendan citas —
+                            sin que tú levantes un dedo. Todo sincronizado en tiempo real.
+                        </span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>
+                            SmartKubik automatically generates your website connected to the system.
+                            Your customers buy products, book services, or schedule appointments —
+                            without you lifting a finger. Everything synced in real-time.
+                        </span>
+                    </p>
+                </div>
+
+                {/* Visual Central */}
+                {/* Visual Central - CSS Generated Devices */}
+                <div className="relative mb-12 mt-32 w-full max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12 px-4">
+
+                    {/* Background Glow */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-cyan-500/10 blur-[100px] rounded-full pointer-events-none"></div>
+
+                    {/* Floating Badge (Centered on Page) */}
+                    <div className="absolute -top-24 left-1/2 -translate-x-1/2 z-40">
+                        <div className="bg-white/10 backdrop-blur-md border border-white/20 px-6 py-3 rounded-full text-white font-semibold shadow-lg animate-bounce-slow whitespace-nowrap">
+                            <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>🚀 Se genera automáticamente</span>
+                            <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>🚀 Auto-generated</span>
+                        </div>
+                    </div>
+
+                    {/* 1. Laptop (Left) */}
+                    <div className="relative z-20 w-[90%] sm:w-[340px] md:w-[500px] lg:w-[600px] transform hover:scale-[1.02] transition-transform duration-500 order-1">
+                        {/* Lid */}
+                        <div className="bg-navy-900 rounded-t-xl md:rounded-t-2xl border-[8px] md:border-[12px] border-gray-800 border-b-0 aspect-[16/10] relative overflow-hidden shadow-2xl flex flex-col">
+                            {/* Browser Bar */}
+                            <div className="h-6 md:h-8 bg-gray-900 flex items-center px-3 gap-1.5 border-b border-white/5">
+                                <div className="w-2 h-2 rounded-full bg-red-500/50"></div>
+                                <div className="w-2 h-2 rounded-full bg-yellow-500/50"></div>
+                                <div className="w-2 h-2 rounded-full bg-green-500/50"></div>
+                                <div className="ml-4 w-1/3 h-1.5 bg-gray-800 rounded-full"></div>
+                            </div>
+                            {/* Screen Content: Store Grid */}
+                            <div className="flex-1 bg-navy-950 p-4 grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 overflow-hidden content-start">
+                                {/* Product Cards */}
+                                {[1, 2, 3, 4, 5, 6].map(i => (
+                                    <div key={i} className="bg-white/5 rounded-lg p-2 space-y-2 border border-white/5 group hover:border-cyan-500/30 transition-colors">
+                                        <div className="w-full aspect-square bg-gradient-to-br from-white/5 to-white/0 rounded-md mb-2 relative overflow-hidden">
+                                            <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                        </div>
+                                        <div className="w-3/4 h-1.5 bg-gray-700/50 rounded-full"></div>
+                                        <div className="w-1/3 h-1.5 bg-cyan-900/50 rounded-full"></div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        {/* Base */}
+                        <div className="h-3 md:h-5 bg-gray-800 rounded-b-lg md:rounded-b-xl shadow-lg relative mx-[2px]">
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-20 md:w-32 h-1.5 bg-gray-700 rounded-b-md"></div>
+                        </div>
+                    </div>
+
+                    {/* 2. Tablet (Center) */}
+                    <div className="relative z-10 w-[180px] md:w-[240px] aspect-[3/4] transition-transform duration-300 ease-out hover:-translate-y-4 order-2 hidden sm:block">
+                        <div className="w-full h-full bg-navy-900 rounded-[20px] md:rounded-[30px] border-[6px] md:border-[8px] border-gray-800 shadow-2xl">
+                            {/* Screen Content: Calendar Grid */}
+                            <div className="w-full h-full bg-navy-950 rounded-[14px] md:rounded-[22px] overflow-hidden p-3 relative flex flex-col">
+                                <div className="w-1/3 h-3 bg-gray-700 rounded-full mb-4 opacity-50"></div>
+                                {/* Fake Calendar Grid */}
+                                <div className="grid grid-cols-4 gap-2 flex-1 content-start">
+                                    {[...Array(12)].map((_, i) => (
+                                        <div key={i} className={`aspect-video rounded-sm ${i === 4 ? 'bg-emerald-500/40' : 'bg-white/5'}`}></div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 3. Mobile (Right) */}
+                    <div className="relative z-10 w-[100px] md:w-[140px] aspect-[9/19] transition-transform duration-300 ease-out hover:-translate-y-4 delay-100 order-3 hidden sm:block">
+                        <div className="w-full h-full bg-navy-900 rounded-[24px] md:rounded-[30px] border-[6px] md:border-[8px] border-gray-800 shadow-2xl">
+                            {/* Screen Content: Reservation */}
+                            <div className="w-full h-full bg-navy-950 rounded-[18px] md:rounded-[22px] overflow-hidden p-3 relative flex flex-col items-center">
+                                <div className="w-full h-full flex flex-col items-center justify-center">
+                                    <div className="w-10 h-10 rounded-full bg-emerald-500/20 mb-4 flex items-center justify-center text-emerald-400 font-bold">✓</div>
+                                    <div className="w-3/4 h-2 bg-gray-700 rounded-full mb-2 opacity-50"></div>
+                                    <div className="w-1/2 h-2 bg-gray-800 rounded-full mb-2 opacity-30"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                {/* How It Works Header */}
+                <h3 className="text-2xl md:text-3xl font-bold text-center mb-12 text-white">
+                    <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>¿Cómo funciona?</span>
+                    <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>How does it work?</span>
+                </h3>
+
+                {/* How It Works - 3 Steps */}
+                <div className="grid md:grid-cols-3 gap-8 mb-24">
+                    {[
+                        {
+                            icon: "⚙️",
+                            titleEs: "Configura tu negocio",
+                            titleEn: "Set up your business",
+                            descEs: "Agrega tus productos, servicios, o define tu disponibilidad en SmartKubik.",
+                            descEn: "Add your products, services, or define your availability in SmartKubik."
+                        },
+                        {
+                            icon: "🌐",
+                            titleEs: "Tu web se genera sola",
+                            titleEn: "Your website generates itself",
+                            descEs: "Automáticamente obtienes una página web profesional con todo tu catálogo o agenda.",
+                            descEn: "Automatically get a professional website with your entire catalog or schedule."
+                        },
+                        {
+                            icon: "💰",
+                            titleEs: "Vende mientras duermes",
+                            titleEn: "Sell while you sleep",
+                            descEs: "Tus clientes compran o reservan 24/7. Tú recibes notificaciones y el sistema hace el resto.",
+                            descEn: "Your customers buy or book 24/7. You get notifications and the system does the rest."
+                        }
+                    ].map((step, idx) => (
+                        <div key={idx} className="glass-card p-8 rounded-2xl border border-white/5 hover:border-cyan-500/30 transition-all duration-300">
+                            <div className="text-4xl mb-4">{step.icon}</div>
+                            <h3 className="text-xl font-bold text-white mb-3">
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>{step.titleEs}</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>{step.titleEn}</span>
+                            </h3>
+                            <p className="text-gray-400">
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>{step.descEs}</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>{step.descEn}</span>
+                            </p>
+                        </div>
+                    ))}
+                </div>
+
+                {/* What You Get Header */}
+                <h3 className="text-2xl md:text-3xl font-bold text-center mb-12 text-white">
+                    <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>¿Qué obtienes?</span>
+                    <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>What do you get?</span>
+                </h3>
+
+                {/* Benefits Grid */}
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-24">
+                    {[
+                        { icon: "🔄", titleEs: "Sincronización Real", titleEn: "Real-Time Sync", descEs: "Si vendes en tienda, tu web se actualiza. Si alguien reserva online, tu agenda se bloquea.", descEn: "Sell in-store, your website updates. Someone books online, your calendar blocks." },
+                        { icon: "🎨", titleEs: "Diseño Profesional", titleEn: "Professional Design", descEs: "No necesitas diseñador. Tu web se ve moderna, rápida, y lista para convertir.", descEn: "No designer needed. Your website looks modern, fast, and ready to convert." },
+                        { icon: "💳", titleEs: "Pagos Integrados", titleEn: "Integrated Payments", descEs: "Tus clientes pagan online. El dinero llega a tu cuenta. La factura se genera automáticamente.", descEn: "Your customers pay online. Money hits your account. Invoice generates automatically." },
+                        { icon: "📱", titleEs: "100% Responsive", titleEn: "100% Responsive", descEs: "Funciona perfecto en celular, tablet y computadora. Porque tus clientes compran desde cualquier lugar.", descEn: "Works perfectly on phone, tablet, and computer. Because your customers shop from anywhere." },
+                        { icon: "🔗", titleEs: "Tu Dominio", titleEn: "Your Domain", descEs: "Usa tu propio dominio (tuempresa.com) o un subdominio gratuito. Tú eliges.", descEn: "Use your own domain (yourbusiness.com) or a free subdomain. Your choice." },
+                        { icon: "📊", titleEs: "Analytics Incluido", titleEn: "Analytics Included", descEs: "Sabe cuántas visitas tienes, qué productos ven más, y dónde abandonan.", descEn: "Know how many visits you get, what products they view most, and where they drop off." }
+                    ].map((b, idx) => (
+                        <div key={idx} className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6 hover:-translate-y-1 hover:border-cyan-500/30 transition-all duration-300 shadow-lg">
+                            <div className="text-3xl mb-4">{b.icon}</div>
+                            <h4 className="text-lg font-bold text-white mb-2">
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>{b.titleEs}</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>{b.titleEn}</span>
+                            </h4>
+                            <p className="text-sm text-gray-400">
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>{b.descEs}</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>{b.descEn}</span>
+                            </p>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Call to Actions - Examples & More Info */}
+                <div className="flex flex-col md:flex-row items-center justify-center gap-6 mb-24">
+                    {/* Button 1: Conocer más (Primary) */}
+                    <button className="group relative px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full text-white font-bold shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 hover:scale-105 transition-all duration-300">
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>Conocer más</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>Learn more</span>
+                    </button>
+
+                    {/* Button 2: Store Example */}
+                    <button className="group px-6 py-4 rounded-full border border-white/20 hover:bg-white/5 hover:border-cyan-400/50 transition-all duration-300 flex items-center gap-2 text-gray-300 hover:text-white">
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>Ver Tienda Online →</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>View Online Store →</span>
+                    </button>
+
+                    {/* Button 3: Agenda Example */}
+                    <button className="group px-6 py-4 rounded-full border border-white/20 hover:bg-white/5 hover:border-purple-400/50 transition-all duration-300 flex items-center gap-2 text-gray-300 hover:text-white">
+                        <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>Ver Web de Servicios →</span>
+                        <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>View Services Website →</span>
+                    </button>
+                </div>
+
+
+
+            </div>
+        </section>
 
         {/*  SECTION 5.5: STICKY WORKFLOW (n8n Style)  */}
         < section className="py-24 bg-navy-900 relative" >
@@ -2698,18 +3138,13 @@ const SmartKubikLanding = () => {
                             <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Start for Free</span>
                         </Link>
                         <ul className="space-y-4 text-sm text-gray-300">
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>1-5
-                                usuarios</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>1-5 users</span></li>
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Todos
-                                los
-                                módulos</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>All modules</span></li>
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>1
-                                ubicación</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>1 location</span></li>
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Soporte
-                                por
-                                Email</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Email Support</span></li>
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>IA
-                                Incluida</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>AI Included</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Hasta 3 usuarios</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Up to 3 users</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>1 sucursal</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>1 branch</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Módulos de gestión operativa</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Operational management modules</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Web de ventas vinculada al sistema</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Sales website linked to system</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Analítica y reportes básicos</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Basic analytics & reports</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Backup 30 días</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>30-day backup</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Soporte vía email</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Email support</span></li>
                         </ul>
                     </div>
 
@@ -2734,19 +3169,14 @@ const SmartKubikLanding = () => {
                             <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Start Free 14-Day Trial</span>
                         </Link>
                         <ul className="space-y-4 text-sm text-gray-300">
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>6-20
-                                usuarios</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>6-20 users</span></li>
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <strong
-                                className={`lang-es ${language === "es" ? "" : "hidden"} `}>Multi-ubicación</strong><strong
-                                    className={`lang-en ${language === "en" ? "" : "hidden"} `}>Multi-location</strong></li>
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Soporte
-                                Prioritario</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Priority Support</span></li>
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span
-                                className={`lang-es ${language === "es" ? "" : "hidden"} `}>Reportes
-                                Avanzados</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Advanced Reports</span></li>
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span
-                                className={`lang-es ${language === "es" ? "" : "hidden"} `}>WhatsApp
-                                CRM Full</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>WhatsApp CRM Full</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Todo lo del plan Starter</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Everything in Starter plan</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Hasta 8 usuarios</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Up to 8 users</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>3 sucursales</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>3 branches</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>WhatsApp nativo</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Native WhatsApp</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Asistente de IA</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>AI Assistant</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Analítica predictiva IA</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>AI predictive analytics</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Integraciones (Gmail, etc)</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Integrations (Gmail, etc)</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Soporte prioritario</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Priority support</span></li>
                         </ul>
                     </div>
 
@@ -2763,18 +3193,14 @@ const SmartKubikLanding = () => {
                             <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Contact Sales</span>
                         </Link>
                         <ul className="space-y-4 text-sm text-gray-300">
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>21+
-                                usuarios</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>21+ users</span></li>
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span
-                                className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ubicaciones
-                                ilimitadas</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Unlimited locations</span></li>
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Soporte
-                                Dedicado</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Dedicated Support</span></li>
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span
-                                className={`lang-es ${language === "es" ? "" : "hidden"} `}>Integraciones Custom</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Custom
-                                    Integrations</span></li>
-                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>SLA
-                                Garantizado</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Guaranteed SLA</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Todo lo del plan Pro</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Everything in Pro</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>25+ usuarios</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>25+ users</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Sucursales ilimitadas</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Unlimited branches</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Asistente IA Ilimitado</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Unlimited AI Assistant</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Dominio web propio</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Custom web domain</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Web sin publicidad</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Ad-free website</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Migración gratuita</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Free migration</span></li>
+                            <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Soporte dedicado / SLA</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Dedicated support / SLA</span></li>
                         </ul>
                     </div>
                 </div>
