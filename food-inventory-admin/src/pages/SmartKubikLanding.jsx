@@ -462,7 +462,40 @@ const SmartKubikLanding = () => {
 
         // Use requestAnimationFrame for smoother performance
         let ticking = false;
+
+        // Smart Pause: Detect when iOS address bar is actively moving
+        let isViewportChanging = false;
+        let viewportChangeTimer = null;
+        let lastViewportHeight = window.innerHeight;
+
+        const checkViewportChange = () => {
+            // Only on mobile
+            if (window.innerWidth >= 768) return;
+
+            const currentHeight = window.innerHeight;
+
+            if (currentHeight !== lastViewportHeight) {
+                // Viewport is changing - pause animation
+                isViewportChanging = true;
+                lastViewportHeight = currentHeight;
+
+                // Clear existing timer
+                if (viewportChangeTimer) clearTimeout(viewportChangeTimer);
+
+                // Resume animation after 150ms of no changes
+                viewportChangeTimer = setTimeout(() => {
+                    isViewportChanging = false;
+                }, 150);
+            }
+        };
+
         const onScroll = () => {
+            // Check if viewport is actively changing
+            checkViewportChange();
+
+            // Skip animation if viewport is changing
+            if (isViewportChanging) return;
+
             if (!ticking) {
                 window.requestAnimationFrame(() => {
                     handleScroll();
@@ -493,6 +526,7 @@ const SmartKubikLanding = () => {
         return () => {
             window.removeEventListener('scroll', onScroll);
             window.removeEventListener('resize', onResize);
+            if (viewportChangeTimer) clearTimeout(viewportChangeTimer);
         };
     }, []);
 
