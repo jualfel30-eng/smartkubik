@@ -1079,7 +1079,7 @@ const SmartKubikLanding = () => {
         {/* Fixed height to prevent mobile jumps - Lock to svh (Small Viewport Height) */}
         <section id="section-scroll-stack" className="relative bg-navy-900" style={{ height: "250svh" }}>
             {/*  Height defines scroll duration  */}
-            <div className="sticky top-0 h-screen w-full flex flex-col items-center justify-center overflow-hidden">
+            <div className="sticky top-0 w-full flex flex-col items-center justify-center overflow-hidden" style={{ height: '100svh' }}>
 
                 {/*  Dynamic Background  */}
                 <div className="absolute inset-0 pointer-events-none">
