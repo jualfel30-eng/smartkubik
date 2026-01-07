@@ -314,6 +314,26 @@ const SmartKubikLanding = () => {
             metrics.sectionTop = rect.top + scrollTop;
             metrics.sectionHeight = section.offsetHeight;
             metrics.viewportHeight = window.innerHeight;
+
+            // CRITICAL FIX: Lock section height to PIXELS on mobile to prevent address bar jumps
+            // We use the initial '250svh' but then freeze it in px
+            if (window.innerWidth < 768) {
+                const fixedHeight = window.innerHeight * 2.5;
+                // Only set if different to avoid thrashing
+                if (section.style.height !== fixedHeight + 'px') {
+                    // section.style.height = fixedHeight + 'px'; 
+                    // Actually, let's rely on cached metrics calculation which logic uses, 
+                    // but the JS logic below uses 'metrics.sectionHeight'.
+                    // If we don't change the DOM height, the 'vh' in CSS will still cause resize.
+                    // So YES, we must set pixel height on the DOM element.
+                    section.style.height = fixedHeight + 'px';
+                    metrics.sectionHeight = fixedHeight; // Update metric to match
+                }
+            } else {
+                // Reset on desktop
+                section.style.height = '250vh';
+            }
+
             metrics.scrollDistance = metrics.sectionHeight - metrics.viewportHeight;
         };
 
@@ -1056,7 +1076,8 @@ const SmartKubikLanding = () => {
         </section>
 
         {/*  SECTION 3: SCROLL STACK (Vanilla JS Implementation)  */}
-        <section id="section-scroll-stack" className="relative bg-navy-900" style={{ height: "250vh" }}>
+        {/* Fixed height to prevent mobile jumps - Lock to svh (Small Viewport Height) */}
+        <section id="section-scroll-stack" className="relative bg-navy-900" style={{ height: "250svh" }}>
             {/*  Height defines scroll duration  */}
             <div className="sticky top-0 h-screen w-full flex flex-col items-center justify-center overflow-hidden">
 
