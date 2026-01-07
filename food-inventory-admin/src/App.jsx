@@ -725,7 +725,7 @@ function TenantLayout() {
                   <SidebarMenuButton
                     tooltip={item.name}
                     isActive={isItemActive}
-                    className="gap-3 justify-start"
+                    className="justify-start"
                     aria-label={item.name}
                     onClick={() => {
                       if (state === 'collapsed') {
@@ -735,7 +735,7 @@ function TenantLayout() {
                   >
                     <item.icon strokeWidth={1.25} />
                     <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">{item.name}</span>
-                    <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[collapsible=icon]:hidden"
+                    <ChevronRight className="ml-auto transition-transform duration-200 group-data-[collapsible=icon]:hidden"
                       style={{ transform: openMenus[item.href] ? 'rotate(90deg)' : 'rotate(0deg)' }}
                     />
                   </SidebarMenuButton>
@@ -765,7 +765,7 @@ function TenantLayout() {
                   >
                     <item.icon strokeWidth={1.25} />
                     <span>{item.name}</span>
-                    <ChevronRight className="ml-auto h-3 w-3 transition-transform duration-200"
+                    <ChevronRight className="ml-auto transition-transform duration-200"
                       style={{ transform: openMenus[item.href] ? 'rotate(90deg)' : 'rotate(0deg)' }}
                     />
                   </SidebarMenuSubButton>
@@ -788,7 +788,7 @@ function TenantLayout() {
             <SidebarMenuButton
               tooltip={item.name}
               isActive={activeTab === item.href}
-              className="gap-3 justify-start"
+              className=""
               aria-label={item.name}
               onClick={() => handleNavigationClick(item.href)}
             >
@@ -845,7 +845,7 @@ function TenantLayout() {
           <SidebarMenuItem>
             <SidebarMenuButton
               tooltip={tenant?.name || 'Seleccionar organización'}
-              className="gap-3 justify-start"
+              className=""
               onClick={openTenantDialog}
             >
               <Building2 strokeWidth={1.25} />
@@ -859,7 +859,7 @@ function TenantLayout() {
           <SidebarMenuButton
             tooltip="Mis Organizaciones"
             isActive={activeTab === 'organizations'}
-            className="gap-3 justify-start"
+            className="justify-start"
             onClick={handleOrganizationsClick}
           >
             <Building strokeWidth={1.25} />
@@ -878,7 +878,7 @@ function TenantLayout() {
         <SidebarMenuItem>
           <SidebarMenuButton
             tooltip="Colapsar menú"
-            className="gap-3 justify-start"
+            className="justify-start"
             onClick={toggleSidebar}
           >
             <PanelLeft strokeWidth={1.25} />
@@ -888,7 +888,7 @@ function TenantLayout() {
         <SidebarMenuItem>
           <SidebarMenuButton
             tooltip="Configuración"
-            className="gap-3 justify-start"
+            className="justify-start"
             onClick={() => navigate('/settings')}
           >
             <Settings strokeWidth={1.25} />
@@ -898,7 +898,7 @@ function TenantLayout() {
         <SidebarMenuItem>
           <SidebarMenuButton
             tooltip="Cerrar Sesión"
-            className="gap-3 justify-start"
+            className="justify-start"
             onClick={handleLogout}
           >
             <LogOut strokeWidth={1.25} />
@@ -951,12 +951,12 @@ function TenantLayout() {
               <ShiftTimer />
               {isClockedIn ? (
                 <Button variant="destructive" size="sm" onClick={clockOut} disabled={isShiftLoading}>
-                  <StopCircle className="mr-2 h-4 w-4" />
+                  <StopCircle className="mr-2" size={12} />
                   Finalizar Turno
                 </Button>
               ) : (
                 <Button variant="outline" size="sm" onClick={clockIn} disabled={isShiftLoading}>
-                  <PlayCircle className="mr-2 h-4 w-4" />
+                  <PlayCircle className="mr-2" size={12} />
                   Iniciar Turno
                 </Button>
               )}
@@ -966,16 +966,16 @@ function TenantLayout() {
                   size="sm"
                   onClick={openTenantDialog}
                 >
-                  <Building2 className="mr-2 h-4 w-4" />
+                  <Building2 className="mr-2" size={12} />
                   {tenant?.name || 'Seleccionar organización'}
                 </Button>
               )}
               <ThemeToggle />
               <Button id="settings-button" variant="outline" size="icon" onClick={() => navigate('/settings')}>
-                <Settings className="h-4 w-4" />
+                <Settings size={12} />
               </Button>
               <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="mr-2 h-4 w-4" />
+                <LogOut className="mr-2" size={12} />
                 Cerrar Sesión
               </Button>
             </div>

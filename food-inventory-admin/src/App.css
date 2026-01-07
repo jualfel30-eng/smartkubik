@@ -76,6 +76,244 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Responsive Typography Scaling */
+  font-size: 16px;
+  /* Default for large screens (1920px+) */
+}
+
+/* ===== ADAPTIVE RESPONSIVE SYSTEM ===== */
+/* "Ni tan calvo ni con dos pelucas" - Optimal sizing for ALL screens */
+
+/* TIER 5: Ultra-Wide/4K (2560px+) - Generous spacing */
+@media (min-width: 2560px) {
+  :root {
+    font-size: 18px;
+    --icon-size: 1.5rem;
+    /* 24px for 4K */
+  }
+
+  h1 {
+    font-size: 2.5rem !important;
+  }
+
+  h2 {
+    font-size: 2rem !important;
+  }
+
+  h3 {
+    font-size: 1.6rem !important;
+  }
+
+  h4 {
+    font-size: 1.3rem !important;
+  }
+
+  [data-sidebar] {
+    --sidebar-width: 18rem;
+  }
+
+
+
+  [data-sidebar] .group\/menu-item {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+    gap: 0.75rem !important;
+    min-height: 2.75rem !important;
+  }
+}
+
+/* TIER 4: Large Desktop/2K (1920px-2559px) - Comfortable size */
+@media (min-width: 1920px) and (max-width: 2559px) {
+  :root {
+    font-size: 16px;
+    --icon-size: 1.25rem;
+    /* 20px for 2K */
+  }
+
+  h1 {
+    font-size: 2.25rem !important;
+  }
+
+  h2 {
+    font-size: 1.8rem !important;
+  }
+
+  h3 {
+    font-size: 1.5rem !important;
+  }
+
+  h4 {
+    font-size: 1.2rem !important;
+  }
+
+  [data-sidebar] {
+    --sidebar-width: 16rem;
+  }
+
+
+
+  [data-sidebar] .group\/menu-item {
+    padding-top: 0.4rem !important;
+    padding-bottom: 0.4rem !important;
+    gap: 0.65rem !important;
+    min-height: 2.5rem !important;
+  }
+}
+
+/* TIER 3: Full HD (1440px-1919px) - Balanced */
+@media (min-width: 1440px) and (max-width: 1919px) {
+  :root {
+    font-size: 14px;
+    --icon-size: 1rem;
+    /* 16px for FHD */
+  }
+
+  h1 {
+    font-size: 2rem !important;
+  }
+
+  h2 {
+    font-size: 1.6rem !important;
+  }
+
+  h3 {
+    font-size: 1.35rem !important;
+  }
+
+  h4 {
+    font-size: 1.1rem !important;
+  }
+
+  [data-sidebar] {
+    --sidebar-width: 15rem;
+  }
+
+
+
+  [data-sidebar] .group\/menu-item {
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.35rem !important;
+    gap: 0.6rem !important;
+    min-height: 2.35rem !important;
+  }
+}
+
+/* TIER 2: Standard Laptop (1200px-1439px) - Compact */
+@media (min-width: 1200px) and (max-width: 1439px) {
+  :root {
+    font-size: 11px;
+    /* Reduced from 12px */
+    --icon-size: 0.75rem;
+    /* 12px for Laptop */
+  }
+
+  h1 {
+    font-size: 1.5rem !important;
+  }
+
+  /* 16.5px */
+  h2 {
+    font-size: 1.25rem !important;
+  }
+
+  /* 13.75px */
+  h3 {
+    font-size: 1.1rem !important;
+  }
+
+  /* 12.1px */
+  h4 {
+    font-size: 1rem !important;
+  }
+
+  /* 11px */
+
+  [data-sidebar] {
+    --sidebar-width: 13rem;
+    overflow-y: auto !important;
+    /* Scroll even when collapsed */
+    max-height: 100vh !important;
+  }
+
+
+
+  [data-sidebar] .group\/menu-item {
+    padding-top: 0.2rem !important;
+    padding-bottom: 0.2rem !important;
+    gap: 0.4rem !important;
+    min-height: 1.9rem !important;
+  }
+
+  [data-sidebar] [data-sidebar-menu] {
+    overflow-y: auto !important;
+    max-height: calc(100vh - 7rem) !important;
+  }
+}
+
+/* TIER 1: Small Screens (<1200px) - Very Compact */
+@media (max-width: 1199px) {
+  :root {
+    font-size: 10px;
+    /* Reduced from 12px to 10px */
+    --icon-size: 0.75rem;
+    /* 12px for Small Screens */
+  }
+
+  h1 {
+    font-size: 1.4rem !important;
+  }
+
+  /* 14px */
+  h2 {
+    font-size: 1.2rem !important;
+  }
+
+  /* 12px */
+  h3 {
+    font-size: 1.1rem !important;
+  }
+
+  /* 11px */
+  h4 {
+    font-size: 1rem !important;
+  }
+
+  /* 10px */
+
+  [data-sidebar] {
+    --sidebar-width: 12rem;
+    overflow-y: auto !important;
+    /* Scroll even when collapsed */
+    max-height: 100vh !important;
+  }
+
+
+
+  [data-sidebar] .group\/menu-item {
+    padding-top: 0.15rem !important;
+    padding-bottom: 0.15rem !important;
+    gap: 0.35rem !important;
+    min-height: 1.75rem !important;
+  }
+
+  [data-sidebar] [data-sidebar-menu] {
+    overflow-y: auto !important;
+    max-height: calc(100vh - 5rem) !important;
+  }
+}
+
+/* Variable overrides removed - Hardcoded in media queries */
+
+/* JavaScript enforcement */
+
+/* Enable scroll even when collapsed */
+[data-sidebar="content"] {
+  overflow-y: auto !important;
+}
+
+[data-sidebar="content"][data-collapsible="icon"] {
+  overflow-y: auto !important;
 }
 
 .dark {
@@ -122,15 +360,7 @@
 
 @layer components {
 
-  /* Force consistent icon size in sidebar - always 20px */
-  [data-sidebar="menu-button"] svg {
-    width: 20px !important;
-    height: 20px !important;
-    min-width: 20px !important;
-    min-height: 20px !important;
-    max-width: 20px !important;
-    max-height: 20px !important;
-  }
+
 
   /* Glass Card Global Definition (Interactive) */
   .glass-card {
