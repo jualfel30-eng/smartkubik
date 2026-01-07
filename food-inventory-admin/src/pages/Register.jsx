@@ -75,38 +75,45 @@ const businessVerticals = [
 
 const subscriptionPlans = [
   {
-    id: 'trial',
-    name: 'Trial',
-    price: '$0 / 14 días',
-    description: 'Ideal para explorar el producto sin compromiso.',
+    id: 'starter',
+    name: 'Starter',
+    price: '$29 / mes',
+    description: 'Para pequeños negocios que quieren orden.',
     features: [
-      'Hasta 5 usuarios',
-      'Módulos básicos de inventario y órdenes',
-      'Reportes esenciales',
+      'Hasta 3 usuarios',
+      '1 sucursal',
+      'Módulos de gestión operativa',
+      'Web de ventas vinculada',
+      'Analítica y reportes básicos',
+      'Soporte vía email',
     ],
   },
   {
     id: 'professional',
     name: 'Professional',
-    price: '$99 / mes',
-    description: 'Para negocios que necesitan control total y automatización.',
+    price: '$59 / mes',
+    description: 'Para empresas que crecen rápido.',
     features: [
-      'Usuarios ilimitados',
-      'Módulos de restaurante y retail',
-      'Integraciones con KDS y CRM',
+      'Todo lo del plan Starter',
+      'Hasta 8 usuarios',
+      '3 sucursales',
+      'WhatsApp nativo + IA',
+      'Analítica predictiva',
       'Soporte prioritario',
     ],
   },
   {
     id: 'enterprise',
     name: 'Enterprise',
-    price: 'Contacta ventas',
-    description: 'Implementación personalizada para cadenas y multi-unidad.',
+    price: '$99 / mes',
+    description: 'Para grandes operaciones y franquicias.',
     features: [
-      'Onboarding dedicado',
-      'Módulos avanzados y APIs personalizadas',
-      'Integraciones ERP / contabilidad',
-      'SLA y soporte 24/7',
+      'Todo lo del plan Professional',
+      '25+ usuarios',
+      'Sucursales ilimitadas',
+      'Asistente IA Ilimitado',
+      'Dominio web propio',
+      'SLA y soporte dedicado',
     ],
   },
 ];
@@ -128,10 +135,9 @@ const StepIndicator = ({ currentStep }) => (
           <div key={step.id} className="flex-1 flex items-center">
             <div
               className={`relative flex items-center justify-center rounded-full border-2 w-10 h-10 text-sm font-medium transition-colors
-                ${
-                  isCompleted
-                    ? 'border-green-500 bg-green-500 text-white'
-                    : isActive
+                ${isCompleted
+                  ? 'border-green-500 bg-green-500 text-white'
+                  : isActive
                     ? 'border-primary text-primary'
                     : 'border-muted-foreground/30 text-muted-foreground'
                 }
@@ -141,9 +147,8 @@ const StepIndicator = ({ currentStep }) => (
             </div>
             {index < stepConfig.length - 1 && (
               <div
-                className={`flex-1 h-0.5 mx-2 rounded ${
-                  currentStep > step.id ? 'bg-green-500' : 'bg-muted-foreground/20'
-                }`}
+                className={`flex-1 h-0.5 mx-2 rounded ${currentStep > step.id ? 'bg-green-500' : 'bg-muted-foreground/20'
+                  }`}
               />
             )}
           </div>
@@ -209,9 +214,8 @@ const PlanSelectionStep = ({ selectedPlan, onSelectPlan }) => (
             </ul>
             <div className="mt-4 flex justify-end">
               <span
-                className={`inline-flex items-center gap-1 text-sm font-medium ${
-                  isSelected ? 'text-primary' : 'text-muted-foreground'
-                }`}
+                className={`inline-flex items-center gap-1 text-sm font-medium ${isSelected ? 'text-primary' : 'text-muted-foreground'
+                  }`}
               >
                 {isSelected ? 'Plan seleccionado' : 'Seleccionar plan'}
                 <ArrowRight className="h-4 w-4" />
