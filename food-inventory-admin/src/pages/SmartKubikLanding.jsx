@@ -313,25 +313,13 @@ const SmartKubikLanding = () => {
 
             metrics.sectionTop = rect.top + scrollTop;
             metrics.sectionHeight = section.offsetHeight;
-            metrics.viewportHeight = window.innerHeight;
 
-            // CRITICAL FIX: Lock section height to PIXELS on mobile to prevent address bar jumps
-            // We use the initial '250svh' but then freeze it in px
-            if (window.innerWidth < 768) {
-                const fixedHeight = window.innerHeight * 2.5;
-                // Only set if different to avoid thrashing
-                if (section.style.height !== fixedHeight + 'px') {
-                    // section.style.height = fixedHeight + 'px'; 
-                    // Actually, let's rely on cached metrics calculation which logic uses, 
-                    // but the JS logic below uses 'metrics.sectionHeight'.
-                    // If we don't change the DOM height, the 'vh' in CSS will still cause resize.
-                    // So YES, we must set pixel height on the DOM element.
-                    section.style.height = fixedHeight + 'px';
-                    metrics.sectionHeight = fixedHeight; // Update metric to match
-                }
-            } else {
-                // Reset on desktop
-                section.style.height = '250vh';
+            // CRITICAL: Use the sticky div's ACTUAL height (which is 100svh, stable)
+            // instead of window.innerHeight (which changes with address bar)
+            const stickyDiv = section.querySelector('.sticky');
+            if (stickyDiv && metrics.viewportHeight === 0) {
+                // Only set viewport height ONCE on initial calculation
+                metrics.viewportHeight = stickyDiv.offsetHeight;
             }
 
             metrics.scrollDistance = metrics.sectionHeight - metrics.viewportHeight;
