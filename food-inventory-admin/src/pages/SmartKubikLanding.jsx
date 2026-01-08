@@ -226,57 +226,53 @@ const SmartKubikLanding = () => {
             #parallax-cards p, .glass-card p, .glass-card .text-sm, .stack-card p { font-size: 13px !important; }
           }
 
-          @media (min-width: 1536px) and (max-width: 1799px) {
-             /* 1536px - 1799px (16" Pro / 2K Monitors)
-                LIGHT PADDING: 4rem (64px) side padding 
-                TYPOGRAPHY: Intact (Standard Design) - Starts getting bigger here */
-            #modulos { margin-top: calc(-47.5vh + 10px) !important; }
-            #root .max-w-7xl, #root .max-w-6xl, #root .max-w-5xl, #root .max-w-4xl {
-              padding-left: 3rem !important;
-              padding-right: 3rem !important;
-            }
-            .max-w-7xl { max-width: 72rem !important; }
+          /* === UNIVERSAL FLUID DESKTOP SYSTEM (min-width: 1024px) === */
+          /* ONE RULE TO RULE THEM ALL: NO MORE RESOLUTION FRAGMENTATION */
+          /* The design scales mathematically using viewport units (vw) */
+          
+          @media (min-width: 1024px) {
             
-            /* TYPOGRAPHY TUNING FOR 2XL (1536px+) - HIGH SPECIFICITY */
-            #root h2 { font-size: 2.75rem !important; line-height: 1.2 !important; } /* 44px */
+            /* 1. CONTINUOUS FLUID PADDING */
+            /* 8vw (Doubled) ensures significantly more breathing room */
+            /* 1920px -> ~154px (was ~77px) -> +77px increase per side */
+            #root .max-w-7xl, #root .max-w-6xl, #root .max-w-5xl, #root .max-w-4xl {
+              padding-left: 8vw !important;
+              padding-right: 8vw !important;
+              max-width: 92% !important; /* Allow content to breathe */
+            }
 
-            /* PRICING WIDER CARDS (20% INCREASE) - HIGH SPECIFICITY */
+            /* 2. FLUID BODY TEXT (12px -> 16px) */
+            /* Logic: 12px on Small Laptops -> Scales to 16px on Large Screens */
+            p, li, .text-base, .text-lg, span.text-base, div.text-base, .text-sm { 
+                font-size: clamp(12px, 1vw, 16px) !important; 
+                line-height: 1.6 !important;
+            }
+
+            /* 3. FLUID TYPOGRAPHY (CLAMP) */
+            /* Scales smoothly from 32px up to 60px without jumps */
+            /* Formula: clamp(min, preferred, max) */
+            #root h2 { 
+              font-size: clamp(2rem, 3vw, 3.75rem) !important; 
+              line-height: 1.1 !important; 
+            }
+            #root h1 {
+              font-size: clamp(2.5rem, 4vw, 5rem) !important;
+              line-height: 1.1 !important;
+            }
+
+            /* 4. PRICING CARDS */
             #root #pricing .max-w-7xl, #root #pricing .max-w-6xl {
-              max-width: 90rem !important; /* ~25% wider than 72rem */
+              max-width: 95% !important;
             }
+            
+            /* 5. HERO OVERLAP ADJUSTMENT (Scalable) */
+            #modulos { margin-top: -45vh !important; }
           }
-
-          /* Large Screens */
-          @media (min-width: 1800px) and (max-width: 1999px) {
-            /* 1920x1200: -520px overlap */
-            #modulos { margin-top: calc(-53vh + 10px) !important; }
-            /* Keep standard padding & typography */
-          }
-          /* === REFACTORED PADDING SYSTEM (Strict Ranges) === */
-          /* 1. Standard Tablet/Laptop (1024px - 1167px) */
-          @media (min-width: 1024px) and (max-width: 1167px) {
-            .max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl {
-              padding-left: 4rem !important;
-              padding-right: 4rem !important;
-            }
-          }
-
-          /* 2. TARGETED FIX (1168px - 1312px) - REDUCED PADDING & RELAXED WIDTH */
+          
+          /* EXCEPTION: REDUCE OVERLAP FOR SMALL LAPTOPS (1168px - 1312px) */
+          /* Prevents footer collision */
           @media (min-width: 1168px) and (max-width: 1312px) {
-            /* COMBINED RULE: FORCE 100px PADDING & 90% WIDTH FOR ALL CONTAINERS */
-            #root .max-w-7xl, #root .max-w-6xl, #root .max-w-5xl, #root .max-w-4xl {
-              padding-left: 75px !important;
-              padding-right: 75px !important;
-              max-width: 90% !important;
-            }
-          }
-
-          /* 3. Mid-Large Laptops (1313px - 1535px) */
-          @media (min-width: 1313px) and (max-width: 1535px) {
-            #root .max-w-7xl, #root .max-w-6xl, #root .max-w-5xl, #root .max-w-4xl {
-              padding-left: 3.375rem !important;
-              padding-right: 3.375rem !important;
-            }
+             #modulos { margin-top: -37vh !important; }
           }
           
           @media (min-width: 2000px) {
