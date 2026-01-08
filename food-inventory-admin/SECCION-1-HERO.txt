@@ -1,0 +1,31 @@
+SECCIÓN 1: HERO - Líneas 361-566 del landing-backup.html
+
+Elementos que DEBE contener:
+1. Grid overlay background
+2. 2 orbes flotantes animados (cyan y emerald)
+3. Contenedor max-w-7xl
+4. Grid de 2 columnas (lg:grid-cols-2)
+5. Columna izquierda (Hero Content):
+   - Badge con pulsing dot + "Nueva Generación ERP 2026"
+   - H1 con "Deja de Administrar Caos" / "Empieza a Administrar Tu Negocio"
+   - Párrafo con descripción
+   - 2 CTAs: "Empezar Ahora" (Link to /register) y "Ver Demo" (#demo)
+   - Trust signals (3 items): Sin tarjeta, Setup 15 min, Venezuela Ready
+6. Columna derecha (Hero Visual - 3D Mockup):
+   - Hidden en mobile, visible lg:block
+   - Decorative background blob
+   - Glass card con:
+     - Header (3 dots: rojo, amarillo, verde)
+     - Stats grid (3 cards):
+       * Ventas Hoy: $2,450.00 ↗ 12%
+       * Órdenes: 48 (3 pendientes)
+       * Inventario: Low (5 alertas)
+     - Graph area con 6 barras de diferentes alturas
+     - Floating notification card (absolute positioned):
+       * Verde border-left
+       * Icono de reloj
+       * "Nueva Venta #1024"
+       * "Hace 2 min • $150.00"
+       * Animate bounce
+
+TODOS estos elementos deben estar presentes. No omitir ninguno.
