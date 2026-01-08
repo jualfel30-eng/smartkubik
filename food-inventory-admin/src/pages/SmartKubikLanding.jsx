@@ -166,10 +166,9 @@ const SmartKubikLanding = () => {
                FIX: Removed 'section' selector to allow full-width backgrounds */
             #modulos { margin-top: -40vh !important; }
             .max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl {
-              padding-left: 4rem !important;
-              padding-right: 4rem !important;
+              /* Padding handled globally below */
             }
-            .max-w-7xl { max-width: 60rem !important; } /* Relaxed width constraint */
+            /* .max-w-7xl { max-width: 60rem !important; } REMOVED TO PREVENT CLAMPING */
             
             /* TUNED TYPOGRAPHY: H1 Restored, H2/H3 Compact */
             h1 { font-size: 2.75rem !important; line-height: 1.1 !important; } /* 44px - RESTORED PRESENCE */
@@ -189,8 +188,7 @@ const SmartKubikLanding = () => {
                RELAXED PADDING: 4.5rem (was 6rem) */
             #modulos { margin-top: -38vh !important; }
             .max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl {
-              padding-left: 4.5rem !important;
-              padding-right: 4.5rem !important;
+              /* Padding handled globally below */
             }
             .max-w-7xl { max-width: 72rem !important; } /* Wide enough */
             
@@ -212,8 +210,7 @@ const SmartKubikLanding = () => {
                 RELAXED PADDING: 4.5rem (was 5rem) */
             #modulos { margin-top: -45vh !important; }
             .max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl {
-              padding-left: 4.5rem !important;
-              padding-right: 4.5rem !important;
+              /* Padding handled globally below */
             }
             .max-w-7xl { max-width: 76rem !important; }
             
@@ -234,11 +231,19 @@ const SmartKubikLanding = () => {
                 LIGHT PADDING: 4rem (64px) side padding 
                 TYPOGRAPHY: Intact (Standard Design) - Starts getting bigger here */
             #modulos { margin-top: calc(-47.5vh + 10px) !important; }
-            .max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl {
-              padding-left: 4rem !important;
-              padding-right: 4rem !important;
+            #root .max-w-7xl, #root .max-w-6xl, #root .max-w-5xl, #root .max-w-4xl {
+              padding-left: 3rem !important;
+              padding-right: 3rem !important;
             }
             .max-w-7xl { max-width: 72rem !important; }
+            
+            /* TYPOGRAPHY TUNING FOR 2XL (1536px+) - HIGH SPECIFICITY */
+            #root h2 { font-size: 2.75rem !important; line-height: 1.2 !important; } /* 44px */
+
+            /* PRICING WIDER CARDS (20% INCREASE) - HIGH SPECIFICITY */
+            #root #pricing .max-w-7xl, #root #pricing .max-w-6xl {
+              max-width: 90rem !important; /* ~25% wider than 72rem */
+            }
           }
 
           /* Large Screens */
@@ -247,6 +252,33 @@ const SmartKubikLanding = () => {
             #modulos { margin-top: calc(-53vh + 10px) !important; }
             /* Keep standard padding & typography */
           }
+          /* === REFACTORED PADDING SYSTEM (Strict Ranges) === */
+          /* 1. Standard Tablet/Laptop (1024px - 1167px) */
+          @media (min-width: 1024px) and (max-width: 1167px) {
+            .max-w-7xl, .max-w-6xl, .max-w-5xl, .max-w-4xl {
+              padding-left: 4rem !important;
+              padding-right: 4rem !important;
+            }
+          }
+
+          /* 2. TARGETED FIX (1168px - 1312px) - REDUCED PADDING & RELAXED WIDTH */
+          @media (min-width: 1168px) and (max-width: 1312px) {
+            /* COMBINED RULE: FORCE 100px PADDING & 90% WIDTH FOR ALL CONTAINERS */
+            #root .max-w-7xl, #root .max-w-6xl, #root .max-w-5xl, #root .max-w-4xl {
+              padding-left: 75px !important;
+              padding-right: 75px !important;
+              max-width: 90% !important;
+            }
+          }
+
+          /* 3. Mid-Large Laptops (1313px - 1535px) */
+          @media (min-width: 1313px) and (max-width: 1535px) {
+            #root .max-w-7xl, #root .max-w-6xl, #root .max-w-5xl, #root .max-w-4xl {
+              padding-left: 3.375rem !important;
+              padding-right: 3.375rem !important;
+            }
+          }
+          
           @media (min-width: 2000px) {
             /* 2056x1285+: Keep current value */
             #modulos { margin-top: calc(-53vh + 10px) !important; }
@@ -1119,12 +1151,12 @@ const SmartKubikLanding = () => {
                 <div className="relative z-10 w-full max-w-5xl px-12 sm:px-16 md:px-8 flex flex-col items-center h-full justify-start pt-32 md:justify-center md:pt-0">
 
                     {/*  Initial Title - Increased mb for separation  */}
-                    <h3 id="stack-title"
+                    <h2 id="stack-title"
                         className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-white mb-12 lg:mb-16 tracking-wide transition-all duration-700 transform drop-shadow-lg"
                         style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Imagina un lunes donde...</span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Imagine a Monday where...</span>
-                    </h3>
+                    </h2>
 
                     {/*  Cards Container - Increased margin top to mt-12  */}
                     <div className="relative w-full max-w-2xl h-[450px] sm:h-[400px] md:h-[300px] perspective-[1000px] mt-12">
@@ -1210,12 +1242,12 @@ const SmartKubikLanding = () => {
                         <div className="relative flex justify-center mb-4 md:mb-6">
                             {/* Badge Removed */}
                         </div>
-                        <h2
-                            className="!text-5xl sm:text-5xl md:text-5xl lg:text-6xl xl:text-7xl font-display font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500 animate-pulse-glow px-4"
-                            style={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontSize: '3rem' }}>
+                        <h1
+                            className="text-5xl sm:text-5xl md:text-5xl lg:text-6xl xl:text-7xl font-display font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500 animate-pulse-glow px-4"
+                            style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
                             <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Eso es SmartKubik.</span>
                             <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>That's SmartKubik.</span>
-                        </h2>
+                        </h1>
                     </div>
 
                 </div>
@@ -1236,7 +1268,7 @@ const SmartKubikLanding = () => {
                 {/*  Headline floats over Section 3 content  */}
                 {/*  Balanced top padding for extra separation on smaller screens  */}
                 <div className="text-center pt-8 sm:pt-10 md:pt-12 lg:pt-6 xl:pt-0 mb-12 md:mb-16">
-                    <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 md:mb-6" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+                    <h2 className="text-3xl sm:text-4xl kw:text-6xl xl:text-7xl font-bold mb-4 md:mb-6" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Todas las caras de tu negocio en un solo lugar.<br /><span
                             className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Desde $29/Usuario.</span></span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>All sides of your business in one place.<br /><span
@@ -1420,7 +1452,7 @@ const SmartKubikLanding = () => {
         < section id="industrias" className="pt-32 pb-32 md:pt-48 md:pb-48 bg-[#050810] relative" >
             <div className="max-w-7xl mx-auto px-12 sm:px-16 lg:px-24 w-full">
                 <div className="text-center mb-16">
-                    <h2 className="text-3xl md:text-5xl font-display font-bold mb-6" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
+                    <h2 className="text-3xl md:text-5xl xl:text-7xl font-display font-bold mb-6" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>No Es Software Genérico. <br className="hidden md:block" /> <span
                             className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Está Diseñado Para Tu Industria.</span></span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Not Generic Software. <br className="hidden md:block" /> <span
