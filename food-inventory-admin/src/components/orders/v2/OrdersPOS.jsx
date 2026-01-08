@@ -3,6 +3,7 @@ import { NewOrderFormV2 } from './NewOrderFormV2';
 import { toast } from 'sonner';
 import { OrderProcessingDrawer } from '../OrderProcessingDrawer';
 import { fetchApi } from '@/lib/api';
+import { useSidebar } from '@/components/ui/sidebar';
 
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { History } from 'lucide-react';
 
 export function OrdersPOS() {
     const navigate = useNavigate();
+    const { state, setOpen } = useSidebar();
     const [isProcessingDrawerOpen, setIsProcessingDrawerOpen] = useState(false);
     const [selectedOrderForProcessing, setSelectedOrderForProcessing] = useState(null);
 
@@ -31,8 +33,15 @@ export function OrdersPOS() {
         setSelectedOrderForProcessing(null);
     };
 
+    // Auto-collapse sidebar when clicking in the module for maximum workspace
+    const handleModuleClick = () => {
+        if (state === 'expanded') {
+            setOpen(false);
+        }
+    };
+
     return (
-        <div className="space-y-4">
+        <div className="space-y-4" onClick={handleModuleClick}>
             <div className="flex items-center justify-between px-1">
                 <div className="space-y-1">
                     <h1 className="text-3xl font-bold">Nueva Orden</h1>

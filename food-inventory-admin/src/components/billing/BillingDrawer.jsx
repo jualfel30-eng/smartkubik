@@ -235,15 +235,11 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
     const loadSequences = async () => {
         try {
             const response = await api.get('/billing/sequences');
-            console.log("DEBUG: Raw sequences response:", response);
             const list = response || [];
-            console.log("DEBUG: Parsed sequences list:", list);
             setSequences(list);
-            const first = list[0];
-            toast.info(`Debug: Cargadas ${list.length} secuencias. Primero: ${first ? first.name + ' (' + first.type + ')' : 'Ninguna'}`);
         } catch (error) {
             console.error('Error loading sequences:', error);
-            toast.error(`Debug: Error cargando secuencias: ${error.message}`);
+            toast.error('Error al cargar secuencias de facturación');
         }
     };
 

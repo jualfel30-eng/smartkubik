@@ -1664,8 +1664,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
           </Tabs>
         </div>
       ) : (
-        /* DESKTOP / FULLSCREEN LAYOUT (Original 2 Columns) */
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_741px] xl:grid-cols-[1fr_833px] -gap-2 mb-8 lg:h-[calc(100vh-12rem)]">
+        /* DESKTOP / FULLSCREEN LAYOUT (Flexible 2 Columns) */
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(400px,45%)] gap-4 mb-8 lg:h-[calc(100vh-12rem)]">
           {/* LEFT COLUMN - Products ONLY - Independent scroll */}
           <div className="space-y-6 lg:overflow-y-auto lg:pr-2">
             {/* Products Section */}
