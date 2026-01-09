@@ -266,6 +266,13 @@ const SmartKubikLanding = () => {
                 font-size: clamp(12px, 1vw, 16px) !important;
             }
 
+            /* 5.1 HERO BADGE EXCEPTION */
+            /* Adaptive: 12px min -> 14px max (Compact on 2xl) */
+            #hero-badge-text {
+                font-size: clamp(12px, 1vw, 14px) !important;
+                line-height: normal !important;
+            }
+
             /* 6. ALL SECTION SUBTITLES EXCEPTION */
             /* Force distinct subtitles to 20px */
             #section2-subtitle, 
@@ -278,7 +285,7 @@ const SmartKubikLanding = () => {
             #section13-subtitle, 
             #section14-subtitle,
             .stack-card p {
-                font-size: clamp(18px, 1.2vw, 20px) !important;
+                font-size: clamp(14px, 1.2vw, 20px) !important;
                 line-height: 1.6 !important;
             }
 
@@ -891,7 +898,7 @@ const SmartKubikLanding = () => {
                                     className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
                                 <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
                             </span>
-                            <span className="text-cyan-300 text-sm font-medium tracking-wide uppercase">
+                            <span id="hero-badge-text" className="text-cyan-300 font-medium tracking-wide uppercase">
                                 <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Nueva Generación ERP 2026</span>
                                 <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Next Gen ERP 2026</span>
                             </span>
