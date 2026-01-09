@@ -41,7 +41,7 @@ export class ProductsService {
     private readonly inventoryService: InventoryService,
     private readonly purchasesService: PurchasesService,
     @InjectConnection() private readonly connection: Connection,
-  ) {}
+  ) { }
 
   private collectNormalizedBarcodes(variants: any[]): string[] {
     const uniqueBarcodes = new Set<string>();
@@ -239,6 +239,11 @@ export class ProductsService {
           },
         ],
         notes: dto.notes,
+        paymentTerms: {
+          isCredit: false,
+          creditDays: 0,
+          paymentMethods: dto.paymentMethods || [],
+        },
       };
       await this.purchasesService.create(purchaseDto, user);
 
@@ -301,7 +306,7 @@ export class ProductsService {
     ) {
       throw new BadRequestException(
         "Los productos SIMPLE deben usar SellingUnits, no UnitConversion. " +
-          "El sistema de conversión purchase/stock/consumption es solo para productos SUPPLY y CONSUMABLE.",
+        "El sistema de conversión purchase/stock/consumption es solo para productos SUPPLY y CONSUMABLE.",
       );
     }
 
@@ -315,7 +320,7 @@ export class ProductsService {
     ) {
       this.logger.warn(
         `Product ${createProductDto.sku} is SUPPLY/CONSUMABLE but has multiple selling units. ` +
-          `Consider using ProductConsumableConfig or ProductSupplyConfig instead.`,
+        `Consider using ProductConsumableConfig or ProductSupplyConfig instead.`,
       );
     }
 
@@ -674,7 +679,7 @@ export class ProductsService {
     ) {
       throw new BadRequestException(
         "Los productos SIMPLE deben usar SellingUnits, no UnitConversion. " +
-          "El sistema de conversión purchase/stock/consumption es solo para productos SUPPLY y CONSUMABLE.",
+        "El sistema de conversión purchase/stock/consumption es solo para productos SUPPLY y CONSUMABLE.",
       );
     }
 
@@ -755,9 +760,13 @@ export class ProductsService {
     return this.productModel.distinct("category", filter).exec();
   }
 
-  async getSubcategories(tenantId: string): Promise<string[]> {
+  async getSubcategories(tenantId: string, category?: string): Promise<string[]> {
+    const filter: any = { tenantId: new Types.ObjectId(tenantId) };
+    if (category && category !== 'all') {
+      filter.category = category;
+    }
     return this.productModel
-      .distinct("subcategory", { tenantId: new Types.ObjectId(tenantId) })
+      .distinct("subcategory", filter)
       .exec();
   }
 

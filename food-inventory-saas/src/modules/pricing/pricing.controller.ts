@@ -25,7 +25,7 @@ import { Permissions } from "../../decorators/permissions.decorator";
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class PricingController {
-  constructor(private readonly pricingService: PricingService) {}
+  constructor(private readonly pricingService: PricingService) { }
 
   @Post("calculate")
   @Permissions("pricing_calculate")
@@ -50,6 +50,66 @@ export class PricingController {
     } catch (error) {
       throw new HttpException(
         error.message || "Error al calcular precios",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Post("bulk/preview")
+  @Permissions("pricing_manage")
+  @ApiOperation({ summary: "Preview bulk price updates" })
+  async previewBulkUpdate(
+    @Body()
+    body: {
+      criteria: any;
+      operation: any;
+    },
+    @Request() req,
+  ) {
+    try {
+      const results = await this.pricingService.previewBulkUpdate(
+        req.user.tenantId,
+        body.criteria,
+        body.operation,
+      );
+      return {
+        success: true,
+        data: results,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error generating preview",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Post("bulk/execute")
+  @Permissions("pricing_manage")
+  @ApiOperation({ summary: "Execute bulk price updates" })
+  async executeBulkUpdate(
+    @Body()
+    body: {
+      criteria: any;
+      operation: any;
+    },
+    @Request() req,
+  ) {
+    try {
+      const result = await this.pricingService.executeBulkUpdate(
+        req.user.tenantId,
+        req.user.id,
+        body.criteria,
+        body.operation,
+      );
+      return {
+        success: true,
+        message: result.message,
+        data: result,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error executing update",
         HttpStatus.BAD_REQUEST,
       );
     }

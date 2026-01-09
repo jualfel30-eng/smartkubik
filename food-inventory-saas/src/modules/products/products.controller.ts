@@ -31,7 +31,7 @@ import {
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 @Controller("products")
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(private readonly productsService: ProductsService) { }
 
   private ensureTenantConfirmed(req: any) {
     if (shouldBypassTenantConfirmation()) {
@@ -155,9 +155,10 @@ export class ProductsController {
 
   @Get("subcategories/list")
   @Permissions("products_read")
-  async getSubcategories(@Request() req) {
+  async getSubcategories(@Query("category") category: string, @Request() req) {
     const subcategories = await this.productsService.getSubcategories(
       req.user.tenantId,
+      category,
     );
     return { success: true, data: subcategories };
   }
