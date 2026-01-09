@@ -201,7 +201,7 @@ const SmartKubikLanding = () => {
                 line-height: 1.5 !important;
             }
             /* GLOBAL CARD TEXT EXCEPTION (13px) */
-            #parallax-cards p, .glass-card p, .glass-card .text-sm, .stack-card p { font-size: 13px !important; }
+            #parallax-cards p, .glass-card p, .glass-card .text-sm { font-size: 13px !important; }
           }
 
           @media (min-width: 1440px) and (max-width: 1535px) {
@@ -223,7 +223,7 @@ const SmartKubikLanding = () => {
                 line-height: 1.5 !important;
             }
             /* GLOBAL CARD TEXT EXCEPTION (13px) */
-            #parallax-cards p, .glass-card p, .glass-card .text-sm, .stack-card p { font-size: 13px !important; }
+            #parallax-cards p, .glass-card p, .glass-card .text-sm { font-size: 13px !important; }
           }
 
           /* === UNIVERSAL FLUID DESKTOP SYSTEM (min-width: 1024px) === */
@@ -233,18 +233,52 @@ const SmartKubikLanding = () => {
           @media (min-width: 1024px) {
             
             /* 1. CONTINUOUS FLUID PADDING */
-            /* 8vw (Doubled) ensures significantly more breathing room */
-            /* 1920px -> ~154px (was ~77px) -> +77px increase per side */
+            /* 12vw ensures significantly more breathing room */
             #root .max-w-7xl, #root .max-w-6xl, #root .max-w-5xl, #root .max-w-4xl {
-              padding-left: 8vw !important;
-              padding-right: 8vw !important;
+              padding-left: 12vw !important;
+              padding-right: 12vw !important;
               max-width: 92% !important; /* Allow content to breathe */
             }
 
-            /* 2. FLUID BODY TEXT (12px -> 16px) */
-            /* Logic: 12px on Small Laptops -> Scales to 16px on Large Screens */
+            /* 2. FLUID BODY TEXT - REVERTED TO 16px STANDARD */
+            /* Logic: 12px on Small Laptops -> Scales to 16px Max */
             p, li, .text-base, .text-lg, span.text-base, div.text-base, .text-sm { 
                 font-size: clamp(12px, 1vw, 16px) !important; 
+                line-height: 1.6 !important;
+            }
+
+            /* 3. HERO SUBTITLE EXCEPTION */
+            /* Force Hero Subtitle to 20px on large screens */
+            #hero-subtitle {
+                font-size: clamp(16px, 1.2vw, 20px) !important;
+            }
+
+            /* 4. INDUSTRY/MODULES CARDS FIX */
+            /* Force text inside industry tabs to be readable (15px-16px) instead of tiny */
+            .tab-content .text-sm, .tab-content .text-xs {
+                font-size: clamp(14px, 1vw, 16px) !important;
+                line-height: 1.5 !important;
+            }
+            
+            /* 5. HEADER EXCEPTION */
+            /* Adaptive Nav Links: 12px on small screens -> 16px on large */
+            nav .text-sm, #nav-card .text-sm {
+                font-size: clamp(12px, 1vw, 16px) !important;
+            }
+
+            /* 6. ALL SECTION SUBTITLES EXCEPTION */
+            /* Force distinct subtitles to 20px */
+            #section2-subtitle, 
+            #section4-subtitle, 
+            #section55-subtitle, 
+            #section-ai-subtitle, 
+            #section-web-subtitle, 
+            #section7-subtitle, 
+            #section10-subtitle, 
+            #section13-subtitle, 
+            #section14-subtitle,
+            .stack-card p {
+                font-size: clamp(18px, 1.2vw, 20px) !important;
                 line-height: 1.6 !important;
             }
 
@@ -880,7 +914,7 @@ const SmartKubikLanding = () => {
                         </h1>
 
                         {/*  Subheadline  */}
-                        <p className="text-xl text-gray-400 max-w-lg leading-relaxed">
+                        <p id="hero-subtitle" className="text-xl text-gray-400 max-w-lg leading-relaxed">
                             <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>
                                 Un solo sistema para inventario, ventas, contabilidad y nómina.
                                 Con <strong className="text-white">Inteligencia Artificial</strong> que trabaja mientras tú
@@ -1067,7 +1101,7 @@ const SmartKubikLanding = () => {
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>¿Te suena familiar?</span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Sound familiar?</span>
                     </h2>
-                    <p className="text-xl text-text-secondary mt-6 max-w-2xl mx-auto">
+                    <p id="section2-subtitle" className="text-xl text-text-secondary mt-6 max-w-2xl mx-auto">
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Si te identificas con esto, no estás solo.</span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>If you identify with this, you are not alone.</span>
                     </p>
@@ -1271,7 +1305,7 @@ const SmartKubikLanding = () => {
                             className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">From $29/User.</span></span>
                     </h2>
                     {/*  Subtitle  */}
-                    <div className="text-base sm:text-lg lg:text-xl text-text-secondary max-w-4xl mx-auto backdrop-blur-sm bg-black/20 rounded-xl p-4 inline-block">
+                    <div id="section4-subtitle" className="text-base sm:text-lg lg:text-xl text-text-secondary max-w-2xl mx-auto backdrop-blur-sm bg-black/20 rounded-xl p-4 inline-block">
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>El sistema nervioso de tu negocio. Conecta y automatiza todo lo que necesitas en una sola plataforma inteligente.</span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>The nervous system of your business. Connects and automates everything you need in a single intelligent platform.</span>
                     </div>
@@ -2103,7 +2137,7 @@ const SmartKubikLanding = () => {
                             Your Website Sells For You.
                         </span>
                     </h2>
-                    <p className="text-xl text-gray-400 leading-relaxed">
+                    <p id="section-web-subtitle" className="text-xl text-gray-400 leading-relaxed">
                         <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>
                             SmartKubik genera automáticamente tu página web conectada al sistema.
                             Tus clientes compran productos, reservan servicios o agendan citas —
@@ -2304,7 +2338,7 @@ const SmartKubikLanding = () => {
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Un Flujo <span className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Automático</span>.</span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>One <span className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Automated</span> Flow.</span>
                     </h2>
-                    <p className="text-xl text-gray-400">
+                    <p id="section55-subtitle" className="text-xl text-gray-400">
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Olvídate de copiar y pegar datos. SmartKubik conecta los puntos.</span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Forget copying and pasting data. SmartKubik connects the
                             dots.</span>
@@ -2624,7 +2658,7 @@ const SmartKubikLanding = () => {
                                 className="text-cyan-electric">Never
                                 Sleeps</span>.</span>
                         </h2>
-                        <p className="text-xl text-text-secondary mb-12">
+                        <p id="section-ai-subtitle" className="text-xl text-text-secondary mb-12">
                             <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Inteligencia Artificial integrada en todo el sistema. Pregunta lo que
                                 quieras en español normal. No es un chatbot, es tu copiloto.</span>
                             <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Artificial Intelligence integrated throughout the system. Ask
@@ -2782,7 +2816,7 @@ const SmartKubikLanding = () => {
                             className="text-white">It's
                             Your New Sales Channel.</span></span>
                     </h2>
-                    <p className="text-xl text-text-secondary max-w-3xl mx-auto">
+                    <p id="section7-subtitle" className="text-xl text-text-secondary max-w-3xl mx-auto">
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>78% de los negocios en LATAM usan WhatsApp para vender. SmartKubik lo
                             profesionaliza con IA, CRM y automatización.</span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>78% of businesses in LATAM use WhatsApp to sell. SmartKubik
@@ -2959,7 +2993,7 @@ const SmartKubikLanding = () => {
 
         {/*  SECTION 8: VIDEO DEMO  */}
         < section id="demo" className="py-24 relative overflow-hidden bg-[#050810]" >
-            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 w-full text-center">
+            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 w-full text-center">
                 <h2 className="text-3xl md:text-5xl font-display font-bold mb-8">
                     <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ve SmartKubik en Acción <span className="text-cyan-400 text-lg align-top ml-2">(90
                         Segundos)</span></span>
@@ -3217,14 +3251,14 @@ const SmartKubikLanding = () => {
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Simple Price. All Included. <br /><span className="text-white">No
                             Tricks.</span></span>
                     </h2>
-                    <p className="text-xl text-text-secondary">
+                    <p id="section10-subtitle" className="text-xl text-text-secondary">
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>98 módulos, IA incluida, WhatsApp nativo. Un precio por usuario.</span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>98 modules, AI included, native WhatsApp. One price per
                             user.</span>
                     </p>
                 </div>
 
-                <div className="grid md:grid-cols-3 gap-8 items-center max-w-6xl mx-auto">
+                <div className="grid md:grid-cols-3 gap-8 items-center max-w-[90%] mx-auto">
                     {/*  Starter  */}
                     <div className="glass-card p-8 rounded-3xl border border-white/10 hover:border-white/20 transition-all">
                         <h3 className="text-2xl font-bold text-white mb-2">Starter</h3>
@@ -3454,7 +3488,7 @@ const SmartKubikLanding = () => {
 
                     {/*  Right Column: Solution & Offer  */}
                     <div>
-                        <p className="text-xl text-gray-300 mb-8 text-left">
+                        <p id="section13-subtitle" className="text-xl text-gray-300 mb-8 text-left">
                             <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>No es que no puedas seguir como estás. Puedes. Pero cada mes que pasa
                                 sin
                                 un sistema integrado es dinero perdido y estrés acumulado.</span>
@@ -3513,14 +3547,14 @@ const SmartKubikLanding = () => {
 
         {/*  SECTION 14: FAQ  */}
         < section className="py-24 px-4 bg-[#050810] relative overflow-hidden" >
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-3xl mx-auto">
                 {/*  Headline  */}
                 <div className="text-center mb-16">
                     <h2 className="text-4xl md:text-5xl font-bold mb-4 font-display">
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Preguntas Frecuentes</span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Frequently Asked Questions</span>
                     </h2>
-                    <p className="text-xl text-gray-400">
+                    <p id="section14-subtitle" className="text-xl text-gray-400">
                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Todo lo que necesitas saber</span>
                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Everything you need to know</span>
                     </p>
@@ -3710,7 +3744,7 @@ const SmartKubikLanding = () => {
             {/*  Enhanced Gradient Background (From V4)  */}
             < div className="absolute inset-0 bg-[linear-gradient(135deg,#06B6D4,#10B981)] opacity-10" ></div >
 
-            <div className="max-w-4xl mx-auto text-center relative z-10">
+            <div className="max-w-[55rem] mx-auto text-center relative z-10">
                 <h2 className="text-5xl md:text-7xl font-bold mb-6 font-display text-white">
                     <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>¿Listo para Dejar de<br /><span className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Administrar
                         Caos?</span></span>
