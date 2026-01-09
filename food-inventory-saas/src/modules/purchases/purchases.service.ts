@@ -40,7 +40,7 @@ export class PurchasesService {
     private readonly eventsService: EventsService, // Inject EventsService
     private readonly transactionHistoryService: TransactionHistoryService, // Inject TransactionHistoryService
     private readonly inventoryMovementsService: InventoryMovementsService,
-  ) {}
+  ) { }
 
   async create(
     dto: CreatePurchaseOrderDto,
@@ -764,5 +764,41 @@ export class PurchasesService {
     const seconds = now.getSeconds().toString().padStart(2, "0");
     const randomPart = Math.random().toString().slice(2, 8); // 6 random digits
     return `OC-${year}${month}${day}-${hours}${minutes}${seconds}-${randomPart}`;
+  }
+
+  /**
+   * Find all products that have been purchased using a specific payment method.
+   * Used for "Smart Pricing" bulk updates.
+   */
+  async findProductIdsByPaymentMethod(
+    tenantId: string,
+    paymentMethod: string,
+  ): Promise<string[]> {
+    const { Types } = require("mongoose");
+    const tenantObjectId = new Types.ObjectId(tenantId);
+
+    // Find POs that used this payment method
+    // Note: paymentMethods is an array of strings in the schema
+    const purchaseOrders = await this.poModel
+      .find({
+        tenantId: tenantObjectId,
+        "paymentTerms.paymentMethods": paymentMethod,
+      })
+      .select("items.productId")
+      .lean();
+
+    // Extract unique product IDs
+    const productIds = new Set<string>();
+    for (const po of purchaseOrders) {
+      if (po.items) {
+        for (const item of po.items) {
+          if (item.productId) {
+            productIds.add(item.productId.toString());
+          }
+        }
+      }
+    }
+
+    return Array.from(productIds);
   }
 }

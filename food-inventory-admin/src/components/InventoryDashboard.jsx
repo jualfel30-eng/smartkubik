@@ -32,7 +32,7 @@ export default function InventoryDashboard() {
 
   // Determinar qué tab superior mostrar basado en el tab actual
   const getMainTab = () => {
-    if (['products', 'consumables', 'supplies'].includes(activeTab)) {
+    if (['products', 'consumables', 'supplies', 'pricing-engine'].includes(activeTab)) {
       return 'products';
     }
     if (

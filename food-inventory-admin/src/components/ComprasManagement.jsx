@@ -56,7 +56,9 @@ const initialNewProductState = {
     newSupplierContactName: '',
     newSupplierContactPhone: '',
     rifPrefix: 'J',
-  }
+  },
+  paymentMethods: [],
+  customPaymentMethod: '',
 };
 
 const initialPoState = {
@@ -153,7 +155,7 @@ export default function ComprasManagement() {
         fetchApi('/inventory/alerts/low-stock'),
         fetchApi('/inventory/alerts/near-expiration?days=30'),
         fetchApi('/customers?customerType=supplier'),
-        fetchApi('/products')
+        fetchApi('/products?includeInactive=true&limit=500')
       ]);
       setLowStockProducts(lowStockData.data || []);
       setExpiringProducts(expiringData.data || []);
@@ -291,6 +293,17 @@ export default function ComprasManagement() {
   };
 
   const handleAddProduct = async () => {
+    // Validate payment methods
+    const allPaymentMethods = [...newProduct.paymentMethods];
+    if (newProduct.customPaymentMethod.trim()) {
+      allPaymentMethods.push(newProduct.customPaymentMethod.trim());
+    }
+
+    if (allPaymentMethods.length === 0) {
+      toast.error('Error de Validación', { description: 'Debe seleccionar al menos un método de pago.' });
+      return;
+    }
+
     const normalizedSku = (newProduct.sku || '').trim();
     const baseCost = Number(newProduct.inventory.costPrice) || 0;
 
@@ -429,6 +442,7 @@ export default function ComprasManagement() {
       inventory: inventoryPayload,
       purchaseDate: new Date().toISOString(),
       notes: 'Creación de producto con compra inicial.',
+      paymentMethods: allPaymentMethods,
     };
 
     try {
@@ -653,12 +667,12 @@ export default function ComprasManagement() {
       supplier: s,
     })),[suppliers]);
 
-  const productOptions = useMemo(() => 
-    products.map(p => ({ 
-      value: p._id, 
-      label: `${p.name} (${p.sku || 'N/A'})`, 
-      product: p 
-    })), 
+  const productOptions = useMemo(() =>
+    products.map(p => ({
+      value: p._id,
+      label: `${p.name} (${p.sku || 'N/A'})${p.isActive === false ? ' [INACTIVO]' : ''}`,
+      product: p
+    })),
   [products]);
 
   const normalizeId = useCallback((value) => {
@@ -831,6 +845,18 @@ export default function ComprasManagement() {
         return;
     }
 
+    // Build payment methods array
+    const allPaymentMethods = [...po.paymentTerms.paymentMethods];
+    if (po.paymentTerms.customPaymentMethod.trim()) {
+      allPaymentMethods.push(po.paymentTerms.customPaymentMethod.trim());
+    }
+
+    // Validate payment methods
+    if (allPaymentMethods.length === 0) {
+        toast.error('Error de Validación', { description: 'Debe seleccionar al menos un método de pago.' });
+        return;
+    }
+
     setPoLoading(true);
 
     // Calculate total amount for advance payment
@@ -839,12 +865,6 @@ export default function ComprasManagement() {
       ? (totalAmount * (po.paymentTerms.advancePaymentPercentage / 100))
       : 0;
     const remainingBalance = totalAmount - advancePaymentAmount;
-
-    // Build payment methods array
-    const allPaymentMethods = [...po.paymentTerms.paymentMethods];
-    if (po.paymentTerms.customPaymentMethod.trim()) {
-      allPaymentMethods.push(po.paymentTerms.customPaymentMethod.trim());
-    }
 
     // Calculate credit days if payment due date is set
     let creditDays = 0;
@@ -1710,6 +1730,50 @@ export default function ComprasManagement() {
                             value={newProduct.supplier.newSupplierContactPhone} 
                             onChange={(e) => setNewProduct({...newProduct, supplier: {...newProduct.supplier, newSupplierContactPhone: e.target.value}})} 
                             disabled={!newProduct.supplier.isNew}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="col-span-2 border-t pt-4 mt-4">
+                      <h4 className="text-lg font-medium mb-4">Métodos de Pago</h4>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-3 border rounded-lg">
+                          {[
+                            { value: 'efectivo', label: 'Efectivo' },
+                            { value: 'transferencia', label: 'Transferencia Bancaria' },
+                            { value: 'pago_movil', label: 'Pago Móvil' },
+                            { value: 'pos', label: 'Punto de Venta' },
+                            { value: 'zelle', label: 'Zelle' },
+                            { value: 'binance', label: 'Binance' },
+                            { value: 'paypal', label: 'PayPal' },
+                          ].map(method => (
+                            <div key={method.value} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`new-product-payment-${method.value}`}
+                                checked={newProduct.paymentMethods.includes(method.value)}
+                                onCheckedChange={(checked) => {
+                                  setNewProduct(prev => ({
+                                    ...prev,
+                                    paymentMethods: checked
+                                      ? [...prev.paymentMethods, method.value]
+                                      : prev.paymentMethods.filter(m => m !== method.value)
+                                  }));
+                                }}
+                              />
+                              <Label htmlFor={`new-product-payment-${method.value}`} className="text-sm font-normal cursor-pointer">{method.label}</Label>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Método de Pago Personalizado (opcional)</Label>
+                          <Input
+                            value={newProduct.customPaymentMethod}
+                            onChange={e => setNewProduct(prev => ({
+                              ...prev,
+                              customPaymentMethod: e.target.value
+                            }))}
+                            placeholder="Ej: Cripto, Bitcoin, USDT, etc."
                           />
                         </div>
                       </div>

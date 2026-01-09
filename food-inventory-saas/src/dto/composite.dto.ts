@@ -105,4 +105,9 @@ export class CreateProductWithPurchaseDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsNotEmpty({ message: 'Debe seleccionar al menos un método de pago' })
+  paymentMethods: string[];
 }

@@ -3,7 +3,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs.j
 import ProductsManagement from '@/components/ProductsManagement.jsx';
 import ConsumablesTab from '@/components/ConsumablesTab.jsx';
 import SuppliesTab from '@/components/SuppliesTab.jsx';
-import { Package, Layers, Wrench } from 'lucide-react';
+import PricingEngineTab from '@/components/PricingEngineTab.jsx';
+import { Package, Layers, Wrench, Calculator } from 'lucide-react';
 
 /**
  * ProductsManagementWithTabs
@@ -12,6 +13,7 @@ import { Package, Layers, Wrench } from 'lucide-react';
  * - Products Management (existing functionality)
  * - Consumables Configuration
  * - Supplies Management
+ * - Products Pricing Engine (New)
  */
 function ProductsManagementWithTabs({ activeSubTab = 'products' }) {
   const [, setSearchParams] = useSearchParams();
@@ -35,6 +37,10 @@ function ProductsManagementWithTabs({ activeSubTab = 'products' }) {
           <Wrench className="h-4 w-4" />
           Suministros
         </TabsTrigger>
+        <TabsTrigger value="pricing-engine" className="gap-2">
+          <Calculator className="h-4 w-4" />
+          Motor de Precios
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="products">
@@ -47,6 +53,10 @@ function ProductsManagementWithTabs({ activeSubTab = 'products' }) {
 
       <TabsContent value="supplies">
         <SuppliesTab />
+      </TabsContent>
+
+      <TabsContent value="pricing-engine">
+        <PricingEngineTab />
       </TabsContent>
     </Tabs>
   );
