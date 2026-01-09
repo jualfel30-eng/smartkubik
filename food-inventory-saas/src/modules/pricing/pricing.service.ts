@@ -19,6 +19,7 @@ export interface BulkUpdateCriteria {
   supplierId?: string;
   stockLevel?: 'low' | 'overstock' | 'all';
   velocity?: 'high' | 'low' | 'all';
+  ids?: string[]; // New: Support for specific product selection
 }
 
 export interface BulkPriceOperation {
@@ -288,6 +289,11 @@ export class PricingService {
       tenantId: new Types.ObjectId(tenantId),
       isActive: true, // Only active products
     };
+
+    // Explicit ID Filter (from manual selection)
+    if (criteria.ids && criteria.ids.length > 0) {
+      filter._id = { $in: criteria.ids.map(id => new Types.ObjectId(id)) };
+    }
 
     if (criteria.category) {
       filter.category = criteria.category;

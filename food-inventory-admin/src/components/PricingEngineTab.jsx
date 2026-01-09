@@ -7,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertCircle, ArrowRight, BarChart3, Calculator, DollarSign, Filter, Package, Percent, RefreshCw, Save, ShoppingCart, TrendingUp } from 'lucide-react';
+import { AlertCircle, ArrowRight, BarChart3, Calculator, DollarSign, Filter, Package, Percent, RefreshCw, Save, ShoppingCart, TrendingUp, CheckSquare, Square } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { fetchApi } from '@/lib/api';
 
@@ -39,7 +40,9 @@ class ErrorBoundary extends React.Component {
 
 function PricingOrchestratorContent() {
     const [loading, setLoading] = useState(false);
+
     const [previewData, setPreviewData] = useState([]);
+    const [selectedProductIds, setSelectedProductIds] = useState(new Set()); // New: Track selection
     const [step, setStep] = useState(1); // 1: Scope, 2: Strategy, 3: Review (Implicit in UI flow)
 
     // --- SCOPE STATES ---
@@ -160,6 +163,9 @@ function PricingOrchestratorContent() {
             }
 
             setPreviewData(results);
+            // Default: Select ALL products found
+            const allIds = new Set(results.map(r => r.productId));
+            setSelectedProductIds(allIds);
 
             if (results.length === 0) {
                 toast.info("Sin resultados", { description: "Ningún producto coincide con los filtros." });
@@ -202,6 +208,8 @@ function PricingOrchestratorContent() {
                     velocity: velocity === 'all' ? undefined : velocity,
                     category: categoryId === 'all' ? undefined : categoryId,
                     subcategory: subCategory === 'all' ? undefined : subCategory,
+                    // New: Send explicit IDs if selection is partial
+                    ids: selectedProductIds.size < previewData.length ? Array.from(selectedProductIds) : undefined
                 },
                 operation: {
                     type: backendOperationType,
@@ -216,6 +224,7 @@ function PricingOrchestratorContent() {
 
             toast.success("Actualización Masiva Exitosa", { description: response.message });
             setPreviewData([]);
+            setSelectedProductIds(new Set());
         } catch (error) {
             console.error(error);
             toast.error("Error al aplicar", { description: "No se pudieron actualizar los precios." });
@@ -227,6 +236,26 @@ function PricingOrchestratorContent() {
     // Calculate Summary KPIs
     const totalImpact = previewData.reduce((acc, item) => acc + (item.newPrice - item.currentPrice), 0);
     const avgDiff = previewData.length > 0 ? previewData.reduce((acc, item) => acc + item.diffPercentage, 0) / previewData.length : 0;
+
+    // Selection Handlers
+    const toggleSelect = (productId) => {
+        const newSet = new Set(selectedProductIds);
+        if (newSet.has(productId)) {
+            newSet.delete(productId);
+        } else {
+            newSet.add(productId);
+        }
+        setSelectedProductIds(newSet);
+    };
+
+    const handleSelectAll = () => {
+        const allIds = new Set(previewData.map(r => r.productId));
+        setSelectedProductIds(allIds);
+    };
+
+    const handleDeselectAll = () => {
+        setSelectedProductIds(new Set());
+    };
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-4">
@@ -243,53 +272,58 @@ function PricingOrchestratorContent() {
                         <CardDescription>¿A qué productos afectaremos?</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="space-y-1">
-                            <Label className="text-xs">Categoría</Label>
-                            <Select value={categoryId} onValueChange={setCategoryId}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Todas</SelectItem>
-                                    {categories.map((c, idx) => (
-                                        <SelectItem key={idx} value={c}>{c}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-1">
-                            <Label className="text-xs">Subcategoría</Label>
-                            <Select value={subCategory} onValueChange={setSubCategory} disabled={subCategories.length === 0}>
-                                <SelectTrigger><SelectValue placeholder={subCategories.length === 0 ? "Sin opciones" : "Seleccionar"} /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Todas</SelectItem>
-                                    {subCategories.map((sc, idx) => (
-                                        <SelectItem key={idx} value={sc}>{sc}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <Label className="text-xs">Categoría</Label>
+                                <Select value={categoryId} onValueChange={setCategoryId}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Todas</SelectItem>
+                                        {categories.map((c, idx) => (
+                                            <SelectItem key={idx} value={c}>{c}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-xs">Subcategoría</Label>
+                                <Select value={subCategory} onValueChange={setSubCategory} disabled={subCategories.length === 0}>
+                                    <SelectTrigger><SelectValue placeholder={subCategories.length === 0 ? "Sin opciones" : "Seleccionar"} /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Todas</SelectItem>
+                                        {subCategories.map((sc, idx) => (
+                                            <SelectItem key={idx} value={sc}>{sc}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label>Nivel de Stock</Label>
-                            <Select value={stockLevel} onValueChange={setStockLevel}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Todo el Inventario</SelectItem>
-                                    <SelectItem value="low">Stock Bajo (Low Stock)</SelectItem>
-                                    <SelectItem value="overstock">Sobre-Stock</SelectItem>
-                                </SelectContent>
-                            </Select>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Nivel de Stock</Label>
+                                <Select value={stockLevel} onValueChange={setStockLevel}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Todo el Inventario</SelectItem>
+                                        <SelectItem value="low">Stock Bajo (Low Stock)</SelectItem>
+                                        <SelectItem value="overstock">Sobre-Stock</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Velocidad de Ventas</Label>
+                                <Select value={velocity} onValueChange={setVelocity}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Cualquier Rotación</SelectItem>
+                                        <SelectItem value="high">Alta Rotación (Bestsellers)</SelectItem>
+                                        <SelectItem value="low">Baja Rotación (Huesos)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
-                        <div className="space-y-2">
-                            <Label>Velocidad de Ventas</Label>
-                            <Select value={velocity} onValueChange={setVelocity}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Cualquier Rotación</SelectItem>
-                                    <SelectItem value="high">Alta Rotación (Bestsellers)</SelectItem>
-                                    <SelectItem value="low">Baja Rotación (Huesos)</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+
                         <div className="space-y-2">
                             <Label>Método de Adquisición</Label>
                             <Select value={paymentMethod} onValueChange={setPaymentMethod}>
@@ -425,9 +459,25 @@ function PricingOrchestratorContent() {
                             </CardContent>
                         </Card>
                     </div>
+
                 ) : (
                     <div className="h-32 bg-slate-50 border border-dashed rounded-lg flex items-center justify-center text-muted-foreground">
                         Configura los filtros y la estrategia para ver resultados.
+                    </div>
+                )}
+
+                {/* SELECTION ACTIONS */}
+                {previewData.length > 0 && (
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={handleSelectAll} className="gap-2">
+                            <CheckSquare className="h-4 w-4" /> Marcar Todos
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={handleDeselectAll} className="gap-2">
+                            <Square className="h-4 w-4" /> Desmarcar Todos
+                        </Button>
+                        <span className="text-sm text-muted-foreground ml-auto">
+                            {selectedProductIds.size} seleccionados
+                        </span>
                     </div>
                 )}
 
@@ -436,6 +486,7 @@ function PricingOrchestratorContent() {
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-slate-50 dark:bg-slate-900">
+                                <TableHead className="w-[50px] text-center"></TableHead>
                                 <TableHead>Producto</TableHead>
                                 <TableHead>SKU</TableHead>
                                 <TableHead className="text-right">Precio Actual</TableHead>
@@ -452,7 +503,13 @@ function PricingOrchestratorContent() {
                                 </TableRow>
                             ) : (
                                 previewData.map((item, idx) => (
-                                    <TableRow key={idx}>
+                                    <TableRow key={idx} className={!selectedProductIds.has(item.productId) ? 'opacity-50' : ''}>
+                                        <TableCell className="text-center">
+                                            <Checkbox
+                                                checked={selectedProductIds.has(item.productId)}
+                                                onCheckedChange={() => toggleSelect(item.productId)}
+                                            />
+                                        </TableCell>
                                         <TableCell className="font-medium">
                                             {item.productName}
                                             {item.isVariant && <Badge variant="outline" className="ml-2 text-[10px] h-5">Var</Badge>}

@@ -21,6 +21,7 @@ import {
   StopCircle,
   AreaChart,
   LayoutDashboard,
+  Calculator,
   Truck,
   Building2,
   Calendar,
@@ -354,6 +355,7 @@ function TenantLayout() {
           ],
         },
         { name: 'Compras', href: 'inventory-management?tab=purchases', icon: Truck },
+        { name: 'Motor de Precios', href: 'inventory-management?tab=pricing-engine', icon: Calculator, permission: 'inventory_edit' },
       ]
     },
     {
