@@ -308,6 +308,7 @@ const sanitizeSellingUnitsForPayload = (units = []) =>
       costPerUnit: parsedCost,
       minimumQuantity: Number(rest?.minimumQuantity) || 0,
       incrementStep: Number(rest?.incrementStep) || 0,
+      isSoldByWeight: rest.isSoldByWeight || false,
     };
   });
 
@@ -318,6 +319,7 @@ const initialNewProductState = {
   category: [],
   subcategory: [],
   brand: '',
+  origin: '',
   description: '',
   ingredients: '',
   isPerishable: false,
@@ -557,25 +559,25 @@ function ProductsManagement() {
     dragImageIndex.current = null;
   };
 
-useEffect(() => {
-  if (isAddDialogOpen) {
-    const baseProduct = JSON.parse(JSON.stringify(initialNewProductState));
-    const defaultUnit = unitOptions[0] || baseProduct.unitOfMeasure;
-    baseProduct.unitOfMeasure = defaultUnit;
-    baseProduct.variant.unit = defaultUnit;
-    baseProduct.attributes = {};
-    baseProduct.variant.attributes = {};
-    if (isNonFoodRetailVertical) {
-      baseProduct.isPerishable = false;
-      baseProduct.ivaApplicable = true;
-      baseProduct.hasMultipleSellingUnits = false;
-      baseProduct.isSoldByWeight = false;
+  useEffect(() => {
+    if (isAddDialogOpen) {
+      const baseProduct = JSON.parse(JSON.stringify(initialNewProductState));
+      const defaultUnit = unitOptions[0] || baseProduct.unitOfMeasure;
+      baseProduct.unitOfMeasure = defaultUnit;
+      baseProduct.variant.unit = defaultUnit;
+      baseProduct.attributes = {};
+      baseProduct.variant.attributes = {};
+      if (isNonFoodRetailVertical) {
+        baseProduct.isPerishable = false;
+        baseProduct.ivaApplicable = true;
+        baseProduct.hasMultipleSellingUnits = false;
+        baseProduct.isSoldByWeight = false;
+      }
+      setNewProduct(baseProduct);
+      setSelectedImageIndex(0);
+      setAdditionalVariants([]);
     }
-    setNewProduct(baseProduct);
-    setSelectedImageIndex(0);
-    setAdditionalVariants([]);
-  }
-}, [isAddDialogOpen, unitOptions, isNonFoodRetailVertical]);
+  }, [isAddDialogOpen, unitOptions, isNonFoodRetailVertical]);
 
   const loadProducts = useCallback(async (page = 1, limit = 25, status = 'all', search = '', category = 'all', productType = 'simple') => {
     const trimmedSearch = (search || '').trim();
@@ -1253,9 +1255,16 @@ useEffect(() => {
       category: normalizedCategory,
       subcategory: normalizedSubcategory,
       brand: editingProduct.brand,
+      origin: editingProduct.attributes?.origin || editingProduct.origin || '',
       description: editingProduct.description,
       ingredients: editingProduct.ingredients,
-      inventoryConfig: editingProduct.inventoryConfig,
+      inventoryConfig: {
+        ...editingProduct.inventoryConfig,
+        minimumStock: Number(editingProduct.inventoryConfig.minimumStock) || 0,
+        maximumStock: Number(editingProduct.inventoryConfig.maximumStock) || 0,
+        reorderPoint: Number(editingProduct.inventoryConfig.reorderPoint) || 0,
+        reorderQuantity: Number(editingProduct.inventoryConfig.reorderQuantity) || 0,
+      },
       isSoldByWeight: editingProduct.isSoldByWeight,
       unitOfMeasure: editingProduct.unitOfMeasure,
       hasMultipleSellingUnits: editingProduct.hasMultipleSellingUnits,
@@ -1377,7 +1386,7 @@ useEffect(() => {
   const handleRemoveImage = (index) => {
     const updatedImages = [...newProduct.variant.images];
     updatedImages.splice(index, 1);
-    
+
     if (index === selectedImageIndex) {
       setSelectedImageIndex(0);
     } else if (index < selectedImageIndex) {
@@ -1613,7 +1622,7 @@ useEffect(() => {
       } catch (err) {
         alert(`Error al procesar el archivo: ${err.message}`);
       }
-  };
+    };
     reader.readAsBinaryString(file);
     e.target.value = null; // Reset file input
   };
@@ -1763,225 +1772,225 @@ useEffect(() => {
 
   return (
     <div className="space-y-6">
-          <div className="flex justify-start items-center space-x-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">Acciones en Lote</Button>
-              </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              {hasDynamicTemplateColumns ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuItem onSelect={handleDownloadTemplate}>
-                      Descargar Plantilla
-                    </DropdownMenuItem>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" align="start" className="max-w-xs text-left space-y-1">
-                    <p className="font-semibold">Plantilla adaptada a la vertical</p>
-                    <p>
-                      Incluye columnas <code>VariantSKU</code> y <code>{'productAttr_{clave}'}</code> / <code>{'variantAttr_{clave}'}</code> para los atributos configurados: {dynamicAttributeLabels.join(', ')}. Los nombres deben coincidir con la configuración del producto/variante.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              ) : (
-                <DropdownMenuItem onSelect={handleDownloadTemplate}>
-                  Descargar Plantilla
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onSelect={() => document.getElementById('bulk-upload-input').click()}>
-                Importar
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">Exportar</Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onSelect={handleExportExcel}>
-                Exportar como Excel (.xlsx)
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={handleExportCsv}>
-                Exportar como CSV (.csv)
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <input
-            type="file"
-            id="bulk-upload-input"
-            style={{ display: 'none' }}
-            accept=".xlsx, .xls"
-            onChange={handleBulkUpload}
-          />
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button id="add-product-button" size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white"><Plus className="h-5 w-5 mr-2" /> Agregar Producto</Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
-              <DialogHeader className="px-6 pt-6">
-                <DialogTitle>Agregar Nuevo Producto</DialogTitle>
-                <DialogDescription>Completa la información para crear un nuevo producto en el catálogo.</DialogDescription>
-              </DialogHeader>
-
-              {/* Product Type Selector */}
-              <div className="px-6 py-4 border-b bg-muted/30">
-                <div className="space-y-2">
-                  <Label htmlFor="productType" className="text-base font-semibold">Tipo de Producto *</Label>
-                  <Select
-                    value={newProduct.productType}
-                    onValueChange={(value) => setNewProduct({ ...newProduct, productType: value })}
-                  >
-                    <SelectTrigger id="productType" className="w-full">
-                      <SelectValue placeholder="Selecciona el tipo de producto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="simple">
-                        <div className="flex items-center gap-2">
-                          <Package className="h-4 w-4" />
-                          <div>
-                            <div className="font-medium">Mercancía</div>
-                            <div className="text-xs text-muted-foreground">Productos para venta directa</div>
-                          </div>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="consumable">
-                        <div className="flex items-center gap-2">
-                          <Layers className="h-4 w-4" />
-                          <div>
-                            <div className="font-medium">Consumible</div>
-                            <div className="text-xs text-muted-foreground">Vasos, bolsas, cubiertos, etc.</div>
-                          </div>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="supply">
-                        <div className="flex items-center gap-2">
-                          <Wrench className="h-4 w-4" />
-                          <div>
-                            <div className="font-medium">Suministro</div>
-                            <div className="text-xs text-muted-foreground">Limpieza, oficina, mantenimiento</div>
-                          </div>
-                        </div>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Selecciona el tipo de producto para mostrar los campos relevantes
+      <div className="flex justify-start items-center space-x-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline">Acciones en Lote</Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            {hasDynamicTemplateColumns ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuItem onSelect={handleDownloadTemplate}>
+                    Descargar Plantilla
+                  </DropdownMenuItem>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" align="start" className="max-w-xs text-left space-y-1">
+                  <p className="font-semibold">Plantilla adaptada a la vertical</p>
+                  <p>
+                    Incluye columnas <code>VariantSKU</code> y <code>{'productAttr_{clave}'}</code> / <code>{'variantAttr_{clave}'}</code> para los atributos configurados: {dynamicAttributeLabels.join(', ')}. Los nombres deben coincidir con la configuración del producto/variante.
                   </p>
-                </div>
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <DropdownMenuItem onSelect={handleDownloadTemplate}>
+                Descargar Plantilla
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onSelect={() => document.getElementById('bulk-upload-input').click()}>
+              Importar
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline">Exportar</Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onSelect={handleExportExcel}>
+              Exportar como Excel (.xlsx)
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={handleExportCsv}>
+              Exportar como CSV (.csv)
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <input
+          type="file"
+          id="bulk-upload-input"
+          style={{ display: 'none' }}
+          accept=".xlsx, .xls"
+          onChange={handleBulkUpload}
+        />
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button id="add-product-button" size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white"><Plus className="h-5 w-5 mr-2" /> Agregar Producto</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
+            <DialogHeader className="px-6 pt-6">
+              <DialogTitle>Agregar Nuevo Producto</DialogTitle>
+              <DialogDescription>Completa la información para crear un nuevo producto en el catálogo.</DialogDescription>
+            </DialogHeader>
+
+            {/* Product Type Selector */}
+            <div className="px-6 py-4 border-b bg-muted/30">
+              <div className="space-y-2">
+                <Label htmlFor="productType" className="text-base font-semibold">Tipo de Producto *</Label>
+                <Select
+                  value={newProduct.productType}
+                  onValueChange={(value) => setNewProduct({ ...newProduct, productType: value })}
+                >
+                  <SelectTrigger id="productType" className="w-full">
+                    <SelectValue placeholder="Selecciona el tipo de producto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="simple">
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4" />
+                        <div>
+                          <div className="font-medium">Mercancía</div>
+                          <div className="text-xs text-muted-foreground">Productos para venta directa</div>
+                        </div>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="consumable">
+                      <div className="flex items-center gap-2">
+                        <Layers className="h-4 w-4" />
+                        <div>
+                          <div className="font-medium">Consumible</div>
+                          <div className="text-xs text-muted-foreground">Vasos, bolsas, cubiertos, etc.</div>
+                        </div>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="supply">
+                      <div className="flex items-center gap-2">
+                        <Wrench className="h-4 w-4" />
+                        <div>
+                          <div className="font-medium">Suministro</div>
+                          <div className="text-xs text-muted-foreground">Limpieza, oficina, mantenimiento</div>
+                        </div>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Selecciona el tipo de producto para mostrar los campos relevantes
+                </p>
               </div>
+            </div>
 
-              <div className="space-y-6 py-4 px-6 overflow-y-auto flex-grow">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8">
-                  <div className="md:col-span-1 space-y-2">
-                    <Label>Imágenes (máx. 3)</Label>
-                    <label htmlFor="images" className="cursor-pointer flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted/50">
-                      {newProduct.variant.images && newProduct.variant.images.length > 0 ? (
-                         <img
-                          src={newProduct.variant.images[selectedImageIndex]}
-                          alt={`product-image-${selectedImageIndex}`}
-                          className="h-full w-full object-cover rounded-lg"
-                          onError={(e) => {
-                            e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5Y2EzYWYiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIj5JbWFnZW48L3RleHQ+PC9zdmc+';
-                            e.target.onerror = null;
-                          }}
-                         />
-                      ) : (
-                        <div className="text-center">
-                          <Package className="mx-auto h-8 w-8" />
-                          <p className="mt-1 text-sm">Subir imágenes</p>
-                        </div>
-                      )}
-                    </label>
-                    <Input id="images" type="file" multiple accept="image/*" onChange={handleImageUpload} className="hidden" />
-                    <div className="w-full border rounded-lg p-2 mt-2">
-                        <div className="flex gap-2 justify-center">
-                            {newProduct.variant.images && newProduct.variant.images.map((image, index) => (
-                            <div 
-                                key={image}
-                                className="relative"
-                                draggable="true"
-                                onDragStart={() => handleDragStart(index)}
-                                onDragOver={handleDragOver}
-                                onDrop={() => handleDrop(index)}
-                            >
-                                {index === 0 && (
-                                <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 z-10" variant="secondary">
-                                    Portada
-                                </Badge>
-                                )}
-                                <img
-                                src={image}
-                                alt={`product-thumb-${index}`}
-                                className={`w-14 h-14 object-cover rounded cursor-pointer hover:opacity-80 hover:ring-2 hover:ring-primary/50 transition-all ${selectedImageIndex === index ? 'ring-2 ring-primary ring-offset-2' : ''}`}
-                                onClick={(e) => {
-                                  if (e.detail === 1) {
-                                    // Single click - select image
-                                    setSelectedImageIndex(index);
-                                  } else if (e.detail === 2) {
-                                    // Double click - open preview
-                                    setPreviewImageSrc(image);
-                                    setIsImagePreviewOpen(true);
-                                  }
-                                }}
-                                onError={(e) => {
-                                  e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5Y2EzYWYiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIj5JbWFnZW48L3RleHQ+PC9zdmc+';
-                                  e.target.onerror = null;
-                                }}
-                                />
-                                <Button 
-                                variant="destructive" 
-                                size="icon" 
-                                className="absolute -top-2 -right-2 h-5 w-5 rounded-full z-10" 
-                                onClick={(e) => { e.stopPropagation(); handleRemoveImage(index); }}
-                                >
-                                <XCircle className="h-4 w-4" />
-                                </Button>
-                            </div>
-                            ))}
-                            {newProduct.variant.images && newProduct.variant.images.length > 0 && newProduct.variant.images.length < 3 && (
-                            <label htmlFor="images" className="cursor-pointer flex items-center justify-center w-14 h-14 border-2 border-dashed rounded text-muted-foreground hover:bg-muted/50">
-                                <Plus className="h-8 w-8" />
-                            </label>
-                            )}
-                        </div>
-                    </div>
-                    {newProduct.variant.images.length >= 2 && (
-                        <p className="text-xs text-muted-foreground text-center mt-2">
-                            Arrastra para organizar la portada.
-                        </p>
+            <div className="space-y-6 py-4 px-6 overflow-y-auto flex-grow">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8">
+                <div className="md:col-span-1 space-y-2">
+                  <Label>Imágenes (máx. 3)</Label>
+                  <label htmlFor="images" className="cursor-pointer flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted/50">
+                    {newProduct.variant.images && newProduct.variant.images.length > 0 ? (
+                      <img
+                        src={newProduct.variant.images[selectedImageIndex]}
+                        alt={`product-image-${selectedImageIndex}`}
+                        className="h-full w-full object-cover rounded-lg"
+                        onError={(e) => {
+                          e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5Y2EzYWYiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIj5JbWFnZW48L3RleHQ+PC9zdmc+';
+                          e.target.onerror = null;
+                        }}
+                      />
+                    ) : (
+                      <div className="text-center">
+                        <Package className="mx-auto h-8 w-8" />
+                        <p className="mt-1 text-sm">Subir imágenes</p>
+                      </div>
                     )}
+                  </label>
+                  <Input id="images" type="file" multiple accept="image/*" onChange={handleImageUpload} className="hidden" />
+                  <div className="w-full border rounded-lg p-2 mt-2">
+                    <div className="flex gap-2 justify-center">
+                      {newProduct.variant.images && newProduct.variant.images.map((image, index) => (
+                        <div
+                          key={image}
+                          className="relative"
+                          draggable="true"
+                          onDragStart={() => handleDragStart(index)}
+                          onDragOver={handleDragOver}
+                          onDrop={() => handleDrop(index)}
+                        >
+                          {index === 0 && (
+                            <Badge className="absolute -top-2 left-1/2 -translate-x-1/2 z-10" variant="secondary">
+                              Portada
+                            </Badge>
+                          )}
+                          <img
+                            src={image}
+                            alt={`product-thumb-${index}`}
+                            className={`w-14 h-14 object-cover rounded cursor-pointer hover:opacity-80 hover:ring-2 hover:ring-primary/50 transition-all ${selectedImageIndex === index ? 'ring-2 ring-primary ring-offset-2' : ''}`}
+                            onClick={(e) => {
+                              if (e.detail === 1) {
+                                // Single click - select image
+                                setSelectedImageIndex(index);
+                              } else if (e.detail === 2) {
+                                // Double click - open preview
+                                setPreviewImageSrc(image);
+                                setIsImagePreviewOpen(true);
+                              }
+                            }}
+                            onError={(e) => {
+                              e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5Y2EzYWYiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIj5JbWFnZW48L3RleHQ+PC9zdmc+';
+                              e.target.onerror = null;
+                            }}
+                          />
+                          <Button
+                            variant="destructive"
+                            size="icon"
+                            className="absolute -top-2 -right-2 h-5 w-5 rounded-full z-10"
+                            onClick={(e) => { e.stopPropagation(); handleRemoveImage(index); }}
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      {newProduct.variant.images && newProduct.variant.images.length > 0 && newProduct.variant.images.length < 3 && (
+                        <label htmlFor="images" className="cursor-pointer flex items-center justify-center w-14 h-14 border-2 border-dashed rounded text-muted-foreground hover:bg-muted/50">
+                          <Plus className="h-8 w-8" />
+                        </label>
+                      )}
+                    </div>
                   </div>
+                  {newProduct.variant.images.length >= 2 && (
+                    <p className="text-xs text-muted-foreground text-center mt-2">
+                      Arrastra para organizar la portada.
+                    </p>
+                  )}
+                </div>
 
-                  <div className="md:col-span-2 space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Nombre del Producto</Label>
+                <div className="md:col-span-2 space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nombre del Producto</Label>
                     <Input
                       id="name"
                       value={newProduct.name}
                       onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
                       placeholder={getDynamicPlaceholder('name', newProduct.productType)}
                     />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="brand">Marca</Label>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="brand">Marca</Label>
                     <Input
                       id="brand"
                       value={newProduct.brand}
                       onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })}
                       placeholder={getDynamicPlaceholder('brand', newProduct.productType)}
                     />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="sku">SKU Principal</Label>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sku">SKU Principal</Label>
                     <Input
                       id="sku"
                       value={newProduct.sku}
                       onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })}
                       placeholder={getDynamicPlaceholder('sku', newProduct.productType)}
                     />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="barcode">Código de Barras (UPC) (Opcional)</Label>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="barcode">Código de Barras (UPC) (Opcional)</Label>
                     <div className="flex items-center gap-2">
                       <Input
                         id="barcode"
@@ -2008,199 +2017,199 @@ useEffect(() => {
                     <p className="text-xs text-muted-foreground">
                       Escanea con la cámara o usa una pistola USB enfocando este campo.
                     </p>
-                    </div>
                   </div>
                 </div>
-                
-                <div className="grid grid-cols-2 gap-x-6 gap-y-4 pt-6 border-t">
-                  <div className="space-y-2">
-                    <Label htmlFor="category">Categoría</Label>
-                    <TagInput
-                      id="category"
-                      value={newProduct.category}
-                      onChange={(tags) => setNewProduct({ ...newProduct, category: tags })}
-                      placeholder={getPlaceholder('category', 'Ej: Bebidas, Alimentos')}
-                      helpText="Escribe una categoría y presiona coma (,) o Enter para agregar. Puedes agregar múltiples categorías para ayudar a la IA a encontrar productos más fácilmente."
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="subcategory">Sub-categoría</Label>
-                    <TagInput
-                      id="subcategory"
-                      value={newProduct.subcategory}
-                      onChange={(tags) => setNewProduct({ ...newProduct, subcategory: tags })}
-                      placeholder={getPlaceholder('subcategory', 'Ej: Gaseosas, Refrescos')}
-                      helpText="Escribe una sub-categoría y presiona coma (,) o Enter para agregar. Esto facilita la búsqueda sin necesidad de ser experto."
-                    />
-                  </div>
+              </div>
 
-                  <div className="col-span-2 space-y-2">
-                    <Label htmlFor="description">Descripción</Label>
-                    <Textarea
-                      id="description"
-                      value={newProduct.description}
-                      onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
-                      placeholder={getDynamicPlaceholder('description', newProduct.productType)}
-                    />
-                  </div>
-                  <div className="col-span-2 space-y-2">
-                    <Label htmlFor="ingredients">{ingredientLabel}</Label>
-                    <Textarea
-                      id="ingredients"
-                      value={newProduct.ingredients}
-                      onChange={(e) => setNewProduct({ ...newProduct, ingredients: e.target.value })}
-                      placeholder={isNonFoodRetailVertical ? 'Describe la composición del producto' : 'Lista de ingredientes'}
-                    />
-                  </div>
-                  {productAttributes.length > 0 && (
-                    <div className="col-span-2 border-t pt-4 mt-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-lg font-medium">Atributos del Producto</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Personaliza campos específicos de la vertical activa.
-                        </p>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {productAttributes.map((attr) => (
-                          <div key={attr.key} className="space-y-2">
-                            <Label>
-                              {attr.label}
-                              {attr.required ? <span className="text-red-500"> *</span> : null}
-                            </Label>
-                            {renderAttributeControl(
-                              attr,
-                              newProduct.attributes?.[attr.key],
-                              (rawValue) => handleProductAttributeChange(attr, rawValue),
-                            )}
-                            {attr.ui?.helperText && (
-                              <p className="text-xs text-muted-foreground">{attr.ui.helperText}</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {!isNonFoodRetailVertical && (
-                    <div className="flex items-center space-x-2 pt-2">
-                      <Checkbox
-                        id="isPerishable"
-                        checked={newProduct.isPerishable}
-                        onCheckedChange={(checked) =>
-                          setNewProduct({ ...newProduct, isPerishable: checked })
-                        }
-                      />
-                      <Label htmlFor="isPerishable">Es Perecedero</Label>
-                    </div>
-                  )}
-                  {verticalConfig?.allowsWeight && (
-                    <div className="flex items-center space-x-2 pt-2">
-                      <Checkbox id="isSoldByWeight" checked={newProduct.isSoldByWeight} onCheckedChange={(checked) => setNewProduct({...newProduct, isSoldByWeight: checked})} />
-                      <Label htmlFor="isSoldByWeight">Vendido por Peso</Label>
-                    </div>
-                  )}
-                  {!isNonFoodRetailVertical && (
-                    <div className="space-y-2">
-                      <Label htmlFor="unitOfMeasure">Unidad de Medida Base (Inventario)</Label>
-                      <Select
-                        value={newProduct.unitOfMeasure}
-                        onValueChange={(value) =>
-                          setNewProduct({ ...newProduct, unitOfMeasure: value })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={getDynamicPlaceholder('unitOfMeasure', newProduct.productType)} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {unitOptions.map((unit) => (
-                            <SelectItem key={unit} value={unit}>
-                              {unit}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-muted-foreground">
-                        Esta es la unidad en la que se guardará el inventario
+              <div className="grid grid-cols-2 gap-x-6 gap-y-4 pt-6 border-t">
+                <div className="space-y-2">
+                  <Label htmlFor="category">Categoría</Label>
+                  <TagInput
+                    id="category"
+                    value={newProduct.category}
+                    onChange={(tags) => setNewProduct({ ...newProduct, category: tags })}
+                    placeholder={getPlaceholder('category', 'Ej: Bebidas, Alimentos')}
+                    helpText="Escribe una categoría y presiona coma (,) o Enter para agregar. Puedes agregar múltiples categorías para ayudar a la IA a encontrar productos más fácilmente."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="subcategory">Sub-categoría</Label>
+                  <TagInput
+                    id="subcategory"
+                    value={newProduct.subcategory}
+                    onChange={(tags) => setNewProduct({ ...newProduct, subcategory: tags })}
+                    placeholder={getPlaceholder('subcategory', 'Ej: Gaseosas, Refrescos')}
+                    helpText="Escribe una sub-categoría y presiona coma (,) o Enter para agregar. Esto facilita la búsqueda sin necesidad de ser experto."
+                  />
+                </div>
+
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="description">Descripción</Label>
+                  <Textarea
+                    id="description"
+                    value={newProduct.description}
+                    onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                    placeholder={getDynamicPlaceholder('description', newProduct.productType)}
+                  />
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="ingredients">{ingredientLabel}</Label>
+                  <Textarea
+                    id="ingredients"
+                    value={newProduct.ingredients}
+                    onChange={(e) => setNewProduct({ ...newProduct, ingredients: e.target.value })}
+                    placeholder={isNonFoodRetailVertical ? 'Describe la composición del producto' : 'Lista de ingredientes'}
+                  />
+                </div>
+                {productAttributes.length > 0 && (
+                  <div className="col-span-2 border-t pt-4 mt-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-lg font-medium">Atributos del Producto</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Personaliza campos específicos de la vertical activa.
                       </p>
                     </div>
-                  )}
-                  {/* IVA solo para mercancía */}
-                  {!isNonFoodRetailVertical && newProduct.productType === 'simple' && (
-                    <div className="flex items-center space-x-2 pt-2">
-                      <Checkbox
-                        id="ivaApplicable"
-                        checked={!newProduct.ivaApplicable}
-                        onCheckedChange={(checked) =>
-                          setNewProduct({ ...newProduct, ivaApplicable: !checked })
-                        }
-                      />
-                      <Label htmlFor="ivaApplicable">Exento de IVA</Label>
-                    </div>
-                  )}
-                  {!isNonFoodRetailVertical && newProduct.isPerishable && (
-                    <>
-                      <div className="space-y-2">
-                        <Label htmlFor="shelfLifeDays">Vida Útil (días)</Label>
-                        <Input id="shelfLifeDays" type="number" value={newProduct.shelfLifeDays} onChange={(e) => setNewProduct({...newProduct, shelfLifeDays: parseInt(e.target.value) || 0})} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="storageTemperature">Temperatura de Almacenamiento</Label>
-                        <Select value={newProduct.storageTemperature} onValueChange={(value) => setNewProduct({...newProduct, storageTemperature: value})}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecciona una temperatura" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ambiente">Ambiente</SelectItem>
-                            <SelectItem value="refrigerado">Refrigerado</SelectItem>
-                            <SelectItem value="congelado">Congelado</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {newProduct.inventoryConfig && (
-                  <div className="col-span-2 border-t pt-4 mt-4">
-                    <h4 className="text-lg font-medium mb-4">Configuración de Inventario</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="minimumStock">Stock Mínimo</Label>
-                        <Input id="minimumStock" type="number" value={newProduct.inventoryConfig.minimumStock} onChange={(e) => setNewProduct({...newProduct, inventoryConfig: {...newProduct.inventoryConfig, minimumStock: parseInt(e.target.value) || 0}})} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="maximumStock">Stock Máximo</Label>
-                        <Input id="maximumStock" type="number" value={newProduct.inventoryConfig.maximumStock} onChange={(e) => setNewProduct({...newProduct, inventoryConfig: {...newProduct.inventoryConfig, maximumStock: parseInt(e.target.value) || 0}})} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="reorderPoint">Punto de Reorden</Label>
-                        <Input id="reorderPoint" type="number" value={newProduct.inventoryConfig.reorderPoint} onChange={(e) => setNewProduct({...newProduct, inventoryConfig: {...newProduct.inventoryConfig, reorderPoint: parseInt(e.target.value) || 0}})} />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="reorderQuantity">Cantidad de Reorden</Label>
-                        <Input id="reorderQuantity" type="number" value={newProduct.inventoryConfig.reorderQuantity} onChange={(e) => setNewProduct({...newProduct, inventoryConfig: {...newProduct.inventoryConfig, reorderQuantity: parseInt(e.target.value) || 0}})} />
-                      </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {productAttributes.map((attr) => (
+                        <div key={attr.key} className="space-y-2">
+                          <Label>
+                            {attr.label}
+                            {attr.required ? <span className="text-red-500"> *</span> : null}
+                          </Label>
+                          {renderAttributeControl(
+                            attr,
+                            newProduct.attributes?.[attr.key],
+                            (rawValue) => handleProductAttributeChange(attr, rawValue),
+                          )}
+                          {attr.ui?.helperText && (
+                            <p className="text-xs text-muted-foreground">{attr.ui.helperText}</p>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
-
-                {/* Sistema Global de Unidades de Medida - Solo para CONSUMABLES y SUPPLIES */}
-                {(newProduct.productType === 'consumable' || newProduct.productType === 'supply') && (
-                  <div className="col-span-2 border-t pt-4 mt-4">
-                    <UnitTypeFields
-                      unitTypeId={newProduct.unitTypeId}
-                      defaultUnit={newProduct.defaultUnit}
-                      purchaseUnit={newProduct.purchaseUnit}
-                      stockUnit={newProduct.stockUnit}
-                      consumptionUnit={newProduct.consumptionUnit}
-                      onChange={(data) => setNewProduct({ ...newProduct, ...data })}
-                      showConversions={true}
-                      className="space-y-4"
+                {!isNonFoodRetailVertical && (
+                  <div className="flex items-center space-x-2 pt-2">
+                    <Checkbox
+                      id="isPerishable"
+                      checked={newProduct.isPerishable}
+                      onCheckedChange={(checked) =>
+                        setNewProduct({ ...newProduct, isPerishable: checked })
+                      }
                     />
+                    <Label htmlFor="isPerishable">Es Perecedero</Label>
                   </div>
                 )}
+                {verticalConfig?.allowsWeight && (
+                  <div className="flex items-center space-x-2 pt-2">
+                    <Checkbox id="isSoldByWeight" checked={newProduct.isSoldByWeight} onCheckedChange={(checked) => setNewProduct({ ...newProduct, isSoldByWeight: checked })} />
+                    <Label htmlFor="isSoldByWeight">Vendido por Peso</Label>
+                  </div>
+                )}
+                {!isNonFoodRetailVertical && (
+                  <div className="space-y-2">
+                    <Label htmlFor="unitOfMeasure">Unidad de Medida Base (Inventario)</Label>
+                    <Select
+                      value={newProduct.unitOfMeasure}
+                      onValueChange={(value) =>
+                        setNewProduct({ ...newProduct, unitOfMeasure: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={getDynamicPlaceholder('unitOfMeasure', newProduct.productType)} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {unitOptions.map((unit) => (
+                          <SelectItem key={unit} value={unit}>
+                            {unit}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Esta es la unidad en la que se guardará el inventario
+                    </p>
+                  </div>
+                )}
+                {/* IVA solo para mercancía */}
+                {!isNonFoodRetailVertical && newProduct.productType === 'simple' && (
+                  <div className="flex items-center space-x-2 pt-2">
+                    <Checkbox
+                      id="ivaApplicable"
+                      checked={!newProduct.ivaApplicable}
+                      onCheckedChange={(checked) =>
+                        setNewProduct({ ...newProduct, ivaApplicable: !checked })
+                      }
+                    />
+                    <Label htmlFor="ivaApplicable">Exento de IVA</Label>
+                  </div>
+                )}
+                {!isNonFoodRetailVertical && newProduct.isPerishable && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="shelfLifeDays">Vida Útil (días)</Label>
+                      <Input id="shelfLifeDays" type="number" value={newProduct.shelfLifeDays} onChange={(e) => setNewProduct({ ...newProduct, shelfLifeDays: parseInt(e.target.value) || 0 })} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="storageTemperature">Temperatura de Almacenamiento</Label>
+                      <Select value={newProduct.storageTemperature} onValueChange={(value) => setNewProduct({ ...newProduct, storageTemperature: value })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona una temperatura" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ambiente">Ambiente</SelectItem>
+                          <SelectItem value="refrigerado">Refrigerado</SelectItem>
+                          <SelectItem value="congelado">Congelado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+              </div>
 
-                {/* Descuentos solo para mercancía */}
-                {newProduct.productType === 'simple' && (
+              {newProduct.inventoryConfig && (
+                <div className="col-span-2 border-t pt-4 mt-4">
+                  <h4 className="text-lg font-medium mb-4">Configuración de Inventario</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="minimumStock">Stock Mínimo</Label>
+                      <Input id="minimumStock" type="number" value={newProduct.inventoryConfig.minimumStock} onChange={(e) => setNewProduct({ ...newProduct, inventoryConfig: { ...newProduct.inventoryConfig, minimumStock: parseInt(e.target.value) || 0 } })} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="maximumStock">Stock Máximo</Label>
+                      <Input id="maximumStock" type="number" value={newProduct.inventoryConfig.maximumStock} onChange={(e) => setNewProduct({ ...newProduct, inventoryConfig: { ...newProduct.inventoryConfig, maximumStock: parseInt(e.target.value) || 0 } })} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="reorderPoint">Punto de Reorden</Label>
+                      <Input id="reorderPoint" type="number" value={newProduct.inventoryConfig.reorderPoint} onChange={(e) => setNewProduct({ ...newProduct, inventoryConfig: { ...newProduct.inventoryConfig, reorderPoint: parseInt(e.target.value) || 0 } })} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="reorderQuantity">Cantidad de Reorden</Label>
+                      <Input id="reorderQuantity" type="number" value={newProduct.inventoryConfig.reorderQuantity} onChange={(e) => setNewProduct({ ...newProduct, inventoryConfig: { ...newProduct.inventoryConfig, reorderQuantity: parseInt(e.target.value) || 0 } })} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Sistema Global de Unidades de Medida - Solo para CONSUMABLES y SUPPLIES */}
+              {(newProduct.productType === 'consumable' || newProduct.productType === 'supply') && (
+                <div className="col-span-2 border-t pt-4 mt-4">
+                  <UnitTypeFields
+                    unitTypeId={newProduct.unitTypeId}
+                    defaultUnit={newProduct.defaultUnit}
+                    purchaseUnit={newProduct.purchaseUnit}
+                    stockUnit={newProduct.stockUnit}
+                    consumptionUnit={newProduct.consumptionUnit}
+                    onChange={(data) => setNewProduct({ ...newProduct, ...data })}
+                    showConversions={true}
+                    className="space-y-4"
+                  />
+                </div>
+              )}
+
+              {/* Descuentos solo para mercancía */}
+              {newProduct.productType === 'simple' && (
                 <div className="col-span-2 border-t pt-4 mt-4">
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-lg font-medium">Descuentos por Volumen</h4>
@@ -2238,10 +2247,10 @@ useEffect(() => {
                               value={rule.minQuantity}
                               onChange={(e) => {
                                 const rules = [...(newProduct.pricingRules?.bulkDiscountRules || [])];
-                                rules[index] = {...rules[index], minQuantity: parseInt(e.target.value) || 1};
+                                rules[index] = { ...rules[index], minQuantity: parseInt(e.target.value) || 1 };
                                 setNewProduct({
                                   ...newProduct,
-                                  pricingRules: {...newProduct.pricingRules, bulkDiscountRules: rules}
+                                  pricingRules: { ...newProduct.pricingRules, bulkDiscountRules: rules }
                                 });
                               }}
                               placeholder="Ej: 10"
@@ -2257,10 +2266,10 @@ useEffect(() => {
                               value={rule.discountPercentage}
                               onChange={(e) => {
                                 const rules = [...(newProduct.pricingRules?.bulkDiscountRules || [])];
-                                rules[index] = {...rules[index], discountPercentage: parseFloat(e.target.value) || 0};
+                                rules[index] = { ...rules[index], discountPercentage: parseFloat(e.target.value) || 0 };
                                 setNewProduct({
                                   ...newProduct,
-                                  pricingRules: {...newProduct.pricingRules, bulkDiscountRules: rules}
+                                  pricingRules: { ...newProduct.pricingRules, bulkDiscountRules: rules }
                                 });
                               }}
                               placeholder="Ej: 10"
@@ -2275,7 +2284,7 @@ useEffect(() => {
                               rules.splice(index, 1);
                               setNewProduct({
                                 ...newProduct,
-                                pricingRules: {...newProduct.pricingRules, bulkDiscountRules: rules}
+                                pricingRules: { ...newProduct.pricingRules, bulkDiscountRules: rules }
                               });
                             }}
                           >
@@ -2292,7 +2301,7 @@ useEffect(() => {
                           rules.push({ minQuantity: 1, discountPercentage: 0 });
                           setNewProduct({
                             ...newProduct,
-                            pricingRules: {...newProduct.pricingRules, bulkDiscountRules: rules}
+                            pricingRules: { ...newProduct.pricingRules, bulkDiscountRules: rules }
                           });
                         }}
                       >
@@ -2301,10 +2310,10 @@ useEffect(() => {
                     </div>
                   )}
                 </div>
-                )}
+              )}
 
-                {/* Promociones solo para mercancía */}
-                {newProduct.productType === 'simple' && (
+              {/* Promociones solo para mercancía */}
+              {newProduct.productType === 'simple' && (
                 <div className="col-span-2 border-t pt-4 mt-4">
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-lg font-medium">Promoción/Oferta Especial</h4>
@@ -2473,10 +2482,10 @@ useEffect(() => {
                     </div>
                   )}
                 </div>
-                )}
+              )}
 
-                {/* Unidades múltiples solo para mercancía en verticales de comida */}
-                {!isNonFoodRetailVertical && newProduct.productType === 'simple' && (
+              {/* Unidades múltiples solo para mercancía en verticales de comida */}
+              {!isNonFoodRetailVertical && newProduct.productType === 'simple' && (
                 <div className="col-span-2 border-t pt-4 mt-4">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex-1">
@@ -2487,7 +2496,7 @@ useEffect(() => {
                       <Checkbox
                         id="hasMultipleSellingUnits"
                         checked={newProduct.hasMultipleSellingUnits}
-                        onCheckedChange={(checked) => setNewProduct({...newProduct, hasMultipleSellingUnits: checked})}
+                        onCheckedChange={(checked) => setNewProduct({ ...newProduct, hasMultipleSellingUnits: checked })}
                       />
                       <Label htmlFor="hasMultipleSellingUnits">Habilitar</Label>
                     </div>
@@ -2522,7 +2531,7 @@ useEffect(() => {
                               onClick={() => {
                                 const units = [...newProduct.sellingUnits];
                                 units.splice(index, 1);
-                                setNewProduct({...newProduct, sellingUnits: units});
+                                setNewProduct({ ...newProduct, sellingUnits: units });
                               }}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -2537,7 +2546,7 @@ useEffect(() => {
                                 onChange={(e) => {
                                   const units = [...newProduct.sellingUnits];
                                   units[index].name = e.target.value;
-                                  setNewProduct({...newProduct, sellingUnits: units});
+                                  setNewProduct({ ...newProduct, sellingUnits: units });
                                 }}
                               />
                             </div>
@@ -2549,9 +2558,21 @@ useEffect(() => {
                                 onChange={(e) => {
                                   const units = [...newProduct.sellingUnits];
                                   units[index].abbreviation = e.target.value;
-                                  setNewProduct({...newProduct, sellingUnits: units});
+                                  setNewProduct({ ...newProduct, sellingUnits: units });
                                 }}
                               />
+                            </div>
+                            <div className="flex items-center space-x-2 pt-8">
+                              <Checkbox
+                                id={`new-su-weight-${index}`}
+                                checked={unit.isSoldByWeight || false}
+                                onCheckedChange={(checked) => {
+                                  const units = [...newProduct.sellingUnits];
+                                  units[index].isSoldByWeight = checked;
+                                  setNewProduct({ ...newProduct, sellingUnits: units });
+                                }}
+                              />
+                              <Label htmlFor={`new-su-weight-${index}`}>Vendido por peso</Label>
                             </div>
                             <div className="space-y-2">
                               <Label className="flex items-center gap-1">
@@ -2580,7 +2601,7 @@ useEffect(() => {
                                       conversionFactor: parsed !== null ? parsed : null,
                                     };
                                   });
-                                  setNewProduct({...newProduct, sellingUnits: units});
+                                  setNewProduct({ ...newProduct, sellingUnits: units });
                                 }}
                                 onBlur={() => {
                                   const units = newProduct.sellingUnits.map((currentUnit, unitIndex) => {
@@ -2595,7 +2616,7 @@ useEffect(() => {
                                       conversionFactor: parsed !== null ? parsed : null,
                                     };
                                   });
-                                  setNewProduct({...newProduct, sellingUnits: units});
+                                  setNewProduct({ ...newProduct, sellingUnits: units });
                                 }}
                               />
                               <p className="text-xs text-muted-foreground">
@@ -2628,7 +2649,7 @@ useEffect(() => {
                                       pricePerUnit: parsed !== null ? parsed : null,
                                     };
                                   });
-                                  setNewProduct({...newProduct, sellingUnits: units});
+                                  setNewProduct({ ...newProduct, sellingUnits: units });
                                 }}
                                 onBlur={() => {
                                   const units = newProduct.sellingUnits.map((currentUnit, unitIndex) => {
@@ -2643,7 +2664,7 @@ useEffect(() => {
                                       pricePerUnit: parsed !== null ? parsed : null,
                                     };
                                   });
-                                  setNewProduct({...newProduct, sellingUnits: units});
+                                  setNewProduct({ ...newProduct, sellingUnits: units });
                                 }}
                               />
                             </div>
@@ -2671,7 +2692,7 @@ useEffect(() => {
                                       costPerUnit: parsed !== null ? parsed : null,
                                     };
                                   });
-                                  setNewProduct({...newProduct, sellingUnits: units});
+                                  setNewProduct({ ...newProduct, sellingUnits: units });
                                 }}
                                 onBlur={() => {
                                   const units = newProduct.sellingUnits.map((currentUnit, unitIndex) => {
@@ -2686,7 +2707,7 @@ useEffect(() => {
                                       costPerUnit: parsed !== null ? parsed : null,
                                     };
                                   });
-                                  setNewProduct({...newProduct, sellingUnits: units});
+                                  setNewProduct({ ...newProduct, sellingUnits: units });
                                 }}
                               />
                             </div>
@@ -2700,7 +2721,7 @@ useEffect(() => {
                                 onChange={(e) => {
                                   const units = [...newProduct.sellingUnits];
                                   units[index].minimumQuantity = parseFloat(e.target.value) || 0;
-                                  setNewProduct({...newProduct, sellingUnits: units});
+                                  setNewProduct({ ...newProduct, sellingUnits: units });
                                 }}
                               />
                             </div>
@@ -2714,7 +2735,7 @@ useEffect(() => {
                                 onChange={(e) => {
                                   const units = [...newProduct.sellingUnits];
                                   units[index].incrementStep = parseFloat(e.target.value) || 0;
-                                  setNewProduct({...newProduct, sellingUnits: units});
+                                  setNewProduct({ ...newProduct, sellingUnits: units });
                                 }}
                               />
                             </div>
@@ -2728,7 +2749,7 @@ useEffect(() => {
                                       ...u,
                                       isDefault: i === index ? checked : false
                                     }));
-                                    setNewProduct({...newProduct, sellingUnits: units});
+                                    setNewProduct({ ...newProduct, sellingUnits: units });
                                   }}
                                 />
                                 <Label htmlFor={`default-${index}`}>Por defecto</Label>
@@ -2742,7 +2763,7 @@ useEffect(() => {
                                   onCheckedChange={(checked) => {
                                     const units = [...newProduct.sellingUnits];
                                     units[index].isActive = checked;
-                                    setNewProduct({...newProduct, sellingUnits: units});
+                                    setNewProduct({ ...newProduct, sellingUnits: units });
                                   }}
                                 />
                                 <Label htmlFor={`active-${index}`}>Activa</Label>
@@ -2780,100 +2801,100 @@ useEffect(() => {
                     </div>
                   )}
                 </div>
-                )}
+              )}
 
-                <div className="col-span-2 border-t pt-4 mt-4">
-                  <h4 className="text-lg font-medium mb-4">Variante Inicial (Requerida)</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="col-span-2 border-t pt-4 mt-4">
+                <h4 className="text-lg font-medium mb-4">Variante Inicial (Requerida)</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="variantName">Nombre Variante</Label>
+                    <Input
+                      id="variantName"
+                      value={newProduct.variant.name}
+                      onChange={(e) =>
+                        setNewProduct({
+                          ...newProduct,
+                          variant: { ...newProduct.variant, name: e.target.value },
+                        })
+                      }
+                      placeholder={getPlaceholder('variantName', 'Ej: 1kg')}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="variantSku">SKU Variante</Label>
+                    <Input
+                      id="variantSku"
+                      value={newProduct.variant.sku}
+                      onChange={(e) =>
+                        setNewProduct({
+                          ...newProduct,
+                          variant: { ...newProduct.variant, sku: e.target.value },
+                        })
+                      }
+                      placeholder={getPlaceholder('variantSku', 'Ej: ARR-BLANCO-1KG')}
+                    />
+                  </div>
+                  {!isNonFoodRetailVertical && (
                     <div className="space-y-2">
-                      <Label htmlFor="variantName">Nombre Variante</Label>
+                      <Label htmlFor="variantUnit">Unidad</Label>
                       <Input
-                        id="variantName"
-                        value={newProduct.variant.name}
+                        id="variantUnit"
+                        value={newProduct.variant.unit}
                         onChange={(e) =>
                           setNewProduct({
                             ...newProduct,
-                            variant: { ...newProduct.variant, name: e.target.value },
+                            variant: { ...newProduct.variant, unit: e.target.value },
                           })
                         }
-                        placeholder={getPlaceholder('variantName', 'Ej: 1kg')}
+                        placeholder={getPlaceholder('variantUnit', 'Ej: kg, unidad')}
                       />
                     </div>
+                  )}
+                  {!isNonFoodRetailVertical && (
                     <div className="space-y-2">
-                      <Label htmlFor="variantSku">SKU Variante</Label>
+                      <Label htmlFor="variantUnitSize">Tamaño Unidad</Label>
                       <Input
-                        id="variantSku"
-                        value={newProduct.variant.sku}
-                        onChange={(e) =>
-                          setNewProduct({
-                            ...newProduct,
-                            variant: { ...newProduct.variant, sku: e.target.value },
-                          })
-                        }
-                        placeholder={getPlaceholder('variantSku', 'Ej: ARR-BLANCO-1KG')}
-                      />
-                    </div>
-                    {!isNonFoodRetailVertical && (
-                      <div className="space-y-2">
-                        <Label htmlFor="variantUnit">Unidad</Label>
-                        <Input
-                          id="variantUnit"
-                          value={newProduct.variant.unit}
-                          onChange={(e) =>
-                            setNewProduct({
-                              ...newProduct,
-                              variant: { ...newProduct.variant, unit: e.target.value },
-                            })
-                          }
-                          placeholder={getPlaceholder('variantUnit', 'Ej: kg, unidad')}
-                        />
-                      </div>
-                    )}
-                    {!isNonFoodRetailVertical && (
-                      <div className="space-y-2">
-                        <Label htmlFor="variantUnitSize">Tamaño Unidad</Label>
-                        <Input
-                          id="variantUnitSize"
-                          type="number"
-                          value={newProduct.variant.unitSize}
-                          onChange={(e) =>
-                            setNewProduct({
-                              ...newProduct,
-                              variant: {
-                                ...newProduct.variant,
-                                unitSize: parseFloat(e.target.value) || 0,
-                              },
-                            })
-                          }
-                        />
-                      </div>
-                    )}
-                    <div className="space-y-2">
-                      <Label htmlFor="variantCostPrice">Precio Costo ($)</Label>
-                      <Input
-                        id="variantCostPrice"
+                        id="variantUnitSize"
                         type="number"
-                        value={newProduct.variant.costPrice}
-                        onFocus={() => {
-                          if (newProduct.variant.costPrice === 0) {
-                            setNewProduct({...newProduct, variant: {...newProduct.variant, costPrice: ''}});
-                          }
-                        }}
-                        onChange={(e) => {
-                          setNewProduct({...newProduct, variant: {...newProduct.variant, costPrice: e.target.value }});
-                        }}
-                        onBlur={() => {
-                          const price = parseFloat(newProduct.variant.costPrice);
-                          if (isNaN(price) || newProduct.variant.costPrice === '') {
-                            setNewProduct({...newProduct, variant: {...newProduct.variant, costPrice: 0}});
-                          } else {
-                            setNewProduct({...newProduct, variant: {...newProduct.variant, costPrice: price}});
-                          }
-                        }}
+                        value={newProduct.variant.unitSize}
+                        onChange={(e) =>
+                          setNewProduct({
+                            ...newProduct,
+                            variant: {
+                              ...newProduct.variant,
+                              unitSize: parseFloat(e.target.value) || 0,
+                            },
+                          })
+                        }
                       />
                     </div>
-                    {/* Precio de Venta solo para mercancía */}
-                    {newProduct.productType === 'simple' && (
+                  )}
+                  <div className="space-y-2">
+                    <Label htmlFor="variantCostPrice">Precio Costo ($)</Label>
+                    <Input
+                      id="variantCostPrice"
+                      type="number"
+                      value={newProduct.variant.costPrice}
+                      onFocus={() => {
+                        if (newProduct.variant.costPrice === 0) {
+                          setNewProduct({ ...newProduct, variant: { ...newProduct.variant, costPrice: '' } });
+                        }
+                      }}
+                      onChange={(e) => {
+                        setNewProduct({ ...newProduct, variant: { ...newProduct.variant, costPrice: e.target.value } });
+                      }}
+                      onBlur={() => {
+                        const price = parseFloat(newProduct.variant.costPrice);
+                        if (isNaN(price) || newProduct.variant.costPrice === '') {
+                          setNewProduct({ ...newProduct, variant: { ...newProduct.variant, costPrice: 0 } });
+                        } else {
+                          setNewProduct({ ...newProduct, variant: { ...newProduct.variant, costPrice: price } });
+                        }
+                      }}
+                    />
+                  </div>
+                  {/* Precio de Venta solo para mercancía */}
+                  {newProduct.productType === 'simple' && (
                     <div className="space-y-2">
                       <Label htmlFor="variantBasePrice">Precio de Venta ($)</Label>
                       <Input
@@ -2882,173 +2903,190 @@ useEffect(() => {
                         value={newProduct.variant.basePrice}
                         onFocus={() => {
                           if (newProduct.variant.basePrice === 0) {
-                            setNewProduct({...newProduct, variant: {...newProduct.variant, basePrice: ''}});
+                            setNewProduct({ ...newProduct, variant: { ...newProduct.variant, basePrice: '' } });
                           }
                         }}
                         onChange={(e) => {
-                          setNewProduct({...newProduct, variant: {...newProduct.variant, basePrice: e.target.value }});
+                          setNewProduct({ ...newProduct, variant: { ...newProduct.variant, basePrice: e.target.value } });
                         }}
                         onBlur={() => {
                           const price = parseFloat(newProduct.variant.basePrice);
                           if (isNaN(price) || newProduct.variant.basePrice === '') {
-                            setNewProduct({...newProduct, variant: {...newProduct.variant, basePrice: 0}});
+                            setNewProduct({ ...newProduct, variant: { ...newProduct.variant, basePrice: 0 } });
                           } else {
-                            setNewProduct({...newProduct, variant: {...newProduct.variant, basePrice: price}});
+                            setNewProduct({ ...newProduct, variant: { ...newProduct.variant, basePrice: price } });
                           }
                         }}
                       />
                     </div>
-                    )}
-                  </div>
-                  {variantAttributes.length > 0 && (
-                    <div className="border-t pt-4 mt-4">
-                      <h5 className="text-base font-medium mb-4">Atributos de la Variante</h5>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {variantAttributes.map((attr) => (
-                          <div key={attr.key} className="space-y-2">
-                            <Label>
-                              {attr.label}
-                              {attr.required ? <span className="text-red-500"> *</span> : null}
-                            </Label>
-                            {renderAttributeControl(
-                              attr,
-                              newProduct.variant?.attributes?.[attr.key],
-                              (rawValue) => handleVariantAttributeChange(attr, rawValue),
-                            )}
-                            {attr.ui?.helperText && (
-                              <p className="text-xs text-muted-foreground">{attr.ui.helperText}</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
                   )}
-                  {supportsVariants && (
-                    <div className="border-t pt-4 mt-4 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h5 className="text-base font-medium">Variantes adicionales</h5>
-                          <p className="text-sm text-muted-foreground">
-                            {isNonFoodRetailVertical
-                              ? 'Crea combinaciones adicionales (talla, color, etc.) para este producto.'
-                              : 'Agrega presentaciones adicionales (tamaños, empaques, sabores, etc.) para este producto.'}
-                          </p>
-                        </div>
-                        <Button type="button" variant="outline" size="sm" onClick={addAdditionalVariant}>
-                          <Plus className="h-4 w-4 mr-2" />
-                          Agregar variante
-                        </Button>
-                      </div>
-                      {additionalVariants.length === 0 && (
-                        <p className="text-sm text-muted-foreground">
-                          El producto usará únicamente la variante inicial hasta que agregues más opciones.
-                        </p>
-                      )}
-                      {additionalVariants.map((variant, index) => (
-                        <div key={index} className="border rounded-lg p-4 space-y-4 bg-muted/20">
-                          <div className="flex items-center justify-between">
-                            <h6 className="font-medium">Variante {index + 2}</h6>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeAdditionalVariant(index)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              <span className="sr-only">Eliminar variante</span>
-                            </Button>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                              <Label>Nombre</Label>
-                              <Input
-                                value={variant.name}
-                                onChange={(e) => updateAdditionalVariantField(index, 'name', e.target.value)}
-                                placeholder={getPlaceholder('variantAdditionalName', 'Ej: Talla M / Color Azul')}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>SKU</Label>
-                              <Input
-                                value={variant.sku}
-                                onChange={(e) => updateAdditionalVariantField(index, 'sku', e.target.value)}
-                                placeholder={
-                                  getPlaceholder(
-                                    'variantAdditionalSku',
-                                    `Ej: ${newProduct.sku || 'SKU'}-VAR${index + 2}`,
-                                  )
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Código de barras</Label>
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  value={variant.barcode}
-                                  onChange={(e) => updateAdditionalVariantField(index, 'barcode', e.target.value)}
-                                  placeholder="Opcional"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => openBarcodeScanner({ scope: 'additional', index })}
-                                  title="Escanear código con cámara"
-                                >
-                                  <Scan className="h-4 w-4" />
-                                  <span className="sr-only">Escanear código</span>
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label>Precio costo ($)</Label>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                value={variant.costPrice ?? 0}
-                                onChange={(e) => updateAdditionalVariantField(index, 'costPrice', e.target.value)}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Precio venta ($)</Label>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                value={variant.basePrice ?? 0}
-                                onChange={(e) => updateAdditionalVariantField(index, 'basePrice', e.target.value)}
-                              />
-                            </div>
-                          </div>
-                          {variantAttributes.length > 0 && (
-                            <div className="border-t pt-4 mt-4">
-                              <h6 className="text-sm font-medium mb-3">Atributos específicos</h6>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {variantAttributes.map((attr) => (
-                                  <div key={attr.key} className="space-y-2">
-                                    <Label>
-                                      {attr.label}
-                                      {attr.required ? <span className="text-red-500"> *</span> : null}
-                                    </Label>
-                                    {renderAttributeControl(
-                                      attr,
-                                      variant.attributes?.[attr.key],
-                                      (rawValue) => handleAdditionalVariantAttributeChange(index, attr, rawValue),
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
+                </div>
+                {variantAttributes.length > 0 && (
+                  <div className="border-t pt-4 mt-4">
+                    <h5 className="text-base font-medium mb-4">Atributos de la Variante</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {variantAttributes.map((attr) => (
+                        <div key={attr.key} className="space-y-2">
+                          <Label>
+                            {attr.label}
+                            {attr.required ? <span className="text-red-500"> *</span> : null}
+                          </Label>
+                          {renderAttributeControl(
+                            attr,
+                            newProduct.variant?.attributes?.[attr.key],
+                            (rawValue) => handleVariantAttributeChange(attr, rawValue),
+                          )}
+                          {attr.ui?.helperText && (
+                            <p className="text-xs text-muted-foreground">{attr.ui.helperText}</p>
                           )}
                         </div>
                       ))}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
+                {supportsVariants && (
+                  <div className="border-t pt-4 mt-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h5 className="text-base font-medium">Variantes adicionales</h5>
+                        <p className="text-sm text-muted-foreground">
+                          {isNonFoodRetailVertical
+                            ? 'Crea combinaciones adicionales (talla, color, etc.) para este producto.'
+                            : 'Agrega presentaciones adicionales (tamaños, empaques, sabores, etc.) para este producto.'}
+                        </p>
+                      </div>
+                      <Button type="button" variant="outline" size="sm" onClick={addAdditionalVariant}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Agregar variante
+                      </Button>
+                    </div>
+                    {additionalVariants.length === 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        El producto usará únicamente la variante inicial hasta que agregues más opciones.
+                      </p>
+                    )}
+                    {additionalVariants.map((variant, index) => (
+                      <div key={index} className="border rounded-lg p-4 space-y-4 bg-muted/20">
+                        <div className="flex items-center justify-between">
+                          <h6 className="font-medium">Variante {index + 2}</h6>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeAdditionalVariant(index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Eliminar variante</span>
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label>Nombre</Label>
+                            <Input
+                              value={variant.name}
+                              onChange={(e) => updateAdditionalVariantField(index, 'name', e.target.value)}
+                              placeholder={getPlaceholder('variantAdditionalName', 'Ej: Talla M / Color Azul')}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>SKU</Label>
+                            <Input
+                              value={variant.sku}
+                              onChange={(e) => updateAdditionalVariantField(index, 'sku', e.target.value)}
+                              placeholder={
+                                getPlaceholder(
+                                  'variantAdditionalSku',
+                                  `Ej: ${newProduct.sku || 'SKU'}-VAR${index + 2}`,
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Código de barras</Label>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={variant.barcode}
+                                onChange={(e) => updateAdditionalVariantField(index, 'barcode', e.target.value)}
+                                placeholder="Opcional"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => openBarcodeScanner({ scope: 'additional', index })}
+                                title="Escanear código con cámara"
+                              >
+                                <Scan className="h-4 w-4" />
+                                <span className="sr-only">Escanear código</span>
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label>Unidad</Label>
+                            <Select
+                              value={variant.unit || newProduct.unitOfMeasure || ''}
+                              onValueChange={(value) => updateAdditionalVariantField(index, 'unit', value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecciona unidad" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={newProduct.unitOfMeasure || 'unidad'}>{newProduct.unitOfMeasure || 'unidad'}</SelectItem>
+                                {newProduct.sellingUnits.map((u, i) => (
+                                  <SelectItem key={i} value={u.abbreviation || u.name}>{u.name} ({u.abbreviation})</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Precio costo ($)</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={variant.costPrice ?? 0}
+                              onChange={(e) => updateAdditionalVariantField(index, 'costPrice', e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Precio venta ($)</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={variant.basePrice ?? 0}
+                              onChange={(e) => updateAdditionalVariantField(index, 'basePrice', e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        {variantAttributes.length > 0 && (
+                          <div className="border-t pt-4 mt-4">
+                            <h6 className="text-sm font-medium mb-3">Atributos específicos</h6>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {variantAttributes.map((attr) => (
+                                <div key={attr.key} className="space-y-2">
+                                  <Label>
+                                    {attr.label}
+                                    {attr.required ? <span className="text-red-500"> *</span> : null}
+                                  </Label>
+                                  {renderAttributeControl(
+                                    attr,
+                                    variant.attributes?.[attr.key],
+                                    (rawValue) => handleAdditionalVariantAttributeChange(index, attr, rawValue),
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-                {/* Configuración de Consumibles */}
-                {newProduct.productType === 'consumable' && (
+              {/* Configuración de Consumibles */}
+              {newProduct.productType === 'consumable' && (
                 <div className="col-span-2 border-t pt-4 mt-4">
                   <h4 className="text-lg font-medium mb-4">Configuración de Consumible</h4>
                   <div className="space-y-4">
@@ -3136,10 +3174,10 @@ useEffect(() => {
                     </div>
                   </div>
                 </div>
-                )}
+              )}
 
-                {/* Configuración de Suministros */}
-                {newProduct.productType === 'supply' && (
+              {/* Configuración de Suministros */}
+              {newProduct.productType === 'supply' && (
                 <div className="col-span-2 border-t pt-4 mt-4">
                   <h4 className="text-lg font-medium mb-4">Configuración de Suministro</h4>
                   <div className="space-y-4">
@@ -3332,14 +3370,14 @@ useEffect(() => {
                     </div>
                   </div>
                 </div>
-                )}
-              </div>
-              <DialogFooter className="px-6 pb-6 pt-4 border-t">
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
-                <Button onClick={handleAddProduct}>Crear Producto</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              )}
+            </div>
+            <DialogFooter className="px-6 pb-6 pt-4 border-t">
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
+              <Button onClick={handleAddProduct}>Crear Producto</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
       <Card>
         <CardHeader />
@@ -3414,8 +3452,8 @@ useEffect(() => {
                     </TableCell>
                     <TableCell>
                       {product.isActive ?
-                        <Badge className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1"/>Activo</Badge> :
-                        <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1"/>Inactivo</Badge>}
+                        <Badge className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Activo</Badge> :
+                        <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Inactivo</Badge>}
                     </TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
@@ -3436,6 +3474,10 @@ useEffect(() => {
                           }
                           if (!productToEdit.attributes) {
                             productToEdit.attributes = {};
+                          }
+                          // Ensure top-level origin is copied to attributes for display
+                          if (productToEdit.origin && !productToEdit.attributes.origin) {
+                            productToEdit.attributes.origin = productToEdit.origin;
                           }
                           if (!productToEdit.inventoryConfig) { // Defensive check
                             productToEdit.inventoryConfig = { minimumStock: 10, maximumStock: 100, reorderPoint: 20, reorderQuantity: 50, trackLots: true, trackExpiration: true, fefoEnabled: true };
@@ -3543,981 +3585,1004 @@ useEffect(() => {
       </Card>
 
       {/* Edit Product Dialog */}
-      {editingProduct && (
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
-            <DialogHeader>
-              <DialogTitle>Editar Producto: {editingProduct.name}</DialogTitle>
-              <DialogDescription>Modifica la información del producto y sus precios.</DialogDescription>
-            </DialogHeader>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-4 overflow-y-auto pr-2">
-              <div className="space-y-2">
-                <Label htmlFor="edit-name">Nombre del Producto</Label>
-                <Input id="edit-name" value={editingProduct.name} onChange={(e) => setEditingProduct({...editingProduct, name: e.target.value})} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-category">Categoría</Label>
-                <TagInput
-                  id="edit-category"
-                  value={Array.isArray(editingProduct.category) ? editingProduct.category : (editingProduct.category ? [editingProduct.category] : [])}
-                  onChange={(tags) => setEditingProduct({...editingProduct, category: tags})}
-                  placeholder="Ej: Bebidas, Alimentos"
-                  helpText="Escribe una categoría y presiona coma (,) o Enter para agregar. Puedes agregar múltiples categorías para ayudar a la IA a encontrar productos más fácilmente."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-subcategory">Sub-categoría</Label>
-                <TagInput
-                  id="edit-subcategory"
-                  value={Array.isArray(editingProduct.subcategory) ? editingProduct.subcategory : (editingProduct.subcategory ? [editingProduct.subcategory] : [])}
-                  onChange={(tags) => setEditingProduct({...editingProduct, subcategory: tags})}
-                  placeholder="Ej: Gaseosas, Refrescos"
-                  helpText="Escribe una sub-categoría y presiona coma (,) o Enter para agregar. Esto facilita la búsqueda sin necesidad de ser experto."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-brand">Marca</Label>
-                <Input id="edit-brand" value={editingProduct.brand} onChange={(e) => setEditingProduct({...editingProduct, brand: e.target.value})} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-sku">SKU base</Label>
-                <Input
-                  id="edit-sku"
-                  value={editingProduct.sku}
-                  readOnly
-                  disabled
-                  className="bg-muted cursor-not-allowed"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Este SKU identifica al producto dentro del sistema y no puede modificarse. Actualiza los SKU y códigos de barras desde la sección de variantes.
-                </p>
-              </div>
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="edit-description">Descripción</Label>
-                <Textarea id="edit-description" value={editingProduct.description} onChange={(e) => setEditingProduct({...editingProduct, description: e.target.value})} />
-              </div>
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="edit-ingredients">{ingredientLabel}</Label>
-                <Textarea
-                  id="edit-ingredients"
-                  value={editingProduct.ingredients}
-                  onChange={(e) => setEditingProduct({ ...editingProduct, ingredients: e.target.value })}
-                  placeholder={isNonFoodRetailVertical ? 'Describe la composición del producto' : 'Lista de ingredientes'}
-                />
-              </div>
-              {productAttributes.length > 0 && (
-                <div className="col-span-2 border-t pt-4 mt-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-lg font-medium">Atributos del Producto</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Se guardarán en la ficha del producto.
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {productAttributes.map((attr) => (
-                      <div key={attr.key} className="space-y-2">
-                        <Label>
-                          {attr.label}
-                          {attr.required ? <span className="text-red-500"> *</span> : null}
-                        </Label>
-                        {renderAttributeControl(
-                          attr,
-                          editingProduct.attributes?.[attr.key],
-                          (rawValue) => handleEditProductAttributeChange(attr, rawValue),
-                        )}
-                        {attr.ui?.helperText && (
-                          <p className="text-xs text-muted-foreground">{attr.ui.helperText}</p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {verticalConfig?.allowsWeight && (
-                <div className="flex items-center space-x-2 pt-2">
-                  <Checkbox id="edit-isSoldByWeight" checked={editingProduct.isSoldByWeight} onCheckedChange={(checked) => setEditingProduct({...editingProduct, isSoldByWeight: checked})} />
-                  <Label htmlFor="edit-isSoldByWeight">Vendido por Peso</Label>
-                </div>
-              )}
-
-              {!isNonFoodRetailVertical && (
-                <div className="flex items-center space-x-2 pt-2">
-                  <Checkbox
-                    id="edit-ivaApplicable"
-                    checked={!editingProduct.ivaApplicable}
-                    onCheckedChange={(checked) =>
-                      setEditingProduct({ ...editingProduct, ivaApplicable: !checked })
-                    }
-                  />
-                  <Label htmlFor="edit-ivaApplicable">Exento de IVA</Label>
-                </div>
-              )}
-
-              {!isNonFoodRetailVertical && (
-                <div className="flex items-center space-x-2 pt-2">
-                  <Checkbox
-                    id="edit-isPerishable"
-                    checked={editingProduct.isPerishable}
-                    onCheckedChange={(checked) =>
-                      setEditingProduct({ ...editingProduct, isPerishable: checked })
-                    }
-                  />
-                  <Label htmlFor="edit-isPerishable">Es Perecedero</Label>
-                </div>
-              )}
-
-              {!isNonFoodRetailVertical && (
+      {
+        editingProduct && (
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
+              <DialogHeader>
+                <DialogTitle>Editar Producto: {editingProduct.name}</DialogTitle>
+                <DialogDescription>Modifica la información del producto y sus precios.</DialogDescription>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-4 overflow-y-auto pr-2">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-unitOfMeasure">Unidad de Medida Base (Inventario)</Label>
-                  <Select
-                    value={editingProduct.unitOfMeasure}
-                    onValueChange={(value) =>
-                      setEditingProduct({ ...editingProduct, unitOfMeasure: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {unitOptions.map((unit) => (
-                        <SelectItem key={unit} value={unit}>
-                          {unit}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="edit-name">Nombre del Producto</Label>
+                  <Input id="edit-name" value={editingProduct.name} onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-category">Categoría</Label>
+                  <TagInput
+                    id="edit-category"
+                    value={Array.isArray(editingProduct.category) ? editingProduct.category : (editingProduct.category ? [editingProduct.category] : [])}
+                    onChange={(tags) => setEditingProduct({ ...editingProduct, category: tags })}
+                    placeholder="Ej: Bebidas, Alimentos"
+                    helpText="Escribe una categoría y presiona coma (,) o Enter para agregar. Puedes agregar múltiples categorías para ayudar a la IA a encontrar productos más fácilmente."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-subcategory">Sub-categoría</Label>
+                  <TagInput
+                    id="edit-subcategory"
+                    value={Array.isArray(editingProduct.subcategory) ? editingProduct.subcategory : (editingProduct.subcategory ? [editingProduct.subcategory] : [])}
+                    onChange={(tags) => setEditingProduct({ ...editingProduct, subcategory: tags })}
+                    placeholder="Ej: Gaseosas, Refrescos"
+                    helpText="Escribe una sub-categoría y presiona coma (,) o Enter para agregar. Esto facilita la búsqueda sin necesidad de ser experto."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-brand">Marca</Label>
+                  <Input id="edit-brand" value={editingProduct.brand} onChange={(e) => setEditingProduct({ ...editingProduct, brand: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-sku">SKU base</Label>
+                  <Input
+                    id="edit-sku"
+                    value={editingProduct.sku}
+                    readOnly
+                    disabled
+                    className="bg-muted cursor-not-allowed"
+                  />
                   <p className="text-xs text-muted-foreground">
-                    Esta es la unidad en la que se guardará el inventario
+                    Este SKU identifica al producto dentro del sistema y no puede modificarse. Actualiza los SKU y códigos de barras desde la sección de variantes.
                   </p>
                 </div>
-              )}
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="edit-description">Descripción</Label>
+                  <Textarea id="edit-description" value={editingProduct.description} onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })} />
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="edit-ingredients">{ingredientLabel}</Label>
+                  <Textarea
+                    id="edit-ingredients"
+                    value={editingProduct.ingredients}
+                    onChange={(e) => setEditingProduct({ ...editingProduct, ingredients: e.target.value })}
+                    placeholder={isNonFoodRetailVertical ? 'Describe la composición del producto' : 'Lista de ingredientes'}
+                  />
+                </div>
+                {productAttributes.length > 0 && (
+                  <div className="col-span-2 border-t pt-4 mt-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-lg font-medium">Atributos del Producto</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Se guardarán en la ficha del producto.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {productAttributes.map((attr) => (
+                        <div key={attr.key} className="space-y-2">
+                          <Label>
+                            {attr.label}
+                            {attr.required ? <span className="text-red-500"> *</span> : null}
+                          </Label>
+                          {renderAttributeControl(
+                            attr,
+                            editingProduct.attributes?.[attr.key],
+                            (rawValue) => handleEditProductAttributeChange(attr, rawValue),
+                          )}
+                          {attr.ui?.helperText && (
+                            <p className="text-xs text-muted-foreground">{attr.ui.helperText}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-              {!isNonFoodRetailVertical && editingProduct.isPerishable && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-shelfLifeDays">Vida Útil (días)</Label>
-                    <Input
-                      id="edit-shelfLifeDays"
-                      type="number"
-                      value={editingProduct.shelfLifeDays || 0}
-                      onChange={(e) =>
-                        setEditingProduct({
-                          ...editingProduct,
-                          shelfLifeDays: parseInt(e.target.value) || 0
-                        })
+                {verticalConfig?.allowsWeight && (
+                  <div className="flex items-center space-x-2 pt-2">
+                    <Checkbox id="edit-isSoldByWeight" checked={editingProduct.isSoldByWeight} onCheckedChange={(checked) => setEditingProduct({ ...editingProduct, isSoldByWeight: checked })} />
+                    <Label htmlFor="edit-isSoldByWeight">Vendido por Peso</Label>
+                  </div>
+                )}
+
+                {!isNonFoodRetailVertical && (
+                  <div className="flex items-center space-x-2 pt-2">
+                    <Checkbox
+                      id="edit-ivaApplicable"
+                      checked={!editingProduct.ivaApplicable}
+                      onCheckedChange={(checked) =>
+                        setEditingProduct({ ...editingProduct, ivaApplicable: !checked })
                       }
                     />
+                    <Label htmlFor="edit-ivaApplicable">Exento de IVA</Label>
                   </div>
+                )}
+
+                {!isNonFoodRetailVertical && (
+                  <div className="flex items-center space-x-2 pt-2">
+                    <Checkbox
+                      id="edit-isPerishable"
+                      checked={editingProduct.isPerishable}
+                      onCheckedChange={(checked) =>
+                        setEditingProduct({ ...editingProduct, isPerishable: checked })
+                      }
+                    />
+                    <Label htmlFor="edit-isPerishable">Es Perecedero</Label>
+                  </div>
+                )}
+
+                {!isNonFoodRetailVertical && (
                   <div className="space-y-2">
-                    <Label htmlFor="edit-storageTemperature">Temperatura de Almacenamiento</Label>
+                    <Label htmlFor="edit-unitOfMeasure">Unidad de Medida Base (Inventario)</Label>
                     <Select
-                      value={editingProduct.storageTemperature || 'ambiente'}
+                      value={editingProduct.unitOfMeasure}
                       onValueChange={(value) =>
-                        setEditingProduct({ ...editingProduct, storageTemperature: value })
+                        setEditingProduct({ ...editingProduct, unitOfMeasure: value })
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecciona una temperatura" />
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ambiente">Ambiente</SelectItem>
-                        <SelectItem value="refrigerado">Refrigerado</SelectItem>
-                        <SelectItem value="congelado">Congelado</SelectItem>
+                        {unitOptions.map((unit) => (
+                          <SelectItem key={unit} value={unit}>
+                            {unit}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Esta es la unidad en la que se guardará el inventario
+                    </p>
                   </div>
-                </>
-              )}
+                )}
 
-              {editingProduct.inventoryConfig && (
-                <div className="col-span-2 border-t pt-4 mt-4">
+                {!isNonFoodRetailVertical && editingProduct.isPerishable && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-shelfLifeDays">Vida Útil (días)</Label>
+                      <Input
+                        id="edit-shelfLifeDays"
+                        type="number"
+                        value={editingProduct.shelfLifeDays || 0}
+                        onChange={(e) =>
+                          setEditingProduct({
+                            ...editingProduct,
+                            shelfLifeDays: parseInt(e.target.value) || 0
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-storageTemperature">Temperatura de Almacenamiento</Label>
+                      <Select
+                        value={editingProduct.storageTemperature || 'ambiente'}
+                        onValueChange={(value) =>
+                          setEditingProduct({ ...editingProduct, storageTemperature: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona una temperatura" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="ambiente">Ambiente</SelectItem>
+                          <SelectItem value="refrigerado">Refrigerado</SelectItem>
+                          <SelectItem value="congelado">Congelado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+
+                {editingProduct.inventoryConfig && (
+                  <div className="col-span-2 border-t pt-4 mt-4">
                     <h4 className="text-lg font-medium mb-4">Configuración de Inventario</h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="edit-minimumStock">Stock Mínimo</Label>
-                        <Input id="edit-minimumStock" type="number" value={editingProduct.inventoryConfig.minimumStock} onChange={(e) => setEditingProduct({...editingProduct, inventoryConfig: {...editingProduct.inventoryConfig, minimumStock: parseInt(e.target.value) || 0}})} />
+                        <Input id="edit-minimumStock" type="number" value={editingProduct.inventoryConfig.minimumStock} onChange={(e) => setEditingProduct({ ...editingProduct, inventoryConfig: { ...editingProduct.inventoryConfig, minimumStock: parseInt(e.target.value) || 0 } })} />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="edit-maximumStock">Stock Máximo</Label>
-                        <Input id="edit-maximumStock" type="number" value={editingProduct.inventoryConfig.maximumStock} onChange={(e) => setEditingProduct({...editingProduct, inventoryConfig: {...editingProduct.inventoryConfig, maximumStock: parseInt(e.target.value) || 0}})} />
+                        <Input id="edit-maximumStock" type="number" value={editingProduct.inventoryConfig.maximumStock} onChange={(e) => setEditingProduct({ ...editingProduct, inventoryConfig: { ...editingProduct.inventoryConfig, maximumStock: parseInt(e.target.value) || 0 } })} />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="edit-reorderPoint">Punto de Reorden</Label>
-                        <Input id="edit-reorderPoint" type="number" value={editingProduct.inventoryConfig.reorderPoint} onChange={(e) => setEditingProduct({...editingProduct, inventoryConfig: {...editingProduct.inventoryConfig, reorderPoint: parseInt(e.target.value) || 0}})} />
+                        <Input id="edit-reorderPoint" type="number" value={editingProduct.inventoryConfig.reorderPoint} onChange={(e) => setEditingProduct({ ...editingProduct, inventoryConfig: { ...editingProduct.inventoryConfig, reorderPoint: parseInt(e.target.value) || 0 } })} />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="edit-reorderQuantity">Cantidad de Reorden</Label>
-                        <Input id="edit-reorderQuantity" type="number" value={editingProduct.inventoryConfig.reorderQuantity} onChange={(e) => setEditingProduct({...editingProduct, inventoryConfig: {...editingProduct.inventoryConfig, reorderQuantity: parseInt(e.target.value) || 0}})} />
+                        <Input id="edit-reorderQuantity" type="number" value={editingProduct.inventoryConfig.reorderQuantity} onChange={(e) => setEditingProduct({ ...editingProduct, inventoryConfig: { ...editingProduct.inventoryConfig, reorderQuantity: parseInt(e.target.value) || 0 } })} />
                       </div>
                     </div>
-                </div>
-              )}
-
-              <div className="col-span-2 border-t pt-4 mt-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-lg font-medium">Descuentos por Volumen</h4>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="edit-bulkDiscountEnabled"
-                      checked={editingProduct.pricingRules?.bulkDiscountEnabled || false}
-                      onCheckedChange={(checked) =>
-                        setEditingProduct({
-                          ...editingProduct,
-                          pricingRules: {
-                            ...(editingProduct.pricingRules || {}),
-                            bulkDiscountEnabled: checked,
-                            bulkDiscountRules: checked ? (editingProduct.pricingRules?.bulkDiscountRules || []) : []
-                          }
-                        })
-                      }
-                    />
-                    <Label htmlFor="edit-bulkDiscountEnabled">Activar Descuentos por Volumen</Label>
                   </div>
-                </div>
+                )}
 
-                {editingProduct.pricingRules?.bulkDiscountEnabled && (
-                  <div className="space-y-3">
-                    <p className="text-sm text-muted-foreground">
-                      Configura descuentos automáticos basados en la cantidad comprada
-                    </p>
-                    {(editingProduct.pricingRules?.bulkDiscountRules || []).map((rule, index) => (
-                      <div key={index} className="flex gap-3 items-end">
-                        <div className="flex-1 space-y-2">
-                          <Label>Cantidad Mínima</Label>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={rule.minQuantity}
-                            onChange={(e) => {
+                <div className="col-span-2 border-t pt-4 mt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-medium">Descuentos por Volumen</h4>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="edit-bulkDiscountEnabled"
+                        checked={editingProduct.pricingRules?.bulkDiscountEnabled || false}
+                        onCheckedChange={(checked) =>
+                          setEditingProduct({
+                            ...editingProduct,
+                            pricingRules: {
+                              ...(editingProduct.pricingRules || {}),
+                              bulkDiscountEnabled: checked,
+                              bulkDiscountRules: checked ? (editingProduct.pricingRules?.bulkDiscountRules || []) : []
+                            }
+                          })
+                        }
+                      />
+                      <Label htmlFor="edit-bulkDiscountEnabled">Activar Descuentos por Volumen</Label>
+                    </div>
+                  </div>
+
+                  {editingProduct.pricingRules?.bulkDiscountEnabled && (
+                    <div className="space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        Configura descuentos automáticos basados en la cantidad comprada
+                      </p>
+                      {(editingProduct.pricingRules?.bulkDiscountRules || []).map((rule, index) => (
+                        <div key={index} className="flex gap-3 items-end">
+                          <div className="flex-1 space-y-2">
+                            <Label>Cantidad Mínima</Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={rule.minQuantity}
+                              onChange={(e) => {
+                                const rules = [...(editingProduct.pricingRules?.bulkDiscountRules || [])];
+                                rules[index] = { ...rules[index], minQuantity: parseInt(e.target.value) || 1 };
+                                setEditingProduct({
+                                  ...editingProduct,
+                                  pricingRules: { ...editingProduct.pricingRules, bulkDiscountRules: rules }
+                                });
+                              }}
+                              placeholder="Ej: 10"
+                            />
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <Label>Descuento (%)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.1"
+                              value={rule.discountPercentage}
+                              onChange={(e) => {
+                                const rules = [...(editingProduct.pricingRules?.bulkDiscountRules || [])];
+                                rules[index] = { ...rules[index], discountPercentage: parseFloat(e.target.value) || 0 };
+                                setEditingProduct({
+                                  ...editingProduct,
+                                  pricingRules: { ...editingProduct.pricingRules, bulkDiscountRules: rules }
+                                });
+                              }}
+                              placeholder="Ej: 10"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
                               const rules = [...(editingProduct.pricingRules?.bulkDiscountRules || [])];
-                              rules[index] = {...rules[index], minQuantity: parseInt(e.target.value) || 1};
+                              rules.splice(index, 1);
                               setEditingProduct({
                                 ...editingProduct,
-                                pricingRules: {...editingProduct.pricingRules, bulkDiscountRules: rules}
+                                pricingRules: { ...editingProduct.pricingRules, bulkDiscountRules: rules }
                               });
                             }}
-                            placeholder="Ej: 10"
-                          />
+                          >
+                            Eliminar
+                          </Button>
                         </div>
-                        <div className="flex-1 space-y-2">
-                          <Label>Descuento (%)</Label>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const rules = [...(editingProduct.pricingRules?.bulkDiscountRules || [])];
+                          rules.push({ minQuantity: 1, discountPercentage: 0 });
+                          setEditingProduct({
+                            ...editingProduct,
+                            pricingRules: { ...editingProduct.pricingRules, bulkDiscountRules: rules }
+                          });
+                        }}
+                      >
+                        + Agregar Regla de Descuento
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Sección de Promociones/Ofertas en Edit */}
+                <div className="col-span-2 border-t pt-4 mt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-medium">Promoción/Oferta Especial</h4>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="edit-hasActivePromotion"
+                        checked={editingProduct.hasActivePromotion || false}
+                        onCheckedChange={(checked) =>
+                          setEditingProduct({
+                            ...editingProduct,
+                            hasActivePromotion: checked,
+                          })
+                        }
+                      />
+                      <Label htmlFor="edit-hasActivePromotion">Activar Promoción</Label>
+                    </div>
+                  </div>
+
+                  {editingProduct.hasActivePromotion && (
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        Configura una oferta temporal para este producto
+                      </p>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Porcentaje de Descuento (%)</Label>
                           <Input
                             type="number"
                             min="0"
                             max="100"
                             step="0.1"
-                            value={rule.discountPercentage}
-                            onChange={(e) => {
-                              const rules = [...(editingProduct.pricingRules?.bulkDiscountRules || [])];
-                              rules[index] = {...rules[index], discountPercentage: parseFloat(e.target.value) || 0};
-                              setEditingProduct({
-                                ...editingProduct,
-                                pricingRules: {...editingProduct.pricingRules, bulkDiscountRules: rules}
-                              });
-                            }}
-                            placeholder="Ej: 10"
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => {
-                            const rules = [...(editingProduct.pricingRules?.bulkDiscountRules || [])];
-                            rules.splice(index, 1);
-                            setEditingProduct({
-                              ...editingProduct,
-                              pricingRules: {...editingProduct.pricingRules, bulkDiscountRules: rules}
-                            });
-                          }}
-                        >
-                          Eliminar
-                        </Button>
-                      </div>
-                    ))}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const rules = [...(editingProduct.pricingRules?.bulkDiscountRules || [])];
-                        rules.push({ minQuantity: 1, discountPercentage: 0 });
-                        setEditingProduct({
-                          ...editingProduct,
-                          pricingRules: {...editingProduct.pricingRules, bulkDiscountRules: rules}
-                        });
-                      }}
-                    >
-                      + Agregar Regla de Descuento
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {/* Sección de Promociones/Ofertas en Edit */}
-              <div className="col-span-2 border-t pt-4 mt-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-lg font-medium">Promoción/Oferta Especial</h4>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="edit-hasActivePromotion"
-                      checked={editingProduct.hasActivePromotion || false}
-                      onCheckedChange={(checked) =>
-                        setEditingProduct({
-                          ...editingProduct,
-                          hasActivePromotion: checked,
-                        })
-                      }
-                    />
-                    <Label htmlFor="edit-hasActivePromotion">Activar Promoción</Label>
-                  </div>
-                </div>
-
-                {editingProduct.hasActivePromotion && (
-                  <div className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      Configura una oferta temporal para este producto
-                    </p>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Porcentaje de Descuento (%)</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.1"
-                          value={editingProduct.promotion?.discountPercentage || 0}
-                          onChange={(e) =>
-                            setEditingProduct({
-                              ...editingProduct,
-                              promotion: {
-                                ...(editingProduct.promotion || {}),
-                                discountPercentage: parseFloat(e.target.value) || 0,
-                              }
-                            })
-                          }
-                          placeholder="Ej: 20"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Tipo de Promoción</Label>
-                        <Select
-                          value={editingProduct.promotion?.reason || ''}
-                          onValueChange={(value) =>
-                            setEditingProduct({
-                              ...editingProduct,
-                              promotion: {
-                                ...(editingProduct.promotion || {}),
-                                reason: value,
-                              }
-                            })
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecciona el tipo" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="promocion_temporal">Promoción Temporal</SelectItem>
-                            <SelectItem value="liquidacion">Liquidación</SelectItem>
-                            <SelectItem value="temporada">Oferta de Temporada</SelectItem>
-                            <SelectItem value="lanzamiento">Lanzamiento</SelectItem>
-                            <SelectItem value="black_friday">Black Friday</SelectItem>
-                            <SelectItem value="otro">Otro</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Fecha de Inicio</Label>
-                        <Input
-                          type="date"
-                          value={editingProduct.promotion?.startDate ? new Date(editingProduct.promotion.startDate).toISOString().split('T')[0] : ''}
-                          onChange={(e) =>
-                            setEditingProduct({
-                              ...editingProduct,
-                              promotion: {
-                                ...(editingProduct.promotion || {}),
-                                startDate: new Date(e.target.value),
-                              }
-                            })
-                          }
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Duración (días) o Fecha de Fin</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            type="number"
-                            min="1"
-                            placeholder="Días"
-                            value={editingProduct.promotion?.durationDays || ''}
-                            onChange={(e) => {
-                              const days = parseInt(e.target.value) || 0;
-                              const startDate = editingProduct.promotion?.startDate || new Date();
-                              const endDate = new Date(startDate);
-                              endDate.setDate(endDate.getDate() + days);
-
-                              setEditingProduct({
-                                ...editingProduct,
-                                promotion: {
-                                  ...(editingProduct.promotion || {}),
-                                  durationDays: days,
-                                  endDate: endDate,
-                                }
-                              });
-                            }}
-                            className="w-24"
-                          />
-                          <Input
-                            type="date"
-                            value={editingProduct.promotion?.endDate ? new Date(editingProduct.promotion.endDate).toISOString().split('T')[0] : ''}
+                            value={editingProduct.promotion?.discountPercentage || 0}
                             onChange={(e) =>
                               setEditingProduct({
                                 ...editingProduct,
                                 promotion: {
                                   ...(editingProduct.promotion || {}),
-                                  endDate: new Date(e.target.value),
+                                  discountPercentage: parseFloat(e.target.value) || 0,
+                                }
+                              })
+                            }
+                            placeholder="Ej: 20"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Tipo de Promoción</Label>
+                          <Select
+                            value={editingProduct.promotion?.reason || ''}
+                            onValueChange={(value) =>
+                              setEditingProduct({
+                                ...editingProduct,
+                                promotion: {
+                                  ...(editingProduct.promotion || {}),
+                                  reason: value,
+                                }
+                              })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona el tipo" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="promocion_temporal">Promoción Temporal</SelectItem>
+                              <SelectItem value="liquidacion">Liquidación</SelectItem>
+                              <SelectItem value="temporada">Oferta de Temporada</SelectItem>
+                              <SelectItem value="lanzamiento">Lanzamiento</SelectItem>
+                              <SelectItem value="black_friday">Black Friday</SelectItem>
+                              <SelectItem value="otro">Otro</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Fecha de Inicio</Label>
+                          <Input
+                            type="date"
+                            value={editingProduct.promotion?.startDate ? new Date(editingProduct.promotion.startDate).toISOString().split('T')[0] : ''}
+                            onChange={(e) =>
+                              setEditingProduct({
+                                ...editingProduct,
+                                promotion: {
+                                  ...(editingProduct.promotion || {}),
+                                  startDate: new Date(e.target.value),
                                 }
                               })
                             }
                           />
                         </div>
+
+                        <div className="space-y-2">
+                          <Label>Duración (días) o Fecha de Fin</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              type="number"
+                              min="1"
+                              placeholder="Días"
+                              value={editingProduct.promotion?.durationDays || ''}
+                              onChange={(e) => {
+                                const days = parseInt(e.target.value) || 0;
+                                const startDate = editingProduct.promotion?.startDate || new Date();
+                                const endDate = new Date(startDate);
+                                endDate.setDate(endDate.getDate() + days);
+
+                                setEditingProduct({
+                                  ...editingProduct,
+                                  promotion: {
+                                    ...(editingProduct.promotion || {}),
+                                    durationDays: days,
+                                    endDate: endDate,
+                                  }
+                                });
+                              }}
+                              className="w-24"
+                            />
+                            <Input
+                              type="date"
+                              value={editingProduct.promotion?.endDate ? new Date(editingProduct.promotion.endDate).toISOString().split('T')[0] : ''}
+                              onChange={(e) =>
+                                setEditingProduct({
+                                  ...editingProduct,
+                                  promotion: {
+                                    ...(editingProduct.promotion || {}),
+                                    endDate: new Date(e.target.value),
+                                  }
+                                })
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="edit-autoDeactivate"
+                          checked={editingProduct.promotion?.autoDeactivate !== false}
+                          onCheckedChange={(checked) =>
+                            setEditingProduct({
+                              ...editingProduct,
+                              promotion: {
+                                ...(editingProduct.promotion || {}),
+                                autoDeactivate: checked,
+                              }
+                            })
+                          }
+                        />
+                        <Label htmlFor="edit-autoDeactivate">
+                          Desactivar automáticamente cuando termine la fecha
+                        </Label>
+                      </div>
+
+                      {editingProduct.promotion?.discountPercentage > 0 && (
+                        <div className="p-3 bg-orange-50 dark:bg-orange-950 rounded-lg">
+                          <div className="text-sm font-semibold text-orange-600 dark:text-orange-400">
+                            Vista Previa de la Promoción
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {editingProduct.promotion?.discountPercentage}% de descuento
+                            {editingProduct.promotion?.startDate && editingProduct.promotion?.endDate && (
+                              <> desde {new Date(editingProduct.promotion.startDate).toLocaleDateString()} hasta {new Date(editingProduct.promotion.endDate).toLocaleDateString()}</>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {!isNonFoodRetailVertical && (
+                  <div className="col-span-2 border-t pt-4 mt-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex-1">
+                        <h4 className="text-lg font-medium">Unidades de Venta Múltiples</h4>
+                        <p className="text-sm text-muted-foreground">Configura diferentes unidades de venta (kg, g, lb, cajas, etc.)</p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="edit-hasMultipleSellingUnits"
+                          checked={editingProduct.hasMultipleSellingUnits || false}
+                          onCheckedChange={(checked) => {
+                            setEditingProduct({
+                              ...editingProduct,
+                              hasMultipleSellingUnits: checked,
+                              sellingUnits: checked ? (editingProduct.sellingUnits || []) : []
+                            });
+                          }}
+                        />
+                        <Label htmlFor="edit-hasMultipleSellingUnits">Habilitar</Label>
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="edit-autoDeactivate"
-                        checked={editingProduct.promotion?.autoDeactivate !== false}
-                        onCheckedChange={(checked) =>
-                          setEditingProduct({
-                            ...editingProduct,
-                            promotion: {
-                              ...(editingProduct.promotion || {}),
-                              autoDeactivate: checked,
-                            }
-                          })
-                        }
-                      />
-                      <Label htmlFor="edit-autoDeactivate">
-                        Desactivar automáticamente cuando termine la fecha
-                      </Label>
-                    </div>
+                    {editingProduct.hasMultipleSellingUnits && (
+                      <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md">
+                        <p className="text-xs font-semibold text-blue-900 dark:text-blue-200 mb-1">⚠️ IMPORTANTE - Unidad Base del Inventario:</p>
+                        <p className="text-xs text-blue-800 dark:text-blue-300 mb-2">
+                          El inventario SIEMPRE se guarda en <span className="font-bold">"{editingProduct.unitOfMeasure}"</span>.
+                          El Factor de Conversión indica cuántas unidades base equivalen a 1 unidad de venta.
+                        </p>
+                        <div className="text-xs text-blue-800 dark:text-blue-300 space-y-1">
+                          <p className="font-semibold">Ejemplos:</p>
+                          <p>• Si la unidad base es "gramos" y vendes en "kg": Factor = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">1000</span> (1 kg = 1000 g)</p>
+                          <p>• Si la unidad base es "gramos" y vendes en "g": Factor = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">1</span> (1 g = 1 g)</p>
+                          <p>• Si la unidad base es "kg" y vendes en "kg": Factor = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">1</span> (1 kg = 1 kg)</p>
+                          <p>• Si la unidad base es "unidad" y vendes en "caja de 24": Factor = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">24</span> (1 caja = 24 unidades)</p>
+                        </div>
+                      </div>
+                    )}
 
-                    {editingProduct.promotion?.discountPercentage > 0 && (
-                      <div className="p-3 bg-orange-50 dark:bg-orange-950 rounded-lg">
-                        <div className="text-sm font-semibold text-orange-600 dark:text-orange-400">
-                          Vista Previa de la Promoción
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {editingProduct.promotion?.discountPercentage}% de descuento
-                          {editingProduct.promotion?.startDate && editingProduct.promotion?.endDate && (
-                            <> desde {new Date(editingProduct.promotion.startDate).toLocaleDateString()} hasta {new Date(editingProduct.promotion.endDate).toLocaleDateString()}</>
-                          )}
-                        </div>
+                    {editingProduct.hasMultipleSellingUnits && (
+                      <div className="space-y-4">
+                        {(editingProduct.sellingUnits || []).map((unit, index) => (
+                          <div key={index} className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                            <div className="flex items-center justify-between">
+                              <h5 className="font-medium">Unidad {index + 1}</h5>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  const units = [...editingProduct.sellingUnits];
+                                  units.splice(index, 1);
+                                  setEditingProduct({ ...editingProduct, sellingUnits: units });
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                              <div className="space-y-2">
+                                <Label>Nombre</Label>
+                                <Input
+                                  placeholder={getPlaceholder('sellingUnitName', 'Ej: Kilogramos')}
+                                  value={unit.name || ''}
+                                  onChange={(e) => {
+                                    const units = [...editingProduct.sellingUnits];
+                                    units[index].name = e.target.value;
+                                    setEditingProduct({ ...editingProduct, sellingUnits: units });
+                                  }}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Abreviación</Label>
+                                <Input
+                                  placeholder={getPlaceholder('sellingUnitAbbreviation', 'Ej: kg')}
+                                  value={unit.abbreviation || ''}
+                                  onChange={(e) => {
+                                    const units = [...editingProduct.sellingUnits];
+                                    setEditingProduct({ ...editingProduct, sellingUnits: units });
+                                  }}
+                                />
+                              </div>
+                              <div className="flex items-center space-x-2 pt-8">
+                                <Checkbox
+                                  id={`edit-su-weight-${index}`}
+                                  checked={unit.isSoldByWeight || false}
+                                  onCheckedChange={(checked) => {
+                                    const units = [...editingProduct.sellingUnits];
+                                    units[index].isSoldByWeight = checked;
+                                    setEditingProduct({ ...editingProduct, sellingUnits: units });
+                                  }}
+                                />
+                                <Label htmlFor={`edit-su-weight-${index}`}>Vendido por peso</Label>
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="flex items-center gap-1">
+                                  Factor Conversión
+                                  <span className="text-xs text-muted-foreground">(Cuántos {editingProduct.unitOfMeasure} = 1 {unit.abbreviation || 'unidad'})</span>
+                                </Label>
+                                <Input
+                                  type="number"
+                                  step="0.001"
+                                  inputMode="decimal"
+                                  placeholder={getPlaceholder('sellingUnitConversion', 'Ej: 1000')}
+                                  value={
+                                    unit.conversionFactorInput ??
+                                    normalizeDecimalInput(unit.conversionFactor ?? '')
+                                  }
+                                  onChange={(e) => {
+                                    const rawValue = e.target.value;
+                                    const units = editingProduct.sellingUnits.map((currentUnit, unitIndex) => {
+                                      if (unitIndex !== index) {
+                                        return currentUnit;
+                                      }
+                                      const parsed = parseDecimalInput(rawValue);
+                                      return {
+                                        ...currentUnit,
+                                        conversionFactorInput: rawValue,
+                                        conversionFactor: parsed !== null ? parsed : null,
+                                      };
+                                    });
+                                    setEditingProduct({ ...editingProduct, sellingUnits: units });
+                                  }}
+                                  onBlur={() => {
+                                    const units = editingProduct.sellingUnits.map((currentUnit, unitIndex) => {
+                                      if (unitIndex !== index) {
+                                        return currentUnit;
+                                      }
+                                      const normalizedInput = normalizeDecimalInput(currentUnit.conversionFactorInput ?? '');
+                                      const parsed = parseDecimalInput(normalizedInput);
+                                      return {
+                                        ...currentUnit,
+                                        conversionFactorInput: normalizedInput,
+                                        conversionFactor: parsed !== null ? parsed : null,
+                                      };
+                                    });
+                                    setEditingProduct({ ...editingProduct, sellingUnits: units });
+                                  }}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                  1 {unit.abbreviation || 'unidad'} = {parseDecimalInput(
+                                    (unit.conversionFactorInput ?? unit.conversionFactor)
+                                  ) ?? 0} {editingProduct.unitOfMeasure}
+                                </p>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Precio/Unidad ($)</Label>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  inputMode="decimal"
+                                  placeholder={getPlaceholder('sellingUnitPrice', 'Ej: 20.00')}
+                                  value={
+                                    unit.pricePerUnitInput ??
+                                    normalizeDecimalInput(unit.pricePerUnit ?? '')
+                                  }
+                                  onChange={(e) => {
+                                    const rawValue = e.target.value;
+                                    const units = editingProduct.sellingUnits.map((currentUnit, unitIndex) => {
+                                      if (unitIndex !== index) {
+                                        return currentUnit;
+                                      }
+                                      const parsed = parseDecimalInput(rawValue);
+                                      return {
+                                        ...currentUnit,
+                                        pricePerUnitInput: rawValue,
+                                        pricePerUnit: parsed !== null ? parsed : null,
+                                      };
+                                    });
+                                    setEditingProduct({ ...editingProduct, sellingUnits: units });
+                                  }}
+                                  onBlur={() => {
+                                    const units = editingProduct.sellingUnits.map((currentUnit, unitIndex) => {
+                                      if (unitIndex !== index) {
+                                        return currentUnit;
+                                      }
+                                      const normalizedInput = normalizeDecimalInput(currentUnit.pricePerUnitInput ?? '');
+                                      const parsed = parseDecimalInput(normalizedInput);
+                                      return {
+                                        ...currentUnit,
+                                        pricePerUnitInput: normalizedInput,
+                                        pricePerUnit: parsed !== null ? parsed : null,
+                                      };
+                                    });
+                                    setEditingProduct({ ...editingProduct, sellingUnits: units });
+                                  }}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Costo/Unidad ($)</Label>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  inputMode="decimal"
+                                  placeholder={getPlaceholder('sellingUnitCost', 'Ej: 12.00')}
+                                  value={
+                                    unit.costPerUnitInput ??
+                                    normalizeDecimalInput(unit.costPerUnit ?? '')
+                                  }
+                                  onChange={(e) => {
+                                    const rawValue = e.target.value;
+                                    const units = editingProduct.sellingUnits.map((currentUnit, unitIndex) => {
+                                      if (unitIndex !== index) {
+                                        return currentUnit;
+                                      }
+                                      const parsed = parseDecimalInput(rawValue);
+                                      return {
+                                        ...currentUnit,
+                                        costPerUnitInput: rawValue,
+                                        costPerUnit: parsed !== null ? parsed : null,
+                                      };
+                                    });
+                                    setEditingProduct({ ...editingProduct, sellingUnits: units });
+                                  }}
+                                  onBlur={() => {
+                                    const units = editingProduct.sellingUnits.map((currentUnit, unitIndex) => {
+                                      if (unitIndex !== index) {
+                                        return currentUnit;
+                                      }
+                                      const normalizedInput = normalizeDecimalInput(currentUnit.costPerUnitInput ?? '');
+                                      const parsed = parseDecimalInput(normalizedInput);
+                                      return {
+                                        ...currentUnit,
+                                        costPerUnitInput: normalizedInput,
+                                        costPerUnit: parsed !== null ? parsed : null,
+                                      };
+                                    });
+                                    setEditingProduct({ ...editingProduct, sellingUnits: units });
+                                  }}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Cant. Mínima</Label>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  placeholder={getPlaceholder('sellingUnitMinQty', 'Ej: 0.5')}
+                                  value={unit.minimumQuantity || ''}
+                                  onChange={(e) => {
+                                    const units = [...editingProduct.sellingUnits];
+                                    units[index].minimumQuantity = parseFloat(e.target.value) || 0;
+                                    setEditingProduct({ ...editingProduct, sellingUnits: units });
+                                  }}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Incremento</Label>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  placeholder={getPlaceholder('sellingUnitIncrement', 'Ej: 0.5')}
+                                  value={unit.incrementStep || ''}
+                                  onChange={(e) => {
+                                    const units = [...editingProduct.sellingUnits];
+                                    units[index].incrementStep = parseFloat(e.target.value) || 0;
+                                    setEditingProduct({ ...editingProduct, sellingUnits: units });
+                                  }}
+                                />
+                              </div>
+                              <div className="space-y-2 flex items-end">
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`edit-default-${index}`}
+                                    checked={unit.isDefault || false}
+                                    onCheckedChange={(checked) => {
+                                      const units = editingProduct.sellingUnits.map((u, i) => ({
+                                        ...u,
+                                        isDefault: i === index ? checked : false
+                                      }));
+                                      setEditingProduct({ ...editingProduct, sellingUnits: units });
+                                    }}
+                                  />
+                                  <Label htmlFor={`edit-default-${index}`}>Por defecto</Label>
+                                </div>
+                              </div>
+                              <div className="space-y-2 flex items-end">
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`edit-active-${index}`}
+                                    checked={unit.isActive !== false}
+                                    onCheckedChange={(checked) => {
+                                      const units = [...editingProduct.sellingUnits];
+                                      units[index].isActive = checked;
+                                      setEditingProduct({ ...editingProduct, sellingUnits: units });
+                                    }}
+                                  />
+                                  <Label htmlFor={`edit-active-${index}`}>Activa</Label>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingProduct({
+                              ...editingProduct,
+                              sellingUnits: [...(editingProduct.sellingUnits || []), {
+                                name: '',
+                                abbreviation: '',
+                                conversionFactor: 1,
+                                conversionFactorInput: '1',
+                                pricePerUnit: 0,
+                                pricePerUnitInput: '',
+                                costPerUnit: 0,
+                                costPerUnitInput: '',
+                                isActive: true,
+                                isDefault: (editingProduct.sellingUnits || []).length === 0,
+                                minimumQuantity: 0,
+                                incrementStep: 0
+                              }]
+                            });
+                          }}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Agregar Unidad
+                        </Button>
                       </div>
                     )}
                   </div>
                 )}
-              </div>
 
-              {!isNonFoodRetailVertical && (
-              <div className="col-span-2 border-t pt-4 mt-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex-1">
-                    <h4 className="text-lg font-medium">Unidades de Venta Múltiples</h4>
-                    <p className="text-sm text-muted-foreground">Configura diferentes unidades de venta (kg, g, lb, cajas, etc.)</p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="edit-hasMultipleSellingUnits"
-                      checked={editingProduct.hasMultipleSellingUnits || false}
-                      onCheckedChange={(checked) => {
-                        setEditingProduct({
-                          ...editingProduct,
-                          hasMultipleSellingUnits: checked,
-                          sellingUnits: checked ? (editingProduct.sellingUnits || []) : []
-                        });
-                      }}
-                    />
-                    <Label htmlFor="edit-hasMultipleSellingUnits">Habilitar</Label>
-                  </div>
-                </div>
-
-                {editingProduct.hasMultipleSellingUnits && (
-                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md">
-                    <p className="text-xs font-semibold text-blue-900 dark:text-blue-200 mb-1">⚠️ IMPORTANTE - Unidad Base del Inventario:</p>
-                    <p className="text-xs text-blue-800 dark:text-blue-300 mb-2">
-                      El inventario SIEMPRE se guarda en <span className="font-bold">"{editingProduct.unitOfMeasure}"</span>.
-                      El Factor de Conversión indica cuántas unidades base equivalen a 1 unidad de venta.
-                    </p>
-                    <div className="text-xs text-blue-800 dark:text-blue-300 space-y-1">
-                      <p className="font-semibold">Ejemplos:</p>
-                      <p>• Si la unidad base es "gramos" y vendes en "kg": Factor = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">1000</span> (1 kg = 1000 g)</p>
-                      <p>• Si la unidad base es "gramos" y vendes en "g": Factor = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">1</span> (1 g = 1 g)</p>
-                      <p>• Si la unidad base es "kg" y vendes en "kg": Factor = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">1</span> (1 kg = 1 kg)</p>
-                      <p>• Si la unidad base es "unidad" y vendes en "caja de 24": Factor = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">24</span> (1 caja = 24 unidades)</p>
+                <div className="col-span-2 border-t pt-4 mt-4 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-lg font-medium">Variantes</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Edita los datos de cada variante. Los cambios se guardarán al confirmar.
+                      </p>
                     </div>
-                  </div>
-                )}
-
-                {editingProduct.hasMultipleSellingUnits && (
-                  <div className="space-y-4">
-                    {(editingProduct.sellingUnits || []).map((unit, index) => (
-                      <div key={index} className="border rounded-lg p-4 space-y-3 bg-muted/30">
-                        <div className="flex items-center justify-between">
-                          <h5 className="font-medium">Unidad {index + 1}</h5>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              const units = [...editingProduct.sellingUnits];
-                              units.splice(index, 1);
-                              setEditingProduct({...editingProduct, sellingUnits: units});
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                          <div className="space-y-2">
-                            <Label>Nombre</Label>
-                              <Input
-                                placeholder={getPlaceholder('sellingUnitName', 'Ej: Kilogramos')}
-                              value={unit.name || ''}
-                              onChange={(e) => {
-                                const units = [...editingProduct.sellingUnits];
-                                units[index].name = e.target.value;
-                                setEditingProduct({...editingProduct, sellingUnits: units});
-                              }}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Abreviación</Label>
-                              <Input
-                                placeholder={getPlaceholder('sellingUnitAbbreviation', 'Ej: kg')}
-                              value={unit.abbreviation || ''}
-                              onChange={(e) => {
-                                const units = [...editingProduct.sellingUnits];
-                                units[index].abbreviation = e.target.value;
-                                setEditingProduct({...editingProduct, sellingUnits: units});
-                              }}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="flex items-center gap-1">
-                              Factor Conversión
-                              <span className="text-xs text-muted-foreground">(Cuántos {editingProduct.unitOfMeasure} = 1 {unit.abbreviation || 'unidad'})</span>
-                            </Label>
-                              <Input
-                                type="number"
-                                step="0.001"
-                                inputMode="decimal"
-                                placeholder={getPlaceholder('sellingUnitConversion', 'Ej: 1000')}
-                              value={
-                                unit.conversionFactorInput ??
-                                normalizeDecimalInput(unit.conversionFactor ?? '')
-                              }
-                              onChange={(e) => {
-                                const rawValue = e.target.value;
-                                const units = editingProduct.sellingUnits.map((currentUnit, unitIndex) => {
-                                  if (unitIndex !== index) {
-                                    return currentUnit;
-                                  }
-                                  const parsed = parseDecimalInput(rawValue);
-                                  return {
-                                    ...currentUnit,
-                                    conversionFactorInput: rawValue,
-                                    conversionFactor: parsed !== null ? parsed : null,
-                                  };
-                                });
-                                setEditingProduct({...editingProduct, sellingUnits: units});
-                              }}
-                              onBlur={() => {
-                                const units = editingProduct.sellingUnits.map((currentUnit, unitIndex) => {
-                                  if (unitIndex !== index) {
-                                    return currentUnit;
-                                  }
-                                  const normalizedInput = normalizeDecimalInput(currentUnit.conversionFactorInput ?? '');
-                                  const parsed = parseDecimalInput(normalizedInput);
-                                  return {
-                                    ...currentUnit,
-                                    conversionFactorInput: normalizedInput,
-                                    conversionFactor: parsed !== null ? parsed : null,
-                                  };
-                                });
-                                setEditingProduct({...editingProduct, sellingUnits: units});
-                              }}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              1 {unit.abbreviation || 'unidad'} = {parseDecimalInput(
-                                (unit.conversionFactorInput ?? unit.conversionFactor)
-                              ) ?? 0} {editingProduct.unitOfMeasure}
-                            </p>
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Precio/Unidad ($)</Label>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                inputMode="decimal"
-                                placeholder={getPlaceholder('sellingUnitPrice', 'Ej: 20.00')}
-                              value={
-                                unit.pricePerUnitInput ??
-                                normalizeDecimalInput(unit.pricePerUnit ?? '')
-                              }
-                              onChange={(e) => {
-                                const rawValue = e.target.value;
-                                const units = editingProduct.sellingUnits.map((currentUnit, unitIndex) => {
-                                  if (unitIndex !== index) {
-                                    return currentUnit;
-                                  }
-                                  const parsed = parseDecimalInput(rawValue);
-                                  return {
-                                    ...currentUnit,
-                                    pricePerUnitInput: rawValue,
-                                    pricePerUnit: parsed !== null ? parsed : null,
-                                  };
-                                });
-                                setEditingProduct({...editingProduct, sellingUnits: units});
-                              }}
-                              onBlur={() => {
-                                const units = editingProduct.sellingUnits.map((currentUnit, unitIndex) => {
-                                  if (unitIndex !== index) {
-                                    return currentUnit;
-                                  }
-                                  const normalizedInput = normalizeDecimalInput(currentUnit.pricePerUnitInput ?? '');
-                                  const parsed = parseDecimalInput(normalizedInput);
-                                  return {
-                                    ...currentUnit,
-                                    pricePerUnitInput: normalizedInput,
-                                    pricePerUnit: parsed !== null ? parsed : null,
-                                  };
-                                });
-                                setEditingProduct({...editingProduct, sellingUnits: units});
-                              }}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Costo/Unidad ($)</Label>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                inputMode="decimal"
-                                placeholder={getPlaceholder('sellingUnitCost', 'Ej: 12.00')}
-                              value={
-                                unit.costPerUnitInput ??
-                                normalizeDecimalInput(unit.costPerUnit ?? '')
-                              }
-                              onChange={(e) => {
-                                const rawValue = e.target.value;
-                                const units = editingProduct.sellingUnits.map((currentUnit, unitIndex) => {
-                                  if (unitIndex !== index) {
-                                    return currentUnit;
-                                  }
-                                  const parsed = parseDecimalInput(rawValue);
-                                  return {
-                                    ...currentUnit,
-                                    costPerUnitInput: rawValue,
-                                    costPerUnit: parsed !== null ? parsed : null,
-                                  };
-                                });
-                                setEditingProduct({...editingProduct, sellingUnits: units});
-                              }}
-                              onBlur={() => {
-                                const units = editingProduct.sellingUnits.map((currentUnit, unitIndex) => {
-                                  if (unitIndex !== index) {
-                                    return currentUnit;
-                                  }
-                                  const normalizedInput = normalizeDecimalInput(currentUnit.costPerUnitInput ?? '');
-                                  const parsed = parseDecimalInput(normalizedInput);
-                                  return {
-                                    ...currentUnit,
-                                    costPerUnitInput: normalizedInput,
-                                    costPerUnit: parsed !== null ? parsed : null,
-                                  };
-                                });
-                                setEditingProduct({...editingProduct, sellingUnits: units});
-                              }}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Cant. Mínima</Label>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                placeholder={getPlaceholder('sellingUnitMinQty', 'Ej: 0.5')}
-                              value={unit.minimumQuantity || ''}
-                              onChange={(e) => {
-                                const units = [...editingProduct.sellingUnits];
-                                units[index].minimumQuantity = parseFloat(e.target.value) || 0;
-                                setEditingProduct({...editingProduct, sellingUnits: units});
-                              }}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Incremento</Label>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                placeholder={getPlaceholder('sellingUnitIncrement', 'Ej: 0.5')}
-                              value={unit.incrementStep || ''}
-                              onChange={(e) => {
-                                const units = [...editingProduct.sellingUnits];
-                                units[index].incrementStep = parseFloat(e.target.value) || 0;
-                                setEditingProduct({...editingProduct, sellingUnits: units});
-                              }}
-                            />
-                          </div>
-                          <div className="space-y-2 flex items-end">
-                            <div className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`edit-default-${index}`}
-                                checked={unit.isDefault || false}
-                                onCheckedChange={(checked) => {
-                                  const units = editingProduct.sellingUnits.map((u, i) => ({
-                                    ...u,
-                                    isDefault: i === index ? checked : false
-                                  }));
-                                  setEditingProduct({...editingProduct, sellingUnits: units});
-                                }}
-                              />
-                              <Label htmlFor={`edit-default-${index}`}>Por defecto</Label>
-                            </div>
-                          </div>
-                          <div className="space-y-2 flex items-end">
-                            <div className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`edit-active-${index}`}
-                                checked={unit.isActive !== false}
-                                onCheckedChange={(checked) => {
-                                  const units = [...editingProduct.sellingUnits];
-                                  units[index].isActive = checked;
-                                  setEditingProduct({...editingProduct, sellingUnits: units});
-                                }}
-                              />
-                              <Label htmlFor={`edit-active-${index}`}>Activa</Label>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setEditingProduct({
-                          ...editingProduct,
-                          sellingUnits: [...(editingProduct.sellingUnits || []), {
-                            name: '',
-                            abbreviation: '',
-                            conversionFactor: 1,
-                            conversionFactorInput: '1',
-                            pricePerUnit: 0,
-                            pricePerUnitInput: '',
-                            costPerUnit: 0,
-                            costPerUnitInput: '',
-                            isActive: true,
-                            isDefault: (editingProduct.sellingUnits || []).length === 0,
-                            minimumQuantity: 0,
-                            incrementStep: 0
-                          }]
-                        });
-                      }}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Agregar Unidad
+                    <Button type="button" variant="outline" size="sm" onClick={addEditingVariant}>
+                      <Plus className="h-4 w-4 mr-2" /> Agregar variante
                     </Button>
                   </div>
-                )}
-              </div>
-              )}
-              
-              <div className="col-span-2 border-t pt-4 mt-4 space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-lg font-medium">Variantes</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Edita los datos de cada variante. Los cambios se guardarán al confirmar.
-                    </p>
-                  </div>
-                  <Button type="button" variant="outline" size="sm" onClick={addEditingVariant}>
-                    <Plus className="h-4 w-4 mr-2" /> Agregar variante
-                  </Button>
-                </div>
 
-                {editingProduct.variants.map((variant, index) => (
-                  <div key={variant._id || index} className="border rounded-lg bg-muted/15 p-4 space-y-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h5 className="text-base font-medium">Variante {index + 1}</h5>
-                        <p className="text-xs text-muted-foreground">
-                          SKU actual: {variant.sku || 'Sin SKU definido'}
-                        </p>
-                      </div>
-                      {editingProduct.variants.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeEditingVariant(index)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span className="sr-only">Eliminar variante</span>
-                        </Button>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label>Nombre</Label>
-                        <Input
-                          value={variant.name}
-                          onChange={(e) => handleEditVariantFieldChange(index, 'name', e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>SKU</Label>
-                        <Input
-                          value={variant.sku}
-                          onChange={(e) => handleEditVariantFieldChange(index, 'sku', e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Código de barras</Label>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            value={variant.barcode || ''}
-                            onChange={(e) => handleEditVariantFieldChange(index, 'barcode', e.target.value)}
-                          />
+                  {editingProduct.variants.map((variant, index) => (
+                    <div key={variant._id || index} className="border rounded-lg bg-muted/15 p-4 space-y-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <h5 className="text-base font-medium">Variante {index + 1}</h5>
+                          <p className="text-xs text-muted-foreground">
+                            SKU actual: {variant.sku || 'Sin SKU definido'}
+                          </p>
+                        </div>
+                        {editingProduct.variants.length > 1 && (
                           <Button
                             type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => openBarcodeScanner({ scope: 'edit', index })}
-                            title="Escanear código con cámara"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeEditingVariant(index)}
                           >
-                            <Scan className="h-4 w-4" />
-                            <span className="sr-only">Escanear código</span>
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Eliminar variante</span>
                           </Button>
-                        </div>
+                        )}
                       </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {!isNonFoodRetailVertical && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
-                          <Label>Unidad</Label>
+                          <Label>Nombre</Label>
                           <Input
-                            value={variant.unit || ''}
-                            onChange={(e) => handleEditVariantFieldChange(index, 'unit', e.target.value)}
+                            value={variant.name}
+                            onChange={(e) => handleEditVariantFieldChange(index, 'name', e.target.value)}
                           />
                         </div>
-                      )}
-                      {!isNonFoodRetailVertical && (
                         <div className="space-y-2">
-                          <Label>Tamaño de unidad</Label>
+                          <Label>SKU</Label>
+                          <Input
+                            value={variant.sku}
+                            onChange={(e) => handleEditVariantFieldChange(index, 'sku', e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Código de barras</Label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              value={variant.barcode || ''}
+                              onChange={(e) => handleEditVariantFieldChange(index, 'barcode', e.target.value)}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => openBarcodeScanner({ scope: 'edit', index })}
+                              title="Escanear código con cámara"
+                            >
+                              <Scan className="h-4 w-4" />
+                              <span className="sr-only">Escanear código</span>
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {!isNonFoodRetailVertical && (
+                          <div className="space-y-2">
+                            <Label>Unidad</Label>
+                            <Select
+                              value={variant.unit || editingProduct.unitOfMeasure || ''}
+                              onValueChange={(value) => handleEditVariantFieldChange(index, 'unit', value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecciona unidad" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value={editingProduct.unitOfMeasure || 'unidad'}>{editingProduct.unitOfMeasure || 'unidad'}</SelectItem>
+                                {(editingProduct.sellingUnits || []).map((u, i) => (
+                                  <SelectItem key={i} value={u.abbreviation || u.name}>{u.name} ({u.abbreviation})</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                        {!isNonFoodRetailVertical && (
+                          <div className="space-y-2">
+                            <Label>Tamaño de unidad</Label>
+                            <Input
+                              type="number"
+                              value={variant.unitSize ?? ''}
+                              onChange={(e) => handleEditVariantFieldChange(index, 'unitSize', e.target.value)}
+                              placeholder="1"
+                            />
+                          </div>
+                        )}
+                        <div className="space-y-2">
+                          <Label>Precio costo ($)</Label>
                           <Input
                             type="number"
-                            value={variant.unitSize ?? ''}
-                            onChange={(e) => handleEditVariantFieldChange(index, 'unitSize', e.target.value)}
-                            placeholder="1"
+                            value={variant.costPrice ?? ''}
+                            onChange={(e) => handleEditVariantFieldChange(index, 'costPrice', e.target.value)}
+                            placeholder="0.00"
                           />
                         </div>
-                      )}
-                      <div className="space-y-2">
-                        <Label>Precio costo ($)</Label>
-                        <Input
-                          type="number"
-                          value={variant.costPrice ?? ''}
-                          onChange={(e) => handleEditVariantFieldChange(index, 'costPrice', e.target.value)}
-                          placeholder="0.00"
-                        />
+                        <div className="space-y-2">
+                          <Label>Precio venta ($)</Label>
+                          <Input
+                            type="number"
+                            value={variant.basePrice ?? ''}
+                            onChange={(e) => handleEditVariantFieldChange(index, 'basePrice', e.target.value)}
+                            placeholder="0.00"
+                          />
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Precio venta ($)</Label>
-                        <Input
-                          type="number"
-                          value={variant.basePrice ?? ''}
-                          onChange={(e) => handleEditVariantFieldChange(index, 'basePrice', e.target.value)}
-                          placeholder="0.00"
-                        />
-                      </div>
-                    </div>
 
-                    {variantAttributes.length > 0 && (
-                      <div className="border-t pt-4 mt-4">
-                        <h6 className="text-sm font-medium mb-3">Atributos específicos</h6>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {variantAttributes.map((attr) => (
-                            <div key={`${index}-${attr.key}`} className="space-y-2">
-                              <Label>
-                                {attr.label}
-                                {attr.required ? <span className="text-red-500"> *</span> : null}
-                              </Label>
-                              {renderAttributeControl(
-                                attr,
-                                variant.attributes?.[attr.key],
-                                (rawValue) => handleEditVariantAttributeChange(index, attr, rawValue),
-                              )}
+                      {variantAttributes.length > 0 && (
+                        <div className="border-t pt-4 mt-4">
+                          <h6 className="text-sm font-medium mb-3">Atributos específicos</h6>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {variantAttributes.map((attr) => (
+                              <div key={`${index}-${attr.key}`} className="space-y-2">
+                                <Label>
+                                  {attr.label}
+                                  {attr.required ? <span className="text-red-500"> *</span> : null}
+                                </Label>
+                                {renderAttributeControl(
+                                  attr,
+                                  variant.attributes?.[attr.key],
+                                  (rawValue) => handleEditVariantAttributeChange(index, attr, rawValue),
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-2 border-t pt-4 mt-4">
+                        <Label>Imágenes (máx. 3)</Label>
+                        <Input
+                          type="file"
+                          multiple
+                          accept="image/*"
+                          onChange={(e) => handleEditImageUpload(index, e)}
+                        />
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {(variant.images || []).map((image, imageIdx) => (
+                            <div key={imageIdx} className="relative">
+                              <img
+                                src={image}
+                                alt={`variant-${index}-image-${imageIdx}`}
+                                className="w-20 h-20 object-cover rounded cursor-pointer hover:opacity-80 hover:ring-2 hover:ring-primary/50 transition-all"
+                                onClick={() => {
+                                  setPreviewImageSrc(image);
+                                  setIsImagePreviewOpen(true);
+                                }}
+                                onError={(e) => {
+                                  // Fallback to placeholder if image fails to load
+                                  e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5Y2EzYWYiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIj5JbWFnZW48L3RleHQ+PC9zdmc+';
+                                  e.target.onerror = null; // Prevent infinite loop
+                                }}
+                              />
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                className="absolute top-0 right-0"
+                                onClick={() => handleEditRemoveImage(index, imageIdx)}
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </Button>
                             </div>
                           ))}
                         </div>
                       </div>
-                    )}
-
-                    <div className="space-y-2 border-t pt-4 mt-4">
-                      <Label>Imágenes (máx. 3)</Label>
-                      <Input
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        onChange={(e) => handleEditImageUpload(index, e)}
-                      />
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {(variant.images || []).map((image, imageIdx) => (
-                          <div key={imageIdx} className="relative">
-                            <img
-                              src={image}
-                              alt={`variant-${index}-image-${imageIdx}`}
-                              className="w-20 h-20 object-cover rounded cursor-pointer hover:opacity-80 hover:ring-2 hover:ring-primary/50 transition-all"
-                              onClick={() => {
-                                setPreviewImageSrc(image);
-                                setIsImagePreviewOpen(true);
-                              }}
-                              onError={(e) => {
-                                // Fallback to placeholder if image fails to load
-                                e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5Y2EzYWYiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjEyIj5JbWFnZW48L3RleHQ+PC9zdmc+';
-                                e.target.onerror = null; // Prevent infinite loop
-                              }}
-                            />
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              className="absolute top-0 right-0"
-                              onClick={() => handleEditRemoveImage(index, imageIdx)}
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
-              <Button onClick={handleUpdateProduct}>Guardar Cambios</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+                <Button onClick={handleUpdateProduct}>Guardar Cambios</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )
+      }
 
       <BarcodeScannerDialog
         open={isBarcodeDialogOpen}
@@ -4585,7 +4650,7 @@ useEffect(() => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 }
 

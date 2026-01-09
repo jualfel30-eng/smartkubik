@@ -67,6 +67,7 @@ function InventoryManagement() {
   const [selectedInventoryForLots, setSelectedInventoryForLots] = useState(null);
   const [editingLotIndex, setEditingLotIndex] = useState(null);
   const [editingLotData, setEditingLotData] = useState(null);
+  const [productSearchInput, setProductSearchInput] = useState('');
 
   // Estados de paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -147,7 +148,7 @@ function InventoryManagement() {
     // BACKWARD COMPATIBILITY: Solo usar variantes si existen y tienen datos válidos
     // Productos antiguos sin variantes seguirán funcionando normalmente
     const hasVariants = Array.isArray(selectedProduct.variants) &&
-                        selectedProduct.variants.length > 0;
+      selectedProduct.variants.length > 0;
 
     if (!hasVariants) {
       console.log('📦 [useVariantInventory] Producto SIN variantes (formato antiguo o sin variantes)');
@@ -184,15 +185,15 @@ function InventoryManagement() {
   };
 
   const addLot = () => {
-      setNewInventoryItem({
-          ...newInventoryItem,
-          lots: [...newInventoryItem.lots, { lotNumber: '', quantity: 0, expirationDate: '' }]
-      });
+    setNewInventoryItem({
+      ...newInventoryItem,
+      lots: [...newInventoryItem.lots, { lotNumber: '', quantity: 0, expirationDate: '' }]
+    });
   };
 
   const removeLot = (index) => {
-      const updatedLots = newInventoryItem.lots.filter((_, i) => i !== index);
-      setNewInventoryItem({ ...newInventoryItem, lots: updatedLots });
+    const updatedLots = newInventoryItem.lots.filter((_, i) => i !== index);
+    setNewInventoryItem({ ...newInventoryItem, lots: updatedLots });
   };
 
   const loadData = useCallback(async ({ page, limit, search } = {}) => {
@@ -392,47 +393,47 @@ function InventoryManagement() {
     return <Badge className="bg-green-100 text-green-800">Disponible</Badge>;
   };
 
-const loadProductOptions = useCallback(async (searchQuery) => {
-  try {
-    const response = await fetchApi(
-      `/products?search=${encodeURIComponent(searchQuery)}&limit=20`
-    );
+  const loadProductOptions = useCallback(async (searchQuery) => {
+    try {
+      const response = await fetchApi(
+        `/products?search=${encodeURIComponent(searchQuery)}&limit=20`
+      );
 
-    return (response.data || []).map((p) => ({
-      value: p._id,
-      label: `${p.name} (${p.sku})`,
+      return (response.data || []).map((p) => ({
+        value: p._id,
+        label: `${p.name} (${p.sku})`,
+      }));
+    } catch (error) {
+      console.error('Error searching products:', error);
+      return [];
+    }
+  }, []);
+
+  const handleProductSelection = (selectedOption) => {
+    const newProductId = selectedOption ? selectedOption.value : '';
+    const newProductLabel = selectedOption ? selectedOption.label : '';
+
+    setNewInventoryItem((prev) => ({
+      ...prev,
+      productId: newProductId,
+      productName: newProductLabel,
+      totalQuantity: 0,
+      lots: [],
     }));
-  } catch (error) {
-    console.error('Error searching products:', error);
-    return [];
-  }
-}, []);
+    setSelectedProductDetails(null);
 
-const handleProductSelection = (selectedOption) => {
-  const newProductId = selectedOption ? selectedOption.value : '';
-  const newProductLabel = selectedOption ? selectedOption.label : '';
-
-  setNewInventoryItem((prev) => ({
-    ...prev,
-    productId: newProductId,
-    productName: newProductLabel,
-    totalQuantity: 0,
-    lots: [],
-  }));
-  setSelectedProductDetails(null);
-
-  if (newProductId) {
-    fetchApi(`/products/${newProductId}`)
-      .then((response) => {
-        if (response?.data) {
-          setSelectedProductDetails(response.data);
-        }
-      })
-      .catch((error) => {
-        console.error('Error fetching product detail:', error);
-      });
-  }
-};
+    if (newProductId) {
+      fetchApi(`/products/${newProductId}`)
+        .then((response) => {
+          if (response?.data) {
+            setSelectedProductDetails(response.data);
+          }
+        })
+        .catch((error) => {
+          console.error('Error fetching product detail:', error);
+        });
+    }
+  };
 
   useEffect(() => {
     if (!isAddDialogOpen) {
@@ -452,7 +453,9 @@ const handleProductSelection = (selectedOption) => {
           variantId: variant._id,
           variantSku: variant.sku,
           name: formatVariantLabel(variant),
+          name: formatVariantLabel(variant),
           quantity: existing ? existing.quantity : '',
+          cost: existing ? existing.cost : '',
         };
       });
       return next;
@@ -481,7 +484,7 @@ const handleProductSelection = (selectedOption) => {
       return;
     }
 
-  if (!selectedProduct) {
+    if (!selectedProduct) {
       alert('Producto seleccionado no es válido.');
       return;
     }
@@ -519,7 +522,8 @@ const handleProductSelection = (selectedOption) => {
             variantId: entry.variantId,
             variantSku: entry.variantSku,
             totalQuantity: entry.quantity,
-            averageCostPrice: baseCost,
+            totalQuantity: entry.quantity,
+            averageCostPrice: Number(entry.cost) || baseCost,
           };
 
           console.log('📤 [handleAddItem] Enviando payload:', payload);
@@ -822,7 +826,7 @@ const handleProductSelection = (selectedOption) => {
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-        
+
         if (json.length < 2) {
           throw new Error("El archivo está vacío o no tiene datos.");
         }
@@ -940,35 +944,35 @@ const handleProductSelection = (selectedOption) => {
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row justify-start items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full sm:w-auto"><Upload className="h-4 w-4 mr-2" />Importar</Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onSelect={handleImport}>Importar Archivo</DropdownMenuItem>
-                <DropdownMenuItem onSelect={handleDownloadTemplate}>Descargar Plantilla</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <input
-              type="file"
-              ref={fileInputRef}
-              style={{ display: 'none' }}
-              accept=".xlsx, .csv"
-              onChange={handleFileSelect}
-            />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full sm:w-auto"><Download className="h-4 w-4 mr-2" />Exportar</Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => handleExport('xlsx')}>Exportar a .xlsx</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExport('csv')}>Exportar a .csv</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button onClick={loadData} disabled={loading} variant="outline" size="sm" className="w-full sm:w-auto">
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              {loading ? 'Actualizando...' : 'Actualizar'}
-            </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="w-full sm:w-auto"><Upload className="h-4 w-4 mr-2" />Importar</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onSelect={handleImport}>Importar Archivo</DropdownMenuItem>
+              <DropdownMenuItem onSelect={handleDownloadTemplate}>Descargar Plantilla</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+            accept=".xlsx, .csv"
+            onChange={handleFileSelect}
+          />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="w-full sm:w-auto"><Download className="h-4 w-4 mr-2" />Exportar</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => handleExport('xlsx')}>Exportar a .xlsx</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('csv')}>Exportar a .csv</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button onClick={loadData} disabled={loading} variant="outline" size="sm" className="w-full sm:w-auto">
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Actualizando...' : 'Actualizar'}
+          </Button>
         </div>
         <div className="space-y-4">
           {inventoryAttributeColumns.length > 0 && (
@@ -989,134 +993,150 @@ const handleProductSelection = (selectedOption) => {
             <DialogTrigger asChild>
               <Button id="add-inventory-button" size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white w-full sm:w-auto"><Plus className="h-5 w-5 mr-2" />Agregar Inventario</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>Agregar Inventario Inicial</DialogTitle>
-                  <DialogDescription>Selecciona un producto y define su stock y costo inicial.</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="product">Producto</Label>
-                    <SearchableSelect
-                      asyncSearch={true}
-                      loadOptions={loadProductOptions}
-                      minSearchLength={2}
-                      debounceMs={300}
-                      onSelection={handleProductSelection}
-                      value={
-                        newInventoryItem.productId
-                          ? {
-                              value: newInventoryItem.productId,
-                              label: newInventoryItem.productName || '',
-                            }
-                          : null
-                      }
-                      placeholder={getPlaceholder('search', 'Buscar producto (mín. 2 caracteres)...')}
-                    />
-                  </div>
-                  {useVariantInventory ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Label className="font-medium">Cantidad por variante</Label>
-                        <span className="text-sm text-muted-foreground">
-                          Total: {variantQuantities.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)}
-                        </span>
-                      </div>
-                      <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
-                        {variantQuantities.map((variant, index) => (
-                          <div
-                            key={variant.variantId || variant.variantSku || index}
-                            className="grid grid-cols-1 sm:grid-cols-6 gap-2 items-center border rounded-md p-3"
-                          >
-                            <div className="sm:col-span-4">
-                              <p className="text-sm font-medium text-foreground">
-                                {variant.name || variant.variantSku || `Variante ${index + 1}`}
-                              </p>
-                              {variant.variantSku ? (
-                                <p className="text-xs text-muted-foreground">SKU: {variant.variantSku}</p>
-                              ) : null}
-                            </div>
+            <DialogContent className="max-w-4xl">
+              <DialogHeader>
+                <DialogTitle>Agregar Inventario Inicial</DialogTitle>
+                <DialogDescription>Selecciona un producto y define su stock y costo inicial.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="product">Producto</Label>
+                  <SearchableSelect
+                    asyncSearch={true}
+                    loadOptions={loadProductOptions}
+                    minSearchLength={2}
+                    debounceMs={300}
+                    onSelection={handleProductSelection}
+                    value={
+                      newInventoryItem.productId
+                        ? {
+                          value: newInventoryItem.productId,
+                          label: newInventoryItem.productName || '',
+                        }
+                        : null
+                    }
+                    placeholder={getPlaceholder('search', 'Buscar producto (mín. 2 caracteres)...')}
+                  />
+                </div>
+                {useVariantInventory ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="font-medium">Cantidad por variante</Label>
+                      <span className="text-sm text-muted-foreground">
+                        Total: {variantQuantities.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)}
+                      </span>
+                    </div>
+                    <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                      {variantQuantities.map((variant, index) => (
+                        <div
+                          key={variant.variantId || variant.variantSku || index}
+                          className="grid grid-cols-1 sm:grid-cols-6 gap-2 items-center border rounded-md p-3"
+                        >
+                          <div className="sm:col-span-4">
+                            <p className="text-sm font-medium text-foreground">
+                              {variant.name || variant.variantSku || `Variante ${index + 1}`}
+                            </p>
+                            {variant.variantSku ? (
+                              <p className="text-xs text-muted-foreground">SKU: {variant.variantSku}</p>
+                            ) : null}
+                          </div>
+                          <div className="sm:col-span-2 grid grid-cols-2 gap-2">
                             <Input
-                              className="sm:col-span-2"
                               type="number"
                               min="0"
                               value={variant.quantity}
                               onChange={(e) => handleVariantQuantityChange(index, e.target.value)}
-                              placeholder="Cantidad"
+                              placeholder="Cant."
+                            />
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={variant.cost || ''}
+                              onChange={(e) => {
+                                setVariantQuantities((prev) => {
+                                  const next = [...prev];
+                                  if (!next[index]) return prev;
+                                  next[index] = { ...next[index], cost: e.target.value };
+                                  return next;
+                                });
+                              }}
+                              placeholder="Costo"
                             />
                           </div>
-                        ))}
-                      </div>
-                      {variantQuantities.length === 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          Configura variantes en el catálogo para distribuir el inventario inicial.
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <Label htmlFor="totalQuantity">Cantidad Inicial</Label>
-                      <Input
-                        id="totalQuantity"
-                        type="number"
-                        value={newInventoryItem.totalQuantity}
-                        onChange={(e) =>
-                          setNewInventoryItem({
-                            ...newInventoryItem,
-                            totalQuantity: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    <Label htmlFor="averageCostPrice">Costo Promedio por Unidad ($)</Label>
-                    <Input
-                      id="averageCostPrice"
-                      type="number"
-                      value={newInventoryItem.averageCostPrice}
-                      onChange={(e) => setNewInventoryItem({...newInventoryItem, averageCostPrice: e.target.value})}
-                    />
-                  </div>
-                  {selectedProduct && selectedProduct.isPerishable ? (
-                    <div className="space-y-4 border-t pt-4 mt-4">
-                      <h4 className="font-medium">Lotes del Producto Perecedero</h4>
-                      {newInventoryItem.lots.map((lot, index) => (
-                        <div key={index} className="grid grid-cols-4 gap-2 items-center">
-                          <Input
-                            placeholder="Nro. Lote"
-                            value={lot.lotNumber}
-                            onChange={(e) => handleLotChange(index, 'lotNumber', e.target.value)}
-                          />
-                          <Input
-                            type="number"
-                            placeholder="Cantidad"
-                            value={lot.quantity}
-                            onChange={(e) => handleLotChange(index, 'quantity', e.target.value)}
-                          />
-                          <Input
-                            type="date"
-                            placeholder="Vencimiento"
-                            value={lot.expirationDate}
-                            onChange={(e) => handleLotChange(index, 'expirationDate', e.target.value)}
-                          />
-                          <Button variant="ghost" size="sm" onClick={() => removeLot(index)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
                         </div>
                       ))}
-                      <Button variant="outline" size="sm" onClick={addLot}>
-                        <Plus className="h-4 w-4 mr-2" /> Agregar Lote
-                      </Button>
                     </div>
-                  ) : null}
+                    {variantQuantities.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Configura variantes en el catálogo para distribuir el inventario inicial.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="totalQuantity">Cantidad Inicial</Label>
+                    <Input
+                      id="totalQuantity"
+                      type="number"
+                      value={newInventoryItem.totalQuantity}
+                      onChange={(e) =>
+                        setNewInventoryItem({
+                          ...newInventoryItem,
+                          totalQuantity: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="averageCostPrice">Costo Promedio por Unidad ($)</Label>
+                  <Input
+                    id="averageCostPrice"
+                    type="number"
+                    value={newInventoryItem.averageCostPrice}
+                    onChange={(e) => setNewInventoryItem({ ...newInventoryItem, averageCostPrice: e.target.value })}
+                  />
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
-                  <Button onClick={handleAddItem}>Agregar a Inventario</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+                {selectedProduct && selectedProduct.isPerishable ? (
+                  <div className="space-y-4 border-t pt-4 mt-4">
+                    <h4 className="font-medium">Lotes del Producto Perecedero</h4>
+                    {newInventoryItem.lots.map((lot, index) => (
+                      <div key={index} className="grid grid-cols-4 gap-2 items-center">
+                        <Input
+                          placeholder="Nro. Lote"
+                          value={lot.lotNumber}
+                          onChange={(e) => handleLotChange(index, 'lotNumber', e.target.value)}
+                        />
+                        <Input
+                          type="number"
+                          placeholder="Cantidad"
+                          value={lot.quantity}
+                          onChange={(e) => handleLotChange(index, 'quantity', e.target.value)}
+                        />
+                        <Input
+                          type="date"
+                          placeholder="Vencimiento"
+                          value={lot.expirationDate}
+                          onChange={(e) => handleLotChange(index, 'expirationDate', e.target.value)}
+                        />
+                        <Button variant="ghost" size="sm" onClick={() => removeLot(index)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    <Button variant="outline" size="sm" onClick={addLot}>
+                      <Plus className="h-4 w-4 mr-2" /> Agregar Lote
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
+                <Button onClick={handleAddItem}>Agregar a Inventario</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
       <Card>

@@ -466,6 +466,24 @@ export class ProductsService {
         filter._id = { $nin: ids };
       }
     }
+
+    // Optimization: Filter by specific IDs list
+    if (query.ids?.length) {
+      const includedIds = query.ids
+        .filter((id) => Types.ObjectId.isValid(id))
+        .map((id) => new Types.ObjectId(id));
+
+      if (includedIds.length) {
+        // If we have both exclude and include, include takes precedence but respects exclude implicitly by intersection?
+        // Mongo handles $in and $nin on same field by intersection? No, $in overrides $nin often or errors.
+        // Let's explicitly combine: IDs in 'ids' AND not in 'exclude'
+        if (filter._id && filter._id.$nin) {
+          filter._id = { $in: includedIds, $nin: filter._id.$nin };
+        } else {
+          filter._id = { $in: includedIds };
+        }
+      }
+    }
     // PERFORMANCE OPTIMIZATION: Use text search instead of regex for better performance
     if (isSearching) {
       // Check if search looks like a SKU or barcode (alphanumeric, no spaces)
@@ -522,10 +540,10 @@ export class ProductsService {
 
     // Trim down fields for listing to reduce payload and speed up render
     const listingFields =
-      "sku name brand description ingredients category subcategory productType isActive hasActivePromotion promotion " +
-      "unitOfMeasure isSoldByWeight hasMultipleSellingUnits " +
-      "price salePrice image imageUrl images " +
-      "variants.name variants.sku variants.isActive variants.barcode variants.basePrice variants.price variants.images";
+      "sku name brand origin description ingredients category subcategory productType isActive hasActivePromotion promotion " +
+      "unitOfMeasure isSoldByWeight hasMultipleSellingUnits sellingUnits " +
+      "price salePrice image imageUrl images attributes inventoryConfig " +
+      "variants.name variants.sku variants.isActive variants.barcode variants.basePrice variants.costPrice variants.price variants.unit variants.unitSize variants.images variants.attributes";
 
     // Build projection to include text score when doing text search
     const projection = useTextSearch ? { score: { $meta: "textScore" } } : {};

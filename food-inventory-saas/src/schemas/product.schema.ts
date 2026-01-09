@@ -112,6 +112,9 @@ export class SellingUnit {
 
   @Prop({ type: Number })
   incrementStep?: number; // Incremento permitido (ej: de 100 en 100 gramos)
+
+  @Prop({ type: Boolean, default: false })
+  isSoldByWeight?: boolean; // Si esta unidad específica se vende por peso
 }
 const SellingUnitSchema = SchemaFactory.createForClass(SellingUnit);
 
@@ -142,6 +145,9 @@ export class Product {
 
   @Prop({ type: String, required: true })
   brand: string;
+
+  @Prop({ type: String })
+  origin?: string; // Pais de origen
 
   @Prop({ type: String, default: "unidad" })
   unitOfMeasure: string; // Unidad base para inventario

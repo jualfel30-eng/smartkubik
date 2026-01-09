@@ -260,23 +260,29 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
       try {
         setLoadingProducts(true);
 
-        // Load ALL inventories with pagination (max 100 per request)
-        let allInventories = [];
-        let currentPage = 1;
-        let hasMore = true;
+        // Helper for parallel fetching
+        const fetchAllPages = async (baseUrl) => {
+          const firstPage = await fetchApi(`${baseUrl}&page=1&limit=100`);
+          let allItems = firstPage.data || [];
+          const totalPages = firstPage.pagination?.totalPages || 1;
 
-        while (hasMore) {
-          const inventoryResponse = await fetchApi(`/inventory?page=${currentPage}&limit=100`);
-          const inventories = inventoryResponse.data || [];
-          allInventories = [...allInventories, ...inventories];
-
-          const pagination = inventoryResponse.pagination;
-          if (pagination && currentPage < pagination.totalPages) {
-            currentPage++;
-          } else {
-            hasMore = false;
+          if (totalPages > 1) {
+            const promises = [];
+            for (let i = 2; i <= totalPages; i++) {
+              promises.push(fetchApi(`${baseUrl}&page=${i}&limit=100`));
+            }
+            const responses = await Promise.all(promises);
+            responses.forEach(res => {
+              if (res.data) {
+                allItems = [...allItems, ...res.data];
+              }
+            });
           }
-        }
+          return allItems;
+        };
+
+        // 1. Load ALL inventories in parallel
+        const allInventories = await fetchAllPages('/inventory?');
 
         console.log('📦 [NewOrderForm] Total inventories loaded:', allInventories.length);
 
@@ -286,13 +292,6 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
         );
 
         console.log('✅ [NewOrderForm] Available inventories:', availableInventories.length);
-
-        // DEBUG: Log first inventory to see structure
-        if (availableInventories.length > 0) {
-          console.log('🔍 [NewOrderForm] First inventory sample:', availableInventories[0]);
-          console.log('🔍 [NewOrderForm] First productId type:', typeof availableInventories[0].productId);
-          console.log('🔍 [NewOrderForm] First productId value:', availableInventories[0].productId);
-        }
 
         // Get unique product IDs from inventories (handle populated objects)
         const productIds = [...new Set(availableInventories.map(inv => {
@@ -312,7 +311,6 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
         }))];
 
         console.log('🔑 [NewOrderForm] Unique product IDs from inventory:', productIds.length);
-        console.log('🔑 [NewOrderForm] Sample product IDs:', productIds.slice(0, 5));
 
         // Create inventory map for product quantities
         const invMap = {};
@@ -327,32 +325,32 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
         });
         setInventoryMap(invMap);
 
-        // Load ALL products with pagination and rate limiting delay
+        // 2. Load SPECIFIC products in parallel (Targeted Fetching)
         if (productIds.length > 0) {
-          // Add initial delay before first products request to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 300));
-
-          let allProducts = [];
-          let productPage = 1;
-          let hasMoreProducts = true;
-
-          while (hasMoreProducts) {
-            const productsResponse = await fetchApi(`/products?page=${productPage}&limit=100`);
-            const products = productsResponse.data || [];
-            allProducts = [...allProducts, ...products];
-
-            const productPagination = productsResponse.pagination;
-            if (productPagination && productPage < productPagination.totalPages) {
-              productPage++;
-              // Add delay to avoid rate limiting (increased to 300ms)
-              await new Promise(resolve => setTimeout(resolve, 300));
-            } else {
-              hasMoreProducts = false;
-            }
+          // Optimization: Fetch only the specific products we need using the new backend 'ids' filter
+          // We chunk the IDs to avoid URL length limits (e.g. 50 IDs per request)
+          const chunkSize = 50;
+          const chunks = [];
+          for (let i = 0; i < productIds.length; i += chunkSize) {
+            chunks.push(productIds.slice(i, i + chunkSize));
           }
 
+          console.log(`🚀 [NewOrderForm] Fetching ${productIds.length} products in ${chunks.length} chunks...`);
+
+          const productPromises = chunks.map(chunk =>
+            fetchApi(`/products?ids=${chunk.join(',')}&limit=${chunkSize}`)
+          );
+
+          const productResponses = await Promise.all(productPromises);
+
+          let allProducts = [];
+          productResponses.forEach(res => {
+            if (res.data) {
+              allProducts = [...allProducts, ...res.data];
+            }
+          });
+
           console.log('📋 [NewOrderForm] Total products loaded:', allProducts.length);
-          console.log('📋 [NewOrderForm] Sample product._id:', allProducts.slice(0, 5).map(p => p._id));
 
           // Filter only products that have inventory (convert both to strings for comparison)
           const productsWithStock = allProducts.filter(p => {
@@ -361,7 +359,6 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
           });
 
           console.log('🎯 [NewOrderForm] Products with stock:', productsWithStock.length);
-
           setProducts(productsWithStock);
         } else {
           console.log('⚠️ [NewOrderForm] No product IDs found, setting empty products');
@@ -597,6 +594,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
       baseUnitPrice,
       initialQuantity,
       promotionInfo,
+      originalVariantPrice,
     } = config;
 
     const finalUnitPrice = baseUnitPrice + priceAdjustment;
@@ -623,6 +621,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
         promotionInfo: promotionInfo || null,
         quantityEntryMode: product.isSoldByWeight ? 'quantity' : 'quantity',
         amountInput: '',
+        baseVariantPrice: originalVariantPrice,
       };
 
       const items = [...prev.items];
@@ -706,6 +705,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
         baseUnitPrice,
         initialQuantity,
         promotionInfo,
+        originalVariantPrice: variant.basePrice || 0,
       };
 
       setPendingProductConfig(config);
@@ -969,6 +969,36 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
   const handleUnitChange = (productId, newUnitAbbr) => {
     const updatedItems = newOrder.items.map(item => {
       if (item.productId === productId && item.hasMultipleSellingUnits) {
+        // Check if newUnitAbbr matches base unit (handle both explicit value and "unidad" fallback)
+        const isBaseUnit = newUnitAbbr === (item.unitOfMeasure || 'unidad');
+
+        if (isBaseUnit) {
+          const basePrice = item.promotionInfo?.originalPrice
+            ? item.promotionInfo.originalPrice
+            : (Number(item.baseVariantPrice) || Number(item.baseUnitPrice) || 0); // Revert to stored base price
+          // Recalculate if needed
+          const modifierAdjustment = calculateModifierAdjustment(item);
+          const nextFinalPrice = basePrice + modifierAdjustment;
+          // Use original quantity if switching back to base, or keep current
+          let nextQuantity = item.quantity;
+
+
+          if (item.isSoldByWeight && item.quantityEntryMode === 'amount') {
+            const amountNumeric = parseFloat(item.amountInput);
+            if (!Number.isNaN(amountNumeric) && amountNumeric > 0 && nextFinalPrice > 0) {
+              nextQuantity = formatDecimalString(amountNumeric / nextFinalPrice);
+            }
+          }
+
+          return {
+            ...item,
+            selectedUnit: item.unitOfMeasure || 'unidad', // Or null/undefined if you want to clear specific selection
+            unitPrice: basePrice,
+            finalPrice: nextFinalPrice,
+            quantity: nextQuantity
+          };
+        }
+
         const selectedUnit = item.sellingUnits.find(u => u.abbreviation === newUnitAbbr);
         if (selectedUnit) {
           const basePrice = selectedUnit.pricePerUnit;
@@ -1383,6 +1413,9 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value={item.unitOfMeasure || 'unidad'}>
+                          {item.unitOfMeasure || 'UD'}
+                        </SelectItem>
                         {item.sellingUnits.filter(u => u.isActive !== false).map((unit) => (
                           <SelectItem key={unit.abbreviation} value={unit.abbreviation}>
                             {unit.name} ({unit.abbreviation})

@@ -148,6 +148,11 @@ export class CreateSellingUnitDto {
   @IsNumber()
   @Min(0)
   incrementStep?: number;
+
+  @ApiPropertyOptional({ description: "Si esta unidad se vende por peso", default: false })
+  @IsOptional()
+  @IsBoolean()
+  isSoldByWeight?: boolean;
 }
 
 export class CreateProductSupplierDto {
@@ -236,6 +241,12 @@ export class CreateProductDto {
   @IsNotEmpty()
   @SanitizeString()
   brand: string;
+
+  @ApiPropertyOptional({ description: "Origen del producto" })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  origin?: string;
 
   @ApiPropertyOptional({ description: "Unidad de medida", default: "unidad" })
   @IsOptional()
@@ -425,7 +436,17 @@ export class UpdateProductDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  @ApiPropertyOptional({ description: "Marca del producto" })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
   brand?: string;
+
+  @ApiPropertyOptional({ description: "Origen del producto" })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  origin?: string;
 
   @ApiPropertyOptional({ description: "Descripción del producto" })
   @IsOptional()
@@ -632,6 +653,18 @@ export class ProductQueryDto {
   // Uso interno: excluir ciertos IDs (p.ej. productos marcados como consumibles)
   @IsOptional()
   excludeProductIds?: string[];
+
+  // Optimización: filtrar por lista específica de IDs
+  @ApiPropertyOptional({ description: "Filtrar por lista de IDs (separados por coma)" })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') return value.split(',').map(id => id.trim()).filter(id => id.length > 0);
+    return [];
+  })
+  @IsArray()
+  @IsString({ each: true })
+  ids?: string[];
 
   // Alias común de búsqueda (?q=) para compatibilidad con UI
   @ApiPropertyOptional({ description: "Alias de búsqueda", name: "q" })
