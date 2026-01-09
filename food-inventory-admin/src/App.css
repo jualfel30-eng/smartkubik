@@ -94,11 +94,11 @@
   }
 
   h1 {
-    font-size: 2.5rem !important;
+    font-size: 1.25rem !important;
   }
 
   h2 {
-    font-size: 2rem !important;
+    font-size: 1.111rem !important;
   }
 
   h3 {
@@ -136,14 +136,14 @@
   h1.text-2xl,
   h1.text-4xl,
   h1.text-5xl {
-    font-size: 4rem !important;
+    font-size: 2rem !important;
   }
 
   h2,
   h2.text-3xl,
   h2.text-4xl,
   h2.text-5xl {
-    font-size: 2rem !important;
+    font-size: 1.25rem !important;
   }
 
   h3 {
@@ -181,13 +181,13 @@
   h1.text-2xl,
   h1.text-4xl,
   h1.text-5xl {
-    font-size: 4.5rem !important;
+    font-size: 2.25rem !important;
   }
 
   h2,
   h2.text-3xl,
   h2.text-4xl {
-    font-size: 2rem !important;
+    font-size: 1.428rem !important;
   }
 
   h3 {
@@ -222,15 +222,13 @@
   }
 
   h1 {
-    font-size: 1.5rem !important;
+    font-size: 0.75rem !important;
   }
 
-  /* 16.5px */
   h2 {
-    font-size: 1.25rem !important;
+    font-size: 1.818rem !important;
   }
 
-  /* 13.75px */
   h3 {
     font-size: 1.1rem !important;
   }
@@ -274,15 +272,13 @@
   }
 
   h1 {
-    font-size: 1.4rem !important;
+    font-size: 0.7rem !important;
   }
 
-  /* 14px */
   h2 {
-    font-size: 1.2rem !important;
+    font-size: 2rem !important;
   }
 
-  /* 12px */
   h3 {
     font-size: 1.1rem !important;
   }
@@ -365,9 +361,16 @@
     @apply border-border outline-ring/50;
   }
 
-  body {
+  /* Landing page styles - only when landing is active */
+  body.landing-page-active {
     background-color: #0A0F1C !important;
     color: #F8FAFC !important;
+  }
+
+  /* ERP styles - default dark mode, respects theme toggle */
+  body:not(.landing-page-active) {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 }
 
