@@ -155,7 +155,7 @@ export default function ComprasManagement() {
         fetchApi('/inventory/alerts/low-stock'),
         fetchApi('/inventory/alerts/near-expiration?days=30'),
         fetchApi('/customers?customerType=supplier'),
-        fetchApi('/products?includeInactive=true&limit=500')
+        fetchApi('/products?includeInactive=true&limit=2000')
       ]);
       setLowStockProducts(lowStockData.data || []);
       setExpiringProducts(expiringData.data || []);

@@ -222,7 +222,7 @@ function InventoryManagement() {
 
       const [inventoryResponse, productsList] = await Promise.all([
         fetchApi(`/inventory?${params.toString()}`),
-        fetchApi('/products?limit=500')  // Límite máximo permitido por el backend
+        fetchApi('/products?limit=2000')  // Límite máximo permitido por el backend
       ]);
 
       console.log('📦 [InventoryManagement] Inventarios recibidos:', inventoryResponse?.data?.length || 0);

@@ -91,12 +91,12 @@ function ConsumablesTab() {
         setConsumableConfigs(configsResult.data || []);
       }
 
-      // Load only consumable products (max limit is 500)
-      const productsResponse = await fetchApi('/products?limit=500&productType=consumable');
+      // Load only consumable products (max limit is 2000)
+      const productsResponse = await fetchApi('/products?limit=2000&productType=consumable');
       setProducts(productsResponse.data || productsResponse || []);
 
       // Load sale products (simple type) for creating relations
-      const saleProductsResponse = await fetchApi('/products?limit=500&productType=simple');
+      const saleProductsResponse = await fetchApi('/products?limit=2000&productType=simple');
       const saleProductsList = saleProductsResponse.data || saleProductsResponse || [];
       console.log('Loaded sale products:', saleProductsList.length);
       setSaleProducts(saleProductsList);

@@ -97,8 +97,8 @@ function SuppliesTab() {
         setSupplyConfigs(configsResult.data || []);
       }
 
-      // Load only supply products (max limit is 500)
-      const productsResponse = await fetchApi('/products?limit=500&productType=supply');
+      // Load only supply products (max limit is 2000)
+      const productsResponse = await fetchApi('/products?limit=2000&productType=supply');
       setProducts(productsResponse.data || productsResponse || []);
     } catch (error) {
       console.error('Error loading data:', error);
