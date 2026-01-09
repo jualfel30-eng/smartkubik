@@ -341,6 +341,7 @@ function TenantLayout() {
             { name: 'Productos', href: 'inventory-management?tab=products', icon: Box },
             { name: 'Consumibles', href: 'inventory-management?tab=consumables', icon: Coffee },
             { name: 'Suministros', href: 'inventory-management?tab=supplies', icon: Wrench },
+            { name: 'Motor de Precios', href: 'inventory-management?tab=pricing-engine', icon: Calculator },
           ],
         },
         {
@@ -355,7 +356,6 @@ function TenantLayout() {
           ],
         },
         { name: 'Compras', href: 'inventory-management?tab=purchases', icon: Truck },
-        { name: 'Motor de Precios', href: 'inventory-management?tab=pricing-engine', icon: Calculator, permission: 'inventory_edit' },
       ]
     },
     {
