@@ -99,7 +99,6 @@ export default function ComprasManagement() {
   const [po, setPo] = useState(initialPoState);
   
   const [suppliers, setSuppliers] = useState([]);
-  const [products, setProducts] = useState([]);
   const [poLoading, setPoLoading] = useState(false);
   const [supplierNameInput, setSupplierNameInput] = useState('');
   const [supplierRifInput, setSupplierRifInput] = useState('');
@@ -151,23 +150,20 @@ export default function ComprasManagement() {
     try {
       setLoading(true);
       setError(null);
-      const [lowStockData, expiringData, suppliersData, productsData] = await Promise.all([
+      const [lowStockData, expiringData, suppliersData] = await Promise.all([
         fetchApi('/inventory/alerts/low-stock'),
         fetchApi('/inventory/alerts/near-expiration?days=30'),
-        fetchApi('/customers?customerType=supplier'),
-        fetchApi('/products?includeInactive=true&limit=2000')
+        fetchApi('/customers?customerType=supplier')
       ]);
       setLowStockProducts(lowStockData.data || []);
       setExpiringProducts(expiringData.data || []);
       setSuppliers(suppliersData.data || []);
-      setProducts(productsData.data || []);
 
     } catch (err) {
       setError(err.message);
       setLowStockProducts([]);
       setExpiringProducts([]);
       setSuppliers([]);
-      setProducts([]);
     } finally {
       setLoading(false);
     }
@@ -667,13 +663,22 @@ export default function ComprasManagement() {
       supplier: s,
     })),[suppliers]);
 
-  const productOptions = useMemo(() =>
-    products.map(p => ({
-      value: p._id,
-      label: `${p.name} (${p.sku || 'N/A'})${p.isActive === false ? ' [INACTIVO]' : ''}`,
-      product: p
-    })),
-  [products]);
+  const loadProductOptions = useCallback(async (searchQuery) => {
+    try {
+      const response = await fetchApi(
+        `/products?search=${encodeURIComponent(searchQuery)}&includeInactive=true&limit=20`
+      );
+
+      return (response.data || []).map((p) => ({
+        value: p._id,
+        label: `${p.name} ${p.sku ? `(${p.sku})` : ''}${p.isActive === false ? ' [INACTIVO]' : ''}`,
+        product: p
+      }));
+    } catch (error) {
+      console.error('Error searching products:', error);
+      return [];
+    }
+  }, []);
 
   const normalizeId = useCallback((value) => {
     if (value === undefined || value === null) return null;
@@ -1143,11 +1148,14 @@ export default function ComprasManagement() {
                             <div className="space-y-2">
                                 <Label>Buscar Producto para Agregar</Label>
                                 <SearchableSelect
-                                    options={productOptions}
+                                    asyncSearch={true}
+                                    loadOptions={loadProductOptions}
+                                    minSearchLength={2}
+                                    debounceMs={300}
                                     onSelection={handleProductSelection}
                                     value={null} // Always clear after selection
-                                    placeholder={loading ? "Cargando productos..." : "Buscar y añadir producto..."}
-                                    isDisabled={loading}
+                                    placeholder="Buscar producto (mín. 2 caracteres)..."
+                                    isCreatable={false}
                                 />
                             </div>
                             <Table>

@@ -37,6 +37,7 @@ export class DashboardService {
       lowStockAlerts,
       nearExpirationAlerts,
       recentOrders,
+      inventoryValueResult,
     ] = await Promise.all([
       // Count unique products that have at least one variant with stock
       // Use tenantObjectId for Inventory model (stored as ObjectId)
@@ -69,10 +70,81 @@ export class DashboardService {
         .sort({ createdAt: -1 })
         .limit(5)
         .select("orderNumber customerName totalAmount status"),
+      // Calculate total inventory value (cost and retail)
+      this.inventoryModel.aggregate([
+        {
+          $match: {
+            tenantId: tenantObjectId,
+            isActive: true,
+            totalQuantity: { $gt: 0 },
+          },
+        },
+        {
+          $lookup: {
+            from: "products",
+            localField: "productId",
+            foreignField: "_id",
+            as: "productInfo",
+          },
+        },
+        {
+          $unwind: {
+            path: "$productInfo",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $project: {
+            totalQuantity: 1,
+            costPrice: {
+              $ifNull: ["$productInfo.variant.costPrice", 0],
+            },
+            basePrice: {
+              $ifNull: ["$productInfo.variant.basePrice", 0],
+            },
+            costValue: {
+              $multiply: [
+                "$totalQuantity",
+                { $ifNull: ["$productInfo.variant.costPrice", 0] },
+              ],
+            },
+            retailValue: {
+              $multiply: [
+                "$totalQuantity",
+                { $ifNull: ["$productInfo.variant.basePrice", 0] },
+              ],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalCostValue: { $sum: "$costValue" },
+            totalRetailValue: { $sum: "$retailValue" },
+            totalItems: { $sum: "$totalQuantity" },
+          },
+        },
+      ]),
     ]);
 
     const salesToday =
       salesTodayResult.length > 0 ? salesTodayResult[0].total : 0;
+
+    const inventoryValue = inventoryValueResult.length > 0
+      ? {
+          totalCostValue: inventoryValueResult[0].totalCostValue || 0,
+          totalRetailValue: inventoryValueResult[0].totalRetailValue || 0,
+          totalItems: inventoryValueResult[0].totalItems || 0,
+          potentialProfit:
+            (inventoryValueResult[0].totalRetailValue || 0) -
+            (inventoryValueResult[0].totalCostValue || 0),
+        }
+      : {
+          totalCostValue: 0,
+          totalRetailValue: 0,
+          totalItems: 0,
+          potentialProfit: 0,
+        };
 
     const inventoryAlertsMap = new Map();
 
@@ -102,6 +174,7 @@ export class DashboardService {
       ordersToday,
       activeCustomers,
       salesToday,
+      inventoryValue,
       inventoryAlerts,
       recentOrders,
     };

@@ -24,7 +24,9 @@ import {
   Package,
   AlertTriangle,
   PlusCircle,
-  Truck
+  Truck,
+  TrendingUp,
+  Boxes
 } from "lucide-react";
 import { fetchApi } from '../lib/api';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
@@ -166,6 +168,68 @@ function DashboardView() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Inventory Value Cards */}
+      {summaryData.inventoryValue && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Valor de Inventario (Costo)</CardTitle>
+              <Boxes className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                ${(summaryData.inventoryValue.totalCostValue || 0).toFixed(2)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Inversión total en inventario
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Valor de Inventario (Retail)</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                ${(summaryData.inventoryValue.totalRetailValue || 0).toFixed(2)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Valor potencial de venta
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Ganancia Potencial</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                ${(summaryData.inventoryValue.potentialProfit || 0).toFixed(2)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Margen si se vende todo
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total de Items</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {(summaryData.inventoryValue.totalItems || 0).toLocaleString()}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Unidades en inventario
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {flags.DASHBOARD_CHARTS ? (
         <div className="space-y-6">
@@ -330,6 +394,12 @@ function DashboardView() {
 function DashboardSkeleton() {
   return (
     <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card><CardHeader><Skeleton className="h-5 w-2/5" /></CardHeader><CardContent><Skeleton className="h-8 w-3/5" /></CardContent></Card>
+        <Card><CardHeader><Skeleton className="h-5 w-2/5" /></CardHeader><CardContent><Skeleton className="h-8 w-3/5" /></CardContent></Card>
+        <Card><CardHeader><Skeleton className="h-5 w-2/5" /></CardHeader><CardContent><Skeleton className="h-8 w-3/5" /></CardContent></Card>
+        <Card><CardHeader><Skeleton className="h-5 w-2/5" /></CardHeader><CardContent><Skeleton className="h-8 w-3/5" /></CardContent></Card>
+      </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card><CardHeader><Skeleton className="h-5 w-2/5" /></CardHeader><CardContent><Skeleton className="h-8 w-3/5" /></CardContent></Card>
         <Card><CardHeader><Skeleton className="h-5 w-2/5" /></CardHeader><CardContent><Skeleton className="h-8 w-3/5" /></CardContent></Card>

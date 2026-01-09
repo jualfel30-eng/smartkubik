@@ -18,22 +18,22 @@ export const subscriptionPlans: Record<string, SubscriptionPlan> = {
       maxStorage: 500,
     },
   },
-  basic: {
-    name: "Basic",
+  starter: {
+    name: "Starter",
     limits: {
-      maxUsers: 10,
+      maxUsers: 3,
       maxProducts: 500,
       maxOrders: 1000,
-      maxStorage: 2000, // 2GB
+      maxStorage: 2000,
     },
   },
-  premium: {
-    name: "Premium",
+  professional: {
+    name: "Professional",
     limits: {
-      maxUsers: 50,
+      maxUsers: 8,
       maxProducts: 5000,
       maxOrders: 10000,
-      maxStorage: 10000, // 10GB
+      maxStorage: 10000,
     },
   },
   enterprise: {

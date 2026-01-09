@@ -51,6 +51,7 @@ function PricingOrchestratorContent() {
     const [velocity, setVelocity] = useState('all');
     const [categoryId, setCategoryId] = useState('all');
     const [subCategory, setSubCategory] = useState('all');
+    const [productStatus, setProductStatus] = useState('active'); // Default to Active
 
     // Dynamic Data
     const [categories, setCategories] = useState([]);
@@ -142,6 +143,7 @@ function PricingOrchestratorContent() {
                     velocity: velocity === 'all' ? undefined : velocity,
                     category: categoryId === 'all' ? undefined : categoryId,
                     subcategory: subCategory === 'all' ? undefined : subCategory,
+                    status: productStatus, // Pass status to backend
                 },
                 operation: {
                     type: backendOperationType,
@@ -208,6 +210,7 @@ function PricingOrchestratorContent() {
                     velocity: velocity === 'all' ? undefined : velocity,
                     category: categoryId === 'all' ? undefined : categoryId,
                     subcategory: subCategory === 'all' ? undefined : subCategory,
+                    status: productStatus, // Pass status to backend
                     // New: Send explicit IDs if selection is partial
                     ids: selectedProductIds.size < previewData.length ? Array.from(selectedProductIds) : undefined
                 },
@@ -297,6 +300,18 @@ function PricingOrchestratorContent() {
                                     </SelectContent>
                                 </Select>
                             </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Estatus del Producto</Label>
+                            <Select value={productStatus} onValueChange={setProductStatus}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="active">Solo Activos (Venta)</SelectItem>
+                                    <SelectItem value="inactive">Solo Inactivos</SelectItem>
+                                    <SelectItem value="all">Todos (Activos + Inactivos)</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">

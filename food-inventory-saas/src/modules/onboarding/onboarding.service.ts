@@ -49,7 +49,7 @@ export class OnboardingService {
     private mailService: MailService,
     private membershipsService: MembershipsService,
     @InjectConnection() private readonly connection: Connection,
-  ) {}
+  ) { }
 
   async createTenantAndAdmin(dto: CreateTenantWithAdminDto) {
     this.logger.log(
@@ -128,6 +128,15 @@ export class OnboardingService {
             currentProducts: 0,
             currentOrders: 0,
             currentStorage: 0,
+          },
+          verticalProfile: {
+            key:
+              vertical === "SERVICES"
+                ? "hospitality"
+                : vertical === "MANUFACTURING"
+                  ? "manufacturing"
+                  : "food-service", // TODO: Implement better mapping for RETAIL subtypes based on businessType
+            overrides: {},
           },
         });
         savedTenant = await newTenant.save({ session });
@@ -277,14 +286,20 @@ export class OnboardingService {
             planName: tenantDoc.subscriptionPlan,
             confirmationCode: tenantDoc.confirmationCode,
           });
-        } else if (isTenantConfirmationEnforced()) {
-          this.logger.warn(
-            `No se envió correo de bienvenida para ${dto.email} porque no se encontró código de confirmación.`,
-          );
         } else {
-          this.logger.log(
-            `La confirmación de tenant está deshabilitada. Se omite el envío de correo para ${dto.email}.`,
+          // Log detailed reason for skipping
+          this.logger.warn(
+            `Skipping welcome email for ${dto.email}. Conditions: confirmationCode=${!!tenantDoc.confirmationCode}, enforced=${isTenantConfirmationEnforced()}`,
           );
+          if (isTenantConfirmationEnforced()) {
+            this.logger.warn(
+              `No se envió correo de bienvenida para ${dto.email} porque no se encontró código de confirmación (FORCE=true).`,
+            );
+          } else {
+            this.logger.log(
+              `La confirmación de tenant está deshabilitada (FORCE=false). Se omite el envío de correo para ${dto.email}.`,
+            );
+          }
         }
       } catch (error) {
         this.logger.error(

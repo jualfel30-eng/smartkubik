@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Select from 'react-select';
 import CreatableSelect from 'react-select/creatable';
+import { useDebounce } from '@/hooks/use-debounce';
 
 export function SearchableSelect({
   options = [],
@@ -10,10 +11,51 @@ export function SearchableSelect({
   placeholder = '',
   isCreatable = true,
   inputValue, // Opcional
-  isLoading = false, // Indicador de carga
+  isLoading = false, // Indicador de carga (modo sync)
   customControlClass = '', // Clases personalizadas para el control
+  // Nuevas props para búsqueda async
+  asyncSearch = false,
+  loadOptions = null,
+  minSearchLength = 2,
+  debounceMs = 300,
+  noOptionsMessage: customNoOptionsMessage = null,
   ...props
 }) {
+  // States para modo async
+  const [asyncOptions, setAsyncOptions] = useState([]);
+  const [asyncLoading, setAsyncLoading] = useState(false);
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearch = useDebounce(searchInput, debounceMs);
+
+  // Effect para cargar opciones remotas
+  useEffect(() => {
+    if (!asyncSearch || !loadOptions) return;
+
+    const fetchOptions = async () => {
+      if (!debouncedSearch || debouncedSearch.length < minSearchLength) {
+        setAsyncOptions([]);
+        return;
+      }
+
+      setAsyncLoading(true);
+      try {
+        const results = await loadOptions(debouncedSearch);
+        setAsyncOptions(results);
+      } catch (error) {
+        console.error('Error loading options:', error);
+        setAsyncOptions([]);
+      } finally {
+        setAsyncLoading(false);
+      }
+    };
+
+    fetchOptions();
+  }, [debouncedSearch, asyncSearch, loadOptions, minSearchLength]);
+
+  // Determinar qué opciones y loading usar
+  const finalOptions = asyncSearch ? asyncOptions : options;
+  const finalLoading = asyncSearch ? asyncLoading : isLoading;
+
   // Usar Select normal si no es creatable, CreatableSelect si lo es
   const SelectComponent = isCreatable ? CreatableSelect : Select;
 
@@ -21,6 +63,27 @@ export function SearchableSelect({
     if (onSelection) {
       onSelection(selectedOption, actionMeta);
     }
+  };
+
+  const handleInputChange = (newValue, actionMeta) => {
+    if (asyncSearch) {
+      setSearchInput(newValue);
+    }
+
+    // Llamar callback original si existe
+    if (onInputChange) {
+      onInputChange(newValue, actionMeta);
+    }
+  };
+
+  const getNoOptionsMessage = () => {
+    if (asyncSearch) {
+      if (!searchInput || searchInput.length < minSearchLength) {
+        return `Escribe al menos ${minSearchLength} caracteres para buscar...`;
+      }
+      return customNoOptionsMessage || "No se encontraron productos";
+    }
+    return "No se encontraron resultados";  // Mensaje original para modo sync
   };
 
   const classNames = {
@@ -48,10 +111,10 @@ export function SearchableSelect({
 
   return (
     <SelectComponent
-      options={options}
+      options={finalOptions}
       onChange={handleChange}
-      onInputChange={onInputChange}
-      inputValue={inputValue}
+      onInputChange={handleInputChange}
+      inputValue={asyncSearch ? searchInput : inputValue}
       value={value}
       placeholder={placeholder}
       isClearable
@@ -62,8 +125,8 @@ export function SearchableSelect({
       classNames={classNames}
 
       formatCreateLabel={isCreatable ? (inputValue) => `Crear nuevo: "${inputValue}"` : undefined}
-      noOptionsMessage={() => "No se encontraron resultados"}
-      isLoading={isLoading}
+      noOptionsMessage={getNoOptionsMessage}
+      isLoading={finalLoading}
       loadingMessage={() => "Buscando..."}
       // Permitir crear opciones con Tab y Enter (solo para CreatableSelect)
       onKeyDown={isCreatable ? (event) => {

@@ -12,8 +12,10 @@ export type VerticalKey =
   | "retail-footwear"
   | "retail-hardware"
   | "retail-tech"
+  | "retail-tech"
   | "retail-toys"
-  | "manufacturing";
+  | "manufacturing"
+  | "hospitality";
 
 export interface AttributeDescriptor {
   key: string;
@@ -45,11 +47,11 @@ export interface VerticalProfile {
   key: VerticalKey;
   label: string;
   baseVertical:
-    | "FOOD_SERVICE"
-    | "RETAIL"
-    | "SERVICES"
-    | "LOGISTICS"
-    | "MANUFACTURING";
+  | "FOOD_SERVICE"
+  | "RETAIL"
+  | "SERVICES"
+  | "LOGISTICS"
+  | "MANUFACTURING";
 
   allowsWeight: boolean;
   hasSizeMatrix: boolean;
@@ -71,7 +73,7 @@ export const verticalProfiles: Record<VerticalKey, VerticalProfile> = {
     hasSizeMatrix: false,
     requiresSerial: false,
     supportsVariants: true,
-    defaultUnits: ["kg", "g", "unidad"],
+    defaultUnits: ["kg", "g", "unidad", "saco"],
     attributeSchema: [
       {
         key: "origin",
@@ -322,7 +324,7 @@ export const verticalProfiles: Record<VerticalKey, VerticalProfile> = {
     hasSizeMatrix: false,
     requiresSerial: false,
     supportsVariants: true,
-    defaultUnits: ["kg", "unidad", "litro", "batch", "m²", "m³"],
+    defaultUnits: ["kg", "unidad", "litro", "batch", "m²", "m³", "saco"],
     attributeSchema: [
       {
         key: "productionBatch",
@@ -374,6 +376,61 @@ export const verticalProfiles: Record<VerticalKey, VerticalProfile> = {
       requireAttributesOnAdd: false,
       allowCustomPrice: true,
       notesPlaceholder: "Especificaciones técnicas o requerimientos especiales",
+    },
+  },
+  hospitality: {
+    key: "hospitality",
+    label: "Hospitality / Hotelería",
+    baseVertical: "SERVICES",
+    allowsWeight: false,
+    hasSizeMatrix: false,
+    requiresSerial: false,
+    supportsVariants: true,
+    defaultUnits: ["noche", "habitación", "servicio"],
+    attributeSchema: [
+      {
+        key: "roomType",
+        label: "Tipo de Habitación",
+        type: "enum",
+        options: ["Standard", "Deluxe", "Suite", "Presidential"],
+        scope: "product",
+      },
+      {
+        key: "maxOccupancy",
+        label: "Ocupación Máxima",
+        type: "number",
+        scope: "product",
+      },
+      {
+        key: "amenities",
+        label: "Amenidades",
+        type: "string",
+        scope: "product",
+        ui: { widget: "textarea" },
+      },
+      {
+        key: "checkInTime",
+        label: "Hora de Check-in",
+        type: "string",
+        scope: "product",
+      },
+      {
+        key: "checkOutTime",
+        label: "Hora de Check-out",
+        type: "string",
+        scope: "product",
+      },
+    ],
+    inventory: {
+      supportsLots: false,
+      supportsAttributeMatrix: false,
+      requiresSerialTracking: false,
+      alerts: [],
+    },
+    orderLine: {
+      requireAttributesOnAdd: true,
+      notesPlaceholder: "Notas de reserva (huespedes, peticiones especiales)",
+      allowCustomPrice: true,
     },
   },
 };

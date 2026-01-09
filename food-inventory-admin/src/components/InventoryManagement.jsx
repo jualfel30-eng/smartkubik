@@ -40,7 +40,6 @@ const SEARCH_DEBOUNCE_MS = 600;
 
 function InventoryManagement() {
   const [inventoryData, setInventoryData] = useState([]);
-  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filteredData, setFilteredData] = useState([]);
@@ -51,6 +50,7 @@ function InventoryManagement() {
   const [selectedItem, setSelectedItem] = useState(null);
   const [newInventoryItem, setNewInventoryItem] = useState({
     productId: '',
+    productName: '',
     totalQuantity: 0,
     averageCostPrice: 0,
     lots: [],
@@ -58,7 +58,6 @@ function InventoryManagement() {
   const [variantQuantities, setVariantQuantities] = useState([]);
   const [selectedProductDetails, setSelectedProductDetails] = useState(null);
   const [editFormData, setEditFormData] = useState({ newQuantity: 0, reason: '' });
-  const [productSearchInput, setProductSearchInput] = useState('');
   const fileInputRef = useRef(null);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewData, setPreviewData] = useState([]);
@@ -102,8 +101,8 @@ function InventoryManagement() {
     ) {
       return selectedProductDetails;
     }
-    return products.find((p) => p._id === newInventoryItem.productId) || null;
-  }, [products, newInventoryItem.productId, selectedProductDetails]);
+    return null;
+  }, [newInventoryItem.productId, selectedProductDetails]);
 
   const formatVariantLabel = useCallback((variant) => {
     if (!variant) {
@@ -220,13 +219,9 @@ function InventoryManagement() {
 
       // Nota: evitamos pasar el search al backend para no depender de su lógica (ej. solo busca por SKU).
 
-      const [inventoryResponse, productsList] = await Promise.all([
-        fetchApi(`/inventory?${params.toString()}`),
-        fetchApi('/products?limit=2000')  // Límite máximo permitido por el backend
-      ]);
+      const inventoryResponse = await fetchApi(`/inventory?${params.toString()}`);
 
       console.log('📦 [InventoryManagement] Inventarios recibidos:', inventoryResponse?.data?.length || 0);
-      console.log('📦 [InventoryManagement] Productos recibidos:', productsList?.data?.length || 0);
       console.log('📊 [InventoryManagement] Paginación:', inventoryResponse?.pagination);
 
       const inventoryWithAttributes = (inventoryResponse.data || []).map((item) => ({
@@ -234,7 +229,6 @@ function InventoryManagement() {
         inventoryAttributes: item.attributes || item.inventoryAttributes || {},
       }));
       setInventoryData(inventoryWithAttributes);
-      setProducts(productsList.data || []);
 
       // Actualizar información de paginación
       if (usingSearch) {
@@ -398,15 +392,33 @@ function InventoryManagement() {
     return <Badge className="bg-green-100 text-green-800">Disponible</Badge>;
   };
 
+const loadProductOptions = useCallback(async (searchQuery) => {
+  try {
+    const response = await fetchApi(
+      `/products?search=${encodeURIComponent(searchQuery)}&limit=20`
+    );
+
+    return (response.data || []).map((p) => ({
+      value: p._id,
+      label: `${p.name} (${p.sku})`,
+    }));
+  } catch (error) {
+    console.error('Error searching products:', error);
+    return [];
+  }
+}, []);
+
 const handleProductSelection = (selectedOption) => {
   const newProductId = selectedOption ? selectedOption.value : '';
+  const newProductLabel = selectedOption ? selectedOption.label : '';
+
   setNewInventoryItem((prev) => ({
     ...prev,
     productId: newProductId,
+    productName: newProductLabel,
     totalQuantity: 0,
     lots: [],
   }));
-  setProductSearchInput(''); // Clear input after selection
   setSelectedProductDetails(null);
 
   if (newProductId) {
@@ -986,20 +998,20 @@ const handleProductSelection = (selectedOption) => {
                   <div className="space-y-2">
                     <Label htmlFor="product">Producto</Label>
                     <SearchableSelect
-                      options={products.map((p) => ({ value: p._id, label: `${p.name} (${p.sku})` }))}
+                      asyncSearch={true}
+                      loadOptions={loadProductOptions}
+                      minSearchLength={2}
+                      debounceMs={300}
                       onSelection={handleProductSelection}
-                      inputValue={productSearchInput}
-                      onInputChange={setProductSearchInput}
                       value={
                         newInventoryItem.productId
                           ? {
                               value: newInventoryItem.productId,
-                              label:
-                                products.find((p) => p._id === newInventoryItem.productId)?.name || productSearchInput,
+                              label: newInventoryItem.productName || '',
                             }
                           : null
                       }
-                      placeholder={getPlaceholder('search', 'Buscar producto...')}
+                      placeholder={getPlaceholder('search', 'Buscar producto (mín. 2 caracteres)...')}
                     />
                   </div>
                   {useVariantInventory ? (

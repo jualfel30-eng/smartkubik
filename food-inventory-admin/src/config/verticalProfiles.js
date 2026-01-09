@@ -9,7 +9,7 @@ const baseProfiles = {
     hasSizeMatrix: false,
     requiresSerial: false,
     supportsVariants: true,
-    defaultUnits: ['kg', 'g', 'unidad'],
+    defaultUnits: ['kg', 'g', 'unidad', 'saco'],
     attributeSchema: [
       { key: 'origin', label: 'Origen', type: 'string', scope: 'product' },
       {
@@ -365,7 +365,7 @@ const baseProfiles = {
     hasSizeMatrix: false,
     requiresSerial: false,
     supportsVariants: true,
-    defaultUnits: ['kg', 'unidad', 'litro', 'batch', 'm²', 'm³'],
+    defaultUnits: ['kg', 'unidad', 'litro', 'batch', 'm²', 'm³', 'saco'],
     attributeSchema: [
       {
         key: 'productionBatch',

@@ -20,6 +20,7 @@ export interface BulkUpdateCriteria {
   stockLevel?: 'low' | 'overstock' | 'all';
   velocity?: 'high' | 'low' | 'all';
   ids?: string[]; // New: Support for specific product selection
+  status?: 'active' | 'inactive' | 'all';
 }
 
 export interface BulkPriceOperation {
@@ -284,11 +285,30 @@ export class PricingService {
     tenantId: string,
     criteria: BulkUpdateCriteria,
   ): Promise<ProductDocument[]> {
+    console.log("---------------------------------------------------");
+    console.log("PRICING ENGINE: findProductsByCriteria called");
+    console.log("CRITERIA:", JSON.stringify(criteria, null, 2));
+
     const { Types } = require("mongoose");
     const filter: any = {
       tenantId: new Types.ObjectId(tenantId),
-      isActive: true, // Only active products
     };
+
+    // Status Filter - ROBUST CHECK
+    console.log("Status param received:", criteria.status);
+
+    if (criteria.status === 'inactive') {
+      filter.isActive = false;
+      console.log("Filter set to INACTIVE only");
+    } else if (criteria.status === 'all') {
+      // Explicitly remove isActive if it exists
+      delete filter.isActive;
+      console.log("Filter set to ALL (Active + Inactive)");
+    } else {
+      // Default to Active only (backward compatibility)
+      filter.isActive = true;
+      console.log("Filter defaulted to ACTIVE only");
+    }
 
     // Explicit ID Filter (from manual selection)
     if (criteria.ids && criteria.ids.length > 0) {
@@ -372,6 +392,13 @@ export class PricingService {
         filter._id = { $in: productIdsFromInventory };
       }
     }
+
+    console.log("FINAL MONGO FILTER:", JSON.stringify(filter));
+
+    // DEBUG: Count before returning
+    const count = await this.productModel.countDocuments(filter);
+    console.log(`FOUND PRODUCTS COUNT: ${count}`);
+    console.log("---------------------------------------------------");
 
     return this.productModel.find(filter).exec();
   }

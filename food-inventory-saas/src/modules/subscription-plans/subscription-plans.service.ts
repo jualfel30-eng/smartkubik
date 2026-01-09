@@ -15,7 +15,7 @@ export class SubscriptionPlansService {
   constructor(
     @InjectModel(SubscriptionPlan.name)
     private planModel: Model<SubscriptionPlanDocument>,
-  ) {}
+  ) { }
 
   async create(
     createPlanDto: CreateSubscriptionPlanDto,
@@ -30,7 +30,10 @@ export class SubscriptionPlansService {
 
   async findOneByName(name: string): Promise<SubscriptionPlan> {
     const plan = await this.planModel
-      .findOne({ name, isArchived: false })
+      .findOne({
+        name: { $regex: new RegExp(`^${name}$`, "i") },
+        isArchived: false,
+      })
       .exec();
     if (!plan) {
       throw new NotFoundException(

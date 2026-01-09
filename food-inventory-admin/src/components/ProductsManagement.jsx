@@ -717,8 +717,9 @@ useEffect(() => {
       return null;
     }
     if (typeof rawValue === 'string') {
-      const trimmed = rawValue.trim();
-      return trimmed === '' ? null : trimmed;
+      // NO hacer trim aquí - se hará en onBlur del Input
+      // Esto permite escribir espacios mientras se edita
+      return rawValue === '' ? null : rawValue;
     }
     return rawValue;
   };
@@ -791,6 +792,13 @@ useEffect(() => {
         type={inputType}
         value={inputValue}
         onChange={(event) => onValueChange(event.target.value)}
+        onBlur={(event) => {
+          // Re-normalizar al perder el foco para limpiar espacios extras
+          const trimmed = event.target.value?.trim();
+          if (trimmed !== event.target.value) {
+            onValueChange(trimmed);
+          }
+        }}
         placeholder={attr.ui?.helperText || ''}
       />
     );
@@ -925,12 +933,20 @@ useEffect(() => {
     updateEditingVariant(index, (variant) => {
       let nextValue = value;
       if (field === 'unitSize') {
-        const parsed = parseFloat(value);
-        nextValue = Number.isNaN(parsed) ? 0 : parsed;
+        if (value === '' || value === null || value === undefined) {
+          nextValue = '';
+        } else {
+          const parsed = parseFloat(value);
+          nextValue = Number.isNaN(parsed) ? '' : parsed;
+        }
       }
       if (field === 'basePrice' || field === 'costPrice') {
-        const parsed = parseFloat(value);
-        nextValue = Number.isNaN(parsed) ? 0 : parsed;
+        if (value === '' || value === null || value === undefined) {
+          nextValue = '';
+        } else {
+          const parsed = parseFloat(value);
+          nextValue = Number.isNaN(parsed) ? '' : parsed;
+        }
       }
       if (field === 'name' || field === 'sku' || field === 'barcode' || field === 'unit') {
         nextValue = typeof value === 'string' ? value : '';
@@ -4407,8 +4423,9 @@ useEffect(() => {
                           <Label>Tamaño de unidad</Label>
                           <Input
                             type="number"
-                            value={variant.unitSize ?? 0}
+                            value={variant.unitSize ?? ''}
                             onChange={(e) => handleEditVariantFieldChange(index, 'unitSize', e.target.value)}
+                            placeholder="1"
                           />
                         </div>
                       )}
@@ -4416,16 +4433,18 @@ useEffect(() => {
                         <Label>Precio costo ($)</Label>
                         <Input
                           type="number"
-                          value={variant.costPrice ?? 0}
+                          value={variant.costPrice ?? ''}
                           onChange={(e) => handleEditVariantFieldChange(index, 'costPrice', e.target.value)}
+                          placeholder="0.00"
                         />
                       </div>
                       <div className="space-y-2">
                         <Label>Precio venta ($)</Label>
                         <Input
                           type="number"
-                          value={variant.basePrice ?? 0}
+                          value={variant.basePrice ?? ''}
                           onChange={(e) => handleEditVariantFieldChange(index, 'basePrice', e.target.value)}
+                          placeholder="0.00"
                         />
                       </div>
                     </div>
