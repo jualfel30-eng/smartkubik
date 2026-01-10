@@ -278,39 +278,41 @@ const parseDecimalInput = (value) => {
 };
 
 const sanitizeSellingUnitsForPayload = (units = []) =>
-  units.map((unit) => {
-    const {
-      conversionFactorInput,
-      pricePerUnitInput,
-      costPerUnitInput,
-      ...rest
-    } = unit || {};
+  units
+    .filter((unit) => unit && (unit.name || unit.abbreviation)) // Filter out units without name or abbreviation
+    .map((unit) => {
+      const {
+        conversionFactorInput,
+        pricePerUnitInput,
+        costPerUnitInput,
+        ...rest
+      } = unit || {};
 
-    const parsedConversion =
-      parseDecimalInput(
-        conversionFactorInput !== undefined ? conversionFactorInput : rest?.conversionFactor
-      ) ?? 0;
+      const parsedConversion =
+        parseDecimalInput(
+          conversionFactorInput !== undefined ? conversionFactorInput : rest?.conversionFactor
+        ) ?? 0;
 
-    const parsedPrice =
-      parseDecimalInput(
-        pricePerUnitInput !== undefined ? pricePerUnitInput : rest?.pricePerUnit
-      ) ?? 0;
+      const parsedPrice =
+        parseDecimalInput(
+          pricePerUnitInput !== undefined ? pricePerUnitInput : rest?.pricePerUnit
+        ) ?? 0;
 
-    const parsedCost =
-      parseDecimalInput(
-        costPerUnitInput !== undefined ? costPerUnitInput : rest?.costPerUnit
-      ) ?? 0;
+      const parsedCost =
+        parseDecimalInput(
+          costPerUnitInput !== undefined ? costPerUnitInput : rest?.costPerUnit
+        ) ?? 0;
 
-    return {
-      ...rest,
-      conversionFactor: parsedConversion,
-      pricePerUnit: parsedPrice,
-      costPerUnit: parsedCost,
-      minimumQuantity: Number(rest?.minimumQuantity) || 0,
-      incrementStep: Number(rest?.incrementStep) || 0,
-      isSoldByWeight: rest.isSoldByWeight || false,
-    };
-  });
+      return {
+        ...rest,
+        conversionFactor: parsedConversion,
+        pricePerUnit: parsedPrice,
+        costPerUnit: parsedCost,
+        minimumQuantity: Number(rest?.minimumQuantity) || 0,
+        incrementStep: Number(rest?.incrementStep) || 0,
+        isSoldByWeight: rest.isSoldByWeight || false,
+      };
+    });
 
 const initialNewProductState = {
   productType: 'simple', // 'simple', 'consumable', 'supply'
@@ -3034,9 +3036,11 @@ function ProductsManagement() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value={newProduct.unitOfMeasure || 'unidad'}>{newProduct.unitOfMeasure || 'unidad'}</SelectItem>
-                                {newProduct.sellingUnits.map((u, i) => (
-                                  <SelectItem key={i} value={u.abbreviation || u.name}>{u.name} ({u.abbreviation})</SelectItem>
-                                ))}
+                                {newProduct.sellingUnits
+                                  .filter((u) => u.abbreviation || u.name)
+                                  .map((u, i) => (
+                                    <SelectItem key={i} value={u.abbreviation || u.name}>{u.name} ({u.abbreviation})</SelectItem>
+                                  ))}
                               </SelectContent>
                             </Select>
                           </div>
@@ -4146,6 +4150,7 @@ function ProductsManagement() {
                                   value={unit.abbreviation || ''}
                                   onChange={(e) => {
                                     const units = [...editingProduct.sellingUnits];
+                                    units[index].abbreviation = e.target.value;
                                     setEditingProduct({ ...editingProduct, sellingUnits: units });
                                   }}
                                 />
@@ -4475,9 +4480,11 @@ function ProductsManagement() {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value={editingProduct.unitOfMeasure || 'unidad'}>{editingProduct.unitOfMeasure || 'unidad'}</SelectItem>
-                                {(editingProduct.sellingUnits || []).map((u, i) => (
-                                  <SelectItem key={i} value={u.abbreviation || u.name}>{u.name} ({u.abbreviation})</SelectItem>
-                                ))}
+                                {(editingProduct.sellingUnits || [])
+                                  .filter((u) => u.abbreviation || u.name)
+                                  .map((u, i) => (
+                                    <SelectItem key={i} value={u.abbreviation || u.name}>{u.name} ({u.abbreviation})</SelectItem>
+                                  ))}
                               </SelectContent>
                             </Select>
                           </div>
