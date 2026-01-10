@@ -133,7 +133,7 @@ const SmartKubikLanding = () => {
           /* Custom overlap adjustments for specific resolutions - WITH PROGRESSIVE PADDING - SCOPED */
           @media (max-width: 639px) {
             /* Móviles pequeños: -120px overlap */
-            #landing-page-root #modulos { margin-top: calc(-44vh + 25px) !important; }
+            #landing-page-root #modulos { margin-top: calc(-44vh + 60px) !important; }
             /* COMPACT TYPOGRAPHY FOR MOBILE */
             #landing-page-root h1 { font-size: 4rem !important; line-height: 1.1 !important; } /* 64px - Increased for Mobile */
             #landing-page-root h2 { font-size: 3rem !important; line-height: 1.2 !important; } /* 48px - Increased for Mobile */
@@ -787,7 +787,7 @@ const SmartKubikLanding = () => {
                             {/*  Language Toggle & CTA (V2 Style + Login/Register)  */}
                             <div className="flex items-center gap-4">
                                 <button id="langToggle" onClick={toggleLanguage}
-                                    className="text-sm text-text-secondary hover:text-text-primary transition-colors hidden sm:block">
+                                    className="text-sm text-text-secondary hover:text-text-primary transition-colors">
                                     <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>🇪🇸 ES</span>
                                     <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>🇺🇸 EN</span>
                                 </button>
@@ -1312,9 +1312,9 @@ const SmartKubikLanding = () => {
                         {/*  Balanced top padding for extra separation on smaller screens  */}
                         <div className="text-center pt-8 sm:pt-10 md:pt-12 lg:pt-6 xl:pt-0 mb-12 md:mb-16">
                             <h2 className="text-3xl sm:text-4xl kw:text-6xl xl:text-7xl font-bold mb-4 md:mb-6" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
-                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Todas las caras de tu negocio en un solo lugar.<br /><span
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Todo tu negocio, un solo lugar<br /><span
                                     className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">Desde $29/Usuario.</span></span>
-                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>All sides of your business in one place.<br /><span
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Your entire business in one place<br /><span
                                     className="text-transparent bg-clip-text bg-gradient-to-br from-cyan-500 to-emerald-500">From $29/User.</span></span>
                             </h2>
                             {/*  Subtitle  */}
