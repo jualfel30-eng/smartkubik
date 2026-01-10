@@ -135,8 +135,8 @@ const SmartKubikLanding = () => {
             /* Móviles pequeños: -120px overlap */
             #landing-page-root #modulos { margin-top: calc(-44vh + 25px) !important; }
             /* COMPACT TYPOGRAPHY FOR MOBILE */
-            #landing-page-root h1 { font-size: 3rem !important; line-height: 1.1 !important; } /* 48px - Restored Hero Size */
-            #landing-page-root h2 { font-size: 1.375rem !important; line-height: 1.2 !important; } /* 22px */
+            #landing-page-root h1 { font-size: 4rem !important; line-height: 1.1 !important; } /* 64px - Increased for Mobile */
+            #landing-page-root h2 { font-size: 3rem !important; line-height: 1.2 !important; } /* 48px - Increased for Mobile */
             #landing-page-root p, #landing-page-root li, #landing-page-root .text-base, #landing-page-root .text-lg { font-size: 15px !important; }
           }
           @media (min-width: 640px) and (max-width: 767px) {
@@ -2182,7 +2182,7 @@ const SmartKubikLanding = () => {
                             {/* 1. Laptop (Left) */}
                             <div className="relative z-20 w-[90%] sm:w-[340px] md:w-[500px] lg:w-[600px] transform hover:scale-[1.02] transition-transform duration-500 order-1">
                                 {/* Lid */}
-                                <div className="bg-navy-900 rounded-t-xl md:rounded-t-2xl border-[8px] md:border-[12px] border-gray-800 border-b-0 aspect-[16/10] relative overflow-hidden shadow-2xl flex flex-col">
+                                <div className="bg-navy-900 rounded-t-xl md:rounded-t-2xl border-[4px] md:border-[6px] border-gray-800 border-b-0 aspect-[16/10] relative overflow-hidden shadow-2xl flex flex-col">
                                     {/* Browser Bar */}
                                     <div className="h-6 md:h-8 bg-gray-900 flex items-center px-3 gap-1.5 border-b border-white/5">
                                         <div className="w-2 h-2 rounded-full bg-red-500/50"></div>
@@ -2212,9 +2212,9 @@ const SmartKubikLanding = () => {
 
                             {/* 2. Tablet (Center) */}
                             <div className="relative z-10 w-[180px] md:w-[240px] aspect-[3/4] transition-transform duration-300 ease-out hover:-translate-y-4 order-2 hidden sm:block">
-                                <div className="w-full h-full bg-navy-900 rounded-[20px] md:rounded-[30px] border-[6px] md:border-[8px] border-gray-800 shadow-2xl">
+                                <div className="w-full h-full bg-navy-900 rounded-[12px] md:rounded-[20px] border-[3px] md:border-[4px] border-gray-800 shadow-2xl">
                                     {/* Screen Content: Calendar Grid */}
-                                    <div className="w-full h-full bg-navy-950 rounded-[14px] md:rounded-[22px] overflow-hidden p-3 relative flex flex-col">
+                                    <div className="w-full h-full bg-navy-950 rounded-[9px] md:rounded-[16px] overflow-hidden p-3 relative flex flex-col">
                                         <div className="w-1/3 h-3 bg-gray-700 rounded-full mb-4 opacity-50"></div>
                                         {/* Fake Calendar Grid */}
                                         <div className="grid grid-cols-4 gap-2 flex-1 content-start">
@@ -2228,9 +2228,9 @@ const SmartKubikLanding = () => {
 
                             {/* 3. Mobile (Right) */}
                             <div className="relative z-10 w-[100px] md:w-[140px] aspect-[9/19] transition-transform duration-300 ease-out hover:-translate-y-4 delay-100 order-3 hidden sm:block">
-                                <div className="w-full h-full bg-navy-900 rounded-[24px] md:rounded-[30px] border-[6px] md:border-[8px] border-gray-800 shadow-2xl">
+                                <div className="w-full h-full bg-navy-900 rounded-[14px] md:rounded-[20px] border-[3px] md:border-[4px] border-gray-800 shadow-2xl">
                                     {/* Screen Content: Reservation */}
-                                    <div className="w-full h-full bg-navy-950 rounded-[18px] md:rounded-[22px] overflow-hidden p-3 relative flex flex-col items-center">
+                                    <div className="w-full h-full bg-navy-950 rounded-[11px] md:rounded-[16px] overflow-hidden p-3 relative flex flex-col items-center">
                                         <div className="w-full h-full flex flex-col items-center justify-center">
                                             <div className="w-10 h-10 rounded-full bg-emerald-500/20 mb-4 flex items-center justify-center text-emerald-400 font-bold">✓</div>
                                             <div className="w-3/4 h-2 bg-gray-700 rounded-full mb-2 opacity-50"></div>
