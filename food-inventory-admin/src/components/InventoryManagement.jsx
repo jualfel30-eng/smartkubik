@@ -453,7 +453,6 @@ function InventoryManagement() {
           variantId: variant._id,
           variantSku: variant.sku,
           name: formatVariantLabel(variant),
-          name: formatVariantLabel(variant),
           quantity: existing ? existing.quantity : '',
           cost: existing ? existing.cost : '',
         };
@@ -521,7 +520,6 @@ function InventoryManagement() {
               : selectedProductRef.name,
             variantId: entry.variantId,
             variantSku: entry.variantSku,
-            totalQuantity: entry.quantity,
             totalQuantity: entry.quantity,
             averageCostPrice: Number(entry.cost) || baseCost,
           };
