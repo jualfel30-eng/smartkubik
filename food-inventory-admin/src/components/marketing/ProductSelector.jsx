@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input.jsx';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -259,13 +260,12 @@ export default function ProductSelector({ value = {}, onChange }) {
                 <Label htmlFor="minPurchaseCount" className="dark:text-gray-200">
                   Mínimo de Compras
                 </Label>
-                <Input
+                <NumberInput
                   id="minPurchaseCount"
-                  type="number"
-                  min="1"
+                  value={value.minPurchaseCount ?? ''}
+                  onValueChange={(val) => handleMinPurchaseCountChange({ target: { value: val } })}
+                  min={1}
                   placeholder="ej: 3"
-                  value={value.minPurchaseCount || ''}
-                  onChange={handleMinPurchaseCountChange}
                   className="dark:bg-gray-900 dark:border-gray-600 dark:text-gray-200"
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -277,13 +277,12 @@ export default function ProductSelector({ value = {}, onChange }) {
                 <Label htmlFor="maxDays" className="dark:text-gray-200">
                   Días Sin Comprar (Win-back)
                 </Label>
-                <Input
+                <NumberInput
                   id="maxDays"
-                  type="number"
-                  min="0"
+                  value={value.maxDaysSinceLastProductPurchase ?? ''}
+                  onValueChange={(val) => handleMaxDaysChange({ target: { value: val } })}
+                  min={0}
                   placeholder="ej: 30"
-                  value={value.maxDaysSinceLastProductPurchase || ''}
-                  onChange={handleMaxDaysChange}
                   className="dark:bg-gray-900 dark:border-gray-600 dark:text-gray-200"
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400">

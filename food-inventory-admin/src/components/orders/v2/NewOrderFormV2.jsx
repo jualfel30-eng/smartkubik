@@ -472,7 +472,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
         }
 
         // Get phone and address from customer
-        const phone = customer.phones && customer.phones.length > 0 ? customer.phones[0].number : '';
+        const phoneContact = customer.contacts && customer.contacts.length > 0
+          ? customer.contacts.find(c => c.type === 'phone' || c.type === 'whatsapp')
+          : null;
+        const phone = phoneContact ? phoneContact.value : '';
         const address = customer.addresses && customer.addresses.length > 0 ? customer.addresses[0].street : '';
 
         setNewOrder(prev => ({
@@ -512,7 +515,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
         }
 
         // Get phone and address from customer
-        const phone = customer.phones && customer.phones.length > 0 ? customer.phones[0].number : '';
+        const phoneContact = customer.contacts && customer.contacts.length > 0
+          ? customer.contacts.find(c => c.type === 'phone' || c.type === 'whatsapp')
+          : null;
+        const phone = phoneContact ? phoneContact.value : '';
         const address = customer.addresses && customer.addresses.length > 0 ? customer.addresses[0].street : '';
 
         setNewOrder(prev => ({
@@ -1151,6 +1157,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
         specialInstructions: item.specialInstructions,
         unitPrice: item.unitPrice,
         finalPrice: getItemFinalUnitPrice(item),
+        ivaApplicable: item.ivaApplicable,
         ...(item.discountPercentage && {
           discountPercentage: item.discountPercentage,
           discountAmount: item.discountAmount,
@@ -2044,10 +2051,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                   <Label htmlFor="discount-percentage">Porcentaje de Descuento (%)</Label>
                   <Input
                     id="discount-percentage"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.1"
+                    type="text"
                     value={itemDiscountPercentage}
                     onChange={(e) => setItemDiscountPercentage(parseFloat(e.target.value) || 0)}
                     placeholder="Ej: 10"
@@ -2113,10 +2117,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
               <Label htmlFor="general-discount-percentage">Porcentaje de Descuento (%)</Label>
               <Input
                 id="general-discount-percentage"
-                type="number"
-                min="0"
-                max="100"
-                step="0.1"
+                type="text"
                 value={generalDiscountPercentage}
                 onChange={(e) => setGeneralDiscountPercentage(parseFloat(e.target.value) || 0)}
                 placeholder="Ej: 10"

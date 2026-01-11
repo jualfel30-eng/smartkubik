@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input.jsx';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -588,25 +589,23 @@ export default function ProductCampaignBuilder({ onSubmit, onCancel, initialData
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label className="dark:text-gray-200">Afinidad Mínima (%)</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
+                        <NumberInput
+                          value={editingTargeting.minAffinityScore ?? ''}
+                          onValueChange={(val) => setEditingTargeting({ ...editingTargeting, minAffinityScore: val })}
+                          min={0}
+                          max={100}
                           placeholder="0"
-                          value={editingTargeting.minAffinityScore}
-                          onChange={(e) => setEditingTargeting({ ...editingTargeting, minAffinityScore: e.target.value })}
                           className="dark:bg-gray-900 dark:border-gray-600 dark:text-gray-200"
                         />
                       </div>
                       <div>
                         <Label className="dark:text-gray-200">Afinidad Máxima (%)</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
+                        <NumberInput
+                          value={editingTargeting.maxAffinityScore ?? ''}
+                          onValueChange={(val) => setEditingTargeting({ ...editingTargeting, maxAffinityScore: val })}
+                          min={0}
+                          max={100}
                           placeholder="100"
-                          value={editingTargeting.maxAffinityScore}
-                          onChange={(e) => setEditingTargeting({ ...editingTargeting, maxAffinityScore: e.target.value })}
                           className="dark:bg-gray-900 dark:border-gray-600 dark:text-gray-200"
                         />
                       </div>
@@ -664,23 +663,21 @@ export default function ProductCampaignBuilder({ onSubmit, onCancel, initialData
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label className="dark:text-gray-200">Compras Mínimas</Label>
-                      <Input
-                        type="number"
-                        min="1"
+                      <NumberInput
+                        value={editingTargeting.minPurchaseCount ?? ''}
+                        onValueChange={(val) => setEditingTargeting({ ...editingTargeting, minPurchaseCount: val })}
+                        min={1}
                         placeholder="ej: 3"
-                        value={editingTargeting.minPurchaseCount}
-                        onChange={(e) => setEditingTargeting({ ...editingTargeting, minPurchaseCount: e.target.value })}
                         className="dark:bg-gray-900 dark:border-gray-600 dark:text-gray-200"
                       />
                     </div>
                     <div>
                       <Label className="dark:text-gray-200">Compras Máximas</Label>
-                      <Input
-                        type="number"
-                        min="1"
+                      <NumberInput
+                        value={editingTargeting.maxPurchaseCount ?? ''}
+                        onValueChange={(val) => setEditingTargeting({ ...editingTargeting, maxPurchaseCount: val })}
+                        min={1}
                         placeholder="ej: 10"
-                        value={editingTargeting.maxPurchaseCount}
-                        onChange={(e) => setEditingTargeting({ ...editingTargeting, maxPurchaseCount: e.target.value })}
                         className="dark:bg-gray-900 dark:border-gray-600 dark:text-gray-200"
                       />
                     </div>
@@ -690,23 +687,23 @@ export default function ProductCampaignBuilder({ onSubmit, onCancel, initialData
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label className="dark:text-gray-200">Gasto Mínimo ($)</Label>
-                      <Input
-                        type="number"
-                        min="0"
+                      <NumberInput
+                        value={editingTargeting.minTotalSpent ?? ''}
+                        onValueChange={(val) => setEditingTargeting({ ...editingTargeting, minTotalSpent: val })}
+                        step={0.01}
+                        min={0}
                         placeholder="0"
-                        value={editingTargeting.minTotalSpent}
-                        onChange={(e) => setEditingTargeting({ ...editingTargeting, minTotalSpent: e.target.value })}
                         className="dark:bg-gray-900 dark:border-gray-600 dark:text-gray-200"
                       />
                     </div>
                     <div>
                       <Label className="dark:text-gray-200">Gasto Máximo ($)</Label>
-                      <Input
-                        type="number"
-                        min="0"
+                      <NumberInput
+                        value={editingTargeting.maxTotalSpent ?? ''}
+                        onValueChange={(val) => setEditingTargeting({ ...editingTargeting, maxTotalSpent: val })}
+                        step={0.01}
+                        min={0}
                         placeholder="Sin límite"
-                        value={editingTargeting.maxTotalSpent}
-                        onChange={(e) => setEditingTargeting({ ...editingTargeting, maxTotalSpent: e.target.value })}
                         className="dark:bg-gray-900 dark:border-gray-600 dark:text-gray-200"
                       />
                     </div>
@@ -716,23 +713,21 @@ export default function ProductCampaignBuilder({ onSubmit, onCancel, initialData
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label className="dark:text-gray-200">Días Sin Comprar (Mín)</Label>
-                      <Input
-                        type="number"
-                        min="0"
+                      <NumberInput
+                        value={editingTargeting.minDaysSinceLastPurchase ?? ''}
+                        onValueChange={(val) => setEditingTargeting({ ...editingTargeting, minDaysSinceLastPurchase: val })}
+                        min={0}
                         placeholder="ej: 30"
-                        value={editingTargeting.minDaysSinceLastPurchase}
-                        onChange={(e) => setEditingTargeting({ ...editingTargeting, minDaysSinceLastPurchase: e.target.value })}
                         className="dark:bg-gray-900 dark:border-gray-600 dark:text-gray-200"
                       />
                     </div>
                     <div>
                       <Label className="dark:text-gray-200">Días Sin Comprar (Máx)</Label>
-                      <Input
-                        type="number"
-                        min="0"
+                      <NumberInput
+                        value={editingTargeting.maxDaysSinceLastPurchase ?? ''}
+                        onValueChange={(val) => setEditingTargeting({ ...editingTargeting, maxDaysSinceLastPurchase: val })}
+                        min={0}
                         placeholder="ej: 90"
-                        value={editingTargeting.maxDaysSinceLastPurchase}
-                        onChange={(e) => setEditingTargeting({ ...editingTargeting, maxDaysSinceLastPurchase: e.target.value })}
                         className="dark:bg-gray-900 dark:border-gray-600 dark:text-gray-200"
                       />
                     </div>
@@ -761,12 +756,11 @@ export default function ProductCampaignBuilder({ onSubmit, onCancel, initialData
                     {editingTargeting.includeRepurchasePredictions && (
                       <div>
                         <Label className="dark:text-gray-200">Ventana de Recompra (días)</Label>
-                        <Input
-                          type="number"
-                          min="1"
+                        <NumberInput
+                          value={editingTargeting.repurchaseWindowDays ?? ''}
+                          onValueChange={(val) => setEditingTargeting({ ...editingTargeting, repurchaseWindowDays: val })}
+                          min={1}
                           placeholder="7"
-                          value={editingTargeting.repurchaseWindowDays}
-                          onChange={(e) => setEditingTargeting({ ...editingTargeting, repurchaseWindowDays: e.target.value })}
                           className="dark:bg-gray-900 dark:border-gray-600 dark:text-gray-200"
                         />
                       </div>
@@ -889,11 +883,11 @@ export default function ProductCampaignBuilder({ onSubmit, onCancel, initialData
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="dark:text-gray-200">Costo Estimado</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={formData.cost}
-                    onChange={(e) => setFormData({ ...formData, cost: parseFloat(e.target.value) || 0 })}
+                  <NumberInput
+                    value={formData.cost ?? ''}
+                    onValueChange={(val) => setFormData({ ...formData, cost: val || 0 })}
+                    step={0.01}
+                    min={0}
                     placeholder="0"
                     className="dark:bg-gray-900 dark:border-gray-600 dark:text-gray-200"
                   />
@@ -1034,14 +1028,14 @@ export default function ProductCampaignBuilder({ onSubmit, onCancel, initialData
                     <Label className="dark:text-gray-200">
                       Valor {formData.offer.type === 'percentage' ? '(%)' : '($)'}
                     </Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={formData.offer.value || ''}
-                      onChange={(e) => setFormData({
+                    <NumberInput
+                      value={formData.offer.value ?? ''}
+                      onValueChange={(val) => setFormData({
                         ...formData,
-                        offer: { ...formData.offer, value: parseFloat(e.target.value) || 0 }
+                        offer: { ...formData.offer, value: val || 0 }
                       })}
+                      step={0.01}
+                      min={0}
                       placeholder="ej: 20"
                       className="dark:bg-gray-900 dark:border-gray-600 dark:text-gray-200"
                     />

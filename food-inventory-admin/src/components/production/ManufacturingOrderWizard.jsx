@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input.jsx';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -381,13 +382,12 @@ export function ManufacturingOrderWizard({ open, onClose, onSave }) {
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="quantity" className="text-right">Cantidad a Producir *</Label>
                   <div className="col-span-3 flex gap-2">
-                    <Input
+                    <NumberInput
                       id="quantity"
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      value={quantity}
-                      onChange={(e) => setQuantity(e.target.value)}
+                      value={quantity ?? ''}
+                      onValueChange={(val) => setQuantity(val)}
+                      step={0.01}
+                      min={0.01}
                       placeholder="100"
                       className="flex-1"
                     />

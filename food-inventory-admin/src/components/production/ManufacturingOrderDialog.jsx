@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input.jsx';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -120,13 +121,12 @@ export function ManufacturingOrderDialog({ order, open, onClose, onSave }) {
             <Label htmlFor="quantityToProduce" className="text-right">
               Cantidad *
             </Label>
-            <Input
+            <NumberInput
               id="quantityToProduce"
-              type="number"
-              min="0"
-              step="0.001"
-              value={quantityToProduce}
-              onChange={(e) => setQuantityToProduce(e.target.value)}
+              value={quantityToProduce ?? ''}
+              onValueChange={(val) => setQuantityToProduce(val)}
+              step={0.001}
+              min={0}
               className="col-span-3"
               placeholder="Cantidad a producir"
             />
