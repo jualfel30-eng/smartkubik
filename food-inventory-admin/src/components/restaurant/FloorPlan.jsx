@@ -79,12 +79,12 @@ export function FloorPlan() {
 
   const getSectionColor = (sectionName) => {
     const colors = [
-      'border-blue-300 bg-blue-50',
-      'border-purple-300 bg-purple-50',
-      'border-pink-300 bg-pink-50',
-      'border-orange-300 bg-orange-50',
-      'border-teal-300 bg-teal-50',
-      'border-indigo-300 bg-indigo-50',
+      'border-blue-300 dark:border-gray-700 bg-blue-50 dark:bg-gray-800/40',
+      'border-purple-300 dark:border-gray-700 bg-purple-50 dark:bg-gray-800/40',
+      'border-pink-300 dark:border-gray-700 bg-pink-50 dark:bg-gray-800/40',
+      'border-orange-300 dark:border-gray-700 bg-orange-50 dark:bg-gray-800/40',
+      'border-teal-300 dark:border-gray-700 bg-teal-50 dark:bg-gray-800/40',
+      'border-indigo-300 dark:border-gray-700 bg-indigo-50 dark:bg-gray-800/40',
     ];
     const hash = sectionName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return colors[hash % colors.length];
@@ -126,7 +126,7 @@ export function FloorPlan() {
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando plano del restaurante...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Cargando plano del restaurante...</p>
         </div>
       </div>
     );
@@ -137,8 +137,8 @@ export function FloorPlan() {
       {/* Header con Estadísticas */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Plano del Restaurante</h1>
-          <p className="text-gray-600 mt-1">Gestión de mesas en tiempo real</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Plano del Restaurante</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">Gestión de mesas en tiempo real</p>
         </div>
         <Button onClick={handleCreateTable} className="flex items-center gap-2">
           <Plus className="w-4 h-4" />
@@ -151,11 +151,11 @@ export function FloorPlan() {
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Total Mesas</p>
-              <p className="text-2xl font-bold">{floorPlan?.totalTables || 0}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Total Mesas</p>
+              <p className="text-2xl font-bold dark:text-gray-100">{floorPlan?.totalTables || 0}</p>
             </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <Users className="w-6 h-6 text-blue-600" />
+            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+              <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             </div>
           </div>
         </Card>
@@ -163,13 +163,13 @@ export function FloorPlan() {
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Disponibles</p>
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Disponibles</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {floorPlan?.availableTables || 0}
               </p>
             </div>
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <div className="w-6 h-6 bg-green-500 rounded"></div>
+            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+              <div className="w-6 h-6 bg-green-500 dark:bg-green-400 rounded"></div>
             </div>
           </div>
         </Card>
@@ -177,13 +177,13 @@ export function FloorPlan() {
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Ocupadas</p>
-              <p className="text-2xl font-bold text-red-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Ocupadas</p>
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400">
                 {floorPlan?.occupiedTables || 0}
               </p>
             </div>
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-              <div className="w-6 h-6 bg-red-500 rounded"></div>
+            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+              <div className="w-6 h-6 bg-red-500 dark:bg-red-400 rounded"></div>
             </div>
           </div>
         </Card>
@@ -191,13 +191,13 @@ export function FloorPlan() {
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Tasa de Ocupación</p>
-              <p className="text-2xl font-bold">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Tasa de Ocupación</p>
+              <p className="text-2xl font-bold dark:text-gray-100">
                 {floorPlan?.occupancyRate?.toFixed(0) || 0}%
               </p>
             </div>
-            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-              <Clock className="w-6 h-6 text-purple-600" />
+            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+              <Clock className="w-6 h-6 text-purple-600 dark:text-purple-400" />
             </div>
           </div>
         </Card>
@@ -226,7 +226,7 @@ export function FloorPlan() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Plano de Mesas */}
         <div className="lg:col-span-3">
-          <Card className="p-6 bg-gray-50">
+          <Card className="p-6 bg-gray-50 dark:bg-gray-900/50">
             <div className="space-y-6">
               {filteredSections.map((section) => (
                 <div
@@ -234,15 +234,15 @@ export function FloorPlan() {
                   className={`p-4 rounded-lg border-2 ${getSectionColor(section.section)}`}
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold flex items-center gap-2">
+                    <h3 className="text-lg font-bold dark:text-gray-100 flex items-center gap-2">
                       {section.section}
                       <Badge variant="outline" className="font-normal">
                         {section.tables.length} mesas
                       </Badge>
                     </h3>
                     <div className="flex gap-2 text-sm">
-                      <span className="text-gray-600">
-                        Disponibles: <span className="font-semibold text-green-600">
+                      <span className="text-gray-600 dark:text-gray-400">
+                        Disponibles: <span className="font-semibold text-green-600 dark:text-green-400">
                           {section.tables.filter(t => t.status === 'available').length}
                         </span>
                       </span>
@@ -293,7 +293,7 @@ export function FloorPlan() {
 
             {filteredSections.length === 0 && (
               <div className="text-center py-12">
-                <p className="text-gray-500">No hay mesas en esta sección</p>
+                <p className="text-gray-500 dark:text-gray-400">No hay mesas en esta sección</p>
                 <Button onClick={handleCreateTable} className="mt-4">
                   Crear Primera Mesa
                 </Button>
@@ -320,38 +320,38 @@ export function FloorPlan() {
                 </div>
 
                 <div className="space-y-3 text-sm">
-                  <div className="bg-gray-50 p-3 rounded-lg">
+                  <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
                     <div className="flex justify-between mb-2">
-                      <span className="text-gray-600 font-medium">Sección:</span>
-                      <span className="font-bold">{selectedTable.section}</span>
+                      <span className="text-gray-600 dark:text-gray-400 font-medium">Sección:</span>
+                      <span className="font-bold dark:text-gray-100">{selectedTable.section}</span>
                     </div>
                     <div className="flex justify-between mb-2">
-                      <span className="text-gray-600 font-medium">Capacidad:</span>
-                      <span className="font-bold">
+                      <span className="text-gray-600 dark:text-gray-400 font-medium">Capacidad:</span>
+                      <span className="font-bold dark:text-gray-100">
                         {selectedTable.minCapacity}-{selectedTable.maxCapacity} personas
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600 font-medium">Forma:</span>
-                      <span className="font-bold capitalize">{selectedTable.shape}</span>
+                      <span className="text-gray-600 dark:text-gray-400 font-medium">Forma:</span>
+                      <span className="font-bold dark:text-gray-100 capitalize">{selectedTable.shape}</span>
                     </div>
                   </div>
 
                   {selectedTable.status === 'occupied' && (
-                    <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+                    <div className="bg-red-50 dark:bg-red-950/30 p-3 rounded-lg border border-red-200 dark:border-red-800">
                       <div className="flex items-center gap-2 mb-2">
-                        <Users className="w-4 h-4 text-red-600" />
-                        <span className="font-semibold text-red-900">Mesa Ocupada</span>
+                        <Users className="w-4 h-4 text-red-600 dark:text-red-400" />
+                        <span className="font-semibold text-red-900 dark:text-red-300">Mesa Ocupada</span>
                       </div>
                       <div className="space-y-2">
                         <div className="flex justify-between">
-                          <span className="text-gray-700">Comensales:</span>
-                          <span className="font-bold text-red-900">{selectedTable.guestCount}</span>
+                          <span className="text-gray-700 dark:text-gray-300">Comensales:</span>
+                          <span className="font-bold text-red-900 dark:text-red-300">{selectedTable.guestCount}</span>
                         </div>
                         {selectedTable.seatedAt && (
                           <div className="flex justify-between">
-                            <span className="text-gray-700">Tiempo:</span>
-                            <span className="font-bold text-red-900 flex items-center gap-1">
+                            <span className="text-gray-700 dark:text-gray-300">Tiempo:</span>
+                            <span className="font-bold text-red-900 dark:text-red-300 flex items-center gap-1">
                               <Timer className="w-3 h-3" />
                               {Math.floor((Date.now() - new Date(selectedTable.seatedAt)) / 60000)} min
                             </span>
@@ -359,8 +359,8 @@ export function FloorPlan() {
                         )}
                         {selectedTable.currentOrderId && (
                           <div className="flex justify-between">
-                            <span className="text-gray-700">Orden activa:</span>
-                            <span className="font-bold text-red-900 flex items-center gap-1">
+                            <span className="text-gray-700 dark:text-gray-300">Orden activa:</span>
+                            <span className="font-bold text-red-900 dark:text-red-300 flex items-center gap-1">
                               <DollarSign className="w-3 h-3" />
                               Sí
                             </span>
@@ -371,10 +371,10 @@ export function FloorPlan() {
                   )}
 
                   {selectedTable.assignedServerId && (
-                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                    <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
                       <div className="flex justify-between items-center">
-                        <span className="text-blue-700 font-medium">Mesero Asignado:</span>
-                        <span className="font-bold text-blue-900">
+                        <span className="text-blue-700 dark:text-blue-300 font-medium">Mesero Asignado:</span>
+                        <span className="font-bold text-blue-900 dark:text-blue-200">
                           {selectedTable.assignedServerId.name || 'Asignado'}
                         </span>
                       </div>
@@ -382,14 +382,14 @@ export function FloorPlan() {
                   )}
 
                   {selectedTable.combinesWith && selectedTable.combinesWith.length > 0 && (
-                    <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                    <div className="bg-purple-50 dark:bg-purple-950/30 p-3 rounded-lg border border-purple-200 dark:border-purple-800">
                       <div className="flex items-center gap-2 mb-2">
-                        <Link2 className="w-4 h-4 text-purple-600" />
-                        <span className="font-semibold text-purple-900">Mesa Combinada</span>
+                        <Link2 className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                        <span className="font-semibold text-purple-900 dark:text-purple-300">Mesa Combinada</span>
                       </div>
                       <div className="flex gap-1 mt-2 flex-wrap">
                         {selectedTable.combinesWith.map((id) => (
-                          <Badge key={id} variant="outline" className="text-xs bg-white border-purple-300">
+                          <Badge key={id} variant="outline" className="text-xs bg-white dark:bg-gray-800 border-purple-300 dark:border-purple-700">
                             Mesa {id}
                           </Badge>
                         ))}
@@ -439,8 +439,8 @@ export function FloorPlan() {
               </div>
             ) : (
               <div className="text-center py-8">
-                <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-sm text-gray-500">
+                <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                   Selecciona una mesa para ver sus detalles
                 </p>
               </div>

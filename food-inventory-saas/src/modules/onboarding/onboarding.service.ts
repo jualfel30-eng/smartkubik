@@ -281,22 +281,19 @@ export class OnboardingService {
         tenant: {
           id: tenantDoc._id,
           name: tenantDoc.name,
+          businessType: tenantDoc.businessType,
+          vertical: tenantDoc.vertical,
+          enabledModules: tenantDoc.enabledModules,
+          subscriptionPlan: tenantDoc.subscriptionPlan,
           isConfirmed: tenantDoc.isConfirmed,
+          verticalProfile: tenantDoc.verticalProfile,
         },
         memberships,
         ...tokens,
       };
 
-      const safeLogResponse = {
-        user: {
-          id: finalResponse.user.id,
-          email: finalResponse.user.email,
-          roleId: (finalResponse.user.role as any)?._id,
-        },
-        tenant: finalResponse.tenant,
-      };
       this.logger.log(
-        `[DEBUG] Returning response: ${JSON.stringify(LoggerSanitizer.sanitize(safeLogResponse))}`,
+        `[DEBUG] Registration successful for tenant: ${finalResponse.tenant.name}`,
       );
 
       // Enviar correo de bienvenida con código de confirmación
