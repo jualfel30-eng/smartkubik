@@ -32,6 +32,7 @@ import {
   MembershipsService,
   MembershipSummary,
 } from "../memberships/memberships.service";
+import { getVerticalProfileKey } from "../../utils/vertical-profile-mapper.util";
 
 @Injectable()
 export class OnboardingService {
@@ -71,19 +72,35 @@ export class OnboardingService {
 
     try {
       await session.withTransaction(async () => {
-        const requestedPlanName = dto.subscriptionPlan || "Trial";
+        // Normalizar el nombre del plan: capitalizar primera letra
+        const requestedPlanId = (dto.subscriptionPlan || "trial").toLowerCase();
+        const planName =
+          requestedPlanId.charAt(0).toUpperCase() + requestedPlanId.slice(1);
+
+        this.logger.log(
+          `Requested plan: "${dto.subscriptionPlan}" -> Normalized to: "${planName}"`,
+        );
+
         let selectedPlan: SubscriptionPlan | null = null;
         try {
           selectedPlan =
-            await this.subscriptionPlansService.findOneByName(
-              requestedPlanName,
-            );
+            await this.subscriptionPlansService.findOneByName(planName);
+          this.logger.log(`✅ Plan "${planName}" found in database`);
         } catch (error) {
           this.logger.warn(
-            `Plan "${requestedPlanName}" no encontrado. Se utilizará el Trial.`,
+            `❌ Plan "${planName}" not found in database. Falling back to Trial.`,
           );
-          selectedPlan =
-            await this.subscriptionPlansService.findOneByName("Trial");
+          try {
+            selectedPlan =
+              await this.subscriptionPlansService.findOneByName("Trial");
+          } catch (trialError) {
+            this.logger.error(
+              `❌ CRITICAL: Trial plan not found in database. This should never happen!`,
+            );
+            throw new InternalServerErrorException(
+              "No se pudo encontrar ningún plan de suscripción válido.",
+            );
+          }
         }
 
         if (!selectedPlan) {
@@ -98,7 +115,15 @@ export class OnboardingService {
           (key) => enabledModules[key],
         );
 
+        // Determinar el verticalProfile.key correcto basado en vertical + businessType
+        const verticalProfileKey = getVerticalProfileKey(
+          vertical,
+          dto.businessType,
+        );
+
         this.logger.log(`Creating tenant with vertical: ${vertical}`);
+        this.logger.log(`Business type: ${dto.businessType}`);
+        this.logger.log(`Vertical profile key: ${verticalProfileKey}`);
         this.logger.log(
           `Enabled modules: ${JSON.stringify(enabledModuleNames)}`,
         );
@@ -130,12 +155,7 @@ export class OnboardingService {
             currentStorage: 0,
           },
           verticalProfile: {
-            key:
-              vertical === "SERVICES"
-                ? "hospitality"
-                : vertical === "MANUFACTURING"
-                  ? "manufacturing"
-                  : "food-service", // TODO: Implement better mapping for RETAIL subtypes based on businessType
+            key: verticalProfileKey,
             overrides: {},
           },
         });
@@ -279,32 +299,35 @@ export class OnboardingService {
         `[DEBUG] Returning response: ${JSON.stringify(LoggerSanitizer.sanitize(safeLogResponse))}`,
       );
 
+      // Enviar correo de bienvenida con código de confirmación
       try {
-        if (tenantDoc.confirmationCode) {
-          await this.mailService.sendTenantWelcomeEmail(dto.email, {
-            businessName: dto.businessName,
-            planName: tenantDoc.subscriptionPlan,
-            confirmationCode: tenantDoc.confirmationCode,
-          });
-        } else {
-          // Log detailed reason for skipping
-          this.logger.warn(
-            `Skipping welcome email for ${dto.email}. Conditions: confirmationCode=${!!tenantDoc.confirmationCode}, enforced=${isTenantConfirmationEnforced()}`,
-          );
-          if (isTenantConfirmationEnforced()) {
-            this.logger.warn(
-              `No se envió correo de bienvenida para ${dto.email} porque no se encontró código de confirmación (FORCE=true).`,
-            );
-          } else {
-            this.logger.log(
-              `La confirmación de tenant está deshabilitada (FORCE=false). Se omite el envío de correo para ${dto.email}.`,
-            );
-          }
-        }
+        this.logger.log(
+          `[ONBOARDING] Intentando enviar correo de bienvenida a ${dto.email}`,
+        );
+        this.logger.log(
+          `[ONBOARDING] Confirmation code: ${tenantDoc.confirmationCode}`,
+        );
+        this.logger.log(
+          `[ONBOARDING] Business name: ${dto.businessName}`,
+        );
+
+        await this.mailService.sendTenantWelcomeEmail(dto.email, {
+          businessName: dto.businessName,
+          planName: tenantDoc.subscriptionPlan,
+          confirmationCode: tenantDoc.confirmationCode,
+        });
+
+        this.logger.log(
+          `[ONBOARDING] ✅ Correo de bienvenida enviado exitosamente a ${dto.email}`,
+        );
       } catch (error) {
         this.logger.error(
-          `No se pudo enviar el correo de bienvenida: ${error.message}`,
+          `[ONBOARDING] ❌ ERROR al enviar correo de bienvenida a ${dto.email}:`,
         );
+        this.logger.error(`[ONBOARDING] Error message: ${error.message}`);
+        this.logger.error(`[ONBOARDING] Error stack: ${error.stack}`);
+        // No lanzamos el error para no bloquear el registro del tenant
+        // pero sí lo registramos para debugging
       }
 
       return finalResponse;

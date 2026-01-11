@@ -1,30 +1,33 @@
-const { MongoClient } = require('mongodb');
+require('dotenv').config();
+const mongoose = require('mongoose');
 
 async function listTenants() {
-  const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/food-inventory-saas';
-  const client = new MongoClient(mongoUri);
-
   try {
-    await client.connect();
-    const db = client.db();
-
-    const tenants = await db.collection('tenants').find({}).toArray();
-
-    console.log(`\n🏢 Total tenants in database: ${tenants.length}\n`);
-
-    tenants.forEach((tenant, index) => {
-      console.log(`${index + 1}. ${tenant.name}`);
-      console.log(`   ID: ${tenant._id}`);
-      console.log(`   Vertical: ${tenant.vertical || 'N/A'}`);
-      console.log(`   Status: ${tenant.status}`);
-      console.log(`   Marketing enabled: ${tenant.enabledModules && tenant.enabledModules.marketing ? 'YES' : 'NO'}`);
-      console.log(`   Chat enabled: ${tenant.enabledModules && tenant.enabledModules.chat ? 'YES' : 'NO'}\n`);
+    await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
     });
+    console.log('✅ Conectado a MongoDB');
+
+    const Tenant = mongoose.connection.collection('tenants');
+    const tenants = await Tenant.find({}).toArray();
+
+    console.log(`\n📋 Total de tenants: ${tenants.length}\n`);
+
+    for (const tenant of tenants) {
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('Nombre:', tenant.name);
+      console.log('ID:', tenant._id);
+      console.log('Code:', tenant.code);
+      console.log('Vertical:', tenant.vertical);
+      console.log('');
+    }
 
   } catch (error) {
-    console.error('❌ Error:', error.message);
+    console.error('❌ Error:', error);
   } finally {
-    await client.close();
+    await mongoose.connection.close();
+    console.log('🔌 Desconectado de MongoDB');
   }
 }
 

@@ -91,42 +91,45 @@ export const VERTICAL_FEATURES = {
 
   SERVICES: {
     // Core modules
-    inventory: true,
-    orders: true,
-    customers: true,
-    suppliers: true,
+    inventory: true, // Para hoteles: amenities, suministros, minibar, etc.
+    orders: true, // Reservas y servicios adicionales
+    customers: true, // Huéspedes y clientes corporativos
+    suppliers: true, // Proveedores de servicios (limpieza, lavandería, etc.)
     reports: true,
     accounting: true,
     payroll: true,
     bankAccounts: true,
-    hrCore: false,
-    timeAndAttendance: false,
+    hrCore: true, // ✅ HABILITADO - Gestión de personal hotelero
+    timeAndAttendance: true, // ✅ HABILITADO - Control de asistencia del personal
 
     // Communication & Marketing
-    chat: false,
-    marketing: true, // ✅ HABILITADO - Campañas para servicios
+    chat: true, // ✅ HABILITADO - Comunicación con huéspedes
+    marketing: true, // ✅ HABILITADO - Campañas y promociones
 
-    // Services specific
-    appointments: true,
-    resources: true,
-    booking: true,
-    servicePackages: true,
+    // Services specific (Hospitality)
+    appointments: true, // Check-in/check-out, servicios spa, etc.
+    resources: true, // Habitaciones, salas de conferencias, instalaciones
+    booking: true, // Sistema de reservas
+    servicePackages: true, // Paquetes de servicios (spa, tours, etc.)
+    reservations: true, // ✅ HABILITADO - Sistema de reservas de habitaciones
+    tips: true, // ✅ HABILITADO - Propinas para personal de servicio
 
     // Disabled for services
-    tables: false,
+    tables: false, // No aplica para hoteles (solo para restaurantes)
     recipes: false,
     kitchenDisplay: false,
     menuEngineering: false,
     pos: false,
     variants: false,
     ecommerce: false,
-    loyaltyProgram: false,
+    loyaltyProgram: true, // ✅ HABILITADO - Programas de lealtad para huéspedes frecuentes
     shipments: false,
     tracking: false,
     routes: false,
     fleet: false,
     warehousing: false,
     dispatch: false,
+    restaurant: false, // No habilitar el módulo completo de restaurante
   },
 
   LOGISTICS: {
