@@ -43,6 +43,7 @@ export interface PriceUpdatePreview {
   sku: string;
   currentPrice: number; // In VES (or base currency)
   newPrice: number;
+  newPriceUSD?: number;
   diffPercentage: number;
   costPrice: number; // Reference cost
   variantId?: string; // If specific variant
@@ -180,6 +181,7 @@ export class PricingService {
               costPrice: variant.costPrice || 0,
               currentPrice: variant.basePrice,
               newPrice: result.newPrice,
+              newPriceUSD: result.newPriceUSD,
               diffPercentage: result.diffPercentage,
             });
           }
@@ -407,22 +409,32 @@ export class PricingService {
     currentPrice: number,
     costPrice: number,
     operation: BulkPriceOperation,
-  ): { newPrice: number; diffPercentage: number } | null {
+  ): { newPrice: number; diffPercentage: number; newPriceUSD?: number } | null {
     let newPrice = currentPrice;
+    let newPriceUSD: number | undefined;
 
     switch (operation.type) {
       case "inflation_formula":
-        // Formula: New_Price_Bs = (Cost_Bs / BCV_Rate) * (1 + Margin) * Parallel_Rate
-        // Assumes Cost_Bs is the cost stored in system.
+        // Formula specified by user: 
+        // 1. Adjusted Cost = (Cost in $) * (Parallel Rate) / (BCV Rate)
+        // 2. Final Price = Adjusted Cost + Margin %
 
         const { parallelRate, bcvRate, targetMargin } = operation.payload;
         if (!parallelRate || !bcvRate || targetMargin === undefined) return null;
 
-        // Estimated Cost in USD (Official)
-        const estimatedCostUSD = costPrice / bcvRate;
+        // Step 1: Calculate "Real" Cost in terms of official inventory currency value
+        // Note: Interpreting 'costPrice' as USD based on user request "Precio de costo en $"
+        const adjustedCost = costPrice * (parallelRate / bcvRate);
 
-        const targetSellingPriceBs = estimatedCostUSD * (1 + targetMargin) * parallelRate;
-        newPrice = Math.ceil(targetSellingPriceBs); // Round up to nearest integer
+        // Step 2: Apply Margin
+        // "Sumar el porcentaje de margen" -> Cost * (1 + Margin)
+        const targetPriceOfficialUSD = adjustedCost * (1 + targetMargin);
+
+        // Step 3: Convert to VES (System Base Price)
+        // The result above is in "Official USD terms", so we multiply by BCV to get VES.
+        // Math check: (CostUSD * Par / BCV) * (1+M) * BCV = CostUSD * Par * (1+M)
+        newPrice = Math.ceil(targetPriceOfficialUSD * bcvRate);
+        newPriceUSD = targetPriceOfficialUSD;
         break;
 
       case "margin_update":
@@ -460,6 +472,7 @@ export class PricingService {
 
     return {
       newPrice,
+      newPriceUSD,
       diffPercentage: ((newPrice - currentPrice) / currentPrice) * 100,
     };
   }

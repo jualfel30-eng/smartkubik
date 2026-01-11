@@ -16,10 +16,10 @@ export class DashboardService {
     @InjectModel(Inventory.name)
     private inventoryModel: Model<InventoryDocument>,
     private readonly inventoryService: InventoryService,
-  ) {}
+  ) { }
 
   async getSummary(user: any) {
-    this.logger.log(`Fetching dashboard summary for tenant: ${user.tenantId}`);
+    this.logger.log(`Fetching dashboard summary for tenant: ${user.tenantId} -- USING FIXED LOGIC v2`);
     const tenantId = user.tenantId;
     const tenantObjectId = new Types.ObjectId(tenantId);
 
@@ -80,9 +80,21 @@ export class DashboardService {
           },
         },
         {
+          $addFields: {
+            // Convert productId to ObjectId if it's a string (data consistency fix)
+            productIdAsObjectId: {
+              $cond: {
+                if: { $eq: [{ $type: "$productId" }, "string"] },
+                then: { $toObjectId: "$productId" },
+                else: "$productId"
+              }
+            }
+          }
+        },
+        {
           $lookup: {
             from: "products",
-            localField: "productId",
+            localField: "productIdAsObjectId",
             foreignField: "_id",
             as: "productInfo",
           },
@@ -94,25 +106,62 @@ export class DashboardService {
           },
         },
         {
-          $project: {
-            totalQuantity: 1,
+          $addFields: {
+            // Find the matching variant by SKU (more reliable than _id comparison)
+            // or just use the first variant if only one exists
+            matchedVariant: {
+              $cond: {
+                if: {
+                  $and: [
+                    { $ne: ["$variantSku", null] },
+                    { $isArray: "$productInfo.variants" }
+                  ]
+                },
+                then: {
+                  $arrayElemAt: [
+                    {
+                      $filter: {
+                        input: "$productInfo.variants",
+                        as: "variant",
+                        cond: { $eq: ["$$variant.sku", "$variantSku"] }
+                      }
+                    },
+                    0
+                  ]
+                },
+                else: {
+                  // If no variantSku, use first variant
+                  $arrayElemAt: ["$productInfo.variants", 0]
+                }
+              }
+            }
+          }
+        },
+        {
+          $addFields: {
+            // Extract prices from the matched variant, fallback to averageCostPrice
             costPrice: {
-              $ifNull: ["$productInfo.variant.costPrice", 0],
+              $cond: {
+                if: { $gt: [{ $toDouble: "$averageCostPrice" }, 0] },
+                then: { $toDouble: "$averageCostPrice" },
+                else: { $ifNull: ["$matchedVariant.costPrice", 0] }
+              }
             },
             basePrice: {
-              $ifNull: ["$productInfo.variant.basePrice", 0],
+              $ifNull: ["$matchedVariant.basePrice", 0],
             },
+          },
+        },
+        {
+          $project: {
+            totalQuantity: 1,
+            costPrice: 1,
+            basePrice: 1,
             costValue: {
-              $multiply: [
-                "$totalQuantity",
-                { $ifNull: ["$productInfo.variant.costPrice", 0] },
-              ],
+              $multiply: ["$totalQuantity", "$costPrice"],
             },
             retailValue: {
-              $multiply: [
-                "$totalQuantity",
-                { $ifNull: ["$productInfo.variant.basePrice", 0] },
-              ],
+              $multiply: ["$totalQuantity", "$basePrice"],
             },
           },
         },
@@ -132,19 +181,19 @@ export class DashboardService {
 
     const inventoryValue = inventoryValueResult.length > 0
       ? {
-          totalCostValue: inventoryValueResult[0].totalCostValue || 0,
-          totalRetailValue: inventoryValueResult[0].totalRetailValue || 0,
-          totalItems: inventoryValueResult[0].totalItems || 0,
-          potentialProfit:
-            (inventoryValueResult[0].totalRetailValue || 0) -
-            (inventoryValueResult[0].totalCostValue || 0),
-        }
+        totalCostValue: inventoryValueResult[0].totalCostValue || 0,
+        totalRetailValue: inventoryValueResult[0].totalRetailValue || 0,
+        totalItems: inventoryValueResult[0].totalItems || 0,
+        potentialProfit:
+          (inventoryValueResult[0].totalRetailValue || 0) -
+          (inventoryValueResult[0].totalCostValue || 0),
+      }
       : {
-          totalCostValue: 0,
-          totalRetailValue: 0,
-          totalItems: 0,
-          potentialProfit: 0,
-        };
+        totalCostValue: 0,
+        totalRetailValue: 0,
+        totalItems: 0,
+        potentialProfit: 0,
+      };
 
     const inventoryAlertsMap = new Map();
 

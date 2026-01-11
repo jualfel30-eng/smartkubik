@@ -292,7 +292,8 @@ export class OrdersService {
       const totalDiscountAmount =
         (originalUnitPrice - finalUnitPrice) * itemDto.quantity;
 
-      const ivaAmount = product.ivaApplicable ? totalPrice * 0.16 : 0;
+      const isIvaApplicable = itemDto.ivaApplicable !== undefined ? itemDto.ivaApplicable : product.ivaApplicable;
+      const ivaAmount = isIvaApplicable ? totalPrice * 0.16 : 0;
 
       const attributesSnapshot = this.buildOrderItemAttributes(
         product,

@@ -84,6 +84,11 @@ export class CreateOrderItemDto {
   @IsOptional()
   @IsObject()
   attributes?: Record<string, any>;
+
+  @ApiPropertyOptional({ description: "Override system VAT calculation" })
+  @IsOptional()
+  @IsBoolean()
+  ivaApplicable?: boolean;
 }
 
 export class RegisterPaymentDto {

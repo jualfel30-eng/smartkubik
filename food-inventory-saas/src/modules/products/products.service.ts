@@ -543,6 +543,7 @@ export class ProductsService {
       "sku name brand origin description ingredients category subcategory productType isActive hasActivePromotion promotion " +
       "unitOfMeasure isSoldByWeight hasMultipleSellingUnits sellingUnits " +
       "price salePrice image imageUrl images attributes inventoryConfig " +
+      "ivaApplicable igtfExempt taxCategory isPerishable shelfLifeDays storageTemperature " +
       "variants.name variants.sku variants.isActive variants.barcode variants.basePrice variants.costPrice variants.price variants.unit variants.unitSize variants.images variants.attributes";
 
     // Build projection to include text score when doing text search
