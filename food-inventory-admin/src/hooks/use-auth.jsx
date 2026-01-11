@@ -378,7 +378,162 @@ export const AuthProvider = ({ children }) => {
     if (multiTenantEnabled && memberships.length > 0 && !tenant) {
       return false;
     }
-    return permissions.includes(permission);
+
+    // First check: Does user's role have this permission?
+    if (!permissions.includes(permission)) {
+      return false;
+    }
+
+    // Second check: Does tenant have the required module enabled?
+    // Map permission names to module names
+    const permissionToModule = {
+      // Core modules
+      'inventory_read': 'inventory',
+      'inventory_create': 'inventory',
+      'inventory_update': 'inventory',
+      'inventory_delete': 'inventory',
+      'orders_read': 'orders',
+      'orders_create': 'orders',
+      'orders_update': 'orders',
+      'orders_delete': 'orders',
+      'customers_read': 'customers',
+      'customers_create': 'customers',
+      'customers_update': 'customers',
+      'customers_delete': 'customers',
+      'suppliers_read': 'suppliers',
+      'suppliers_create': 'suppliers',
+      'suppliers_update': 'suppliers',
+      'suppliers_delete': 'suppliers',
+      'reports_read': 'reports',
+      'accounting_read': 'accounting',
+      'accounting_create': 'accounting',
+      'accounting_update': 'accounting',
+      'accounting_delete': 'accounting',
+      'payroll_read': 'payroll',
+      'payroll_create': 'payroll',
+      'payroll_update': 'payroll',
+      'payroll_delete': 'payroll',
+      'bank_accounts_read': 'bankAccounts',
+      'bank_accounts_create': 'bankAccounts',
+      'bank_accounts_update': 'bankAccounts',
+      'bank_accounts_delete': 'bankAccounts',
+      'hr_core_read': 'hrCore',
+      'hr_core_create': 'hrCore',
+      'hr_core_update': 'hrCore',
+      'hr_core_delete': 'hrCore',
+      'time_attendance_read': 'timeAndAttendance',
+      'time_attendance_create': 'timeAndAttendance',
+      'time_attendance_update': 'timeAndAttendance',
+      'time_attendance_delete': 'timeAndAttendance',
+
+      // Communication & Marketing
+      'chat_read': 'chat',
+      'chat_create': 'chat',
+      'chat_update': 'chat',
+      'chat_delete': 'chat',
+      'marketing_read': 'marketing',
+      'marketing_create': 'marketing',
+      'marketing_update': 'marketing',
+      'marketing_delete': 'marketing',
+
+      // Food Service modules
+      'restaurant_read': 'restaurant',
+      'restaurant_create': 'restaurant',
+      'restaurant_update': 'restaurant',
+      'restaurant_delete': 'restaurant',
+      'tables_read': 'tables',
+      'tables_create': 'tables',
+      'tables_update': 'tables',
+      'tables_delete': 'tables',
+      'recipes_read': 'recipes',
+      'recipes_create': 'recipes',
+      'recipes_update': 'recipes',
+      'recipes_delete': 'recipes',
+      'kitchen_display_read': 'kitchenDisplay',
+      'menu_engineering_read': 'menuEngineering',
+      'menu_engineering_create': 'menuEngineering',
+      'menu_engineering_update': 'menuEngineering',
+      'menu_engineering_delete': 'menuEngineering',
+      'tips_read': 'tips',
+      'tips_create': 'tips',
+      'tips_update': 'tips',
+      'tips_delete': 'tips',
+      'reservations_read': 'reservations',
+      'reservations_create': 'reservations',
+      'reservations_update': 'reservations',
+      'reservations_delete': 'reservations',
+
+      // Retail modules
+      'pos_read': 'pos',
+      'pos_create': 'pos',
+      'variants_read': 'variants',
+      'variants_create': 'variants',
+      'variants_update': 'variants',
+      'variants_delete': 'variants',
+      'ecommerce_read': 'ecommerce',
+      'ecommerce_create': 'ecommerce',
+      'ecommerce_update': 'ecommerce',
+      'ecommerce_delete': 'ecommerce',
+      'loyalty_program_read': 'loyaltyProgram',
+      'loyalty_program_create': 'loyaltyProgram',
+      'loyalty_program_update': 'loyaltyProgram',
+      'loyalty_program_delete': 'loyaltyProgram',
+
+      // Logistics modules
+      'shipments_read': 'shipments',
+      'shipments_create': 'shipments',
+      'shipments_update': 'shipments',
+      'shipments_delete': 'shipments',
+      'tracking_read': 'tracking',
+      'tracking_create': 'tracking',
+      'tracking_update': 'tracking',
+      'tracking_delete': 'tracking',
+      'routes_read': 'routes',
+      'routes_create': 'routes',
+      'routes_update': 'routes',
+      'routes_delete': 'routes',
+      'fleet_read': 'fleet',
+      'fleet_create': 'fleet',
+      'fleet_update': 'fleet',
+      'fleet_delete': 'fleet',
+      'warehousing_read': 'warehousing',
+      'warehousing_create': 'warehousing',
+      'warehousing_update': 'warehousing',
+      'warehousing_delete': 'warehousing',
+      'dispatch_read': 'dispatch',
+      'dispatch_create': 'dispatch',
+      'dispatch_update': 'dispatch',
+      'dispatch_delete': 'dispatch',
+
+      // Services modules
+      'appointments_read': 'appointments',
+      'appointments_create': 'appointments',
+      'appointments_update': 'appointments',
+      'appointments_delete': 'appointments',
+      'resources_read': 'resources',
+      'resources_create': 'resources',
+      'resources_update': 'resources',
+      'resources_delete': 'resources',
+      'booking_read': 'booking',
+      'booking_create': 'booking',
+      'booking_update': 'booking',
+      'booking_delete': 'booking',
+      'service_packages_read': 'servicePackages',
+      'service_packages_create': 'servicePackages',
+      'service_packages_update': 'servicePackages',
+      'service_packages_delete': 'servicePackages',
+    };
+
+    const requiredModule = permissionToModule[permission];
+
+    // If permission doesn't map to a module (e.g., dashboard_read, settings_read),
+    // only check role permission
+    if (!requiredModule) {
+      return true;
+    }
+
+    // Check if tenant has the required module enabled
+    return Boolean(tenant?.enabledModules?.[requiredModule]);
   };
 
   const saveLastLocation = (path) => {
