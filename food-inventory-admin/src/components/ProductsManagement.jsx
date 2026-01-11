@@ -15,6 +15,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Checkbox } from '@/components/ui/checkbox.jsx';
 import { Switch } from '@/components/ui/switch.jsx';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip.jsx';
+import InlineEditableCell from './inline-edit/InlineEditableCell';
+import ProductVariantsPopover from './inline-edit/ProductVariantsPopover';
+import { toast } from 'sonner';
 import { fetchApi } from '../lib/api';
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
 import { useConsumables } from '@/hooks/useConsumables';
@@ -22,7 +25,6 @@ import { useSupplies } from '@/hooks/useSupplies';
 import { UnitTypeFields } from './UnitTypes';
 import { BarcodeScannerDialog } from '@/components/BarcodeScannerDialog.jsx';
 import { CONSUMABLE_TYPES, SUPPLY_CATEGORIES } from '@/types/consumables';
-import { toast } from 'sonner';
 import {
   Plus,
   Search,
@@ -1329,6 +1331,98 @@ function ProductsManagement() {
 
       // Optionally reload to ensure consistency
       loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory, productTypeFilter);
+    }
+  };
+
+  /**
+   * handleInlineUpdate
+   * 
+   * Handles inline editing of product fields (Price, Cost, Category, etc.)
+   * Supports optimistic updates and Undo functionality.
+   * 
+   * @param {string} productId 
+   * @param {string} field - 'basePrice', 'costPrice', 'category', 'name'
+   * @param {any} value - New value
+   * @param {number} variantIndex - Index of variant if applicable (default -1)
+   */
+  const handleInlineUpdate = async (productId, field, value, variantIndex = -1) => {
+    const product = products.find(p => p._id === productId);
+    if (!product) return;
+
+    // 1. Create a deep clone to modify and send
+    const updatedProduct = JSON.parse(JSON.stringify(product));
+
+    // 2. Apply change
+    if (variantIndex >= 0 && updatedProduct.variants && updatedProduct.variants[variantIndex]) {
+      // Updating a specific variant
+      updatedProduct.variants[variantIndex][field] = Number(value);
+    } else {
+      // Updating root field or simple product logic
+      if (field === 'category') {
+        // Handle category array (split by comma for tag-like behavior)
+        if (typeof value === 'string') {
+          const splitCategories = value.split(',').map(c => {
+            const raw = c.trim();
+            if (!raw) return null;
+            // Normalize: Check if exists case-insensitive in global 'categories' state
+            const existing = categories.find(cat => cat.toLowerCase() === raw.toLowerCase());
+            return existing || raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase(); // Default Title Case
+          }).filter(Boolean);
+
+          // Deduplicate
+          updatedProduct.category = [...new Set(splitCategories)];
+        } else {
+          updatedProduct.category = [value];
+        }
+      } else {
+        // Price/Cost for simple product (usually stored in variants[0])
+        if (updatedProduct.variants && updatedProduct.variants.length > 0) {
+          updatedProduct.variants[0][field] = Number(value);
+        }
+      }
+    }
+
+    // 3. Optimistic Update
+    const previousProducts = [...products];
+    setProducts(prev => prev.map(p => p._id === productId ? updatedProduct : p));
+
+    // 4. Undo Functionality
+    const revert = () => {
+      setProducts(previousProducts);
+      toast.info("Cambio deshecho");
+    };
+
+    // 5. Send to Server
+    // Construct payload - essential to send variants array if variants changed
+    const payload = {
+      category: updatedProduct.category,
+      variants: updatedProduct.variants // This sends ALL variants
+    };
+
+    toast.success('Actualizado', {
+      action: {
+        label: 'Deshacer',
+        onClick: () => {
+          revert();
+          // Fire reversion PATCH
+          fetchApi(`/products/${productId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ variants: product.variants, category: product.category })
+          }).catch(err => console.error("Undo failed on server", err));
+        }
+      },
+      duration: 4000
+    });
+
+    try {
+      await fetchApi(`/products/${productId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload)
+      });
+    } catch (error) {
+      console.error("Inline update failed", error);
+      toast.error("Error al guardar cambio");
+      setProducts(previousProducts); // Rollback
     }
   };
 
@@ -3451,53 +3545,62 @@ function ProductsManagement() {
                   <TableRow key={product._id}>
                     <TableCell className="font-mono">{product.sku}</TableCell>
                     <TableCell>
-                      <div className="font-medium">{product.name}</div>
-                      <div className="text-sm text-muted-foreground">{product.brand}</div>
+                      <div className="flex flex-col gap-1 w-[200px]">
+                        <span className="font-medium text-slate-800 dark:text-slate-100 truncate" title={product.name}>
+                          {product.name}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono sm:hidden">{product.brand}</span>
+                      </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {(Array.isArray(product.category) ? product.category : [product.category]).filter(Boolean).map((cat, idx) => (
-                          <Badge key={idx} variant="outline">{cat}</Badge>
-                        ))}
-                      </div>
+                      <InlineEditableCell
+                        value={product.category?.join(', ') || ''}
+                        type="text"
+                        suggestions={categories}
+                        onSave={(val) => handleInlineUpdate(product._id, 'category', val)}
+                        className="w-[120px] text-xs text-slate-500 font-medium dark:text-slate-400"
+                      />
                     </TableCell>
                     <TableCell className="text-right">
                       {product.variants?.length > 1 ? (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="font-medium cursor-help inline-flex items-center justify-end gap-1">
-                              ${(product.variants[0]?.basePrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                              <span className="text-xs text-muted-foreground font-bold">(+)</span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent className="p-0 bg-popover text-popover-foreground border shadow-md">
-                            <div className="p-3 min-w-[300px]">
-                              <h4 className="font-medium mb-3 text-sm border-b pb-2">Precios por Variante</h4>
-                              <div className="grid grid-cols-[1fr_80px_80px] gap-2 text-xs">
-                                <span className="font-semibold text-muted-foreground">Variante</span>
-                                <span className="font-semibold text-right text-muted-foreground">Precio</span>
-                                <span className="font-semibold text-right text-muted-foreground">Costo</span>
-                                {product.variants.map((v, i) => (
-                                  <Fragment key={i}>
-                                    <span className="truncate" title={v.name}>{v.name}</span>
-                                    <span className="text-right font-medium">${(v.basePrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                    <span className="text-right text-muted-foreground">${(v.costPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                  </Fragment>
-                                ))}
-                              </div>
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
+                        <ProductVariantsPopover
+                          variants={product.variants}
+                          onUpdateVariant={(idx, field, val) => handleInlineUpdate(product._id, field, val, idx)}
+                        >
+                          <div className="font-medium cursor-pointer inline-flex items-center justify-end gap-1 group hover:bg-muted/50 p-1 rounded transition-colors">
+                            ${(product.variants[0]?.basePrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            <span className="text-xs text-blue-500 font-bold group-hover:underline decoration-blue-500">(+)</span>
+                          </div>
+                        </ProductVariantsPopover>
                       ) : (
-                        <div className="font-medium">
-                          ${(product.variants?.[0]?.basePrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </div>
+                        <InlineEditableCell
+                          value={product.variants?.[0]?.basePrice || 0}
+                          type="currency"
+                          onSave={(val) => handleInlineUpdate(product._id, 'basePrice', val)}
+                          className="justify-end font-medium"
+                        />
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="text-muted-foreground">
-                        ${(product.variants?.[0]?.costPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </div>
+                      {/* Costo Inline - Reuse Popover logic if multiple variants or simple inline */}
+                      {product.variants?.length > 1 ? (
+                        <ProductVariantsPopover
+                          variants={product.variants}
+                          onUpdateVariant={(idx, field, val) => handleInlineUpdate(product._id, field, val, idx)}
+                        >
+                          <div className="text-muted-foreground cursor-pointer inline-flex items-center justify-end gap-1 group hover:bg-muted/50 p-1 rounded transition-colors">
+                            ${(product.variants[0]?.costPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            <span className="text-[10px] text-blue-500 font-bold group-hover:underline decoration-blue-500">(+)</span>
+                          </div>
+                        </ProductVariantsPopover>
+                      ) : (
+                        <InlineEditableCell
+                          value={product.variants?.[0]?.costPrice || 0}
+                          type="currency"
+                          onSave={(val) => handleInlineUpdate(product._id, 'costPrice', val)}
+                          className="justify-end text-muted-foreground"
+                        />
+                      )}
                     </TableCell>
                     <TableCell>{product.variants.length}</TableCell>
                     <TableCell>

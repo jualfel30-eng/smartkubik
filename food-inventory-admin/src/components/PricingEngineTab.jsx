@@ -179,8 +179,8 @@ function PricingOrchestratorContent() {
             }
 
             setPreviewData(results);
-            // Default: Select ALL products found
-            const allIds = new Set(results.map(r => r.productId));
+            // Default: Select ALL products found (excluding errors)
+            const allIds = new Set(results.filter(r => !r.hasError).map(r => r.productId));
             setSelectedProductIds(allIds);
 
             if (results.length === 0) {
@@ -267,7 +267,7 @@ function PricingOrchestratorContent() {
     };
 
     const handleSelectAll = () => {
-        const allIds = new Set(previewData.map(r => r.productId));
+        const allIds = new Set(previewData.filter(r => !r.hasError).map(r => r.productId));
         setSelectedProductIds(allIds);
     };
 
@@ -534,11 +534,12 @@ function PricingOrchestratorContent() {
                                 </TableRow>
                             ) : (
                                 previewData.map((item, idx) => (
-                                    <TableRow key={idx} className={!selectedProductIds.has(item.productId) ? 'opacity-50' : ''}>
+                                    <TableRow key={idx} className={`${!selectedProductIds.has(item.productId) && !item.hasError ? 'opacity-50' : ''} ${item.hasError ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}>
                                         <TableCell className="text-center">
                                             <Checkbox
                                                 checked={selectedProductIds.has(item.productId)}
                                                 onCheckedChange={() => toggleSelect(item.productId)}
+                                                disabled={item.hasError}
                                             />
                                         </TableCell>
                                         <TableCell className="font-medium">
@@ -550,7 +551,13 @@ function PricingOrchestratorContent() {
                                             ${item.currentPrice?.toLocaleString()}
                                         </TableCell>
                                         <TableCell className="text-right font-bold text-slate-900 dark:text-slate-100">
-                                            VES {item.newPrice?.toLocaleString()}
+                                            {item.hasError ? (
+                                                <Badge variant="destructive" className="text-[10px] h-5 whitespace-nowrap">
+                                                    {item.errorMessage || "Error"}
+                                                </Badge>
+                                            ) : (
+                                                `VES ${item.newPrice?.toLocaleString()}`
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-right font-mono text-xs text-blue-600">
                                             {(() => {

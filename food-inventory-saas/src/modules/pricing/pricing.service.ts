@@ -48,6 +48,8 @@ export interface PriceUpdatePreview {
   costPrice: number; // Reference cost
   variantId?: string; // If specific variant
   isVariant: boolean;
+  hasError?: boolean;
+  errorMessage?: string;
 }
 
 @Injectable()
@@ -171,6 +173,7 @@ export class PricingService {
             variant.costPrice || 0,
             operation,
           );
+
           if (result) {
             previews.push({
               productId: product._id.toString(),
@@ -183,6 +186,8 @@ export class PricingService {
               newPrice: result.newPrice,
               newPriceUSD: result.newPriceUSD,
               diffPercentage: result.diffPercentage,
+              hasError: result.hasError,
+              errorMessage: result.errorMessage
             });
           }
         }
@@ -409,7 +414,7 @@ export class PricingService {
     currentPrice: number,
     costPrice: number,
     operation: BulkPriceOperation,
-  ): { newPrice: number; diffPercentage: number; newPriceUSD?: number } | null {
+  ): { newPrice: number; diffPercentage: number; newPriceUSD?: number; hasError?: boolean; errorMessage?: string } | null {
     let newPrice = currentPrice;
     let newPriceUSD: number | undefined;
 
@@ -421,6 +426,15 @@ export class PricingService {
 
         const { parallelRate, bcvRate, targetMargin } = operation.payload;
         if (!parallelRate || !bcvRate || targetMargin === undefined) return null;
+
+        if (costPrice <= 0) {
+          return {
+            newPrice: 0,
+            diffPercentage: 0,
+            hasError: true,
+            errorMessage: "Sin Costo de Referencia"
+          };
+        }
 
         // Step 1: Calculate "Real" Cost in terms of official inventory currency value
         // Note: Interpreting 'costPrice' as USD based on user request "Precio de costo en $"
@@ -465,7 +479,12 @@ export class PricingService {
         break;
     }
 
-    if (newPrice <= 0) return null;
+    if (newPrice <= 0) {
+      // If we fall here but not because of cost error (handled above), it might be calculation error
+      // But let's return null to exclude it if it's truly invalid, OR return error if it's relevant.
+      // For now, if cost was > 0 but result is <= 0 (unlikely with positive inputs), we return null.
+      return null;
+    }
 
     // Rounding
     newPrice = Math.ceil(newPrice);
