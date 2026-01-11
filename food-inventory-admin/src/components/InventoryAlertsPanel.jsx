@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Input } from '@/components/ui/input.jsx';
+import { NumberInput } from '@/components/ui/number-input.jsx';
 import { Label } from '@/components/ui/label.jsx';
 import { toast } from 'sonner';
 import { fetchApi } from '@/lib/api';
@@ -198,12 +199,12 @@ export default function InventoryAlertsPanel() {
           )}
           <div className="space-y-1">
             <Label>Mínimo</Label>
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.minQuantity}
-              onChange={(e) => setForm((prev) => ({ ...prev, minQuantity: e.target.value }))}
+            <NumberInput
+              min={0}
+              step={0.01}
+              value={form.minQuantity ?? ''}
+              onValueChange={(val) => setForm((prev) => ({ ...prev, minQuantity: val }))}
+              placeholder="Cantidad mínima"
             />
           </div>
           <div>

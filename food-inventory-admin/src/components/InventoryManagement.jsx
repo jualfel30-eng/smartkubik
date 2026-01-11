@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { Input } from '@/components/ui/input.jsx';
+import { NumberInput } from '@/components/ui/number-input.jsx';
 import { Label } from '@/components/ui/label.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog.jsx';
@@ -1039,23 +1040,21 @@ function InventoryManagement() {
                             ) : null}
                           </div>
                           <div className="sm:col-span-2 grid grid-cols-2 gap-2">
-                            <Input
-                              type="number"
-                              min="0"
-                              value={variant.quantity}
-                              onChange={(e) => handleVariantQuantityChange(index, e.target.value)}
+                            <NumberInput
+                              min={0}
+                              value={variant.quantity ?? ''}
+                              onValueChange={(val) => handleVariantQuantityChange(index, val)}
                               placeholder="Cant."
                             />
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={variant.cost || ''}
-                              onChange={(e) => {
+                            <NumberInput
+                              min={0}
+                              step={0.01}
+                              value={variant.cost ?? ''}
+                              onValueChange={(val) => {
                                 setVariantQuantities((prev) => {
                                   const next = [...prev];
                                   if (!next[index]) return prev;
-                                  next[index] = { ...next[index], cost: e.target.value };
+                                  next[index] = { ...next[index], cost: val };
                                   return next;
                                 });
                               }}
@@ -1074,26 +1073,29 @@ function InventoryManagement() {
                 ) : (
                   <div className="space-y-2">
                     <Label htmlFor="totalQuantity">Cantidad Inicial</Label>
-                    <Input
+                    <NumberInput
                       id="totalQuantity"
-                      type="number"
-                      value={newInventoryItem.totalQuantity}
-                      onChange={(e) =>
+                      value={newInventoryItem.totalQuantity ?? ''}
+                      onValueChange={(val) =>
                         setNewInventoryItem({
                           ...newInventoryItem,
-                          totalQuantity: e.target.value,
+                          totalQuantity: val,
                         })
                       }
+                      min={0}
+                      placeholder="Cantidad inicial"
                     />
                   </div>
                 )}
                 <div className="space-y-2">
                   <Label htmlFor="averageCostPrice">Costo Promedio por Unidad ($)</Label>
-                  <Input
+                  <NumberInput
                     id="averageCostPrice"
-                    type="number"
-                    value={newInventoryItem.averageCostPrice}
-                    onChange={(e) => setNewInventoryItem({ ...newInventoryItem, averageCostPrice: e.target.value })}
+                    value={newInventoryItem.averageCostPrice ?? ''}
+                    onValueChange={(val) => setNewInventoryItem({ ...newInventoryItem, averageCostPrice: val })}
+                    step={0.01}
+                    min={0}
+                    placeholder="Costo promedio"
                   />
                 </div>
                 {selectedProduct && selectedProduct.isPerishable ? (
@@ -1106,11 +1108,11 @@ function InventoryManagement() {
                           value={lot.lotNumber}
                           onChange={(e) => handleLotChange(index, 'lotNumber', e.target.value)}
                         />
-                        <Input
-                          type="number"
+                        <NumberInput
                           placeholder="Cantidad"
-                          value={lot.quantity}
-                          onChange={(e) => handleLotChange(index, 'quantity', e.target.value)}
+                          value={lot.quantity ?? ''}
+                          onValueChange={(val) => handleLotChange(index, 'quantity', val)}
+                          min={0}
                         />
                         <Input
                           type="date"
@@ -1345,11 +1347,12 @@ function InventoryManagement() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="newQuantity">Nueva Cantidad Total</Label>
-              <Input
+              <NumberInput
                 id="newQuantity"
-                type="number"
-                value={editFormData.newQuantity}
-                onChange={(e) => setEditFormData({ ...editFormData, newQuantity: e.target.value })}
+                value={editFormData.newQuantity ?? ''}
+                onValueChange={(val) => setEditFormData({ ...editFormData, newQuantity: val })}
+                min={0}
+                placeholder="Nueva cantidad"
               />
             </div>
             <div className="space-y-2">
@@ -1478,11 +1481,11 @@ function InventoryManagement() {
                         </TableCell>
                         <TableCell>
                           {isEditing ? (
-                            <Input
-                              type="number"
-                              value={editingLotData?.quantity || 0}
-                              onChange={(e) => setEditingLotData({ ...editingLotData, quantity: e.target.value })}
+                            <NumberInput
+                              value={editingLotData?.quantity ?? ''}
+                              onValueChange={(val) => setEditingLotData({ ...editingLotData, quantity: val })}
                               className="w-24"
+                              min={0}
                             />
                           ) : (
                             `${lot.quantity || 0} unidades`
@@ -1490,12 +1493,12 @@ function InventoryManagement() {
                         </TableCell>
                         <TableCell>
                           {isEditing ? (
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={editingLotData?.costPrice || 0}
-                              onChange={(e) => setEditingLotData({ ...editingLotData, costPrice: e.target.value })}
+                            <NumberInput
+                              step={0.01}
+                              value={editingLotData?.costPrice ?? ''}
+                              onValueChange={(val) => setEditingLotData({ ...editingLotData, costPrice: val })}
                               className="w-24"
+                              min={0}
                             />
                           ) : (
                             `$${(lot.costPrice || 0).toFixed(2)}`

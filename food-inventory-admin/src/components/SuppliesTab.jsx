@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { Input } from '@/components/ui/input.jsx';
+import { NumberInput } from '@/components/ui/number-input.jsx';
 import { Label } from '@/components/ui/label.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
@@ -377,17 +378,17 @@ function SuppliesTab() {
 
                   <div className="space-y-2">
                     <Label>Consumo Mensual Estimado</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={configForm.estimatedMonthlyConsumption}
-                      onChange={(e) =>
+                    <NumberInput
+                      min={0}
+                      step={0.01}
+                      value={configForm.estimatedMonthlyConsumption ?? ''}
+                      onValueChange={(val) =>
                         setConfigForm({
                           ...configForm,
-                          estimatedMonthlyConsumption: parseFloat(e.target.value) || 0,
+                          estimatedMonthlyConsumption: val,
                         })
                       }
+                      placeholder="Consumo mensual estimado"
                     />
                   </div>
                 </div>
@@ -546,17 +547,17 @@ function SuppliesTab() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Cantidad Consumida *</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={consumptionForm.quantityConsumed}
-                      onChange={(e) =>
+                    <NumberInput
+                      min={0}
+                      step={0.01}
+                      value={consumptionForm.quantityConsumed ?? ''}
+                      onValueChange={(val) =>
                         setConsumptionForm({
                           ...consumptionForm,
-                          quantityConsumed: parseFloat(e.target.value) || 0,
+                          quantityConsumed: val,
                         })
                       }
+                      placeholder="Cantidad consumida"
                     />
                   </div>
 
@@ -626,21 +627,21 @@ function SuppliesTab() {
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label>Costo Unitario</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={consumptionForm.costInfo.unitCost}
-                        onChange={(e) =>
+                      <NumberInput
+                        min={0}
+                        step={0.01}
+                        value={consumptionForm.costInfo.unitCost ?? ''}
+                        onValueChange={(val) =>
                           setConsumptionForm({
                             ...consumptionForm,
                             costInfo: {
                               ...consumptionForm.costInfo,
-                              unitCost: parseFloat(e.target.value) || 0,
-                              totalCost: (parseFloat(e.target.value) || 0) * consumptionForm.quantityConsumed,
+                              unitCost: val,
+                              totalCost: (val || 0) * (consumptionForm.quantityConsumed || 0),
                             },
                           })
                         }
+                        placeholder="Costo unitario"
                       />
                     </div>
 

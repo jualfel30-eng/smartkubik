@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter }
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NumberInput } from '@/components/ui/number-input.jsx';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
@@ -71,6 +72,19 @@ function PricingOrchestratorContent() {
             }
         };
         fetchCategories();
+
+        // Fetch BCV Rate
+        const fetchBCV = async () => {
+            try {
+                const response = await fetchApi('/exchange-rate/bcv');
+                if (response && response.rate) {
+                    setBcvRate(response.rate.toString());
+                }
+            } catch (error) {
+                console.error("Error fetching BCV rate:", error);
+            }
+        };
+        fetchBCV();
     }, []);
 
     // Fetch Subcategories when Category changes
@@ -225,6 +239,7 @@ function PricingOrchestratorContent() {
                 body: JSON.stringify(body)
             });
 
+            const results = response.data || [];
             toast.success("Actualización Masiva Exitosa", { description: response.message });
             setPreviewData([]);
             setSelectedProductIds(new Set());
@@ -375,16 +390,16 @@ function PricingOrchestratorContent() {
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1">
                                         <Label className="text-xs">Paralelo (Bs)</Label>
-                                        <Input type="number" value={parallelRate} onChange={e => setParallelRate(e.target.value)} placeholder="Ej: 900" />
+                                        <NumberInput value={parallelRate ?? ''} onValueChange={val => setParallelRate(val)} placeholder="Ej: 900" step={0.01} min={0} />
                                     </div>
                                     <div className="space-y-1">
                                         <Label className="text-xs">BCV (Bs)</Label>
-                                        <Input type="number" value={bcvRate} onChange={e => setBcvRate(e.target.value)} placeholder="Ej: 300" />
+                                        <NumberInput value={bcvRate ?? ''} onValueChange={val => setBcvRate(val)} placeholder="Ej: 300" step={0.01} min={0} />
                                     </div>
                                 </div>
                                 <div className="space-y-1">
                                     <Label className="text-xs">Margen Objetivo (%)</Label>
-                                    <Input type="number" value={targetMargin} onChange={e => setTargetMargin(e.target.value)} />
+                                    <NumberInput value={targetMargin ?? ''} onValueChange={val => setTargetMargin(val)} step={0.1} min={0} max={100} />
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-2 bg-slate-100 dark:bg-slate-900 p-2 rounded">
                                     Ajusta precios para proteger reposición en divisas.
@@ -395,7 +410,7 @@ function PricingOrchestratorContent() {
                                 <div className="space-y-2">
                                     <Label>Variación Porcentual (%)</Label>
                                     <div className="flex items-center gap-2">
-                                        <Input type="number" value={marginUpdatePercent} onChange={e => setMarginUpdatePercent(e.target.value)} />
+                                        <NumberInput value={marginUpdatePercent ?? ''} onValueChange={val => setMarginUpdatePercent(val)} step={0.1} allowNegative={true} />
                                         <TrendingUp className="text-green-500 h-4 w-4" />
                                     </div>
                                     <p className="text-xs text-muted-foreground">
@@ -408,7 +423,7 @@ function PricingOrchestratorContent() {
                                 <div className="space-y-2">
                                     <Label>Descuento a Aplicar (%)</Label>
                                     <div className="flex items-center gap-2">
-                                        <Input type="number" value={promoDiscount} onChange={e => setPromoDiscount(e.target.value)} className="text-red-600 font-bold" />
+                                        <NumberInput value={promoDiscount ?? ''} onValueChange={val => setPromoDiscount(val)} className="text-red-600 font-bold" step={0.1} min={0} max={100} />
                                         <Percent className="text-red-500 h-4 w-4" />
                                     </div>
                                 </div>
@@ -419,7 +434,7 @@ function PricingOrchestratorContent() {
                                     </div>
                                     <div className="space-y-1">
                                         <Label className="text-xs">Duración (Días)</Label>
-                                        <Input type="number" value={durationDays} onChange={e => setDurationDays(e.target.value)} />
+                                        <NumberInput value={durationDays ?? ''} onValueChange={val => setDurationDays(val)} min={1} />
                                     </div>
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-2">
@@ -506,6 +521,7 @@ function PricingOrchestratorContent() {
                                 <TableHead>SKU</TableHead>
                                 <TableHead className="text-right">Precio Actual</TableHead>
                                 <TableHead className="text-right">Nuevo Precio</TableHead>
+                                <TableHead className="text-right">Precio Final ($ BCV)</TableHead>
                                 <TableHead className="text-center">Variación</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -531,16 +547,40 @@ function PricingOrchestratorContent() {
                                         </TableCell>
                                         <TableCell className="font-mono text-xs text-muted-foreground">{item.sku}</TableCell>
                                         <TableCell className="text-right text-muted-foreground">
-                                            {item.currentPrice?.toLocaleString()}
+                                            ${item.currentPrice?.toLocaleString()}
                                         </TableCell>
                                         <TableCell className="text-right font-bold text-slate-900 dark:text-slate-100">
-                                            {item.newPrice?.toLocaleString()}
+                                            VES {item.newPrice?.toLocaleString()}
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono text-xs text-blue-600">
+                                            {(() => {
+                                                const rate = parseFloat(bcvRate);
+                                                // Calculate directly: Final Price (Bs) / BCV Rate
+                                                const val = (rate > 0 && item.newPrice) ? (item.newPrice / rate) : item.newPriceUSD;
+                                                return val ? `$${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
+                                            })()}
                                         </TableCell>
                                         <TableCell className="text-center">
-                                            <Badge variant={item.diffPercentage > 0 ? 'success' : 'destructive'}
-                                                className={`w-16 justify-center ${item.diffPercentage > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                                {item.diffPercentage > 0 ? '+' : ''}{(item.diffPercentage || 0).toFixed(1)}%
-                                            </Badge>
+                                            {(() => {
+                                                const rate = parseFloat(bcvRate);
+                                                if (!rate || rate <= 0) return '-';
+
+                                                // Calculate New Price in USD based on active BCV rate
+                                                const newUSD = item.newPrice / rate;
+                                                const currentPrice = item.currentPrice || 0;
+
+                                                if (!currentPrice) return '-';
+
+                                                // Variation: ((New Price USD - Current Price) / Current Price) * 100
+                                                const diff = ((newUSD - currentPrice) / currentPrice) * 100;
+
+                                                return (
+                                                    <Badge variant={diff > 0 ? 'success' : 'destructive'}
+                                                        className={`w-16 justify-center ${diff > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                        {diff > 0 ? '+' : ''}{diff.toFixed(1)}%
+                                                    </Badge>
+                                                );
+                                            })()}
                                         </TableCell>
                                     </TableRow>
                                 ))

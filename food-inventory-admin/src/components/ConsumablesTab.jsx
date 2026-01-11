@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { Input } from '@/components/ui/input.jsx';
+import { NumberInput } from '@/components/ui/number-input.jsx';
 import { Label } from '@/components/ui/label.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
@@ -399,12 +400,12 @@ function ConsumablesTab() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Cantidad por Uso</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={configForm.defaultQuantityPerUse}
-                      onChange={(e) => setConfigForm({ ...configForm, defaultQuantityPerUse: parseFloat(e.target.value) })}
+                    <NumberInput
+                      min={0}
+                      step={0.01}
+                      value={configForm.defaultQuantityPerUse ?? ''}
+                      onValueChange={(val) => setConfigForm({ ...configForm, defaultQuantityPerUse: val })}
+                      placeholder="Cantidad por uso"
                     />
                   </div>
 
@@ -527,22 +528,22 @@ function ConsumablesTab() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Cantidad Requerida</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={relationForm.quantityRequired}
-                      onChange={(e) => setRelationForm({ ...relationForm, quantityRequired: parseFloat(e.target.value) })}
+                    <NumberInput
+                      min={0}
+                      step={0.01}
+                      value={relationForm.quantityRequired ?? ''}
+                      onValueChange={(val) => setRelationForm({ ...relationForm, quantityRequired: val })}
+                      placeholder="Cantidad requerida"
                     />
                   </div>
 
                   <div className="space-y-2">
                     <Label>Prioridad</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={relationForm.priority}
-                      onChange={(e) => setRelationForm({ ...relationForm, priority: parseInt(e.target.value) })}
+                    <NumberInput
+                      min={1}
+                      value={relationForm.priority ?? ''}
+                      onValueChange={(val) => setRelationForm({ ...relationForm, priority: val })}
+                      placeholder="Prioridad"
                     />
                   </div>
                 </div>

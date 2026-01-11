@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Input } from '@/components/ui/input.jsx';
+import { NumberInput } from '@/components/ui/number-input.jsx';
 import { Label } from '@/components/ui/label.jsx';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx';
 import { toast } from 'sonner';
@@ -390,24 +391,24 @@ export default function InventoryMovementsPanel() {
               </div>
               <div className="space-y-1">
                 <Label>Cantidad</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={adjustForm.quantity}
-                  onChange={(e) => setAdjustForm((prev) => ({ ...prev, quantity: e.target.value }))}
+                <NumberInput
+                  min={0}
+                  step={0.01}
+                  value={adjustForm.quantity ?? ''}
+                  onValueChange={(val) => setAdjustForm((prev) => ({ ...prev, quantity: val }))}
+                  placeholder="Cantidad"
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Costo unitario</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={adjustForm.unitCost}
-                  onChange={(e) => setAdjustForm((prev) => ({ ...prev, unitCost: e.target.value }))}
+                <NumberInput
+                  min={0}
+                  step={0.01}
+                  value={adjustForm.unitCost ?? ''}
+                  onValueChange={(val) => setAdjustForm((prev) => ({ ...prev, unitCost: val }))}
+                  placeholder="Costo unitario"
                 />
               </div>
               <div className="space-y-1">

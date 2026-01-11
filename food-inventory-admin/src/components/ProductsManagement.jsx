@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, Fragment } from 'react';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { Input } from '@/components/ui/input.jsx';
+import { NumberInput } from '@/components/ui/number-input.jsx';
 import { Label } from '@/components/ui/label.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
@@ -2151,7 +2152,14 @@ function ProductsManagement() {
                   <>
                     <div className="space-y-2">
                       <Label htmlFor="shelfLifeDays">Vida Útil (días)</Label>
-                      <Input id="shelfLifeDays" type="number" value={newProduct.shelfLifeDays} onChange={(e) => setNewProduct({ ...newProduct, shelfLifeDays: parseInt(e.target.value) || 0 })} />
+                      <NumberInput
+                        id="shelfLifeDays"
+                        value={newProduct.shelfLifeDays ?? ''}
+                        onValueChange={(val) => setNewProduct({ ...newProduct, shelfLifeDays: val })}
+                        step={1}
+                        min={0}
+                        placeholder="Días de vida útil"
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="storageTemperature">Temperatura de Almacenamiento</Label>
@@ -2176,19 +2184,47 @@ function ProductsManagement() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="minimumStock">Stock Mínimo</Label>
-                      <Input id="minimumStock" type="number" value={newProduct.inventoryConfig.minimumStock} onChange={(e) => setNewProduct({ ...newProduct, inventoryConfig: { ...newProduct.inventoryConfig, minimumStock: parseInt(e.target.value) || 0 } })} />
+                      <NumberInput
+                        id="minimumStock"
+                        value={newProduct.inventoryConfig.minimumStock ?? ''}
+                        onValueChange={(val) => setNewProduct({ ...newProduct, inventoryConfig: { ...newProduct.inventoryConfig, minimumStock: val } })}
+                        step={1}
+                        min={0}
+                        placeholder="Stock mínimo"
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="maximumStock">Stock Máximo</Label>
-                      <Input id="maximumStock" type="number" value={newProduct.inventoryConfig.maximumStock} onChange={(e) => setNewProduct({ ...newProduct, inventoryConfig: { ...newProduct.inventoryConfig, maximumStock: parseInt(e.target.value) || 0 } })} />
+                      <NumberInput
+                        id="maximumStock"
+                        value={newProduct.inventoryConfig.maximumStock ?? ''}
+                        onValueChange={(val) => setNewProduct({ ...newProduct, inventoryConfig: { ...newProduct.inventoryConfig, maximumStock: val } })}
+                        step={1}
+                        min={0}
+                        placeholder="Stock máximo"
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="reorderPoint">Punto de Reorden</Label>
-                      <Input id="reorderPoint" type="number" value={newProduct.inventoryConfig.reorderPoint} onChange={(e) => setNewProduct({ ...newProduct, inventoryConfig: { ...newProduct.inventoryConfig, reorderPoint: parseInt(e.target.value) || 0 } })} />
+                      <NumberInput
+                        id="reorderPoint"
+                        value={newProduct.inventoryConfig.reorderPoint ?? ''}
+                        onValueChange={(val) => setNewProduct({ ...newProduct, inventoryConfig: { ...newProduct.inventoryConfig, reorderPoint: val } })}
+                        step={1}
+                        min={0}
+                        placeholder="Punto de reorden"
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="reorderQuantity">Cantidad de Reorden</Label>
-                      <Input id="reorderQuantity" type="number" value={newProduct.inventoryConfig.reorderQuantity} onChange={(e) => setNewProduct({ ...newProduct, inventoryConfig: { ...newProduct.inventoryConfig, reorderQuantity: parseInt(e.target.value) || 0 } })} />
+                      <NumberInput
+                        id="reorderQuantity"
+                        value={newProduct.inventoryConfig.reorderQuantity ?? ''}
+                        onValueChange={(val) => setNewProduct({ ...newProduct, inventoryConfig: { ...newProduct.inventoryConfig, reorderQuantity: val } })}
+                        step={1}
+                        min={0}
+                        placeholder="Cantidad de reorden"
+                      />
                     </div>
                   </div>
                 </div>
@@ -2243,37 +2279,36 @@ function ProductsManagement() {
                         <div key={index} className="flex gap-3 items-end">
                           <div className="flex-1 space-y-2">
                             <Label>Cantidad Mínima</Label>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={rule.minQuantity}
-                              onChange={(e) => {
+                            <NumberInput
+                              value={rule.minQuantity ?? ''}
+                              onValueChange={(val) => {
                                 const rules = [...(newProduct.pricingRules?.bulkDiscountRules || [])];
-                                rules[index] = { ...rules[index], minQuantity: parseInt(e.target.value) || 1 };
+                                rules[index] = { ...rules[index], minQuantity: val };
                                 setNewProduct({
                                   ...newProduct,
                                   pricingRules: { ...newProduct.pricingRules, bulkDiscountRules: rules }
                                 });
                               }}
+                              step={1}
+                              min={1}
                               placeholder="Ej: 10"
                             />
                           </div>
                           <div className="flex-1 space-y-2">
                             <Label>Descuento (%)</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.1"
-                              value={rule.discountPercentage}
-                              onChange={(e) => {
+                            <NumberInput
+                              value={rule.discountPercentage ?? ''}
+                              onValueChange={(val) => {
                                 const rules = [...(newProduct.pricingRules?.bulkDiscountRules || [])];
-                                rules[index] = { ...rules[index], discountPercentage: parseFloat(e.target.value) || 0 };
+                                rules[index] = { ...rules[index], discountPercentage: val };
                                 setNewProduct({
                                   ...newProduct,
                                   pricingRules: { ...newProduct.pricingRules, bulkDiscountRules: rules }
                                 });
                               }}
+                              step={0.1}
+                              min={0}
+                              max={100}
                               placeholder="Ej: 10"
                             />
                           </div>
@@ -2343,21 +2378,20 @@ function ProductsManagement() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Porcentaje de Descuento (%)</Label>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.1"
-                            value={newProduct.promotion?.discountPercentage || 0}
-                            onChange={(e) =>
+                          <NumberInput
+                            value={newProduct.promotion?.discountPercentage ?? ''}
+                            onValueChange={(val) =>
                               setNewProduct({
                                 ...newProduct,
                                 promotion: {
                                   ...newProduct.promotion,
-                                  discountPercentage: parseFloat(e.target.value) || 0,
+                                  discountPercentage: val,
                                 }
                               })
                             }
+                            step={0.1}
+                            min={0}
+                            max={100}
                             placeholder="Ej: 20"
                           />
                         </div>
@@ -2855,70 +2889,50 @@ function ProductsManagement() {
                   {!isNonFoodRetailVertical && (
                     <div className="space-y-2">
                       <Label htmlFor="variantUnitSize">Tamaño Unidad</Label>
-                      <Input
+                      <NumberInput
                         id="variantUnitSize"
-                        type="number"
-                        value={newProduct.variant.unitSize}
-                        onChange={(e) =>
+                        value={newProduct.variant.unitSize ?? ''}
+                        onValueChange={(val) =>
                           setNewProduct({
                             ...newProduct,
                             variant: {
                               ...newProduct.variant,
-                              unitSize: parseFloat(e.target.value) || 0,
+                              unitSize: val,
                             },
                           })
                         }
+                        step={0.01}
+                        min={0}
+                        placeholder="Tamaño"
                       />
                     </div>
                   )}
                   <div className="space-y-2">
                     <Label htmlFor="variantCostPrice">Precio Costo ($)</Label>
-                    <Input
+                    <NumberInput
                       id="variantCostPrice"
-                      type="number"
-                      value={newProduct.variant.costPrice}
-                      onFocus={() => {
-                        if (newProduct.variant.costPrice === 0) {
-                          setNewProduct({ ...newProduct, variant: { ...newProduct.variant, costPrice: '' } });
-                        }
-                      }}
-                      onChange={(e) => {
-                        setNewProduct({ ...newProduct, variant: { ...newProduct.variant, costPrice: e.target.value } });
-                      }}
-                      onBlur={() => {
-                        const price = parseFloat(newProduct.variant.costPrice);
-                        if (isNaN(price) || newProduct.variant.costPrice === '') {
-                          setNewProduct({ ...newProduct, variant: { ...newProduct.variant, costPrice: 0 } });
-                        } else {
-                          setNewProduct({ ...newProduct, variant: { ...newProduct.variant, costPrice: price } });
-                        }
-                      }}
+                      value={newProduct.variant.costPrice ?? ''}
+                      onValueChange={(val) =>
+                        setNewProduct({ ...newProduct, variant: { ...newProduct.variant, costPrice: val } })
+                      }
+                      step={0.01}
+                      min={0}
+                      placeholder="Precio costo"
                     />
                   </div>
                   {/* Precio de Venta solo para mercancía */}
                   {newProduct.productType === 'simple' && (
                     <div className="space-y-2">
                       <Label htmlFor="variantBasePrice">Precio de Venta ($)</Label>
-                      <Input
+                      <NumberInput
                         id="variantBasePrice"
-                        type="number"
-                        value={newProduct.variant.basePrice}
-                        onFocus={() => {
-                          if (newProduct.variant.basePrice === 0) {
-                            setNewProduct({ ...newProduct, variant: { ...newProduct.variant, basePrice: '' } });
-                          }
-                        }}
-                        onChange={(e) => {
-                          setNewProduct({ ...newProduct, variant: { ...newProduct.variant, basePrice: e.target.value } });
-                        }}
-                        onBlur={() => {
-                          const price = parseFloat(newProduct.variant.basePrice);
-                          if (isNaN(price) || newProduct.variant.basePrice === '') {
-                            setNewProduct({ ...newProduct, variant: { ...newProduct.variant, basePrice: 0 } });
-                          } else {
-                            setNewProduct({ ...newProduct, variant: { ...newProduct.variant, basePrice: price } });
-                          }
-                        }}
+                        value={newProduct.variant.basePrice ?? ''}
+                        onValueChange={(val) =>
+                          setNewProduct({ ...newProduct, variant: { ...newProduct.variant, basePrice: val } })
+                        }
+                        step={0.01}
+                        min={0}
+                        placeholder="Precio venta"
                       />
                     </div>
                   )}
@@ -3046,20 +3060,22 @@ function ProductsManagement() {
                           </div>
                           <div className="space-y-2">
                             <Label>Precio costo ($)</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={variant.costPrice ?? 0}
-                              onChange={(e) => updateAdditionalVariantField(index, 'costPrice', e.target.value)}
+                            <NumberInput
+                              value={variant.costPrice ?? ''}
+                              onValueChange={(val) => updateAdditionalVariantField(index, 'costPrice', val)}
+                              step={0.01}
+                              min={0}
+                              placeholder="Precio costo"
                             />
                           </div>
                           <div className="space-y-2">
                             <Label>Precio venta ($)</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={variant.basePrice ?? 0}
-                              onChange={(e) => updateAdditionalVariantField(index, 'basePrice', e.target.value)}
+                            <NumberInput
+                              value={variant.basePrice ?? ''}
+                              onValueChange={(val) => updateAdditionalVariantField(index, 'basePrice', val)}
+                              step={0.01}
+                              min={0}
+                              placeholder="Precio venta"
                             />
                           </div>
                         </div>
@@ -3119,19 +3135,18 @@ function ProductsManagement() {
 
                       <div className="space-y-2">
                         <Label htmlFor="defaultQuantityPerUse">Cantidad por Uso *</Label>
-                        <Input
+                        <NumberInput
                           id="defaultQuantityPerUse"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={newProduct.consumableConfig.defaultQuantityPerUse}
-                          onChange={(e) => setNewProduct({
+                          value={newProduct.consumableConfig.defaultQuantityPerUse ?? ''}
+                          onValueChange={(val) => setNewProduct({
                             ...newProduct,
                             consumableConfig: {
                               ...newProduct.consumableConfig,
-                              defaultQuantityPerUse: parseFloat(e.target.value) || 0
+                              defaultQuantityPerUse: val
                             }
                           })}
+                          step={0.01}
+                          min={0}
                           placeholder="Ej: 1"
                         />
                       </div>
@@ -3423,6 +3438,8 @@ function ProductsManagement() {
                   <TableHead>SKU</TableHead>
                   <TableHead>Producto</TableHead>
                   <TableHead>Categoría</TableHead>
+                  <TableHead className="text-right">Precio Venta</TableHead>
+                  <TableHead className="text-right">Costo</TableHead>
                   <TableHead>Variantes</TableHead>
                   <TableHead>Promoción</TableHead>
                   <TableHead>Estado</TableHead>
@@ -3442,6 +3459,44 @@ function ProductsManagement() {
                         {(Array.isArray(product.category) ? product.category : [product.category]).filter(Boolean).map((cat, idx) => (
                           <Badge key={idx} variant="outline">{cat}</Badge>
                         ))}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {product.variants?.length > 1 ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="font-medium cursor-help inline-flex items-center justify-end gap-1">
+                              ${(product.variants[0]?.basePrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              <span className="text-xs text-muted-foreground font-bold">(+)</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent className="p-0 bg-popover text-popover-foreground border shadow-md">
+                            <div className="p-3 min-w-[300px]">
+                              <h4 className="font-medium mb-3 text-sm border-b pb-2">Precios por Variante</h4>
+                              <div className="grid grid-cols-[1fr_80px_80px] gap-2 text-xs">
+                                <span className="font-semibold text-muted-foreground">Variante</span>
+                                <span className="font-semibold text-right text-muted-foreground">Precio</span>
+                                <span className="font-semibold text-right text-muted-foreground">Costo</span>
+                                {product.variants.map((v, i) => (
+                                  <Fragment key={i}>
+                                    <span className="truncate" title={v.name}>{v.name}</span>
+                                    <span className="text-right font-medium">${(v.basePrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                    <span className="text-right text-muted-foreground">${(v.costPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                  </Fragment>
+                                ))}
+                              </div>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <div className="font-medium">
+                          ${(product.variants?.[0]?.basePrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="text-muted-foreground">
+                        ${(product.variants?.[0]?.costPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </div>
                     </TableCell>
                     <TableCell>{product.variants.length}</TableCell>
@@ -3783,19 +3838,47 @@ function ProductsManagement() {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="edit-minimumStock">Stock Mínimo</Label>
-                        <Input id="edit-minimumStock" type="number" value={editingProduct.inventoryConfig.minimumStock} onChange={(e) => setEditingProduct({ ...editingProduct, inventoryConfig: { ...editingProduct.inventoryConfig, minimumStock: parseInt(e.target.value) || 0 } })} />
+                        <NumberInput
+                          id="edit-minimumStock"
+                          value={editingProduct.inventoryConfig.minimumStock ?? ''}
+                          onValueChange={(val) => setEditingProduct({ ...editingProduct, inventoryConfig: { ...editingProduct.inventoryConfig, minimumStock: val } })}
+                          step={1}
+                          min={0}
+                          placeholder="Stock mínimo"
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="edit-maximumStock">Stock Máximo</Label>
-                        <Input id="edit-maximumStock" type="number" value={editingProduct.inventoryConfig.maximumStock} onChange={(e) => setEditingProduct({ ...editingProduct, inventoryConfig: { ...editingProduct.inventoryConfig, maximumStock: parseInt(e.target.value) || 0 } })} />
+                        <NumberInput
+                          id="edit-maximumStock"
+                          value={editingProduct.inventoryConfig.maximumStock ?? ''}
+                          onValueChange={(val) => setEditingProduct({ ...editingProduct, inventoryConfig: { ...editingProduct.inventoryConfig, maximumStock: val } })}
+                          step={1}
+                          min={0}
+                          placeholder="Stock máximo"
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="edit-reorderPoint">Punto de Reorden</Label>
-                        <Input id="edit-reorderPoint" type="number" value={editingProduct.inventoryConfig.reorderPoint} onChange={(e) => setEditingProduct({ ...editingProduct, inventoryConfig: { ...editingProduct.inventoryConfig, reorderPoint: parseInt(e.target.value) || 0 } })} />
+                        <NumberInput
+                          id="edit-reorderPoint"
+                          value={editingProduct.inventoryConfig.reorderPoint ?? ''}
+                          onValueChange={(val) => setEditingProduct({ ...editingProduct, inventoryConfig: { ...editingProduct.inventoryConfig, reorderPoint: val } })}
+                          step={1}
+                          min={0}
+                          placeholder="Punto de reorden"
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="edit-reorderQuantity">Cantidad de Reorden</Label>
-                        <Input id="edit-reorderQuantity" type="number" value={editingProduct.inventoryConfig.reorderQuantity} onChange={(e) => setEditingProduct({ ...editingProduct, inventoryConfig: { ...editingProduct.inventoryConfig, reorderQuantity: parseInt(e.target.value) || 0 } })} />
+                        <NumberInput
+                          id="edit-reorderQuantity"
+                          value={editingProduct.inventoryConfig.reorderQuantity ?? ''}
+                          onValueChange={(val) => setEditingProduct({ ...editingProduct, inventoryConfig: { ...editingProduct.inventoryConfig, reorderQuantity: val } })}
+                          step={1}
+                          min={0}
+                          placeholder="Cantidad de reorden"
+                        />
                       </div>
                     </div>
                   </div>
@@ -3832,37 +3915,36 @@ function ProductsManagement() {
                         <div key={index} className="flex gap-3 items-end">
                           <div className="flex-1 space-y-2">
                             <Label>Cantidad Mínima</Label>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={rule.minQuantity}
-                              onChange={(e) => {
+                            <NumberInput
+                              value={rule.minQuantity ?? ''}
+                              onValueChange={(val) => {
                                 const rules = [...(editingProduct.pricingRules?.bulkDiscountRules || [])];
-                                rules[index] = { ...rules[index], minQuantity: parseInt(e.target.value) || 1 };
+                                rules[index] = { ...rules[index], minQuantity: val };
                                 setEditingProduct({
                                   ...editingProduct,
                                   pricingRules: { ...editingProduct.pricingRules, bulkDiscountRules: rules }
                                 });
                               }}
+                              step={1}
+                              min={1}
                               placeholder="Ej: 10"
                             />
                           </div>
                           <div className="flex-1 space-y-2">
                             <Label>Descuento (%)</Label>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.1"
-                              value={rule.discountPercentage}
-                              onChange={(e) => {
+                            <NumberInput
+                              value={rule.discountPercentage ?? ''}
+                              onValueChange={(val) => {
                                 const rules = [...(editingProduct.pricingRules?.bulkDiscountRules || [])];
-                                rules[index] = { ...rules[index], discountPercentage: parseFloat(e.target.value) || 0 };
+                                rules[index] = { ...rules[index], discountPercentage: val };
                                 setEditingProduct({
                                   ...editingProduct,
                                   pricingRules: { ...editingProduct.pricingRules, bulkDiscountRules: rules }
                                 });
                               }}
+                              step={0.1}
+                              min={0}
+                              max={100}
                               placeholder="Ej: 10"
                             />
                           </div>
