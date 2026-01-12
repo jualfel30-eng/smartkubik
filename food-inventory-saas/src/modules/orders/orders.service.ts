@@ -1277,6 +1277,7 @@ export class OrdersService {
       .findOne({ _id: id, tenantId })
       .populate("payments")
       .populate("assignedTo", "firstName lastName email")
+      .populate("items.productId", "name sku ivaApplicable") // Fix: Populate productId, not product
       .exec();
   }
 

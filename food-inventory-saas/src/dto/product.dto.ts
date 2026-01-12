@@ -564,6 +564,16 @@ export class UpdateProductDto {
     isActive: boolean;
     autoDeactivate: boolean;
   };
+
+  @ApiPropertyOptional({ description: "Aplica IVA 16%" })
+  @IsOptional()
+  @IsBoolean()
+  ivaApplicable?: boolean;
+
+  @ApiPropertyOptional({ description: "Exento de IGTF 3%" })
+  @IsOptional()
+  @IsBoolean()
+  igtfExempt?: boolean;
 }
 
 export class ProductQueryDto {
