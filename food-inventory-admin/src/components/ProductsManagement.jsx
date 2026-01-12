@@ -1279,7 +1279,7 @@ function ProductsManagement() {
       ivaApplicable: editingProduct.ivaApplicable,
       isPerishable: editingProduct.isPerishable,
       shelfLifeDays: editingProduct.shelfLifeDays,
-      storageTemperature: editingProduct.storageTemperature,
+      storageTemperature: editingProduct.isPerishable ? (editingProduct.storageTemperature || 'ambiente') : undefined,
       pricingRules: {
         ...(editingProduct.pricingRules || {}),
         bulkDiscountEnabled: editingProduct.pricingRules?.bulkDiscountEnabled || false,
@@ -1302,6 +1302,7 @@ function ProductsManagement() {
     } else if (editingProduct.attributes && Object.keys(editingProduct.attributes).length === 0) {
       payload.attributes = {};
     }
+
 
     // OPTIMISTIC UPDATE: Update UI immediately, save in background
     const previousProducts = products; // Store for rollback
@@ -3554,7 +3555,7 @@ function ProductsManagement() {
                     </TableCell>
                     <TableCell>
                       <InlineEditableCell
-                        value={product.category?.join(', ') || ''}
+                        value={Array.isArray(product.category) ? product.category.join(', ') : (product.category || '')}
                         type="text"
                         suggestions={categories}
                         onSave={(val) => handleInlineUpdate(product._id, 'category', val)}
@@ -3655,6 +3656,11 @@ function ProductsManagement() {
                           }
                           if (!productToEdit.sellingUnits) {
                             productToEdit.sellingUnits = [];
+                          }
+                          // Fix: Map legacy attributes.storageCondition to native storageTemperature if missing
+                          if (!productToEdit.storageTemperature && productToEdit.attributes?.storageCondition) {
+                            const map = { 'Ambiente': 'ambiente', 'Refrigerado': 'refrigerado', 'Congelado': 'congelado' };
+                            productToEdit.storageTemperature = map[productToEdit.attributes.storageCondition] || productToEdit.attributes.storageCondition.toLowerCase();
                           }
                           productToEdit.sellingUnits = productToEdit.sellingUnits.map((unit) => {
                             const conversionSource =
@@ -3819,7 +3825,7 @@ function ProductsManagement() {
                       </p>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {productAttributes.map((attr) => (
+                      {productAttributes.filter(attr => attr.key !== 'storageCondition').map((attr) => (
                         <div key={attr.key} className="space-y-2">
                           <Label>
                             {attr.label}

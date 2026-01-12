@@ -92,17 +92,25 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
             const unitPrice = item.unitPrice || item.price || item.finalPrice || 0;
             const unit = item.selectedUnit || item.unit || 'Unid';
 
+            // Handle populated productId (it might be an object now due to backend populating it)
+            const productObj = typeof item.productId === 'object' ? item.productId : item.product;
+            const productId = productObj?._id || (typeof item.productId === 'string' ? item.productId : null) || item.product;
+
+            // Determine if exempt based on populated product data
+            const isExempt = item.ivaApplicable === false || productObj?.ivaApplicable === false || item.product?.ivaApplicable === false;
+
             return {
-                productId: item.productId || item.product?._id || item.product,
+                productId: productId,
                 description: description,
                 quantity: item.quantity || 1,
                 unit: unit,
                 unitPrice: unitPrice,
-                taxRate: 16,
+                // Fix: Respect the exemption flag from the order item or product
+                taxRate: isExempt ? 0 : 16,
                 discount: 0,
                 subtotal: (item.quantity || 1) * unitPrice,
-                tax: ((item.quantity || 1) * unitPrice * 0.16),
-                total: ((item.quantity || 1) * unitPrice * 1.16)
+                tax: ((item.quantity || 1) * unitPrice * (isExempt ? 0 : 16) / 100),
+                total: ((item.quantity || 1) * unitPrice * (1 + (isExempt ? 0 : 16) / 100))
             };
         });
 
@@ -702,6 +710,15 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                                     onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
                                     placeholder="Info extra"
                                     className="h-8 text-xs"
+                                />
+                            </div>
+                            <div className="flex items-center pb-2">
+                                <Label className="text-xs mr-2">Exento</Label>
+                                <input
+                                    type="checkbox"
+                                    checked={newItem.taxRate === 0}
+                                    onChange={(e) => setNewItem({ ...newItem, taxRate: e.target.checked ? 0 : 16 })}
+                                    className="h-4 w-4"
                                 />
                             </div>
                             <div>

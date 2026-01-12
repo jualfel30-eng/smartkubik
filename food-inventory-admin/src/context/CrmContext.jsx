@@ -300,6 +300,7 @@ export const CrmProvider = ({ children }) => {
     }
 
     const { page, limit, filters } = lastEmployeeQueryRef.current || {};
+    console.log('[CrmContext] refreshEmployeesData called with:', { page, limit, filters, lastEmployeeQueryRef: lastEmployeeQueryRef.current });
     const refreshPromise = Promise.all([
       loadEmployees(page ?? 1, limit ?? 25, filters ?? {}),
       loadEmployeeSummary(),
@@ -316,6 +317,7 @@ export const CrmProvider = ({ children }) => {
       if (!customerId) return null;
       const { skipRefresh = false } = options;
       try {
+        console.log('[CrmContext] ensureEmployeeProfileForCustomer called:', { customerId, payload, skipRefresh });
         const response = await fetchApi('/payroll/employees', {
           method: 'POST',
           body: JSON.stringify({
@@ -323,7 +325,9 @@ export const CrmProvider = ({ children }) => {
             ...payload,
           }),
         });
+        console.log('[CrmContext] Employee profile created:', response.data || response);
         if (!skipRefresh) {
+          console.log('[CrmContext] Refreshing employees from ensureEmployeeProfileForCustomer...');
           refreshEmployeesData().catch((err) =>
             console.error('Error refreshing employees after ensure:', err),
           );
@@ -564,18 +568,27 @@ export const CrmProvider = ({ children }) => {
       skipCustomerReload = false,
     } = options;
     try {
+      console.log('[CrmContext] addCustomer called with:', { customerData, options });
       const response = await fetchApi('/customers', {
         method: 'POST',
         body: JSON.stringify(customerData),
       });
       const createdCustomer = response?.data || response?.customer || response;
+      console.log('[CrmContext] Customer created:', createdCustomer?._id);
       if (shouldEnsureEmployeeProfile && createdCustomer?._id) {
+        console.log('[CrmContext] Waiting 500ms for database propagation...');
+        // Wait for database propagation to avoid race condition
+        await new Promise(resolve => setTimeout(resolve, 500));
+        console.log('[CrmContext] Creating employee profile for customer:', createdCustomer._id);
         await ensureEmployeeProfileForCustomer(createdCustomer._id, {}, { skipRefresh: shouldRefreshEmployees });
       }
       if (shouldRefreshEmployees) {
-        refreshEmployeesData().catch((err) =>
+        console.log('[CrmContext] Refreshing employees data...');
+        // Wait for employee refresh to complete before returning
+        await refreshEmployeesData().catch((err) =>
           console.error('Error refreshing employees after add:', err),
         );
+        console.log('[CrmContext] Employees refreshed successfully');
       }
       if (!skipCustomerReload) {
         const { page, limit, filters } = lastQueryRef.current;
@@ -604,7 +617,8 @@ export const CrmProvider = ({ children }) => {
         await ensureEmployeeProfileForCustomer(updatedCustomer?._id || customerId, {}, { skipRefresh: shouldRefreshEmployees });
       }
       if (shouldRefreshEmployees) {
-        refreshEmployeesData().catch((err) =>
+        // Wait for employee refresh to complete before returning
+        await refreshEmployeesData().catch((err) =>
           console.error('Error refreshing employees after update:', err),
         );
       }
