@@ -38,7 +38,8 @@ import {
   X,
   Layers,
   Wrench,
-  Scan
+  Scan,
+  ArrowRightLeft
 } from 'lucide-react';
 
 const UNASSIGNED_SELECT_VALUE = '__UNASSIGNED__';

@@ -5,8 +5,9 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, ArrowRightLeft } from 'lucide-react';
 import { Switch } from './ui/switch';
+import { Toggle } from './ui/toggle';
 
 const UNIT_TYPES = [
   { value: 'purchase', label: 'Compra' },
@@ -35,7 +36,17 @@ export const UnitConversionDialog = ({
     if (existingConfig) {
       setBaseUnit(existingConfig.baseUnit || '');
       setBaseUnitAbbr(existingConfig.baseUnitAbbr || '');
-      setConversions(existingConfig.conversions || []);
+
+      // Mapear conversiones existentes e inicializar el estado 'inverse'
+      const mappedConversions = (existingConfig.conversions || []).map(c => ({
+        ...c,
+        // Si el factor es < 1 (ej: 0.05), asumimos que fue ingresado inversamente (1/0.05 = 20)
+        isInverse: c.factor > 0 && c.factor < 1,
+        // Almacenamos el valor de input visual separado del factor real
+        inputValue: (c.factor > 0 && c.factor < 1) ? (1 / c.factor) : c.factor
+      }));
+      setConversions(mappedConversions);
+
       setDefaultPurchaseUnit(existingConfig.defaultPurchaseUnit || '');
       setDefaultStockUnit(existingConfig.defaultStockUnit || '');
       setDefaultConsumptionUnit(existingConfig.defaultConsumptionUnit || '');
@@ -60,6 +71,8 @@ export const UnitConversionDialog = ({
         unit: '',
         abbreviation: '',
         factor: 1,
+        inputValue: 1, // Valor visual
+        isInverse: false, // Por defecto normal: 1 unit = X base
         unitType: 'stock',
         isActive: true,
         isDefault: false,
@@ -75,7 +88,31 @@ export const UnitConversionDialog = ({
   // Actualizar regla de conversión
   const updateConversion = (index, field, value) => {
     const updated = [...conversions];
-    updated[index] = { ...updated[index], [field]: value };
+    const conversion = { ...updated[index] };
+
+    if (field === 'inputValue') {
+      // Actualizamos el valor visual y recalculamos el factor real
+      conversion.inputValue = value;
+      const numValue = parseFloat(value);
+      if (numValue > 0) {
+        conversion.factor = conversion.isInverse ? (1 / numValue) : numValue;
+      } else {
+        conversion.factor = 0;
+      }
+    } else if (field === 'isInverse') {
+      // Cambiamos el modo de visualización
+      conversion.isInverse = value;
+      // Recalculamos el factor basado en el inputValue actual y el nuevo modo
+      const numValue = parseFloat(conversion.inputValue);
+      if (numValue > 0) {
+        conversion.factor = value ? (1 / numValue) : numValue;
+      }
+    } else {
+      // Otros campos
+      conversion[field] = value;
+    }
+
+    updated[index] = conversion;
     setConversions(updated);
   };
 
@@ -131,12 +168,15 @@ export const UnitConversionDialog = ({
 
     setSaving(true);
     try {
+      // Limpiamos los campos auxiliares antes de guardar
+      const cleanConversions = conversions.map(({ inputValue, isInverse, ...rest }) => rest);
+
       const configData = {
         productSku: product?.sku || product?.productSku || '',
         productId,
         baseUnit,
         baseUnitAbbr,
-        conversions,
+        conversions: cleanConversions,
         defaultPurchaseUnit: defaultPurchaseUnit || undefined,
         defaultStockUnit: defaultStockUnit || undefined,
         defaultConsumptionUnit: defaultConsumptionUnit || undefined,
@@ -162,7 +202,7 @@ export const UnitConversionDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {existingConfig ? 'Editar' : 'Configurar'} Unidades de Medida
@@ -215,8 +255,8 @@ export const UnitConversionDialog = ({
             ) : (
               <div className="space-y-3">
                 {conversions.map((conversion, index) => (
-                  <div key={index} className="p-4 border rounded-lg space-y-3">
-                    <div className="flex items-center justify-between">
+                  <div key={index} className="p-4 border rounded-lg space-y-3 relative">
+                    <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium">Regla {index + 1}</span>
                       <Button
                         type="button"
@@ -228,8 +268,8 @@ export const UnitConversionDialog = ({
                       </Button>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-3">
-                      <div className="space-y-2">
+                    <div className="grid grid-cols-12 gap-3 items-end">
+                      <div className="col-span-3 space-y-2">
                         <Label>Unidad *</Label>
                         <Input
                           placeholder="ej: caja"
@@ -237,29 +277,42 @@ export const UnitConversionDialog = ({
                           onChange={(e) => updateConversion(index, 'unit', e.target.value)}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>Abreviación *</Label>
+                      <div className="col-span-2 space-y-2">
+                        <Label>Abrev. *</Label>
                         <Input
                           placeholder="ej: cj"
                           value={conversion.abbreviation}
                           onChange={(e) => updateConversion(index, 'abbreviation', e.target.value)}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>Factor *</Label>
+                      <div className="col-span-4 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label>Factor de Conversión *</Label>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-muted-foreground uppercase">
+                              {conversion.isInverse ? 'Invertido' : 'Normal'}
+                            </span>
+                            <Toggle
+                              size="sm"
+                              pressed={conversion.isInverse}
+                              onPressedChange={(pressed) => updateConversion(index, 'isInverse', pressed)}
+                              aria-label="Invertir conversión"
+                              className="h-6 w-6 p-0"
+                            >
+                              <ArrowRightLeft className="h-3 w-3" />
+                            </Toggle>
+                          </div>
+                        </div>
                         <Input
                           type="number"
-                          min="0.001"
-                          step="0.001"
-                          placeholder="ej: 2000"
-                          value={conversion.factor}
-                          onChange={(e) => updateConversion(index, 'factor', parseFloat(e.target.value) || 0)}
+                          min="0.000001"
+                          step="any"
+                          placeholder={conversion.isInverse ? "ej: 20" : "ej: 50"}
+                          value={conversion.inputValue}
+                          onChange={(e) => updateConversion(index, 'inputValue', e.target.value)}
                         />
-                        <p className="text-xs text-muted-foreground">
-                          1 {conversion.unit || 'unidad'} = {conversion.factor} {baseUnit || 'base'}
-                        </p>
                       </div>
-                      <div className="space-y-2">
+                      <div className="col-span-3 space-y-2">
                         <Label>Tipo *</Label>
                         <Select
                           value={conversion.unitType}
@@ -279,7 +332,21 @@ export const UnitConversionDialog = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="text-sm text-muted-foreground bg-slate-50 p-2 rounded mt-2 flex items-center gap-2">
+                      <strong className="text-slate-700">Resumen:</strong>
+                      {conversion.isInverse ? (
+                        <span>
+                          1 {baseUnit || 'Base'} = <strong>{conversion.inputValue}</strong> {conversion.unit || 'unidad'}
+                        </span>
+                      ) : (
+                        <span>
+                          1 {conversion.unit || 'unidad'} = <strong>{conversion.inputValue}</strong> {baseUnit || 'Base'}
+                        </span>
+                      )}
+                      <span className="text-xs text-slate-400 ml-auto">(Factor interno: {conversion.factor?.toFixed(6)})</span>
+                    </div>
+
+                    <div className="flex items-center gap-4 mt-2">
                       <div className="flex items-center gap-2">
                         <Switch
                           checked={conversion.isActive}
