@@ -58,18 +58,32 @@ async function syncAllEmployees() {
 
       console.log(`   ⚠️  ${customersWithoutProfile.length} employees SIN EmployeeProfile:\n`);
 
-      // 4. Crear profiles faltantes
+      // 4. Generar employeeNumber único para evitar duplicate key error
+      const existingNumbers = existingProfiles
+        .map(p => p.employeeNumber)
+        .filter(n => n && n.startsWith('EMP-'))
+        .map(n => parseInt(n.split('-')[1]))
+        .filter(n => !isNaN(n));
+
+      let nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
+
+      // 5. Crear profiles faltantes
       for (const customer of customersWithoutProfile) {
         console.log(`   📝 Creando EmployeeProfile para: ${customer.name}`);
+
+        const employeeNumber = `EMP-${String(nextNumber).padStart(6, '0')}`;
 
         const newProfile = {
           tenantId: tenantId,
           customerId: customer._id,
+          employeeNumber: employeeNumber,
           status: 'active',
           hireDate: customer.createdAt || new Date(),
           createdAt: new Date(),
           updatedAt: new Date()
         };
+
+        nextNumber++;
 
         try {
           const result = await db.collection('employeeprofiles').insertOne(newProfile);

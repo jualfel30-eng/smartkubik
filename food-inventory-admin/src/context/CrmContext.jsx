@@ -563,7 +563,6 @@ export const CrmProvider = ({ children }) => {
 
   const addCustomer = async (customerData, options = {}) => {
     const {
-      ensureEmployeeProfile: shouldEnsureEmployeeProfile = false,
       refreshEmployees: shouldRefreshEmployees = false,
       skipCustomerReload = false,
     } = options;
@@ -575,21 +574,17 @@ export const CrmProvider = ({ children }) => {
       });
       const createdCustomer = response?.data || response?.customer || response;
       console.log('[CrmContext] Customer created:', createdCustomer?._id);
-      if (shouldEnsureEmployeeProfile && createdCustomer?._id) {
-        console.log('[CrmContext] Waiting 500ms for database propagation...');
-        // Wait for database propagation to avoid race condition
-        await new Promise(resolve => setTimeout(resolve, 500));
-        console.log('[CrmContext] Creating employee profile for customer:', createdCustomer._id);
-        await ensureEmployeeProfileForCustomer(createdCustomer._id, {}, { skipRefresh: shouldRefreshEmployees });
-      }
+
+      // Backend now creates EmployeeProfile automatically for customerType='employee'
+      // So we just need to refresh the employees list if requested
       if (shouldRefreshEmployees) {
         console.log('[CrmContext] Refreshing employees data...');
-        // Wait for employee refresh to complete before returning
         await refreshEmployeesData().catch((err) =>
           console.error('Error refreshing employees after add:', err),
         );
         console.log('[CrmContext] Employees refreshed successfully');
       }
+
       if (!skipCustomerReload) {
         const { page, limit, filters } = lastQueryRef.current;
         await loadCustomers(page ?? 1, limit ?? 25, filters ?? {});

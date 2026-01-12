@@ -242,6 +242,7 @@ export function EmployeeDetailDrawer({
     createEmployeeContract,
     updateEmployeeContract,
     updateCustomer,
+    addCustomer,
     bulkReinviteEmployees,
   } = useCRM();
   const [activeTab, setActiveTab] = useState('profile');
@@ -274,6 +275,20 @@ export function EmployeeDetailDrawer({
   const [signerName, setSignerName] = useState('');
   const [signerTitle, setSignerTitle] = useState('');
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+
+  // Create mode state
+  const isCreateMode = !employeeId;
+  const [contactData, setContactData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    state: '',
+    taxId: '',
+    taxType: 'V',
+  });
+
   const yearOptions = useMemo(() => {
     const current = new Date().getFullYear();
     const start = current - 30;
@@ -497,6 +512,29 @@ export function EmployeeDetailDrawer({
     }
   }, [open, loadProfile, loadContracts]);
 
+  // Precargar el siguiente número de empleado en modo create
+  useEffect(() => {
+    const loadNextEmployeeNumber = async () => {
+      if (open && isCreateMode) {
+        try {
+          const response = await fetchApi('/payroll/employees/next-employee-number', {
+            method: 'GET',
+          });
+          if (response.success && response.data?.employeeNumber) {
+            setProfileForm((prev) => ({
+              ...prev,
+              employeeNumber: response.data.employeeNumber,
+            }));
+          }
+        } catch (err) {
+          console.error('Error loading next employee number:', err);
+          // No mostramos error al usuario, simplemente no precargamos el número
+        }
+      }
+    };
+    loadNextEmployeeNumber();
+  }, [open, isCreateMode]);
+
   useEffect(() => {
     setEmployee(initialEmployee);
   }, [initialEmployee]);
@@ -609,6 +647,13 @@ export function EmployeeDetailDrawer({
 
   useEffect(() => {
     if (!open) return;
+    // No cargar sugerencias en modo create (cuando no hay employeeId)
+    if (isCreateMode) {
+      setStructureSuggestions([]);
+      setStructureSuggestionError(null);
+      setStructureSuggestionsLoading(false);
+      return;
+    }
     if (!hasSuggestionContext) {
       setStructureSuggestions([]);
       setStructureSuggestionError(null);
@@ -647,6 +692,7 @@ export function EmployeeDetailDrawer({
     };
   }, [
     open,
+    isCreateMode,
     hasSuggestionContext,
     suggestionFilters.role,
     suggestionFilters.department,
@@ -738,39 +784,126 @@ export function EmployeeDetailDrawer({
   };
 
   const handleSaveProfile = async () => {
-    if (!employeeId) return;
     const validation = evaluateProfileValidation();
     setProfileValidation(validation);
     if (validation.errors.length > 0) {
       toast.error('Completa los campos obligatorios del perfil.');
       return;
     }
+
+    // En modo create, validar datos del contacto
+    if (isCreateMode) {
+      if (!contactData.name || !contactData.email) {
+        toast.error('Nombre y email son obligatorios');
+        return;
+      }
+    }
+
     setSavingProfile(true);
     try {
-      // Actualiza contacto del empleado en CRM
-      if (resolvedEmployee?.customer?.id) {
-        const contactPayload = {};
-        if (profileForm.contactEmail !== undefined) contactPayload.email = profileForm.contactEmail || '';
-        if (profileForm.contactPhone !== undefined) contactPayload.phone = profileForm.contactPhone || '';
-        if (Object.keys(contactPayload).length > 0) {
-          await updateCustomer(resolvedEmployee.customer.id, contactPayload, {
-            skipCustomerReload: true,
-            refreshEmployees: true,
+      if (isCreateMode) {
+        // MODO CREATE: Crear Customer y EmployeeProfile
+        const contacts = [];
+        if (contactData.email) {
+          contacts.push({
+            type: 'email',
+            value: contactData.email,
+            isPrimary: true,
           });
         }
+        if (contactData.phone) {
+          contacts.push({
+            type: 'phone',
+            value: contactData.phone,
+            isPrimary: !contactData.email, // Primary si no hay email
+          });
+        }
+
+        const customerPayload = {
+          name: contactData.name,
+          customerType: 'employee',
+          contacts: contacts.length > 0 ? contacts : undefined,
+          addresses: contactData.address ? [{
+            type: 'shipping',
+            street: contactData.address,
+            city: contactData.city || 'N/A',
+            state: contactData.state || 'N/A',
+            isDefault: true,
+          }] : [],
+          taxInfo: contactData.taxId ? {
+            taxId: contactData.taxId,
+            taxType: contactData.taxType,
+          } : undefined,
+        };
+
+        // El backend ahora crea automáticamente el EmployeeProfile
+        const createdCustomer = await addCustomer(customerPayload, {
+          refreshEmployees: true,
+          skipCustomerReload: true,
+        });
+
+        // Buscar el EmployeeProfile que se creó automáticamente
+        // Esperamos un momento para que se cree
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Actualizar el EmployeeProfile con los datos del formulario
+        const employeeProfiles = await fetchApi('/payroll/employees', {
+          method: 'GET',
+        });
+
+        const customerId = createdCustomer._id?.toString() || createdCustomer._id;
+        const newProfile = employeeProfiles.data?.find(
+          (p) => {
+            const profileCustomerId = p.customerId?.toString?.() || p.customerId;
+            const customerIdFromNested = p.customer?.id?.toString?.() || p.customer?.id;
+            return profileCustomerId === customerId || customerIdFromNested === customerId;
+          }
+        );
+
+        if (newProfile) {
+          // Actualizar con los datos completos del formulario
+          await persistProfile(newProfile._id, buildProfilePayload());
+          toast.success('Empleado creado exitosamente');
+          onDataChanged?.();
+          onClose();
+        } else {
+          console.error('❌ No se encontró el profile:', {
+            createdCustomerId: customerId,
+            availableProfiles: employeeProfiles.data?.map(p => ({
+              _id: p._id,
+              customerId: p.customerId,
+              customerIdNested: p.customer?.id,
+            }))
+          });
+          toast.error('Employee profile no encontrado. Intenta nuevamente.');
+        }
+      } else {
+        // MODO EDIT: Actualizar empleado existente
+        // Actualiza contacto del empleado en CRM
+        if (resolvedEmployee?.customer?.id) {
+          const contactPayload = {};
+          if (profileForm.contactEmail !== undefined) contactPayload.email = profileForm.contactEmail || '';
+          if (profileForm.contactPhone !== undefined) contactPayload.phone = profileForm.contactPhone || '';
+          if (Object.keys(contactPayload).length > 0) {
+            await updateCustomer(resolvedEmployee.customer.id, contactPayload, {
+              skipCustomerReload: true,
+              refreshEmployees: true,
+            });
+          }
+        }
+        const updated = await persistProfile(employeeId, buildProfilePayload());
+        const mergedCustomer = {
+          ...updated.customer,
+          email: profileForm.contactEmail || updated.customer?.email,
+          phone: profileForm.contactPhone || updated.customer?.phone,
+        };
+        setEmployee({ ...updated, customer: mergedCustomer });
+        toast.success('Perfil actualizado correctamente');
+        await loadProfile();
+        onDataChanged?.();
       }
-      const updated = await persistProfile(employeeId, buildProfilePayload());
-      const mergedCustomer = {
-        ...updated.customer,
-        email: profileForm.contactEmail || updated.customer?.email,
-        phone: profileForm.contactPhone || updated.customer?.phone,
-      };
-      setEmployee({ ...updated, customer: mergedCustomer });
-      toast.success('Perfil actualizado correctamente');
-      await loadProfile();
-      onDataChanged?.();
     } catch (err) {
-      toast.error(err.message || 'No se pudo actualizar el perfil');
+      toast.error(err.message || `No se pudo ${isCreateMode ? 'crear' : 'actualizar'} el perfil`);
     } finally {
       setSavingProfile(false);
     }
@@ -1316,17 +1449,22 @@ export function EmployeeDetailDrawer({
         <DrawerHeader>
           <div className="flex flex-col gap-1">
             <DrawerTitle className="text-2xl font-semibold">
-              {resolvedEmployee?.customer?.name || 'Empleado'}
+              {isCreateMode ? 'Crear nuevo empleado' : (resolvedEmployee?.customer?.name || 'Empleado')}
             </DrawerTitle>
             <DrawerDescription className="flex items-center gap-2 text-sm">
-              {statusBadge(resolvedEmployee?.status || 'draft')}
-              {resolvedEmployee?.position && <span>{resolvedEmployee.position}</span>}
-              {resolvedEmployee?.department && (
+              {!isCreateMode && (
                 <>
-                  <span>•</span>
-                  <span>{resolvedEmployee.department}</span>
+                  {statusBadge(resolvedEmployee?.status || 'draft')}
+                  {resolvedEmployee?.position && <span>{resolvedEmployee.position}</span>}
+                  {resolvedEmployee?.department && (
+                    <>
+                      <span>•</span>
+                      <span>{resolvedEmployee.department}</span>
+                    </>
+                  )}
                 </>
               )}
+              {isCreateMode && <span>Completa los datos para registrar un nuevo empleado</span>}
             </DrawerDescription>
           </div>
           <div className="flex flex-wrap gap-2 items-center">
@@ -1425,9 +1563,9 @@ export function EmployeeDetailDrawer({
                   </Alert>
                 )}
                 {profileValidation.warnings.length > 0 && (
-                  <Alert className="border-amber-200 bg-amber-50 text-amber-900">
-                    <AlertTitle>Recomendaciones</AlertTitle>
-                    <AlertDescription>
+                  <Alert className="border-amber-500/50 bg-amber-500/10 dark:border-amber-500/30 dark:bg-amber-500/5">
+                    <AlertTitle className="text-amber-900 dark:text-amber-200">Recomendaciones</AlertTitle>
+                    <AlertDescription className="text-amber-800 dark:text-amber-300">
                       <ul className="list-disc pl-4 space-y-1">
                         {profileValidation.warnings.map((warning) => (
                           <li key={warning}>{warning}</li>
@@ -1436,6 +1574,92 @@ export function EmployeeDetailDrawer({
                     </AlertDescription>
                   </Alert>
                 )}
+
+                {/* Sección de datos básicos del contacto (solo en modo create) */}
+                {isCreateMode && (
+                  <Card className="border-border bg-card">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Datos básicos del contacto</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Nombre completo *</Label>
+                        <Input
+                          value={contactData.name}
+                          onChange={(e) => setContactData({ ...contactData, name: e.target.value })}
+                          placeholder="Juan Pérez"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Email *</Label>
+                        <Input
+                          type="email"
+                          value={contactData.email}
+                          onChange={(e) => setContactData({ ...contactData, email: e.target.value })}
+                          placeholder="juan@ejemplo.com"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Teléfono</Label>
+                        <Input
+                          value={contactData.phone}
+                          onChange={(e) => setContactData({ ...contactData, phone: e.target.value })}
+                          placeholder="+58 412 1234567"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Cédula/RIF</Label>
+                        <div className="flex gap-2">
+                          <Select
+                            value={contactData.taxType}
+                            onValueChange={(value) => setContactData({ ...contactData, taxType: value })}
+                          >
+                            <SelectTrigger className="w-20">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="V">V</SelectItem>
+                              <SelectItem value="E">E</SelectItem>
+                              <SelectItem value="J">J</SelectItem>
+                              <SelectItem value="G">G</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            value={contactData.taxId}
+                            onChange={(e) => setContactData({ ...contactData, taxId: e.target.value })}
+                            placeholder="12345678"
+                            className="flex-1"
+                          />
+                        </div>
+                      </div>
+                      <div className="col-span-2 space-y-2">
+                        <Label>Dirección</Label>
+                        <Input
+                          value={contactData.address}
+                          onChange={(e) => setContactData({ ...contactData, address: e.target.value })}
+                          placeholder="Av. Principal, Edif. X, Apto. Y"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Ciudad</Label>
+                        <Input
+                          value={contactData.city}
+                          onChange={(e) => setContactData({ ...contactData, city: e.target.value })}
+                          placeholder="Caracas"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Estado</Label>
+                        <Input
+                          value={contactData.state}
+                          onChange={(e) => setContactData({ ...contactData, state: e.target.value })}
+                          placeholder="Miranda"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Número de empleado</Label>
@@ -1624,9 +1848,9 @@ export function EmployeeDetailDrawer({
                   </Alert>
                 )}
                 {contractValidation.warnings.length > 0 && (
-                  <Alert className="border-amber-200 bg-amber-50 text-amber-900">
-                    <AlertTitle>Mejoras sugeridas</AlertTitle>
-                    <AlertDescription>
+                  <Alert className="border-amber-500/50 bg-amber-500/10 dark:border-amber-500/30 dark:bg-amber-500/5">
+                    <AlertTitle className="text-amber-900 dark:text-amber-200">Mejoras sugeridas</AlertTitle>
+                    <AlertDescription className="text-amber-800 dark:text-amber-300">
                       <ul className="list-disc pl-4 space-y-1">
                         {contractValidation.warnings.map((warning) => (
                           <li key={warning}>{warning}</li>
@@ -1849,12 +2073,12 @@ export function EmployeeDetailDrawer({
                             {(structureVigencyState.isExpired ||
                               structureVigencyState.isFuture ||
                               selectedStructure.isActive === false) && (
-                              <Alert className="border-amber-200 bg-amber-50 text-amber-900">
-                                <AlertTitle className="flex items-center gap-2 text-xs font-semibold">
+                              <Alert className="border-amber-500/50 bg-amber-500/10 dark:border-amber-500/30 dark:bg-amber-500/5">
+                                <AlertTitle className="flex items-center gap-2 text-xs font-semibold text-amber-900 dark:text-amber-200">
                                   <AlertTriangle className="h-3.5 w-3.5" />
                                   Vigencia especial
                                 </AlertTitle>
-                                <AlertDescription>
+                                <AlertDescription className="text-amber-800 dark:text-amber-300">
                                   {!selectedStructure.isActive && 'Esta versión está inactiva. '}
                                   {structureVigencyState.isExpired &&
                                     `Venció el ${formatShortDate(selectedStructure.effectiveTo)}. `}

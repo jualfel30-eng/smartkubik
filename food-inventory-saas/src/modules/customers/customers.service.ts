@@ -5,6 +5,10 @@ import { Model, Types, SortOrder } from "mongoose";
 import { Customer, CustomerDocument } from "../../schemas/customer.schema";
 import { Order, OrderDocument } from "../../schemas/order.schema";
 import {
+  EmployeeProfile,
+  EmployeeProfileDocument,
+} from "../../schemas/employee-profile.schema";
+import {
   CreateCustomerDto,
   UpdateCustomerDto,
   CustomerQueryDto,
@@ -38,8 +42,67 @@ export class CustomersService {
   constructor(
     @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>,
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
+    @InjectModel(EmployeeProfile.name)
+    private employeeProfileModel: Model<EmployeeProfileDocument>,
     private readonly loyaltyService: LoyaltyService,
   ) {}
+
+  private toObjectId(id: string | Types.ObjectId): Types.ObjectId {
+    if (id instanceof Types.ObjectId) {
+      return id;
+    }
+    return new Types.ObjectId(id);
+  }
+
+  async generateEmployeeNumber(tenantId: string): Promise<string> {
+    const tenantObjectId = this.toObjectId(tenantId);
+    const lastEmployee = await this.employeeProfileModel
+      .findOne({
+        tenantId: tenantObjectId,
+        employeeNumber: /^EMP-/  // Filtrar solo empleados con formato EMP-*
+      })
+      .sort({ employeeNumber: -1 })
+      .exec();
+
+    if (!lastEmployee?.employeeNumber) {
+      return "EMP-000001";
+    }
+
+    const match = lastEmployee.employeeNumber.match(/EMP-(\d+)/);
+    if (match) {
+      const nextNumber = parseInt(match[1]) + 1;
+      return `EMP-${String(nextNumber).padStart(6, "0")}`;
+    }
+
+    return "EMP-000001";
+  }
+
+  private async createEmployeeProfileForCustomer(
+    customerId: Types.ObjectId,
+    tenantId: string,
+  ): Promise<void> {
+    try {
+      const tenantObjectId = this.toObjectId(tenantId);
+      const employeeNumber = await this.generateEmployeeNumber(tenantId);
+
+      await this.employeeProfileModel.create({
+        tenantId: tenantObjectId,
+        customerId: customerId,
+        employeeNumber: employeeNumber,
+        status: "active",
+        hireDate: new Date(),
+      });
+
+      this.logger.log(
+        `EmployeeProfile created automatically for customer ${customerId} with number ${employeeNumber}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to create EmployeeProfile for customer ${customerId}: ${error.message}`,
+      );
+      // No lanzamos el error para no fallar la creación del customer
+    }
+  }
 
   async create(
     createCustomerDto: CreateCustomerDto,
@@ -81,12 +144,20 @@ export class CustomersService {
         isBlocked: false,
       },
       status: "active",
-      createdBy: user.id,
-      tenantId: user.tenantId,
+      createdBy: this.toObjectId(user.id),
+      tenantId: this.toObjectId(user.tenantId),
     };
 
     const customer = new this.customerModel(customerData);
     const savedCustomer = await customer.save();
+
+    // Si es un empleado, crear automáticamente el EmployeeProfile
+    if (createCustomerDto.customerType === "employee") {
+      await this.createEmployeeProfileForCustomer(
+        savedCustomer._id,
+        user.tenantId,
+      );
+    }
 
     this.logger.log(
       `Customer created successfully with number: ${customerNumber}`,
@@ -1125,7 +1196,30 @@ export class CustomersService {
   }
 
   private async generateCustomerNumber(tenantId: string): Promise<string> {
-    const count = await this.customerModel.countDocuments({ tenantId });
-    return `CLI-${(count + 1).toString().padStart(6, "0")}`;
+    const tenantObjectId = this.toObjectId(tenantId);
+
+    // Buscar el último customerNumber CON FORMATO CLI-* para este tenant
+    const lastCustomer = await this.customerModel
+      .findOne({
+        tenantId: tenantObjectId,
+        customerNumber: /^CLI-/  // Filtrar solo clientes con formato CLI-*
+      })
+      .sort({ customerNumber: -1 })
+      .select('customerNumber')
+      .exec();
+
+    if (!lastCustomer?.customerNumber) {
+      return 'CLI-000001';
+    }
+
+    // Extraer el número del formato CLI-XXXXXX
+    const match = lastCustomer.customerNumber.match(/CLI-(\d+)/);
+    if (match) {
+      const nextNumber = parseInt(match[1]) + 1;
+      return `CLI-${String(nextNumber).padStart(6, '0')}`;
+    }
+
+    // Fallback si el formato no coincide
+    return 'CLI-000001';
   }
 }

@@ -1158,4 +1158,27 @@ export class PayrollEmployeesService {
       };
     });
   }
+
+  async getNextEmployeeNumber(tenantId: string): Promise<string> {
+    const tenantObjectId = this.toObjectId(tenantId);
+    const lastEmployee = await this.profileModel
+      .findOne({
+        tenantId: tenantObjectId,
+        employeeNumber: /^EMP-/,
+      })
+      .sort({ employeeNumber: -1 })
+      .exec();
+
+    if (!lastEmployee?.employeeNumber) {
+      return "EMP-000001";
+    }
+
+    const match = lastEmployee.employeeNumber.match(/EMP-(\d+)/);
+    if (match) {
+      const nextNumber = parseInt(match[1]) + 1;
+      return `EMP-${String(nextNumber).padStart(6, "0")}`;
+    }
+
+    return "EMP-000001";
+  }
 }

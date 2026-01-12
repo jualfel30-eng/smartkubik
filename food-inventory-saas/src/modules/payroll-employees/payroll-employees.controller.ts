@@ -81,6 +81,23 @@ export class PayrollEmployeesController {
     return { success: true, data: summary };
   }
 
+  @Get("next-employee-number")
+  @UseGuards(PermissionsGuard)
+  @Permissions("payroll_employees_read")
+  @ApiOperation({
+    summary: "Obtener el siguiente número de empleado disponible",
+  })
+  async getNextEmployeeNumber(@Request() req) {
+    const nextNumber =
+      await this.payrollEmployeesService.getNextEmployeeNumber(
+        req.user.tenantId,
+      );
+    return {
+      success: true,
+      data: { employeeNumber: nextNumber },
+    };
+  }
+
   @Get(":id")
   @UseGuards(PermissionsGuard)
   @Permissions("payroll_employees_read")

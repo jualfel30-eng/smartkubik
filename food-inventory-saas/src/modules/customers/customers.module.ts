@@ -7,6 +7,10 @@ import { AuthModule } from "../../auth/auth.module";
 import { Customer, CustomerSchema } from "../../schemas/customer.schema";
 import { Order, OrderSchema } from "../../schemas/order.schema";
 import {
+  EmployeeProfile,
+  EmployeeProfileSchema,
+} from "../../schemas/employee-profile.schema";
+import {
   PurchaseOrder,
   PurchaseOrderSchema,
 } from "../../schemas/purchase-order.schema";
@@ -29,6 +33,7 @@ import { OrdersModule } from "../orders/orders.module";
     MongooseModule.forFeature([
       { name: Customer.name, schema: CustomerSchema },
       { name: Order.name, schema: OrderSchema },
+      { name: EmployeeProfile.name, schema: EmployeeProfileSchema },
       { name: PurchaseOrder.name, schema: PurchaseOrderSchema },
       { name: PurchaseOrderRating.name, schema: PurchaseOrderRatingSchema },
     ]),

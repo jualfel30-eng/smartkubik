@@ -1902,27 +1902,32 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                       Reconciliar duplicados
                     </Button>
                   )}
-                  <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button
-                        className="w-full sm:w-auto"
-                        onClick={() =>
-                          setNewContact({
-                            ...initialNewContactState,
-                            customerType: isEmployeeTab ? 'employee' : initialNewContactState.customerType,
-                          })
-                        }
-                      >
-                        <Plus className="h-4 w-4 mr-2" /> {isEmployeeTab ? 'Crear empleado' : 'Agregar contacto'}
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+
+                  {/* Botón para empleados: abre el drawer directamente sin diálogo */}
+                  {isEmployeeTab ? (
+                    <Button
+                      className="w-full sm:w-auto"
+                      onClick={() => {
+                        setSelectedEmployeeId(null);
+                        setSelectedEmployeeSnapshot(null);
+                        setIsEmployeeDrawerOpen(true);
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" /> Crear empleado
+                    </Button>
+                  ) : (
+                    /* Botón para contactos: abre el diálogo del CRM */
+                    <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button className="w-full sm:w-auto">
+                          <Plus className="h-4 w-4 mr-2" /> Agregar contacto
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
                       <DialogHeader>
-                        <DialogTitle>{isEmployeeTab ? 'Crear empleado' : 'Agregar nuevo contacto'}</DialogTitle>
+                        <DialogTitle>Agregar nuevo contacto</DialogTitle>
                         <DialogDescription>
-                          {isEmployeeTab
-                            ? 'Registra un empleado con sus datos básicos de contacto.'
-                            : 'Completa los detalles para registrar un nuevo contacto en el sistema.'}
+                          Completa los detalles para registrar un nuevo contacto en el sistema.
                         </DialogDescription>
                       </DialogHeader>
                       <div className="grid grid-cols-2 gap-4 py-4">
@@ -1935,7 +1940,6 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                           <Select
                             value={newContact.customerType}
                             onValueChange={(value) => setNewContact({ ...newContact, customerType: value })}
-                            disabled={isEmployeeTab}
                           >
                             <SelectTrigger>
                               <SelectValue />
@@ -1944,15 +1948,11 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                               <SelectItem value="business">Cliente</SelectItem>
                               <SelectItem value="supplier">Proveedor</SelectItem>
                               <SelectItem value="employee">Empleado</SelectItem>
-                              {!isEmployeeTab && (
-                                <>
-                                  <SelectItem value="admin">Admin</SelectItem>
-                                  <SelectItem value="manager">Gestor</SelectItem>
-                                  <SelectItem value="Repartidor">Repartidor</SelectItem>
-                                  <SelectItem value="Cajero">Cajero</SelectItem>
-                                  <SelectItem value="Mesonero">Mesonero</SelectItem>
-                                </>
-                              )}
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="manager">Gestor</SelectItem>
+                              <SelectItem value="Repartidor">Repartidor</SelectItem>
+                              <SelectItem value="Cajero">Cajero</SelectItem>
+                              <SelectItem value="Mesonero">Mesonero</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -2042,11 +2042,12 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                           Cancelar
                         </Button>
                         <Button onClick={handleAddContact}>
-                          {isEmployeeTab ? 'Crear empleado' : 'Agregar contacto'}
+                          Agregar contacto
                         </Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
+                  )}
                 </div>
               </div>
               {isEmployeeTab && (

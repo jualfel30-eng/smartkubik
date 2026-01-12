@@ -48,6 +48,18 @@ export class PayrollStructuresController {
     return this.payrollStructuresService.listStructures(req.user.tenantId);
   }
 
+  @Get("suggestions")
+  @Permissions("payroll_employees_read")
+  async suggestStructures(
+    @Req() req,
+    @Query() query: StructureSuggestionQueryDto,
+  ) {
+    return this.payrollStructuresService.suggestStructures(
+      req.user.tenantId,
+      query,
+    );
+  }
+
   @Get(":id")
   @Permissions("payroll_employees_read")
   async getStructure(@Req() req, @Param("id") id: string) {
@@ -94,18 +106,6 @@ export class PayrollStructuresController {
     return this.payrollStructuresService.activateStructure(
       req.user.tenantId,
       id,
-    );
-  }
-
-  @Get("suggestions")
-  @Permissions("payroll_employees_read")
-  async suggestStructures(
-    @Req() req,
-    @Query() query: StructureSuggestionQueryDto,
-  ) {
-    return this.payrollStructuresService.suggestStructures(
-      req.user.tenantId,
-      query,
     );
   }
 
