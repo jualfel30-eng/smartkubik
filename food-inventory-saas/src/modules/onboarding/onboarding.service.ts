@@ -33,6 +33,7 @@ import {
   MembershipSummary,
 } from "../memberships/memberships.service";
 import { getVerticalProfileKey } from "../../utils/vertical-profile-mapper.util";
+import { BillingService } from "../billing/billing.service";
 
 @Injectable()
 export class OnboardingService {
@@ -49,6 +50,7 @@ export class OnboardingService {
     private tokenService: TokenService,
     private mailService: MailService,
     private membershipsService: MembershipsService,
+    private billingService: BillingService,
     @InjectConnection() private readonly connection: Connection,
   ) { }
 
@@ -160,14 +162,14 @@ export class OnboardingService {
           },
         });
         savedTenant = await newTenant.save({ session });
-        this.logger.log(`Paso 1/5: Tenant creado con ID: ${savedTenant._id}`);
+        this.logger.log(`Paso 1/6: Tenant creado con ID: ${savedTenant._id}`);
 
         await this.seedingService.seedChartOfAccounts(
           savedTenant._id.toString(),
           session,
         );
         this.logger.log(
-          `Paso 2/5: Plan de cuentas creado para el tenant: ${savedTenant._id}`,
+          `Paso 2/6: Plan de cuentas creado para el tenant: ${savedTenant._id}`,
         );
 
         const adminRole =
@@ -182,7 +184,7 @@ export class OnboardingService {
           );
         }
         this.logger.log(
-          `Paso 3/5: Rol de administrador asignado para el tenant: ${savedTenant._id}`,
+          `Paso 3/6: Rol de administrador asignado para el tenant: ${savedTenant._id}`,
         );
 
         const hashedPassword = await bcrypt.hash(dto.password, 12);
@@ -197,7 +199,7 @@ export class OnboardingService {
         });
         savedUser = await newUser.save({ session });
         this.logger.log(
-          `Paso 4/5: Usuario administrador creado con ID: ${savedUser._id}`,
+          `Paso 4/6: Usuario administrador creado con ID: ${savedUser._id}`,
         );
 
         const newMembership = new this.userTenantMembershipModel({
@@ -209,7 +211,16 @@ export class OnboardingService {
         });
         savedMembership = await newMembership.save({ session });
         this.logger.log(
-          `Paso 5/5: Membresía creada para el usuario en el tenant.`,
+          `Paso 5/6: Membresía creada para el usuario en el tenant.`,
+        );
+
+        // Crear series de facturación por defecto
+        await this.billingService.createDefaultSequencesForTenant(
+          savedTenant._id.toString(),
+          session,
+        );
+        this.logger.log(
+          `Paso 6/6: Series de facturación creadas para el tenant: ${savedTenant._id}`,
         );
       });
 

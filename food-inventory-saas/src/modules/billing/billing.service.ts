@@ -688,6 +688,36 @@ export class BillingService {
     return sequence.save();
   }
 
+  /**
+   * Crea las series de facturación por defecto para un tenant nuevo
+   * Este método se llama automáticamente durante el onboarding
+   */
+  async createDefaultSequencesForTenant(tenantId: string, session?: any): Promise<void> {
+    this.logger.log(`Creating default billing sequences for tenant: ${tenantId}`);
+
+    const defaults = [
+      { name: 'Factura Principal', type: 'invoice', prefix: 'F', currentNumber: 1, status: 'active', isDefault: true, scope: 'tenant', tenantId },
+      { name: 'Nota de Crédito', type: 'credit_note', prefix: 'NC', currentNumber: 1, status: 'active', isDefault: true, scope: 'tenant', tenantId },
+      { name: 'Nota de Débito', type: 'debit_note', prefix: 'ND', currentNumber: 1, status: 'active', isDefault: true, scope: 'tenant', tenantId },
+      { name: 'Nota de Entrega', type: 'delivery_note', prefix: 'NE', currentNumber: 1, status: 'active', isDefault: true, scope: 'tenant', tenantId },
+    ];
+
+    for (const seq of defaults) {
+      // Verificar si ya existe para evitar duplicados
+      const exists = await this.sequenceModel.findOne({ tenantId, type: seq.type }).session(session);
+
+      if (!exists) {
+        const newSequence = new this.sequenceModel(seq);
+        await newSequence.save({ session });
+        this.logger.log(`✅ Created default sequence: ${seq.name} for tenant ${tenantId}`);
+      } else {
+        this.logger.log(`⚠️  Sequence ${seq.name} already exists for tenant ${tenantId}`);
+      }
+    }
+
+    this.logger.log(`✅ Default billing sequences created successfully for tenant: ${tenantId}`);
+  }
+
   async getElectronicInvoiceStats(
     filters: {
       startDate?: string;

@@ -15,6 +15,7 @@ import { SubscriptionPlansModule } from "../subscription-plans/subscription-plan
 import { AuthModule } from "../../auth/auth.module";
 import { MailModule } from "../mail/mail.module";
 import { MembershipsModule } from "../memberships/memberships.module";
+import { BillingModule } from "../billing/billing.module";
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { MembershipsModule } from "../memberships/memberships.module";
     forwardRef(() => AuthModule),
     MailModule,
     MembershipsModule,
+    BillingModule,
   ],
   controllers: [OnboardingController],
   providers: [OnboardingService],
