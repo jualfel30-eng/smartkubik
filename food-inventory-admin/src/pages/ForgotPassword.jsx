@@ -9,7 +9,6 @@ import { fetchApi } from '../lib/api';
 
 function ForgotPassword() {
   const [email, setEmail] = useState('');
-  const [tenantCode, setTenantCode] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -24,13 +23,11 @@ function ForgotPassword() {
       await fetchApi('/auth/forgot-password', {
         method: 'POST',
         body: JSON.stringify({
-          email: email.trim(),
-          tenantCode: tenantCode.trim() || undefined
+          email: email.trim()
         }),
       });
       setSuccess(true);
       setEmail('');
-      setTenantCode('');
     } catch (err) {
       setError(err.message || 'Error al enviar el correo de recuperación. Por favor, intenta nuevamente.');
     } finally {
@@ -76,19 +73,7 @@ function ForgotPassword() {
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="tenantCode">Código de Tenant (Opcional)</Label>
-                <Input
-                  id="tenantCode"
-                  type="text"
-                  placeholder="Dejar en blanco para Super Admin"
-                  value={tenantCode}
-                  onChange={(e) => setTenantCode(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Si eres un usuario normal, ingresa el código de tu organización.
-                </p>
-              </div>
+
               {error && (
                 <Alert className="bg-red-50 border-red-200">
                   <AlertDescription className="text-red-800">
