@@ -9,7 +9,7 @@ import {
 } from "@nestjs/common";
 import { InjectModel, InjectConnection } from "@nestjs/mongoose";
 import { Model, Connection, Types } from "mongoose";
-import { Product, ProductDocument } from "../../schemas/product.schema";
+import { Product, ProductDocument, ProductType } from "../../schemas/product.schema";
 import { Inventory, InventoryDocument } from "../../schemas/inventory.schema";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import { CustomersService } from "../customers/customers.service";
