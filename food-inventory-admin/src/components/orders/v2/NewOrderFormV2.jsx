@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip.jsx';
 import { Combobox } from '@/components/ui/combobox.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Plus, Trash2, Percent, Scan, ShoppingCart, List } from 'lucide-react';
@@ -1328,8 +1329,30 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
             {newOrder.items.map(item => (
               <TableRow key={item.productId}>
                 <TableCell>
-                  {item.name}
-                  <div className="text-sm text-muted-foreground">{item.sku}</div>
+                  <TooltipProvider>
+                    <Tooltip delayDuration={300}>
+                      <TooltipTrigger asChild>
+                        <div className="font-medium truncate max-w-[180px] cursor-help">
+                          {item.name}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">{item.name}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <TooltipProvider>
+                    <Tooltip delayDuration={300}>
+                      <TooltipTrigger asChild>
+                        <div className="text-sm text-muted-foreground truncate max-w-[150px] cursor-help">
+                          {item.sku}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">{item.sku}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                   {item.hasMultipleSellingUnits && (
                     <div className="text-xs text-blue-600 dark:text-blue-300 mt-1">Multi-unidad</div>
                   )}
