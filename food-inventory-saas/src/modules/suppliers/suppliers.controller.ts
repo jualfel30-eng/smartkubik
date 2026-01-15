@@ -7,6 +7,7 @@ import {
   Query,
   UseGuards,
   Req,
+  Patch,
 } from "@nestjs/common";
 import { SuppliersService } from "./suppliers.service";
 import { CreateSupplierDto } from "../../dto/supplier.dto";
@@ -15,7 +16,7 @@ import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 @UseGuards(JwtAuthGuard)
 @Controller("suppliers")
 export class SuppliersController {
-  constructor(private readonly suppliersService: SuppliersService) {}
+  constructor(private readonly suppliersService: SuppliersService) { }
 
   @Post()
   create(@Body() createSupplierDto: CreateSupplierDto, @Req() req) {
@@ -30,5 +31,11 @@ export class SuppliersController {
   @Get(":id")
   findOne(@Param("id") id: string, @Req() req) {
     return this.suppliersService.findOne(id, req.user.tenantId);
+  }
+
+  @Patch(":id")
+  @UseGuards(JwtAuthGuard)
+  update(@Param("id") id: string, @Body() updateSupplierDto: any, @Req() req) {
+    return this.suppliersService.update(id, updateSupplierDto, req.user);
   }
 }

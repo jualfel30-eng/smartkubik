@@ -83,7 +83,7 @@ export class Supplier {
   @Prop({ type: String, required: true })
   supplierNumber: string;
 
-  @Prop({ type: String, required: true })
+  @Prop({ type: String, required: false }) // DEPRECATED: Use Customer name
   name: string;
 
   @Prop({ type: String })
@@ -92,7 +92,7 @@ export class Supplier {
   @Prop({ type: String, required: true })
   supplierType: string;
 
-  @Prop({ type: Object })
+  @Prop({ type: Object }) // DEPRECATED: Use Customer taxInfo
   taxInfo: {
     rif: string;
     businessName: string;
@@ -100,7 +100,7 @@ export class Supplier {
     retentionPercentage?: number;
   };
 
-  @Prop({ type: Object })
+  @Prop({ type: Object }) // DEPRECATED: Use Customer address
   address: {
     street: string;
     city: string;
@@ -109,7 +109,7 @@ export class Supplier {
     country: string;
   };
 
-  @Prop({ type: [SupplierContactSchema] })
+  @Prop({ type: [SupplierContactSchema] }) // DEPRECATED: Use Customer contacts
   contacts: SupplierContact[];
 
   @Prop({ type: [SupplierPaymentTermSchema] })
@@ -174,6 +174,9 @@ export class Supplier {
 
   @Prop({ type: String, ref: "Tenant", required: true })
   tenantId: string;
+
+  @Prop({ type: Types.ObjectId, ref: "Customer" })
+  customerId?: Types.ObjectId;
 }
 
 export const SupplierSchema = SchemaFactory.createForClass(Supplier);

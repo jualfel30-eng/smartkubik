@@ -144,6 +144,17 @@ export class ProductsController {
     return { success: true, data: result };
   }
 
+  @Post(":id/suppliers")
+  @Permissions("products_update")
+  async addSupplier(
+    @Param("id") id: string,
+    @Body() dto: any, // Typed as AddSupplierToProductDto but using any to avoid import loop for now if DTO not exported yet
+    @Request() req,
+  ) {
+    const product = await this.productsService.addSupplier(id, dto, req.user);
+    return { success: true, data: product };
+  }
+
   @Get("categories/list")
   @Permissions("products_read")
   async getCategories(@Request() req) {

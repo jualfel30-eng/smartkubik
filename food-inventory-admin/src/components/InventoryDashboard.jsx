@@ -8,6 +8,7 @@ import WarehouseManagement from '@/components/WarehouseManagement.jsx';
 import InventoryMovementsPanel from '@/components/InventoryMovementsPanel.jsx';
 import InventoryAlertsPanel from '@/components/InventoryAlertsPanel.jsx';
 import InventoryStockSummary from '@/components/InventoryStockSummary.jsx';
+import SuppliersManagement from '@/components/SuppliersManagement.jsx';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
 
 export default function InventoryDashboard() {
@@ -75,10 +76,11 @@ export default function InventoryDashboard() {
         <p className="text-muted-foreground">Administra tus productos, niveles de stock y órdenes de compra.</p>
       </div>
       <Tabs value={getMainTab()} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 max-w-3xl">
+        <TabsList className="grid w-full grid-cols-4 max-w-4xl">
           <TabsTrigger value="products">Productos</TabsTrigger>
           <TabsTrigger value="inventory">Inventario</TabsTrigger>
           <TabsTrigger value="purchases">Compras</TabsTrigger>
+          <TabsTrigger value="suppliers">Proveedores</TabsTrigger>
         </TabsList>
         <TabsContent value="products" className="mt-6">
           <ProductsManagementWithTabs activeSubTab={activeTab} />
@@ -115,6 +117,9 @@ export default function InventoryDashboard() {
         </TabsContent>
         <TabsContent value="purchases" className="mt-6">
           <ComprasManagement />
+        </TabsContent>
+        <TabsContent value="suppliers" className="mt-6">
+          <SuppliersManagement />
         </TabsContent>
       </Tabs>
     </div>

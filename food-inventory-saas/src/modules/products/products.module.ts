@@ -12,6 +12,7 @@ import {
 } from "../../schemas/product-consumable-config.schema";
 import { Inventory, InventorySchema } from "../../schemas/inventory.schema";
 import { CustomersModule } from "../customers/customers.module"; // Reemplazo
+import { SuppliersModule } from "../suppliers/suppliers.module"; // Added
 import { InventoryModule } from "../inventory/inventory.module";
 import { PurchasesModule } from "../purchases/purchases.module";
 import { RolesModule } from "../roles/roles.module";
@@ -32,9 +33,10 @@ import { RolesModule } from "../roles/roles.module";
     forwardRef(() => CustomersModule), // Reemplazo
     forwardRef(() => InventoryModule),
     forwardRef(() => PurchasesModule),
+    forwardRef(() => SuppliersModule),
   ],
   controllers: [ProductsController, ProductsPublicController],
   providers: [ProductsService],
   exports: [ProductsService],
 })
-export class ProductsModule {}
+export class ProductsModule { }

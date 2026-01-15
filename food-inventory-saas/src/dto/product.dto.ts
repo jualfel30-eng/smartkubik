@@ -638,6 +638,11 @@ export class ProductQueryDto {
   @IsBoolean()
   isPerishable?: boolean;
 
+  @ApiPropertyOptional({ description: "Filtrar por ID de proveedor" })
+  @IsOptional()
+  @IsMongoId()
+  supplierId?: string;
+
   @ApiPropertyOptional({
     description: "Ordenar por",
     enum: ["name", "category", "createdAt", "updatedAt"],

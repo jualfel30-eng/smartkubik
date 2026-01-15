@@ -7,6 +7,7 @@ import {
   UseGuards,
   Req,
   Patch,
+  Query,
 } from "@nestjs/common";
 import { PurchasesService } from "./purchases.service";
 import { CreatePurchaseOrderDto } from "../../dto/purchase-order.dto";
@@ -16,7 +17,7 @@ import { TenantGuard } from "../../guards/tenant.guard";
 @UseGuards(JwtAuthGuard, TenantGuard)
 @Controller("purchases")
 export class PurchasesController {
-  constructor(private readonly purchasesService: PurchasesService) {}
+  constructor(private readonly purchasesService: PurchasesService) { }
 
   @Post()
   async create(@Body() createDto: CreatePurchaseOrderDto, @Req() req) {
@@ -47,8 +48,8 @@ export class PurchasesController {
   }
 
   @Get()
-  async findAll(@Req() req) {
-    const purchases = await this.purchasesService.findAll(req.user.tenantId);
+  async findAll(@Query() query: any, @Req() req) {
+    const purchases = await this.purchasesService.findAll(req.user.tenantId, query);
     return { success: true, data: purchases };
   }
 

@@ -1,32 +1,21 @@
 import {
   Injectable,
   Logger,
-  BadRequestException,
+  Inject,
+  forwardRef,
+  InternalServerErrorException,
   NotFoundException,
+  BadRequestException
 } from "@nestjs/common";
 import { InjectModel, InjectConnection } from "@nestjs/mongoose";
-import { Model, Types, Connection, SortOrder } from "mongoose";
-import {
-  Product,
-  ProductDocument,
-  ProductType,
-} from "../../schemas/product.schema";
+import { Model, Connection, Types } from "mongoose";
+import { Product, ProductDocument } from "../../schemas/product.schema";
 import { Inventory, InventoryDocument } from "../../schemas/inventory.schema";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
-import {
-  CreateProductDto,
-  UpdateProductDto,
-  ProductQueryDto,
-} from "../../dto/product.dto";
-import { CreateProductWithPurchaseDto } from "../../dto/composite.dto";
-import {
-  BulkCreateProductsDto,
-  BulkProductDto,
-} from "./dto/bulk-create-products.dto";
-import { CustomersService } from "../customers/customers.service"; // CHANGED
+import { CustomersService } from "../customers/customers.service";
 import { InventoryService } from "../inventory/inventory.service";
 import { PurchasesService } from "../purchases/purchases.service";
-import { CreateCustomerDto } from "../../dto/customer.dto"; // CHANGED
+import { SuppliersService } from "../suppliers/suppliers.service";
 
 @Injectable()
 export class ProductsService {
@@ -37,9 +26,10 @@ export class ProductsService {
     @InjectModel(Inventory.name)
     private inventoryModel: Model<InventoryDocument>,
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
-    private readonly customersService: CustomersService, // CHANGED
+    private readonly customersService: CustomersService,
     private readonly inventoryService: InventoryService,
     private readonly purchasesService: PurchasesService,
+    @Inject(forwardRef(() => SuppliersService)) private readonly suppliersService: SuppliersService, // Added injection
     @InjectConnection() private readonly connection: Connection,
   ) { }
 
@@ -434,6 +424,7 @@ export class ProductsService {
       productType,
       isActive = true,
       includeInactive = false,
+      supplierId,
     } = query;
 
     const pageNumber = Math.max(Number(page) || 1, 1);
@@ -457,6 +448,9 @@ export class ProductsService {
     }
     if (productType) {
       filter.productType = productType;
+    }
+    if (supplierId && Types.ObjectId.isValid(supplierId)) {
+      filter["suppliers.supplierId"] = new Types.ObjectId(supplierId);
     }
     if (query.excludeProductIds?.length) {
       const ids = query.excludeProductIds
@@ -614,6 +608,67 @@ export class ProductsService {
       total,
       totalPages: Math.ceil(total / limitNumber),
     };
+  }
+
+  async addSupplier(productId: string, dto: any, user: any) {
+    const tenantId = user.tenantId;
+
+    // 1. Validate Product
+    const product = await this.productModel.findOne({
+      _id: productId,
+      tenantId: new Types.ObjectId(tenantId),
+    });
+    if (!product) {
+      throw new NotFoundException("Producto no encontrado");
+    }
+
+    // 2. Resolve Supplier (Check Explicit or Create from Virtual)
+    let supplier;
+    try {
+      supplier = await this.suppliersService.ensureSupplierProfile(dto.supplierId, user);
+    } catch (error) {
+      throw new NotFoundException("Proveedor no encontrado");
+    }
+
+    // 3. Check if already linked
+    const existingLink = product.suppliers?.find(
+      (s: any) => s.supplierId.toString() === dto.supplierId,
+    );
+    if (existingLink) {
+      throw new BadRequestException(
+        "Este proveedor ya está asociado a este producto.",
+      );
+    }
+
+    // 4. Update Product
+    const update = {
+      $push: {
+        suppliers: {
+          supplierId: new Types.ObjectId(dto.supplierId),
+          supplierName: supplier.companyName || supplier.name,
+          supplierSku: dto.supplierSku,
+          costPrice: dto.costPrice,
+          leadTimeDays: dto.leadTimeDays || 1,
+          minimumOrderQuantity: dto.minimumOrderQuantity || 1,
+          isPreferred: dto.isPreferred || false,
+          lastUpdated: new Date(),
+        },
+      },
+    };
+
+    // If marked as preferred, unset others
+    if (dto.isPreferred) {
+      await this.productModel.updateOne(
+        { _id: productId, tenantId: new Types.ObjectId(tenantId) },
+        { $set: { "suppliers.$[].isPreferred": false } },
+      );
+    }
+
+    const updatedProduct = await this.productModel
+      .findByIdAndUpdate(productId, update, { new: true })
+      .exec();
+
+    return updatedProduct;
   }
 
   private escapeRegExp(value: string): string {

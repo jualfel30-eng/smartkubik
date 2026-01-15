@@ -186,12 +186,22 @@ export class PurchasesService {
     return savedPurchaseOrder;
   }
 
-  async findAll(tenantId: string) {
+  async findAll(tenantId: string, query?: any) {
     // Convert tenantId to ObjectId to handle both string and ObjectId types in database
     const { Types } = require("mongoose");
     const tenantObjectId = new Types.ObjectId(tenantId);
+    const filter: any = { tenantId: tenantObjectId };
+
+    if (query?.supplierId) {
+      filter.supplierId = new Types.ObjectId(query.supplierId);
+    }
+    // Also support status filtering if needed for future
+    if (query?.status) {
+      filter.status = query.status;
+    }
+
     return this.poModel
-      .find({ tenantId: tenantObjectId })
+      .find(filter)
       .sort({ purchaseDate: -1 })
       .exec();
   }
