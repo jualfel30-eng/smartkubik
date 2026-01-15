@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useCrmContext } from '@/context/CrmContext';
 import { useAccountingContext } from '@/context/AccountingContext';
 import { fetchApi } from '@/lib/api';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, Calculator, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exchangeRate }) {
@@ -200,15 +200,15 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
         subtotalUSD += amountUSD;
         totalVES += rawAmount;
       } else {
-        // Monto ingresado en USD, aplicar IGTF y convertir a VES
+        // Monto ingresado en USD
         const lineIgtf = rawAmount * 0.03;
         igtf += lineIgtf;
-        subtotalUSD += rawAmount;
-        totalVES += (rawAmount + lineIgtf) * rateForCalc;
+        subtotalUSD += rawAmount; // This is the amount paid. It already INCLUDES the IGTF coverage if the user intended it.
+        totalVES += rawAmount * rateForCalc;
       }
     });
 
-    const totalUSD = subtotalUSD + igtf;
+    const totalUSD = subtotalUSD; // Client pays what they entered. IGTF is just a tax liability check.
 
     return { subtotalUSD, igtf, totalUSD, totalVES };
   }, [mixedPayments, paymentMode, exchangeRate, order]);
@@ -348,8 +348,8 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[625px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[700px] flex flex-col h-[90vh] p-0 gap-0">
+        <DialogHeader className="p-6 pb-2">
           <DialogTitle>Registrar Pago</DialogTitle>
           <DialogDescription>
             Orden: {order.orderNumber} | Balance Pendiente: ${remainingAmount.toFixed(2)} USD
@@ -357,7 +357,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-6 pt-2 space-y-4">
           <Select value={paymentMode} onValueChange={setPaymentMode}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -462,7 +462,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
               </div>
             </div>
           ) : (
-            <div className="p-4 border rounded-lg space-y-4">
+            <div className="space-y-4">
               {mixedPayments.map((line, index) => {
                 const lineIsVes = isVesMethod(line.method);
                 const lineAmount = Number(line.amount) || 0;
@@ -476,8 +476,37 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                   account.acceptedPaymentMethods.includes(mapPaymentMethodToName(line.method))
                 );
 
+                // --- SMART FILL LOGIC START ---
+                // 1. Estimate Total IGTF based on current entries
+                const currentTotalIGTF = mixedPayments.reduce((sum, p) => {
+                  const pIsVes = isVesMethod(p.method);
+                  const pRaw = Number(p.amount) || 0;
+                  return sum + (pIsVes ? 0 : pRaw * 0.03);
+                }, 0);
+
+                const dynamicTotalRequired = remainingAmount + currentTotalIGTF;
+
+                // 2. Calculate what has been paid so far (in USD equivalent) by ALL other lines
+                const otherLinesPaidUSD = mixedPayments
+                  .filter(p => p.id !== line.id)
+                  .reduce((sum, p) => {
+                    const pIsVes = isVesMethod(p.method);
+                    const pRaw = Number(p.amount) || 0;
+                    return sum + (pIsVes ? pRaw / rate : pRaw);
+                  }, 0);
+
+                // 3. Global Deficit
+                const currentLinePaidUSD = lineIsVes ? lineAmount / rate : lineAmount;
+                const globalPaidUSD = otherLinesPaidUSD + currentLinePaidUSD;
+                const globalDeficitUSD = Math.max(0, dynamicTotalRequired - globalPaidUSD);
+
+                // 4. Missing Amount (Target to Fill)
+                const missingUSD = globalDeficitUSD;
+                const missingVES = missingUSD * rate;
+                // --- SMART FILL LOGIC END ---
+
                 return (
-                  <div key={line.id} className="p-3 border rounded-lg space-y-3 bg-muted/50">
+                  <div key={line.id} className="p-3 border rounded-lg space-y-3 bg-card shadow-sm">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold">Línea {index + 1}</span>
                       {mixedPayments.length > 2 && (
@@ -533,21 +562,56 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-2">
                         <Label>{lineIsVes ? 'Monto en Bs' : 'Monto en $'}</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder={lineIsVes ? `Ej: ${remainingAmountVes.toFixed(2)}` : `Ej: ${remainingAmount.toFixed(2)}`}
-                          value={line.amount}
-                          onChange={(e) => handleUpdatePaymentLine(line.id, 'amount', e.target.value)}
-                        />
-                        {line.method && lineAmount === 0 && (
-                          <p className="text-xs text-blue-600">
-                            {lineIsVes
-                              ? `Monto pendiente: Bs ${remainingAmountVes.toFixed(2)}`
-                              : `Monto pendiente: $${remainingAmount.toFixed(2)} USD`
-                            }
-                          </p>
+                        <div className="flex gap-2">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder={lineIsVes ? `Ej: ${remainingAmountVes.toFixed(2)}` : `Ej: ${remainingAmount.toFixed(2)}`}
+                            value={line.amount}
+                            onChange={(e) => handleUpdatePaymentLine(line.id, 'amount', e.target.value)}
+                            className={missingUSD > 0.01 && lineAmount === 0 ? "border-blue-400 flex-1" : "flex-1"}
+                          />
+                          {missingUSD > 0.01 && (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="secondary"
+                              className="shrink-0 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 border-blue-200 border"
+                              onClick={() => {
+                                const currentVal = Number(line.amount) || 0;
+                                const newVal = currentVal + (lineIsVes ? missingVES : missingUSD);
+                                handleUpdatePaymentLine(line.id, 'amount', newVal.toFixed(2));
+                              }}
+                              title={`Autocompletar faltante: $${missingUSD.toFixed(2)}`}
+                            >
+                              <Wand2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* Interactive Helper Text */}
+                        {missingUSD > 0.01 && (
+                          <div
+                            className="text-xs text-muted-foreground pl-1 flex items-center gap-1 cursor-pointer hover:bg-muted/50 p-1 rounded transition-colors group"
+                            onClick={() => {
+                              const currentVal = Number(line.amount) || 0;
+                              const newVal = currentVal + (lineIsVes ? missingVES : missingUSD);
+                              handleUpdatePaymentLine(line.id, 'amount', newVal.toFixed(2));
+                            }}
+                          >
+                            <Calculator className="w-3 h-3 group-hover:text-blue-600" />
+                            <span>
+                              Falta: <span className="font-medium text-blue-600 group-hover:underline">${missingUSD.toFixed(2)}</span>
+                              {rate > 0 && (
+                                <>
+                                  {' '}≈{' '}
+                                  <span className="font-medium text-green-600">Bs {missingVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                </>
+                              )}
+                            </span>
+                          </div>
                         )}
+
                         {lineIsVes && lineAmount > 0 && (
                           <p className="text-xs text-muted-foreground">
                             Equivalente: ${lineAmountUsd.toFixed(2)} USD
@@ -578,48 +642,62 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                 );
               })}
 
-              <Button variant="outline" size="sm" onClick={handleAddPaymentLine} className="w-full">
+              <Button variant="outline" size="sm" onClick={handleAddPaymentLine} className="w-full border-dashed p-4">
                 <Plus className="h-4 w-4 mr-2" />Añadir línea de pago
               </Button>
+            </div>
+          )
+          }
+        </div>
 
-              <div className="pt-3 border-t space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Monto a abonar a la orden:</span>
-                  <span className="font-semibold">${mixedPaymentTotals.subtotalUSD.toFixed(2)}</span>
+        {/* Fixed Footer Section */}
+        <div className="p-6 bg-muted/30 border-t mt-auto space-y-4">
+          {paymentMode === 'mixed' && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Subtotal Orden:</span>
+                <span>${remainingAmount.toFixed(2)}</span>
+              </div>
+              {mixedPaymentTotals.igtf > 0 && (
+                <div className="flex justify-between text-sm text-orange-600">
+                  <span>+ IGTF (3%):</span>
+                  <span>${mixedPaymentTotals.igtf.toFixed(2)}</span>
                 </div>
-                {Math.abs(mixedPaymentTotals.subtotalUSD - remainingAmount) > 0.01 && (
-                  <div className={`flex justify-between text-sm p-2 rounded ${mixedPaymentTotals.subtotalUSD < remainingAmount ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'}`}>
-                    <span className="font-semibold">
-                      {mixedPaymentTotals.subtotalUSD < remainingAmount ? '⚠️ Falta:' : '⚠️ Sobrepago:'}
-                    </span>
-                    <span className="font-semibold">
-                      ${Math.abs(mixedPaymentTotals.subtotalUSD - remainingAmount).toFixed(2)}
-                    </span>
-                  </div>
-                )}
-                {mixedPaymentTotals.igtf > 0 && (
-                  <div className="flex justify-between text-sm text-orange-600 border-t pt-2">
-                    <span>IGTF (3% sobre métodos USD):</span>
-                    <span>+${mixedPaymentTotals.igtf.toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-bold text-base border-t pt-2 bg-muted/50 p-2 rounded">
-                  <span>Total que el cliente desembolsa:</span>
-                  <span>${mixedPaymentTotals.totalUSD.toFixed(2)}</span>
+              )}
+
+              <div className="flex justify-between text-base font-medium border-t pt-1">
+                <span>Total Requerido:</span>
+                <span>${(remainingAmount + mixedPaymentTotals.igtf).toFixed(2)}</span>
+              </div>
+
+              <div className="flex justify-between font-bold text-lg bg-muted/50 p-2 rounded">
+                <span>Total Pagado:</span>
+                <span>${mixedPaymentTotals.totalUSD.toFixed(2)}</span>
+              </div>
+
+              {Math.abs(mixedPaymentTotals.totalUSD - (remainingAmount + mixedPaymentTotals.igtf)) > 0.01 && (
+                <div className={`flex justify-between text-sm p-2 rounded ${mixedPaymentTotals.totalUSD < (remainingAmount + mixedPaymentTotals.igtf) ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'}`}>
+                  <span className="font-semibold">
+                    {mixedPaymentTotals.totalUSD < (remainingAmount + mixedPaymentTotals.igtf) ? '⚠️ Falta por cubrir:' : '⚠️ Exceso de pago:'}
+                  </span>
+                  <span className="font-semibold">
+                    ${Math.abs(mixedPaymentTotals.totalUSD - (remainingAmount + mixedPaymentTotals.igtf)).toFixed(2)}
+                  </span>
                 </div>
-                <div className="flex justify-between font-semibold text-sm text-green-600">
-                  <span>Equivalente total en Bolívares:</span>
-                  <span>Bs {mixedPaymentTotals.totalVES.toFixed(2)}</span>
-                </div>
+              )}
+
+              <div className="flex justify-between font-semibold text-sm text-green-600">
+                <span>Equivalente total en Bolívares:</span>
+                <span>Bs {mixedPaymentTotals.totalVES.toFixed(2)}</span>
               </div>
             </div>
           )}
-        </div>
 
-        <DialogFooter>
-          <DialogClose asChild><Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button></DialogClose>
-          <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? 'Registrando...' : 'Registrar Pago'}</Button>
-        </DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <DialogClose asChild><Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button></DialogClose>
+            <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? 'Registrando...' : 'Registrar Pago'}</Button>
+          </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

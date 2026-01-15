@@ -342,7 +342,10 @@ export function OrdersHistoryV2() {
                 accessorKey: "balance",
                 header: "Balance",
                 cell: ({ row }) => {
-                    const balance = (row.original.totalAmount || 0) - (row.original.paidAmount || 0);
+                    const rawBalance = (row.original.totalAmount || 0) - (row.original.paidAmount || 0);
+                    // If the order is marked as 'paid' but has a negative balance (due to IGTF), show $0.00
+                    const balance = (row.original.paymentStatus === 'paid' && rawBalance < 0) ? 0 : rawBalance;
+
                     const formatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(balance);
                     return <div className={`text-right font-medium ${balance > 0 ? 'text-red-500' : 'text-green-500'}`}>{formatted}</div>;
                 }
