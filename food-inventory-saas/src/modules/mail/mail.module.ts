@@ -9,6 +9,7 @@ import { ResendService } from "./resend.service";
 import { EmailConfigController } from "./email-config.controller";
 import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
 import { MailWebhookController } from "./mail.webhook.controller";
+import { MailPublicController } from "./mail.public.controller";
 import { OpportunitiesModule } from "../opportunities/opportunities.module";
 import { CalendarWatchRenewalJob } from "./calendar-watch-renewal.job";
 
@@ -19,7 +20,7 @@ import { CalendarWatchRenewalJob } from "./calendar-watch-renewal.job";
     ScheduleModule.forRoot(),
     MongooseModule.forFeature([{ name: Tenant.name, schema: TenantSchema }]),
   ],
-  controllers: [EmailConfigController, MailWebhookController],
+  controllers: [EmailConfigController, MailWebhookController, MailPublicController],
   providers: [
     MailService,
     GmailOAuthService,
@@ -35,4 +36,4 @@ import { CalendarWatchRenewalJob } from "./calendar-watch-renewal.job";
     CalendarWatchRenewalJob,
   ],
 })
-export class MailModule {}
+export class MailModule { }

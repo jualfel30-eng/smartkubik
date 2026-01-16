@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
+import { fetchApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -64,8 +65,9 @@ const businessVerticals = [
   },
 ];
 
-function SalesContactModal({ isOpen, onOpenChange }) {
+function SalesContactModal({ isOpen, onOpenChange, contactType = "sales" }) {
   const [activeTab, setActiveTab] = useState('email');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -106,19 +108,44 @@ function SalesContactModal({ isOpen, onOpenChange }) {
 
   const { toast } = useToast();
 
-  const handleSendEmail = (e) => {
+  const handleSendEmail = async (e) => {
     e.preventDefault();
-    // Here you would typically handle the email sending logic
-    console.log('Email data:', formData);
+    setIsSubmitting(true);
 
-    // Simulate successful sending
-    toast({
-      title: "Mensaje Enviado",
-      description: "Gracias por contactarnos. Un especialista de SmartKubik te responderá en breve.",
-      className: "bg-emerald-500 text-white border-none",
-    });
+    try {
+      await fetchApi('/public/contact', {
+        method: 'POST',
+        isPublic: true,
+        body: JSON.stringify({
+          ...formData,
+          type: contactType
+        })
+      });
 
-    onOpenChange(false);
+      toast({
+        title: contactType === 'sales' ? "Solicitud Recibida" : "Mensaje Enviado",
+        description: contactType === 'sales'
+          ? "Un especialista de ventas te contactará pronto para tu demo."
+          : "Gracias por escribirnos. Te responderemos a la brevedad.",
+        className: "bg-emerald-500 text-white border-none",
+      });
+
+      onOpenChange(false);
+      // Reset form (optional, but good UX)
+      setFormData({
+        name: '', email: '', phone: '', companyName: '',
+        state: '', city: '', vertical: '', specificCategory: '', message: ''
+      });
+    } catch (error) {
+      console.error('Failed to send contact email:', error);
+      toast({
+        title: "Error al enviar",
+        description: "Hubo un problema al enviar tu mensaje. Por favor intenta por WhatsApp.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClose = () => {
@@ -154,8 +181,14 @@ function SalesContactModal({ isOpen, onOpenChange }) {
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[1190px] min-h-[700px] overflow-y-auto px-32 py-24 bg-[#0A0F1C] border border-white/10 text-slate-200 backdrop-blur-xl shadow-2xl">
         <DialogHeader>
-          <DialogTitle className="text-3xl font-display font-bold text-white mb-2">Contactar con el equipo de ventas</DialogTitle>
-          <p className="text-gray-400">Completa el formulario y te responderemos en breve.</p>
+          <DialogTitle className="text-3xl font-display font-bold text-white mb-2">
+            {contactType === 'sales' ? 'Agendar Demo Personalizada' : 'Contáctanos'}
+          </DialogTitle>
+          <p className="text-gray-400">
+            {contactType === 'sales'
+              ? 'Completa tus datos y un experto te mostrará cómo SmartKubik transforma tu negocio.'
+              : 'Déjanos tu mensaje y te responderemos lo antes posible.'}
+          </p>
         </DialogHeader>
         <Tabs defaultValue="email" className="w-full mt-6" onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2 bg-white/5 border border-white/5">
@@ -280,8 +313,12 @@ function SalesContactModal({ isOpen, onOpenChange }) {
                   <Textarea id="message" value={formData.message} onChange={handleChange} required className="bg-white/5 border-white/10 text-white placeholder:text-gray-600 focus:border-cyan-500/50 focus:ring-cyan-500/20 min-h-[140px]" />
                 </div>
                 <div className="flex justify-end pt-4">
-                  <Button type="submit" className="bg-gradient-to-r from-cyan-500 to-emerald-500 text-white font-bold px-8 py-6 rounded-xl hover:shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all transform hover:scale-105">
-                    Enviar Mensaje
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="bg-gradient-to-r from-cyan-500 to-emerald-500 text-white font-bold px-8 py-6 rounded-xl hover:shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  >
+                    {isSubmitting ? 'Enviando...' : (contactType === 'sales' ? 'Solicitar Demo' : 'Enviar Mensaje')}
                   </Button>
                 </div>
               </div>

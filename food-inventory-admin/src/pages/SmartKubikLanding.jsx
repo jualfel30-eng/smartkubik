@@ -26,6 +26,7 @@ const SmartKubikLanding = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [activeStep, setActiveStep] = useState(1);
     const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+    const [contactType, setContactType] = useState('sales');
 
     // Industry Active Feature States
     const [activeRestaurantFeature, setActiveRestaurantFeature] = useState(null); // Default: None (Show generic bg + card)
@@ -3819,16 +3820,16 @@ const SmartKubikLanding = () => {
                         {/*  Contact  */}
                         <p className="text-gray-500">
                             <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>¿Preguntas? Escríbenos por <a href={whatsAppLink} target="_blank" rel="noopener noreferrer"
-                                className="text-cyan-400 hover:underline">WhatsApp</a> o <button onClick={() => setIsContactModalOpen(true)}
+                                className="text-cyan-400 hover:underline">WhatsApp</a> o <button onClick={() => { setContactType('sales'); setIsContactModalOpen(true); }}
                                     className="text-cyan-400 hover:underline bg-transparent border-none cursor-pointer p-0 font-inherit">Email</button>. Respondemos en menos de 2 horas.</span>
                             <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Questions? Write us on <a href={whatsAppLink} target="_blank" rel="noopener noreferrer"
-                                className="text-cyan-400 hover:underline">WhatsApp</a> or <button onClick={() => setIsContactModalOpen(true)}
+                                className="text-cyan-400 hover:underline">WhatsApp</a> or <button onClick={() => { setContactType('sales'); setIsContactModalOpen(true); }}
                                     className="text-cyan-400 hover:underline bg-transparent border-none cursor-pointer p-0 font-inherit">Email</button>. We respond in under 2 hours.</span>
                         </p>
                     </div>
 
                     {/* Contact Modal */}
-                    <SalesContactModal isOpen={isContactModalOpen} onOpenChange={setIsContactModalOpen} />
+                    <SalesContactModal isOpen={isContactModalOpen} onOpenChange={setIsContactModalOpen} contactType={contactType} />
                 </section >
 
                 {/*  FOOTER (From V2)  */}
@@ -3878,8 +3879,8 @@ const SmartKubikLanding = () => {
                                     <li><Link to="#" className={`hover:text-cyan-400 transition-colors lang-es ${language === "es" ? "" : "hidden"}`}>Sobre Nosotros</Link><Link
                                         to="#" className={`hover:text-cyan-400 transition-colors lang-en ${language === "en" ? "" : "hidden"}`}>About Us</Link>
                                     </li>
-                                    <li><Link to="#" className={`hover:text-cyan-400 transition-colors lang-es ${language === "es" ? "" : "hidden"}`}>Contacto</Link><Link
-                                        to="#" className={`hover:text-cyan-400 transition-colors lang-en ${language === "en" ? "" : "hidden"}`}>Contact</Link>
+                                    <li><button onClick={() => { setContactType('general'); setIsContactModalOpen(true); }} className={`hover:text-cyan-400 transition-colors bg-transparent border-none cursor-pointer text-left p-0 font-inherit lang-es ${language === "es" ? "" : "hidden"}`}>Contacto</button><button
+                                        onClick={() => { setContactType('general'); setIsContactModalOpen(true); }} className={`hover:text-cyan-400 transition-colors bg-transparent border-none cursor-pointer text-left p-0 font-inherit lang-en ${language === "en" ? "" : "hidden"}`}>Contact</button>
                                     </li>
                                     <li><Link to="#" className={`hover:text-cyan-400 transition-colors lang-es ${language === "es" ? "" : "hidden"}`}>Trabaja con
                                         Nosotros</Link><Link to="#"
