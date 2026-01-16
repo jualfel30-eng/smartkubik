@@ -14,6 +14,7 @@ import {
   IsMongoId,
   IsEnum,
   IsOptional,
+  IsBoolean,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { PaginationDto, PaginationHelper } from "../../dto/pagination.dto";
@@ -94,6 +95,20 @@ export class CreatePayableDto {
   @IsOptional()
   @IsMongoId()
   relatedPurchaseOrderId?: string;
+
+  // Nuevos campos para tracking de moneda y forma de pago
+  @IsOptional()
+  @IsEnum(["USD", "VES", "EUR", "USD_BCV", "EUR_BCV"])
+  expectedCurrency?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isCredit?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  expectedPaymentMethods?: string[];
 }
 
 export class UpdatePayableDto {
@@ -158,7 +173,7 @@ export class PayablesService {
     private readonly accountingService: AccountingService,
     private readonly eventsService: EventsService,
     private readonly exchangeRateService: ExchangeRateService,
-  ) {}
+  ) { }
 
   async create(
     createPayableDto: CreatePayableDto,
@@ -421,6 +436,211 @@ export class PayablesService {
         oldStatus: "draft",
         newStatus: "open",
       })),
+    };
+  }
+
+  /**
+   * Get summary of payables with totals by currency and aging report
+   * Used for dashboard cards in the UI
+   */
+  async getSummary(tenantId: string): Promise<{
+    total: { count: number; amount: number; amountVes: number };
+    byCurrency: Record<string, { count: number; amount: number }>;
+    aging: {
+      current: { count: number; amount: number };
+      days30: { count: number; amount: number };
+      days60: { count: number; amount: number };
+      days90plus: { count: number; amount: number };
+    };
+    byStatus: Record<string, { count: number; amount: number }>;
+  }> {
+    const tenantObjectId = Types.ObjectId.isValid(tenantId)
+      ? new Types.ObjectId(tenantId)
+      : tenantId;
+
+    const now = new Date();
+    const days30Ago = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const days60Ago = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+    const days90Ago = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+
+    // Get all non-void payables
+    const payables = await this.payableModel
+      .find({
+        tenantId: tenantObjectId,
+        status: { $nin: ["void", "paid"] },
+      })
+      .lean()
+      .exec();
+
+    // Initialize result structure
+    const result = {
+      total: { count: 0, amount: 0, amountVes: 0 },
+      byCurrency: {} as Record<string, { count: number; amount: number }>,
+      aging: {
+        current: { count: 0, amount: 0 },
+        days30: { count: 0, amount: 0 },
+        days60: { count: 0, amount: 0 },
+        days90plus: { count: 0, amount: 0 },
+      },
+      byStatus: {} as Record<string, { count: number; amount: number }>,
+    };
+
+    // Process each payable
+    for (const payable of payables) {
+      const remainingAmount = payable.totalAmount - (payable.paidAmount || 0);
+      const remainingAmountVes =
+        (payable.totalAmountVes || 0) - (payable.paidAmountVes || 0);
+
+      if (remainingAmount <= 0) continue;
+
+      // Total
+      result.total.count++;
+      result.total.amount += remainingAmount;
+      result.total.amountVes += remainingAmountVes;
+
+      // By Currency
+      const currency = (payable as any).expectedCurrency || "USD";
+      if (!result.byCurrency[currency]) {
+        result.byCurrency[currency] = { count: 0, amount: 0 };
+      }
+      result.byCurrency[currency].count++;
+      result.byCurrency[currency].amount += remainingAmount;
+
+      // By Status
+      const status = payable.status || "open";
+      if (!result.byStatus[status]) {
+        result.byStatus[status] = { count: 0, amount: 0 };
+      }
+      result.byStatus[status].count++;
+      result.byStatus[status].amount += remainingAmount;
+
+      // Aging (based on dueDate)
+      const dueDate = payable.dueDate ? new Date(payable.dueDate) : null;
+
+      if (!dueDate || dueDate >= now) {
+        // Not yet due
+        result.aging.current.count++;
+        result.aging.current.amount += remainingAmount;
+      } else if (dueDate >= days30Ago) {
+        // 1-30 days overdue
+        result.aging.days30.count++;
+        result.aging.days30.amount += remainingAmount;
+      } else if (dueDate >= days60Ago) {
+        // 31-60 days overdue
+        result.aging.days60.count++;
+        result.aging.days60.amount += remainingAmount;
+      } else {
+        // 90+ days overdue
+        result.aging.days90plus.count++;
+        result.aging.days90plus.amount += remainingAmount;
+      }
+    }
+
+    this.logger.log(
+      `Summary for tenant ${tenantId}: Total ${result.total.count} payables, $${result.total.amount}`,
+    );
+
+    return result;
+  }
+
+  /**
+   * Find payables with optional filters
+   */
+  async findAllWithFilters(
+    tenantId: string,
+    filters: {
+      expectedCurrency?: string;
+      status?: string;
+      overdue?: boolean;
+      aging?: string;
+      page?: number;
+      limit?: number;
+    } = {},
+  ): Promise<{
+    payables: Payable[];
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  }> {
+    const {
+      page = 1,
+      limit = 20,
+      expectedCurrency,
+      status,
+      overdue,
+      aging,
+    } = filters;
+
+    const skip = PaginationHelper.getSkip(page, limit);
+
+    const tenantObjectId = Types.ObjectId.isValid(tenantId)
+      ? new Types.ObjectId(tenantId)
+      : tenantId;
+
+    // Build query
+    const query: any = {
+      tenantId: tenantObjectId,
+      status: { $nin: ["void"] },
+    };
+
+    // Filter by currency
+    if (expectedCurrency) {
+      query.expectedCurrency = expectedCurrency;
+    }
+
+    // Filter by status
+    if (status) {
+      query.status = status;
+    }
+
+    // Filter overdue payables
+    if (overdue === true) {
+      query.dueDate = { $lt: new Date() };
+      query.status = { $nin: ["void", "paid"] };
+    }
+
+    // Filter by aging bucket
+    if (aging) {
+      const now = new Date();
+      const days30Ago = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const days60Ago = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+      query.status = { $nin: ["void", "paid"] };
+
+      switch (aging) {
+        case "current":
+          // Not yet due or no due date
+          query.$or = [{ dueDate: { $gte: now } }, { dueDate: null }];
+          break;
+        case "days30":
+          // 1-30 days overdue
+          query.dueDate = { $lt: now, $gte: days30Ago };
+          break;
+        case "days60":
+          // 31-60 days overdue
+          query.dueDate = { $lt: days30Ago, $gte: days60Ago };
+          break;
+        case "days90plus":
+          // 90+ days overdue (more than 60 days ago)
+          query.dueDate = { $lt: days60Ago };
+          break;
+      }
+    }
+
+    const [payables, total] = await Promise.all([
+      this.payableModel
+        .find(query)
+        .sort({ dueDate: 1, issueDate: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.payableModel.countDocuments(query).exec(),
+    ]);
+
+    return {
+      payables,
+      ...PaginationHelper.createPaginationMeta(page, limit, total),
     };
   }
 }

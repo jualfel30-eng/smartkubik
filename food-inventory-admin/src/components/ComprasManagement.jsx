@@ -77,6 +77,7 @@ const initialPoState = {
     paymentDueDate: null,
     paymentMethods: [],
     customPaymentMethod: '',
+    expectedCurrency: 'USD',
     requiresAdvancePayment: false,
     advancePaymentPercentage: 0,
   }
@@ -902,6 +903,7 @@ export default function ComprasManagement() {
         isCredit: po.paymentTerms.isCredit,
         creditDays: creditDays,
         paymentMethods: allPaymentMethods,
+        expectedCurrency: po.paymentTerms.expectedCurrency || 'USD',
         paymentDueDate: po.paymentTerms.paymentDueDate ? format(po.paymentTerms.paymentDueDate, 'yyyy-MM-dd') : undefined,
         requiresAdvancePayment: po.paymentTerms.requiresAdvancePayment,
         advancePaymentPercentage: po.paymentTerms.advancePaymentPercentage,
@@ -1070,9 +1072,39 @@ export default function ComprasManagement() {
                                         </Popover>
                                     </div>
                                 )}
+                                <div className="space-y-2">
+                                    <Label>Moneda de Pago Esperada <span className="text-red-500">*</span></Label>
+                                    <Select
+                                        value={po.paymentTerms.expectedCurrency}
+                                        onValueChange={(value) => setPo(prev => ({
+                                            ...prev,
+                                            paymentTerms: { ...prev.paymentTerms, expectedCurrency: value }
+                                        }))}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Selecciona moneda" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="USD">USD ($)</SelectItem>
+                                            <SelectItem value="VES">Bolívares (Bs)</SelectItem>
+                                            <SelectItem value="EUR">Euros (€)</SelectItem>
+                                            <SelectItem value="USD_BCV">$ BCV (Tasa BCV)</SelectItem>
+                                            <SelectItem value="EUR_BCV">€ BCV (Tasa BCV)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                                 <div className="col-span-2 space-y-2">
-                                    <Label>Métodos de Pago Aceptados (selecciona uno o varios)</Label>
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-3 border rounded-lg">
+                                    <Label className="flex items-center gap-2">
+                                        Métodos de Pago Aceptados <span className="text-red-500">*</span>
+                                        {po.paymentTerms.paymentMethods.length === 0 && !po.paymentTerms.customPaymentMethod && (
+                                            <span className="text-xs text-red-500 font-normal">(Selecciona al menos uno)</span>
+                                        )}
+                                    </Label>
+                                    <div className={`grid grid-cols-2 md:grid-cols-3 gap-3 p-3 border rounded-lg ${
+                                        po.paymentTerms.paymentMethods.length === 0 && !po.paymentTerms.customPaymentMethod
+                                            ? 'border-red-300 bg-red-50'
+                                            : ''
+                                    }`}>
                                         {[
                                             { value: 'efectivo', label: 'Efectivo' },
                                             { value: 'transferencia', label: 'Transferencia Bancaria' },

@@ -341,6 +341,10 @@ export class PurchasesService {
             },
           ],
           relatedPurchaseOrderId: savedPurchaseOrder._id.toString(),
+          // Propagate payment info from PO
+          expectedCurrency: paymentTerms.expectedCurrency || "USD",
+          expectedPaymentMethods: paymentTerms.paymentMethods || [],
+          isCredit: paymentTerms.isCredit || false,
         };
 
         await this.payablesService.create(
@@ -370,6 +374,10 @@ export class PurchasesService {
             },
           ],
           relatedPurchaseOrderId: savedPurchaseOrder._id.toString(),
+          // Propagate payment info from PO
+          expectedCurrency: paymentTerms.expectedCurrency || "USD",
+          expectedPaymentMethods: paymentTerms.paymentMethods || [],
+          isCredit: paymentTerms.isCredit || false,
         };
 
         await this.payablesService.create(
@@ -399,6 +407,10 @@ export class PurchasesService {
             },
           ],
           relatedPurchaseOrderId: savedPurchaseOrder._id.toString(),
+          // Propagate payment info from PO
+          expectedCurrency: paymentTerms?.expectedCurrency || "USD",
+          expectedPaymentMethods: paymentTerms?.paymentMethods || [],
+          isCredit: paymentTerms?.isCredit || false,
         };
 
         await this.payablesService.create(

@@ -284,6 +284,7 @@ export class Customer {
     creditRating: string;
     lastCreditReview?: Date;
     isBlocked: boolean;
+    acceptsCredit?: boolean; // New field
   };
 
   @Prop({ type: String, required: true, default: "active" })

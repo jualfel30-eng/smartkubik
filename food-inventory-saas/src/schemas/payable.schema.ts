@@ -85,6 +85,19 @@ export class Payable {
   @Prop({ type: String })
   description?: string;
 
+  // Moneda esperada para el pago (USD, VES, EUR, USD_BCV, EUR_BCV)
+  @Prop({
+    type: String,
+    enum: ["USD", "VES", "EUR", "USD_BCV", "EUR_BCV"],
+    default: "USD",
+    index: true,
+  })
+  expectedCurrency: string;
+
+  // Métodos de pago esperados (heredados de la orden de compra)
+  @Prop({ type: [String], default: [] })
+  expectedPaymentMethods: string[];
+
   @Prop({ type: [PayableLineSchema] })
   lines: PayableLine[];
 
@@ -99,6 +112,9 @@ export class Payable {
 
   @Prop({ type: Number, default: 0 })
   paidAmountVes: number;
+
+  @Prop({ type: Boolean, default: false })
+  isCredit: boolean;
 
   @Prop({
     type: [
@@ -153,3 +169,5 @@ export const PayableSchema = SchemaFactory.createForClass(Payable);
 PayableSchema.index({ tenantId: 1, status: 1 });
 PayableSchema.index({ tenantId: 1, type: 1 });
 PayableSchema.index({ tenantId: 1, payeeName: 1 });
+PayableSchema.index({ tenantId: 1, expectedCurrency: 1 });
+PayableSchema.index({ tenantId: 1, dueDate: 1 }); // Para aging report

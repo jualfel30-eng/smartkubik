@@ -21,11 +21,12 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
-import { PlusCircle, Repeat, Eye, CreditCard, Trash2 } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
+import { PlusCircle, Repeat, Eye, CreditCard, Trash2, X } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { PaymentDialog } from './PaymentDialog';
 import { SearchableSelect } from './orders/v2/custom/SearchableSelect';
+import PayablesSummaryCards from './PayablesSummaryCards';
+import { cn } from '@/lib/utils';
 
 const initialPayableState = {
   supplierId: null,
@@ -61,11 +62,11 @@ const CreateRecurringPayableDialog = ({ isOpen, onOpenChange, accounts, supplier
   const [newTemplate, setNewTemplate] = useState(initialTemplateState);
   const [supplierSearchInput, setSupplierSearchInput] = useState('');
 
-  const supplierOptions = useMemo(() => 
-    suppliers.map(s => ({ 
-      value: s._id, 
+  const supplierOptions = useMemo(() =>
+    suppliers.map(s => ({
+      value: s._id,
       label: `${s.companyName || s.name} - ${s.taxInfo?.rif || 'N/A'}`,
-      supplier: s 
+      supplier: s
     })), [suppliers]);
 
   const handleSupplierInputChange = (value) => {
@@ -83,12 +84,12 @@ const CreateRecurringPayableDialog = ({ isOpen, onOpenChange, accounts, supplier
       setNewTemplate(prev => ({ ...prev, isNewSupplier: true, supplierId: null, payeeName: selectedOption.label, supplierRif: '' }));
     } else {
       const { supplier } = selectedOption;
-      setNewTemplate(prev => ({ 
-        ...prev, 
-        isNewSupplier: false, 
-        supplierId: supplier._id, 
-        payeeName: supplier.companyName || supplier.name, 
-        supplierRif: supplier.taxInfo?.rif || '' 
+      setNewTemplate(prev => ({
+        ...prev,
+        isNewSupplier: false,
+        supplierId: supplier._id,
+        payeeName: supplier.companyName || supplier.name,
+        supplierRif: supplier.taxInfo?.rif || ''
       }));
     }
   };
@@ -191,7 +192,7 @@ const CreateRecurringPayableDialog = ({ isOpen, onOpenChange, accounts, supplier
             </div>
             {newTemplate.isNewSupplier && (
               <div className="grid grid-cols-2 gap-4 pt-2">
-                  <div className="space-y-2">
+                <div className="space-y-2">
                   <Label>Nombre del Contacto</Label>
                   <Input name="supplierContactName" value={newTemplate.supplierContactName} onChange={handleInputChange} placeholder="Persona de contacto" />
                 </div>
@@ -275,7 +276,7 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
       value: supplier._id,
       label: `${supplier.companyName || supplier.name} - ${supplier.taxInfo?.taxId || 'N/A'}`,
     })),
-  [suppliers]);
+    [suppliers]);
 
   const pendingPayables = useMemo(() => {
     return payables.filter(payable => !['paid', 'void'].includes(payable.status));
@@ -303,7 +304,7 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
     }
 
     if (selectedOption.__isNew__) {
-      setNewPayable(() => ({ 
+      setNewPayable(() => ({
         ...initialPayableState,
         isNewSupplier: true,
         supplierName: selectedOption.label,
@@ -336,7 +337,7 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
     lines[index][name] = value;
     setNewPayable({ ...newPayable, lines });
   };
-  
+
   const handleAccountChange = (index, accountId) => {
     const lines = [...newPayable.lines];
     lines[index].accountId = accountId;
@@ -365,12 +366,12 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
           companyName: newPayable.supplierName,
           customerType: 'supplier',
           taxInfo: {
-              taxId: newPayable.supplierRif,
-              taxType: 'J' // Defaulting to 'J' for legal entity
+            taxId: newPayable.supplierRif,
+            taxType: 'J' // Defaulting to 'J' for legal entity
           },
           contacts: [
-              {type: 'email', value: newPayable.supplierContactEmail, isPrimary: true, name: newPayable.supplierContactName},
-              {type: 'phone', value: newPayable.supplierContactPhone, isPrimary: false, name: newPayable.supplierContactName}
+            { type: 'email', value: newPayable.supplierContactEmail, isPrimary: true, name: newPayable.supplierContactName },
+            { type: 'phone', value: newPayable.supplierContactPhone, isPrimary: false, name: newPayable.supplierContactName }
           ].filter(c => c.value)
         };
         const createdSupplier = await createSupplier(newSupplierPayload);
@@ -432,95 +433,108 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
     <>
       <Card>
         <CardHeader className="flex">
-            <Dialog open={isCreateDialogOpen} onOpenChange={(isOpen) => { setIsCreateDialogOpen(isOpen); if (!isOpen) setNewPayable(initialPayableState); }}>
+          <Dialog open={isCreateDialogOpen} onOpenChange={(isOpen) => { setIsCreateDialogOpen(isOpen); if (!isOpen) setNewPayable(initialPayableState); }}>
             <DialogTrigger asChild><Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white"><PlusCircle className="mr-2 h-5 w-5" />Registrar Cuenta por Pagar</Button></DialogTrigger>
             <DialogContent className="sm:max-w-[800px]">
-                <DialogHeader>
-                  <DialogTitle>Registrar Nueva Cuenta por Pagar</DialogTitle>
-                  <DialogDescription>Rellena los datos para registrar un nuevo gasto o factura pendiente de pago.</DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4">
+              <DialogHeader>
+                <DialogTitle>Registrar Nueva Cuenta por Pagar</DialogTitle>
+                <DialogDescription>Rellena los datos para registrar un nuevo gasto o factura pendiente de pago.</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="p-4 border rounded-lg space-y-4">
-                    <Label className="text-base font-semibold">Datos del Proveedor</Label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                          <Label>Nombre del Proveedor</Label>
-                          <SearchableSelect
-                            isCreatable
-                            options={supplierOptions}
-                            onSelection={handleSupplierSelection}
-                            value={getSupplierSelectValue()}
-                            placeholder="Buscar o crear proveedor..."
-                          />
-                          
-                      </div>
-                      <div className="space-y-2">
-                          <Label>RIF</Label>
-                          <Input name="supplierRif" value={newPayable.supplierRif} onChange={handleInputChange} placeholder="J-12345678-9" disabled={!newPayable.isNewSupplier} />
-                      </div>
+                  <Label className="text-base font-semibold">Datos del Proveedor</Label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Nombre del Proveedor</Label>
+                      <SearchableSelect
+                        isCreatable
+                        options={supplierOptions}
+                        onSelection={handleSupplierSelection}
+                        value={getSupplierSelectValue()}
+                        placeholder="Buscar o crear proveedor..."
+                      />
+
                     </div>
-                    <div className="grid grid-cols-3 gap-4 pt-2">
-                        <div className="space-y-2">
-                        <Label>Nombre del Contacto</Label>
-                        <Input name="supplierContactName" value={newPayable.supplierContactName} onChange={handleInputChange} placeholder="Persona de contacto" disabled={!newPayable.isNewSupplier} />
-                        </div>
-                        <div className="space-y-2">
-                        <Label>Email del Contacto</Label>
-                        <Input name="supplierContactEmail" type="email" value={newPayable.supplierContactEmail} onChange={handleInputChange} placeholder="ejemplo@dominio.com" disabled={!newPayable.isNewSupplier} />
-                        </div>
-                        <div className="space-y-2">
-                        <Label>Teléfono del Contacto</Label>
-                        <Input name="supplierContactPhone" value={newPayable.supplierContactPhone} onChange={handleInputChange} placeholder="0414-1234567" disabled={!newPayable.isNewSupplier} />
-                        </div>
+                    <div className="space-y-2">
+                      <Label>RIF</Label>
+                      <Input name="supplierRif" value={newPayable.supplierRif} onChange={handleInputChange} placeholder="J-12345678-9" disabled={!newPayable.isNewSupplier} />
                     </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 pt-2">
+                    <div className="space-y-2">
+                      <Label>Nombre del Contacto</Label>
+                      <Input name="supplierContactName" value={newPayable.supplierContactName} onChange={handleInputChange} placeholder="Persona de contacto" disabled={!newPayable.isNewSupplier} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Email del Contacto</Label>
+                      <Input name="supplierContactEmail" type="email" value={newPayable.supplierContactEmail} onChange={handleInputChange} placeholder="ejemplo@dominio.com" disabled={!newPayable.isNewSupplier} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Teléfono del Contacto</Label>
+                      <Input name="supplierContactPhone" value={newPayable.supplierContactPhone} onChange={handleInputChange} placeholder="0414-1234567" disabled={!newPayable.isNewSupplier} />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="p-4 border rounded-lg space-y-4">
-                    <Label className="text-base font-semibold">Detalles del Gasto</Label>
-                    <div className="grid grid-cols-3 gap-4">
+                  <Label className="text-base font-semibold">Detalles del Gasto</Label>
+                  <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
-                        <Label>Tipo de Gasto</Label>
-                        <Select name="type" onValueChange={(value) => setNewPayable({ ...newPayable, type: value })} value={newPayable.type}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                            <SelectItem value="purchase_order">Factura de Compra</SelectItem>
-                            <SelectItem value="service_payment">Pago de Servicio</SelectItem>
-                            <SelectItem value="utility_bill">Servicio Público</SelectItem>
-                            <SelectItem value="payroll">Nómina</SelectItem>
-                            <SelectItem value="other">Otro</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Fecha de Emisión</Label>
-                        <Input type="date" name="date" value={newPayable.date} onChange={handleInputChange} />
-                    </div>
-                        <div className="space-y-2">
-                        <Label>Fecha de Vencimiento (Opcional)</Label>
-                        <Input type="date" name="dueDate" value={newPayable.dueDate} onChange={handleInputChange} />
-                    </div>
+                      <Label>Tipo de Gasto</Label>
+                      <Select name="type" onValueChange={(value) => setNewPayable({ ...newPayable, type: value })} value={newPayable.type}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="purchase_order">Factura de Compra</SelectItem>
+                          <SelectItem value="service_payment">Pago de Servicio</SelectItem>
+                          <SelectItem value="utility_bill">Servicio Público</SelectItem>
+                          <SelectItem value="payroll">Nómina</SelectItem>
+                          <SelectItem value="other">Otro</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-2">
-                        <Label>Líneas del Gasto</Label>
-                        {newPayable.lines.map((line, index) => (
-                            <div key={index} className="flex items-center gap-2">
-                                <Input name="description" placeholder="Descripción" value={line.description} onChange={(e) => handleLineChange(index, e)} className="flex-grow"/>
-                                <Input name="amount" type="number" placeholder="Monto" value={line.amount} onChange={(e) => handleLineChange(index, e)} className="w-28"/>
-                                <Select onValueChange={(value) => handleAccountChange(index, value)}><SelectTrigger className="w-48"><SelectValue placeholder="Cuenta de Gasto" /></SelectTrigger><SelectContent>{accounts.map(acc => <SelectItem key={acc._id} value={acc._id}>{acc.name}</SelectItem>)}</SelectContent></Select>
-                                <Button type="button" variant="destructive" size="sm" onClick={() => removeLine(index)}>X</Button>
-                            </div>
-                        ))}
-                        <Button type="button" variant="outline" size="sm" onClick={addLine}>Añadir Línea</Button>
+                      <Label>Fecha de Emisión</Label>
+                      <Input type="date" name="date" value={newPayable.date} onChange={handleInputChange} />
                     </div>
+                    <div className="space-y-2">
+                      <Label>Fecha de Vencimiento (Opcional)</Label>
+                      <Input type="date" name="dueDate" value={newPayable.dueDate} onChange={handleInputChange} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Líneas del Gasto</Label>
+                    {newPayable.lines.map((line, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Input name="description" placeholder="Descripción" value={line.description} onChange={(e) => handleLineChange(index, e)} className="flex-grow" />
+                        <Input name="amount" type="number" placeholder="Monto" value={line.amount} onChange={(e) => handleLineChange(index, e)} className="w-28" />
+                        <Select onValueChange={(value) => handleAccountChange(index, value)}><SelectTrigger className="w-48"><SelectValue placeholder="Cuenta de Gasto" /></SelectTrigger><SelectContent>{accounts.map(acc => <SelectItem key={acc._id} value={acc._id}>{acc.name}</SelectItem>)}</SelectContent></Select>
+                        <Button type="button" variant="destructive" size="sm" onClick={() => removeLine(index)}>X</Button>
+                      </div>
+                    ))}
+                    <Button type="button" variant="outline" size="sm" onClick={addLine}>Añadir Línea</Button>
+                  </div>
                 </div>
                 <div className="flex justify-end space-x-2"><Button type="button" variant="ghost" onClick={() => setIsCreateDialogOpen(false)}>Cancelar</Button><Button type="submit">Guardar</Button></div>
-                </form>
+              </form>
             </DialogContent>
-            </Dialog>
+          </Dialog>
         </CardHeader>
         <CardContent>
           <Table>
-            <TableHeader><TableRow><TableHead>Proveedor</TableHead><TableHead>Fecha</TableHead><TableHead>Monto Total</TableHead><TableHead>Monto Pagado</TableHead><TableHead>Estado</TableHead><TableHead className="text-center">Ver</TableHead><TableHead className="text-center">Pagar</TableHead></TableRow></TableHeader>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Proveedor</TableHead>
+                <TableHead>Fecha Emisión</TableHead>
+                <TableHead>Monto Total</TableHead>
+                <TableHead>Monto Pagado</TableHead>
+                <TableHead>Forma de Pago</TableHead>
+                <TableHead className="text-center">Crédito</TableHead>
+                <TableHead>Fecha Pago</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-center">Ver</TableHead>
+                <TableHead className="text-center">Pagar</TableHead>
+              </TableRow>
+            </TableHeader>
             <TableBody>
               {pendingPayables.map((payable) => (
                 <TableRow key={payable._id}>
@@ -528,7 +542,32 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
                   <TableCell>{new Date(payable.issueDate).toLocaleDateString()}</TableCell>
                   <TableCell>${getTotalAmount(payable.lines).toFixed(2)}</TableCell>
                   <TableCell>${(payable.paidAmount || 0).toFixed(2)}</TableCell>
-                  <TableCell>{payable.status}</TableCell>
+                  <TableCell>
+                    {payable.expectedPaymentMethods?.length > 0
+                      ? payable.expectedPaymentMethods.join(', ')
+                      : <span className="text-gray-400 italic">No def.</span>}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {payable.isCredit
+                      ? <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Sí</Badge>
+                      : <span className="text-gray-400">No</span>}
+                  </TableCell>
+                  <TableCell>
+                    {payable.dueDate
+                      ? new Date(payable.dueDate).toLocaleDateString()
+                      : <span className="text-gray-400 italic">N/A</span>}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={cn(
+                      payable.status === 'paid' ? 'bg-green-100 text-green-800' :
+                        payable.status === 'partial' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                    )}>
+                      {payable.status === 'paid' ? 'Pagado' :
+                        payable.status === 'partial' ? 'Parcial' :
+                          payable.status === 'draft' ? 'Borrador' : 'Pendiente'}
+                    </Badge>
+                  </TableCell>
                   <TableCell className="text-center">
                     <Button variant="ghost" size="icon" onClick={() => handleOpenViewDialog(payable)}>
                       <Eye className="h-4 w-4" />
@@ -665,7 +704,7 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
   );
 };
 
-  const RecurringPayables = ({ accounts, suppliers }) => {
+const RecurringPayables = ({ accounts, suppliers }) => {
   const [templates, setTemplates] = useState([]);
   const [isCreateTemplateOpen, setIsCreateTemplateOpen] = useState(false);
 
@@ -705,14 +744,147 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
           </Table>
         </CardContent>
       </Card>
-      <CreateRecurringPayableDialog 
-        isOpen={isCreateTemplateOpen} 
+      <CreateRecurringPayableDialog
+        isOpen={isCreateTemplateOpen}
         onOpenChange={setIsCreateTemplateOpen}
         accounts={accounts}
         suppliers={suppliers}
         onSuccess={fetchTemplates}
       />
     </>
+  );
+};
+
+// ViewPayableDialog Component for PayablesHistory
+const ViewPayableDialog = ({ isOpen, onOpenChange, payable }) => {
+  const getTotalAmount = (lines) => {
+    return (lines || []).reduce((sum, line) => sum + Number(line.amount || 0), 0);
+  };
+
+  const getCurrencyLabel = (currency) => {
+    const labels = {
+      USD: 'USD ($)',
+      VES: 'Bolívares (Bs)',
+      EUR: 'Euros (€)',
+      USD_BCV: '$ BCV',
+      EUR_BCV: '€ BCV',
+    };
+    return labels[currency] || currency || 'USD';
+  };
+
+  if (!payable) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>Detalles de Cuenta por Pagar</DialogTitle>
+          <DialogDescription>
+            {payable.payableNumber || 'Sin número'}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          {/* Información del Proveedor */}
+          <div className="p-4 border rounded-lg space-y-2">
+            <h3 className="font-semibold text-base">Información del Proveedor</h3>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <span className="text-muted-foreground">Nombre:</span>
+                <p className="font-medium">{payable.payeeName || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Tipo:</span>
+                <p className="font-medium capitalize">{payable.payeeType || 'N/A'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Información del Pago */}
+          <div className="p-4 border rounded-lg space-y-2">
+            <h3 className="font-semibold text-base">Detalles del Pago</h3>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <span className="text-muted-foreground">Tipo de Gasto:</span>
+                <p className="font-medium capitalize">{payable.type?.replace(/_/g, ' ') || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Estado:</span>
+                <Badge variant={payable.status === 'paid' ? 'default' : payable.status === 'partially_paid' ? 'secondary' : 'outline'}>
+                  {payable.status === 'paid' ? 'Pagado' : payable.status === 'partially_paid' ? 'Parcial' : payable.status === 'void' ? 'Anulado' : payable.status === 'open' ? 'Abierto' : payable.status}
+                </Badge>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Fecha de Emisión:</span>
+                <p className="font-medium">{new Date(payable.issueDate).toLocaleDateString()}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Fecha de Vencimiento:</span>
+                <p className="font-medium">{payable.dueDate ? new Date(payable.dueDate).toLocaleDateString() : 'No definida'}</p>
+              </div>
+              {payable.expectedCurrency && (
+                <div>
+                  <span className="text-muted-foreground">Moneda Esperada:</span>
+                  <p className="font-medium">{getCurrencyLabel(payable.expectedCurrency)}</p>
+                </div>
+              )}
+              {payable.expectedPaymentMethods && payable.expectedPaymentMethods.length > 0 && (
+                <div>
+                  <span className="text-muted-foreground">Métodos de Pago:</span>
+                  <p className="font-medium">{payable.expectedPaymentMethods.join(', ')}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Líneas del Gasto */}
+          <div className="p-4 border rounded-lg space-y-2">
+            <h3 className="font-semibold text-base">Líneas del Gasto</h3>
+            <div className="space-y-2">
+              {(payable.lines || []).map((line, index) => (
+                <div key={index} className="flex justify-between items-center p-2 bg-muted rounded text-sm">
+                  <div className="flex-1">
+                    <p className="font-medium">{line.description || 'Sin descripción'}</p>
+                  </div>
+                  <p className="font-semibold">${Number(line.amount || 0).toFixed(2)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Resumen de Montos */}
+          <div className="p-4 border rounded-lg space-y-2 bg-muted/50">
+            <h3 className="font-semibold text-base">Resumen</h3>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Monto Total:</span>
+                <span className="font-semibold">${getTotalAmount(payable.lines).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Monto Pagado:</span>
+                <span className="font-semibold text-green-600">${(payable.paidAmount || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between pt-2 border-t">
+                <span className="font-semibold">Saldo Pendiente:</span>
+                <span className="font-bold text-lg text-orange-600">
+                  ${(getTotalAmount(payable.lines) - (payable.paidAmount || 0)).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Notas */}
+          {payable.notes && (
+            <div className="p-4 border rounded-lg space-y-2">
+              <h3 className="font-semibold text-base">Notas</h3>
+              <p className="text-sm text-muted-foreground">{payable.notes}</p>
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end space-x-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cerrar</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
@@ -946,202 +1118,202 @@ const PaymentHistory = () => {
 
   return (
     <>
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <CardTitle>Historial de Pagos</CardTitle>
-          <div className="w-1/3">
-            <Input 
-              placeholder="Buscar en pagos..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Concepto</TableHead><TableHead>Monto Pagado</TableHead><TableHead>Método</TableHead><TableHead>Referencia</TableHead><TableHead>Ver</TableHead></TableRow></TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan="6" className="text-center">Cargando...</TableCell></TableRow>
-            ) : (
-              paginatedPayments.map((payment) => {
-                const isSale = payment.paymentType === 'sale';
-                const concept = isSale
-                  ? `Pago de Orden #${payment.orderId?.orderNumber || 'N/A'}`
-                  : payment.payableId?.description
-                    ? `${payment.payableId.description} - ${payment.payableId.payeeName || ''}`
-                    : payment.payableId?.payeeName || 'N/A';
-                
-                return (
-                  <TableRow key={payment._id}>
-                    <TableCell>{new Date(payment.date).toLocaleDateString()}</TableCell>
-                    <TableCell>{concept}</TableCell>
-                    <TableCell>${Number(payment.amount).toFixed(2)}</TableCell>
-                    <TableCell>{payment.method || payment.paymentMethod || '-'}</TableCell>
-                    <TableCell>{payment.reference || '-'}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedPayment(payment);
-                          setIsViewDialogOpen(true);
-                        }}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-4">
-            <p className="text-sm text-muted-foreground">
-              Página {currentPage} de {totalPages} ({filteredPayments.length} registros)
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-              >
-                Anterior
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                disabled={currentPage === totalPages}
-              >
-                Siguiente
-              </Button>
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>Historial de Pagos</CardTitle>
+            <div className="w-1/3">
+              <Input
+                placeholder="Buscar en pagos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Concepto</TableHead><TableHead>Monto Pagado</TableHead><TableHead>Método</TableHead><TableHead>Referencia</TableHead><TableHead>Ver</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan="6" className="text-center">Cargando...</TableCell></TableRow>
+              ) : (
+                paginatedPayments.map((payment) => {
+                  const isSale = payment.paymentType === 'sale';
+                  const concept = isSale
+                    ? `Pago de Orden #${payment.orderId?.orderNumber || 'N/A'}`
+                    : payment.payableId?.description
+                      ? `${payment.payableId.description} - ${payment.payableId.payeeName || ''}`
+                      : payment.payableId?.payeeName || 'N/A';
 
-    {/* View Payment Details Dialog */}
-    <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>Resumen de Transacción</DialogTitle>
-          <DialogDescription>
-            Detalles completos del pago realizado
-          </DialogDescription>
-        </DialogHeader>
-        {selectedPayment && (
-          <div className="space-y-4">
-            {/* Información General */}
-            <div className="p-4 border rounded-lg space-y-2">
-              <h3 className="font-semibold text-base">Información General</h3>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Fecha:</span>
-                  <p className="font-medium">{new Date(selectedPayment.date).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Tipo de Pago:</span>
-                  <p className="font-medium capitalize">
-                    {selectedPayment.paymentType === 'sale' ? 'Pago de Orden' : 'Pago de Cuenta por Pagar'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Concepto */}
-            <div className="p-4 border rounded-lg space-y-2">
-              <h3 className="font-semibold text-base">Concepto</h3>
-              <p className="text-sm">
-                {selectedPayment.paymentType === 'sale'
-                  ? `Pago de Orden #${selectedPayment.orderId?.orderNumber || 'N/A'}`
-                  : selectedPayment.payableId?.description
-                    ? `${selectedPayment.payableId.description} - ${selectedPayment.payableId.payeeName || ''}`
-                    : selectedPayment.payableId?.payeeName || 'N/A'}
+                  return (
+                    <TableRow key={payment._id}>
+                      <TableCell>{new Date(payment.date).toLocaleDateString()}</TableCell>
+                      <TableCell>{concept}</TableCell>
+                      <TableCell>${Number(payment.amount).toFixed(2)}</TableCell>
+                      <TableCell>{payment.method || payment.paymentMethod || '-'}</TableCell>
+                      <TableCell>{payment.reference || '-'}</TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedPayment(payment);
+                            setIsViewDialogOpen(true);
+                          }}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <p className="text-sm text-muted-foreground">
+                Página {currentPage} de {totalPages} ({filteredPayments.length} registros)
               </p>
-            </div>
-
-            {/* Detalles del Pago */}
-            <div className="p-4 border rounded-lg space-y-2 bg-muted/50">
-              <h3 className="font-semibold text-base">Detalles del Pago</h3>
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Monto Pagado:</span>
-                  <span className="font-semibold text-green-600">${Number(selectedPayment.amount).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Método de Pago:</span>
-                  <span className="font-medium">{selectedPayment.method || selectedPayment.paymentMethod || '-'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Referencia:</span>
-                  <span className="font-medium">{selectedPayment.reference || '-'}</span>
-                </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Siguiente
+                </Button>
               </div>
             </div>
+          )}
+        </CardContent>
+      </Card>
 
-            {/* Información Adicional de la Orden (si es pago de orden) */}
-            {selectedPayment.paymentType === 'sale' && selectedPayment.orderId && (
+      {/* View Payment Details Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Resumen de Transacción</DialogTitle>
+            <DialogDescription>
+              Detalles completos del pago realizado
+            </DialogDescription>
+          </DialogHeader>
+          {selectedPayment && (
+            <div className="space-y-4">
+              {/* Información General */}
               <div className="p-4 border rounded-lg space-y-2">
-                <h3 className="font-semibold text-base">Información de la Orden</h3>
+                <h3 className="font-semibold text-base">Información General</h3>
                 <div className="grid grid-cols-2 gap-2 text-sm">
-                  {selectedPayment.orderId.customerName && (
-                    <div>
-                      <span className="text-muted-foreground">Cliente:</span>
-                      <p className="font-medium">{selectedPayment.orderId.customerName}</p>
-                    </div>
-                  )}
-                  {selectedPayment.orderId.total && (
-                    <div>
-                      <span className="text-muted-foreground">Total de la Orden:</span>
-                      <p className="font-medium">${Number(selectedPayment.orderId.total).toFixed(2)}</p>
-                    </div>
-                  )}
+                  <div>
+                    <span className="text-muted-foreground">Fecha:</span>
+                    <p className="font-medium">{new Date(selectedPayment.date).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Tipo de Pago:</span>
+                    <p className="font-medium capitalize">
+                      {selectedPayment.paymentType === 'sale' ? 'Pago de Orden' : 'Pago de Cuenta por Pagar'}
+                    </p>
+                  </div>
                 </div>
               </div>
-            )}
 
-            {/* Información Adicional del Payable (si es pago de cuenta por pagar) */}
-            {selectedPayment.paymentType === 'payable' && selectedPayment.payableId && (
+              {/* Concepto */}
               <div className="p-4 border rounded-lg space-y-2">
-                <h3 className="font-semibold text-base">Información del Proveedor</h3>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  {selectedPayment.payableId.payeeName && (
-                    <div>
-                      <span className="text-muted-foreground">Proveedor:</span>
-                      <p className="font-medium">{selectedPayment.payableId.payeeName}</p>
-                    </div>
-                  )}
-                  {selectedPayment.payableId.totalAmount && (
-                    <div>
-                      <span className="text-muted-foreground">Monto Total de la Cuenta:</span>
-                      <p className="font-medium">${Number(selectedPayment.payableId.totalAmount).toFixed(2)}</p>
-                    </div>
-                  )}
+                <h3 className="font-semibold text-base">Concepto</h3>
+                <p className="text-sm">
+                  {selectedPayment.paymentType === 'sale'
+                    ? `Pago de Orden #${selectedPayment.orderId?.orderNumber || 'N/A'}`
+                    : selectedPayment.payableId?.description
+                      ? `${selectedPayment.payableId.description} - ${selectedPayment.payableId.payeeName || ''}`
+                      : selectedPayment.payableId?.payeeName || 'N/A'}
+                </p>
+              </div>
+
+              {/* Detalles del Pago */}
+              <div className="p-4 border rounded-lg space-y-2 bg-muted/50">
+                <h3 className="font-semibold text-base">Detalles del Pago</h3>
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Monto Pagado:</span>
+                    <span className="font-semibold text-green-600">${Number(selectedPayment.amount).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Método de Pago:</span>
+                    <span className="font-medium">{selectedPayment.method || selectedPayment.paymentMethod || '-'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Referencia:</span>
+                    <span className="font-medium">{selectedPayment.reference || '-'}</span>
+                  </div>
                 </div>
               </div>
-            )}
 
-            {/* Notas adicionales si existen */}
-            {selectedPayment.notes && (
-              <div className="p-4 border rounded-lg space-y-2">
-                <h3 className="font-semibold text-base">Notas</h3>
-                <p className="text-sm text-muted-foreground">{selectedPayment.notes}</p>
-              </div>
-            )}
+              {/* Información Adicional de la Orden (si es pago de orden) */}
+              {selectedPayment.paymentType === 'sale' && selectedPayment.orderId && (
+                <div className="p-4 border rounded-lg space-y-2">
+                  <h3 className="font-semibold text-base">Información de la Orden</h3>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    {selectedPayment.orderId.customerName && (
+                      <div>
+                        <span className="text-muted-foreground">Cliente:</span>
+                        <p className="font-medium">{selectedPayment.orderId.customerName}</p>
+                      </div>
+                    )}
+                    {selectedPayment.orderId.total && (
+                      <div>
+                        <span className="text-muted-foreground">Total de la Orden:</span>
+                        <p className="font-medium">${Number(selectedPayment.orderId.total).toFixed(2)}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Información Adicional del Payable (si es pago de cuenta por pagar) */}
+              {selectedPayment.paymentType === 'payable' && selectedPayment.payableId && (
+                <div className="p-4 border rounded-lg space-y-2">
+                  <h3 className="font-semibold text-base">Información del Proveedor</h3>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    {selectedPayment.payableId.payeeName && (
+                      <div>
+                        <span className="text-muted-foreground">Proveedor:</span>
+                        <p className="font-medium">{selectedPayment.payableId.payeeName}</p>
+                      </div>
+                    )}
+                    {selectedPayment.payableId.totalAmount && (
+                      <div>
+                        <span className="text-muted-foreground">Monto Total de la Cuenta:</span>
+                        <p className="font-medium">${Number(selectedPayment.payableId.totalAmount).toFixed(2)}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Notas adicionales si existen */}
+              {selectedPayment.notes && (
+                <div className="p-4 border rounded-lg space-y-2">
+                  <h3 className="font-semibold text-base">Notas</h3>
+                  <p className="text-sm text-muted-foreground">{selectedPayment.notes}</p>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="flex justify-end space-x-2">
+            <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>Cerrar</Button>
           </div>
-        )}
-        <div className="flex justify-end space-x-2">
-          <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>Cerrar</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
@@ -1155,6 +1327,8 @@ const PayablesManagement = () => {
   const [accounts, setAccounts] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState(null);
+  const [summaryRefreshKey, setSummaryRefreshKey] = useState(0);
 
   // Sincronizar activeTab con searchParams cuando cambia la URL
   useEffect(() => {
@@ -1170,15 +1344,40 @@ const PayablesManagement = () => {
     setSearchParams({ tab: newTab }, { replace: true });
   };
 
-  const fetchPayables = useCallback(async () => {
+  // Manejador para filtros desde las tarjetas de resumen
+  const handleFilterChange = (filter) => {
+    setActiveFilter(filter);
+    // Si hay un filtro activo, cambiar a la pestaña de cuentas por pagar
+    if (filter !== null) {
+      setActiveTab('monthly');
+      setSearchParams({ tab: 'monthly' }, { replace: true });
+    }
+  };
+
+  // Limpiar filtro
+  const clearFilter = () => {
+    setActiveFilter(null);
+  };
+
+  const fetchPayables = useCallback(async (filters = null) => {
     try {
-      const data = await getPayables();
+      const data = await getPayables(filters || {});
       setPayables(data.data || []);
+      setSummaryRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Error al cargar las cuentas por pagar:', error);
       toast.error('Error al cargar las cuentas por pagar.');
     }
   }, []);
+
+  // Efecto para recargar payables cuando cambia el filtro
+  useEffect(() => {
+    if (activeFilter) {
+      fetchPayables(activeFilter);
+    } else {
+      fetchPayables();
+    }
+  }, [activeFilter, fetchPayables]);
 
   const fetchSuppliers = useCallback(async () => {
     try {
@@ -1210,38 +1409,97 @@ const PayablesManagement = () => {
     fetchInitialData();
   }, [fetchInitialData]);
 
+  // Obtener etiqueta del filtro activo para mostrar
+  const getFilterLabel = () => {
+    if (!activeFilter) return null;
+
+    if (activeFilter.expectedCurrency) {
+      const currencyLabels = {
+        USD: 'USD ($)',
+        VES: 'Bolívares (Bs)',
+        EUR: 'Euros',
+        USD_BCV: '$ BCV',
+        EUR_BCV: '€ BCV',
+      };
+      return currencyLabels[activeFilter.expectedCurrency] || activeFilter.expectedCurrency;
+    }
+
+    if (activeFilter.aging) {
+      const agingLabels = {
+        current: 'Al día',
+        days30: '1-30 días vencidas',
+        days60: '31-60 días vencidas',
+        days90plus: '+90 días vencidas',
+      };
+      return agingLabels[activeFilter.aging] || activeFilter.aging;
+    }
+
+    if (activeFilter.overdue) {
+      return 'Todas las vencidas';
+    }
+
+    return 'Filtro activo';
+  };
+
   if (loading) return <p>Cargando datos del módulo de pagos...</p>;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Cuentas por Pagar (AP)</CardTitle>
-        <CardDescription>
-          Gestiona facturas de proveedores, pagos recurrentes y consulta el historial de cuentas por pagar.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="monthly">Cuentas por Pagar</TabsTrigger>
-            <TabsTrigger value="recurring">Pagos Recurrentes</TabsTrigger>
-            <TabsTrigger value="history">Historial de Pagos Pendientes</TabsTrigger>
-          </TabsList>
-          <TabsContent value="monthly">
-            <MonthlyPayables payables={payables} fetchPayables={fetchPayables} suppliers={suppliers} accounts={accounts} fetchSuppliers={fetchSuppliers} />
-          </TabsContent>
-          <TabsContent value="recurring">
-            <RecurringPayables suppliers={suppliers} accounts={accounts} />
-          </TabsContent>
-          <TabsContent value="history">
-            <PayablesHistory payables={payables} fetchPayables={fetchPayables} />
-          </TabsContent>
-        </Tabs>
-        <div className="mt-6">
-          <PaymentHistory />
+    <div className="space-y-6">
+      {/* Tarjetas de Resumen con KPIs */}
+      <PayablesSummaryCards
+        key={summaryRefreshKey}
+        onFilterChange={handleFilterChange}
+        activeFilter={activeFilter}
+      />
+
+      {/* Indicador de filtro activo */}
+      {activeFilter && (
+        <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-950/30 dark:border-blue-900/50">
+          <span className="text-sm text-blue-700 dark:text-blue-400">
+            Filtro activo: <strong>{getFilterLabel()}</strong>
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilter}
+            className="h-6 px-2 text-blue-700 hover:text-blue-900 hover:bg-blue-100 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/40"
+          >
+            <X className="h-4 w-4 mr-1" />
+            Limpiar
+          </Button>
         </div>
-      </CardContent>
-    </Card>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Cuentas por Pagar (AP)</CardTitle>
+          <CardDescription>
+            Gestiona facturas de proveedores, pagos recurrentes y consulta el historial de cuentas por pagar.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="monthly">Cuentas por Pagar</TabsTrigger>
+              <TabsTrigger value="recurring">Pagos Recurrentes</TabsTrigger>
+              <TabsTrigger value="history">Historial de Pagos Pendientes</TabsTrigger>
+            </TabsList>
+            <TabsContent value="monthly">
+              <MonthlyPayables payables={payables} fetchPayables={() => fetchPayables(activeFilter)} suppliers={suppliers} accounts={accounts} fetchSuppliers={fetchSuppliers} />
+            </TabsContent>
+            <TabsContent value="recurring">
+              <RecurringPayables suppliers={suppliers} accounts={accounts} />
+            </TabsContent>
+            <TabsContent value="history">
+              <PayablesHistory payables={payables} fetchPayables={() => fetchPayables(activeFilter)} />
+            </TabsContent>
+          </Tabs>
+          <div className="mt-6">
+            <PaymentHistory />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

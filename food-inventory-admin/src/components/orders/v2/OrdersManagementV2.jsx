@@ -11,7 +11,7 @@ import { PaymentDialogV2 } from './PaymentDialogV2';
 import { OrderStatusSelector } from './OrderStatusSelector';
 import { OrderDetailsDialog } from './OrderDetailsDialog';
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Search, Download, ChefHat, Settings } from "lucide-react";
+import { RefreshCw, Search, Download, ChefHat, Settings, Eye, EyeOff } from "lucide-react";
 import BillingDrawer from '@/components/billing/BillingDrawer';
 import { OrderProcessingDrawer } from '../OrderProcessingDrawer';
 import { useDebounce } from '@/hooks/use-debounce.js';
@@ -41,6 +41,7 @@ export function OrdersManagementV2() {
   const [attributeKey, setAttributeKey] = useState('');
   const [attributeValue, setAttributeValue] = useState('');
   const debouncedAttributeValue = useDebounce(attributeValue, 500);
+  const [showCompleted, setShowCompleted] = useState(false);
   const [tenantSettings, setTenantSettings] = useState(null);
   const [pageLimit, setPageLimit] = useState(25);
   const [currentPage, setCurrentPage] = useState(1);
@@ -97,6 +98,15 @@ export function OrdersManagementV2() {
       if (search) {
         params.set('search', search);
       }
+
+      // Status filtering logic
+      if (!showCompleted) {
+        // Active statuses only
+        const activeStatuses = ['draft', 'pending', 'confirmed', 'processing', 'shipped'];
+        params.set('status', activeStatuses.join(','));
+      }
+      // If showCompleted is true, we don't send status param (or send all), backend returns all by default if param is missing
+
       const attributeFilterValue = (debouncedAttributeValue || attributeValue || '').trim();
       if (attributeKey) {
         params.set('itemAttributeKey', attributeKey);
@@ -121,7 +131,7 @@ export function OrdersManagementV2() {
     } finally {
       setLoading(false);
     }
-  }, [attributeKey, attributeValue, debouncedAttributeValue]);
+  }, [attributeKey, attributeValue, debouncedAttributeValue, showCompleted]);
 
   // Effect for initial load and search term changes
   useEffect(() => {
@@ -130,7 +140,7 @@ export function OrdersManagementV2() {
       fetchOrders(1, pageLimit, debouncedSearchTerm);
     }, debouncedSearchTerm ? 800 : 0);
     return () => clearTimeout(timeoutId);
-  }, [debouncedSearchTerm, pageLimit, fetchOrders]);
+  }, [debouncedSearchTerm, pageLimit, fetchOrders, showCompleted]);
 
   // Effect to fetch tenant settings
   useEffect(() => {
@@ -480,6 +490,20 @@ export function OrdersManagementV2() {
               </CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-2 mr-2">
+                <Label htmlFor="show-completed" className="text-sm text-muted-foreground whitespace-nowrap cursor-pointer">
+                  {showCompleted ? 'Ver activos' : 'Ver todo'}
+                </Label>
+                <Button
+                  variant={showCompleted ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => setShowCompleted(!showCompleted)}
+                  title={showCompleted ? "Ocultar completados" : "Mostrar completados"}
+                >
+                  {showCompleted ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+                  {showCompleted ? 'Ocultar completados' : 'Mostrar completados'}
+                </Button>
+              </div>
               <div className="relative w-full sm:w-auto">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input

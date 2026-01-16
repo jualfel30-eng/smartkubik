@@ -34,7 +34,7 @@ import { PaginationDto } from "../../dto/pagination.dto";
 @UseGuards(JwtAuthGuard, TenantGuard)
 @ApiBearerAuth()
 export class PayablesController {
-  constructor(private readonly payablesService: PayablesService) {}
+  constructor(private readonly payablesService: PayablesService) { }
 
   @Post()
   @UseGuards(PermissionsGuard)
@@ -65,6 +65,31 @@ export class PayablesController {
     }
   }
 
+  @Get("dashboard-summary")
+  @UseGuards(PermissionsGuard)
+  @Permissions("payables_read")
+  @ApiOperation({
+    summary: "Obtener resumen de cuentas por pagar con totales por moneda y aging",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Resumen obtenido exitosamente",
+  })
+  async getSummary(@Request() req) {
+    try {
+      const summary = await this.payablesService.getSummary(req.user.tenantId);
+      return {
+        success: true,
+        data: summary,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al obtener el resumen",
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   @Get()
   @UseGuards(PermissionsGuard)
   @Permissions("payables_read")
@@ -75,8 +100,41 @@ export class PayablesController {
     status: 200,
     description: "Cuentas por pagar obtenidas exitosamente",
   })
-  async findAll(@Request() req, @Query() paginationDto: PaginationDto) {
+  async findAll(
+    @Request() req,
+    @Query() paginationDto: PaginationDto,
+    @Query("expectedCurrency") expectedCurrency?: string,
+    @Query("status") status?: string,
+    @Query("overdue") overdue?: string,
+    @Query("aging") aging?: string,
+  ) {
     try {
+      // If filters are provided, use findAllWithFilters
+      if (expectedCurrency || status || overdue || aging) {
+        const result = await this.payablesService.findAllWithFilters(
+          req.user.tenantId,
+          {
+            expectedCurrency,
+            status,
+            overdue: overdue === "true",
+            aging,
+            page: paginationDto.page,
+            limit: paginationDto.limit,
+          },
+        );
+        return {
+          success: true,
+          data: result.payables,
+          pagination: {
+            page: result.page,
+            limit: result.limit,
+            total: result.total,
+            totalPages: result.totalPages,
+          },
+        };
+      }
+
+      // Otherwise use standard findAll
       const result = await this.payablesService.findAll(
         req.user.tenantId,
         paginationDto,

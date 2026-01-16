@@ -197,8 +197,21 @@ export const syncTenantMemberships = (tenantId) => {
 };
 
 // Payables API
-export const getPayables = () => {
-  return fetchApi('/payables');
+export const getPayables = (filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.expectedCurrency) params.append('expectedCurrency', filters.expectedCurrency);
+  if (filters.status) params.append('status', filters.status);
+  if (filters.overdue) params.append('overdue', 'true');
+  if (filters.aging) params.append('aging', filters.aging);
+  if (filters.page) params.append('page', filters.page);
+  if (filters.limit) params.append('limit', filters.limit);
+
+  const queryString = params.toString();
+  return fetchApi(`/payables${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getPayablesSummary = () => {
+  return fetchApi('/payables/dashboard-summary');
 };
 
 export const createPayable = (payableData) => {

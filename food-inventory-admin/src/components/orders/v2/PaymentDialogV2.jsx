@@ -336,6 +336,29 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
       toast.success('Pago registrado con éxito');
       onPaymentSuccess(response.data);
       triggerRefresh();
+
+      // Auto-complete Pickup Orders
+      const totalPaidUSD = paymentsPayload.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      // Use a small epsilon for float comparison tolerance
+      const isFullPayment = Math.abs(remainingAmount - totalPaidUSD) < 0.1;
+
+      if (order.deliveryMethod === 'pickup' && isFullPayment) {
+        try {
+          await fetchApi(`/orders/${order._id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'delivered' })
+          });
+          toast.success('Orden completada y entregada automáticamente 🚀', {
+            description: 'La orden ha sido marcada como Entregada porque se pagó en su totalidad.'
+          });
+          // Refresh again to reflect the status change
+          triggerRefresh();
+        } catch (autoCompError) {
+          console.error("Auto-complete failed:", autoCompError);
+          // We don't block the flow if this optional step fails, users can still manually process it
+        }
+      }
     } catch (error) {
       console.error("Error submitting payment:", error);
       toast.error(`Error al registrar el pago: ${error.message}`);

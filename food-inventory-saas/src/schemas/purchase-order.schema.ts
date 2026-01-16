@@ -92,6 +92,7 @@ export class PurchaseOrder {
     isCredit: boolean;
     creditDays: number; // Calculado desde paymentDueDate - purchaseDate
     paymentMethods: string[]; // ['efectivo', 'transferencia', 'pago_movil', 'zelle', 'binance', etc.]
+    expectedCurrency: string; // USD, VES, EUR, USD_BCV, EUR_BCV
     paymentDueDate?: Date; // Fecha seleccionada por el usuario
     requiresAdvancePayment: boolean;
     advancePaymentPercentage?: number;

@@ -75,11 +75,11 @@ export default function SupplierDetailDialog({ open, onOpenChange, supplier, onS
                 contactEmail: supplier.contacts?.[0]?.email || '',
                 contactPhone: supplier.contacts?.[0]?.phone || '',
                 paymentSettings: {
-                    defaultCreditDays: supplier.paymentSettings?.defaultCreditDays || 0,
-                    acceptsCredit: supplier.paymentSettings?.acceptsCredit || false,
-                    creditLimit: supplier.paymentSettings?.creditLimit || 0,
+                    defaultCreditDays: supplier.paymentSettings?.defaultCreditDays || supplier.customer?.creditInfo?.paymentTerms || 0,
+                    acceptsCredit: supplier.paymentSettings?.acceptsCredit || supplier.customer?.creditInfo?.acceptsCredit || false,
+                    creditLimit: supplier.paymentSettings?.creditLimit || supplier.customer?.creditInfo?.creditLimit || 0,
                     acceptedPaymentMethods: supplier.paymentSettings?.acceptedPaymentMethods || [],
-                    preferredPaymentMethod: supplier.paymentSettings?.preferredPaymentMethod || '',
+                    preferredPaymentMethod: supplier.paymentSettings?.preferredPaymentMethod || supplier.preferences?.preferredPaymentMethod || '',
                 },
                 address: {
                     street: supplier.address?.street || '',
@@ -233,7 +233,14 @@ export default function SupplierDetailDialog({ open, onOpenChange, supplier, onS
     const handleSubmit = async () => {
         try {
             setSaving(true);
-            const payload = { ...formData };
+            const payload = {
+                ...formData,
+                // Ensure legacy fields are populated for logic compatibility
+                name: formData.name,
+                contactName: formData.contactName,
+                contactEmail: formData.contactEmail,
+                contactPhone: formData.contactPhone
+            };
 
             // Basic validation
             if (!payload.name || !payload.rif) {
@@ -249,6 +256,8 @@ export default function SupplierDetailDialog({ open, onOpenChange, supplier, onS
                 method,
                 body: JSON.stringify(payload)
             });
+
+
 
             toast.success(`Proveedor ${supplier ? 'actualizado' : 'creado'} con éxito`);
             onSuccess();

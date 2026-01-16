@@ -11,6 +11,9 @@ import {
   IsBoolean,
   Min,
   Max,
+  ArrayMinSize,
+  IsNotEmpty,
+  IsEnum,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { SanitizeString, SanitizeText } from "../decorators/sanitize.decorator";
@@ -59,6 +62,15 @@ class PurchaseOrderItemDto {
   expirationDate?: string;
 }
 
+// Monedas soportadas para pagos
+export enum PaymentCurrency {
+  USD = "USD",
+  VES = "VES",
+  EUR = "EUR",
+  USD_BCV = "USD_BCV", // Tasa BCV
+  EUR_BCV = "EUR_BCV", // Tasa BCV
+}
+
 class PaymentTermsDto {
   @IsBoolean()
   isCredit: boolean;
@@ -67,10 +79,14 @@ class PaymentTermsDto {
   @Min(0)
   creditDays: number; // Calculated from paymentDueDate - purchaseDate
 
-  @IsOptional()
   @IsArray()
+  @ArrayMinSize(1, { message: "Debe seleccionar al menos un método de pago" })
   @IsString({ each: true })
-  paymentMethods?: string[]; // ['efectivo', 'transferencia', 'pago_movil', 'zelle', 'binance', etc.]
+  paymentMethods: string[]; // ['efectivo', 'transferencia', 'pago_movil', 'zelle', 'binance', etc.]
+
+  @IsNotEmpty({ message: "La moneda de pago es obligatoria" })
+  @IsEnum(PaymentCurrency, { message: "Moneda de pago inválida" })
+  expectedCurrency: PaymentCurrency; // Moneda esperada para el pago
 
   @IsOptional()
   @IsDateString()
@@ -139,8 +155,8 @@ export class CreatePurchaseOrderDto {
   @SanitizeText()
   notes?: string;
 
-  @IsOptional()
+  @IsNotEmpty({ message: "Los términos de pago son obligatorios" })
   @ValidateNested()
   @Type(() => PaymentTermsDto)
-  paymentTerms?: PaymentTermsDto;
+  paymentTerms: PaymentTermsDto;
 }

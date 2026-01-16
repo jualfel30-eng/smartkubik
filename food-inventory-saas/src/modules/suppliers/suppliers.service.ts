@@ -1,4 +1,4 @@
-import { Injectable, Logger, ConflictException, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, ConflictException, NotFoundException, InternalServerErrorException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { Supplier, SupplierDocument } from "../../schemas/supplier.schema";
@@ -189,7 +189,7 @@ export class SuppliersService {
             name: c.name || customer.name || 'Contacto',
             email: c.type === 'email' ? c.value : undefined,
             phone: c.type === 'phone' ? c.value : undefined,
-            position: c.role || 'Principal',
+            position: 'Principal',
             isPrimary: c.isPrimary
           })) || []
         };
@@ -207,7 +207,21 @@ export class SuppliersService {
     if (updateSupplierDto.name) supplier.name = updateSupplierDto.name;
     if (updateSupplierDto.taxInfo) supplier.taxInfo = { ...supplier.taxInfo, ...updateSupplierDto.taxInfo };
     if (updateSupplierDto.address) supplier.address = { ...supplier.address, ...updateSupplierDto.address };
-    if (updateSupplierDto.paymentSettings) supplier.paymentSettings = { ...supplier.paymentSettings, ...updateSupplierDto.paymentSettings };
+    if (updateSupplierDto.paymentSettings) {
+      // Robust update for Mongoose Subdocument
+      // We avoid spreading the subdocument directly to prevent issues with Mongoose internal state
+      if (!supplier.paymentSettings) supplier.paymentSettings = {} as any;
+
+      const ps = updateSupplierDto.paymentSettings;
+      if (ps.acceptsCredit !== undefined) supplier.paymentSettings.acceptsCredit = ps.acceptsCredit;
+      if (ps.defaultCreditDays !== undefined) supplier.paymentSettings.defaultCreditDays = ps.defaultCreditDays;
+      if (ps.creditLimit !== undefined) supplier.paymentSettings.creditLimit = ps.creditLimit;
+      if (ps.acceptedPaymentMethods !== undefined) supplier.paymentSettings.acceptedPaymentMethods = ps.acceptedPaymentMethods;
+      if (ps.preferredPaymentMethod !== undefined) supplier.paymentSettings.preferredPaymentMethod = ps.preferredPaymentMethod;
+      if (ps.requiresAdvancePayment !== undefined) supplier.paymentSettings.requiresAdvancePayment = ps.requiresAdvancePayment;
+      if (ps.advancePaymentPercentage !== undefined) supplier.paymentSettings.advancePaymentPercentage = ps.advancePaymentPercentage;
+      if (ps.paymentNotes !== undefined) supplier.paymentSettings.paymentNotes = ps.paymentNotes;
+    }
     if (updateSupplierDto.status) supplier.status = updateSupplierDto.status;
 
     // Map flat contact fields to contacts array if provided
@@ -235,7 +249,85 @@ export class SuppliersService {
 
     try {
       const updatedSupplier = await supplier.save();
-      // Populate customerId to ensure mapSupplier has the full customer object
+
+      // --- DUAL UPDATE STRATEGY ---
+      // Sync changes to the linked Customer profile to prevent data masking on read.
+      if (updatedSupplier.customerId) {
+        const customerUpdates: any = {};
+
+        // 1. Sync Name
+        if (updateSupplierDto.name) {
+          customerUpdates.name = updateSupplierDto.name;
+          customerUpdates.companyName = updateSupplierDto.name;
+        }
+
+        // 2. Sync Tax Info
+        if (updateSupplierDto.taxInfo) {
+          if (updateSupplierDto.taxInfo.rif) customerUpdates['taxInfo.taxId'] = updateSupplierDto.taxInfo.rif;
+          if (updateSupplierDto.taxInfo.businessName) customerUpdates['taxInfo.taxName'] = updateSupplierDto.taxInfo.businessName;
+        }
+
+        // 3. Sync Address
+        if (updateSupplierDto.address) {
+          // We can't easily map a single address object to the addresses array without potentially overwriting
+          // user-managed addresses. We will only update if the address list is empty or we assume the first logical one.
+          // For safety, we skip deep syncing address for now to avoid data loss, or we could add a new address.
+          // customerUpdates['primaryLocation.address'] = `${updateSupplierDto.address.street}, ${updateSupplierDto.address.city}`;
+        }
+
+        // 4. Sync Payment Settings -> Credit Info
+        if (updateSupplierDto.paymentSettings) {
+          const ps = updateSupplierDto.paymentSettings;
+          if (ps.defaultCreditDays !== undefined) customerUpdates['creditInfo.paymentTerms'] = ps.defaultCreditDays;
+          if (ps.creditLimit !== undefined) customerUpdates['creditInfo.creditLimit'] = ps.creditLimit;
+          // Also sync the new 'acceptsCredit' field if it exists in the DTO or was saved
+          if (ps.acceptsCredit !== undefined) customerUpdates['creditInfo.acceptsCredit'] = ps.acceptsCredit;
+
+          // Sync Preferred Payment Method
+          if (ps.preferredPaymentMethod) {
+            customerUpdates['preferences.preferredPaymentMethod'] = ps.preferredPaymentMethod;
+          }
+        }
+
+        // 5. Sync Contacts (Basic Name/Email/Phone updates for primary contact)
+        if (updateSupplierDto.contactName && supplier.contacts && supplier.contacts.length > 0) {
+          // This is harder to sync via atomic updates without finding the specific array element.
+          // We will rely on the fact that if the user edits the "Contact Name" in the Supplier Form, 
+          // they expect the linked Customer's primary contact to update.
+          // Strategy: Pull the customer, find the matching contact (or primary), update, and save.
+          const linkedCustomer = await this.customerModel.findById(updatedSupplier.customerId);
+          if (linkedCustomer) {
+            let primaryContact = linkedCustomer.contacts.find(c => c.isPrimary);
+            if (!primaryContact && linkedCustomer.contacts.length > 0) primaryContact = linkedCustomer.contacts[0];
+
+            if (primaryContact) {
+              primaryContact.name = updateSupplierDto.contactName;
+              if (updateSupplierDto.contactEmail) primaryContact.value = updateSupplierDto.contactEmail; // Assuming type matches
+              // Note: Robust sync would require checking contact type (email vs phone). 
+              // For now, we update the name which is the most visible "masking" culprit.
+            } else {
+              // Add new contact if none exists
+              linkedCustomer.contacts.push({
+                name: updateSupplierDto.contactName,
+                type: 'email', // Default assumption
+                value: updateSupplierDto.contactEmail || 'N/A',
+                isPrimary: true,
+                isActive: true
+              });
+            }
+
+            // Apply other updates from customerUpdates object
+            Object.assign(linkedCustomer, customerUpdates);
+
+            await linkedCustomer.save();
+          }
+        } else if (Object.keys(customerUpdates).length > 0) {
+          // If we didn't do the full load-save cycle above, we do partial update here
+          await this.customerModel.updateOne({ _id: updatedSupplier.customerId }, { $set: customerUpdates });
+        }
+      }
+
+      // Populate customerId to ensure mapSupplier has the full customer object (which is now updated)
       await updatedSupplier.populate('customerId');
       return this.mapSupplier(updatedSupplier, updatedSupplier.customerId);
     } catch (error) {
@@ -283,7 +375,7 @@ export class SuppliersService {
         name: c.name || customer.name || 'Contacto',
         email: c.type === 'email' ? c.value : undefined,
         phone: c.type === 'phone' ? c.value : undefined,
-        position: c.role || 'Principal',
+        position: 'Principal',
         isPrimary: c.isPrimary
       })) || []
     };

@@ -356,6 +356,7 @@ function TenantLayout() {
           ],
         },
         { name: 'Compras', href: 'inventory-management?tab=purchases', icon: Truck },
+        { name: 'Proveedores', href: 'inventory-management?tab=suppliers', icon: Truck },
       ]
     },
     {

@@ -22,8 +22,7 @@ import { SanitizeString, SanitizeText } from "../decorators/sanitize.decorator";
 // --- Custom Validator for Supplier Contacts ---
 @ValidatorConstraint({ name: "isContactMandatoryForSupplier", async: false })
 export class IsContactMandatoryForSupplier
-  implements ValidatorConstraintInterface
-{
+  implements ValidatorConstraintInterface {
   validate(contacts: any[], args: ValidationArguments) {
     const object = args.object as CreateCustomerDto;
     if (object.customerType === "supplier") {
@@ -145,6 +144,14 @@ export class CustomerCreditInfoDto {
   @IsOptional()
   @IsNumber()
   paymentTerms?: number;
+
+  @ApiPropertyOptional({
+    description: "Acepta crédito",
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  acceptsCredit?: boolean;
 }
 
 // --- DTOs Principales ---
