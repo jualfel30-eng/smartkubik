@@ -5,10 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCrmContext } from '@/context/CrmContext';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, Calculator } from 'lucide-react';
+import { useExchangeRate } from '@/hooks/useExchangeRate';
 
 export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
   const { paymentMethods, loading: contextLoading } = useCrmContext();
+  const { rate: bcvRate } = useExchangeRate();
   const [payments, setPayments] = useState([]);
 
   useEffect(() => {
@@ -29,11 +31,29 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
     }
   }, [isOpen, totalAmount, paymentMethods, payments.length]);
 
+  /* 
+     IGTF Calculation Logic:
+     We need to calculate IGTF dynamically to know the REAL total required.
+     IGTF = 3% of payments made in foreign currency (IGTF applicable methods).
+  */
+  const igtf = useMemo(() => {
+    const foreignCurrencyAmount = payments
+      .filter(p => {
+        const methodDef = paymentMethods.find(m => m.id === p.method);
+        return methodDef?.igtfApplicable;
+      })
+      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    return foreignCurrencyAmount * 0.03;
+  }, [payments, paymentMethods]);
+
+  // The total amount the customer ACTUALLY needs to pay is Original Total + IGTF
+  const totalRequired = totalAmount + igtf;
+
   const totalPaid = useMemo(() =>
     payments.reduce((sum, p) => sum + Number(p.amount || 0), 0),
     [payments]);
 
-  const remaining = totalAmount - totalPaid;
+  const remaining = totalRequired - totalPaid;
 
   const handleAddPayment = () => {
     const defaultMethod = paymentMethods.find(pm => pm.id !== 'pago_mixto')?.id || '';
@@ -50,22 +70,12 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
     setPayments(prev => prev.filter(p => p.id !== id));
   };
 
-  const igtf = useMemo(() => {
-    console.log("DEBUG: PaymentMethods in Dialog:", paymentMethods);
-    const foreignCurrencyAmount = payments
-      .filter(p => {
-        const methodDef = paymentMethods.find(m => m.id === p.method);
-        console.log(`DEBUG: Checking method ${p.method}:`, methodDef);
-        return methodDef?.igtfApplicable;
-      })
-      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
-    return foreignCurrencyAmount * 0.03;
-  }, [payments, paymentMethods]);
+  /* igtf calculation moved up */
 
   const isSaveDisabled = useMemo(() => {
     if (payments.length === 0) return true;
     // Permitir una pequeña imprecisión para evitar problemas con decimales
-    if (Math.abs(totalPaid - totalAmount) > 0.01) return true;
+    if (Math.abs(remaining) > 0.01) return true;
     // Validar que cada línea tenga método y monto
     if (payments.some(p => !p.method || !p.amount || Number(p.amount) <= 0)) return true;
     return false;
@@ -83,47 +93,114 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[625px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[700px] flex flex-col h-[85vh] p-0 gap-0">
+        <DialogHeader className="p-6 pb-2">
           <DialogTitle>Registro de Pago Mixto</DialogTitle>
           <DialogDescription>
-            Añada o ajuste las formas de pago para cubrir el total de la orden: ${totalAmount.toFixed(2)}
+            Añada o ajuste las formas de pago. Tasa BCV: {bcvRate ? `Bs ${bcvRate}` : 'Cargando...'}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4 space-y-2 max-h-[60vh] overflow-y-auto">
-          {payments.map((line) => (
-            <div key={line.id} className="flex items-center gap-2 p-2 border rounded-lg">
-              <Select value={line.method} onValueChange={(v) => handleUpdatePayment(line.id, 'method', v)} disabled={contextLoading}>
-                <SelectTrigger><SelectValue placeholder="Método" /></SelectTrigger>
-                <SelectContent>{paymentMethods.map(m => m.id !== 'pago_mixto' && <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
-              </Select>
-              <Input type="number" placeholder="Monto" value={line.amount} onChange={(e) => handleUpdatePayment(line.id, 'amount', e.target.value)} />
-              <Input placeholder="Referencia" value={line.reference} onChange={(e) => handleUpdatePayment(line.id, 'reference', e.target.value)} />
-              <Button variant="ghost" size="icon" onClick={() => handleRemovePayment(line.id)}><X className="h-4 w-4 text-red-500" /></Button>
+        <div className="flex-1 overflow-y-auto p-6 pt-2 space-y-3">
+          {payments.map((line) => {
+            // Calculate remaining specifically for this line's context
+            // If I am editing this line, how much is left to reach the TotalRequired considering OTHER payments?
+            const otherPaymentsTotal = payments
+              .filter(p => p.id !== line.id)
+              .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+            // Re-calculate IGTF based on current state (it's already done in the hook above, but we rely on general 'remaining')
+            // Actually, 'remaining' var captures globally what is left.
+            // If I want to fill THIS line to complete the order:
+            // MyTarget = TotalRequired - OtherPayments. 
+            // BUT TotalRequired changes if I change MY amount (because of IGTF).
+            // This circular dependency is tricky. 
+            // For simple UX, we show what is currently 'remaining' + currentAmount as the "Target" for this field to close the deal.
+            // Or simpler: Just show the GLOBAL remaining current value as a hint of what's missing.
+
+            const lineRemaining = remaining + (Number(line.amount) || 0); // Logic: if I clear this field, how much is pending?
+            const lineRemainingBs = lineRemaining * (bcvRate || 0);
+
+            return (
+              <div key={line.id} className="p-3 border rounded-lg space-y-2 bg-card">
+                <div className="flex items-center gap-2">
+                  <Select value={line.method} onValueChange={(v) => handleUpdatePayment(line.id, 'method', v)} disabled={contextLoading}>
+                    <SelectTrigger className="w-[180px]"><SelectValue placeholder="Método" /></SelectTrigger>
+                    <SelectContent>{paymentMethods.map(m => m.id !== 'pago_mixto' && <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                  <div className="flex-1 space-y-1">
+                    <Input
+                      type="number"
+                      placeholder="Monto ($)"
+                      value={line.amount}
+                      onChange={(e) => handleUpdatePayment(line.id, 'amount', e.target.value)}
+                      className={remaining < -0.01 ? "border-red-500 focus-visible:ring-red-500" : ""}
+                    />
+                  </div>
+                  <Input className="w-[150px]" placeholder="Referencia" value={line.reference} onChange={(e) => handleUpdatePayment(line.id, 'reference', e.target.value)} />
+                  <Button variant="ghost" size="icon" onClick={() => handleRemovePayment(line.id)}><X className="h-4 w-4 text-red-500" /></Button>
+                </div>
+
+                {/* Helper Text for VES conversion */}
+                {lineRemaining > 0.01 && (
+                  <div
+                    className="text-xs text-muted-foreground pl-1 flex items-center gap-1 cursor-pointer hover:bg-muted/50 p-1 rounded transition-colors group"
+                    onClick={() => handleUpdatePayment(line.id, 'amount', lineRemaining.toFixed(2))}
+                    title="Clic para completar el monto restante"
+                  >
+                    <Calculator className="w-3 h-3 group-hover:text-blue-600" />
+                    <span>
+                      Faltan: <span className="font-medium text-blue-600 group-hover:underline">${lineRemaining.toFixed(2)}</span>
+                      {bcvRate > 0 && (
+                        <>
+                          {' '}≈{' '}
+                          <span className="font-medium text-green-600">Bs {lineRemainingBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </>
+                      )}
+                    </span>
+                    <span className="ml-auto text-[10px] text-blue-500 opacity-0 group-hover:opacity-100 font-medium">
+                      USAR TOTAL →
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          <Button variant="outline" size="sm" onClick={handleAddPayment} className="w-full border-dashed"><Plus className="h-4 w-4 mr-2" />Añadir línea de pago</Button>
+        </div>
+
+        <div className="p-6 bg-muted/30 border-t mt-auto space-y-4">
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between text-muted-foreground"><span>Total Orden:</span><span>${totalAmount.toFixed(2)}</span></div>
+            <div className="flex justify-between text-orange-600"><span>+ IGTF (3%):</span><span>${igtf.toFixed(2)}</span></div>
+            <div className="border-t pt-2 flex justify-between font-bold text-base"><span>Total a Pagar:</span><span>${totalRequired.toFixed(2)}</span></div>
+
+            <div className="flex justify-between font-medium"><span>Pagado:</span><span>${totalPaid.toFixed(2)}</span></div>
+
+            <div className={`flex justify-between font-bold text-lg ${remaining < -0.01 ? 'text-red-500' : (remaining > 0.01 ? 'text-blue-600' : 'text-green-600')}`}>
+              <span>Restante:</span>
+              <div className="text-right">
+                <div>${remaining.toFixed(2)}</div>
+                {remaining !== 0 && bcvRate > 0 && (
+                  <div className="text-sm font-normal text-muted-foreground">
+                    ≈ Bs {(remaining * bcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                )}
+              </div>
             </div>
-          ))}
-          <Button variant="outline" size="sm" onClick={handleAddPayment}><Plus className="h-4 w-4 mr-2" />Añadir línea de pago</Button>
-        </div>
-
-        <div className="p-4 bg-muted/50 rounded-lg space-y-2 text-sm">
-          <div className="flex justify-between font-semibold"><span>Total Pagado:</span><span>${totalPaid.toFixed(2)}</span></div>
-          <div className={`flex justify-between font-semibold ${remaining < -0.01 ? 'text-orange-500' : (remaining > 0.01 ? 'text-blue-500' : 'text-green-600')}`}>
-            <span>Restante:</span>
-            <span>${remaining.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-orange-600"><span>IGTF (3% sobre monto en divisa):</span><span>${igtf.toFixed(2)}</span></div>
-          {isSaveDisabled && payments.length > 0 && (
-            <p className="text-xs text-red-600 text-center pt-2">
-              El total pagado debe ser exactamente ${totalAmount.toFixed(2)}. Ajuste los montos para poder guardar.
-            </p>
-          )}
-        </div>
 
-        <DialogFooter>
-          <DialogClose asChild><Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button></DialogClose>
-          <Button type="button" onClick={handleSave} disabled={isSaveDisabled}>Guardar Pagos</Button>
-        </DialogFooter>
+          {isSaveDisabled && payments.length > 0 && Math.abs(remaining) > 0.01 && (
+            <div className="p-2 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 text-xs rounded text-center">
+              {remaining > 0 ? 'Falta cubrir el monto total.' : 'El monto pagado excede el total.'}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <DialogClose asChild><Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button></DialogClose>
+            <Button type="button" onClick={handleSave} disabled={isSaveDisabled}>Guardar Pagos</Button>
+          </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

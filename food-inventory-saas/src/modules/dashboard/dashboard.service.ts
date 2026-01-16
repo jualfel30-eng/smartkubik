@@ -102,7 +102,7 @@ export class DashboardService {
         {
           $unwind: {
             path: "$productInfo",
-            preserveNullAndEmptyArrays: true,
+            preserveNullAndEmptyArrays: false,
           },
         },
         {

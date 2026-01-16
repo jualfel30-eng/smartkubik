@@ -1443,9 +1443,11 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={item.unitOfMeasure || 'unidad'}>
-                          {item.unitOfMeasure || 'UD'}
-                        </SelectItem>
+                        {(!item.hasMultipleSellingUnits || !item.sellingUnits || item.sellingUnits.length === 0) && (
+                          <SelectItem value={item.unitOfMeasure || 'unidad'}>
+                            {item.unitOfMeasure || 'UD'}
+                          </SelectItem>
+                        )}
                         {item.sellingUnits.filter(u => u.isActive !== false).map((unit) => (
                           <SelectItem key={unit.abbreviation} value={unit.abbreviation}>
                             {unit.name} ({unit.abbreviation})
