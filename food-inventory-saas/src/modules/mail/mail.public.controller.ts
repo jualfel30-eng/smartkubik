@@ -68,8 +68,9 @@ export class MailPublicController {
 
             return { success: true, message: 'Message sent successfully' };
         } catch (error) {
-            this.logger.error(`Failed to send contact email: ${error.message}`, error.stack);
-            throw new HttpException('Failed to send message', HttpStatus.INTERNAL_SERVER_ERROR);
+            this.logger.error(`Failed to send contact email: ${error.message} - Stack: ${error.stack}`, error.stack);
+            console.error('Full Error Object:', error);
+            throw new HttpException(`Failed to send message: ${error.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 }
