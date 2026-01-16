@@ -2,15 +2,43 @@
 import { Body, Controller, Post, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { MailService } from './mail.service';
 
+import { IsString, IsEmail, IsOptional, IsEnum, IsNotEmpty } from 'class-validator';
+
 export class ContactFormDto {
+    @IsString()
+    @IsNotEmpty()
     name: string;
+
+    @IsEmail()
+    @IsNotEmpty()
     email: string;
+
+    @IsString()
+    @IsOptional()
     phone?: string;
+
+    @IsString()
+    @IsOptional()
     companyName?: string;
+
+    @IsString()
+    @IsOptional()
     vertical?: string;
+
+    @IsString()
+    @IsOptional()
     state?: string;
+
+    @IsString()
+    @IsOptional()
     city?: string;
+
+    @IsString()
+    @IsNotEmpty()
     message: string;
+
+    @IsEnum(['sales', 'general'])
+    @IsNotEmpty()
     type: 'sales' | 'general';
 }
 
