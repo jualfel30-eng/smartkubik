@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { toast } from 'sonner';
 import { fetchApi } from '@/lib/api';
 import { format } from 'date-fns';
-import { Loader2, RefreshCw, Plus } from 'lucide-react';
+import { Loader2, RefreshCw, Plus, ArrowRightLeft } from 'lucide-react';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
 
 const MOVEMENT_TYPES = [
@@ -18,6 +18,7 @@ const MOVEMENT_TYPES = [
   { value: 'IN', label: 'Entrada (IN)' },
   { value: 'OUT', label: 'Salida (OUT)' },
   { value: 'ADJUSTMENT', label: 'Ajuste (ADJUST)' },
+  { value: 'TRANSFER', label: 'Transferencia' },
 ];
 
 export default function InventoryMovementsPanel() {
@@ -41,6 +42,14 @@ export default function InventoryMovementsPanel() {
     movementType: 'ADJUSTMENT',
     quantity: 1,
     unitCost: 0,
+    reason: '',
+  });
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
+  const [transferForm, setTransferForm] = useState({
+    productId: '',
+    sourceWarehouseId: '',
+    destinationWarehouseId: '',
+    quantity: 1,
     reason: '',
   });
 
@@ -91,10 +100,11 @@ export default function InventoryMovementsPanel() {
     try {
       const [invRes, whRes] = await Promise.all([
         fetchApi('/inventory?limit=100'),
-        multiWarehouseEnabled ? fetchApi('/warehouses') : Promise.resolve({ data: [] }),
+        multiWarehouseEnabled ? fetchApi('/warehouses') : Promise.resolve([]),
       ]);
       setInventories(invRes?.data || invRes || []);
-      setWarehouses(whRes?.data || []);
+      // fetchApi returns the array directly, not wrapped in { data: [...] }
+      setWarehouses(Array.isArray(whRes) ? whRes : whRes?.data || []);
     } catch (err) {
       console.error('Error fetching inventories/warehouses', err);
     }
@@ -116,6 +126,16 @@ export default function InventoryMovementsPanel() {
     () => inventories.find((inv) => (inv._id || inv.id) === adjustForm.inventoryId),
     [inventories, adjustForm.inventoryId],
   );
+
+  // For transfers: find source inventory to show available stock
+  const sourceInventoryForTransfer = useMemo(() => {
+    if (!transferForm.productId || !transferForm.sourceWarehouseId) return null;
+    return inventories.find(
+      (inv) =>
+        (inv.productId === transferForm.productId || inv.product?._id === transferForm.productId) &&
+        (inv.warehouseId === transferForm.sourceWarehouseId || inv.warehouse?._id === transferForm.sourceWarehouseId),
+    );
+  }, [inventories, transferForm.productId, transferForm.sourceWarehouseId]);
 
   useEffect(() => {
     if (selectedInventory && !adjustForm.unitCost) {
@@ -181,6 +201,50 @@ export default function InventoryMovementsPanel() {
     }
   };
 
+  const handleOpenTransfer = () => {
+    setTransferForm({
+      productId: '',
+      sourceWarehouseId: '',
+      destinationWarehouseId: '',
+      quantity: 1,
+      reason: '',
+    });
+    setTransferModalOpen(true);
+  };
+
+  const handleSaveTransfer = async () => {
+    if (!transferForm.productId || !transferForm.sourceWarehouseId || !transferForm.destinationWarehouseId || !transferForm.quantity) {
+      toast.error('Completa producto, almacén origen, destino y cantidad');
+      return;
+    }
+    if (transferForm.sourceWarehouseId === transferForm.destinationWarehouseId) {
+      toast.error('El almacén origen y destino no pueden ser el mismo');
+      return;
+    }
+    setSaving(true);
+    try {
+      await fetchApi('/inventory-movements/transfers', {
+        method: 'POST',
+        body: JSON.stringify({
+          productId: transferForm.productId,
+          sourceWarehouseId: transferForm.sourceWarehouseId,
+          destinationWarehouseId: transferForm.destinationWarehouseId,
+          quantity: Number(transferForm.quantity),
+          reason: transferForm.reason || undefined,
+        }),
+      });
+      toast.success('Transferencia registrada');
+      setTransferModalOpen(false);
+      await fetchMovements();
+      await fetchAuxData();
+    } catch (err) {
+      console.error('Error creating transfer', err);
+      toast.error(err?.message || 'No se pudo registrar la transferencia');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -195,6 +259,12 @@ export default function InventoryMovementsPanel() {
             {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
             Refrescar
           </Button>
+          {multiWarehouseEnabled && warehouses.length >= 2 && (
+            <Button variant="outline" onClick={handleOpenTransfer}>
+              <ArrowRightLeft className="h-4 w-4 mr-2" />
+              Transferir
+            </Button>
+          )}
           <Button onClick={handleOpenAdjust}>
             <Plus className="h-4 w-4 mr-2" />
             Ajuste manual
@@ -428,6 +498,109 @@ export default function InventoryMovementsPanel() {
             <Button onClick={handleSaveAdjust} disabled={saving}>
               {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Transfer Modal */}
+      <Dialog open={transferModalOpen} onOpenChange={setTransferModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Transferencia entre almacenes</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label>Producto</Label>
+              <Select
+                value={transferForm.productId}
+                onValueChange={(v) => setTransferForm((prev) => ({ ...prev, productId: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona producto" />
+                </SelectTrigger>
+                <SelectContent>
+                  {productOptions.map((prod) => (
+                    <SelectItem key={prod.id} value={prod.id}>
+                      {prod.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Almacén origen</Label>
+                <Select
+                  value={transferForm.sourceWarehouseId}
+                  onValueChange={(v) => setTransferForm((prev) => ({ ...prev, sourceWarehouseId: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Origen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {warehouses.map((wh) => (
+                      <SelectItem key={wh._id || wh.id} value={wh._id || wh.id}>
+                        {wh.code} · {wh.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Almacén destino</Label>
+                <Select
+                  value={transferForm.destinationWarehouseId}
+                  onValueChange={(v) => setTransferForm((prev) => ({ ...prev, destinationWarehouseId: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Destino" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {warehouses
+                      .filter((wh) => (wh._id || wh.id) !== transferForm.sourceWarehouseId)
+                      .map((wh) => (
+                        <SelectItem key={wh._id || wh.id} value={wh._id || wh.id}>
+                          {wh.code} · {wh.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Cantidad</Label>
+                <NumberInput
+                  min={0.0001}
+                  step={0.01}
+                  value={transferForm.quantity ?? ''}
+                  onValueChange={(val) => setTransferForm((prev) => ({ ...prev, quantity: val }))}
+                  placeholder="Cantidad"
+                />
+                {sourceInventoryForTransfer && (
+                  <p className="text-xs text-muted-foreground">
+                    Disponible: {sourceInventoryForTransfer.availableQuantity ?? 0}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <Label>Razón (opcional)</Label>
+                <Input
+                  value={transferForm.reason}
+                  onChange={(e) => setTransferForm((prev) => ({ ...prev, reason: e.target.value }))}
+                  placeholder="Motivo de la transferencia"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTransferModalOpen(false)} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveTransfer} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Transferir
             </Button>
           </DialogFooter>
         </DialogContent>

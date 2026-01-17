@@ -14,6 +14,7 @@ import { Permissions } from "../../decorators/permissions.decorator";
 import { InventoryMovementsService } from "./inventory-movements.service";
 import {
   CreateInventoryMovementDto,
+  CreateTransferDto,
   InventoryMovementFilterDto,
 } from "../../dto/inventory-movement.dto";
 
@@ -38,5 +39,15 @@ export class InventoryMovementsController {
   @Permissions("inventory_read")
   async findAll(@Query() filters: InventoryMovementFilterDto, @Request() req) {
     return this.inventoryMovementsService.findAll(req.user.tenantId, filters);
+  }
+
+  @Post("transfers")
+  @Permissions("inventory_write")
+  async createTransfer(@Body() dto: CreateTransferDto, @Request() req) {
+    return this.inventoryMovementsService.createTransfer(
+      dto,
+      req.user.tenantId,
+      req.user.id,
+    );
   }
 }

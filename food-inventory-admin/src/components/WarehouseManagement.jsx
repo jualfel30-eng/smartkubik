@@ -13,7 +13,7 @@ import { Plus, Loader2, Pencil, Trash2 } from 'lucide-react';
 
 const emptyForm = { code: '', name: '', isDefault: false, isActive: true };
 
-export default function WarehouseManagement() {
+export default function WarehouseManagement({ onWarehousesChange }) {
   const [warehouses, setWarehouses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -31,7 +31,8 @@ export default function WarehouseManagement() {
     setLoading(true);
     try {
       const response = await fetchApi('/warehouses');
-      setWarehouses(response?.data || []);
+      // fetchApi returns the array directly, not wrapped in { data: [...] }
+      setWarehouses(Array.isArray(response) ? response : response?.data || []);
     } catch (err) {
       console.error('Error loading warehouses', err);
       toast.error('No se pudieron cargar los almacenes');
@@ -89,6 +90,7 @@ export default function WarehouseManagement() {
       }
       setModalOpen(false);
       await loadWarehouses();
+      onWarehousesChange?.();
     } catch (err) {
       console.error('Error saving warehouse', err);
       toast.error(err?.message || 'Error guardando almacén');
@@ -110,6 +112,7 @@ export default function WarehouseManagement() {
       });
       toast.success('Almacén eliminado');
       await loadWarehouses();
+      onWarehousesChange?.();
     } catch (err) {
       console.error('Error deleting warehouse', err);
       toast.error(err?.message || 'Error eliminando almacén');

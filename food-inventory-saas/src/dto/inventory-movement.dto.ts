@@ -16,6 +16,7 @@ export enum MovementType {
   IN = "IN",
   OUT = "OUT",
   ADJUSTMENT = "ADJUSTMENT",
+  TRANSFER = "TRANSFER",
 }
 
 export class CreateInventoryMovementDto {
@@ -80,4 +81,30 @@ export class InventoryMovementFilterDto {
   @Min(1)
   @Type(() => Number)
   page?: number;
+}
+
+export class CreateTransferDto {
+  @IsMongoId()
+  @IsNotEmpty()
+  productId: string;
+
+  @IsMongoId()
+  @IsNotEmpty()
+  sourceWarehouseId: string;
+
+  @IsMongoId()
+  @IsNotEmpty()
+  destinationWarehouseId: string;
+
+  @IsNumber()
+  @Min(0.0001)
+  quantity: number;
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @IsOptional()
+  @IsString()
+  reference?: string;
 }

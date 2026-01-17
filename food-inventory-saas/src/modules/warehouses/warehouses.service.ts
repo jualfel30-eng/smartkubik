@@ -76,7 +76,15 @@ export class WarehousesService {
       isDeleted: false,
     });
 
-    return warehouse.save();
+    const saved = await warehouse.save();
+    console.log('[WarehousesService] created warehouse:', JSON.stringify({
+      _id: saved._id,
+      code: saved.code,
+      tenantId: saved.tenantId,
+      isActive: saved.isActive,
+      isDeleted: saved.isDeleted,
+    }));
+    return saved;
   }
 
   async findAll(tenantId: string, includeInactive = false) {
@@ -84,7 +92,10 @@ export class WarehousesService {
     if (!includeInactive) {
       filter.isActive = true;
     }
-    return this.warehouseModel.find(filter).sort({ isDefault: -1 }).lean();
+    console.log('[WarehousesService] findAll filter:', JSON.stringify(filter));
+    const results = await this.warehouseModel.find(filter).sort({ isDefault: -1 }).lean();
+    console.log('[WarehousesService] findAll results:', results.length, 'warehouses');
+    return results;
   }
 
   async update(

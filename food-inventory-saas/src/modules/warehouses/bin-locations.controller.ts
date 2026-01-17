@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -10,20 +9,24 @@ import {
   Query,
   Request,
   UseGuards,
+  BadRequestException,
 } from "@nestjs/common";
-import { WarehousesService } from "./warehouses.service";
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
 import { Permissions } from "../../decorators/permissions.decorator";
-import { CreateWarehouseDto, UpdateWarehouseDto } from "../../dto/warehouse.dto";
 import { FeatureFlagsService } from "../../config/feature-flags.service";
+import {
+  BinLocationsService,
+  CreateBinLocationDto,
+  UpdateBinLocationDto,
+} from "./bin-locations.service";
 
-@Controller("warehouses")
+@Controller("bin-locations")
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
-export class WarehousesController {
+export class BinLocationsController {
   constructor(
-    private readonly warehousesService: WarehousesService,
+    private readonly binLocationsService: BinLocationsService,
     private readonly featureFlagsService: FeatureFlagsService,
   ) {}
 
@@ -31,39 +34,49 @@ export class WarehousesController {
     const isEnabled = await this.featureFlagsService.isFeatureEnabled("MULTI_WAREHOUSE");
     if (!isEnabled) {
       throw new BadRequestException(
-        "Multi-warehouse está deshabilitado. Contacta a soporte para activarlo.",
+        "Multi-warehouse está deshabilitado. Las ubicaciones bin requieren esta funcionalidad.",
       );
     }
+  }
+
+  @Post()
+  @Permissions("inventory_write")
+  async create(@Body() dto: CreateBinLocationDto, @Request() req) {
+    await this.ensureMultiWarehouseEnabled();
+    return this.binLocationsService.create(dto, req.user.tenantId, req.user.id);
   }
 
   @Get()
   @Permissions("inventory_read")
   async findAll(
+    @Query("warehouseId") warehouseId: string,
+    @Query("includeInactive") includeInactive: string,
     @Request() req,
-    @Query("includeInactive") includeInactive?: string,
   ) {
-    return this.warehousesService.findAll(
+    await this.ensureMultiWarehouseEnabled();
+    return this.binLocationsService.findAll(
       req.user.tenantId,
+      warehouseId,
       includeInactive === "true",
     );
   }
 
-  @Post()
-  @Permissions("inventory_write")
-  async create(@Body() dto: CreateWarehouseDto, @Request() req) {
+  @Get(":id")
+  @Permissions("inventory_read")
+  async findOne(@Param("id") id: string, @Request() req) {
     await this.ensureMultiWarehouseEnabled();
-    return this.warehousesService.create(dto, req.user.tenantId, req.user.id);
+    return this.binLocationsService.findOne(id, req.user.tenantId);
   }
 
   @Patch(":id")
   @Permissions("inventory_write")
   async update(
     @Param("id") id: string,
-    @Body() dto: UpdateWarehouseDto,
+    @Body() dto: UpdateBinLocationDto,
     @Request() req,
   ) {
     await this.ensureMultiWarehouseEnabled();
-    return this.warehousesService.update(
+    return this.binLocationsService.update(
       id,
       dto,
       req.user.tenantId,
@@ -75,7 +88,6 @@ export class WarehousesController {
   @Permissions("inventory_write")
   async delete(@Param("id") id: string, @Request() req) {
     await this.ensureMultiWarehouseEnabled();
-    await this.warehousesService.delete(id, req.user.tenantId);
-    return { message: "Warehouse deleted successfully" };
+    return this.binLocationsService.delete(id, req.user.tenantId);
   }
 }

@@ -1,10 +1,11 @@
 import { Injectable, BadRequestException, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
+import { v4 as uuidv4 } from "uuid";
 import { Inventory, InventoryDocument, InventoryMovement, InventoryMovementDocument } from "../../schemas/inventory.schema";
 import { Warehouse, WarehouseDocument } from "../../schemas/warehouse.schema";
 import { Product, ProductDocument } from "../../schemas/product.schema";
-import { CreateInventoryMovementDto, InventoryMovementFilterDto, MovementType } from "../../dto/inventory-movement.dto";
+import { CreateInventoryMovementDto, CreateTransferDto, InventoryMovementFilterDto, MovementType } from "../../dto/inventory-movement.dto";
 import { InventoryAlertsService } from "./inventory-alerts.service";
 
 @Injectable()
@@ -172,5 +173,213 @@ export class InventoryMovementsService {
 
     const totalPages = Math.max(1, Math.ceil(total / limit));
     return { data, pagination: { page, limit, total, totalPages } };
+  }
+
+  /**
+   * Creates a warehouse-to-warehouse transfer.
+   * This creates two linked movements: OUT from source and IN to destination.
+   */
+  async createTransfer(
+    dto: CreateTransferDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<{ transferId: string; outMovement: InventoryMovementDocument; inMovement: InventoryMovementDocument }> {
+    const tenantOid = new Types.ObjectId(tenantId);
+    const userOid = new Types.ObjectId(userId);
+    const productOid = new Types.ObjectId(dto.productId);
+    const sourceWarehouseOid = new Types.ObjectId(dto.sourceWarehouseId);
+    const destWarehouseOid = new Types.ObjectId(dto.destinationWarehouseId);
+
+    // Validate source and destination are different
+    if (dto.sourceWarehouseId === dto.destinationWarehouseId) {
+      throw new BadRequestException("El almacén origen y destino no pueden ser el mismo.");
+    }
+
+    // Validate source warehouse exists and is active
+    const sourceWarehouse = await this.warehouseModel.findOne({
+      _id: sourceWarehouseOid,
+      tenantId: tenantOid,
+      isDeleted: { $ne: true },
+    });
+    if (!sourceWarehouse) {
+      throw new NotFoundException("Almacén origen no encontrado.");
+    }
+    if (sourceWarehouse.isActive === false) {
+      throw new BadRequestException("Almacén origen está inactivo.");
+    }
+
+    // Validate destination warehouse exists and is active
+    const destWarehouse = await this.warehouseModel.findOne({
+      _id: destWarehouseOid,
+      tenantId: tenantOid,
+      isDeleted: { $ne: true },
+    });
+    if (!destWarehouse) {
+      throw new NotFoundException("Almacén destino no encontrado.");
+    }
+    if (destWarehouse.isActive === false) {
+      throw new BadRequestException("Almacén destino está inactivo.");
+    }
+
+    // Find source inventory (product in source warehouse)
+    const sourceInventory = await this.inventoryModel.findOne({
+      productId: productOid,
+      warehouseId: sourceWarehouseOid,
+      tenantId: tenantOid,
+    });
+    if (!sourceInventory) {
+      throw new NotFoundException("No existe inventario del producto en el almacén origen.");
+    }
+    if (sourceInventory.isActive === false) {
+      throw new BadRequestException("El inventario en almacén origen está inactivo.");
+    }
+
+    // Validate sufficient stock
+    const availableStock = sourceInventory.availableQuantity ?? 0;
+    if (availableStock < dto.quantity) {
+      throw new BadRequestException(
+        `Stock insuficiente. Disponible: ${availableStock}, Solicitado: ${dto.quantity}`,
+      );
+    }
+
+    // Find or create destination inventory
+    let destInventory = await this.inventoryModel.findOne({
+      productId: productOid,
+      warehouseId: destWarehouseOid,
+      tenantId: tenantOid,
+    });
+
+    if (!destInventory) {
+      // Create new inventory record for destination warehouse
+      destInventory = new this.inventoryModel({
+        productId: productOid,
+        warehouseId: destWarehouseOid,
+        productSku: sourceInventory.productSku,
+        productName: sourceInventory.productName,
+        variantId: sourceInventory.variantId,
+        variantSku: sourceInventory.variantSku,
+        totalQuantity: 0,
+        availableQuantity: 0,
+        reservedQuantity: 0,
+        committedQuantity: 0,
+        averageCostPrice: sourceInventory.averageCostPrice,
+        lastCostPrice: sourceInventory.lastCostPrice,
+        lots: [],
+        attributes: sourceInventory.attributes,
+        location: {
+          warehouse: destWarehouse.name,
+          zone: "",
+          aisle: "",
+          shelf: "",
+          bin: "",
+        },
+        alerts: {
+          lowStock: false,
+          nearExpiration: false,
+          expired: false,
+          overstock: false,
+        },
+        metrics: {
+          turnoverRate: 0,
+          daysOnHand: 0,
+          averageDailySales: 0,
+          seasonalityFactor: 1,
+        },
+        isActive: true,
+        createdBy: userOid,
+        tenantId: tenantOid,
+      });
+      await destInventory.save();
+    }
+
+    // Generate transfer ID to link movements
+    const transferId = uuidv4();
+    const unitCost = sourceInventory.averageCostPrice ?? 0;
+    const reason = dto.reason || `Transferencia de ${sourceWarehouse.name} a ${destWarehouse.name}`;
+
+    // Update source inventory (decrease stock)
+    sourceInventory.availableQuantity = (sourceInventory.availableQuantity ?? 0) - dto.quantity;
+    sourceInventory.totalQuantity = (sourceInventory.totalQuantity ?? 0) - dto.quantity;
+    await sourceInventory.save();
+
+    // Update destination inventory (increase stock)
+    destInventory.availableQuantity = (destInventory.availableQuantity ?? 0) + dto.quantity;
+    destInventory.totalQuantity = (destInventory.totalQuantity ?? 0) + dto.quantity;
+    await destInventory.save();
+
+    // Create OUT movement from source
+    const outMovement = new this.movementModel({
+      inventoryId: sourceInventory._id,
+      productId: productOid,
+      productSku: sourceInventory.productSku,
+      warehouseId: sourceWarehouseOid,
+      movementType: MovementType.TRANSFER,
+      quantity: dto.quantity,
+      unitCost,
+      totalCost: dto.quantity * unitCost,
+      reason,
+      reference: dto.reference,
+      transferId,
+      sourceWarehouseId: sourceWarehouseOid,
+      destinationWarehouseId: destWarehouseOid,
+      balanceAfter: {
+        totalQuantity: sourceInventory.totalQuantity,
+        availableQuantity: sourceInventory.availableQuantity,
+        reservedQuantity: sourceInventory.reservedQuantity,
+        averageCostPrice: sourceInventory.averageCostPrice,
+      },
+      createdBy: userOid,
+      tenantId: tenantOid,
+    });
+
+    // Create IN movement to destination
+    const inMovement = new this.movementModel({
+      inventoryId: destInventory._id,
+      productId: productOid,
+      productSku: destInventory.productSku,
+      warehouseId: destWarehouseOid,
+      movementType: MovementType.TRANSFER,
+      quantity: dto.quantity,
+      unitCost,
+      totalCost: dto.quantity * unitCost,
+      reason,
+      reference: dto.reference,
+      transferId,
+      sourceWarehouseId: sourceWarehouseOid,
+      destinationWarehouseId: destWarehouseOid,
+      balanceAfter: {
+        totalQuantity: destInventory.totalQuantity,
+        availableQuantity: destInventory.availableQuantity,
+        reservedQuantity: destInventory.reservedQuantity,
+        averageCostPrice: destInventory.averageCostPrice,
+      },
+      createdBy: userOid,
+      tenantId: tenantOid,
+    });
+
+    // Save both movements and link them
+    const savedOutMovement = await outMovement.save();
+    const savedInMovement = await inMovement.save();
+
+    // Link the movements to each other
+    savedOutMovement.linkedMovementId = savedInMovement._id;
+    savedInMovement.linkedMovementId = savedOutMovement._id;
+    await Promise.all([savedOutMovement.save(), savedInMovement.save()]);
+
+    // Evaluate alerts for both inventories
+    try {
+      await Promise.all([
+        this.inventoryAlertsService.evaluateForInventory(sourceInventory, { id: userId, tenantId }),
+        this.inventoryAlertsService.evaluateForInventory(destInventory, { id: userId, tenantId }),
+      ]);
+    } catch (err) {
+      console.warn(`No se pudo evaluar alertas post-transferencia: ${err.message}`);
+    }
+
+    return {
+      transferId,
+      outMovement: savedOutMovement,
+      inMovement: savedInMovement,
+    };
   }
 }

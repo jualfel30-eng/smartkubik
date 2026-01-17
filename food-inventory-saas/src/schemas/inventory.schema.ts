@@ -211,6 +211,19 @@ export class InventoryMovement {
   @Prop({ type: Types.ObjectId, ref: "Supplier" })
   supplierId?: Types.ObjectId;
 
+  // Transfer-related fields
+  @Prop({ type: String })
+  transferId?: string; // UUID linking OUT and IN movements of a transfer
+
+  @Prop({ type: Types.ObjectId, ref: "Warehouse" })
+  sourceWarehouseId?: Types.ObjectId; // Origin warehouse for transfers
+
+  @Prop({ type: Types.ObjectId, ref: "Warehouse" })
+  destinationWarehouseId?: Types.ObjectId; // Destination warehouse for transfers
+
+  @Prop({ type: Types.ObjectId, ref: "InventoryMovement" })
+  linkedMovementId?: Types.ObjectId; // Reference to the paired movement
+
   @Prop({ type: Object })
   balanceAfter: {
     totalQuantity: number;
@@ -268,3 +281,8 @@ InventoryMovementSchema.index({ orderId: 1, tenantId: 1 });
 InventoryMovementSchema.index({ supplierId: 1, createdAt: -1, tenantId: 1 });
 InventoryMovementSchema.index({ createdAt: -1, tenantId: 1 });
 InventoryMovementSchema.index({ lotNumber: 1, tenantId: 1 });
+
+// Índices para transferencias entre almacenes
+InventoryMovementSchema.index({ transferId: 1, tenantId: 1 });
+InventoryMovementSchema.index({ sourceWarehouseId: 1, tenantId: 1, createdAt: -1 });
+InventoryMovementSchema.index({ destinationWarehouseId: 1, tenantId: 1, createdAt: -1 });

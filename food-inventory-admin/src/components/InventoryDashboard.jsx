@@ -4,10 +4,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.j
 import ProductsManagementWithTabs from '@/components/ProductsManagementWithTabs.jsx';
 import InventoryManagement from '@/components/InventoryManagement.jsx';
 import ComprasManagement from '@/components/ComprasManagement.jsx';
-import WarehouseManagement from '@/components/WarehouseManagement.jsx';
+import WarehousesAndBinsManager from '@/components/WarehousesAndBinsManager.jsx';
 import InventoryMovementsPanel from '@/components/InventoryMovementsPanel.jsx';
 import InventoryAlertsPanel from '@/components/InventoryAlertsPanel.jsx';
-import InventoryStockSummary from '@/components/InventoryStockSummary.jsx';
 import SuppliersManagement from '@/components/SuppliersManagement.jsx';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
 
@@ -107,10 +106,7 @@ export default function InventoryDashboard() {
             </TabsContent>
             {multiWarehouseEnabled && (
               <TabsContent value="inventory-warehouses" className="mt-6">
-                <div className="space-y-6">
-                  <WarehouseManagement />
-                  <InventoryStockSummary />
-                </div>
+                <WarehousesAndBinsManager />
               </TabsContent>
             )}
           </Tabs>
