@@ -7,6 +7,7 @@ import { Service, ServiceDocument } from "../../schemas/service.schema";
 import { Resource, ResourceDocument } from "../../schemas/resource.schema";
 import { AppointmentsService } from "../appointments/appointments.service";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
+import { OrdersService } from "../orders/orders.service";
 import {
   AttributeDescriptor,
   VerticalProfile,
@@ -64,6 +65,24 @@ interface ServiceBookingArgs {
   acceptPolicies?: boolean;
 }
 
+interface CreateOrderArgs {
+  customer: {
+    name: string;
+    phone?: string;
+    rif?: string;
+    email?: string;
+  };
+  customerId?: string;
+  items: {
+    productId: string;
+    quantity: number;
+    variantId?: string;
+  }[];
+  deliveryMethod?: "pickup" | "delivery" | "store";
+  paymentMethod?: string;
+  notes?: string;
+}
+
 interface ModifyBookingArgs {
   appointmentId: string;
   cancellationCode: string;
@@ -114,8 +133,9 @@ export class AssistantToolsService {
     @InjectModel(Tenant.name)
     private readonly tenantModel: Model<TenantDocument>,
     private readonly appointmentsService: AppointmentsService,
+    private readonly ordersService: OrdersService,
     private readonly exchangeRateService: ExchangeRateService,
-  ) {}
+  ) { }
 
   async executeTool(
     tenantId: string,
@@ -153,6 +173,11 @@ export class AssistantToolsService {
           return await this.cancelServiceBooking(
             tenantId,
             rawArgs as CancelBookingArgs,
+          );
+        case "create_order":
+          return await this.create_order(
+            rawArgs as CreateOrderArgs,
+            tenantId,
           );
         default:
           this.logger.warn(`Tool "${toolName}" is not implemented.`);
@@ -815,24 +840,24 @@ export class AssistantToolsService {
       inventoryAttributes: (inventory as any).attributes || undefined,
       attributeCombination: attributeCombination
         ? {
-            attributes: attributeCombination.attributes,
-            availableQuantity: attributeCombination.availableQuantity,
-            reservedQuantity: attributeCombination.reservedQuantity,
-            committedQuantity: attributeCombination.committedQuantity,
-            totalQuantity: attributeCombination.totalQuantity,
-            averageCostPrice: attributeCombination.averageCostPrice,
-          }
+          attributes: attributeCombination.attributes,
+          availableQuantity: attributeCombination.availableQuantity,
+          reservedQuantity: attributeCombination.reservedQuantity,
+          committedQuantity: attributeCombination.committedQuantity,
+          totalQuantity: attributeCombination.totalQuantity,
+          averageCostPrice: attributeCombination.averageCostPrice,
+        }
         : undefined,
       attributeFiltersApplied: filtersApplied.length
         ? displayFilters
         : undefined,
       requestedMeasurement: requestedMeasurement
         ? {
-            quantity: requestedMeasurement.quantity,
-            unit: requestedMeasurement.unit,
-            normalizedUnit: requestedMeasurement.normalizedUnit,
-            source: requestedMeasurement.source,
-          }
+          quantity: requestedMeasurement.quantity,
+          unit: requestedMeasurement.unit,
+          normalizedUnit: requestedMeasurement.normalizedUnit,
+          source: requestedMeasurement.source,
+        }
         : undefined,
       pricing: pricingDetails || undefined,
     };
@@ -871,8 +896,8 @@ export class AssistantToolsService {
     const measurementUnitNormalized = requestedMeasurement?.normalizedUnit
       ? requestedMeasurement.normalizedUnit
       : UnitConversionUtil.normalizeWeightUnit(
-          requestedMeasurement?.unit || "",
-        );
+        requestedMeasurement?.unit || "",
+      );
     const priceUnitNormalized = UnitConversionUtil.normalizeWeightUnit(
       unitLabel || "",
     );
@@ -897,7 +922,7 @@ export class AssistantToolsService {
         (priceUnitNormalized ||
           (unitLabel &&
             unitLabel.toLowerCase() ===
-              (requestedMeasurement.unit || "").toLowerCase()))
+            (requestedMeasurement.unit || "").toLowerCase()))
       ) {
         if (priceUnitNormalized) {
           quantityInUnitPrice = UnitConversionUtil.convertWeight(
@@ -1000,12 +1025,12 @@ export class AssistantToolsService {
 
     const requestedDisplay =
       requestedMeasurement &&
-      typeof requestedMeasurement.quantity === "number" &&
-      requestedMeasurement.unit
+        typeof requestedMeasurement.quantity === "number" &&
+        requestedMeasurement.unit
         ? this.formatQuantityDisplay(
-            requestedMeasurement.quantity,
-            requestedMeasurement.unit,
-          )
+          requestedMeasurement.quantity,
+          requestedMeasurement.unit,
+        )
         : undefined;
 
     const baseDisplay =
@@ -1489,8 +1514,7 @@ export class AssistantToolsService {
         });
       } catch (error) {
         this.logger.warn(
-          `Availability check failed for service ${service._id.toString()} (tenant ${tenantId}): ${
-            (error as Error).message
+          `Availability check failed for service ${service._id.toString()} (tenant ${tenantId}): ${(error as Error).message
           }`,
         );
         matches.push({
@@ -1512,6 +1536,95 @@ export class AssistantToolsService {
       matches,
       timestamp: new Date().toISOString(),
     };
+  }
+
+  private async create_order(
+    args: CreateOrderArgs,
+    tenantId: string,
+    user?: any,
+  ) {
+    try {
+      this.logger.log(`Creating order for tenant ${tenantId}`);
+
+      // We need a user object for auditing (createdBy). If user is not present (e.g. public chat),
+      // we might need a system user or handle it.
+      // Assuming 'user' passed here is valid (it comes from the controller/gateway).
+      // If user is undefined, we construct a minimal one or defaults.
+
+      const orderUser = user || { id: "assistant-bot", tenantId };
+
+      const itemsWithResolvedIds = await Promise.all(
+        args.items.map(async (item) => {
+          let productId = item.productId;
+          // Check if productId is a valid ObjectId
+          if (!Types.ObjectId.isValid(productId)) {
+            this.logger.log(
+              `Invalid ObjectId '${productId}' for order item. Attempting lookup by name/sku...`,
+            );
+            // Try to find product by name or SKU
+            const safeRegex = new RegExp(this.escapeRegExp(productId), "i");
+            const product = await this.productModel
+              .findOne({
+                tenantId: new Types.ObjectId(tenantId),
+                $or: [
+                  { name: { $regex: safeRegex } },
+                  { sku: { $regex: safeRegex } },
+                  { "variants.sku": { $regex: safeRegex } },
+                ],
+              })
+              .select("_id")
+              .lean();
+
+            if (product) {
+              this.logger.log(
+                `Resolved product '${productId}' to ID ${product._id}`,
+              );
+              productId = product._id.toString();
+            } else {
+              this.logger.warn(
+                `Could not resolve product '${productId}' to a valid ID.`,
+              );
+              // Leave it as is, it might fail in ordersService but we tried.
+            }
+          }
+          return {
+            productId,
+            quantity: item.quantity,
+            variantId: item.variantId,
+          };
+        }),
+      );
+
+      const createOrderDto = {
+        items: itemsWithResolvedIds,
+        customerId: args.customerId,
+        customerName: args.customer?.name || "Cliente WhatsApp",
+        customerPhone: args.customer?.phone,
+        customerRif: args.customer?.rif, // If provided
+        taxType: "V", // Default or extract from string
+        customerAddress: "", // Optional
+        deliveryMethod: args.deliveryMethod || "pickup",
+        notes: args.paymentMethod
+          ? `${args.notes || ""} [Pago: ${args.paymentMethod}]`.trim()
+          : args.notes,
+        channel: "whatsapp",
+      };
+
+      const order = await this.ordersService.create(createOrderDto as any, orderUser);
+
+      return {
+        ok: true,
+        orderNumber: order.orderNumber,
+        totalAmount: order.totalAmount,
+        message: `Orden #${order.orderNumber} creada exitosamente. Total: $${order.totalAmount}.`,
+      };
+    } catch (error) {
+      this.logger.error(`Error creating order: ${error.message}`, error.stack);
+      return {
+        ok: false,
+        message: `No se pudo crear la orden: ${error.message}`,
+      };
+    }
   }
 
   private async createServiceBooking(

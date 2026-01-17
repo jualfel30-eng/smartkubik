@@ -9,10 +9,14 @@ import { ConfigService } from "@nestjs/config";
 import { Customer, CustomerDocument } from "../../schemas/customer.schema";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import { WhapiWebhookDto } from "../../dto/whapi.dto";
+import { SuperAdminService } from "../super-admin/super-admin.service";
 import {
   Configuration,
   MessagesApi,
   SendMessageTextRequest,
+  SendMessageInteractiveRequest,
+  SendMessageImageRequest,
+  SendMessageDocumentRequest,
 } from "../../lib/whapi-sdk/whapi-sdk-typescript-fetch";
 
 @Injectable()
@@ -23,7 +27,8 @@ export class WhapiService {
     @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>,
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     private readonly configService: ConfigService,
-  ) {}
+    private readonly superAdminService: SuperAdminService,
+  ) { }
 
   /**
    * Process incoming WhatsApp webhook from Whapi
@@ -541,6 +546,80 @@ export class WhapiService {
   }
 
   /**
+   * Send an interactive WhatsApp message (buttons, lists)
+   * @param tenantId - Tenant ID
+   * @param recipientPhone - Recipient phone number
+   * @param data - Interactive message payload
+   */
+  async sendInteractiveMessage(
+    tenantId: string,
+    recipientPhone: string,
+    data: {
+      body: string;
+      action: any;
+      header?: string;
+      footer?: string;
+    },
+  ): Promise<void> {
+    try {
+      const tenant = await this.tenantModel.findById(tenantId);
+      if (!tenant) throw new Error(`Tenant ${tenantId} not found`);
+
+      const accessToken = await this.resolveWhapiToken(tenant);
+      const normalizedPhone = this.normalizePhoneNumber(recipientPhone);
+
+      await this.dispatchWhatsAppInteractiveMessage(
+        accessToken,
+        normalizedPhone,
+        data,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to send interactive message to ${recipientPhone}: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Send a media WhatsApp message (image, document)
+   * @param tenantId - Tenant ID
+   * @param recipientPhone - Recipient phone number
+   * @param data - Media message payload
+   */
+  async sendMediaMessage(
+    tenantId: string,
+    recipientPhone: string,
+    data: {
+      mediaUrl: string;
+      mediaType: "image" | "document" | "video" | "audio";
+      caption?: string;
+      filename?: string;
+    },
+  ): Promise<void> {
+    try {
+      const tenant = await this.tenantModel.findById(tenantId);
+      if (!tenant) throw new Error(`Tenant ${tenantId} not found`);
+
+      const accessToken = await this.resolveWhapiToken(tenant);
+      const normalizedPhone = this.normalizePhoneNumber(recipientPhone);
+
+      await this.dispatchWhatsAppMediaMessage(
+        accessToken,
+        normalizedPhone,
+        data,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to send media message to ${recipientPhone}: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Send a generic WhatsApp text message
    * @param tenantId - Tenant ID
    * @param recipientPhone - Recipient phone number (format: +58XXXXXXXXXX)
@@ -581,18 +660,32 @@ export class WhapiService {
    * @param tenant - Tenant document
    * @returns WhatsApp API token
    */
-  private async resolveWhapiToken(tenant: TenantDocument): Promise<string> {
+  async resolveWhapiToken(tenant: TenantDocument): Promise<string> {
     // Try tenant-specific token first
     if (tenant?.whapiToken?.trim()) {
+      this.logger.debug(`Using tenant-specific token for tenant ${tenant.id}`);
       return tenant.whapiToken.trim();
     }
 
     // Fallback to master token from environment variables
-    const masterToken = this.configService.get<string>("WHAPI_MASTER_TOKEN");
+    let masterToken = this.configService.get<string>("WHAPI_MASTER_TOKEN");
+    let source = "ENV";
+
+    // If not in env, try database settings (SuperAdmin)
+    if (!masterToken?.trim()) {
+      const dbSetting =
+        await this.superAdminService.getSetting("WHAPI_MASTER_TOKEN");
+      masterToken = dbSetting?.value;
+      source = "DB (SuperAdmin)";
+    }
 
     if (masterToken?.trim()) {
-      this.logger.warn(
-        `Tenant ${tenant.id} is missing a dedicated WhatsApp token. Falling back to WHAPI_MASTER_TOKEN from env.`,
+      const masked =
+        masterToken.length > 8
+          ? `${masterToken.slice(0, 4)}...${masterToken.slice(-4)}`
+          : "***";
+      this.logger.log(
+        `Resolving WhatsApp token for tenant ${tenant.id}. Source: ${source}. Token: ${masked}`,
       );
       return masterToken.trim();
     }
@@ -643,6 +736,18 @@ export class WhapiService {
         );
 
         if (!isRetryable || attempt >= maxAttempts) {
+          if ((error as any)?.response) {
+            try {
+              const body = await (error as any).response.json();
+              this.logger.error(
+                `Whapi API Error: Status ${(error as any).response.status} - ${JSON.stringify(body)}`,
+              );
+            } catch (e) {
+              this.logger.error(
+                `Whapi API Error: Status ${(error as any).response.status} (Body parsing failed)`,
+              );
+            }
+          }
           this.logger.error(
             `Failed to send message via Whapi SDK after ${attempt} attempt(s): ${error.message}`,
             error.stack,
@@ -653,6 +758,84 @@ export class WhapiService {
         const backoffMs = 2000 * attempt;
         await new Promise((resolve) => setTimeout(resolve, backoffMs));
       }
+    }
+  }
+
+  private async dispatchWhatsAppInteractiveMessage(
+    accessToken: string,
+    recipientPhone: string,
+    data: {
+      body: string;
+      action: any;
+      header?: string;
+      footer?: string;
+    },
+  ): Promise<void> {
+    const config = new Configuration({ accessToken });
+    const messagesApi = new MessagesApi(config);
+
+    const request: SendMessageInteractiveRequest = {
+      senderInteractive: {
+        to: recipientPhone,
+        body: { text: data.body },
+        action: data.action,
+        header: data.header ? { text: data.header } : undefined,
+        footer: data.footer ? { text: data.footer } : undefined,
+      },
+    };
+
+    // Retry logic could be abstracted, but keeping it inline for now to match dispatchWhatsAppTextMessage pattern
+    const maxAttempts = 3;
+    let attempt = 0;
+    while (attempt < maxAttempts) {
+      attempt += 1;
+      try {
+        await messagesApi.sendMessageInteractive(request);
+        return;
+      } catch (error) {
+        if (attempt >= maxAttempts) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+      }
+    }
+  }
+
+  private async dispatchWhatsAppMediaMessage(
+    accessToken: string,
+    recipientPhone: string,
+    data: {
+      mediaUrl: string;
+      mediaType: "image" | "document" | "video" | "audio";
+      caption?: string;
+      filename?: string;
+    },
+  ): Promise<void> {
+    const config = new Configuration({ accessToken });
+    const messagesApi = new MessagesApi(config);
+
+    if (data.mediaType === "image") {
+      const request: SendMessageImageRequest = {
+        senderImage: {
+          to: recipientPhone,
+          media: data.mediaUrl,
+          caption: data.caption,
+        },
+      };
+      await messagesApi.sendMessageImage(request);
+    } else if (data.mediaType === "document") {
+      const request: SendMessageDocumentRequest = {
+        senderDocument: {
+          to: recipientPhone,
+          media: data.mediaUrl,
+          caption: data.caption,
+          filename: data.filename,
+        },
+      };
+      await messagesApi.sendMessageDocument(request);
+    } else {
+      // Fallback or todo for video/audio if needed
+      this.logger.warn(
+        `Media type ${data.mediaType} not yet fully implemented in dispatch`,
+      );
     }
   }
 

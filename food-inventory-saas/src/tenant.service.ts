@@ -190,6 +190,10 @@ export class TenantService {
       if (invoiceFormat) {
         updatePayload["settings.invoiceFormat"] = invoiceFormat;
       }
+      if (updateDto.settings.paymentMethods) {
+        updatePayload["settings.paymentMethods"] =
+          updateDto.settings.paymentMethods;
+      }
     }
 
     if (updateDto.verticalProfile) {

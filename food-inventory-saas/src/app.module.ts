@@ -116,10 +116,12 @@ import { CalendarsModule } from "./modules/calendars/calendars.module";
 import { ActivitiesModule } from "./modules/activities/activities.module";
 import { RemindersModule } from "./modules/reminders/reminders.module";
 import { TenantPaymentConfigModule } from "./modules/tenant-payment-config/tenant-payment-config.module";
+import { BinancePayModule } from "./modules/binance-pay/binance-pay.module";
 
 import { Redis } from "ioredis";
 
 let sharedRedisConnection: Redis | null = null;
+let sharedSecondaryRedisConnection: Redis | null = null;
 
 @Module({
   imports: [
@@ -330,6 +332,110 @@ let sharedRedisConnection: Redis | null = null;
           },
           inject: [ConfigService, getModelToken(GlobalSetting.name)],
         }),
+        BullModule.forRootAsync("secondary", {
+          imports: [ConfigModule],
+          useFactory: async (configService: ConfigService) => {
+            const prefix =
+              configService.get<string>("BULLMQ_PREFIX") || "food_inventory";
+            const defaultJobOptions = {
+              removeOnComplete: 200,
+              removeOnFail: 200,
+              attempts: 3,
+              backoff: {
+                type: "exponential",
+                delay: 3000,
+              },
+            };
+
+            // Return existing shared secondary connection if available
+            if (sharedSecondaryRedisConnection) {
+              return {
+                connection: sharedSecondaryRedisConnection,
+                prefix,
+                defaultJobOptions,
+              };
+            }
+
+            const secondaryUrl = configService
+              .get<string>("REDIS_URL_SECONDARY")
+              ?.trim();
+
+            if (!secondaryUrl) {
+              console.log(
+                "--- No REDIS_URL_SECONDARY found, falling back to PRIMARY for 'secondary' scope ---",
+              );
+              if (sharedRedisConnection) {
+                return { connection: sharedRedisConnection, prefix, defaultJobOptions };
+              }
+              return {
+                connection: new Redis(
+                  configService.get<string>("REDIS_URL") ||
+                  "redis://127.0.0.1:6379",
+                  { maxRetriesPerRequest: null, enableReadyCheck: false },
+                ),
+                prefix,
+                defaultJobOptions,
+              };
+            }
+
+            const buildConnectionConfig = (url: string) => {
+              let normalized = url.trim();
+              if (!normalized.includes("://")) {
+                normalized = `redis://${normalized}`;
+              }
+              const parsed = new URL(normalized);
+              const config: Record<string, any> = {
+                host: parsed.hostname,
+                port: parsed.port ? Number(parsed.port) : 6379,
+                maxRetriesPerRequest: null,
+                enableReadyCheck: false,
+              };
+              if (parsed.username) {
+                config.username = decodeURIComponent(parsed.username);
+              }
+              if (parsed.password) {
+                config.password = decodeURIComponent(parsed.password);
+              }
+              if (parsed.pathname && parsed.pathname !== "/") {
+                const dbValue = Number(parsed.pathname.replace("/", ""));
+                if (!Number.isNaN(dbValue)) {
+                  config.db = dbValue;
+                }
+              }
+              const tlsQuery =
+                parsed.searchParams.get("tls") ||
+                parsed.searchParams.get("ssl");
+              const forceTls =
+                parsed.protocol === "rediss:" ||
+                tlsQuery === "true" ||
+                parsed.hostname.endsWith(".redis-cloud.com");
+              if (forceTls) {
+                config.tls = {
+                  rejectUnauthorized: false,
+                  servername: parsed.hostname,
+                };
+              }
+              return config;
+            };
+
+            console.log(
+              "--- Initializing Shared Redis Connection (SECONDARY) ---",
+            );
+            sharedSecondaryRedisConnection = new Redis(
+              buildConnectionConfig(secondaryUrl),
+            );
+            sharedSecondaryRedisConnection.on("error", (err) =>
+              console.error("Secondary Redis Error:", err),
+            );
+
+            return {
+              connection: sharedSecondaryRedisConnection,
+              prefix,
+              defaultJobOptions,
+            };
+          },
+          inject: [ConfigService],
+        }),
       ]),
     FeatureFlagsGlobalModule,
     FeatureFlagsModule,
@@ -429,6 +535,7 @@ let sharedRedisConnection: Redis | null = null;
     ActivitiesModule,
     RemindersModule,
     TenantPaymentConfigModule,
+    BinancePayModule,
   ],
   controllers: [AppController, TenantController],
   providers: [

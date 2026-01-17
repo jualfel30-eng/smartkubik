@@ -16,6 +16,19 @@ export class PaymentMethodSetting {
 
   @Prop({ type: Boolean, required: true, default: false })
   igtfApplicable: boolean;
+
+  @Prop({ type: String })
+  instructions?: string;
+
+  @Prop({ type: Object })
+  details?: {
+    bank?: string;
+    accountNumber?: string;
+    accountName?: string;
+    cid?: string;
+    phoneNumber?: string;
+    email?: string;
+  };
 }
 
 const PaymentMethodSettingSchema =

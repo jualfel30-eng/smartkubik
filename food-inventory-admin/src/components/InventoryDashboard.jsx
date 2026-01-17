@@ -72,7 +72,7 @@ export default function InventoryDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-bold text-foreground">Gestión de Inventario</h2>
+        <h1 className="text-3xl font-bold text-foreground">Gestión de Inventario</h1>
         <p className="text-muted-foreground">Administra tus productos, niveles de stock y órdenes de compra.</p>
       </div>
       <Tabs value={getMainTab()} onValueChange={handleTabChange} className="w-full">

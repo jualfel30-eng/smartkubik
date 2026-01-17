@@ -322,7 +322,7 @@ export class OnboardingService {
         await this.mailService.sendTenantWelcomeEmail(dto.email, {
           businessName: dto.businessName,
           planName: tenantDoc.subscriptionPlan,
-          confirmationCode: tenantDoc.confirmationCode,
+          confirmationCode: tenantDoc.confirmationCode || "",
         });
 
         this.logger.log(

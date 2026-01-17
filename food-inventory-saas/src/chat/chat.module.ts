@@ -24,6 +24,7 @@ const queueImports =
     : [
       BullModule.registerQueue({
         name: ASSISTANT_MESSAGES_QUEUE,
+        configKey: 'secondary',
       }),
     ];
 

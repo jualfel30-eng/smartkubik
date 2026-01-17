@@ -3,16 +3,33 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCrmContext } from '@/context/CrmContext';
 import { fetchApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { Badge } from "@/components/ui/badge";
 
 export function ConfirmPaymentDialog({ isOpen, onClose, order, payment, paymentIndex, onSuccess }) {
+  const { paymentMethods, paymentMethodsLoading } = useCrmContext();
   const [bankAccounts, setBankAccounts] = useState([]);
   const [selectedMethod, setSelectedMethod] = useState('');
   const [selectedBankAccount, setSelectedBankAccount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Map payment method IDs to the names stored in bank accounts (Legacy Compatibility)
+  const mapPaymentMethodToName = (methodId) => {
+    const mapping = {
+      'efectivo_usd': 'Efectivo',
+      'efectivo_ves': 'Efectivo',
+      'transferencia_usd': 'Transferencia',
+      'transferencia_ves': 'Transferencia',
+      'zelle_usd': 'Zelle',
+      'pago_movil_ves': 'Pagomóvil',
+      'pos_ves': 'POS',
+      'tarjeta_ves': 'Tarjeta de Crédito',
+    };
+    return mapping[methodId] || methodId; // Fallback to ID if no mapping found
+  };
 
   useEffect(() => {
     if (isOpen && payment) {
@@ -98,21 +115,21 @@ export function ConfirmPaymentDialog({ isOpen, onClose, order, payment, paymentI
             )}
           </div>
 
-          {/* Selector de método de pago (puede cambiar) */}
+          {/* Selector de método de pago (Dynamic) */}
           <div className="space-y-2">
             <Label htmlFor="payment-method">Método de Pago Final *</Label>
-            <Select value={selectedMethod} onValueChange={setSelectedMethod} disabled={loading}>
+            <Select value={selectedMethod} onValueChange={setSelectedMethod} disabled={loading || paymentMethodsLoading}>
               <SelectTrigger id="payment-method">
                 <SelectValue placeholder="Seleccione el método usado" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Efectivo">Efectivo</SelectItem>
-                <SelectItem value="Tarjeta de Débito">Tarjeta de Débito</SelectItem>
-                <SelectItem value="Tarjeta de Crédito">Tarjeta de Crédito</SelectItem>
-                <SelectItem value="Transferencia">Transferencia</SelectItem>
-                <SelectItem value="Pagomóvil">Pagomóvil</SelectItem>
-                <SelectItem value="Zelle">Zelle</SelectItem>
-                <SelectItem value="POS">POS</SelectItem>
+                {paymentMethods.map((method) => (
+                  method.enabled && method.id !== 'pago_mixto' && (
+                    <SelectItem key={method.id} value={mapPaymentMethodToName(method.id)}>
+                      {method.name}
+                    </SelectItem>
+                  )
+                ))}
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">

@@ -11,6 +11,7 @@ import {
   Max,
   IsBoolean,
   IsIn,
+  IsNotEmpty,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { SanitizeString } from "../decorators/sanitize.decorator";
@@ -432,6 +433,77 @@ export class OrdersSettingsDto {
   enableCategoryFilter?: boolean;
 }
 
+export class PaymentMethodDetailsDto {
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  bank?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  accountNumber?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  accountName?: string; // Titular
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  cid?: string; // Cédula o RIF
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  phoneNumber?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  email?: string;
+}
+
+export class PaymentMethodSettingDto {
+  @ApiProperty({ example: "zelle_usd" })
+  @IsString()
+  @IsNotEmpty()
+  id: string;
+
+  @ApiProperty({ example: "Zelle (USD)" })
+  @IsString()
+  @IsNotEmpty()
+  @SanitizeString()
+  name: string;
+
+  @ApiProperty({ example: true })
+  @IsBoolean()
+  enabled: boolean;
+
+  @ApiProperty({ example: false })
+  @IsBoolean()
+  igtfApplicable: boolean;
+
+  @ApiProperty({ example: "Enviar pago al correo: ejemplo@mail.com", required: false })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  instructions?: string;
+
+  @ApiProperty({ type: PaymentMethodDetailsDto, required: false })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PaymentMethodDetailsDto)
+  details?: PaymentMethodDetailsDto;
+}
+
 export class OperationalSettingsDto {
   @ApiProperty({ type: CurrencySettingsDto })
   @IsOptional()
@@ -502,6 +574,12 @@ export class OperationalSettingsDto {
   @ValidateNested()
   @Type(() => PayrollSettingsDto)
   payroll?: PayrollSettingsDto;
+
+  @ApiProperty({ type: [PaymentMethodSettingDto] })
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => PaymentMethodSettingDto)
+  paymentMethods?: PaymentMethodSettingDto[];
 }
 
 export class UpdateTenantSettingsDto {

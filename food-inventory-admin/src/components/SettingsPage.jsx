@@ -19,6 +19,7 @@ import { useAuth } from '@/hooks/use-auth.jsx'; // Importar useAuth
 import TenantKnowledgeBaseManager from './TenantKnowledgeBaseManager';
 import EmailConfiguration from './EmailConfiguration'; // Importar EmailConfiguration
 import { BillingSettings } from './BillingSettings'; // Importar BillingSettings
+import { PaymentMethodsSettings } from './PaymentMethodsSettings'; // Importar PaymentMethodsSettings
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DEFAULT_VERTICAL_KEY, getVerticalProfile, listVerticalProfiles } from '@/config/verticalProfiles.js';
 
@@ -355,6 +356,7 @@ const SettingsPage = () => {
           <TabsTrigger value="delivery">Delivery</TabsTrigger>
           <TabsTrigger value="notifications">Notificaciones</TabsTrigger>
           <TabsTrigger value="email">Email</TabsTrigger>
+          <TabsTrigger value="payments">Pagos</TabsTrigger> {/* New Tab */}
           {tenant?.enabledModules?.chat && hasPermission('chat_read') && <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>}
           <TabsTrigger value="security">Seguridad</TabsTrigger>
           {hasPermission('users_read') && <TabsTrigger value="users">Usuarios</TabsTrigger>}
@@ -362,6 +364,9 @@ const SettingsPage = () => {
           {hasPermission('billing_read') && <TabsTrigger value="billing">Suscripción</TabsTrigger>}
           {hasPermission('billing_read') && <TabsTrigger value="billing-config">Facturación</TabsTrigger>}
         </TabsList>
+        <TabsContent value="payments" className="mt-10">
+          <PaymentMethodsSettings />
+        </TabsContent>
         <TabsContent value="general" className="mt-10">
           <div className="grid gap-6 lg:grid-cols-3">
             {/* General Info & Logo Column */}

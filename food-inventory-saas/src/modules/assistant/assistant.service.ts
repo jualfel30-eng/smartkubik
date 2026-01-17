@@ -232,6 +232,10 @@ const PROMOTION_KEYWORDS = [
   "outlet",
 ];
 
+import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
+
 @Injectable()
 export class AssistantService {
   private readonly logger = new Logger(AssistantService.name);
@@ -240,7 +244,9 @@ export class AssistantService {
     private readonly knowledgeBaseService: KnowledgeBaseService,
     private readonly openaiService: OpenaiService,
     private readonly assistantToolsService: AssistantToolsService,
-  ) {}
+    @InjectModel(Tenant.name)
+    private tenantModel: Model<TenantDocument>,
+  ) { }
 
   async answerQuestion(
     params: AssistantQuestionParams,
@@ -358,7 +364,9 @@ export class AssistantService {
       return this.buildFallbackResponse();
     }
 
-    const systemPrompt = this.buildSystemPrompt(capabilities);
+    // Fetch tenant settings to get payment methods
+    const tenantSettings = await this.tenantModel.findById(tenantIdStr).select('settings.paymentMethods').lean();
+    const systemPrompt = this.buildSystemPrompt(capabilities, tenantSettings?.settings?.paymentMethods);
     const baseContextBlock = contextHits.length
       ? this.buildContextBlock(contextHits)
       : "Sin fragmentos relevantes de la base de conocimiento.";
@@ -496,7 +504,34 @@ export class AssistantService {
     }
   }
 
-  private buildSystemPrompt(capabilities: AssistantCapabilities): string {
+  private buildSystemPrompt(capabilities: AssistantCapabilities, paymentMethods: any[] = []): string {
+    const enabledPaymentMethodsList = paymentMethods?.filter(m => m.enabled) || [];
+
+    // Format list for general acceptance
+    const enabledPaymentMethods = enabledPaymentMethodsList
+      .map(m => m.name)
+      .join(", ") || "Efectivo, Zelle, Transferencia";
+
+    // Format detailed instructions for the AI to answer "Where do I pay?"
+    const paymentDetailsConfig = enabledPaymentMethodsList.map(m => {
+      let detailsText = `${m.name}: `;
+      if (m.details) {
+        const d = m.details;
+        const parts: string[] = [];
+        if (d.bank) parts.push(`Banco: ${d.bank}`);
+        if (d.accountNumber) parts.push(`Cuenta: ${d.accountNumber}`);
+        if (d.accountName) parts.push(`Titular: ${d.accountName}`);
+        if (d.email) parts.push(`Email: ${d.email}`);
+        if (d.phoneNumber) parts.push(`Tlf: ${d.phoneNumber}`);
+        if (d.cid) parts.push(`ID/RIF: ${d.cid}`);
+        detailsText += parts.join(", ");
+      }
+      if (m.instructions) {
+        detailsText += ` (${m.instructions})`;
+      }
+      return detailsText;
+    }).join("\n- ");
+
     const instructions: string[] = [
       "Eres el asistente operativo oficial de SmartKubik.",
       "Debes responder siempre en español, con precisión y de forma concisa.",
@@ -507,9 +542,16 @@ export class AssistantService {
       "🔗 CONTINUIDAD DE PEDIDOS: Si el cliente está armando un pedido y menciona productos adicionales con frases como 'también quiero X', 'añade Y', 'y el Z?', mantén un resumen mental del pedido completo y muestra el total actualizado cada vez que agregue items.",
       "Mantén continuidad: si recibes un resumen de conversación previa o referencias recientes, retoma el hilo y evita pedir al cliente que repita información ya suministrada.",
       "📱 CLIENTES POR WHATSAPP: Muchos clientes interactúan contigo a través de WhatsApp. Cuando un cliente te escribe por primera vez, automáticamente se crea un perfil básico con su nombre y número. Sin embargo, para completar una orden de venta, necesitas información adicional.",
-      "📋 DATOS REQUERIDOS PARA ÓRDENES: Antes de crear una orden de venta, DEBES solicitar y confirmar los siguientes datos del cliente si no los tiene registrados: (1) Cédula o documento de identidad, (2) Método de pago preferido (efectivo, transferencia, tarjeta, etc.), (3) Dirección de entrega completa (si es delivery). Si el cliente ya tiene estos datos en su perfil, puedes proceder directamente.",
+      `📋 DATOS REQUERIDOS PARA ÓRDENES: Antes de crear una orden de venta, DEBES tener confirmados OBLIGATORIAMENTE estos 4 datos: (1) Nombre y Apellido, (2) Cédula o RIF, (3) Método de pago, (4) Método de entrega (pickup o delivery).`,
+      `💳 MÉTODOS DE PAGO ACEPTADOS: El comercio SOLO acepta: [${enabledPaymentMethods}].`,
+      `ℹ️ DATOS DE PAGO (Solo entrégalos si el cliente confirma que pagará con ese método):`,
+      `- ${paymentDetailsConfig}`,
+      "Si el cliente menciona otro método, indica amablemente que no está disponible.",
+      "NO asumas que ya tienes los datos. Si el usuario no te los da explícitamente, PÍDELOS amablemente antes de crear la orden.",
       "📍 UBICACIÓN PARA DELIVERY: Si el cliente quiere delivery, pídele que comparta su ubicación por WhatsApp. Esto es más preciso que escribir la dirección manualmente. Puedes decir: 'Para asegurar una entrega rápida, ¿podrías compartirme tu ubicación por WhatsApp?'. Una vez compartida, se guardará automáticamente.",
-      "💡 RECOPILACIÓN AMIGABLE: Solicita los datos faltantes de forma natural y amigable. Por ejemplo: 'Perfecto! Para completar tu pedido necesito algunos datos: ¿Me podrías indicar tu número de cédula y tu método de pago preferido (efectivo, transferencia, etc.)?'. No pidas todos los datos de golpe si el cliente está haciendo múltiples preguntas; espera el momento apropiado cuando muestre intención de compra.",
+      "💡 RECOPILACIÓN AMIGABLE: Solicita los datos faltantes de forma natural. Ejemplo: '¡Con gusto! Para generar tu orden necesito confirmar: ¿Cuál es tu nombre completo, cédula, y cómo te gustaría pagar (zelle, efectivo)?'.",
+      "🛒 CREACIÓN DE PEDIDOS: Una vez que el cliente haya confirmado los productos (y tengas sus datos requeridos), UTILIZA la herramienta `create_order` para generar el pedido inmediatamente.",
+      "Si la herramienta `get_inventory_status` devolvió `productId` (ID interno), úsalo. Si NO tienes el ID exacto, puedes enviar el NOMBRE o SKU del producto en el campo `productId` y el sistema intentará buscarlo automáticamente. NO le digas al cliente que 'no encuentras el producto' por falta de ID; intenta crearlo con el nombre exacto que tienes.",
     ];
 
     if (capabilities.inventoryLookup) {
@@ -763,10 +805,71 @@ export class AssistantService {
               },
             },
             required: ["customer"],
-            anyOf: [
-              { required: ["startTime"] },
-              { required: ["date", "time"] },
-            ],
+          },
+        },
+      });
+
+      tools.push({
+        type: "function",
+        function: {
+          name: "create_order",
+          description:
+            "Crea una orden de compra para un cliente (nuevo o existente) con los productos especificados.",
+          parameters: {
+            type: "object",
+            properties: {
+              customer: {
+                type: "object",
+                description: "Datos del cliente. Si es nuevo, intentar obtener nombre y teléfono/rif.",
+                properties: {
+                  name: { type: "string" },
+                  phone: { type: "string" },
+                  rif: { type: "string" },
+                  email: { type: "string" },
+                },
+                required: ["name", "rif"],
+              },
+              customerId: {
+                type: "string",
+                description: "ID del cliente si ya existe y se conoce (opcional).",
+              },
+              paymentMethod: {
+                type: "string",
+                description: "Método de pago confirmado por el cliente (ej: efectivo, zelle, pagomovil, punto).",
+              },
+              items: {
+                type: "array",
+                description: "Lista de productos a comprar.",
+                items: {
+                  type: "object",
+                  properties: {
+                    productId: {
+                      type: "string",
+                      description: "ID del producto (ObjectId) O Nombre/SKU del producto si no se tiene el ID exacto. El sistema buscará coincidencias.",
+                    },
+                    quantity: {
+                      type: "number",
+                      description: "Cantidad a comprar.",
+                    },
+                    variantId: {
+                      type: "string",
+                      description: "ID de la variante (opcional).",
+                    },
+                  },
+                  required: ["productId", "quantity"],
+                },
+              },
+              deliveryMethod: {
+                type: "string",
+                enum: ["pickup", "delivery", "store"],
+                description: "Método de entrega. Por defecto pickup.",
+              },
+              notes: {
+                type: "string",
+                description: "Notas adicionales para la orden.",
+              },
+            },
+            required: ["customer", "items", "paymentMethod", "deliveryMethod"],
           },
         },
       });
@@ -888,8 +991,8 @@ export class AssistantService {
         ) =>
           attributes && Object.keys(attributes).length
             ? Object.entries(attributes)
-                .map(([attrKey, attrValue]) => `${attrKey}: ${attrValue}`)
-                .join(", ")
+              .map(([attrKey, attrValue]) => `${attrKey}: ${attrValue}`)
+              .join(", ")
             : "";
 
         const lines = result.matches.map((match, index) => {
@@ -947,8 +1050,7 @@ export class AssistantService {
       return null;
     } catch (error) {
       this.logger.warn(
-        `Bootstrap inventory lookup failed for tenant ${tenantId}: ${
-          (error as Error).message
+        `Bootstrap inventory lookup failed for tenant ${tenantId}: ${(error as Error).message
         }`,
       );
       return null;
@@ -993,19 +1095,19 @@ export class AssistantService {
         const discountedLabel =
           typeof promotionInfo.discountedPrice === "number"
             ? this.formatCurrencyAmount(
-                promotionInfo.discountedPrice,
-                baseSymbol,
-                baseCode,
-              )
+              promotionInfo.discountedPrice,
+              baseSymbol,
+              baseCode,
+            )
             : pricing.formattedUnitPrice;
 
         const originalLabel =
           typeof promotionInfo.originalPrice === "number"
             ? this.formatCurrencyAmount(
-                promotionInfo.originalPrice,
-                baseSymbol,
-                baseCode,
-              )
+              promotionInfo.originalPrice,
+              baseSymbol,
+              baseCode,
+            )
             : undefined;
 
         let priceSegment = discountedLabel || "";
@@ -1036,11 +1138,9 @@ export class AssistantService {
             ? `Disponibles: ${promo.availableQuantity}`
             : "";
 
-        return `(${index + 1}) ${promo.productName}${
-          promo.brand ? ` (${promo.brand})` : ""
-        }${priceSegment ? ` → ${priceSegment}` : ""}${
-          discountSegment ? ` ${discountSegment}` : ""
-        }${vesSegment}${availability ? ` | ${availability}` : ""}`;
+        return `(${index + 1}) ${promo.productName}${promo.brand ? ` (${promo.brand})` : ""
+          }${priceSegment ? ` → ${priceSegment}` : ""}${discountSegment ? ` ${discountSegment}` : ""
+          }${vesSegment}${availability ? ` | ${availability}` : ""}`;
       });
 
       return [

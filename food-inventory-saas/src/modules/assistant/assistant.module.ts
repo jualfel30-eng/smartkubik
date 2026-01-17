@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { AssistantGateway } from "./assistant.gateway";
 import { AssistantService } from "./assistant.service";
@@ -13,6 +13,7 @@ import { Resource, ResourceSchema } from "../../schemas/resource.schema";
 import { AssistantToolsService } from "./assistant-tools.service";
 import { AppointmentsModule } from "../appointments/appointments.module";
 import { ExchangeRateModule } from "../exchange-rate/exchange-rate.module";
+import { OrdersModule } from "../orders/orders.module";
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { ExchangeRateModule } from "../exchange-rate/exchange-rate.module";
     OpenaiModule,
     AppointmentsModule,
     ExchangeRateModule,
+    forwardRef(() => OrdersModule),
     MongooseModule.forFeature([
       { name: Tenant.name, schema: TenantSchema },
       { name: Product.name, schema: ProductSchema },
@@ -32,4 +34,4 @@ import { ExchangeRateModule } from "../exchange-rate/exchange-rate.module";
   controllers: [AssistantController],
   exports: [AssistantService],
 })
-export class AssistantModule {}
+export class AssistantModule { }

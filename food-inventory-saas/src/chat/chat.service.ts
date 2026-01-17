@@ -121,7 +121,7 @@ export class ChatService {
     }
 
     const webhookUrl = `${baseUrl}/chat/whapi-webhook?tenantId=${tenantId}`;
-    const accessToken = await this.resolveWhapiToken(tenant);
+    const accessToken = await this.whapiService.resolveWhapiToken(tenant);
 
     try {
       const config = new Configuration({ accessToken });
@@ -199,7 +199,7 @@ export class ChatService {
         "WhatsApp is not configured for this tenant.",
       );
     }
-    const accessToken = await this.resolveWhapiToken(tenant);
+
 
     const conversation = await this.conversationModel
       .findById(data.conversationId)
@@ -216,11 +216,10 @@ export class ChatService {
     );
     this.chatGateway.emitNewMessage(tenantId, savedMessage);
 
-    await this.dispatchWhatsAppTextMessage(
-      accessToken,
+    await this.whapiService.sendWhatsAppMessage(
+      tenantId,
       conversation.customerPhoneNumber,
       data.content,
-      "manual",
     );
   }
 
@@ -249,7 +248,6 @@ export class ChatService {
     const tenant = await this.tenantModel.findById(tenantId).exec();
     if (!tenant) throw new NotFoundException("Tenant not found");
 
-    const accessToken = await this.resolveWhapiToken(tenant);
 
     const conversation = await this.conversationModel
       .findById(data.conversationId)
@@ -266,11 +264,10 @@ export class ChatService {
     );
     this.chatGateway.emitNewMessage(tenantId, savedMessage);
 
-    await this.dispatchWhatsAppInteractiveMessage(
-      accessToken,
+    await this.whapiService.sendInteractiveMessage(
+      tenantId,
       conversation.customerPhoneNumber,
       data,
-      "manual",
     );
   }
 
@@ -291,7 +288,6 @@ export class ChatService {
     const tenant = await this.tenantModel.findById(tenantId).exec();
     if (!tenant) throw new NotFoundException("Tenant not found");
 
-    const accessToken = await this.resolveWhapiToken(tenant);
 
     const conversation = await this.conversationModel
       .findById(data.conversationId)
@@ -307,11 +303,10 @@ export class ChatService {
     );
     this.chatGateway.emitNewMessage(tenantId, savedMessage);
 
-    await this.dispatchWhatsAppMediaMessage(
-      accessToken,
+    await this.whapiService.sendMediaMessage(
+      tenantId,
       conversation.customerPhoneNumber,
       data,
-      "manual",
     );
   }
 
@@ -577,7 +572,7 @@ export class ChatService {
     }
 
     try {
-      const accessToken = await this.resolveWhapiToken(tenant);
+
       const knowledgeBaseTenantId =
         tenant.aiAssistant?.knowledgeBaseTenantId?.trim() ||
         tenant.id.toString();
@@ -684,11 +679,10 @@ export class ChatService {
 
       this.chatGateway.emitNewMessage(tenant.id, assistantMessage);
 
-      await this.dispatchWhatsAppTextMessage(
-        accessToken,
+      await this.whapiService.sendWhatsAppMessage(
+        tenant.id,
         conversation.customerPhoneNumber,
         answer,
-        "assistant",
       );
 
       await this.updateConversationSummary(conversation._id);
@@ -746,158 +740,6 @@ export class ChatService {
       .exec();
   }
 
-  private async resolveWhapiToken(tenant: TenantDocument): Promise<string> {
-    if (tenant?.whapiToken?.trim()) {
-      return tenant.whapiToken.trim();
-    }
-
-    const masterTokenSetting =
-      await this.superAdminService.getSetting("WHAPI_MASTER_TOKEN");
-    const masterToken = masterTokenSetting?.value?.trim();
-
-    if (masterToken) {
-      this.logger.warn(
-        `Tenant ${tenant.id} is missing a dedicated WhatsApp token. Falling back to WHAPI_MASTER_TOKEN.`,
-      );
-      return masterToken;
-    }
-
-    throw new InternalServerErrorException(
-      "WhatsApp is not configured for this tenant.",
-    );
-  }
-
-  private async dispatchWhatsAppTextMessage(
-    accessToken: string,
-    recipientPhone: string,
-    body: string,
-    context: "manual" | "assistant",
-  ): Promise<void> {
-    const config = new Configuration({ accessToken });
-    const messagesApi = new MessagesApi(config);
-    const sendMessageTextRequest: SendMessageTextRequest = {
-      senderText: {
-        to: recipientPhone,
-        body,
-      },
-    };
-
-    await this.executeWhapiCall(
-      () => messagesApi.sendMessageText(sendMessageTextRequest),
-      recipientPhone,
-      context,
-    );
-  }
-
-  private async dispatchWhatsAppInteractiveMessage(
-    accessToken: string,
-    recipientPhone: string,
-    data: {
-      body: string;
-      action: any;
-      header?: string;
-      footer?: string;
-    },
-    context: "manual" | "assistant",
-  ): Promise<void> {
-    const config = new Configuration({ accessToken });
-    const messagesApi = new MessagesApi(config);
-
-    const request: SendMessageInteractiveRequest = {
-      senderInteractive: {
-        to: recipientPhone,
-        body: { text: data.body },
-        action: data.action,
-        header: data.header
-          ? { text: data.header }
-          : undefined,
-        footer: data.footer ? { text: data.footer } : undefined,
-      },
-    };
-
-    await this.executeWhapiCall(
-      () => messagesApi.sendMessageInteractive(request),
-      recipientPhone,
-      context,
-    );
-  }
-
-  private async dispatchWhatsAppMediaMessage(
-    accessToken: string,
-    recipientPhone: string,
-    data: {
-      mediaUrl: string;
-      mediaType: "image" | "document" | "video" | "audio";
-      caption?: string;
-      filename?: string;
-    },
-    context: "manual" | "assistant",
-  ): Promise<void> {
-    const config = new Configuration({ accessToken });
-    const messagesApi = new MessagesApi(config);
-
-    // Using 'as any' to bypass specific complex types for now if needed, but trying to adhere to structure
-    if (data.mediaType === "image") {
-      const request: SendMessageImageRequest = {
-        senderImage: {
-          to: recipientPhone,
-          media: data.mediaUrl as any, // Expecting URL string or string-like compatible with SDK
-          caption: data.caption,
-        },
-      };
-      await this.executeWhapiCall(
-        () => messagesApi.sendMessageImage(request),
-        recipientPhone,
-        context,
-      );
-    } else if (data.mediaType === "document") {
-      const request: SendMessageDocumentRequest = {
-        senderDocument: {
-          to: recipientPhone,
-          media: data.mediaUrl as any,
-          caption: data.caption,
-          filename: data.filename,
-        },
-      };
-      await this.executeWhapiCall(
-        () => messagesApi.sendMessageDocument(request),
-        recipientPhone,
-        context,
-      );
-    }
-    // Implement video/audio similarly if needed
-  }
-
-  private async executeWhapiCall(
-    apiCall: () => Promise<any>,
-    recipientPhone: string,
-    context: string,
-  ): Promise<void> {
-    const maxAttempts = 3;
-    const retryableErrors = new Set(["ETIMEDOUT", "ECONNRESET", "EPIPE"]);
-    let attempt = 0;
-
-    while (attempt < maxAttempts) {
-      attempt += 1;
-      try {
-        await apiCall();
-        this.logger.log(
-          `[${context}] Successfully sent message to ${recipientPhone} via Whapi SDK (attempt ${attempt})`,
-        );
-        return;
-      } catch (error) {
-        const code = (error as any)?.code;
-        const isRetryable = code && retryableErrors.has(code);
-        this.logger.warn(
-          `[${context}] Attempt ${attempt} failed: ${error.message}`,
-        );
-
-        if (!isRetryable || attempt >= maxAttempts) return;
-        await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
-      }
-    }
-  }
-
   private async saveMessage(
     conversation: ConversationDocument,
     tenantId: string,
@@ -928,3 +770,6 @@ export class ChatService {
     return savedMessage;
   }
 }
+
+
+

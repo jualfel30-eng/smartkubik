@@ -129,7 +129,14 @@ export class StorefrontService {
       );
     }
 
-    return config;
+    // Inject active payment methods from Tenant settings
+    const tenant = await this.tenantModel.findById(config.tenantId._id || config.tenantId);
+    const activePaymentMethods = tenant?.settings?.paymentMethods?.filter(m => m.enabled) || [];
+
+    return {
+      ...config.toObject(),
+      paymentMethods: activePaymentMethods
+    } as any;
   }
 
   /**
@@ -155,7 +162,14 @@ export class StorefrontService {
       );
     }
 
-    return config;
+    // Inject active payment methods from Tenant settings
+    const tenant = await this.tenantModel.findById(tenantId);
+    const activePaymentMethods = tenant?.settings?.paymentMethods?.filter(m => m.enabled) || [];
+
+    return {
+      ...config.toObject(),
+      paymentMethods: activePaymentMethods
+    } as any;
   }
 
   /**

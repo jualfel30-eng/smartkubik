@@ -106,11 +106,11 @@ export class BillingService {
             email: dto.customerData?.email || existingInvoice.customer?.email,
             phone: dto.customerData?.phone || existingInvoice.customer?.phone,
           };
-          existingInvoice.items = dto.items;
+          existingInvoice.items = dto.items as any;
           existingInvoice.totals = dto.totals;
-          existingInvoice.currency = dto.currency;
-          existingInvoice.exchangeRate = dto.exchangeRate;
-          existingInvoice.paymentMethod = dto.paymentMethod;
+          (existingInvoice as any).currency = dto.currency;
+          (existingInvoice as any).exchangeRate = dto.exchangeRate;
+          (existingInvoice as any).paymentMethod = dto.paymentMethod;
           existingInvoice.issueDate = dto.issueDate;
 
           await existingInvoice.save();

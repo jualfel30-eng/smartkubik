@@ -86,24 +86,41 @@ export class OrdersService {
     }
     const baseMethods = [
       { id: "efectivo_usd", name: "Efectivo (USD)", igtfApplicable: true },
-      {
-        id: "transferencia_usd",
-        name: "Transferencia (USD)",
-        igtfApplicable: true,
-      },
+      { id: "transferencia_usd", name: "Transferencia (USD)", igtfApplicable: true },
       { id: "zelle_usd", name: "Zelle (USD)", igtfApplicable: true },
       { id: "efectivo_ves", name: "Efectivo (VES)", igtfApplicable: false },
-      {
-        id: "transferencia_ves",
-        name: "Transferencia (VES)",
-        igtfApplicable: false,
-      },
+      { id: "transferencia_ves", name: "Transferencia (VES)", igtfApplicable: false },
       { id: "pago_movil_ves", name: "Pago Móvil (VES)", igtfApplicable: false },
       { id: "pos_ves", name: "Punto de Venta (VES)", igtfApplicable: false },
       { id: "tarjeta_ves", name: "Tarjeta (VES)", igtfApplicable: false },
       { id: "pago_mixto", name: "Pago Mixto", igtfApplicable: false },
     ];
 
+    // Check if tenant has customized payment methods
+    const configuredMethods = tenant.settings?.paymentMethods;
+
+    if (configuredMethods && configuredMethods.length > 0) {
+      // Filter base methods strictly based on enabled config AND merge details
+      const enabledMap = new Map(
+        configuredMethods.filter((m) => m.enabled).map((m) => [m.id, m])
+      );
+
+      const activeMethods = baseMethods
+        .filter((method) => enabledMap.has(method.id))
+        .map((method) => {
+          const config = enabledMap.get(method.id);
+          return {
+            ...method,
+            enabled: true,
+            instructions: config?.instructions,
+            details: config?.details
+          };
+        });
+
+      return { methods: activeMethods };
+    }
+
+    // Default fallback: return all base methods
     return { methods: baseMethods };
   }
 
@@ -515,6 +532,21 @@ export class OrdersService {
       this.logger.warn("Failed to get exchange rate, totalAmountVes will be 0");
     }
 
+    // Determine Fulfillment Type and Status
+    const fulfillmentType =
+      createOrderDto.deliveryMethod === "delivery" ||
+        createOrderDto.deliveryMethod === "envio_nacional"
+        ? createOrderDto.deliveryMethod === "envio_nacional"
+          ? "delivery_national"
+          : "delivery_local"
+        : createOrderDto.deliveryMethod === "pickup"
+          ? "pickup"
+          : "store";
+
+    // If it's a store sale, fulfillment is immediate
+    const fulfillmentStatus = fulfillmentType === "store" ? "delivered" : "pending";
+    const fulfillmentDate = fulfillmentType === "store" ? new Date() : undefined;
+
     const orderData: Partial<Order> = {
       orderNumber: await this.generateOrderNumber(user.tenantId),
       customerId: customer._id,
@@ -536,6 +568,10 @@ export class OrdersService {
       notes: createOrderDto.notes,
       channel: createOrderDto.channel,
       status: "pending",
+      // Fulfillment Fields
+      fulfillmentType,
+      fulfillmentStatus,
+      fulfillmentDate,
       inventoryReservation: { isReserved: false },
       createdBy: user.id,
       tenantId: user.tenantId,

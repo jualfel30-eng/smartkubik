@@ -16,6 +16,14 @@ import { CustomersService } from "../customers/customers.service";
 import { InventoryService } from "../inventory/inventory.service";
 import { PurchasesService } from "../purchases/purchases.service";
 import { SuppliersService } from "../suppliers/suppliers.service";
+import {
+  CreateProductDto,
+  UpdateProductDto,
+  ProductQueryDto,
+} from "../../dto/product.dto";
+import { CreateProductWithPurchaseDto } from "../../dto/composite.dto";
+import { CreateCustomerDto } from "../../dto/customer.dto";
+import { BulkCreateProductsDto } from "./dto/bulk-create-products.dto";
 
 @Injectable()
 export class ProductsService {
