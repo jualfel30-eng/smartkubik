@@ -21,10 +21,20 @@ export interface BulkUpdateCriteria {
   velocity?: 'high' | 'low' | 'all';
   ids?: string[]; // New: Support for specific product selection
   status?: 'active' | 'inactive' | 'all';
+
+  // === NEW: Supplier Payment Configuration Filters ===
+  // Filtra productos por la moneda de pago configurada en el proveedor
+  supplierPaymentCurrency?: string; // USD, USD_PARALELO, VES, EUR
+  // Filtra productos por método de pago preferido del proveedor
+  supplierPaymentMethod?: string; // zelle, efectivo_usd, transferencia_ves, pago_movil
+  // Filtra solo productos adquiridos a tasa paralela
+  usesParallelRate?: boolean;
+  // Filtra productos por múltiples proveedores
+  supplierIds?: string[];
 }
 
 export interface BulkPriceOperation {
-  type: "inflation_formula" | "margin_update" | "percentage_increase" | "promotion" | "fixed_price";
+  type: "inflation_formula" | "margin_update" | "percentage_increase" | "promotion" | "fixed_price" | "supplier_rate_adjustment";
   payload: {
     parallelRate?: number;
     bcvRate?: number;
@@ -34,6 +44,14 @@ export interface BulkPriceOperation {
     discountPercentage?: number;
     durationDays?: number;
     startDate?: Date;
+
+    // === NEW: Supplier Rate Adjustment Payload ===
+    // Para ajustar precios cuando un proveedor cambia sus tasas
+    oldRate?: number; // Tasa anterior del proveedor
+    newRate?: number; // Nueva tasa del proveedor
+    rateType?: 'parallel' | 'bcv' | 'custom'; // Tipo de tasa que cambió
+    adjustCostPrice?: boolean; // Si también actualizar el costPrice
+    preserveMargin?: boolean; // Mantener el margen actual al ajustar
   };
 }
 
@@ -341,8 +359,43 @@ export class PricingService {
       filter["suppliers.supplierId"] = new Types.ObjectId(criteria.supplierId);
     }
 
-    // Payment Method Filter (The "Smart" part)
-    if (criteria.paymentMethod) {
+    // Multiple Suppliers Filter
+    if (criteria.supplierIds && criteria.supplierIds.length > 0) {
+      filter["suppliers.supplierId"] = {
+        $in: criteria.supplierIds.map(id => new Types.ObjectId(id))
+      };
+    }
+
+    // === NEW: SUPPLIER PAYMENT CONFIGURATION FILTERS ===
+    // These filters work directly on the product's supplier configuration,
+    // NOT on purchase order history. This allows updating ALL products
+    // from suppliers that sell in a specific currency, regardless of
+    // whether they were recently purchased.
+
+    // Filter by supplier's payment currency (USD, USD_PARALELO, VES, EUR)
+    if (criteria.supplierPaymentCurrency) {
+      filter["suppliers.paymentCurrency"] = criteria.supplierPaymentCurrency;
+      console.log(`FILTER: Supplier Payment Currency = ${criteria.supplierPaymentCurrency}`);
+    }
+
+    // Filter by supplier's preferred payment method
+    if (criteria.supplierPaymentMethod) {
+      // Match products where ANY supplier uses this payment method
+      filter["$or"] = [
+        { "suppliers.preferredPaymentMethod": criteria.supplierPaymentMethod },
+        { "suppliers.acceptedPaymentMethods": criteria.supplierPaymentMethod }
+      ];
+      console.log(`FILTER: Supplier Payment Method = ${criteria.supplierPaymentMethod}`);
+    }
+
+    // Filter products acquired at parallel rate
+    if (criteria.usesParallelRate !== undefined) {
+      filter["suppliers.usesParallelRate"] = criteria.usesParallelRate;
+      console.log(`FILTER: Uses Parallel Rate = ${criteria.usesParallelRate}`);
+    }
+
+    // Legacy Payment Method Filter (from purchase orders - kept for backward compatibility)
+    if (criteria.paymentMethod && !criteria.supplierPaymentMethod && !criteria.supplierPaymentCurrency) {
       const productIds =
         await this.purchasesService.findProductIdsByPaymentMethod(
           tenantId,
@@ -476,6 +529,38 @@ export class PricingService {
         // Let's implement as a direct discount to base price for simplicity in this 'Pricing Engine' context.
         if (!operation.payload.discountPercentage) return null;
         newPrice = currentPrice * (1 - operation.payload.discountPercentage / 100);
+        break;
+
+      case "supplier_rate_adjustment":
+        // === NEW: Supplier Rate Adjustment ===
+        // Ajusta precios cuando un proveedor cambia su tasa de venta
+        // Ejemplo: Proveedor vendía a 50 Bs/$, ahora vende a 55 Bs/$
+        // Todos los productos de ese proveedor deben ajustarse proporcionalmente
+        const { oldRate, newRate, preserveMargin } = operation.payload;
+
+        if (!oldRate || !newRate || oldRate <= 0) {
+          return {
+            newPrice: currentPrice,
+            diffPercentage: 0,
+            hasError: true,
+            errorMessage: "Tasas inválidas"
+          };
+        }
+
+        // Calcular el factor de ajuste: newRate / oldRate
+        const adjustmentFactor = newRate / oldRate;
+
+        if (preserveMargin && costPrice > 0) {
+          // Calcular el margen actual
+          const currentMargin = (currentPrice - costPrice) / currentPrice;
+          // Ajustar el costo proporcionalmente
+          const newCost = costPrice * adjustmentFactor;
+          // Aplicar el mismo margen al nuevo costo
+          newPrice = newCost / (1 - currentMargin);
+        } else {
+          // Ajuste directo proporcional
+          newPrice = currentPrice * adjustmentFactor;
+        }
         break;
     }
 

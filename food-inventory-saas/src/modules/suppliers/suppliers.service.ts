@@ -7,7 +7,19 @@ import {
   CustomerDocument,
   CustomerContact,
 } from "../../schemas/customer.schema";
+import { Product, ProductDocument } from "../../schemas/product.schema";
 import { CreateSupplierDto } from "../../dto/supplier.dto";
+
+// Payment currency types for supplier configuration
+export type SupplierPaymentCurrency = 'USD' | 'USD_PARALELO' | 'VES' | 'EUR' | 'USD_BCV' | 'CUSTOM';
+
+// Interface for syncing payment config to products
+export interface SupplierPaymentConfig {
+  paymentCurrency: SupplierPaymentCurrency;
+  preferredPaymentMethod?: string;
+  acceptedPaymentMethods: string[];
+  usesParallelRate: boolean;
+}
 
 @Injectable()
 export class SuppliersService {
@@ -16,6 +28,7 @@ export class SuppliersService {
   constructor(
     @InjectModel(Supplier.name) private supplierModel: Model<SupplierDocument>,
     @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>,
+    @InjectModel(Product.name) private productModel: Model<ProductDocument>,
   ) { }
 
   async create(
@@ -249,6 +262,32 @@ export class SuppliersService {
 
     try {
       const updatedSupplier = await supplier.save();
+
+      // === AUTO-SYNC: Sync payment config to all linked products ===
+      if (updateSupplierDto.paymentSettings) {
+        const paymentCurrency = this.inferPaymentCurrency(
+          updateSupplierDto.paymentSettings.preferredPaymentMethod || supplier.paymentSettings?.preferredPaymentMethod
+        );
+        const usesParallelRate = this.inferUsesParallelRate(
+          updateSupplierDto.paymentSettings.preferredPaymentMethod || supplier.paymentSettings?.preferredPaymentMethod
+        );
+
+        // Sync to products in background (don't await to not slow down the update)
+        this.syncPaymentConfigToProducts(
+          id,
+          String(user.tenantId),
+          {
+            paymentCurrency,
+            preferredPaymentMethod: updateSupplierDto.paymentSettings.preferredPaymentMethod || supplier.paymentSettings?.preferredPaymentMethod,
+            acceptedPaymentMethods: updateSupplierDto.paymentSettings.acceptedPaymentMethods || supplier.paymentSettings?.acceptedPaymentMethods || [],
+            usesParallelRate
+          }
+        ).then(result => {
+          this.logger.log(`Auto-synced payment config to ${result.updatedCount} products for supplier ${id}`);
+        }).catch(err => {
+          this.logger.error(`Failed to auto-sync payment config for supplier ${id}: ${err.message}`);
+        });
+      }
 
       // --- DUAL UPDATE STRATEGY ---
       // Sync changes to the linked Customer profile to prevent data masking on read.
@@ -544,6 +583,308 @@ export class SuppliersService {
 
     // Fallback for legacy data without linked customer
     return plainSupplier;
+  }
+
+  // ============================================================
+  // === PRICING ENGINE INTEGRATION: Supplier Payment Methods ===
+  // ============================================================
+
+  /**
+   * Get suppliers grouped by their preferred payment currency
+   * Used by the pricing engine to show available filters
+   */
+  async getSuppliersByPaymentCurrency(tenantId: string): Promise<{
+    currency: string;
+    suppliers: { _id: string; name: string; productCount: number }[];
+  }[]> {
+    const suppliers = await this.supplierModel.find({
+      tenantId: String(tenantId),
+      status: 'active'
+    }).select('_id name paymentSettings').lean();
+
+    // Group by payment method (infer currency from preferred method)
+    const currencyGroups: Record<string, any[]> = {
+      'USD_PARALELO': [],
+      'USD': [],
+      'VES': [],
+      'EUR': [],
+    };
+
+    for (const supplier of suppliers) {
+      const preferredMethod = (supplier.paymentSettings as any)?.preferredPaymentMethod || '';
+
+      // Get product count for this supplier
+      const productCount = await this.productModel.countDocuments({
+        tenantId: new Types.ObjectId(tenantId),
+        'suppliers.supplierId': supplier._id
+      });
+
+      const supplierInfo = {
+        _id: supplier._id.toString(),
+        name: supplier.name,
+        productCount
+      };
+
+      // Infer currency from payment method
+      if (['zelle', 'efectivo_usd', 'binance_usdt'].includes(preferredMethod)) {
+        currencyGroups['USD_PARALELO'].push(supplierInfo);
+      } else if (['transferencia_int', 'paypal'].includes(preferredMethod)) {
+        currencyGroups['USD'].push(supplierInfo);
+      } else if (['pago_movil', 'transferencia_ves', 'bolivares_bcv'].includes(preferredMethod)) {
+        currencyGroups['VES'].push(supplierInfo);
+      } else {
+        // Default to USD_PARALELO for unknown methods (most common in Venezuela)
+        currencyGroups['USD_PARALELO'].push(supplierInfo);
+      }
+    }
+
+    return Object.entries(currencyGroups)
+      .filter(([_, suppliers]) => suppliers.length > 0)
+      .map(([currency, suppliers]) => ({
+        currency,
+        suppliers
+      }));
+  }
+
+  /**
+   * Get all suppliers that accept a specific payment method
+   */
+  async getSuppliersByPaymentMethod(
+    tenantId: string,
+    paymentMethod: string
+  ): Promise<{ _id: string; name: string; productCount: number }[]> {
+    const suppliers = await this.supplierModel.find({
+      tenantId: String(tenantId),
+      status: 'active',
+      $or: [
+        { 'paymentSettings.preferredPaymentMethod': paymentMethod },
+        { 'paymentSettings.acceptedPaymentMethods': paymentMethod }
+      ]
+    }).select('_id name').lean();
+
+    const result: { _id: string; name: string; productCount: number }[] = [];
+    for (const supplier of suppliers) {
+      const productCount = await this.productModel.countDocuments({
+        tenantId: new Types.ObjectId(tenantId),
+        'suppliers.supplierId': supplier._id
+      });
+
+      result.push({
+        _id: supplier._id.toString(),
+        name: supplier.name,
+        productCount
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * Sync supplier payment configuration to all linked products
+   * This ensures product.suppliers[].paymentCurrency reflects the supplier's actual config
+   */
+  async syncPaymentConfigToProducts(
+    supplierId: string,
+    tenantId: string,
+    paymentConfig: SupplierPaymentConfig
+  ): Promise<{ updatedCount: number }> {
+    this.logger.log(`Syncing payment config for supplier ${supplierId} to products`);
+
+    // Find all products that have this supplier in their suppliers array
+    const result = await this.productModel.updateMany(
+      {
+        tenantId: new Types.ObjectId(tenantId),
+        'suppliers.supplierId': new Types.ObjectId(supplierId)
+      },
+      {
+        $set: {
+          'suppliers.$[elem].paymentCurrency': paymentConfig.paymentCurrency,
+          'suppliers.$[elem].preferredPaymentMethod': paymentConfig.preferredPaymentMethod,
+          'suppliers.$[elem].acceptedPaymentMethods': paymentConfig.acceptedPaymentMethods,
+          'suppliers.$[elem].usesParallelRate': paymentConfig.usesParallelRate,
+          'suppliers.$[elem].paymentConfigSyncedAt': new Date()
+        }
+      },
+      {
+        arrayFilters: [{ 'elem.supplierId': new Types.ObjectId(supplierId) }]
+      }
+    );
+
+    this.logger.log(`Synced payment config to ${result.modifiedCount} products`);
+    return { updatedCount: result.modifiedCount };
+  }
+
+  /**
+   * Update supplier payment settings and sync to all linked products
+   */
+  async updatePaymentSettingsAndSync(
+    supplierId: string,
+    tenantId: string,
+    userId: string,
+    paymentSettings: {
+      preferredPaymentMethod?: string;
+      acceptedPaymentMethods?: string[];
+      paymentCurrency?: SupplierPaymentCurrency;
+      usesParallelRate?: boolean;
+    }
+  ): Promise<{ supplier: any; syncedProducts: number }> {
+    // 1. Update the supplier
+    const supplier = await this.supplierModel.findOne({
+      _id: supplierId,
+      tenantId: String(tenantId)
+    });
+
+    if (!supplier) {
+      throw new NotFoundException(`Proveedor con ID ${supplierId} no encontrado`);
+    }
+
+    // Update payment settings
+    if (!supplier.paymentSettings) {
+      supplier.paymentSettings = {} as any;
+    }
+
+    if (paymentSettings.preferredPaymentMethod !== undefined) {
+      supplier.paymentSettings.preferredPaymentMethod = paymentSettings.preferredPaymentMethod;
+    }
+    if (paymentSettings.acceptedPaymentMethods !== undefined) {
+      supplier.paymentSettings.acceptedPaymentMethods = paymentSettings.acceptedPaymentMethods;
+    }
+
+    await supplier.save();
+
+    // 2. Determine payment currency based on preferred method
+    const paymentCurrency = paymentSettings.paymentCurrency ||
+      this.inferPaymentCurrency(paymentSettings.preferredPaymentMethod || supplier.paymentSettings.preferredPaymentMethod);
+
+    // 3. Determine if uses parallel rate
+    const usesParallelRate = paymentSettings.usesParallelRate !== undefined
+      ? paymentSettings.usesParallelRate
+      : this.inferUsesParallelRate(paymentSettings.preferredPaymentMethod || supplier.paymentSettings.preferredPaymentMethod);
+
+    // 4. Sync to products
+    const syncResult = await this.syncPaymentConfigToProducts(
+      supplierId,
+      tenantId,
+      {
+        paymentCurrency,
+        preferredPaymentMethod: paymentSettings.preferredPaymentMethod || supplier.paymentSettings.preferredPaymentMethod,
+        acceptedPaymentMethods: paymentSettings.acceptedPaymentMethods || supplier.paymentSettings.acceptedPaymentMethods || [],
+        usesParallelRate
+      }
+    );
+
+    return {
+      supplier: this.mapSupplier(supplier, null),
+      syncedProducts: syncResult.updatedCount
+    };
+  }
+
+  /**
+   * Infer payment currency from payment method
+   */
+  private inferPaymentCurrency(paymentMethod?: string): SupplierPaymentCurrency {
+    if (!paymentMethod) return 'USD_PARALELO';
+
+    const parallelMethods = ['zelle', 'efectivo_usd', 'binance_usdt', 'binance', 'payoneer'];
+    const vesMethods = ['pago_movil', 'transferencia_ves', 'bolivares_bcv', 'efectivo_ves'];
+    const usdBcvMethods = ['transferencia_bcv', 'dolares_bcv'];
+
+    if (parallelMethods.includes(paymentMethod)) return 'USD_PARALELO';
+    if (vesMethods.includes(paymentMethod)) return 'VES';
+    if (usdBcvMethods.includes(paymentMethod)) return 'USD_BCV';
+
+    return 'USD_PARALELO'; // Default for Venezuela
+  }
+
+  /**
+   * Infer if supplier uses parallel rate based on payment method
+   */
+  private inferUsesParallelRate(paymentMethod?: string): boolean {
+    if (!paymentMethod) return true;
+
+    const parallelMethods = ['zelle', 'efectivo_usd', 'binance_usdt', 'binance', 'payoneer', 'paypal'];
+    return parallelMethods.includes(paymentMethod);
+  }
+
+  /**
+   * Get products by supplier payment currency
+   * Used directly by the pricing engine
+   */
+  async getProductIdsBySupplierPaymentCurrency(
+    tenantId: string,
+    paymentCurrency: SupplierPaymentCurrency
+  ): Promise<string[]> {
+    const products = await this.productModel.find({
+      tenantId: new Types.ObjectId(tenantId),
+      'suppliers.paymentCurrency': paymentCurrency
+    }).select('_id').lean();
+
+    return products.map(p => p._id.toString());
+  }
+
+  /**
+   * Get products by supplier payment method
+   * Used directly by the pricing engine
+   */
+  async getProductIdsBySupplierPaymentMethod(
+    tenantId: string,
+    paymentMethod: string
+  ): Promise<string[]> {
+    const products = await this.productModel.find({
+      tenantId: new Types.ObjectId(tenantId),
+      $or: [
+        { 'suppliers.preferredPaymentMethod': paymentMethod },
+        { 'suppliers.acceptedPaymentMethods': paymentMethod }
+      ]
+    }).select('_id').lean();
+
+    return products.map(p => p._id.toString());
+  }
+
+  /**
+   * Bulk sync all suppliers' payment config to their products
+   * Useful for initial migration or data cleanup
+   */
+  async bulkSyncAllSuppliersPaymentConfig(tenantId: string): Promise<{
+    suppliersProcessed: number;
+    totalProductsUpdated: number;
+  }> {
+    this.logger.log(`Starting bulk sync of supplier payment configs for tenant ${tenantId}`);
+
+    const suppliers = await this.supplierModel.find({
+      tenantId: String(tenantId)
+    }).select('_id paymentSettings').lean();
+
+    let totalProductsUpdated = 0;
+
+    for (const supplier of suppliers) {
+      const paymentCurrency = this.inferPaymentCurrency(
+        (supplier.paymentSettings as any)?.preferredPaymentMethod
+      );
+      const usesParallelRate = this.inferUsesParallelRate(
+        (supplier.paymentSettings as any)?.preferredPaymentMethod
+      );
+
+      const result = await this.syncPaymentConfigToProducts(
+        supplier._id.toString(),
+        tenantId,
+        {
+          paymentCurrency,
+          preferredPaymentMethod: (supplier.paymentSettings as any)?.preferredPaymentMethod,
+          acceptedPaymentMethods: (supplier.paymentSettings as any)?.acceptedPaymentMethods || [],
+          usesParallelRate
+        }
+      );
+
+      totalProductsUpdated += result.updatedCount;
+    }
+
+    this.logger.log(`Bulk sync completed: ${suppliers.length} suppliers, ${totalProductsUpdated} products updated`);
+
+    return {
+      suppliersProcessed: suppliers.length,
+      totalProductsUpdated
+    };
   }
 }
 

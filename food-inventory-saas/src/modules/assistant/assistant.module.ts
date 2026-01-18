@@ -14,6 +14,9 @@ import { AssistantToolsService } from "./assistant-tools.service";
 import { AppointmentsModule } from "../appointments/appointments.module";
 import { ExchangeRateModule } from "../exchange-rate/exchange-rate.module";
 import { OrdersModule } from "../orders/orders.module";
+import { DashboardModule } from "../dashboard/dashboard.module";
+import { InventoryModule } from "../inventory/inventory.module";
+import { AnalyticsModule } from "../analytics/analytics.module";
 
 @Module({
   imports: [
@@ -22,6 +25,10 @@ import { OrdersModule } from "../orders/orders.module";
     AppointmentsModule,
     ExchangeRateModule,
     forwardRef(() => OrdersModule),
+    DashboardModule,
+
+    InventoryModule,
+    AnalyticsModule,
     MongooseModule.forFeature([
       { name: Tenant.name, schema: TenantSchema },
       { name: Product.name, schema: ProductSchema },

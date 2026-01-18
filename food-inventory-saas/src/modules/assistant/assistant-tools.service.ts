@@ -14,7 +14,9 @@ import {
   getVerticalProfile,
 } from "../../config/vertical-profiles";
 import { UnitConversionUtil } from "../../utils/unit-conversion.util";
+import { InventoryService } from "../inventory/inventory.service";
 import { ExchangeRateService } from "../exchange-rate/exchange-rate.service";
+import { DashboardService } from "../dashboard/dashboard.service";
 import {
   PublicCreateAppointmentDto,
   PublicRescheduleAppointmentDto,
@@ -117,6 +119,8 @@ interface AssistantTenantContext {
   };
 }
 
+import { AnalyticsService } from "../analytics/analytics.service";
+
 @Injectable()
 export class AssistantToolsService {
   private readonly logger = new Logger(AssistantToolsService.name);
@@ -134,13 +138,17 @@ export class AssistantToolsService {
     private readonly tenantModel: Model<TenantDocument>,
     private readonly appointmentsService: AppointmentsService,
     private readonly ordersService: OrdersService,
+    private readonly inventoryService: InventoryService,
     private readonly exchangeRateService: ExchangeRateService,
+    private readonly dashboardService: DashboardService,
+    private readonly analyticsService: AnalyticsService,
   ) { }
 
   async executeTool(
     tenantId: string,
     toolName: string,
     rawArgs: Record<string, any>,
+    user?: any, // UserDocument or null
   ): Promise<Record<string, any>> {
     try {
       switch (toolName) {
@@ -148,6 +156,7 @@ export class AssistantToolsService {
           return await this.lookupProductInventory(
             tenantId,
             rawArgs as InventoryLookupArgs,
+            user,
           );
         case "list_active_promotions":
           return await this.listActivePromotions(
@@ -179,6 +188,10 @@ export class AssistantToolsService {
             rawArgs as CreateOrderArgs,
             tenantId,
           );
+        case "get_business_kpis":
+          return await this.getBusinessKPIs(tenantId, user);
+        case "list_inventory":
+          return await this.listInventorySummary(tenantId, user, rawArgs);
         default:
           this.logger.warn(`Tool "${toolName}" is not implemented.`);
           return {
@@ -200,9 +213,94 @@ export class AssistantToolsService {
     }
   }
 
+  private async getBusinessKPIs(tenantId: string, user?: any): Promise<Record<string, any>> {
+    if (!user) {
+      return {
+        ok: false,
+        message: "Acceso denegado. Esta herramienta es solo para empleados autorizados.",
+      };
+    }
+
+    try {
+      // Mock user context for DashboardService which expects { tenantId }
+      const dashboardData = await this.dashboardService.getSummary({ tenantId });
+
+      // Fetch Analytics Data (Trends & Performance) - Parallel Execution
+      const [salesTrend, performanceSummary, profitAndLoss] = await Promise.all([
+        this.analyticsService.getSalesTrend(tenantId, '30d').catch(err => ({ comparison: null, categories: [] })),
+        this.analyticsService.getPerformanceSummary(tenantId, '30d').catch(err => []),
+        this.analyticsService.getProfitAndLoss(tenantId, '30d').catch(err => ({ summary: { revenueTotal: 0, expenseTotal: 0, netIncome: 0 } }))
+      ]);
+
+      const kpis = {
+        ventas_hoy: {
+          monto: dashboardData.salesToday,
+          ordenes: dashboardData.ordersToday
+        },
+        inventario: {
+          costo_total: dashboardData.inventoryValue.totalCostValue,
+          valor_venta: dashboardData.inventoryValue.totalRetailValue,
+          ganancia_potencial: dashboardData.inventoryValue.potentialProfit,
+          items_en_stock: dashboardData.productsInStock,
+          alertas: dashboardData.inventoryAlerts.length
+        },
+        clientes_activos: dashboardData.activeCustomers,
+        top_productos: await this.ordersService.getTopSellingProducts(tenantId, 5),
+        rotacion_inventario: await this.dashboardService.getProductRotation(tenantId),
+        analitica_avanzada_30d: {
+          tendencia_ventas: salesTrend.comparison,
+          top_categorias: (salesTrend.categories || []).slice(0, 5),
+          rendimiento_equipo: Array.isArray(performanceSummary) ? performanceSummary.map(u => ({ usuario: u.userName, ventas: u.totalSales, ordenes: u.numberOfOrders })).slice(0, 5) : [],
+          finanzas: {
+            ingresos: profitAndLoss.summary?.revenueTotal || 0,
+            gastos: profitAndLoss.summary?.expenseTotal || 0,
+            ganancia_neta: profitAndLoss.summary?.netIncome || 0
+          }
+        },
+        ordenes_recientes: dashboardData.recentOrders.map((o: any) => ({
+          id: o.orderNumber,
+          cliente: o.customerName,
+          total: o.totalAmount,
+          estado: o.status
+        }))
+      };
+      return {
+        ok: true,
+        kpis,
+        message: "Datos operativos obtenidos exitosamente.",
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      this.logger.error(`Error fetching business KPIs: ${(error as Error).message}`);
+      return {
+        ok: false,
+        message: "Error al obtener métricas del negocio.",
+      }
+    }
+  }
+
+  private async listInventorySummary(tenantId: string, user: any, args: any): Promise<Record<string, any>> {
+    if (!user) {
+      return { ok: false, message: "Acceso denegado." };
+    }
+    const limit = args.limit || 20;
+    try {
+      const items = await this.inventoryService.getTopInventoryItems(tenantId, limit);
+      return {
+        ok: true,
+        summary: items,
+        count: items.length,
+        message: `Mostrando top ${items.length} productos con mayor stock.`
+      };
+    } catch (e) {
+      return { ok: false, message: `Error listando inventario: ${(e as Error).message}` };
+    }
+  }
+
   private async lookupProductInventory(
     tenantId: string,
     args: InventoryLookupArgs,
+    user?: any,
   ): Promise<Record<string, any>> {
     const query = args?.productQuery?.trim();
     const limit = Math.min(Math.max(Number(args?.limit) || 5, 1), 10);
@@ -644,6 +742,7 @@ export class AssistantToolsService {
     hasAttributeFilters?: boolean;
     requestedMeasurement?: RequestedMeasurement | null;
     tenantContext: AssistantTenantContext;
+    user?: any;
   }): Record<string, any> | null {
     const {
       product,
@@ -653,6 +752,7 @@ export class AssistantToolsService {
       hasAttributeFilters = false,
       requestedMeasurement,
       tenantContext,
+      user,
     } = params;
 
     const filtersApplied = Object.keys(normalizedFilters);
@@ -787,14 +887,19 @@ export class AssistantToolsService {
     });
 
     // Hide exact stock quantities unless limited (< 10 units) to create urgency
+    // EXCEPTION: Authorized Employees see exact stock always.
+    const isEmployee = !!user;
     const hasLimitedStock =
       typeof availableQuantity === "number" && availableQuantity < 10;
+
     const stockStatus =
       typeof availableQuantity === "number" && availableQuantity > 0
-        ? hasLimitedStock
-          ? "limitado"
+        ? (hasLimitedStock || isEmployee)
+          ? "disponible" // The status string logic can remain simple, but we expose the number below
           : "disponible"
         : "agotado";
+
+    const exposedQuantity = isEmployee || hasLimitedStock ? availableQuantity : null;
 
     return {
       productId: product._id.toString(),
@@ -811,7 +916,7 @@ export class AssistantToolsService {
       description: (product as any).description,
       ingredients: (product as any).ingredients,
       isPerishable: (product as any).isPerishable,
-      availableQuantity: hasLimitedStock ? availableQuantity : null,
+      availableQuantity: exposedQuantity,
       stockStatus,
       hasLimitedStock,
       unit: selectedVariant?.unit || (product as any).unitOfMeasure,

@@ -3,12 +3,14 @@ import { io } from 'socket.io-client';
 import { getConversations, getMessagesForConversation } from '../lib/chatApi';
 import { useAuth } from '../hooks/use-auth';
 import { useCrmContext } from '@/context/CrmContext';
+import { useNotification } from '@/context/NotificationContext';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
 
 import { ShoppingBag, Calendar, Menu, ChevronLeft, Smile, CreditCard, Send, Store } from 'lucide-react';
 import { ActionPanel } from '../components/chat/ActionPanel';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
@@ -25,8 +27,8 @@ const WhatsAppInbox = () => {
   const [assistantStatuses, setAssistantStatuses] = useState({});
   const { tenant } = useAuth();
   const { paymentMethods } = useCrmContext();
+  const { socket, setActiveConversationId, getUnreadCount } = useNotification();
   const tenantId = tenant?.id;
-  const socket = useRef(null);
   const activeConversationRef = useRef(null);
   const messagesEndRef = useRef(null);
 
@@ -53,6 +55,7 @@ const WhatsAppInbox = () => {
   // Handle conversation selection with mobile logic
   const handleSelectConversation = async (conversation) => {
     setActiveConversation(conversation);
+    setActiveConversationId(conversation._id); // Mark as active in global context
     if (window.innerWidth < 768) {
       setIsSidebarOpen(false);
     }
@@ -75,6 +78,7 @@ const WhatsAppInbox = () => {
 
   const handleBackToInbox = () => {
     setActiveConversation(null);
+    setActiveConversationId(null); // Clear active conversation in global context
     setIsSidebarOpen(true);
     setIsActionPanelOpen(false);
   };
@@ -103,44 +107,23 @@ const WhatsAppInbox = () => {
   }, [activeConversation]);
 
   useEffect(() => {
-    if (tenantId) {
+    if (tenantId && socket) {
       // Fetch initial conversations
       getConversations().then(setConversations).catch(console.error);
 
-      // Setup socket connection to /chat namespace
-      socket.current = io(`${SOCKET_URL}/chat`, {
-        query: { tenantId },
-        transports: ['websocket', 'polling'],
-      });
-
-      socket.current.on('connect', () => {
-        console.log('✅ Connected to chat server');
-        console.log('Socket ID:', socket.current.id);
-      });
-
-      socket.current.on('disconnect', (reason) => {
-        console.log('❌ Disconnected from chat server. Reason:', reason);
-      });
-
-      socket.current.on('connect_error', (error) => {
-        console.error('❌ Connection error:', error.message);
-      });
-
-      socket.current.on('error', (error) => {
-        console.error('❌ Socket error:', error);
-      });
-
-      socket.current.on('newMessage', (message) => {
+      // Listen to socket events (socket is managed globally)
+      socket.on('newMessage', (message) => {
         console.log('📩 New message received:', message);
         // If the message belongs to the active conversation, update the state
         const currentConversation = activeConversationRef.current;
         if (currentConversation && message.conversationId === currentConversation._id) {
           setMessages(prevMessages => [...prevMessages, message]);
         }
-        // We could also update the conversation list to show a notification
+        // Refresh conversation list to update last message
+        getConversations().then(setConversations).catch(console.error);
       });
 
-      socket.current.on('assistantStatus', (payload) => {
+      socket.on('assistantStatus', (payload) => {
         console.log('🤖 Assistant status update:', payload);
         setAssistantStatuses(prev => {
           const next = { ...prev };
@@ -157,13 +140,16 @@ const WhatsAppInbox = () => {
       });
 
       return () => {
-        if (socket.current) socket.current.disconnect();
+        if (socket) {
+          socket.off('newMessage');
+          socket.off('assistantStatus');
+        }
       };
     }
-  }, [tenantId]);
+  }, [tenantId, socket]);
 
   const sendMessage = (content) => {
-    if (!socket.current || !socket.current.connected) {
+    if (!socket || !socket.connected) {
       console.error('❌ Socket not connected');
       return;
     }
@@ -175,7 +161,7 @@ const WhatsAppInbox = () => {
     };
 
     console.log('📤 Sending message:', messagePayload);
-    socket.current.emit('sendMessage', messagePayload);
+    socket.emit('sendMessage', messagePayload);
 
     // Optimistically add message to UI
     const optimisticMessage = {
@@ -319,7 +305,14 @@ const WhatsAppInbox = () => {
                 <AvatarFallback>{getInitials(convo.customerName || convo.customerPhoneNumber)}</AvatarFallback>
               </Avatar>
               <div className="flex-1 overflow-hidden">
-                <p className="font-semibold truncate">{convo.customerName || convo.customerPhoneNumber}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-semibold truncate">{convo.customerName || convo.customerPhoneNumber}</p>
+                  {getUnreadCount(convo._id) > 0 && (
+                    <Badge variant="destructive" className="rounded-full px-2 py-0.5 text-[10px] h-5 min-w-5 flex items-center justify-center">
+                      {getUnreadCount(convo._id) > 99 ? '99+' : getUnreadCount(convo._id)}
+                    </Badge>
+                  )}
+                </div>
                 <p className="text-sm text-muted-foreground truncate">{convo.messages?.[0]?.content || 'No messages yet'}</p>
               </div>
             </div>

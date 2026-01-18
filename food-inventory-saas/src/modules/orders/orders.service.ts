@@ -98,7 +98,7 @@ export class OrdersService {
 
     // Check if tenant has customized payment methods
     const configuredMethods = tenant.settings?.paymentMethods;
-
+    // ... logic
     if (configuredMethods && configuredMethods.length > 0) {
       // Filter base methods strictly based on enabled config AND merge details
       const enabledMap = new Map(
@@ -122,6 +122,48 @@ export class OrdersService {
 
     // Default fallback: return all base methods
     return { methods: baseMethods };
+  }
+
+  async getTopSellingProducts(tenantId: string, limit: number = 5): Promise<any[]> {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    return this.orderModel.aggregate([
+      {
+        $match: {
+          tenantId: new Types.ObjectId(tenantId),
+          status: { $ne: 'cancelled' },
+          createdAt: { $gte: thirtyDaysAgo }
+        }
+      },
+      { $unwind: "$items" },
+      {
+        $group: {
+          _id: "$items.productId",
+          totalQuantity: { $sum: "$items.quantity" },
+          totalRevenue: { $sum: { $multiply: ["$items.quantity", "$items.unitPrice"] } },
+          productName: { $first: "$items.productName" } // Optimistic name
+        }
+      },
+      { $sort: { totalQuantity: -1 } },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: "products",
+          localField: "_id",
+          foreignField: "_id",
+          as: "productInfo"
+        }
+      },
+      { $unwind: { path: "$productInfo", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          productName: { $ifNull: ["$productInfo.name", "$productName"] },
+          totalQuantity: 1,
+          totalRevenue: 1
+        }
+      }
+    ]);
   }
 
   async create(

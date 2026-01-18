@@ -10,9 +10,29 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertCircle, ArrowRight, BarChart3, Calculator, DollarSign, Filter, Package, Percent, RefreshCw, Save, ShoppingCart, TrendingUp, CheckSquare, Square } from 'lucide-react';
+import { AlertCircle, ArrowRight, BarChart3, Calculator, DollarSign, Filter, Package, Percent, RefreshCw, Save, ShoppingCart, TrendingUp, CheckSquare, Square, Building2, CreditCard, Zap } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { fetchApi } from '@/lib/api';
+
+// Supplier Payment Currency Labels
+const PAYMENT_CURRENCY_LABELS = {
+    'USD_PARALELO': '$ Paralelo (Zelle, Efectivo USD)',
+    'USD': '$ Oficial (Transferencia Int.)',
+    'VES': 'Bolívares (Pago Móvil, Transf.)',
+    'USD_BCV': '$ Tasa BCV',
+    'EUR': 'Euros',
+};
+
+// Payment Methods for supplier filtering
+const SUPPLIER_PAYMENT_METHODS = [
+    { id: 'zelle', label: 'Zelle', currency: 'USD_PARALELO' },
+    { id: 'efectivo_usd', label: 'Efectivo USD', currency: 'USD_PARALELO' },
+    { id: 'binance', label: 'Binance/USDT', currency: 'USD_PARALELO' },
+    { id: 'pago_movil', label: 'Pago Móvil', currency: 'VES' },
+    { id: 'transferencia_ves', label: 'Transf. Bancaria VES', currency: 'VES' },
+    { id: 'bolivares_bcv', label: '$ BCV (Bolívares)', currency: 'VES' },
+    { id: 'transferencia_int', label: 'Transf. Internacional', currency: 'USD' },
+];
 
 // Error Boundary
 class ErrorBoundary extends React.Component {
@@ -54,6 +74,12 @@ function PricingOrchestratorContent() {
     const [subCategory, setSubCategory] = useState('all');
     const [productStatus, setProductStatus] = useState('active'); // Default to Active
 
+    // === NEW: Supplier Payment Configuration Filters ===
+    const [supplierPaymentCurrency, setSupplierPaymentCurrency] = useState('all'); // USD_PARALELO, VES, USD, etc.
+    const [supplierPaymentMethod, setSupplierPaymentMethod] = useState('all'); // zelle, pago_movil, etc.
+    const [usesParallelRate, setUsesParallelRate] = useState('all'); // true, false, all
+    const [supplierCurrencyGroups, setSupplierCurrencyGroups] = useState([]); // From API
+
     // Dynamic Data
     const [categories, setCategories] = useState([]);
     const [subCategories, setSubCategories] = useState([]);
@@ -85,6 +111,19 @@ function PricingOrchestratorContent() {
             }
         };
         fetchBCV();
+
+        // === NEW: Fetch Supplier Payment Currency Groups ===
+        const fetchSupplierCurrencyGroups = async () => {
+            try {
+                const response = await fetchApi('/suppliers/pricing/by-currency');
+                if (response.success && Array.isArray(response.data)) {
+                    setSupplierCurrencyGroups(response.data);
+                }
+            } catch (error) {
+                console.error("Error fetching supplier currency groups:", error);
+            }
+        };
+        fetchSupplierCurrencyGroups();
     }, []);
 
     // Fetch Subcategories when Category changes
@@ -128,6 +167,11 @@ function PricingOrchestratorContent() {
     // Strategy: Fixed Price
     const [fixedPriceValue, setFixedPriceValue] = useState('');
 
+    // === NEW: Strategy: Supplier Rate Adjustment ===
+    const [oldSupplierRate, setOldSupplierRate] = useState('');
+    const [newSupplierRate, setNewSupplierRate] = useState('');
+    const [preserveMargin, setPreserveMargin] = useState(true);
+
     const handlePreview = async () => {
         setLoading(true);
         try {
@@ -144,6 +188,16 @@ function PricingOrchestratorContent() {
                     startDate: startDate ? new Date(startDate) : new Date(),
                     durationDays: parseInt(durationDays)
                 };
+            } else if (strategyType === 'supplier_rate_adjustment') {
+                // === NEW: Supplier Rate Adjustment ===
+                if (!oldSupplierRate || !newSupplierRate) {
+                    throw new Error("Ingrese la tasa anterior y la nueva tasa del proveedor.");
+                }
+                payload = {
+                    oldRate: parseFloat(oldSupplierRate),
+                    newRate: parseFloat(newSupplierRate),
+                    preserveMargin: preserveMargin
+                };
             }
 
             // Map frontend strategy to backend operation type
@@ -157,7 +211,11 @@ function PricingOrchestratorContent() {
                     velocity: velocity === 'all' ? undefined : velocity,
                     category: categoryId === 'all' ? undefined : categoryId,
                     subcategory: subCategory === 'all' ? undefined : subCategory,
-                    status: productStatus, // Pass status to backend
+                    status: productStatus,
+                    // === NEW: Supplier Payment Configuration Filters ===
+                    supplierPaymentCurrency: supplierPaymentCurrency === 'all' ? undefined : supplierPaymentCurrency,
+                    supplierPaymentMethod: supplierPaymentMethod === 'all' ? undefined : supplierPaymentMethod,
+                    usesParallelRate: usesParallelRate === 'all' ? undefined : usesParallelRate === 'true',
                 },
                 operation: {
                     type: backendOperationType,
@@ -212,6 +270,12 @@ function PricingOrchestratorContent() {
                     startDate: startDate ? new Date(startDate) : new Date(),
                     durationDays: parseInt(durationDays)
                 };
+            } else if (strategyType === 'supplier_rate_adjustment') {
+                payload = {
+                    oldRate: parseFloat(oldSupplierRate),
+                    newRate: parseFloat(newSupplierRate),
+                    preserveMargin: preserveMargin
+                };
             }
 
             let backendOperationType = strategyType;
@@ -224,8 +288,12 @@ function PricingOrchestratorContent() {
                     velocity: velocity === 'all' ? undefined : velocity,
                     category: categoryId === 'all' ? undefined : categoryId,
                     subcategory: subCategory === 'all' ? undefined : subCategory,
-                    status: productStatus, // Pass status to backend
-                    // New: Send explicit IDs if selection is partial
+                    status: productStatus,
+                    // === NEW: Supplier Payment Configuration Filters ===
+                    supplierPaymentCurrency: supplierPaymentCurrency === 'all' ? undefined : supplierPaymentCurrency,
+                    supplierPaymentMethod: supplierPaymentMethod === 'all' ? undefined : supplierPaymentMethod,
+                    usesParallelRate: usesParallelRate === 'all' ? undefined : usesParallelRate === 'true',
+                    // Send explicit IDs if selection is partial
                     ids: selectedProductIds.size < previewData.length ? Array.from(selectedProductIds) : undefined
                 },
                 operation: {
@@ -354,8 +422,93 @@ function PricingOrchestratorContent() {
                             </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label>Método de Adquisición</Label>
+                        {/* === NEW: SUPPLIER PAYMENT CONFIGURATION FILTERS === */}
+                        <div className="mt-4 pt-4 border-t border-dashed">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Building2 className="h-4 w-4 text-orange-600" />
+                                <Label className="text-sm font-semibold text-orange-700">Filtros por Proveedor</Label>
+                            </div>
+
+                            <div className="space-y-3">
+                                <div className="space-y-1">
+                                    <Label className="text-xs flex items-center gap-1">
+                                        <CreditCard className="h-3 w-3" />
+                                        Moneda del Proveedor
+                                    </Label>
+                                    <Select value={supplierPaymentCurrency} onValueChange={setSupplierPaymentCurrency}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Todas las monedas</SelectItem>
+                                            <SelectItem value="USD_PARALELO">
+                                                <span className="flex items-center gap-2">
+                                                    <span className="text-green-600 font-bold">$</span> Paralelo (Zelle, Efectivo)
+                                                </span>
+                                            </SelectItem>
+                                            <SelectItem value="VES">
+                                                <span className="flex items-center gap-2">
+                                                    <span className="text-blue-600 font-bold">Bs</span> Bolívares (Pago Móvil)
+                                                </span>
+                                            </SelectItem>
+                                            <SelectItem value="USD_BCV">
+                                                <span className="flex items-center gap-2">
+                                                    <span className="text-amber-600 font-bold">$</span> Tasa BCV
+                                                </span>
+                                            </SelectItem>
+                                            <SelectItem value="USD">$ Oficial (Transf. Int.)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <Label className="text-xs">Método de Pago Preferido</Label>
+                                    <Select value={supplierPaymentMethod} onValueChange={setSupplierPaymentMethod}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Todos los métodos</SelectItem>
+                                            {SUPPLIER_PAYMENT_METHODS.map(method => (
+                                                <SelectItem key={method.id} value={method.id}>
+                                                    {method.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <Label className="text-xs flex items-center gap-1">
+                                        <Zap className="h-3 w-3 text-yellow-500" />
+                                        Tipo de Tasa
+                                    </Label>
+                                    <Select value={usesParallelRate} onValueChange={setUsesParallelRate}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Todas las tasas</SelectItem>
+                                            <SelectItem value="true">Solo Tasa Paralela</SelectItem>
+                                            <SelectItem value="false">Solo Tasa Oficial (BCV)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            {/* Show summary of supplier groups */}
+                            {supplierCurrencyGroups.length > 0 && (
+                                <div className="mt-3 p-2 bg-slate-50 dark:bg-slate-900 rounded text-xs">
+                                    <div className="font-medium mb-1">Proveedores por moneda:</div>
+                                    {supplierCurrencyGroups.map(group => (
+                                        <div key={group.currency} className="flex justify-between">
+                                            <span>{PAYMENT_CURRENCY_LABELS[group.currency] || group.currency}</span>
+                                            <Badge variant="outline" className="h-5">
+                                                {group.suppliers.length} prov. / {group.suppliers.reduce((acc, s) => acc + s.productCount, 0)} prod.
+                                            </Badge>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Legacy payment method filter (from purchase orders) */}
+                        <div className="space-y-2 mt-3 pt-3 border-t border-dashed opacity-60">
+                            <Label className="text-xs text-muted-foreground">Método de Compra (Historial OC)</Label>
                             <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
@@ -365,6 +518,9 @@ function PricingOrchestratorContent() {
                                     <SelectItem value="bolivares">Comprado con Bolívares</SelectItem>
                                 </SelectContent>
                             </Select>
+                            <p className="text-[10px] text-muted-foreground">
+                                Filtra por órdenes de compra recientes (legado)
+                            </p>
                         </div>
                     </CardContent>
                 </Card>
@@ -380,8 +536,9 @@ function PricingOrchestratorContent() {
                     </CardHeader>
                     <CardContent>
                         <Tabs value={strategyType} onValueChange={setStrategyType} className="w-full">
-                            <TabsList className="grid w-full grid-cols-3 mb-4">
+                            <TabsList className="grid w-full grid-cols-4 mb-4">
                                 <TabsTrigger value="inflation_formula">🇻🇪 Inflación</TabsTrigger>
+                                <TabsTrigger value="supplier_rate_adjustment">🔄 Proveedor</TabsTrigger>
                                 <TabsTrigger value="margin_update">📈 Ajuste</TabsTrigger>
                                 <TabsTrigger value="promotion">🏷️ Oferta</TabsTrigger>
                             </TabsList>
@@ -403,6 +560,72 @@ function PricingOrchestratorContent() {
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-2 bg-slate-100 dark:bg-slate-900 p-2 rounded">
                                     Ajusta precios para proteger reposición en divisas.
+                                </p>
+                            </TabsContent>
+
+                            {/* === NEW: Supplier Rate Adjustment Tab === */}
+                            <TabsContent value="supplier_rate_adjustment" className="space-y-3">
+                                <Alert className="bg-orange-50 border-orange-200">
+                                    <Building2 className="h-4 w-4 text-orange-600" />
+                                    <AlertTitle className="text-orange-800">Ajuste por Cambio de Tasa del Proveedor</AlertTitle>
+                                    <AlertDescription className="text-orange-700 text-xs">
+                                        Cuando un proveedor cambia su tasa de venta (ej: de 50 Bs/$ a 55 Bs/$),
+                                        ajusta automáticamente todos los productos que le compras.
+                                    </AlertDescription>
+                                </Alert>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Tasa Anterior (Bs/$)</Label>
+                                        <NumberInput
+                                            value={oldSupplierRate ?? ''}
+                                            onValueChange={val => setOldSupplierRate(val)}
+                                            placeholder="Ej: 50.00"
+                                            step={0.01}
+                                            min={0}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Nueva Tasa (Bs/$)</Label>
+                                        <NumberInput
+                                            value={newSupplierRate ?? ''}
+                                            onValueChange={val => setNewSupplierRate(val)}
+                                            placeholder="Ej: 55.00"
+                                            step={0.01}
+                                            min={0}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Rate change preview */}
+                                {oldSupplierRate && newSupplierRate && parseFloat(oldSupplierRate) > 0 && (
+                                    <div className="p-2 bg-blue-50 dark:bg-blue-950 rounded text-sm">
+                                        <div className="flex justify-between items-center">
+                                            <span>Cambio en tasa:</span>
+                                            <Badge className={parseFloat(newSupplierRate) > parseFloat(oldSupplierRate) ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}>
+                                                {(((parseFloat(newSupplierRate) - parseFloat(oldSupplierRate)) / parseFloat(oldSupplierRate)) * 100).toFixed(1)}%
+                                            </Badge>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Los precios se ajustarán proporcionalmente
+                                        </p>
+                                    </div>
+                                )}
+
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox
+                                        id="preserveMargin"
+                                        checked={preserveMargin}
+                                        onCheckedChange={setPreserveMargin}
+                                    />
+                                    <Label htmlFor="preserveMargin" className="text-xs cursor-pointer">
+                                        Preservar margen de ganancia actual
+                                    </Label>
+                                </div>
+
+                                <p className="text-xs text-muted-foreground mt-2 bg-slate-100 dark:bg-slate-900 p-2 rounded">
+                                    <strong>Tip:</strong> Usa los filtros de "Moneda del Proveedor" arriba para
+                                    seleccionar solo los productos que compras en $ paralelo (o la moneda que cambió).
                                 </p>
                             </TabsContent>
 

@@ -47,6 +47,7 @@ interface AssistantQuestionParams {
     content: string;
     timestamp?: Date;
   }>;
+  user?: UserDocument | null;
 }
 
 interface ContextHit {
@@ -67,6 +68,7 @@ interface AgentRunOptions {
     content: string;
     timestamp?: Date;
   }>;
+  user?: UserDocument | null;
 }
 
 interface AgentRunResult {
@@ -251,6 +253,7 @@ const PROMOTION_KEYWORDS = [
 ];
 
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
+import { User, UserDocument } from "../../schemas/user.schema";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
 
@@ -277,6 +280,7 @@ export class AssistantService {
       aiSettings,
       conversationSummary,
       conversationHistory = [],
+      user,
     } = params;
 
     // Convertir tenantId a string si es ObjectId
@@ -331,7 +335,7 @@ export class AssistantService {
     }
 
     const documents = contextHits.map(({ document }) => document);
-    const toolDefinitions = this.buildToolDefinitions(capabilities);
+    const toolDefinitions = this.buildToolDefinitions(capabilities, user);
     const hasTools = toolDefinitions.length > 0;
 
     const bootstrapSections: string[] = [];
@@ -384,7 +388,7 @@ export class AssistantService {
 
     // Fetch tenant settings to get payment methods
     const tenantSettings = await this.tenantModel.findById(tenantIdStr).select('settings.paymentMethods').lean();
-    const systemPrompt = this.buildSystemPrompt(capabilities, tenantSettings?.settings?.paymentMethods);
+    const systemPrompt = this.buildSystemPrompt(capabilities, tenantSettings?.settings?.paymentMethods, user);
     const baseContextBlock = contextHits.length
       ? this.buildContextBlock(contextHits)
       : "Sin fragmentos relevantes de la base de conocimiento.";
@@ -400,6 +404,7 @@ export class AssistantService {
       tools: toolDefinitions,
       preferredModel: aiSettings?.model,
       conversationHistory,
+      user,
     });
 
     const answer = agentResult.answer?.trim();
@@ -529,7 +534,10 @@ export class AssistantService {
     }
   }
 
-  private buildSystemPrompt(capabilities: AssistantCapabilities, paymentMethods: any[] = []): string {
+  private buildSystemPrompt(capabilities: AssistantCapabilities, paymentMethods: any[] = [], user?: UserDocument | null): string {
+    if (user) {
+      return this.buildEmployeeSystemPrompt(user, capabilities);
+    }
     const enabledPaymentMethodsList = paymentMethods?.filter(m => m.enabled) || [];
 
     // Format list for general acceptance
@@ -567,7 +575,7 @@ export class AssistantService {
       "💡 SUGERENCIAS INTELIGENTES: Si confirmas un producto, puedes sugerir amablemente un complemento lógico o mencionar si existe alguna oferta relevante, pero hazlo de forma natural y sin ser invasivo.",
 
       "🧠 USO DE CONTEXTO: Recuerda lo que el usuario ha mencionado anteriormente (productos, preferencias) para no preguntar lo obvio. Si dice 'quiero eso', asume que se refiere a lo último discutido.",
-      
+
       "🔄 FLUJO DE CONVERSACIÓN NATURAL:",
       "1. Ayuda al cliente a encontrar lo que busca.",
       "2. Confirma los productos (precio y cantidad). Solo ofrece promociones si realmente existen.",
@@ -583,7 +591,7 @@ export class AssistantService {
       "- `create_order`: Úsala SOLO cuando el cliente haya confirmado el resumen final.",
       "- `get_inventory_status`: Úsala para verificar precios y stock. Lee la descripción para diferenciar productos.",
       "- `list_active_promotions`: Úsala si el cliente pregunta por ofertas o si es muy relevante para el producto que está comprando.",
-      
+
       "📦 STOCK: Solo menciona cantidades si quedan pocas unidades (escasez).",
       "🚫 CONFIDENCIAL: Nunca reveles costos internos.",
     ];
@@ -607,10 +615,54 @@ export class AssistantService {
     return instructions.join(" ");
   }
 
+  private buildEmployeeSystemPrompt(user: UserDocument, capabilities: AssistantCapabilities): string {
+    const instructions: string[] = [
+      `Eres el ASISTENTE INTERNO de SmartKubik, asignado al empleado ${user.firstName} ${user.lastName}.`,
+      "Tu objetivo es ayudar al empleado a gestionar la operación del negocio de manera eficiente.",
+      "Identifícate siempre como sistema operativo, NO como vendedor.",
+
+      "PROTOCOLOS DE RESPUESTA:",
+      `1. SALUDO: Si el usuario saluda (Hola, Buenos días), RESPONDE SIEMPRE: 'Hola ${user.firstName}, modo operativo activado. ¿Qué consulta de inventario o sistema necesitas?'`,
+      "2. NO uses frases como 'estoy para servirle' o 'bienvenido a Savage'. Sé técnico y directo.",
+
+      "TIENES PERMISO PARA:",
+      "1. Revelar información interna (stock exacto, ubicaciones, pero NO costos a menos que se pida explícitamente).",
+      "2. Crear órdenes directas sin tanta ceremonia de ventas.",
+      "3. Asistir en tareas administrativas.",
+
+      "TONO Y ESTILO:",
+      "- Profesional, directo y eficiente.",
+      "- No uses lenguaje de ventas ni persuasión.",
+      "- Ve al grano con los datos.",
+
+      "HERRAMIENTAS:",
+      "- `get_inventory_status`: Úsala para consultas de stock rápidas.",
+      "- `create_order`: El empleado puede dictar órdenes rápidas.",
+      "- `list_active_promotions`: Para informar al empleado qué promos están activas hoy.",
+    ];
+    return instructions.join(" ");
+  }
+
   private buildToolDefinitions(
     capabilities: AssistantCapabilities,
+    user?: UserDocument | null,
   ): ChatCompletionTool[] {
     const tools: ChatCompletionTool[] = [];
+
+    // --- HERRAMIENTAS ADMINISTRATIVAS (Solo Empleados) ---
+    if (user) {
+      tools.push({
+        type: "function",
+        function: {
+          name: "get_business_kpis",
+          description: "Obtiene un reporte COMPLETO de métricas de negocio: 1) Snapshot en tiempo real (Ventas Hoy, Ordenes, Stock, Alertas). 2) Analítica Avanzada (Tendencia de Ventas vs mes anterior, Top Categorías, Rendimiento de Equipo/Mejores Vendedores, Ingresos vs Gastos). 3) Productos Top Selling y Rotación. Úsala para responder CUALQUIER pregunta sobre el estado del negocio, tendencias, finanzas o rendimiento.",
+          parameters: {
+            type: "object",
+            properties: {}, // No params needed
+          }
+        }
+      });
+    }
 
     if (capabilities.inventoryLookup) {
       tools.push({
@@ -1285,6 +1337,7 @@ export class AssistantService {
       tools,
       preferredModel,
       conversationHistory = [],
+      user,
     } = options;
 
     // Build messages array with conversation history
@@ -1345,6 +1398,7 @@ export class AssistantService {
             tenantId,
             functionCall.name,
             args,
+            user,
           );
           usedTools = true;
           messages.push({

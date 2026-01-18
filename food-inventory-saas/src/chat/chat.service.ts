@@ -337,22 +337,20 @@ export class ChatService {
           const chatId = msg.chat_id || msg.chatId || msg.from;
 
           // --- PHASE 1: Employee Identification Check ---
+          this.logger.log(`[DEBUG] Checking employee status for phone: "${customerPhoneNumber}"`);
           const employee = await this.usersService.findByPhone(
             customerPhoneNumber,
             tenantId,
           );
+          this.logger.log(`[DEBUG] Employee lookup result: ${employee ? employee._id : "null"}`);
+
+          let authorizedUserId: string | undefined;
 
           if (employee) {
             this.logger.log(
               `👮‍♂️ Authorized Employee Detected: ${employee.firstName} ${employee.lastName} (${customerPhoneNumber})`,
             );
-            // MVP Response
-            await this.whapiService.sendWhatsAppMessage(
-              tenantId,
-              customerPhoneNumber,
-              `👋 Hola ${employee.firstName}, te he identificado como personal autorizado. \n\n🤖 *Sistema:* SmartKubik ERP\n🔑 *Rol:* [User]\n\n(Esta es una prueba de identidad - Fase 1 completada)`,
-            );
-            continue; // Stop processing as customer
+            authorizedUserId = employee._id.toString();
           }
           // ----------------------------------------------
 
@@ -388,7 +386,7 @@ export class ChatService {
           this.chatGateway.emitNewMessage(tenantId, savedMessage);
 
           // Encolar procesamiento del asistente (o ejecutar inline si no hay BullMQ)
-          await this.scheduleAssistantJob(tenant, conversation, savedMessage);
+          await this.scheduleAssistantJob(tenant, conversation, savedMessage, authorizedUserId);
         }
 
         // Handle location sharing
@@ -460,6 +458,7 @@ export class ChatService {
     tenant: TenantDocument,
     conversation: ConversationDocument,
     message: MessageDocument,
+    userId?: string,
   ): Promise<void> {
     if (!tenant.aiAssistant?.autoReplyEnabled) {
       return;
@@ -471,6 +470,7 @@ export class ChatService {
       customerPhoneNumber: conversation.customerPhoneNumber,
       messageId: message._id.toString(),
       content: message.content,
+      userId,
     };
 
     try {
@@ -501,7 +501,7 @@ export class ChatService {
   }
 
   async processAssistantJob(data: AssistantMessageJobData): Promise<void> {
-    const { tenantId, conversationId, messageId, content } = data;
+    const { tenantId, conversationId, messageId, content, userId } = data;
 
     try {
       const tenant = await this.tenantModel.findById(tenantId).exec();
@@ -558,6 +558,7 @@ export class ChatService {
         conversation,
         content,
         messageId,
+        userId,
       );
 
       this.chatGateway.emitAssistantStatus(tenantId, {
@@ -588,6 +589,7 @@ export class ChatService {
     conversation: ConversationDocument,
     customerMessage: string,
     customerMessageId?: string,
+    userId?: string,
   ): Promise<{ assistantMessage?: MessageDocument; note?: string }> {
     if (!tenant.aiAssistant?.autoReplyEnabled) {
       return { note: "auto_reply_disabled" };
@@ -654,6 +656,15 @@ export class ChatService {
         `📜 Current session: ${currentSessionMessages.length} messages (${history.length} in history context)`,
       );
 
+      // Fetch User Context if Authorized
+      let userContext = null;
+      if (userId) {
+        userContext = await this.usersService.findById(userId);
+        if (userContext) {
+          this.logger.log(`[DEBUG] Passing Employee Context to Assistant: ${userContext.firstName}`);
+        }
+      }
+
       const assistantResponse = await this.assistantService.answerQuestion({
         tenantId: tenant.id,
         question: customerMessage,
@@ -664,6 +675,7 @@ export class ChatService {
           model: tenant.aiAssistant?.model,
           capabilities: capabilities,
         },
+        user: userContext,
       });
 
       const answer = assistantResponse?.answer?.trim();

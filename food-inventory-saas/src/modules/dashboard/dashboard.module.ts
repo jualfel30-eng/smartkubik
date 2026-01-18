@@ -22,5 +22,6 @@ import { InventoryModule } from "../inventory/inventory.module";
   ],
   controllers: [DashboardController],
   providers: [DashboardService],
+  exports: [DashboardService],
 })
-export class DashboardModule {}
+export class DashboardModule { }

@@ -38,7 +38,7 @@ import { Permissions } from "./decorators/permissions.decorator";
 @UseGuards(JwtAuthGuard, TenantGuard)
 @ApiBearerAuth()
 export class TenantController {
-  constructor(private readonly tenantService: TenantService) {}
+  constructor(private readonly tenantService: TenantService) { }
 
   @Post("logo")
   @UseInterceptors(FileInterceptor("file"))
@@ -133,6 +133,7 @@ export class TenantController {
   @ApiResponse({ status: 200, description: "Usuarios obtenidos exitosamente" })
   async getUsers(@Request() req) {
     try {
+      console.log(`[DEBUG TenantController] getUsers - Logged In User TenantID: ${req.user.tenantId}`);
       const users = await this.tenantService.getUsers(req.user.tenantId);
       return {
         success: true,
@@ -182,6 +183,7 @@ export class TenantController {
     @Body() updateUserDto: UpdateUserDto,
   ) {
     try {
+      console.log(`[DEBUG TenantController] updateUser called for user ${userId} with payload:`, JSON.stringify(updateUserDto));
       const updatedUser = await this.tenantService.updateUser(
         req.user.tenantId,
         userId,

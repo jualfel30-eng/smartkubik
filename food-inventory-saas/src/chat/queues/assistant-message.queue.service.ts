@@ -12,6 +12,7 @@ export interface AssistantMessageJobData {
   customerPhoneNumber: string;
   messageId: string;
   content: string;
+  userId?: string; // ID of the authorized employee (if any)
 }
 
 @Injectable()
@@ -22,7 +23,7 @@ export class AssistantMessageQueueService {
     @Optional()
     @InjectQueue(ASSISTANT_MESSAGES_QUEUE)
     private readonly assistantQueue: Queue<AssistantMessageJobData> | null,
-  ) {}
+  ) { }
 
   /**
    * Encola el procesamiento de un mensaje del asistente.

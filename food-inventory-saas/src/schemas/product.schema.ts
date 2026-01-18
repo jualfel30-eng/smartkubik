@@ -81,6 +81,27 @@ export class ProductSupplier {
 
   @Prop({ type: Date, default: Date.now })
   lastUpdated: Date;
+
+  // === SUPPLIER PAYMENT CONFIGURATION (Synced from Supplier) ===
+  // Moneda principal en que el proveedor vende al tenant
+  @Prop({ type: String, default: "USD" })
+  paymentCurrency: string; // USD, USD_PARALELO, VES, EUR, etc.
+
+  // Método de pago preferido del proveedor
+  @Prop({ type: String })
+  preferredPaymentMethod?: string; // zelle, efectivo_usd, transferencia_ves, pago_movil, etc.
+
+  // Métodos de pago aceptados por este proveedor
+  @Prop({ type: [String], default: [] })
+  acceptedPaymentMethods: string[];
+
+  // Indica si este proveedor vende a tasa paralela (importante para ajustes)
+  @Prop({ type: Boolean, default: false })
+  usesParallelRate: boolean;
+
+  // Fecha de última sincronización con el proveedor
+  @Prop({ type: Date })
+  paymentConfigSyncedAt?: Date;
 }
 const ProductSupplierSchema = SchemaFactory.createForClass(ProductSupplier);
 
@@ -292,3 +313,9 @@ ProductSchema.index({ tenantId: 1, category: 1 }); // Category filtering
 ProductSchema.index({ tenantId: 1, isActive: 1, createdAt: -1 }); // Active products sorted by date
 ProductSchema.index({ tenantId: 1, subcategory: 1 }); // Subcategory filtering
 ProductSchema.index({ tenantId: 1, productType: 1 }); // Product type filtering
+
+// PRICING ENGINE: Indexes for supplier payment filtering
+ProductSchema.index({ "suppliers.paymentCurrency": 1, tenantId: 1 }); // Filter by payment currency
+ProductSchema.index({ "suppliers.usesParallelRate": 1, tenantId: 1 }); // Filter by parallel rate usage
+ProductSchema.index({ "suppliers.preferredPaymentMethod": 1, tenantId: 1 }); // Filter by payment method
+ProductSchema.index({ "suppliers.supplierId": 1, tenantId: 1 }); // Filter by supplier

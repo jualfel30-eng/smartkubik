@@ -228,4 +228,57 @@ export class DashboardService {
       recentOrders,
     };
   }
+
+  async getProductRotation(tenantId: string): Promise<any> {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    // 1. Get total quantity sold per product in last 30 days
+    const salesVelocity = await this.orderModel.aggregate([
+      {
+        $match: {
+          tenantId: tenantId, // Schema defines tenantId as string, so strict string match is required.
+          status: { $ne: 'cancelled' },
+          createdAt: { $gte: thirtyDaysAgo }
+        }
+      },
+      { $unwind: "$items" },
+      {
+        $group: {
+          _id: "$items.productId",
+          totalSold: { $sum: "$items.quantity" },
+          productName: { $first: "$items.productName" }
+        }
+      }
+    ]);
+
+    // 2. Classify based on sales
+    const highRotation: { name: string; sold: number }[] = [];
+    const lowRotation: { name: string; sold: number }[] = [];
+    const noRotation: { name: string; sold: number }[] = [];
+
+    // threshold for "High" rotation (e.g., > 10 items sold in 30 days) - simplified logic
+    const HIGH_ROTATION_THRESHOLD = 10;
+
+    // DEBUG LOGS
+    console.log(`[DashboardService] getProductRotation - Found ${salesVelocity.length} products with sales in last 30 days.`);
+
+    for (const item of salesVelocity) {
+      if (item.totalSold >= HIGH_ROTATION_THRESHOLD) {
+        highRotation.push({ name: item.productName, sold: item.totalSold });
+      } else if (item.totalSold > 0) {
+        lowRotation.push({ name: item.productName, sold: item.totalSold });
+      }
+    }
+
+    console.log(`[DashboardService] Rotation Stats: High=${highRotation.length}, Low=${lowRotation.length}`);
+
+    // Get top 5 of each for the report
+    return {
+      high: highRotation.sort((a, b) => b.sold - a.sold).slice(0, 5),
+      low: lowRotation.sort((a, b) => a.sold - b.sold).slice(0, 5), // ascending for low rotation? actually we want "stagnant" but here low rotation is just low sales.
+      // For "no rotation", we'd need to compare against ALL products, which we aren't doing here for performance yet.
+      // But we can return the count.
+    };
+  }
 }

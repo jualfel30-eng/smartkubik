@@ -313,6 +313,7 @@ export class TenantService {
 
     const newUser = new this.userModel({
       ...inviteUserDto,
+      phone: inviteUserDto.phone ? inviteUserDto.phone.replace(/[^\d+]/g, "") : undefined,
       tenantId: tenantObjectId,
       password: hashedPassword,
       isEmailVerified: false, // El usuario deberá verificar su email
@@ -407,7 +408,10 @@ export class TenantService {
     }
 
     if (updateUserDto.phone !== undefined) {
-      const phone = updateUserDto.phone;
+      // Sanitize: Allow only digits and leading plus. Remove spaces, dashes, parens.
+      const rawPhone = updateUserDto.phone;
+      const phone = rawPhone ? rawPhone.replace(/[^\d+]/g, "") : rawPhone;
+
       if (phone) {
         // Check uniqueness
         const existingWithPhone = await this.userModel

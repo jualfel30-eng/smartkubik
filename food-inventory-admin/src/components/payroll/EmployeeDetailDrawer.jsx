@@ -21,6 +21,8 @@ import {
   Info,
   Calendar,
   FileDown,
+  ArrowLeft,
+  X,
 } from 'lucide-react';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerClose } from '@/components/ui/drawer.jsx';
 import { Button } from '@/components/ui/button.jsx';
@@ -314,8 +316,8 @@ export function EmployeeDetailDrawer({
 
   const hasSuggestionContext = Boolean(
     suggestionFilters.role ||
-      suggestionFilters.department ||
-      suggestionFilters.contractType,
+    suggestionFilters.department ||
+    suggestionFilters.contractType,
   );
 
   const availableStructures = useMemo(() => {
@@ -393,14 +395,14 @@ export function EmployeeDetailDrawer({
       const isValid = requirement.validator
         ? requirement.validator(context)
         : (() => {
-            const value =
-              requirement.path === 'documents'
-                ? documents
-                : getValueByPath(profileForm, requirement.path);
-            if (Array.isArray(value)) return value.length > 0;
-            if (typeof value === 'string') return value.trim().length > 0;
-            return Boolean(value);
-          })();
+          const value =
+            requirement.path === 'documents'
+              ? documents
+              : getValueByPath(profileForm, requirement.path);
+          if (Array.isArray(value)) return value.length > 0;
+          if (typeof value === 'string') return value.trim().length > 0;
+          return Boolean(value);
+        })();
       if (!isValid) {
         errors.push(requirement.label);
       }
@@ -1228,10 +1230,10 @@ export function EmployeeDetailDrawer({
       const token = localStorage.getItem('accessToken');
       const res = await fetch(
         `${baseUrl}/api/v1/payroll/employees/${resolvedEmployee._id}/documents?type=${docType}&lang=${lang}` +
-          `${orgName ? `&orgName=${encodeURIComponent(orgName)}` : ''}` +
-          `${orgAddress ? `&orgAddress=${encodeURIComponent(orgAddress)}` : ''}` +
-          `${signerName ? `&signerName=${encodeURIComponent(signerName)}` : ''}` +
-          `${signerTitle ? `&signerTitle=${encodeURIComponent(signerTitle)}` : ''}`,
+        `${orgName ? `&orgName=${encodeURIComponent(orgName)}` : ''}` +
+        `${orgAddress ? `&orgAddress=${encodeURIComponent(orgAddress)}` : ''}` +
+        `${signerName ? `&signerName=${encodeURIComponent(signerName)}` : ''}` +
+        `${signerTitle ? `&signerTitle=${encodeURIComponent(signerTitle)}` : ''}`,
         {
           headers: {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -1447,38 +1449,40 @@ export function EmployeeDetailDrawer({
     <Drawer open={open} onOpenChange={closeDrawer} direction="right">
       <DrawerContent className="w-full sm:w-[75vw] lg:w-[65vw] max-w-5xl h-screen sm:h-[95vh]">
         <DrawerHeader>
-          <div className="flex flex-col gap-1">
-            <DrawerTitle className="text-2xl font-semibold">
-              {isCreateMode ? 'Crear nuevo empleado' : (resolvedEmployee?.customer?.name || 'Empleado')}
-            </DrawerTitle>
-            <DrawerDescription className="flex items-center gap-2 text-sm">
-              {!isCreateMode && (
-                <>
-                  {statusBadge(resolvedEmployee?.status || 'draft')}
-                  {resolvedEmployee?.position && <span>{resolvedEmployee.position}</span>}
-                  {resolvedEmployee?.department && (
-                    <>
-                      <span>•</span>
-                      <span>{resolvedEmployee.department}</span>
-                    </>
-                  )}
-                </>
-              )}
-              {isCreateMode && <span>Completa los datos para registrar un nuevo empleado</span>}
-            </DrawerDescription>
-          </div>
-          <div className="flex flex-wrap gap-2 items-center">
-            {actionButtons}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-1 flex-1">
+              <DrawerTitle className="text-2xl font-semibold">
+                {isCreateMode ? 'Crear nuevo empleado' : (resolvedEmployee?.customer?.name || 'Empleado')}
+              </DrawerTitle>
+              <DrawerDescription className="flex items-center gap-2 text-sm">
+                {!isCreateMode && (
+                  <>
+                    {statusBadge(resolvedEmployee?.status || 'draft')}
+                    {resolvedEmployee?.position && <span>{resolvedEmployee.position}</span>}
+                    {resolvedEmployee?.department && (
+                      <>
+                        <span>•</span>
+                        <span>{resolvedEmployee.department}</span>
+                      </>
+                    )}
+                  </>
+                )}
+                {isCreateMode && <span>Completa los datos para registrar un nuevo empleado</span>}
+              </DrawerDescription>
+            </div>
             <DrawerClose asChild>
               <Button
-                variant="ghost"
+                variant="outline"
                 size="icon"
-                className="ml-auto"
+                className="border-2 hover:bg-destructive hover:text-destructive-foreground hover:border-destructive shrink-0"
               >
+                <X className="h-5 w-5" />
                 <span className="sr-only">Cerrar</span>
-                ✕
               </Button>
             </DrawerClose>
+          </div>
+          <div className="flex flex-wrap gap-2 items-center mt-4">
+            {actionButtons}
           </div>
         </DrawerHeader>
         <ScrollArea
@@ -1825,6 +1829,12 @@ export function EmployeeDetailDrawer({
                 </Card>
 
                 <div className="flex justify-end gap-2">
+                  <DrawerClose asChild>
+                    <Button variant="outline" type="button">
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Volver
+                    </Button>
+                  </DrawerClose>
                   <Button variant="outline" type="button" onClick={loadProfile} disabled={savingProfile}>
                     Actualizar
                   </Button>
@@ -2073,20 +2083,20 @@ export function EmployeeDetailDrawer({
                             {(structureVigencyState.isExpired ||
                               structureVigencyState.isFuture ||
                               selectedStructure.isActive === false) && (
-                              <Alert className="border-amber-500/50 bg-amber-500/10 dark:border-amber-500/30 dark:bg-amber-500/5">
-                                <AlertTitle className="flex items-center gap-2 text-xs font-semibold text-amber-900 dark:text-amber-200">
-                                  <AlertTriangle className="h-3.5 w-3.5" />
-                                  Vigencia especial
-                                </AlertTitle>
-                                <AlertDescription className="text-amber-800 dark:text-amber-300">
-                                  {!selectedStructure.isActive && 'Esta versión está inactiva. '}
-                                  {structureVigencyState.isExpired &&
-                                    `Venció el ${formatShortDate(selectedStructure.effectiveTo)}. `}
-                                  {structureVigencyState.isFuture &&
-                                    `Se activará el ${formatShortDate(selectedStructure.effectiveFrom)}.`}
-                                </AlertDescription>
-                              </Alert>
-                            )}
+                                <Alert className="border-amber-500/50 bg-amber-500/10 dark:border-amber-500/30 dark:bg-amber-500/5">
+                                  <AlertTitle className="flex items-center gap-2 text-xs font-semibold text-amber-900 dark:text-amber-200">
+                                    <AlertTriangle className="h-3.5 w-3.5" />
+                                    Vigencia especial
+                                  </AlertTitle>
+                                  <AlertDescription className="text-amber-800 dark:text-amber-300">
+                                    {!selectedStructure.isActive && 'Esta versión está inactiva. '}
+                                    {structureVigencyState.isExpired &&
+                                      `Venció el ${formatShortDate(selectedStructure.effectiveTo)}. `}
+                                    {structureVigencyState.isFuture &&
+                                      `Se activará el ${formatShortDate(selectedStructure.effectiveFrom)}.`}
+                                  </AlertDescription>
+                                </Alert>
+                              )}
                           </div>
                         )}
                         {hasSuggestionContext && (
@@ -2122,11 +2132,10 @@ export function EmployeeDetailDrawer({
                                     onClick={() =>
                                       handleContractFieldChange('payrollStructureId', structure._id)
                                     }
-                                    className={`w-full rounded-md border p-3 text-left text-sm transition ${
-                                      isSelected
-                                        ? 'border-primary bg-primary/10'
-                                        : 'border-border hover:border-primary/60'
-                                    }`}
+                                    className={`w-full rounded-md border p-3 text-left text-sm transition ${isSelected
+                                      ? 'border-primary bg-primary/10'
+                                      : 'border-border hover:border-primary/60'
+                                      }`}
                                   >
                                     <div className="flex items-center justify-between gap-2">
                                       <div>
@@ -2158,9 +2167,8 @@ export function EmployeeDetailDrawer({
                                       >
                                         {item.isFallback
                                           ? 'Fallback sin coincidencias específicas'
-                                          : `Coincidencia: ${
-                                              item.matchedDimensions?.join(', ') || 'Rol'
-                                            }`}
+                                          : `Coincidencia: ${item.matchedDimensions?.join(', ') || 'Rol'
+                                          }`}
                                       </span>
                                       <span className="text-muted-foreground">
                                         Vigente desde {formatShortDate(structure.effectiveFrom)}

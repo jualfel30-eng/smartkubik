@@ -149,6 +149,30 @@ export class InventoryService {
     return savedInventory;
   }
 
+  async getTopInventoryItems(tenantId: string, limit: number = 20): Promise<any[]> {
+    const inventoryItems = await this.inventoryModel
+      .find({
+        tenantId: this.buildTenantFilter(tenantId),
+        isActive: true,
+        totalQuantity: { $gt: 0 },
+      })
+      .sort({ availableQuantity: -1 }) // Show highest stock first
+      .limit(limit)
+      .populate("productId", "name sku brand category")
+      .lean()
+      .exec();
+
+    return inventoryItems.map((item: any) => ({
+      productName: item.productId?.name || "Producto Desconocido",
+      sku: item.productSku,
+      variant: item.variantSku || "N/A",
+      available: item.availableQuantity,
+      reserved: item.reservedQuantity,
+      price: item.averageCostPrice, // Internal view only
+      category: item.productId?.category,
+    }));
+  }
+
   async remove(id: string, tenantId: string, user: any): Promise<boolean> {
     const inventory = await this.inventoryModel.findOne({
       _id: id,
@@ -533,24 +557,24 @@ export class InventoryService {
 
           const previousCombinationTotals = combination
             ? {
-                total: combination.totalQuantity ?? 0,
-                reserved: combination.reservedQuantity ?? 0,
-                committed: combination.committedQuantity ?? 0,
-                available:
-                  combination.availableQuantity ??
-                  Math.max(
-                    0,
-                    (combination.totalQuantity ?? 0) -
-                      (combination.reservedQuantity ?? 0) -
-                      (combination.committedQuantity ?? 0),
-                  ),
-              }
+              total: combination.totalQuantity ?? 0,
+              reserved: combination.reservedQuantity ?? 0,
+              committed: combination.committedQuantity ?? 0,
+              available:
+                combination.availableQuantity ??
+                Math.max(
+                  0,
+                  (combination.totalQuantity ?? 0) -
+                  (combination.reservedQuantity ?? 0) -
+                  (combination.committedQuantity ?? 0),
+                ),
+            }
             : {
-                total: 0,
-                reserved: 0,
-                committed: 0,
-                available: 0,
-              };
+              total: 0,
+              reserved: 0,
+              committed: 0,
+              available: 0,
+            };
 
           if (!combination) {
             combination = {
