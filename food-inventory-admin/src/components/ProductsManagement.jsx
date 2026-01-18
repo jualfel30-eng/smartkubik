@@ -292,10 +292,20 @@ const sanitizeSellingUnitsForPayload = (units = []) =>
         ...rest
       } = unit || {};
 
-      const parsedConversion =
-        parseDecimalInput(
-          conversionFactorInput !== undefined ? conversionFactorInput : rest?.conversionFactor
-        ) ?? 0;
+      // INVERSION LOGIC:
+      // Case A: User modified input (conversionFactorInput is defined) -> Input is "Units Per Base" -> Factor = 1 / Input
+      // Case B: User did NOT modify (conversionFactorInput is undefined) -> Keep existing conversionFactor
+
+      let parsedConversion = 0;
+
+      if (conversionFactorInput !== undefined) {
+        const parsedInput = parseDecimalInput(conversionFactorInput) ?? 0;
+        // Calculate multiplier (1/x) for backend
+        parsedConversion = parsedInput > 0 ? (1 / parsedInput) : 0;
+      } else {
+        // Keep existing factor if untouched
+        parsedConversion = rest?.conversionFactor ?? 0;
+      }
 
       const parsedPrice =
         parseDecimalInput(
@@ -309,6 +319,7 @@ const sanitizeSellingUnitsForPayload = (units = []) =>
 
       return {
         ...rest,
+        // Save the multiplier (0.05) to DB, but keep the input (20) if needed for immediate UI
         conversionFactor: parsedConversion,
         pricePerUnit: parsedPrice,
         costPerUnit: parsedCost,
@@ -2636,17 +2647,16 @@ function ProductsManagement() {
 
                   {newProduct.hasMultipleSellingUnits && (
                     <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md">
-                      <p className="text-xs font-semibold text-blue-900 dark:text-blue-200 mb-1">⚠️ IMPORTANTE - Unidad Base del Inventario:</p>
+                      <p className="text-xs font-semibold text-blue-900 dark:text-blue-200 mb-1">⚠️ IMPORTANTE - Configuración de Contenido:</p>
                       <p className="text-xs text-blue-800 dark:text-blue-300 mb-2">
-                        El inventario SIEMPRE se guarda en <span className="font-bold">"{newProduct.unitOfMeasure}"</span>.
-                        El Factor de Conversión indica cuántas unidades base equivalen a 1 unidad de venta.
+                        El inventario SIEMPRE se guarda en <span className="font-bold">"{newProduct.unitOfMeasure}"</span> (la unidad más grande/principal).
+                        Aquí debes definir <span className="font-bold">cuántas unidades de venta</span> están contenidas en 1 unidad principal.
                       </p>
                       <div className="text-xs text-blue-800 dark:text-blue-300 space-y-1">
                         <p className="font-semibold">Ejemplos:</p>
-                        <p>• Si la unidad base es "gramos" y vendes en "kg": Factor = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">1000</span> (1 kg = 1000 g)</p>
-                        <p>• Si la unidad base es "gramos" y vendes en "g": Factor = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">1</span> (1 g = 1 g)</p>
-                        <p>• Si la unidad base es "kg" y vendes en "kg": Factor = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">1</span> (1 kg = 1 kg)</p>
-                        <p>• Si la unidad base es "unidad" y vendes en "caja de 24": Factor = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">24</span> (1 caja = 24 unidades)</p>
+                        <p>• Si la unidad base es "Saco" y vendes en "kg": Contenido = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">20</span> (1 Saco trae 20 kg)</p>
+                        <p>• Si la unidad base es "Caja" y vendes en "Unidad": Contenido = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">24</span> (1 Caja trae 24 unidades)</p>
+                        <p>• Si la unidad base es "Kg" y vendes en "g": Contenido = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">1000</span> (1 Kg trae 1000 g)</p>
                       </div>
                     </div>
                   )}
@@ -2708,17 +2718,17 @@ function ProductsManagement() {
                             </div>
                             <div className="space-y-2">
                               <Label className="flex items-center gap-1">
-                                Factor Conversión
-                                <span className="text-xs text-muted-foreground">(Cuántos {newProduct.unitOfMeasure} = 1 {unit.abbreviation || 'unidad'})</span>
+                                Contenido por {newProduct.unitOfMeasure}
+                                <span className="text-xs text-muted-foreground p-1">(¿Cuántos {unit.abbreviation || 'unidad'} tiene 1 {newProduct.unitOfMeasure}?)</span>
                               </Label>
                               <Input
                                 type="number"
                                 step="0.001"
                                 inputMode="decimal"
-                                placeholder={getPlaceholder('sellingUnitConversion', 'Ej: 1000')}
+                                placeholder={getPlaceholder('sellingUnitConversion', 'Ej: 20')}
                                 value={
                                   unit.conversionFactorInput ??
-                                  normalizeDecimalInput(unit.conversionFactor ?? '')
+                                  (unit.conversionFactor ? normalizeDecimalInput(parseFloat((1 / unit.conversionFactor).toFixed(4)).toString()) : '')
                                 }
                                 onChange={(e) => {
                                   const rawValue = e.target.value;
@@ -2726,11 +2736,15 @@ function ProductsManagement() {
                                     if (unitIndex !== index) {
                                       return currentUnit;
                                     }
-                                    const parsed = parseDecimalInput(rawValue);
+                                    // We keep the raw input (e.g. "20") for UI
+                                    // We calculate the factor (e.g. 0.05) for internal logic if needed immediately
+                                    const parsedInput = parseDecimalInput(rawValue);
+                                    const calculatedFactor = parsedInput > 0 ? (1 / parsedInput) : null;
+
                                     return {
                                       ...currentUnit,
                                       conversionFactorInput: rawValue,
-                                      conversionFactor: parsed !== null ? parsed : null,
+                                      conversionFactor: calculatedFactor,
                                     };
                                   });
                                   setNewProduct({ ...newProduct, sellingUnits: units });
@@ -2741,20 +2755,25 @@ function ProductsManagement() {
                                       return currentUnit;
                                     }
                                     const normalizedInput = normalizeDecimalInput(currentUnit.conversionFactorInput ?? '');
-                                    const parsed = parseDecimalInput(normalizedInput);
+                                    // Recalculate factor on blur just to be safe and clean up input
+                                    const parsedInput = parseDecimalInput(normalizedInput);
+                                    const calculatedFactor = parsedInput > 0 ? (1 / parsedInput) : null;
+
                                     return {
                                       ...currentUnit,
                                       conversionFactorInput: normalizedInput,
-                                      conversionFactor: parsed !== null ? parsed : null,
+                                      conversionFactor: calculatedFactor,
                                     };
                                   });
                                   setNewProduct({ ...newProduct, sellingUnits: units });
                                 }}
                               />
-                              <p className="text-xs text-muted-foreground">
-                                1 {unit.abbreviation || 'unidad'} = {parseDecimalInput(
-                                  (unit.conversionFactorInput ?? unit.conversionFactor)
-                                ) ?? 0} {newProduct.unitOfMeasure}
+                              <p className="text-xs text-muted-foreground font-medium text-blue-600 dark:text-blue-400 mt-1">
+                                {unit.conversionFactorInput ? (
+                                  `1 ${newProduct.unitOfMeasure} contiene ${unit.conversionFactorInput} ${unit.abbreviation || 'unidad'}`
+                                ) : (
+                                  `Define el contenido`
+                                )}
                               </p>
                             </div>
                             <div className="space-y-2">
@@ -3664,8 +3683,16 @@ function ProductsManagement() {
                             productToEdit.storageTemperature = map[productToEdit.attributes.storageCondition] || productToEdit.attributes.storageCondition.toLowerCase();
                           }
                           productToEdit.sellingUnits = productToEdit.sellingUnits.map((unit) => {
-                            const conversionSource =
-                              unit?.conversionFactorInput ?? unit?.conversionFactor ?? '';
+                            // Calculate inverted factor for display (e.g. 1 / 0.05 = 20)
+                            const factor = unit?.conversionFactor;
+
+                            // If conversionFactorInput exists (draft), use it. 
+                            // Otherwise, calculate from factor: 1/factor
+                            let conversionSource = unit?.conversionFactorInput || '';
+                            if (!conversionSource && factor) {
+                              conversionSource = parseFloat((1 / factor).toFixed(4)).toString();
+                            }
+
                             const priceSource =
                               unit?.pricePerUnitInput ?? unit?.pricePerUnit ?? '';
                             const costSource =
@@ -3673,7 +3700,8 @@ function ProductsManagement() {
                             return {
                               ...unit,
                               conversionFactorInput: normalizeDecimalInput(conversionSource),
-                              conversionFactor: parseDecimalInput(conversionSource),
+                              // Keep original factor internally
+                              conversionFactor: factor,
                               pricePerUnitInput: normalizeDecimalInput(priceSource),
                               pricePerUnit: parseDecimalInput(priceSource),
                               costPerUnitInput: normalizeDecimalInput(costSource),
@@ -4361,17 +4389,17 @@ function ProductsManagement() {
                               </div>
                               <div className="space-y-2">
                                 <Label className="flex items-center gap-1">
-                                  Factor Conversión
-                                  <span className="text-xs text-muted-foreground">(Cuántos {editingProduct.unitOfMeasure} = 1 {unit.abbreviation || 'unidad'})</span>
+                                  Contenido por {editingProduct.unitOfMeasure}
+                                  <span className="text-xs text-muted-foreground p-1">(¿Cuántos {unit.abbreviation || 'unidad'} tiene 1 {editingProduct.unitOfMeasure}?)</span>
                                 </Label>
                                 <Input
                                   type="number"
                                   step="0.001"
                                   inputMode="decimal"
-                                  placeholder={getPlaceholder('sellingUnitConversion', 'Ej: 1000')}
+                                  placeholder={getPlaceholder('sellingUnitConversion', 'Ej: 20')}
                                   value={
                                     unit.conversionFactorInput ??
-                                    normalizeDecimalInput(unit.conversionFactor ?? '')
+                                    (unit.conversionFactor ? normalizeDecimalInput(parseFloat((1 / unit.conversionFactor).toFixed(4)).toString()) : '')
                                   }
                                   onChange={(e) => {
                                     const rawValue = e.target.value;
@@ -4379,11 +4407,15 @@ function ProductsManagement() {
                                       if (unitIndex !== index) {
                                         return currentUnit;
                                       }
-                                      const parsed = parseDecimalInput(rawValue);
+                                      // Logic: Input = Units per Base. Factor = 1 / Input.
+                                      // We save rawInput for UI, and calculatedFactor for potential immediate logic
+                                      const parsedInput = parseDecimalInput(rawValue);
+                                      const calculatedFactor = parsedInput > 0 ? (1 / parsedInput) : null;
+
                                       return {
                                         ...currentUnit,
                                         conversionFactorInput: rawValue,
-                                        conversionFactor: parsed !== null ? parsed : null,
+                                        conversionFactor: calculatedFactor,
                                       };
                                     });
                                     setEditingProduct({ ...editingProduct, sellingUnits: units });
@@ -4394,20 +4426,25 @@ function ProductsManagement() {
                                         return currentUnit;
                                       }
                                       const normalizedInput = normalizeDecimalInput(currentUnit.conversionFactorInput ?? '');
-                                      const parsed = parseDecimalInput(normalizedInput);
+                                      // Re-calculate on blur
+                                      const parsedInput = parseDecimalInput(normalizedInput);
+                                      const calculatedFactor = parsedInput > 0 ? (1 / parsedInput) : null;
+
                                       return {
                                         ...currentUnit,
                                         conversionFactorInput: normalizedInput,
-                                        conversionFactor: parsed !== null ? parsed : null,
+                                        conversionFactor: calculatedFactor,
                                       };
                                     });
                                     setEditingProduct({ ...editingProduct, sellingUnits: units });
                                   }}
                                 />
-                                <p className="text-xs text-muted-foreground">
-                                  1 {unit.abbreviation || 'unidad'} = {parseDecimalInput(
-                                    (unit.conversionFactorInput ?? unit.conversionFactor)
-                                  ) ?? 0} {editingProduct.unitOfMeasure}
+                                <p className="text-xs text-muted-foreground font-medium text-blue-600 dark:text-blue-400 mt-1">
+                                  {unit.conversionFactorInput ? (
+                                    `1 ${editingProduct.unitOfMeasure} contiene ${unit.conversionFactorInput} ${unit.abbreviation || 'unidad'}`
+                                  ) : (
+                                    `Define el contenido`
+                                  )}
                                 </p>
                               </div>
                               <div className="space-y-2">
