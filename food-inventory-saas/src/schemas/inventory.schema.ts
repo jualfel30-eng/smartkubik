@@ -88,6 +88,9 @@ export class Inventory {
   @Prop({ type: Types.ObjectId, ref: "Warehouse" })
   warehouseId?: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: "BinLocation" })
+  binLocationId?: Types.ObjectId;
+
   @Prop({ type: String, required: true })
   productSku: string;
 
@@ -224,6 +227,16 @@ export class InventoryMovement {
   @Prop({ type: Types.ObjectId, ref: "InventoryMovement" })
   linkedMovementId?: Types.ObjectId; // Reference to the paired movement
 
+  // Bin location fields for granular tracking
+  @Prop({ type: Types.ObjectId, ref: "BinLocation" })
+  binLocationId?: Types.ObjectId; // Bin location for IN/OUT/ADJUSTMENT movements
+
+  @Prop({ type: Types.ObjectId, ref: "BinLocation" })
+  sourceBinLocationId?: Types.ObjectId; // Source bin for transfers
+
+  @Prop({ type: Types.ObjectId, ref: "BinLocation" })
+  destinationBinLocationId?: Types.ObjectId; // Destination bin for transfers
+
   @Prop({ type: Object })
   balanceAfter: {
     totalQuantity: number;
@@ -286,3 +299,9 @@ InventoryMovementSchema.index({ lotNumber: 1, tenantId: 1 });
 InventoryMovementSchema.index({ transferId: 1, tenantId: 1 });
 InventoryMovementSchema.index({ sourceWarehouseId: 1, tenantId: 1, createdAt: -1 });
 InventoryMovementSchema.index({ destinationWarehouseId: 1, tenantId: 1, createdAt: -1 });
+
+// Índices para ubicaciones bin
+InventorySchema.index({ tenantId: 1, warehouseId: 1, binLocationId: 1, productId: 1 });
+InventoryMovementSchema.index({ binLocationId: 1, tenantId: 1, createdAt: -1 });
+InventoryMovementSchema.index({ sourceBinLocationId: 1, tenantId: 1, createdAt: -1 });
+InventoryMovementSchema.index({ destinationBinLocationId: 1, tenantId: 1, createdAt: -1 });

@@ -439,6 +439,10 @@ export class InventoryService {
     inventory.availableQuantity += difference;
     if (adjustDto.newCostPrice)
       inventory.averageCostPrice = adjustDto.newCostPrice;
+    // Update bin location if provided
+    if (adjustDto.binLocationId) {
+      inventory.binLocationId = new Types.ObjectId(adjustDto.binLocationId);
+    }
     await inventory.save({ session });
     await this.createMovementRecord(
       {
@@ -450,6 +454,7 @@ export class InventoryService {
         unitCost: inventory.averageCostPrice,
         totalCost: Math.abs(difference) * inventory.averageCostPrice,
         reason: adjustDto.reason,
+        binLocationId: adjustDto.binLocationId,
         balanceAfter: {
           totalQuantity: inventory.totalQuantity,
           availableQuantity: inventory.availableQuantity,

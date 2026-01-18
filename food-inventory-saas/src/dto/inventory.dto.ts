@@ -323,6 +323,11 @@ export class AdjustInventoryDto {
   @IsNumber()
   @Min(0)
   newCostPrice?: number;
+
+  @ApiPropertyOptional({ description: "ID de la ubicación bin (opcional)" })
+  @IsOptional()
+  @IsMongoId()
+  binLocationId?: string;
 }
 
 export class InventoryQueryDto {

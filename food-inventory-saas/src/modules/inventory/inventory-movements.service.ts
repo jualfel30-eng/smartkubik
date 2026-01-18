@@ -90,11 +90,18 @@ export class InventoryMovementsService {
         : inventory.warehouseId;
     await inventory.save();
 
+    // Update inventory bin location if provided
+    if (dto.binLocationId && Types.ObjectId.isValid(dto.binLocationId)) {
+      inventory.binLocationId = new Types.ObjectId(dto.binLocationId);
+      await inventory.save();
+    }
+
     const movement = new this.movementModel({
       inventoryId: inventory._id,
       productId: inventory.productId,
       productSku: inventory.productSku,
       warehouseId: inventory.warehouseId,
+      binLocationId: dto.binLocationId ? new Types.ObjectId(dto.binLocationId) : undefined,
       movementType: dto.movementType,
       quantity: dto.quantity,
       unitCost: dto.unitCost,
@@ -307,12 +314,23 @@ export class InventoryMovementsService {
     destInventory.totalQuantity = (destInventory.totalQuantity ?? 0) + dto.quantity;
     await destInventory.save();
 
+    // Prepare bin location ObjectIds if provided
+    const sourceBinOid = dto.sourceBinLocationId ? new Types.ObjectId(dto.sourceBinLocationId) : undefined;
+    const destBinOid = dto.destinationBinLocationId ? new Types.ObjectId(dto.destinationBinLocationId) : undefined;
+
+    // Update destination inventory bin location if provided
+    if (destBinOid) {
+      destInventory.binLocationId = destBinOid;
+      await destInventory.save();
+    }
+
     // Create OUT movement from source
     const outMovement = new this.movementModel({
       inventoryId: sourceInventory._id,
       productId: productOid,
       productSku: sourceInventory.productSku,
       warehouseId: sourceWarehouseOid,
+      binLocationId: sourceBinOid,
       movementType: MovementType.TRANSFER,
       quantity: dto.quantity,
       unitCost,
@@ -322,6 +340,8 @@ export class InventoryMovementsService {
       transferId,
       sourceWarehouseId: sourceWarehouseOid,
       destinationWarehouseId: destWarehouseOid,
+      sourceBinLocationId: sourceBinOid,
+      destinationBinLocationId: destBinOid,
       balanceAfter: {
         totalQuantity: sourceInventory.totalQuantity,
         availableQuantity: sourceInventory.availableQuantity,
@@ -338,6 +358,7 @@ export class InventoryMovementsService {
       productId: productOid,
       productSku: destInventory.productSku,
       warehouseId: destWarehouseOid,
+      binLocationId: destBinOid,
       movementType: MovementType.TRANSFER,
       quantity: dto.quantity,
       unitCost,
@@ -347,6 +368,8 @@ export class InventoryMovementsService {
       transferId,
       sourceWarehouseId: sourceWarehouseOid,
       destinationWarehouseId: destWarehouseOid,
+      sourceBinLocationId: sourceBinOid,
+      destinationBinLocationId: destBinOid,
       balanceAfter: {
         totalQuantity: destInventory.totalQuantity,
         availableQuantity: destInventory.availableQuantity,

@@ -667,6 +667,8 @@ export class ChatService {
         sources: assistantResponse.sources,
         usedFallback: assistantResponse.usedFallback,
         usedTools: assistantResponse.usedTools,
+        action: assistantResponse.action,
+        data: assistantResponse.data,
       };
 
       const assistantMessage = await this.saveMessage(

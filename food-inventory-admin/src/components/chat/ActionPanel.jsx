@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { X, ShoppingBag, Calendar, CheckCircle2, DollarSign, FileText, PlusCircle } from 'lucide-react';
+import { ShoppingBag, Calendar, CheckCircle2, Settings, X, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NewOrderFormV2 } from '@/components/orders/v2/NewOrderFormV2';
 import ReservationForm from '@/components/ReservationForm';
-import { PaymentDialogV2 } from '@/components/orders/v2/PaymentDialogV2';
-import BillingDrawer from '@/components/billing/BillingDrawer';
+import { OrderProcessingDrawer } from '@/components/orders/OrderProcessingDrawer';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { toast } from 'sonner';
+
+import { fetchApi } from '@/lib/api';
 
 export const ActionPanel = ({
     isOpen,
@@ -14,11 +15,11 @@ export const ActionPanel = ({
     activeAction,
     onActionChange,
     activeConversation,
-    tenant
+    tenant,
+    initialOrderId // New prop
 }) => {
     const [createdOrder, setCreatedOrder] = useState(null);
-    const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-    const [showBillingDrawer, setShowBillingDrawer] = useState(false);
+    const [isProcessingDrawerOpen, setIsProcessingDrawerOpen] = useState(false);
     const { rate: exchangeRate } = useExchangeRate();
 
     // Reset state when action changes or panel closes
@@ -29,8 +30,25 @@ export const ActionPanel = ({
     }, [isOpen]);
 
     useEffect(() => {
-        setCreatedOrder(null);
-    }, [activeAction]);
+        const fetchOrder = async () => {
+            if (isOpen && initialOrderId) {
+                try {
+                    const response = await fetchApi(`/orders/${initialOrderId}`);
+                    setCreatedOrder(response.data || response);
+                } catch (error) {
+                    toast.error("Error al cargar la orden");
+                    console.error(error);
+                }
+            }
+        };
+        fetchOrder();
+    }, [isOpen, initialOrderId]);
+
+    useEffect(() => {
+        if (!initialOrderId) {
+            setCreatedOrder(null);
+        }
+    }, [activeAction, initialOrderId]);
 
     if (!isOpen) return null;
 
@@ -121,20 +139,10 @@ export const ActionPanel = ({
                             <Button
                                 size="lg"
                                 className="w-full gap-2"
-                                onClick={() => setShowPaymentDialog(true)}
+                                onClick={() => setIsProcessingDrawerOpen(true)}
                             >
-                                <DollarSign className="h-5 w-5" />
-                                Registrar Pago
-                            </Button>
-
-                            <Button
-                                variant="outline"
-                                size="lg"
-                                className="w-full gap-2"
-                                onClick={() => setShowBillingDrawer(true)}
-                            >
-                                <FileText className="h-5 w-5" />
-                                Emitir Factura
+                                <Settings className="h-5 w-5" />
+                                Procesar Orden
                             </Button>
                         </div>
                     </div>
@@ -164,31 +172,19 @@ export const ActionPanel = ({
                 )}
             </div>
 
-            {/* Dialogs */}
-            {showPaymentDialog && createdOrder && (
-                <PaymentDialogV2
-                    isOpen={showPaymentDialog}
-                    onClose={() => setShowPaymentDialog(false)}
+            {/* Order Processing Drawer */}
+            {isProcessingDrawerOpen && createdOrder && (
+                <OrderProcessingDrawer
+                    isOpen={isProcessingDrawerOpen}
+                    onClose={() => setIsProcessingDrawerOpen(false)}
                     order={createdOrder}
-                    exchangeRate={exchangeRate}
-                    onPaymentSuccess={() => {
-                        toast.success("Pago registrado correctamente");
-                        setShowPaymentDialog(false);
-                        // Optionally refresh the order data here if needed
-                    }}
-                />
-            )}
-
-            {showBillingDrawer && createdOrder && (
-                <BillingDrawer
-                    isOpen={showBillingDrawer}
-                    onClose={() => setShowBillingDrawer(false)}
-                    order={{
-                        ...createdOrder,
-                        customerPhone: createdOrder.customerPhone || activeConversation?.customerPhoneNumber
-                    }}
-                    onOrderUpdated={() => {
-                        // Refresh if needed
+                    onUpdate={async () => {
+                        try {
+                            const response = await fetchApi(`/orders/${createdOrder._id}`);
+                            setCreatedOrder(response.data || response);
+                        } catch (error) {
+                            console.error('Error updating order:', error);
+                        }
                     }}
                 />
             )}

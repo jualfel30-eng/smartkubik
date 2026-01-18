@@ -220,46 +220,37 @@ export class AssistantToolsService {
       this.buildRequestedMeasurement(query, args);
 
     const queryForFilters = sanitizedQuery || query;
-    const { baseQuery, normalizedFilters, displayFilters } =
-      this.extractAttributeFilters(
-        queryForFilters,
-        tenantContext.verticalProfile?.attributeSchema || [],
-        args?.attributes,
-      );
+    // Split by space for robust multi-term matching (AND logic across fields)
+    const terms = queryForFilters.trim().split(/\s+/).map(t => this.escapeRegExp(t));
+    const termRegexes = terms.map(term => new RegExp(term, "i"));
 
-    const searchTerm =
-      baseQuery && baseQuery.length >= 2 ? baseQuery : queryForFilters;
-    const regex = new RegExp(this.escapeRegExp(searchTerm), "i");
-    const hasAttributeFilters = Object.keys(normalizedFilters).length > 0;
+    // Build the query: EVERY term must match AT LEAST ONE valid field
+    const tokenConditions = termRegexes.map(regex => ({
+      $or: [
+        { name: regex },
+        { sku: regex },
+        { tags: regex },
+        { description: regex },
+        { ingredients: regex },
+        { brand: regex },
+        { category: regex },
+        { subcategory: regex },
+        { "variants.sku": regex },
+        { "variants.name": regex },
+      ]
+    }));
 
     const matchedProducts = await this.productModel
       .find({
         tenantId: tenantObjectId,
-        $or: [
-          { name: regex },
-          { sku: regex },
-          { tags: regex },
-          { description: regex },
-          { ingredients: regex },
-          { brand: regex },
-          { category: regex },
-          { subcategory: regex },
-          { "variants.sku": regex },
-          { "variants.name": regex },
-          { "variants.description": regex },
-        ],
+        $and: tokenConditions, // This ensures "Carbon" + "Savage" finds "Carbon (Name)" + "Savage (Brand)"
       })
       .limit(limit * 3)
       .lean();
 
     this.logger.log(
-      `[DEBUG] Found ${matchedProducts.length} products matching query "${searchTerm}"`,
+      `[DEBUG] Found ${matchedProducts.length} products matching query "${query}"`,
     );
-    if (hasAttributeFilters) {
-      this.logger.log(
-        `[DEBUG] Attribute filters detected: ${JSON.stringify(displayFilters)}`,
-      );
-    }
     if (matchedProducts.length > 0) {
       this.logger.log(
         `[DEBUG] Product IDs: ${matchedProducts.map((p) => p._id.toString()).join(", ")}`,
@@ -321,10 +312,7 @@ export class AssistantToolsService {
         return this.buildInventoryMatch({
           product,
           inventory,
-          normalizedFilters,
-          displayFilters,
           verticalProfile: tenantContext.verticalProfile,
-          hasAttributeFilters,
           requestedMeasurement,
           tenantContext,
         });
@@ -650,19 +638,19 @@ export class AssistantToolsService {
   private buildInventoryMatch(params: {
     product: ProductDocument & { [key: string]: any };
     inventory: InventoryDocument & { [key: string]: any };
-    normalizedFilters: Record<string, string>;
-    displayFilters: Record<string, string>;
+    normalizedFilters?: Record<string, string>;
+    displayFilters?: Record<string, string>;
     verticalProfile?: VerticalProfile | null;
-    hasAttributeFilters: boolean;
+    hasAttributeFilters?: boolean;
     requestedMeasurement?: RequestedMeasurement | null;
     tenantContext: AssistantTenantContext;
   }): Record<string, any> | null {
     const {
       product,
       inventory,
-      normalizedFilters,
-      displayFilters,
-      hasAttributeFilters,
+      normalizedFilters = {},
+      displayFilters = {},
+      hasAttributeFilters = false,
       requestedMeasurement,
       tenantContext,
     } = params;
@@ -1561,15 +1549,18 @@ export class AssistantToolsService {
             this.logger.log(
               `Invalid ObjectId '${productId}' for order item. Attempting lookup by name/sku...`,
             );
-            // Try to find product by name or SKU
+            // Reverting to simple, robust search to avoid Mongoose errors.
+            // Search exact phrase match in Name, SKU, or Brand.
             const safeRegex = new RegExp(this.escapeRegExp(productId), "i");
+
             const product = await this.productModel
               .findOne({
                 tenantId: new Types.ObjectId(tenantId),
                 $or: [
-                  { name: { $regex: safeRegex } },
-                  { sku: { $regex: safeRegex } },
-                  { "variants.sku": { $regex: safeRegex } },
+                  { name: safeRegex },
+                  { sku: safeRegex },
+                  { brand: safeRegex },
+                  { "variants.sku": safeRegex }
                 ],
               })
               .select("_id")
@@ -1614,6 +1605,7 @@ export class AssistantToolsService {
 
       return {
         ok: true,
+        orderId: order._id.toString(),
         orderNumber: order.orderNumber,
         totalAmount: order.totalAmount,
         message: `Orden #${order.orderNumber} creada exitosamente. Total: $${order.totalAmount}.`,

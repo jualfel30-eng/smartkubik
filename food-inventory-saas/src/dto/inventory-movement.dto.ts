@@ -46,6 +46,10 @@ export class CreateInventoryMovementDto {
   @IsOptional()
   @IsMongoId()
   warehouseId?: string;
+
+  @IsOptional()
+  @IsMongoId()
+  binLocationId?: string;
 }
 
 export class InventoryMovementFilterDto {
@@ -95,6 +99,14 @@ export class CreateTransferDto {
   @IsMongoId()
   @IsNotEmpty()
   destinationWarehouseId: string;
+
+  @IsOptional()
+  @IsMongoId()
+  sourceBinLocationId?: string;
+
+  @IsOptional()
+  @IsMongoId()
+  destinationBinLocationId?: string;
 
   @IsNumber()
   @Min(0.0001)

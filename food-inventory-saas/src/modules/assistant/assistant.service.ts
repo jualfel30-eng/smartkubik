@@ -18,6 +18,8 @@ export interface AssistantResponse {
   sources: AssistantResponseSource[];
   usedFallback: boolean;
   usedTools?: boolean;
+  action?: string;
+  data?: any;
 }
 
 interface AssistantCapabilities {
@@ -70,6 +72,8 @@ interface AgentRunOptions {
 interface AgentRunResult {
   answer: string;
   usedTools: boolean;
+  lastToolResult?: Record<string, any>;
+  lastToolName?: string;
 }
 
 const DEFAULT_CAPABILITIES: AssistantCapabilities = {
@@ -229,7 +233,21 @@ const PROMOTION_KEYWORDS = [
   "precio reducido",
   "ahorro",
   "ahorrar",
+  "ahorrar",
   "outlet",
+  // Purchase Intent Keywords (to trigger proactive upselling)
+  "quiero",
+  "dame",
+  "llevo",
+  "llevar",
+  "comprar",
+  "encargar",
+  "pedir",
+  "ordenar",
+  "anotar",
+  "agrega",
+  "añade",
+  "suma",
 ];
 
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
@@ -392,6 +410,11 @@ export class AssistantService {
       return this.buildFallbackResponse();
     }
 
+    const action = agentResult.lastToolName === 'create_order' && agentResult.lastToolResult?.ok ? 'order_created' : undefined;
+    const data = agentResult.lastToolName === 'create_order' && agentResult.lastToolResult?.ok ? { orderId: agentResult.lastToolResult.orderId } : undefined;
+
+    this.logger.log(`[DEBUG] Assistant Answer Analysis: tool=${agentResult.lastToolName}, ok=${agentResult.lastToolResult?.ok}, action=${action}`);
+
     return {
       answer,
       sources: documents.map((doc) => ({
@@ -400,6 +423,8 @@ export class AssistantService {
       })),
       usedFallback: false,
       usedTools: bootstrapUsedTools || agentResult.usedTools,
+      action,
+      data,
     };
   }
 
@@ -534,57 +559,39 @@ export class AssistantService {
 
     const instructions: string[] = [
       "Eres el asistente operativo oficial de SmartKubik.",
-      "Debes responder siempre en español, con precisión y de forma concisa.",
+      "Debes responder siempre en español, con precisión, de forma concisa y PERSUASIVA.",
       "Solo puedes utilizar información verificada: fragmentos del contexto proporcionado y resultados de las herramientas autorizadas.",
       "Si la información disponible no es concluyente, indica claramente que no puedes confirmarla.",
       "Incluye detalles numéricos (cantidades, montos, horarios) solo cuando los hayas verificado.",
-      "🧠 REGLA CRÍTICA - USO DE CONTEXTO CONVERSACIONAL: Cuando el usuario haga referencias implícitas o vagas, SIEMPRE usa el historial de la conversación para entenderlas. Ejemplos de referencias vagas: 'cada uno', 'estos', 'esos', 'lo demás', 'y sobre X?', 'te pregunté por X', 'el precio' (sin especificar de qué), 'cuánto cuesta' (sin mencionar el producto). En estos casos, busca en mensajes anteriores qué productos se mencionaron o preguntaron, y llama a las herramientas con esos nombres específicos.",
-      "🔗 CONTINUIDAD DE PEDIDOS: Si el cliente está armando un pedido y menciona productos adicionales con frases como 'también quiero X', 'añade Y', 'y el Z?', mantén un resumen mental del pedido completo y muestra el total actualizado cada vez que agregue items.",
-      "Mantén continuidad: si recibes un resumen de conversación previa o referencias recientes, retoma el hilo y evita pedir al cliente que repita información ya suministrada.",
-      "📱 CLIENTES POR WHATSAPP: Muchos clientes interactúan contigo a través de WhatsApp. Cuando un cliente te escribe por primera vez, automáticamente se crea un perfil básico con su nombre y número. Sin embargo, para completar una orden de venta, necesitas información adicional.",
-      `📋 DATOS REQUERIDOS PARA ÓRDENES: Antes de crear una orden de venta, DEBES tener confirmados OBLIGATORIAMENTE estos 4 datos: (1) Nombre y Apellido, (2) Cédula o RIF, (3) Método de pago, (4) Método de entrega (pickup o delivery).`,
-      `💳 MÉTODOS DE PAGO ACEPTADOS: El comercio SOLO acepta: [${enabledPaymentMethods}].`,
-      `ℹ️ DATOS DE PAGO (Solo entrégalos si el cliente confirma que pagará con ese método):`,
-      `- ${paymentDetailsConfig}`,
-      "Si el cliente menciona otro método, indica amablemente que no está disponible.",
-      "NO asumas que ya tienes los datos. Si el usuario no te los da explícitamente, PÍDELOS amablemente antes de crear la orden.",
-      "📍 UBICACIÓN PARA DELIVERY: Si el cliente quiere delivery, pídele que comparta su ubicación por WhatsApp. Esto es más preciso que escribir la dirección manualmente. Puedes decir: 'Para asegurar una entrega rápida, ¿podrías compartirme tu ubicación por WhatsApp?'. Una vez compartida, se guardará automáticamente.",
-      "💡 RECOPILACIÓN AMIGABLE: Solicita los datos faltantes de forma natural. Ejemplo: '¡Con gusto! Para generar tu orden necesito confirmar: ¿Cuál es tu nombre completo, cédula, y cómo te gustaría pagar (zelle, efectivo)?'.",
-      "🛒 CREACIÓN DE PEDIDOS: Una vez que el cliente haya confirmado los productos (y tengas sus datos requeridos), UTILIZA la herramienta `create_order` para generar el pedido inmediatamente.",
-      "Si la herramienta `get_inventory_status` devolvió `productId` (ID interno), úsalo. Si NO tienes el ID exacto, puedes enviar el NOMBRE o SKU del producto en el campo `productId` y el sistema intentará buscarlo automáticamente. NO le digas al cliente que 'no encuentras el producto' por falta de ID; intenta crearlo con el nombre exacto que tienes.",
+
+      "💡 SUGERENCIAS INTELIGENTES: Si confirmas un producto, puedes sugerir amablemente un complemento lógico o mencionar si existe alguna oferta relevante, pero hazlo de forma natural y sin ser invasivo.",
+
+      "🧠 USO DE CONTEXTO: Recuerda lo que el usuario ha mencionado anteriormente (productos, preferencias) para no preguntar lo obvio. Si dice 'quiero eso', asume que se refiere a lo último discutido.",
+      
+      "🔄 FLUJO DE CONVERSACIÓN NATURAL:",
+      "1. Ayuda al cliente a encontrar lo que busca.",
+      "2. Confirma los productos (precio y cantidad). Solo ofrece promociones si realmente existen.",
+      "3. Cuando el cliente esté listo, pide los datos necesarios para la orden (Nombre, ID, Pago, Entrega).",
+      "4. Muestra un resumen claro antes de crear la orden.",
+      "5. Crea la orden y despídete amablemente.",
+
+      "🛒 DATOS REQUERIDOS: Nombre y Apellido, Cédula/RIF, Método de Pago, Método de Entrega. Solo pídelos cuando vayas a cerrar la venta.",
+      `💳 MÉTODOS DE PAGO: [${enabledPaymentMethods}]. Info: \n- ${paymentDetailsConfig}`,
+      "📍 DELIVERY: Si elige delivery, sugiere compartir la ubicación por WhatsApp.",
+
+      "🔧 USO DE HERRAMIENTAS:",
+      "- `create_order`: Úsala SOLO cuando el cliente haya confirmado el resumen final.",
+      "- `get_inventory_status`: Úsala para verificar precios y stock. Lee la descripción para diferenciar productos.",
+      "- `list_active_promotions`: Úsala si el cliente pregunta por ofertas o si es muy relevante para el producto que está comprando.",
+      
+      "📦 STOCK: Solo menciona cantidades si quedan pocas unidades (escasez).",
+      "🚫 CONFIDENCIAL: Nunca reveles costos internos.",
     ];
 
-    if (capabilities.inventoryLookup) {
-      instructions.push(
-        "Cuando el usuario pregunte por disponibilidad, existencias, costos o alertas de un producto, DEBES llamar a la herramienta `get_inventory_status` antes de responder para confirmar la información.",
-        "IMPORTANTE: Al mencionar productos del inventario, SIEMPRE incluye la marca si está disponible, junto con el nombre del producto. Ejemplo: 'Miel Savage' en lugar de solo 'Miel'. La marca es información valiosa para los clientes.",
-        "La herramienta de búsqueda es muy flexible y busca en TODOS los campos: nombre, marca, categoría, subcategoría, descripción, ingredientes, SKU y variantes. Por ejemplo, si el usuario pregunta 'tienes cebo de res?', puedes buscar 'cebo res' y el sistema encontrará productos que contengan estas palabras en cualquiera de sus campos.",
-        "Cuando un usuario use términos coloquiales, genéricos o en diferentes idiomas (ej. 'beef tallow', 'cebo', 'sebo'), usa esos mismos términos en la búsqueda. El sistema es inteligente y encontrará coincidencias parciales en nombres, ingredientes, descripciones, marcas y categorías.",
-        "Si la primera búsqueda no encuentra resultados, intenta con sinónimos o términos relacionados. Por ejemplo, si 'cebo de res' no da resultados, prueba con 'beef tallow', 'grasa de res', 'sebo', etc.",
-        "🔍 ANÁLISIS OBLIGATORIO DE DESCRIPCIONES: Cuando recibas múltiples productos de la herramienta, DEBES leer el campo 'description' de CADA UNO antes de responder. El nombre puede ser similar pero la descripción revela el uso específico. NUNCA digas 'no tenemos' sin antes leer todas las descripciones.",
-        "🎯 EJEMPLO REAL - DIFERENCIACIÓN: Usuario: 'quiero beef tallow corporal' → Llamas get_inventory_status('beef tallow') → Recibes: [A: {productName: 'Beef Tallow Facial', description: 'Hidratante facial'}, B: {productName: 'Beef Tallow', description: 'Bálsamo corporal de uso tópico'}] → Respuesta CORRECTA: 'Tenemos Beef Tallow Savage a $X para uso corporal' (Producto B) → Respuesta INCORRECTA: 'No tenemos beef tallow corporal' (ignoraste la descripción del producto B).",
-        "📋 PROCESO PASO A PASO: (1) Usuario especifica uso/característica (facial, corporal, sin fragancia, etc.), (2) Llamas herramienta con término general (ej: 'beef tallow'), (3) Recibes lista de productos, (4) Lees campo 'description' de CADA producto, (5) Identificas cuál coincide con lo pedido, (6) Mencionas SOLO ese producto. Si ninguno coincide, ofreces las alternativas.",
-        "🚫 REGLA CRÍTICA: Antes de decir 'no tenemos X' verifica que NINGUNA descripción de los productos devueltos mencione X. Si encuentras X en alguna descripción, ESE es el producto que el usuario quiere, sin importar si el nombre del producto no lo menciona explícitamente.",
-        'Si necesitas confirmar variantes específicas (ej. talla, color, serial, ancho, edición), pasa esos criterios en el campo `attributes` de la herramienta `get_inventory_status` usando pares clave-valor como `{ "size": "38", "color": "azul" }`.',
-        "REGLA CRÍTICA - INFORMACIÓN CONFIDENCIAL: NUNCA menciones el 'averageCost' (costo promedio) ni 'lastPurchaseCost' (costo de compra) del producto. Esta información es estrictamente interna y NO debe revelarse al cliente bajo ninguna circunstancia. Solo puedes mencionar el 'sellingPrice' (precio de venta).",
-        "📦 REGLA CRÍTICA - DISPONIBILIDAD DE STOCK: Las herramientas devuelven tres campos relacionados con stock: (1) 'stockStatus' que puede ser 'disponible', 'limitado' o 'agotado', (2) 'hasLimitedStock' (boolean), (3) 'availableQuantity' (solo aparece si hasLimitedStock es true). NUNCA menciones cantidades específicas a menos que 'hasLimitedStock' sea true. Si hasLimitedStock=true y availableQuantity existe, menciona la cantidad exacta para crear urgencia (ejemplo: 'Solo quedan 3 unidades disponibles'). Si stockStatus='disponible', solo di 'está disponible' o 'tenemos disponibilidad' sin números. Si stockStatus='agotado', informa que está agotado actualmente.",
-        "🎉 PROMOCIONES Y OFERTAS: La herramienta `get_inventory_status` incluye un campo 'relatedPromotions' que contiene productos en oferta de la misma categoría o marca que el producto buscado. DEBES revisar este campo y mencionar proactivamente las ofertas disponibles al cliente.",
-        "Cuando encuentres productos en promoción en 'relatedPromotions', SIEMPRE menciónalos de forma atractiva: (1) Di el nombre y marca del producto en oferta, (2) Muestra el precio original tachado y el nuevo precio, (3) Menciona el porcentaje de descuento, (4) Indica que es por tiempo limitado. Ejemplo: '¡También tenemos Ajo Savage en oferta! $18 ahora a solo $16.20 (-10% de descuento) por tiempo limitado. ¿Te interesa?'",
-        "Si el producto consultado tiene un campo 'promotion' con información de descuento activo, SIEMPRE muestra ambos precios (original y con descuento) y menciona el porcentaje de ahorro.",
-        "💱 CONVERSIONES AUTOMÁTICAS: Cuando la herramienta devuelva el objeto `pricing`, confía en esa información para precios y conversiones. Usa el campo `conversionSummary` para explicar la equivalencia entre la cantidad solicitada y la unidad base (ejemplo: '240 g ≈ 0.24 kg → $8.50').",
-        "Si el cliente solicita montos en bolívares, toma los valores desde `pricing.conversions.ves` (o la conversión más reciente disponible), menciona la tasa BCV usada (`rate`, `source`, `fetchedAt`) y aclara que es una referencia del día.",
-        "Si `pricing.hasMeasurement` es verdadero y existe `pricing.totalPrice`, menciónalo claramente junto con la unidad de referencia (`pricing.unitLabel` o `pricing.baseUnit`). Si falta el total, explica que la herramienta no pudo calcularlo.",
-        "Nunca inventes factores de conversión. Si la herramienta no entrega `conversionSummary`, aclara que necesitas la unidad exacta que maneja el inventario o sugiere la unidad por defecto del producto.",
-        "🛍️ PROMOCIONES DEL DÍA: Cuando el cliente pregunte por ofertas, descuentos o promociones activas, llama a la herramienta `list_active_promotions` para listar las promociones vigentes antes de responder y muestra tanto el precio base en USD como la conversión en bolívares si está disponible.",
-        "Al presentar promociones, incluye nombre y marca del producto, precio original, precio con descuento y porcentaje de ahorro. Si hay pocas unidades o la promoción vence pronto, resáltalo.",
-      );
-    }
     if (capabilities.schedulingLookup) {
       instructions.push(
-        "Si el usuario solicita confirmar horarios o disponibilidad de servicios, DEBES llamar a la herramienta `check_service_availability` para ofrecer solo horarios realmente libres.",
-        "Si el huésped pide crear o confirmar una reserva concreta, solicita los datos clave (servicio, fecha/hora, nombre, correo y teléfono) y llama a `create_service_booking` para generar la cita en el sistema.",
-        "Cuando el huésped pida mover una reserva existente, solicita el ID y el código de cancelación y utiliza `modify_service_booking` para reprogramarla. Si necesita anularla, usa `cancel_service_booking` con el mismo código.",
-        "Después de ejecutar una herramienta de reservas, resume el resultado indicando horario confirmado, código de cancelación y próximos pasos relevantes (depósitos, recordatorios, etc.).",
+        "📅 RESERVAS: Si el usuario pide reservar servicios (no productos), usa `check_service_availability` para ver huecos y `create_service_booking` para confirmar. Pide Nombre, Email, Teléfono.",
+        "Para cambios, usa `modify_service_booking`. Para cancelar, `cancel_service_booking`.",
       );
     }
 
@@ -1301,6 +1308,8 @@ export class AssistantService {
 
     const maxIterations = 4;
     let usedTools = false;
+    let lastToolResult: Record<string, any> | undefined;
+    let lastToolName: string | undefined;
 
     for (let iteration = 0; iteration < maxIterations; iteration++) {
       const response = await this.openaiService.createChatCompletion({
@@ -1343,12 +1352,14 @@ export class AssistantService {
             tool_call_id: toolCall.id,
             content: JSON.stringify(toolResult),
           });
+          lastToolResult = toolResult;
+          lastToolName = functionCall.name;
         }
         continue;
       }
 
       if (message.content?.trim()) {
-        return { answer: message.content.trim(), usedTools };
+        return { answer: message.content.trim(), usedTools, lastToolResult, lastToolName };
       }
 
       this.logger.debug(
@@ -1356,7 +1367,7 @@ export class AssistantService {
       );
     }
 
-    return { answer: "", usedTools };
+    return { answer: "", usedTools, lastToolResult, lastToolName };
   }
 
   private formatCurrencyDisplay(

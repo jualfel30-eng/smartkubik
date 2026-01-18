@@ -33,6 +33,7 @@ const WhatsAppInbox = () => {
   const [isActionPanelOpen, setIsActionPanelOpen] = useState(false);
   const [activeAction, setActiveAction] = useState('order'); // 'order' | 'reservation'
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [orderIdToView, setOrderIdToView] = useState(null);
 
   // Responsive: Close sidebar on mobile when conversation is selected
   useEffect(() => {
@@ -376,6 +377,21 @@ const WhatsAppInbox = () => {
                     <div key={index} className={`mb-3 flex ${alignmentClass}`}>
                       <div className={`max-w-lg rounded-lg px-4 py-2 shadow-sm ${bubbleClass}`}>
                         <p className="whitespace-pre-wrap">{msg.content}</p>
+                        {msg.metadata?.action === 'order_created' && msg.metadata?.data?.orderId && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="mt-2 w-full gap-2 bg-background/50 hover:bg-background/80 text-foreground border shadow-sm"
+                            onClick={() => {
+                              setOrderIdToView(msg.metadata.data.orderId);
+                              setActiveAction('order');
+                              setIsActionPanelOpen(true);
+                            }}
+                          >
+                            <ShoppingBag className="h-4 w-4" />
+                            Ver Orden
+                          </Button>
+                        )}
                         <p className="text-[10px] opacity-70 text-right mt-1">
                           {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
@@ -471,11 +487,15 @@ const WhatsAppInbox = () => {
       {/* Action Panel */}
       <ActionPanel
         isOpen={isActionPanelOpen}
-        onClose={() => setIsActionPanelOpen(false)}
+        onClose={() => {
+          setIsActionPanelOpen(false);
+          setOrderIdToView(null);
+        }}
         activeAction={activeAction}
         onActionChange={setActiveAction}
         activeConversation={activeConversation}
         tenant={tenant}
+        initialOrderId={orderIdToView}
       />
     </div>
   );

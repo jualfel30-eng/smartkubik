@@ -27,6 +27,7 @@ export default function InventoryMovementsPanel() {
   const [movements, setMovements] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0, limit: 50 });
   const [warehouses, setWarehouses] = useState([]);
+  const [binLocations, setBinLocations] = useState([]);
   const [inventories, setInventories] = useState([]);
   const [filters, setFilters] = useState({
     movementType: '',
@@ -43,12 +44,15 @@ export default function InventoryMovementsPanel() {
     quantity: 1,
     unitCost: 0,
     reason: '',
+    binLocationId: '',
   });
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [transferForm, setTransferForm] = useState({
     productId: '',
     sourceWarehouseId: '',
     destinationWarehouseId: '',
+    sourceBinLocationId: '',
+    destinationBinLocationId: '',
     quantity: 1,
     reason: '',
   });
@@ -98,15 +102,17 @@ export default function InventoryMovementsPanel() {
 
   const fetchAuxData = async () => {
     try {
-      const [invRes, whRes] = await Promise.all([
+      const [invRes, whRes, binRes] = await Promise.all([
         fetchApi('/inventory?limit=100'),
         multiWarehouseEnabled ? fetchApi('/warehouses') : Promise.resolve([]),
+        multiWarehouseEnabled ? fetchApi('/bin-locations') : Promise.resolve([]),
       ]);
       setInventories(invRes?.data || invRes || []);
       // fetchApi returns the array directly, not wrapped in { data: [...] }
       setWarehouses(Array.isArray(whRes) ? whRes : whRes?.data || []);
+      setBinLocations(Array.isArray(binRes) ? binRes : binRes?.data || []);
     } catch (err) {
-      console.error('Error fetching inventories/warehouses', err);
+      console.error('Error fetching inventories/warehouses/bins', err);
     }
   };
 
@@ -136,6 +142,30 @@ export default function InventoryMovementsPanel() {
         (inv.warehouseId === transferForm.sourceWarehouseId || inv.warehouse?._id === transferForm.sourceWarehouseId),
     );
   }, [inventories, transferForm.productId, transferForm.sourceWarehouseId]);
+
+  // Bin locations filtered by source warehouse (for transfers)
+  const sourceBinOptions = useMemo(() => {
+    if (!transferForm.sourceWarehouseId) return [];
+    return binLocations.filter(
+      (bin) => bin.warehouseId === transferForm.sourceWarehouseId && bin.isActive !== false,
+    );
+  }, [binLocations, transferForm.sourceWarehouseId]);
+
+  // Bin locations filtered by destination warehouse (for transfers)
+  const destBinOptions = useMemo(() => {
+    if (!transferForm.destinationWarehouseId) return [];
+    return binLocations.filter(
+      (bin) => bin.warehouseId === transferForm.destinationWarehouseId && bin.isActive !== false,
+    );
+  }, [binLocations, transferForm.destinationWarehouseId]);
+
+  // Bin locations filtered by selected inventory's warehouse (for adjustments)
+  const adjustBinOptions = useMemo(() => {
+    if (!selectedInventory?.warehouseId) return [];
+    return binLocations.filter(
+      (bin) => bin.warehouseId === selectedInventory.warehouseId && bin.isActive !== false,
+    );
+  }, [binLocations, selectedInventory]);
 
   useEffect(() => {
     if (selectedInventory && !adjustForm.unitCost) {
@@ -167,6 +197,7 @@ export default function InventoryMovementsPanel() {
       quantity: 1,
       unitCost: 0,
       reason: 'Ajuste manual',
+      binLocationId: '',
     });
     setAdjustModalOpen(true);
   };
@@ -187,6 +218,7 @@ export default function InventoryMovementsPanel() {
           unitCost: Number(adjustForm.unitCost) || 0,
           reason: adjustForm.reason,
           warehouseId: selectedInventory?.warehouseId,
+          binLocationId: adjustForm.binLocationId || undefined,
         }),
       });
       toast.success('Movimiento registrado');
@@ -206,6 +238,8 @@ export default function InventoryMovementsPanel() {
       productId: '',
       sourceWarehouseId: '',
       destinationWarehouseId: '',
+      sourceBinLocationId: '',
+      destinationBinLocationId: '',
       quantity: 1,
       reason: '',
     });
@@ -229,6 +263,8 @@ export default function InventoryMovementsPanel() {
           productId: transferForm.productId,
           sourceWarehouseId: transferForm.sourceWarehouseId,
           destinationWarehouseId: transferForm.destinationWarehouseId,
+          sourceBinLocationId: transferForm.sourceBinLocationId || undefined,
+          destinationBinLocationId: transferForm.destinationBinLocationId || undefined,
           quantity: Number(transferForm.quantity),
           reason: transferForm.reason || undefined,
         }),
@@ -490,6 +526,28 @@ export default function InventoryMovementsPanel() {
                 />
               </div>
             </div>
+            {/* Bin location selector - only show when bins exist for selected inventory's warehouse */}
+            {adjustBinOptions.length > 0 && (
+              <div className="space-y-1">
+                <Label>Ubicación (opcional)</Label>
+                <Select
+                  value={adjustForm.binLocationId}
+                  onValueChange={(v) => setAdjustForm((prev) => ({ ...prev, binLocationId: v === 'none' ? '' : v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar ubicación..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin especificar</SelectItem>
+                    {adjustBinOptions.map((bin) => (
+                      <SelectItem key={bin._id || bin.id} value={bin._id || bin.id}>
+                        {bin.code} {bin.zone ? `· ${bin.zone}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAdjustModalOpen(false)} disabled={saving}>
@@ -533,7 +591,7 @@ export default function InventoryMovementsPanel() {
                 <Label>Almacén origen</Label>
                 <Select
                   value={transferForm.sourceWarehouseId}
-                  onValueChange={(v) => setTransferForm((prev) => ({ ...prev, sourceWarehouseId: v }))}
+                  onValueChange={(v) => setTransferForm((prev) => ({ ...prev, sourceWarehouseId: v, sourceBinLocationId: '' }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Origen" />
@@ -551,7 +609,7 @@ export default function InventoryMovementsPanel() {
                 <Label>Almacén destino</Label>
                 <Select
                   value={transferForm.destinationWarehouseId}
-                  onValueChange={(v) => setTransferForm((prev) => ({ ...prev, destinationWarehouseId: v }))}
+                  onValueChange={(v) => setTransferForm((prev) => ({ ...prev, destinationWarehouseId: v, destinationBinLocationId: '' }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Destino" />
@@ -568,6 +626,51 @@ export default function InventoryMovementsPanel() {
                 </Select>
               </div>
             </div>
+            {/* Bin location selectors - only show when bins exist for selected warehouses */}
+            {(sourceBinOptions.length > 0 || destBinOptions.length > 0) && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Ubicación origen (opcional)</Label>
+                  <Select
+                    value={transferForm.sourceBinLocationId}
+                    onValueChange={(v) => setTransferForm((prev) => ({ ...prev, sourceBinLocationId: v === 'none' ? '' : v }))}
+                    disabled={sourceBinOptions.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={sourceBinOptions.length === 0 ? 'Sin ubicaciones' : 'Seleccionar...'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin especificar</SelectItem>
+                      {sourceBinOptions.map((bin) => (
+                        <SelectItem key={bin._id || bin.id} value={bin._id || bin.id}>
+                          {bin.code} {bin.zone ? `· ${bin.zone}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Ubicación destino (opcional)</Label>
+                  <Select
+                    value={transferForm.destinationBinLocationId}
+                    onValueChange={(v) => setTransferForm((prev) => ({ ...prev, destinationBinLocationId: v === 'none' ? '' : v }))}
+                    disabled={destBinOptions.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={destBinOptions.length === 0 ? 'Sin ubicaciones' : 'Seleccionar...'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin especificar</SelectItem>
+                      {destBinOptions.map((bin) => (
+                        <SelectItem key={bin._id || bin.id} value={bin._id || bin.id}>
+                          {bin.code} {bin.zone ? `· ${bin.zone}` : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Cantidad</Label>

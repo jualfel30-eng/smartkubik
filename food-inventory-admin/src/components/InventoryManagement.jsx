@@ -31,15 +31,20 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  MapPin,
+  ArrowRightLeft
 } from 'lucide-react';
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
+import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
 
 const DEFAULT_ITEMS_PER_PAGE = 20;
 const SEARCH_ITEMS_PER_PAGE = 100;
 const SEARCH_DEBOUNCE_MS = 600;
 
 function InventoryManagement() {
+  const { flags } = useFeatureFlags();
+  const multiWarehouseEnabled = flags.MULTI_WAREHOUSE;
   const [inventoryData, setInventoryData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -49,6 +54,7 @@ function InventoryManagement() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [binLocations, setBinLocations] = useState([]);
   const [newInventoryItem, setNewInventoryItem] = useState({
     productId: '',
     productName: '',
@@ -58,7 +64,7 @@ function InventoryManagement() {
   });
   const [variantQuantities, setVariantQuantities] = useState([]);
   const [selectedProductDetails, setSelectedProductDetails] = useState(null);
-  const [editFormData, setEditFormData] = useState({ newQuantity: 0, reason: '' });
+  const [editFormData, setEditFormData] = useState({ newQuantity: 0, reason: '', binLocationId: '' });
   const fileInputRef = useRef(null);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [previewData, setPreviewData] = useState([]);
@@ -69,6 +75,23 @@ function InventoryManagement() {
   const [editingLotIndex, setEditingLotIndex] = useState(null);
   const [editingLotData, setEditingLotData] = useState(null);
   const [productSearchInput, setProductSearchInput] = useState('');
+
+  // Estados para transferencias
+  const [warehouses, setWarehouses] = useState([]);
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
+  const [transferForm, setTransferForm] = useState({
+    productId: '',
+    productName: '',
+    productSku: '',
+    sourceWarehouseId: '',
+    destinationWarehouseId: '',
+    sourceBinLocationId: '',
+    destinationBinLocationId: '',
+    quantity: '',
+    reason: '',
+    availableQuantity: 0,
+  });
+  const [transferLoading, setTransferLoading] = useState(false);
 
   // Estados de paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -221,7 +244,19 @@ function InventoryManagement() {
 
       // Nota: evitamos pasar el search al backend para no depender de su lógica (ej. solo busca por SKU).
 
-      const inventoryResponse = await fetchApi(`/inventory?${params.toString()}`);
+      // Fetch inventory, bin locations, and warehouses in parallel (if multi-warehouse enabled)
+      const [inventoryResponse, binLocationsResponse, warehousesResponse] = await Promise.all([
+        fetchApi(`/inventory?${params.toString()}`),
+        multiWarehouseEnabled ? fetchApi('/bin-locations') : Promise.resolve([]),
+        multiWarehouseEnabled ? fetchApi('/warehouses') : Promise.resolve([]),
+      ]);
+
+      // Update bin locations state
+      setBinLocations(Array.isArray(binLocationsResponse) ? binLocationsResponse : binLocationsResponse?.data || []);
+
+      // Update warehouses state
+      const warehousesList = Array.isArray(warehousesResponse) ? warehousesResponse : warehousesResponse?.data || [];
+      setWarehouses(warehousesList.filter(w => w.isActive !== false && w.isDeleted !== true));
 
       console.log('📦 [InventoryManagement] Inventarios recibidos:', inventoryResponse?.data?.length || 0);
       console.log('📊 [InventoryManagement] Paginación:', inventoryResponse?.pagination);
@@ -258,7 +293,7 @@ function InventoryManagement() {
     } finally {
       setLoading(false);
     }
-  }, [committedSearch, currentPage, itemsPerPage]);
+  }, [committedSearch, currentPage, itemsPerPage, multiWarehouseEnabled]);
 
   const refreshData = useCallback(
     async (page, limit, search) => {
@@ -393,6 +428,22 @@ function InventoryManagement() {
     if (item.alerts?.nearExpiration) return <Badge variant="secondary" className="bg-orange-100 text-orange-800">Próximo a Vencer</Badge>;
     return <Badge className="bg-green-100 text-green-800">Disponible</Badge>;
   };
+
+  // Helper to get bin location display name
+  const getBinLocationName = useCallback((binLocationId) => {
+    if (!binLocationId) return null;
+    const bin = binLocations.find((b) => (b._id || b.id) === binLocationId);
+    if (!bin) return null;
+    return bin.code + (bin.zone ? ` · ${bin.zone}` : '');
+  }, [binLocations]);
+
+  // Filter bin locations by warehouse for edit dialog
+  const editBinOptions = useMemo(() => {
+    if (!selectedItem?.warehouseId) return [];
+    return binLocations.filter(
+      (bin) => bin.warehouseId === selectedItem.warehouseId && bin.isActive !== false,
+    );
+  }, [binLocations, selectedItem]);
 
   const loadProductOptions = useCallback(async (searchQuery) => {
     try {
@@ -608,7 +659,11 @@ function InventoryManagement() {
 
   const handleEditItem = (item) => {
     setSelectedItem(item);
-    setEditFormData({ newQuantity: item.availableQuantity, reason: '' });
+    setEditFormData({
+      newQuantity: item.availableQuantity,
+      reason: '',
+      binLocationId: item.binLocationId || '',
+    });
     setIsEditDialogOpen(true);
   };
 
@@ -622,6 +677,7 @@ function InventoryManagement() {
       inventoryId: selectedItem._id,
       newQuantity: Number(editFormData.newQuantity),
       reason: editFormData.reason,
+      binLocationId: editFormData.binLocationId || undefined,
     };
 
     try {
@@ -657,6 +713,103 @@ function InventoryManagement() {
       toast.error('Error al eliminar inventario', { description: err.message });
     }
   };
+
+  // Funciones para transferencias entre almacenes
+  const handleOpenTransfer = (item) => {
+    setTransferForm({
+      productId: item.productId?._id || item.productId,
+      productName: item.productName,
+      productSku: item.productSku,
+      sourceWarehouseId: item.warehouseId || '',
+      destinationWarehouseId: '',
+      sourceBinLocationId: item.binLocationId || '',
+      destinationBinLocationId: '',
+      quantity: '',
+      reason: '',
+      availableQuantity: item.availableQuantity || 0,
+    });
+    setIsTransferDialogOpen(true);
+  };
+
+  const handleSaveTransfer = async () => {
+    // Validaciones
+    if (!transferForm.productId) {
+      toast.error('Producto no especificado.');
+      return;
+    }
+    if (!transferForm.sourceWarehouseId) {
+      toast.error('Selecciona el almacén de origen.');
+      return;
+    }
+    if (!transferForm.destinationWarehouseId) {
+      toast.error('Selecciona el almacén de destino.');
+      return;
+    }
+    if (transferForm.sourceWarehouseId === transferForm.destinationWarehouseId) {
+      toast.error('El almacén de origen y destino no pueden ser el mismo.');
+      return;
+    }
+    const qty = Number(transferForm.quantity);
+    if (!qty || qty <= 0) {
+      toast.error('La cantidad debe ser mayor a 0.');
+      return;
+    }
+    if (qty > transferForm.availableQuantity) {
+      toast.error(`Stock insuficiente. Disponible: ${transferForm.availableQuantity}`);
+      return;
+    }
+
+    setTransferLoading(true);
+    try {
+      await fetchApi('/inventory-movements/transfers', {
+        method: 'POST',
+        body: JSON.stringify({
+          productId: transferForm.productId,
+          sourceWarehouseId: transferForm.sourceWarehouseId,
+          destinationWarehouseId: transferForm.destinationWarehouseId,
+          sourceBinLocationId: transferForm.sourceBinLocationId || undefined,
+          destinationBinLocationId: transferForm.destinationBinLocationId || undefined,
+          quantity: qty,
+          reason: transferForm.reason || undefined,
+        }),
+      });
+
+      toast.success('Transferencia realizada correctamente.');
+      setIsTransferDialogOpen(false);
+      setTransferForm({
+        productId: '',
+        productName: '',
+        productSku: '',
+        sourceWarehouseId: '',
+        destinationWarehouseId: '',
+        sourceBinLocationId: '',
+        destinationBinLocationId: '',
+        quantity: '',
+        reason: '',
+        availableQuantity: 0,
+      });
+      await refreshData(currentPage, itemsPerPage, committedSearch);
+    } catch (err) {
+      toast.error('Error al realizar transferencia', { description: err.message });
+    } finally {
+      setTransferLoading(false);
+    }
+  };
+
+  // Bin locations filtered by warehouse for transfer dialog
+  const sourceBinOptions = useMemo(() => {
+    if (!transferForm.sourceWarehouseId) return [];
+    return binLocations.filter(
+      (bin) => bin.warehouseId === transferForm.sourceWarehouseId && bin.isActive !== false,
+    );
+  }, [binLocations, transferForm.sourceWarehouseId]);
+
+  const destBinOptions = useMemo(() => {
+    if (!transferForm.destinationWarehouseId) return [];
+    return binLocations.filter(
+      (bin) => bin.warehouseId === transferForm.destinationWarehouseId && bin.isActive !== false,
+    );
+  }, [binLocations, transferForm.destinationWarehouseId]);
 
   // Funciones para editar lotes
   const handleStartEditLot = (index, lot) => {
@@ -1175,6 +1328,7 @@ function InventoryManagement() {
                   <TableHead>Categoría</TableHead>
                   <TableHead>Stock Disponible</TableHead>
                   <TableHead>Costo Promedio</TableHead>
+                  {multiWarehouseEnabled && binLocations.length > 0 && <TableHead>Ubicación</TableHead>}
                   <TableHead>Vencimiento (1er Lote)</TableHead>
                   <TableHead>Lotes</TableHead>
                   <TableHead>Estado</TableHead>
@@ -1194,6 +1348,18 @@ function InventoryManagement() {
                     <TableCell>{formatProductCategory(item.productId?.category)}</TableCell>
                     <TableCell>{item.availableQuantity} unidades</TableCell>
                     <TableCell>${item.averageCostPrice.toFixed(2)}</TableCell>
+                    {multiWarehouseEnabled && binLocations.length > 0 && (
+                      <TableCell>
+                        {getBinLocationName(item.binLocationId) ? (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-sm">{getBinLocationName(item.binLocationId)}</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Sin ubicación</span>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell>
                       {item.lots && item.lots.length > 0 ? (
                         <span>{new Date(item.lots[0].expirationDate).toLocaleDateString()}</span>
@@ -1222,6 +1388,16 @@ function InventoryManagement() {
                     <TableCell>
                       <div className="flex space-x-2">
                         <Button variant="outline" size="sm" onClick={() => handleEditItem(item)}><Edit className="h-4 w-4" /></Button>
+                        {multiWarehouseEnabled && warehouses.length > 1 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenTransfer(item)}
+                            title="Transferir a otro almacén"
+                          >
+                            <ArrowRightLeft className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button variant="outline" size="sm" onClick={() => handleDeleteItem(item._id)} className="text-red-600 hover:text-red-700"><Trash2 className="h-4 w-4" /></Button>
                       </div>
                     </TableCell>
@@ -1364,6 +1540,28 @@ function InventoryManagement() {
                 placeholder="Ej: Conteo físico, corrección de error, etc."
               />
             </div>
+            {/* Bin location selector - only show when bins exist for the inventory's warehouse */}
+            {multiWarehouseEnabled && editBinOptions.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="binLocation">Ubicación (opcional)</Label>
+                <Select
+                  value={editFormData.binLocationId || 'none'}
+                  onValueChange={(v) => setEditFormData({ ...editFormData, binLocationId: v === 'none' ? '' : v })}
+                >
+                  <SelectTrigger id="binLocation">
+                    <SelectValue placeholder="Seleccionar ubicación..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin especificar</SelectItem>
+                    {editBinOptions.map((bin) => (
+                      <SelectItem key={bin._id || bin.id} value={bin._id || bin.id}>
+                        {bin.code} {bin.zone ? `· ${bin.zone}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
@@ -1563,6 +1761,176 @@ function InventoryManagement() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsLotsDialogOpen(false)}>Cerrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Transferencia entre Almacenes */}
+      <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Transferir Inventario</DialogTitle>
+            <DialogDescription>
+              Transfiere stock de un almacén a otro. Se generarán dos movimientos vinculados (salida y entrada).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Producto info */}
+            <div className="space-y-2">
+              <Label>Producto</Label>
+              <Input
+                value={`${transferForm.productName} (${transferForm.productSku})`}
+                disabled
+              />
+            </div>
+
+            {/* Stock disponible info */}
+            <div className="p-3 bg-muted rounded-md">
+              <span className="text-sm text-muted-foreground">Stock disponible: </span>
+              <span className="font-semibold">{transferForm.availableQuantity} unidades</span>
+            </div>
+
+            {/* Almacén origen */}
+            <div className="space-y-2">
+              <Label htmlFor="sourceWarehouse">Almacén Origen *</Label>
+              <Select
+                value={transferForm.sourceWarehouseId || 'none'}
+                onValueChange={(v) =>
+                  setTransferForm({
+                    ...transferForm,
+                    sourceWarehouseId: v === 'none' ? '' : v,
+                    sourceBinLocationId: '',
+                  })
+                }
+              >
+                <SelectTrigger id="sourceWarehouse">
+                  <SelectValue placeholder="Seleccionar almacén origen..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Seleccionar...</SelectItem>
+                  {warehouses.map((wh) => (
+                    <SelectItem key={wh._id || wh.id} value={wh._id || wh.id}>
+                      {wh.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Bin origen (opcional) */}
+            {sourceBinOptions.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="sourceBin">Ubicación Origen (opcional)</Label>
+                <Select
+                  value={transferForm.sourceBinLocationId || 'none'}
+                  onValueChange={(v) =>
+                    setTransferForm({ ...transferForm, sourceBinLocationId: v === 'none' ? '' : v })
+                  }
+                >
+                  <SelectTrigger id="sourceBin">
+                    <SelectValue placeholder="Sin especificar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin especificar</SelectItem>
+                    {sourceBinOptions.map((bin) => (
+                      <SelectItem key={bin._id || bin.id} value={bin._id || bin.id}>
+                        {bin.code} {bin.zone ? `· ${bin.zone}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Almacén destino */}
+            <div className="space-y-2">
+              <Label htmlFor="destWarehouse">Almacén Destino *</Label>
+              <Select
+                value={transferForm.destinationWarehouseId || 'none'}
+                onValueChange={(v) =>
+                  setTransferForm({
+                    ...transferForm,
+                    destinationWarehouseId: v === 'none' ? '' : v,
+                    destinationBinLocationId: '',
+                  })
+                }
+              >
+                <SelectTrigger id="destWarehouse">
+                  <SelectValue placeholder="Seleccionar almacén destino..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Seleccionar...</SelectItem>
+                  {warehouses
+                    .filter((wh) => (wh._id || wh.id) !== transferForm.sourceWarehouseId)
+                    .map((wh) => (
+                      <SelectItem key={wh._id || wh.id} value={wh._id || wh.id}>
+                        {wh.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Bin destino (opcional) */}
+            {destBinOptions.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="destBin">Ubicación Destino (opcional)</Label>
+                <Select
+                  value={transferForm.destinationBinLocationId || 'none'}
+                  onValueChange={(v) =>
+                    setTransferForm({ ...transferForm, destinationBinLocationId: v === 'none' ? '' : v })
+                  }
+                >
+                  <SelectTrigger id="destBin">
+                    <SelectValue placeholder="Sin especificar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin especificar</SelectItem>
+                    {destBinOptions.map((bin) => (
+                      <SelectItem key={bin._id || bin.id} value={bin._id || bin.id}>
+                        {bin.code} {bin.zone ? `· ${bin.zone}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Cantidad */}
+            <div className="space-y-2">
+              <Label htmlFor="transferQty">Cantidad a Transferir *</Label>
+              <NumberInput
+                id="transferQty"
+                value={transferForm.quantity ?? ''}
+                onValueChange={(val) => setTransferForm({ ...transferForm, quantity: val })}
+                min={0.0001}
+                max={transferForm.availableQuantity}
+                placeholder="Cantidad"
+              />
+            </div>
+
+            {/* Razón (opcional) */}
+            <div className="space-y-2">
+              <Label htmlFor="transferReason">Razón (opcional)</Label>
+              <Input
+                id="transferReason"
+                value={transferForm.reason}
+                onChange={(e) => setTransferForm({ ...transferForm, reason: e.target.value })}
+                placeholder="Ej: Reabastecimiento sucursal, balance de stock, etc."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsTransferDialogOpen(false)}
+              disabled={transferLoading}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveTransfer} disabled={transferLoading}>
+              {transferLoading ? 'Procesando...' : 'Confirmar Transferencia'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
