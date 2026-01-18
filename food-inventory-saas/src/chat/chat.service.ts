@@ -36,6 +36,7 @@ import {
   AssistantMessageQueueService,
   AssistantMessageJobData,
 } from "./queues/assistant-message.queue.service";
+import { UsersService } from "../modules/users/users.service";
 
 @Injectable()
 export class ChatService {
@@ -55,6 +56,7 @@ export class ChatService {
     private readonly assistantService: AssistantService,
     private readonly whapiService: WhapiService,
     private readonly assistantQueueService: AssistantMessageQueueService,
+    private readonly usersService: UsersService,
   ) { }
 
   async generateQrCode(tenantId: string): Promise<{ qrCode: string }> {
@@ -333,6 +335,26 @@ export class ChatService {
           const content = msg.text.body;
           const fromName = msg.from_name || msg.fromName;
           const chatId = msg.chat_id || msg.chatId || msg.from;
+
+          // --- PHASE 1: Employee Identification Check ---
+          const employee = await this.usersService.findByPhone(
+            customerPhoneNumber,
+            tenantId,
+          );
+
+          if (employee) {
+            this.logger.log(
+              `👮‍♂️ Authorized Employee Detected: ${employee.firstName} ${employee.lastName} (${customerPhoneNumber})`,
+            );
+            // MVP Response
+            await this.whapiService.sendWhatsAppMessage(
+              tenantId,
+              customerPhoneNumber,
+              `👋 Hola ${employee.firstName}, te he identificado como personal autorizado. \n\n🤖 *Sistema:* SmartKubik ERP\n🔑 *Rol:* [User]\n\n(Esta es una prueba de identidad - Fase 1 completada)`,
+            );
+            continue; // Stop processing as customer
+          }
+          // ----------------------------------------------
 
           // Auto-create or update customer in CRM
           try {

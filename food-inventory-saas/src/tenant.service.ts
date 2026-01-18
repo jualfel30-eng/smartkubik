@@ -406,6 +406,29 @@ export class TenantService {
       updatePayload.role = updateUserDto.role;
     }
 
+    if (updateUserDto.phone !== undefined) {
+      const phone = updateUserDto.phone;
+      if (phone) {
+        // Check uniqueness
+        const existingWithPhone = await this.userModel
+          .findOne({
+            phone,
+            tenantId,
+            _id: { $ne: new Types.ObjectId(userId) },
+          })
+          .select("_id")
+          .lean()
+          .exec();
+
+        if (existingWithPhone) {
+          throw new ConflictException(
+            `El teléfono ${phone} ya está en uso por otro usuario.`,
+          );
+        }
+      }
+      updatePayload.phone = phone;
+    }
+
     if (updateUserDto.email !== undefined) {
       const trimmedEmail = updateUserDto.email.trim().toLowerCase();
 

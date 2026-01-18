@@ -17,6 +17,7 @@ import { WhapiModule } from "../modules/whapi/whapi.module";
 import { AssistantMessageQueueService } from "./queues/assistant-message.queue.service";
 import { AssistantMessageProcessor } from "./queues/assistant-message.processor";
 import { ASSISTANT_MESSAGES_QUEUE } from "./queues/assistant.queue.constants";
+import { UsersModule } from "../modules/users/users.module";
 
 const queueImports =
   process.env.DISABLE_BULLMQ === "true"
@@ -49,6 +50,7 @@ const queueProviders =
     SuperAdminModule,
     AssistantModule,
     WhapiModule,
+    UsersModule,
   ],
   providers: [ChatService, ChatGateway, WhapiSignatureGuard, ...queueProviders],
   controllers: [ChatController],

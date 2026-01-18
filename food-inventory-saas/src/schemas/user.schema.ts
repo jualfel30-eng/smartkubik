@@ -81,3 +81,4 @@ UserSchema.index({ isActive: 1, tenantId: 1 });
 UserSchema.index({ emailVerificationToken: 1 });
 UserSchema.index({ passwordResetToken: 1 });
 UserSchema.index({ lockUntil: 1 });
+UserSchema.index({ phone: 1, tenantId: 1 }, { unique: true, sparse: true });

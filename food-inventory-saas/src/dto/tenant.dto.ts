@@ -657,6 +657,11 @@ export class InviteUserDto {
   @SanitizeString()
   lastName: string;
 
+  @ApiPropertyOptional({ example: "+584121234567" })
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
   @ApiProperty({ example: "manager" })
   @IsString()
   role: string;
@@ -672,6 +677,11 @@ export class UpdateUserDto {
   @IsEmail()
   @IsOptional()
   email?: string;
+
+  @ApiPropertyOptional({ example: "+584121234567" })
+  @IsString()
+  @IsOptional()
+  phone?: string;
 
   // Podríamos añadir más campos para actualizar en el futuro, como 'isActive'
 }

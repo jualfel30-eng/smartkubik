@@ -28,4 +28,17 @@ export class UsersService {
   async findAll(filter: any = {}): Promise<User[]> {
     return this.userModel.find(filter).select("-password").exec();
   }
+
+  async findByPhone(
+    phone: string,
+    tenantId: string,
+  ): Promise<UserDocument | null> {
+    return this.userModel
+      .findOne({
+        phone,
+        tenantId,
+        isActive: true,
+      })
+      .exec();
+  }
 }

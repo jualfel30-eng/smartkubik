@@ -18,14 +18,14 @@ const UserManagement = () => {
   const [isInviteModalOpen, setInviteModalOpen] = useState(false);
   const [isUpdateModalOpen, setUpdateModalOpen] = useState(false);
   const [userToEdit, setUserToEdit] = useState(null);
-  const [newUserData, setNewUserData] = useState({ firstName: '', lastName: '', email: '', role: '' });
+  const [newUserData, setNewUserData] = useState({ firstName: '', lastName: '', email: '', role: '', phone: '' });
   const { hasPermission } = useAuth();
 
   const fetchUsersAndRoles = useCallback(async () => {
     try {
       setIsLoading(true);
       const [usersResponse, rolesResponse] = await Promise.all([getTenantUsers(), getRoles()]);
-      
+
       if (usersResponse.success) {
         console.log('Datos de usuarios recibidos del backend:', usersResponse.data);
         setUsers(usersResponse.data);
@@ -68,11 +68,16 @@ const UserManagement = () => {
     setUserToEdit(prev => ({ ...prev, email: value }));
   };
 
+  const handleUpdatePhoneChange = (e) => {
+    const { value } = e.target;
+    setUserToEdit(prev => ({ ...prev, phone: value }));
+  };
+
   const handleInviteSubmit = async (e) => {
     e.preventDefault();
     if (!newUserData.role) {
-        toast.error("Por favor, seleccione un rol para el nuevo usuario.");
-        return;
+      toast.error("Por favor, seleccione un rol para el nuevo usuario.");
+      return;
     }
     try {
       const response = await inviteUser(newUserData);
@@ -80,8 +85,9 @@ const UserManagement = () => {
         toast.success('Usuario creado exitosamente. Se ha enviado un correo con sus credenciales.');
         document.dispatchEvent(new CustomEvent('user-form-success'));
         setInviteModalOpen(false);
+        setInviteModalOpen(false);
         fetchUsersAndRoles();
-        setNewUserData({ firstName: '', lastName: '', email: '', role: '' });
+        setNewUserData({ firstName: '', lastName: '', email: '', role: '', phone: '' });
       } else {
         throw new Error(response.message || 'Error al invitar al usuario');
       }
@@ -95,7 +101,7 @@ const UserManagement = () => {
     if (!userToEdit) return;
 
     try {
-      const { role, email } = userToEdit;
+      const { role, email, phone } = userToEdit;
       if (!email) {
         toast.error('El email no puede estar vacío');
         return;
@@ -104,6 +110,7 @@ const UserManagement = () => {
       const response = await updateUser(userToEdit._id, {
         role,
         email: email.trim(),
+        phone: phone ? phone.trim() : undefined,
       });
       if (response.success) {
         toast.success('Usuario actualizado exitosamente');
@@ -150,6 +157,7 @@ const UserManagement = () => {
       ...user,
       role: user.role?._id || user.role,
       email: user.email || '',
+      phone: user.phone || '',
     });
     setUpdateModalOpen(true);
   }
@@ -164,52 +172,56 @@ const UserManagement = () => {
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Gestión de Usuarios</h2>
         {hasPermission('users_create') && (
-            <Dialog open={isInviteModalOpen} onOpenChange={setInviteModalOpen}>
+          <Dialog open={isInviteModalOpen} onOpenChange={setInviteModalOpen}>
             <DialogTrigger asChild>
-                <Button id="invite-user-button">
+              <Button id="invite-user-button">
                 <PlusCircle className="h-4 w-4 mr-2" />
                 Invitar Usuario
-                </Button>
+              </Button>
             </DialogTrigger>
             <DialogContent>
-                <DialogHeader>
+              <DialogHeader>
                 <DialogTitle>Invitar Nuevo Usuario</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleInviteSubmit}>
+              </DialogHeader>
+              <form onSubmit={handleInviteSubmit}>
                 <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="firstName" className="text-right">Nombre</Label>
                     <Input id="firstName" name="firstName" value={newUserData.firstName} onChange={handleInputChange} className="col-span-3" required />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="lastName" className="text-right">Apellido</Label>
                     <Input id="lastName" name="lastName" value={newUserData.lastName} onChange={handleInputChange} className="col-span-3" required />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="email" className="text-right">Email</Label>
                     <Input id="email" name="email" type="email" value={newUserData.email} onChange={handleInputChange} className="col-span-3" required />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="phone" className="text-right">WhatsApp</Label>
+                    <Input id="phone" name="phone" placeholder="+58..." value={newUserData.phone} onChange={handleInputChange} className="col-span-3" />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="role" className="text-right">Rol</Label>
                     <Select onValueChange={handleRoleChange} value={newUserData.role}>
-                        <SelectTrigger className="col-span-3">
-                            <SelectValue placeholder="Seleccione un rol" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {roles.map(role => (
-                                <SelectItem key={role._id} value={role._id}>{role.name}</SelectItem>
-                            ))}
-                        </SelectContent>
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Seleccione un rol" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roles.map(role => (
+                          <SelectItem key={role._id} value={role._id}>{role.name}</SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
-                    </div>
+                  </div>
                 </div>
                 <DialogFooter>
-                    <DialogClose asChild><Button type="button" variant="secondary">Cancelar</Button></DialogClose>
-                    <Button type="submit">Invitar</Button>
+                  <DialogClose asChild><Button type="button" variant="secondary">Cancelar</Button></DialogClose>
+                  <Button type="submit">Invitar</Button>
                 </DialogFooter>
-                </form>
+              </form>
             </DialogContent>
-            </Dialog>
+          </Dialog>
         )}
       </div>
 
@@ -221,6 +233,7 @@ const UserManagement = () => {
             <TableRow>
               <TableHead>Nombre</TableHead>
               <TableHead>Email</TableHead>
+              <TableHead>Teléfono</TableHead>
               <TableHead>Rol</TableHead>
               {hasPermission('users_update') || hasPermission('users_delete') ? (
                 <TableHead className="text-right">Acciones</TableHead>
@@ -232,39 +245,40 @@ const UserManagement = () => {
               <TableRow key={user._id}>
                 <TableCell>{user.firstName} {user.lastName}</TableCell>
                 <TableCell>{user.email}</TableCell>
+                <TableCell>{user.phone || '-'}</TableCell>
                 <TableCell>{user.role ? (typeof user.role === 'object' ? user.role.name : getRoleName(user.role)) : 'No asignado'}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end items-center gap-2">
                     {hasPermission('users_update') && (
                       <>
                         <Button variant="outline" size="sm" onClick={() => openUpdateModal(user)}>
-                            <Edit className="h-4 w-4" />
+                          <Edit className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="sm" onClick={() => handleResendInvite(user._id)}>
-                            Reenviar invitación
+                          Reenviar invitación
                         </Button>
                       </>
                     )}
                     {hasPermission('users_delete') && (
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                            <Button variant="destructive" size="sm">
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                Esta acción no se puede deshacer. Esto eliminará permanentemente al usuario.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(user._id)}>Eliminar</AlertDialogAction>
-                            </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="sm">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esta acción no se puede deshacer. Esto eliminará permanentemente al usuario.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDelete(user._id)}>Eliminar</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     )}
                   </div>
                 </TableCell>
@@ -297,15 +311,25 @@ const UserManagement = () => {
                   />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="update-phone" className="text-right">WhatsApp</Label>
+                  <Input
+                    id="update-phone"
+                    className="col-span-3"
+                    value={userToEdit.phone}
+                    onChange={handleUpdatePhoneChange}
+                    placeholder="+58..."
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="update-role" className="text-right">Rol</Label>
                   <Select onValueChange={handleUpdateRoleChange} value={userToEdit.role}>
                     <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Seleccione un rol" />
+                      <SelectValue placeholder="Seleccione un rol" />
                     </SelectTrigger>
                     <SelectContent>
-                        {roles.map(role => (
-                            <SelectItem key={role._id} value={role._id}>{role.name}</SelectItem>
-                        ))}
+                      {roles.map(role => (
+                        <SelectItem key={role._id} value={role._id}>{role.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
