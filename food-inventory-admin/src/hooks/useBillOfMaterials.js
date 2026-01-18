@@ -1,5 +1,16 @@
 import { useState, useCallback } from 'react';
-import { fetchApi } from '@/lib/api';
+import {
+  getBillOfMaterials,
+  getBillOfMaterialsById,
+  getBillOfMaterialsByProduct,
+  createBillOfMaterials,
+  updateBillOfMaterials,
+  deleteBillOfMaterials,
+  calculateBillOfMaterialsCost,
+  checkBillOfMaterialsAvailability,
+  explodeBillOfMaterials,
+  getBillOfMaterialsStructure
+} from '@/lib/api';
 
 export const useBillOfMaterials = () => {
   const [boms, setBoms] = useState([]);
@@ -10,9 +21,7 @@ export const useBillOfMaterials = () => {
     try {
       setLoading(true);
       setError(null);
-      const queryString = new URLSearchParams(params).toString();
-      const url = `/bill-of-materials${queryString ? `?${queryString}` : ''}`;
-      const response = await fetchApi(url);
+      const response = await getBillOfMaterials(params);
       setBoms(response.data || []);
       return response;
     } catch (err) {
@@ -28,7 +37,7 @@ export const useBillOfMaterials = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetchApi(`/bill-of-materials/${id}`);
+      const response = await getBillOfMaterialsById(id);
       return response.data;
     } catch (err) {
       setError(err.message);
@@ -42,7 +51,7 @@ export const useBillOfMaterials = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetchApi(`/bill-of-materials/by-product/${productId}`);
+      const response = await getBillOfMaterialsByProduct(productId);
       return response.data;
     } catch (err) {
       setError(err.message);
@@ -56,10 +65,7 @@ export const useBillOfMaterials = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetchApi('/bill-of-materials', {
-        method: 'POST',
-        body: JSON.stringify(bomData),
-      });
+      const response = await createBillOfMaterials(bomData);
       await loadBoms();
       return response.data;
     } catch (err) {
@@ -74,10 +80,7 @@ export const useBillOfMaterials = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetchApi(`/bill-of-materials/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(bomData),
-      });
+      const response = await updateBillOfMaterials(id, bomData);
       await loadBoms();
       return response.data;
     } catch (err) {
@@ -92,7 +95,7 @@ export const useBillOfMaterials = () => {
     try {
       setLoading(true);
       setError(null);
-      await fetchApi(`/bill-of-materials/${id}`, { method: 'DELETE' });
+      await deleteBillOfMaterials(id);
       setBoms(prev => prev.filter(b => b._id !== id));
     } catch (err) {
       setError(err.message);
@@ -106,8 +109,8 @@ export const useBillOfMaterials = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetchApi(`/bill-of-materials/${id}/total-cost`);
-      return response.data;
+      const response = await calculateBillOfMaterialsCost(id);
+      return response.data?.cost ?? 0;
     } catch (err) {
       setError(err.message);
       throw err;
@@ -120,7 +123,35 @@ export const useBillOfMaterials = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetchApi(`/bill-of-materials/${id}/check-availability?quantity=${quantity}`);
+      const response = await checkBillOfMaterialsAvailability(id, quantity);
+      return response.data;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const explodeBom = useCallback(async (id, quantity) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await explodeBillOfMaterials(id, quantity);
+      return response.data;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const getStructure = useCallback(async (id) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await getBillOfMaterialsStructure(id);
       return response.data;
     } catch (err) {
       setError(err.message);
@@ -142,5 +173,8 @@ export const useBillOfMaterials = () => {
     deleteBom,
     calculateTotalCost,
     checkAvailability,
+    explodeBom,
+    getStructure
   };
 };
+

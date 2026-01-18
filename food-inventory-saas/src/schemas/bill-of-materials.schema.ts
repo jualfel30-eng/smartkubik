@@ -28,6 +28,12 @@ export class BillOfMaterialsComponent {
   @Prop({ type: Boolean, default: false })
   isOptional: boolean;
 
+  @Prop({ type: Number })
+  displayQuantity?: number; // Cantidad visual para cocina (e.g., 1)
+
+  @Prop({ type: String })
+  displayUnit?: string; // Unidad visual para cocina (e.g., Paquete)
+
   @Prop({ type: String })
   notes?: string;
 }
@@ -96,6 +102,9 @@ export class BillOfMaterials {
     default: "production",
   })
   bomType: string;
+
+  @Prop({ type: String, default: "General" })
+  productionCategory: string; // Categoría de producción (e.g., Cocina Caliente, Bebidas, Postres)
 
   @Prop({ type: Boolean, default: true })
   isActive: boolean;

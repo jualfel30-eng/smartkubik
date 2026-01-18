@@ -7,6 +7,7 @@ export enum ProductType {
   SIMPLE = "simple",
   CONSUMABLE = "consumable",
   SUPPLY = "supply",
+  RAW_MATERIAL = "raw_material",
 }
 
 @Schema()

@@ -42,6 +42,14 @@ export class CreateBillOfMaterialsComponentDto {
   isOptional?: boolean;
 
   @IsOptional()
+  @IsNumber()
+  displayQuantity?: number;
+
+  @IsOptional()
+  @IsString()
+  displayUnit?: string;
+
+  @IsOptional()
   @IsString()
   notes?: string;
 }
@@ -81,6 +89,10 @@ export class CreateBillOfMaterialsDto {
 
   @IsString()
   name: string;
+
+  @IsOptional()
+  @IsString()
+  productionCategory?: string;
 
   @IsNumber()
   @Min(0.001)
@@ -132,6 +144,10 @@ export class UpdateBillOfMaterialsDto {
   @IsOptional()
   @IsString()
   name?: string;
+
+  @IsOptional()
+  @IsString()
+  productionCategory?: string;
 
   @IsOptional()
   @IsNumber()

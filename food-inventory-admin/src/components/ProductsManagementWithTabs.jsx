@@ -4,16 +4,17 @@ import ProductsManagement from '@/components/ProductsManagement.jsx';
 import ConsumablesTab from '@/components/ConsumablesTab.jsx';
 import SuppliesTab from '@/components/SuppliesTab.jsx';
 import PricingEngineTab from '@/components/PricingEngineTab.jsx';
-import { Package, Layers, Wrench, Calculator } from 'lucide-react';
+import { Package, Layers, Wrench, Calculator, Factory } from 'lucide-react';
 
 /**
  * ProductsManagementWithTabs
  *
  * Wrapper component that provides a tabbed interface for:
- * - Products Management (existing functionality)
+ * - Products Management (Finished Goods / Merchandise)
+ * - Raw Materials (Ingredients for production)
  * - Consumables Configuration
- * - Supplies Management
- * - Products Pricing Engine (New)
+ * - Supplies Management (Operational supplies)
+ * - Products Pricing Engine
  */
 function ProductsManagementWithTabs({ activeSubTab = 'products' }) {
   const [, setSearchParams] = useSearchParams();
@@ -27,7 +28,11 @@ function ProductsManagementWithTabs({ activeSubTab = 'products' }) {
       <TabsList className="mb-4">
         <TabsTrigger value="products" className="gap-2">
           <Package className="h-4 w-4" />
-          Productos
+          Mercancía
+        </TabsTrigger>
+        <TabsTrigger value="raw-materials" className="gap-2">
+          <Factory className="h-4 w-4" />
+          Materias Primas
         </TabsTrigger>
         <TabsTrigger value="consumables" className="gap-2">
           <Layers className="h-4 w-4" />
@@ -44,7 +49,11 @@ function ProductsManagementWithTabs({ activeSubTab = 'products' }) {
       </TabsList>
 
       <TabsContent value="products">
-        <ProductsManagement />
+        <ProductsManagement defaultProductType="simple" showSalesFields={true} />
+      </TabsContent>
+
+      <TabsContent value="raw-materials">
+        <ProductsManagement defaultProductType="raw_material" showSalesFields={false} />
       </TabsContent>
 
       <TabsContent value="consumables">

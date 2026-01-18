@@ -39,7 +39,8 @@ import {
   Layers,
   Wrench,
   Scan,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Factory
 } from 'lucide-react';
 
 const UNASSIGNED_SELECT_VALUE = '__UNASSIGNED__';
@@ -411,14 +412,13 @@ const initialNewProductState = {
   },
 };
 
-function ProductsManagement() {
+function ProductsManagement({ defaultProductType = 'simple', showSalesFields = true }) {
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
-  const productTypeFilter = 'simple'; // Solo mercancía en este módulo
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageLimit, setPageLimit] = useState(DEFAULT_PAGE_LIMIT);
@@ -579,6 +579,7 @@ function ProductsManagement() {
   useEffect(() => {
     if (isAddDialogOpen) {
       const baseProduct = JSON.parse(JSON.stringify(initialNewProductState));
+      baseProduct.productType = defaultProductType; // Set type from prop
       const defaultUnit = unitOptions[0] || baseProduct.unitOfMeasure;
       baseProduct.unitOfMeasure = defaultUnit;
       baseProduct.variant.unit = defaultUnit;
@@ -693,11 +694,11 @@ function ProductsManagement() {
         setCurrentPage(1);
       }
 
-      loadProducts(page, targetLimit, statusFilter, trimmedSearch, filterCategory, productTypeFilter);
+      loadProducts(page, targetLimit, statusFilter, trimmedSearch, filterCategory, defaultProductType);
     }, delay);
 
     return () => clearTimeout(timeoutId);
-  }, [currentPage, statusFilter, searchTerm, filterCategory, productTypeFilter, pageLimit, loadProducts]);
+  }, [currentPage, statusFilter, searchTerm, filterCategory, defaultProductType, pageLimit, loadProducts]);
 
   // Cancel any pending fetch when the component unmounts
   useEffect(() => {
@@ -1981,6 +1982,15 @@ function ProductsManagement() {
                         </div>
                       </div>
                     </SelectItem>
+                    <SelectItem value="raw_material">
+                      <div className="flex items-center gap-2">
+                        <Factory className="h-4 w-4" />
+                        <div>
+                          <div className="font-medium">Materia Prima</div>
+                          <div className="text-xs text-muted-foreground">Ingredientes para producción</div>
+                        </div>
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
@@ -2354,7 +2364,7 @@ function ProductsManagement() {
               )}
 
               {/* Descuentos solo para mercancía */}
-              {newProduct.productType === 'simple' && (
+              {newProduct.productType === 'simple' && showSalesFields && (
                 <div className="col-span-2 border-t pt-4 mt-4">
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-lg font-medium">Descuentos por Volumen</h4>
@@ -2457,7 +2467,7 @@ function ProductsManagement() {
               )}
 
               {/* Promociones solo para mercancía */}
-              {newProduct.productType === 'simple' && (
+              {newProduct.productType === 'simple' && showSalesFields && (
                 <div className="col-span-2 border-t pt-4 mt-4">
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-lg font-medium">Promoción/Oferta Especial</h4>
@@ -2627,13 +2637,15 @@ function ProductsManagement() {
                 </div>
               )}
 
-              {/* Unidades múltiples solo para mercancía en verticales de comida */}
-              {!isNonFoodRetailVertical && newProduct.productType === 'simple' && (
+              {/* Unidades múltiples para mercancía y materias primas (comida) */}
+              {!isNonFoodRetailVertical && (newProduct.productType === 'simple' || newProduct.productType === 'raw_material') && (
                 <div className="col-span-2 border-t pt-4 mt-4">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex-1">
-                      <h4 className="text-lg font-medium">Unidades de Venta Múltiples</h4>
-                      <p className="text-sm text-muted-foreground">Configura diferentes unidades de venta (kg, g, lb, cajas, etc.)</p>
+                      <h4 className="text-lg font-medium">
+                        {newProduct.productType === 'raw_material' ? 'Unidades de Medida Múltiples' : 'Unidades de Venta Múltiples'}
+                      </h4>
+                      <p className="text-sm text-muted-foreground">Configura diferentes unidades (kg, g, lb, cajas, etc.)</p>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox
@@ -2776,49 +2788,51 @@ function ProductsManagement() {
                                 )}
                               </p>
                             </div>
-                            <div className="space-y-2">
-                              <Label>Precio/Unidad ($)</Label>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                inputMode="decimal"
-                                placeholder={getPlaceholder('sellingUnitPrice', 'Ej: 20.00')}
-                                value={
-                                  unit.pricePerUnitInput ??
-                                  normalizeDecimalInput(unit.pricePerUnit ?? '')
-                                }
-                                onChange={(e) => {
-                                  const rawValue = e.target.value;
-                                  const units = newProduct.sellingUnits.map((currentUnit, unitIndex) => {
-                                    if (unitIndex !== index) {
-                                      return currentUnit;
-                                    }
-                                    const parsed = parseDecimalInput(rawValue);
-                                    return {
-                                      ...currentUnit,
-                                      pricePerUnitInput: rawValue,
-                                      pricePerUnit: parsed !== null ? parsed : null,
-                                    };
-                                  });
-                                  setNewProduct({ ...newProduct, sellingUnits: units });
-                                }}
-                                onBlur={() => {
-                                  const units = newProduct.sellingUnits.map((currentUnit, unitIndex) => {
-                                    if (unitIndex !== index) {
-                                      return currentUnit;
-                                    }
-                                    const normalizedInput = normalizeDecimalInput(currentUnit.pricePerUnitInput ?? '');
-                                    const parsed = parseDecimalInput(normalizedInput);
-                                    return {
-                                      ...currentUnit,
-                                      pricePerUnitInput: normalizedInput,
-                                      pricePerUnit: parsed !== null ? parsed : null,
-                                    };
-                                  });
-                                  setNewProduct({ ...newProduct, sellingUnits: units });
-                                }}
-                              />
-                            </div>
+                            {showSalesFields && (
+                              <div className="space-y-2">
+                                <Label>Precio/Unidad ($)</Label>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  inputMode="decimal"
+                                  placeholder={getPlaceholder('sellingUnitPrice', 'Ej: 15.00')}
+                                  value={
+                                    unit.pricePerUnitInput ??
+                                    normalizeDecimalInput(unit.pricePerUnit ?? '')
+                                  }
+                                  onChange={(e) => {
+                                    const rawValue = e.target.value;
+                                    const units = newProduct.sellingUnits.map((currentUnit, unitIndex) => {
+                                      if (unitIndex !== index) {
+                                        return currentUnit;
+                                      }
+                                      const parsed = parseDecimalInput(rawValue);
+                                      return {
+                                        ...currentUnit,
+                                        pricePerUnitInput: rawValue,
+                                        pricePerUnit: parsed !== null ? parsed : null,
+                                      };
+                                    });
+                                    setNewProduct({ ...newProduct, sellingUnits: units });
+                                  }}
+                                  onBlur={() => {
+                                    const units = newProduct.sellingUnits.map((currentUnit, unitIndex) => {
+                                      if (unitIndex !== index) {
+                                        return currentUnit;
+                                      }
+                                      const normalizedInput = normalizeDecimalInput(currentUnit.pricePerUnitInput ?? '');
+                                      const parsed = parseDecimalInput(normalizedInput);
+                                      return {
+                                        ...currentUnit,
+                                        pricePerUnitInput: normalizedInput,
+                                        pricePerUnit: parsed !== null ? parsed : null,
+                                      };
+                                    });
+                                    setNewProduct({ ...newProduct, sellingUnits: units });
+                                  }}
+                                />
+                              </div>
+                            )}
                             <div className="space-y-2">
                               <Label>Costo/Unidad ($)</Label>
                               <Input
@@ -3036,7 +3050,7 @@ function ProductsManagement() {
                     />
                   </div>
                   {/* Precio de Venta solo para mercancía */}
-                  {newProduct.productType === 'simple' && (
+                  {newProduct.productType === 'simple' && showSalesFields && (
                     <div className="space-y-2">
                       <Label htmlFor="variantBasePrice">Precio de Venta ($)</Label>
                       <NumberInput
@@ -3183,16 +3197,18 @@ function ProductsManagement() {
                               placeholder="Precio costo"
                             />
                           </div>
-                          <div className="space-y-2">
-                            <Label>Precio venta ($)</Label>
-                            <NumberInput
-                              value={variant.basePrice ?? ''}
-                              onValueChange={(val) => updateAdditionalVariantField(index, 'basePrice', val)}
-                              step={0.01}
-                              min={0}
-                              placeholder="Precio venta"
-                            />
-                          </div>
+                          {showSalesFields && (
+                            <div className="space-y-2">
+                              <Label>Precio venta ($)</Label>
+                              <NumberInput
+                                value={variant.basePrice ?? ''}
+                                onValueChange={(val) => updateAdditionalVariantField(index, 'basePrice', val)}
+                                step={0.01}
+                                min={0}
+                                placeholder="Precio venta"
+                              />
+                            </div>
+                          )}
                         </div>
                         {variantAttributes.length > 0 && (
                           <div className="border-t pt-4 mt-4">
@@ -3553,10 +3569,10 @@ function ProductsManagement() {
                   <TableHead>SKU</TableHead>
                   <TableHead>Producto</TableHead>
                   <TableHead>Categoría</TableHead>
-                  <TableHead className="text-right">Precio Venta</TableHead>
+                  {showSalesFields && <TableHead className="text-right">Precio Venta</TableHead>}
                   <TableHead className="text-right">Costo</TableHead>
                   <TableHead>Variantes</TableHead>
-                  <TableHead>Promoción</TableHead>
+                  {showSalesFields && <TableHead>Promoción</TableHead>}
                   <TableHead>Estado</TableHead>
                   <TableHead>Acciones</TableHead>
                 </TableRow>
@@ -3582,26 +3598,28 @@ function ProductsManagement() {
                         className="w-[120px] text-xs text-slate-500 font-medium dark:text-slate-400"
                       />
                     </TableCell>
-                    <TableCell className="text-right">
-                      {product.variants?.length > 1 ? (
-                        <ProductVariantsPopover
-                          variants={product.variants}
-                          onUpdateVariant={(idx, field, val) => handleInlineUpdate(product._id, field, val, idx)}
-                        >
-                          <div className="font-medium cursor-pointer inline-flex items-center justify-end gap-1 group hover:bg-muted/50 p-1 rounded transition-colors">
-                            ${(product.variants[0]?.basePrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                            <span className="text-xs text-blue-500 font-bold group-hover:underline decoration-blue-500">(+)</span>
-                          </div>
-                        </ProductVariantsPopover>
-                      ) : (
-                        <InlineEditableCell
-                          value={product.variants?.[0]?.basePrice || 0}
-                          type="currency"
-                          onSave={(val) => handleInlineUpdate(product._id, 'basePrice', val)}
-                          className="justify-end font-medium"
-                        />
-                      )}
-                    </TableCell>
+                    {showSalesFields && (
+                      <TableCell className="text-right">
+                        {product.variants?.length > 1 ? (
+                          <ProductVariantsPopover
+                            variants={product.variants}
+                            onUpdateVariant={(idx, field, val) => handleInlineUpdate(product._id, field, val, idx)}
+                          >
+                            <div className="font-medium cursor-pointer inline-flex items-center justify-end gap-1 group hover:bg-muted/50 p-1 rounded transition-colors">
+                              ${(product.variants[0]?.basePrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              <span className="text-xs text-blue-500 font-bold group-hover:underline decoration-blue-500">(+)</span>
+                            </div>
+                          </ProductVariantsPopover>
+                        ) : (
+                          <InlineEditableCell
+                            value={product.variants?.[0]?.basePrice || 0}
+                            type="currency"
+                            onSave={(val) => handleInlineUpdate(product._id, 'basePrice', val)}
+                            className="justify-end font-medium"
+                          />
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell className="text-right">
                       {/* Costo Inline - Reuse Popover logic if multiple variants or simple inline */}
                       {product.variants?.length > 1 ? (
@@ -3624,15 +3642,17 @@ function ProductsManagement() {
                       )}
                     </TableCell>
                     <TableCell>{product.variants.length}</TableCell>
-                    <TableCell>
-                      {product.hasActivePromotion && product.promotion?.isActive ? (
-                        <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
-                          -{product.promotion.discountPercentage}% OFF
-                        </Badge>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
+                    {showSalesFields && (
+                      <TableCell>
+                        {product.hasActivePromotion && product.promotion?.isActive ? (
+                          <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                            -{product.promotion.discountPercentage}% OFF
+                          </Badge>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell>
                       {product.isActive ?
                         <Badge className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Activo</Badge> :

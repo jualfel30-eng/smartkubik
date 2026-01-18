@@ -341,7 +341,8 @@ function TenantLayout() {
           href: 'inventory-management?tab=products',
           icon: Box,
           children: [
-            { name: 'Productos', href: 'inventory-management?tab=products', icon: Box },
+            { name: 'Mercancía', href: 'inventory-management?tab=products', icon: Box },
+            { name: 'Materias Primas', href: 'inventory-management?tab=raw-materials', icon: Factory },
             { name: 'Consumibles', href: 'inventory-management?tab=consumables', icon: Coffee },
             { name: 'Suministros', href: 'inventory-management?tab=supplies', icon: Wrench },
             { name: 'Motor de Precios', href: 'inventory-management?tab=pricing-engine', icon: Calculator },

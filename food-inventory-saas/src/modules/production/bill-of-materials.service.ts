@@ -26,7 +26,7 @@ export class BillOfMaterialsService {
     private readonly productModel: Model<ProductDocument>,
     @InjectConnection() private readonly connection: Connection,
     private readonly inventoryService: InventoryService,
-  ) {}
+  ) { }
 
   /**
    * Crear un BOM
@@ -127,7 +127,7 @@ export class BillOfMaterialsService {
     const bom = await this.billOfMaterialsModel
       .findOne({ _id: new Types.ObjectId(id), tenantId })
       .populate("productId", "name sku")
-      .populate("components.componentProductId", "name sku unitOfMeasure")
+      .populate("components.componentProductId", "name sku unitOfMeasure variants")
       .lean()
       .exec();
 
@@ -135,6 +135,9 @@ export class BillOfMaterialsService {
       throw new NotFoundException("BOM no encontrado");
     }
 
+    if (bom.components && bom.components.length > 0) {
+      console.log("DEBUG BOM FETCH:", JSON.stringify(bom.components[0], null, 2));
+    }
     return bom;
   }
 
@@ -255,17 +258,33 @@ export class BillOfMaterialsService {
 
       if (!product) continue;
 
-      // Buscar inventario para obtener el costo actual
+      let unitCost = 0;
+
+      // 1. Intentar obtener costo promedio del inventario
       const inventory = await this.inventoryService.findByProductSku(
         product.sku,
         user.tenantId,
       );
 
-      if (inventory) {
-        // Usar el costo promedio del inventario
-        const componentCost = component.quantity * inventory.averageCostPrice;
-        totalCost += componentCost;
+      if (inventory && inventory.averageCostPrice > 0) {
+        unitCost = inventory.averageCostPrice;
       }
+
+      // 2. Si no hay costo en inventario, usar el costo base del producto/variante
+      if (unitCost === 0 && product.variants && product.variants.length > 0) {
+        // Si hay una variante específica seleccionada en el componente, deberíamos buscar esa
+        // Pero por simplicidad ahora usamos la primera o la que coincida
+        if (component.componentVariantId) {
+          const variantIdStr = component.componentVariantId.toString();
+          const variant = product.variants.find(v => v._id && v._id.toString() === variantIdStr);
+          if (variant) unitCost = variant.costPrice;
+        } else {
+          // Usar la primera variante (producto simple o base)
+          unitCost = product.variants[0].costPrice;
+        }
+      }
+
+      totalCost += component.quantity * unitCost;
     }
 
     return totalCost;

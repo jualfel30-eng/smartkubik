@@ -1600,6 +1600,67 @@ export const fileIvaDeclaration = (id, data) => {
   });
 };
 
+// ============ BILL OF MATERIALS (RECIPES) API ============
+
+export const getBillOfMaterials = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.page) queryParams.append('page', params.page);
+  if (params.limit) queryParams.append('limit', params.limit);
+  if (params.productId) queryParams.append('productId', params.productId);
+  if (params.isActive !== undefined) queryParams.append('isActive', params.isActive);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/bill-of-materials${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getBillOfMaterialsById = (id) => {
+  return fetchApi(`/bill-of-materials/${id}`);
+};
+
+export const getBillOfMaterialsByProduct = (productId) => {
+  return fetchApi(`/bill-of-materials/by-product/${productId}`);
+};
+
+export const createBillOfMaterials = (data) => {
+  return fetchApi('/bill-of-materials', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const updateBillOfMaterials = (id, data) => {
+  return fetchApi(`/bill-of-materials/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteBillOfMaterials = (id) => {
+  return fetchApi(`/bill-of-materials/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+export const calculateBillOfMaterialsCost = (id) => {
+  return fetchApi(`/bill-of-materials/${id}/cost`);
+};
+
+export const checkBillOfMaterialsAvailability = (id, quantity) => {
+  return fetchApi(`/bill-of-materials/${id}/check-availability`, {
+    method: 'POST',
+    body: JSON.stringify({ quantity }),
+  });
+};
+
+export const explodeBillOfMaterials = (id, quantity = 1) => {
+  return fetchApi(`/bill-of-materials/${id}/explode?quantity=${quantity}`);
+};
+
+export const getBillOfMaterialsStructure = (id) => {
+  return fetchApi(`/bill-of-materials/${id}/structure`);
+};
+
+
 export const recordIvaDeclarationPayment = (id, data) => {
   return fetchApi(`/accounting/iva-declaration/${id}/payment`, {
     method: 'PUT',
