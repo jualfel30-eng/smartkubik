@@ -22,6 +22,8 @@ import { useAuth } from '@/hooks/use-auth.jsx';
 import { toast } from 'sonner';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group.jsx';
 import { BarcodeScannerDialog } from '@/components/BarcodeScannerDialog.jsx';
+import { RecipeCustomizerDialog } from './RecipeCustomizerDialog.jsx';
+import { ChefHat } from 'lucide-react';
 import ProductGridView from './ProductGridView';
 import ProductSearchView from './ProductSearchView';
 import ProductListView from './ProductListView';
@@ -98,6 +100,11 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
   const [showGeneralDiscountDialog, setShowGeneralDiscountDialog] = useState(false);
   const [generalDiscountPercentage, setGeneralDiscountPercentage] = useState(0);
   const [generalDiscountReason, setGeneralDiscountReason] = useState('');
+
+  // Customization state
+  const [showRecipeCustomizer, setShowRecipeCustomizer] = useState(false);
+  const [customizerItem, setCustomizerItem] = useState(null);
+
   const [customerSearchResults, setCustomerSearchResults] = useState([]);
   const customerSearchTimeout = useRef(null);
   const barcodeInputRef = useRef(null);
@@ -1067,6 +1074,32 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
     toast.success('Descuento aplicado correctamente');
   };
 
+  // Funciones para personalizar recetas
+  const handleOpenCustomizer = (item) => {
+    setCustomizerItem(item);
+    setShowRecipeCustomizer(true);
+  };
+
+  const handleConfirmCustomization = (removedIngredients) => {
+    if (!customizerItem) return;
+
+    console.log('[DEBUG] Confirming customization with removedIngredients:', removedIngredients);
+    setNewOrder(prev => {
+      const updatedItems = prev.items.map(item => {
+        if (item === customizerItem) {
+          console.log('[DEBUG] Updating item with removedIngredients:', removedIngredients);
+          return { ...item, removedIngredients };
+        }
+        return item;
+      });
+      console.log('[DEBUG] New items state:', updatedItems);
+      return { ...prev, items: updatedItems };
+    });
+    setShowRecipeCustomizer(false);
+    setCustomizerItem(null);
+    toast.success('Ingredientes actualizados');
+  };
+
   // Funciones para manejar descuento general a la orden
   const handleOpenGeneralDiscount = () => {
     setGeneralDiscountPercentage(newOrder.generalDiscountPercentage || 0);
@@ -1120,25 +1153,29 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
       taxType: newOrder.taxType,
       customerAddress: newOrder.customerAddress,
       customerPhone: newOrder.customerPhone,
-      items: newOrder.items.map(item => ({
-        productId: item.productId,
-        variantId: item.variantId,
-        variantSku: item.variantSku,
-        quantity: item.isSoldByWeight
-          ? parseFloat(item.quantity) || 0
-          : parseInt(item.quantity, 10) || 0,
-        ...(item.selectedUnit && { selectedUnit: item.selectedUnit }),
-        modifiers: item.modifiers || [],
-        specialInstructions: item.specialInstructions,
-        unitPrice: item.unitPrice,
-        finalPrice: getItemFinalUnitPrice(item),
-        ivaApplicable: item.ivaApplicable,
-        ...(item.discountPercentage && {
-          discountPercentage: item.discountPercentage,
-          discountAmount: item.discountAmount,
-          discountReason: item.discountReason,
-        }),
-      })),
+      items: newOrder.items.map(item => {
+        console.log('[DEBUG] Processing item for payload:', item.productName, 'Removed Ingredients:', item.removedIngredients);
+        return {
+          productId: item.productId,
+          variantId: item.variantId,
+          variantSku: item.variantSku,
+          quantity: item.isSoldByWeight
+            ? parseFloat(item.quantity) || 0
+            : parseInt(item.quantity, 10) || 0,
+          ...(item.selectedUnit && { selectedUnit: item.selectedUnit }),
+          modifiers: item.modifiers || [],
+          specialInstructions: item.specialInstructions,
+          removedIngredients: item.removedIngredients || [],
+          unitPrice: item.unitPrice,
+          finalPrice: getItemFinalUnitPrice(item),
+          ivaApplicable: item.ivaApplicable,
+          ...(item.discountPercentage && {
+            discountPercentage: item.discountPercentage,
+            discountAmount: item.discountAmount,
+            discountReason: item.discountReason,
+          }),
+        };
+      }),
       notes: newOrder.notes,
       deliveryMethod: newOrder.deliveryMethod,
       shippingAddress: (newOrder.deliveryMethod === 'delivery' || newOrder.deliveryMethod === 'envio_nacional') && newOrder.shippingAddress.street ? newOrder.shippingAddress : undefined,
@@ -1330,6 +1367,27 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                   {item.hasMultipleSellingUnits && (
                     <div className="text-xs text-blue-600 dark:text-blue-300 mt-1">Multi-unidad</div>
                   )}
+
+                  {/* BOTÓN PERSONALIZAR (Solo si es restaurante/comida y no es supply) */}
+                  {restaurantEnabled && !['supply', 'raw_material'].includes(item.productType) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-1 mt-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                      onClick={() => handleOpenCustomizer(item)}
+                      title="Personalizar Ingredientes"
+                    >
+                      <ChefHat className="h-3 w-3 mr-1" />
+                      <span className="text-[10px]">Personalizar</span>
+                    </Button>
+                  )}
+
+                  {item.removedIngredients && item.removedIngredients.length > 0 && (
+                    <div className="text-xs text-red-500 mt-1 font-medium">
+                      ❌ Sin: {item.removedIngredients.length} ingrediente(s)
+                    </div>
+                  )}
+
                   {item.modifiers && item.modifiers.length > 0 && (
                     <div className="text-xs text-muted-foreground mt-2 space-y-1">
                       {item.modifiers.map((mod, index) => {
@@ -2168,6 +2226,14 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Dialog para personalizar receta */}
+      <RecipeCustomizerDialog
+        open={showRecipeCustomizer}
+        onOpenChange={setShowRecipeCustomizer}
+        product={customizerItem}
+        initialRemovedIngredients={customizerItem?.removedIngredients || []}
+        onConfirm={handleConfirmCustomization}
+      />
     </>
   );
 }

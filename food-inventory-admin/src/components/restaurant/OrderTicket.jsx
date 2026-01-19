@@ -76,11 +76,11 @@ export default function OrderTicket({
   const getItemStatusBg = (status) => {
     switch (status) {
       case 'pending':
-        return darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-100 border-gray-300';
+        return darkMode ? 'bg-gray-900/50 border-gray-700' : 'bg-white border-gray-200';
       case 'preparing':
-        return 'bg-yellow-500/20 border-yellow-500';
+        return darkMode ? 'bg-yellow-900/20 border-yellow-700/50' : 'bg-yellow-50 border-yellow-200';
       case 'ready':
-        return 'bg-green-500/20 border-green-500';
+        return darkMode ? 'bg-green-900/20 border-green-700/50' : 'bg-green-50 border-green-200';
       default:
         return darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-100 border-gray-300';
     }
@@ -202,46 +202,48 @@ export default function OrderTicket({
             <div
               key={item.itemId}
               onClick={() => handleItemClick(item)}
-              className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${getItemStatusBg(item.status)} ${
-                item.status === 'pending' ? 'hover:border-blue-500' : item.status === 'preparing' ? 'hover:border-yellow-400' : ''
-              }`}
+              className={`p-3 rounded-lg border cursor-pointer transition-all ${getItemStatusBg(item.status)} ${item.status === 'pending' ? 'hover:border-blue-500' : item.status === 'preparing' ? 'hover:border-yellow-400' : ''
+                }`}
             >
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                    <Badge variant="outline" className={`${darkMode ? 'border-gray-600 text-gray-200' : 'border-gray-400 text-gray-800'}`}>
                       {item.quantity}x
-                    </span>
-                    <span className={darkMode ? 'text-white' : 'text-gray-900'}>{item.productName}</span>
+                    </Badge>
+                    <span className={`font-semibold text-lg ${darkMode ? 'text-white' : 'text-gray-900'}`}>{item.productName}</span>
                   </div>
 
                   {/* Modifiers */}
                   {item.modifiers && item.modifiers.length > 0 && (
-                    <div className={`mt-1 ml-6 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    <div className={`mt-1 ml-2 space-y-1`}>
                       {item.modifiers.map((mod, i) => (
-                        <div key={i}>• {mod}</div>
+                        <div key={i} className={`text-sm flex items-center gap-1 ${mod.startsWith('Sin:') ? 'text-red-400 font-medium' : (darkMode ? 'text-gray-300' : 'text-gray-600')}`}>
+                          <span>•</span>
+                          {mod}
+                        </div>
                       ))}
                     </div>
                   )}
 
                   {/* Special Instructions */}
                   {item.specialInstructions && (
-                    <div className="mt-1 ml-6 text-sm text-orange-500 italic font-semibold">
+                    <div className="mt-2 ml-2 text-sm bg-orange-500/10 border border-orange-500/50 rounded p-1 inline-block text-orange-500 font-medium">
                       ⚠ {item.specialInstructions}
                     </div>
                   )}
 
                   {/* Item timer */}
                   {item.startedAt && (
-                    <div className={`mt-1 ml-6 text-xs ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
-                      Iniciado:{' '}
+                    <div className={`mt-2 ml-2 text-xs flex items-center gap-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      <Clock className="w-3 h-3" />
                       {new Date(item.startedAt).toLocaleTimeString('es-ES', {
                         hour: '2-digit',
                         minute: '2-digit',
                       })}
                       {item.prepTime && (
-                        <span className="ml-2">
-                          (Tiempo: {Math.floor(item.prepTime / 60)}:
+                        <span className="font-mono">
+                          ({Math.floor(item.prepTime / 60)}:
                           {(item.prepTime % 60).toString().padStart(2, '0')})
                         </span>
                       )}
@@ -249,14 +251,14 @@ export default function OrderTicket({
                   )}
                 </div>
 
-                <div className="flex flex-col items-end">
+                <div className="flex flex-col items-end gap-2">
                   <Badge
-                    className={`${getStatusColor(item.status)} text-xs`}
+                    className={`${getStatusColor(item.status)} text-xs px-2 py-1 shadow-sm`}
                   >
                     {getStatusText(item.status)}
                   </Badge>
                   {item.status === 'ready' && (
-                    <CheckCircle className="w-5 h-5 text-green-500 mt-1" />
+                    <CheckCircle className="w-6 h-6 text-green-500" />
                   )}
                 </div>
               </div>
@@ -276,13 +278,12 @@ export default function OrderTicket({
         <Button
           onClick={() => onBump(order._id)}
           disabled={!canBump()}
-          className={`w-full font-bold ${
-            canBump()
-              ? 'bg-green-600 hover:bg-green-700 text-white'
-              : darkMode
-                ? 'bg-gray-700 cursor-not-allowed text-gray-400'
-                : 'bg-gray-300 cursor-not-allowed text-gray-500'
-          }`}
+          className={`w-full font-bold ${canBump()
+            ? 'bg-green-600 hover:bg-green-700 text-white'
+            : darkMode
+              ? 'bg-gray-700 cursor-not-allowed text-gray-400'
+              : 'bg-gray-300 cursor-not-allowed text-gray-500'
+            }`}
         >
           <CheckCircle className="w-4 h-4 mr-2" />
           {canBump() ? 'BUMP - Completar Orden' : 'Completar todos los items'}

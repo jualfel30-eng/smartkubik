@@ -108,6 +108,19 @@ export function FloorPlan() {
     }
   };
 
+  const handleMarkAvailable = async () => {
+    if (!selectedTable) return;
+    try {
+      await fetchApi(`/tables/${selectedTable._id}/available`, {
+        method: 'POST',
+      });
+      await fetchFloorPlan();
+      setSelectedTable(null);
+    } catch (error) {
+      console.error('Error marking table available:', error);
+    }
+  };
+
   const handleCreateTable = () => {
     setSelectedTable(null);
     setTableConfigModal(true);
@@ -426,6 +439,16 @@ export function FloorPlan() {
                         Transferir
                       </Button>
                     </>
+                  )}
+
+                  {selectedTable.status === 'cleaning' && (
+                    <Button
+                      onClick={handleMarkAvailable}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Terminar Limpieza
+                    </Button>
                   )}
 
                   <Button
