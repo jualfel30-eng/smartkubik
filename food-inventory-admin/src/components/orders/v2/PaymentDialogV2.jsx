@@ -6,9 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCrmContext } from '@/context/CrmContext';
 import { useAccountingContext } from '@/context/AccountingContext';
-import { fetchApi } from '@/lib/api';
-import { X, Plus, Calculator, Wand2 } from 'lucide-react';
+import { fetchApi, registerTipsOnOrder } from '@/lib/api';
+import { X, Plus, Calculator, Wand2, HandCoins } from 'lucide-react';
 import { toast } from 'sonner';
+import { Badge } from "@/components/ui/badge";
 
 export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exchangeRate }) {
   const { paymentMethods, paymentMethodsLoading } = useCrmContext();
@@ -24,6 +25,35 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bankAccounts, setBankAccounts] = useState([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
+
+  // Tips state
+  const [tipEnabled, setTipEnabled] = useState(false);
+  const [tipMode, setTipMode] = useState('percentage'); // 'percentage' or 'custom'
+  const [tipPercentage, setTipPercentage] = useState(null); // 10, 15, 18, 20, or null
+  const [customTipAmount, setCustomTipAmount] = useState('');
+  const [tipMethod, setTipMethod] = useState('card'); // 'cash', 'card', 'digital'
+
+  // Tip presets commonly used in restaurants
+  const tipPresets = [
+    { value: 10, label: '10%' },
+    { value: 15, label: '15%' },
+    { value: 18, label: '18%' },
+    { value: 20, label: '20%' },
+  ];
+
+  // Calculate tip amount based on order subtotal
+  const calculatedTipAmount = useMemo(() => {
+    if (!tipEnabled) return 0;
+    if (tipMode === 'percentage' && tipPercentage) {
+      // Calculate tip on the order subtotal (before taxes and other charges)
+      const subtotal = order?.subtotal || order?.totalAmount || 0;
+      return (subtotal * tipPercentage) / 100;
+    }
+    if (tipMode === 'custom') {
+      return parseFloat(customTipAmount) || 0;
+    }
+    return 0;
+  }, [tipEnabled, tipMode, tipPercentage, customTipAmount, order]);
 
   const remainingAmount = useMemo(() => {
     if (!order) return 0;
@@ -69,6 +99,12 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
         bankAccountId: ''
       });
       setMixedPayments([]);
+      // Reset tips state
+      setTipEnabled(false);
+      setTipMode('percentage');
+      setTipPercentage(null);
+      setCustomTipAmount('');
+      setTipMethod('card');
     }
   }, [order, isOpen, paymentMethods]);
 
@@ -252,10 +288,6 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
             ? remainingAmountVes / rateForCalc
             : 0);
 
-      // Calculate IGTF for USD payments (3%) - ONLY FOR DISPLAY
-      const igtfAmount = requiresIgtf(singlePayment.method) && !isVes ? calculateIgtf(baseUSD, singlePayment.method) : 0;
-      const totalWithIgtf = baseUSD + igtfAmount;
-
       // Send BASE amount to backend (without IGTF) - backend will calculate IGTF
       const amountVes = isVes
         ? (remainingAmountVes && remainingAmountVes > 0
@@ -334,6 +366,28 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
         body: JSON.stringify({ payments: paymentsPayload })
       });
       toast.success('Pago registrado con éxito');
+
+      // Register tip if enabled and has amount
+      if (tipEnabled && calculatedTipAmount > 0) {
+        try {
+          await registerTipsOnOrder(order._id, {
+            amount: calculatedTipAmount,
+            percentage: tipMode === 'percentage' ? tipPercentage : undefined,
+            method: tipMethod,
+            employeeId: order.assignedWaiterId || undefined,
+            notes: tipMode === 'percentage' ? `Propina ${tipPercentage}%` : 'Propina personalizada'
+          });
+          toast.success('Propina registrada', {
+            description: `$${calculatedTipAmount.toFixed(2)} para el equipo`
+          });
+        } catch (tipError) {
+          console.error("Error registering tip:", tipError);
+          toast.error('Error al registrar la propina', {
+            description: 'El pago se procesó pero la propina no se pudo registrar. Puede registrarla manualmente.'
+          });
+        }
+      }
+
       onPaymentSuccess(response.data);
       triggerRefresh();
 
@@ -349,7 +403,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: 'delivered' })
           });
-          toast.success('Orden completada y entregada automáticamente 🚀', {
+          toast.success('Orden completada y entregada automáticamente', {
             description: 'La orden ha sido marcada como Entregada porque se pagó en su totalidad.'
           });
           // Refresh again to reflect the status change
@@ -671,6 +725,158 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
             </div>
           )
           }
+
+          {/* Tips Section */}
+          <div className="border rounded-lg p-4 bg-gradient-to-r from-amber-50/50 to-yellow-50/50 dark:from-amber-950/20 dark:to-yellow-950/20">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <HandCoins className="h-5 w-5 text-amber-600" />
+                <Label className="text-base font-semibold">Propina</Label>
+                {calculatedTipAmount > 0 && (
+                  <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                    ${calculatedTipAmount.toFixed(2)}
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="tip-toggle" className="text-sm text-muted-foreground cursor-pointer">
+                  {tipEnabled ? 'Incluir propina' : 'Sin propina'}
+                </Label>
+                <input
+                  id="tip-toggle"
+                  type="checkbox"
+                  checked={tipEnabled}
+                  onChange={(e) => {
+                    setTipEnabled(e.target.checked);
+                    if (!e.target.checked) {
+                      setTipPercentage(null);
+                      setCustomTipAmount('');
+                    }
+                  }}
+                  className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                />
+              </div>
+            </div>
+
+            {tipEnabled && (
+              <div className="space-y-4">
+                {/* Tip Percentage Presets */}
+                <div className="space-y-2">
+                  <Label className="text-sm">Porcentaje sugerido</Label>
+                  <div className="flex gap-2 flex-wrap">
+                    {tipPresets.map((preset) => (
+                      <Button
+                        key={preset.value}
+                        type="button"
+                        variant={tipMode === 'percentage' && tipPercentage === preset.value ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => {
+                          setTipMode('percentage');
+                          setTipPercentage(preset.value);
+                          setCustomTipAmount('');
+                        }}
+                        className={tipMode === 'percentage' && tipPercentage === preset.value
+                          ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                          : 'hover:bg-amber-50 hover:border-amber-300 dark:hover:bg-amber-950'
+                        }
+                      >
+                        {preset.label}
+                      </Button>
+                    ))}
+                    <Button
+                      type="button"
+                      variant={tipMode === 'custom' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        setTipMode('custom');
+                        setTipPercentage(null);
+                      }}
+                      className={tipMode === 'custom'
+                        ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                        : 'hover:bg-amber-50 hover:border-amber-300 dark:hover:bg-amber-950'
+                      }
+                    >
+                      Otro
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Custom Amount Input */}
+                {tipMode === 'custom' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="custom-tip">Monto de propina (USD)</Label>
+                      <Input
+                        id="custom-tip"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="Ej: 5.00"
+                        value={customTipAmount}
+                        onChange={(e) => setCustomTipAmount(e.target.value)}
+                        className="border-amber-200 focus:border-amber-400 focus:ring-amber-400"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Método de propina</Label>
+                      <Select value={tipMethod} onValueChange={setTipMethod}>
+                        <SelectTrigger className="border-amber-200">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cash">Efectivo</SelectItem>
+                          <SelectItem value="card">Tarjeta</SelectItem>
+                          <SelectItem value="digital">Digital/QR</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tip Method for Percentage Mode */}
+                {tipMode === 'percentage' && tipPercentage && (
+                  <div className="grid grid-cols-2 gap-4 items-end">
+                    <div className="space-y-2">
+                      <Label>Método de propina</Label>
+                      <Select value={tipMethod} onValueChange={setTipMethod}>
+                        <SelectTrigger className="border-amber-200">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cash">Efectivo</SelectItem>
+                          <SelectItem value="card">Tarjeta</SelectItem>
+                          <SelectItem value="digital">Digital/QR</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="p-3 bg-amber-100/50 dark:bg-amber-900/30 rounded-md">
+                      <p className="text-sm text-muted-foreground">Propina calculada:</p>
+                      <p className="text-lg font-bold text-amber-700 dark:text-amber-400">
+                        ${calculatedTipAmount.toFixed(2)} USD
+                      </p>
+                      {exchangeRate > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          ≈ Bs {(calculatedTipAmount * exchangeRate).toFixed(2)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tip Summary */}
+                {calculatedTipAmount > 0 && (
+                  <div className="flex items-center justify-between p-2 bg-amber-100 dark:bg-amber-900/40 rounded-md text-sm">
+                    <span className="text-amber-800 dark:text-amber-200">
+                      {order?.assignedWaiterId ? 'Propina para el mesero asignado' : 'Propina general (se distribuirá según reglas)'}
+                    </span>
+                    <span className="font-semibold text-amber-900 dark:text-amber-100">
+                      +${calculatedTipAmount.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Fixed Footer Section */}

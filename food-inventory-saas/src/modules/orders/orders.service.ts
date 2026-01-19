@@ -179,6 +179,9 @@ export class OrdersService {
   ): Promise<OrderDocument> {
     const { customerId, customerName, customerRif, taxType, items, payments, customerAddress, customerPhone } =
       createOrderDto;
+
+    this.logger.log(`ORDERS SERVICE CREATE v2 START: ${JSON.stringify(createOrderDto)}`);
+
     const tenant = await this.tenantModel.findById(user.tenantId);
     if (!tenant || tenant.usage.currentOrders >= tenant.limits.maxOrders) {
       throw new BadRequestException(
@@ -786,46 +789,54 @@ export class OrdersService {
       }
     });
 
+    this.logger.log(`AutoReserve Check: ${createOrderDto.autoReserve}`);
+
     if (createOrderDto.autoReserve) {
       // IMPORTANTE: Usar quantityInBaseUnit para productos multi-unidad
       const reservationItems: { productSku: string; quantity: number }[] = [];
-      const tenantProfile = await this.getTenantVerticalProfile(user.tenantId);
-      const isFoodService = tenantProfile?.key === "food-service" || tenantProfile?.baseVertical === "FOOD_SERVICE";
 
       for (const item of savedOrder.items) {
-        // Para Food Service, verificar si el producto tiene receta (BOM)
-        // Si tiene receta, NO reservamos el producto terminado (se hará backflushing de ingredientes al pagar)
-        if (isFoodService) {
-          const hasBom = await this.bomModel.exists({
-            productId: item.productId,
-            isActive: true,
-            tenantId: user.tenantId
-          });
+        // Verificar si el producto tiene receta (BOM)
+        // Usamos exists() que es más ligero
+        const hasBom = await this.bomModel.exists({
+          productId: new Types.ObjectId(item.productId),
+          isActive: true,
+          tenantId: new Types.ObjectId(user.tenantId)
+        });
 
-          if (hasBom) {
-            this.logger.log(`Skipping inventory reservation for Manufactured Item (Recipe): ${item.productSku}`);
-            continue;
-          }
+        if (hasBom) {
+          // Es un producto "Made to Order".
+          // NO reservamos el producto terminado (porque no existe en inventario).
+          // La deducción de ingredientes ocurrirá al procesar el pago (Legacy Flow)
+          // o se puede habilitar aquí si se desea deducción inmediata.
+
+          this.logger.debug(`Skipping reservation for Recipe Product ${item.productSku} (Backflush pending payment)`);
+          continue;
         }
 
         reservationItems.push({
           productSku: item.variantSku || item.productSku,
-          // Si tiene unidad seleccionada, usar quantityInBaseUnit, sino usar quantity normal
-          quantity: item.quantityInBaseUnit ?? item.quantity,
+          quantity: item.quantityInBaseUnit ?? item.quantity, // Usar cantidad base si existe
         });
       }
 
       if (reservationItems.length > 0) {
-        await this.inventoryService.reserveInventory(
-          { orderId: savedOrder._id.toString(), items: reservationItems },
-          user,
-          undefined,
-        );
-        savedOrder.inventoryReservation = {
-          isReserved: true,
-          reservedAt: new Date(),
-        };
-        await savedOrder.save();
+        try {
+          await this.inventoryService.reserveInventory(
+            { orderId: savedOrder._id.toString(), items: reservationItems }, // Reverted to original API call structure
+            user,
+            undefined,
+          );
+          savedOrder.inventoryReservation = {
+            isReserved: true,
+            reservedAt: new Date(),
+          };
+          await savedOrder.save();
+        } catch (error) {
+          this.logger.warn(
+            `Failed to auto-reserve inventory for order ${savedOrder.orderNumber}: ${error.message}`,
+          );
+        }
       } else {
         this.logger.log(`No items require reservation for order ${savedOrder.orderNumber} (All items are Manufactured/Recipes or list is empty)`);
       }
@@ -1767,6 +1778,21 @@ export class OrdersService {
       setImmediate(async () => {
         try {
           for (const item of order.items) {
+            // Check if item is a recipe (BOM) first
+            // FORCE CASTING to ensure match
+            const hasBom = await this.bomModel.exists({
+              productId: new Types.ObjectId(item.productId.toString()),
+              isActive: true,
+              tenantId: new Types.ObjectId(user.tenantId.toString()),
+            });
+
+            if (hasBom) {
+              this.logger.log(`[Backflush] Item ${item.productSku} is a Recipe. Skipping Retail Deduction (Manual Output).`);
+              // Logic handled by deductIngredientsFromSale (backflushing).
+              // Do NOT deduct main product stock.
+              continue;
+            }
+
             // Nota: usamos el inventario asociado por SKU. Si multi-warehouse está desactivado, se usará el default asignado en migración.
             const inv = await this.inventoryService.findByProductSku(
               item.productSku,
@@ -2132,7 +2158,7 @@ export class OrdersService {
 
   /**
    * Deduce ingredientes automáticamente del inventario cuando se vende un platillo con receta (BOM)
-   * Solo se ejecuta si el tenant tiene habilitada la opción enableAutomaticIngredientDeduction
+   * Se ejecuta SIEMPRE que una orden con recetas se paga completamente (backflushing automático)
    *
    * @param order - Orden completada
    * @param user - Usuario que completó la orden
@@ -2142,27 +2168,25 @@ export class OrdersService {
     user: any,
   ): Promise<void> {
     try {
-      // 1. Verificar si el tenant tiene habilitada la deducción automática
-      const tenant = await this.tenantModel.findById(user.tenantId);
-      if (!tenant?.settings?.inventory?.enableAutomaticIngredientDeduction) {
-        this.logger.debug(
-          `Automatic ingredient deduction disabled for tenant ${user.tenantId}`,
-        );
-        return;
-      }
-
       this.logger.log(
-        `Deducting ingredients for order ${order.orderNumber} (${order._id})`,
+        `[Backflush] Starting ingredient deduction for order ${order.orderNumber} (${order._id})`,
       );
 
-      // 2. Para cada item de la orden
+      // Para cada item de la orden
       for (const item of order.items) {
-        // Buscar BOM activo del producto
+        // Buscar BOM activo del producto - FORCE CASTING to ObjectId for reliable matching
+        const productOid = new Types.ObjectId(item.productId.toString());
+        const tenantOid = new Types.ObjectId(user.tenantId.toString());
+
+        this.logger.debug(
+          `[Backflush] Checking BOM for product ${item.productSku} (productId: ${productOid}, tenantId: ${tenantOid})`,
+        );
+
         const bom = await this.bomModel
           .findOne({
-            productId: item.productId,
+            productId: productOid,
             isActive: true,
-            tenantId: user.tenantId,
+            tenantId: tenantOid,
           })
           .lean();
 
@@ -2280,15 +2304,23 @@ export class OrdersService {
         // 4. Deducir cada ingrediente del inventario
         for (const ingredient of flatIngredients) {
           try {
-            // Buscar el inventario del ingrediente
-            const inventory = await this.inventoryService.findByProductSku(
-              ingredient.sku,
+            // Buscar el inventario del ingrediente - primero por productId (más confiable), luego por SKU
+            let inventory = await this.inventoryService.findByProductId(
+              ingredient.productId.toString(),
               user.tenantId,
             );
 
+            // Fallback: buscar por SKU si no se encontró por productId
+            if (!inventory) {
+              inventory = await this.inventoryService.findByProductSku(
+                ingredient.sku,
+                user.tenantId,
+              );
+            }
+
             if (!inventory) {
               this.logger.warn(
-                `Inventory not found for ingredient ${ingredient.sku} (${ingredient.name}). Skipping deduction.`,
+                `[Backflush] Inventory not found for ingredient ${ingredient.sku} (${ingredient.name}, productId: ${ingredient.productId}). Skipping deduction.`,
               );
               continue;
             }
@@ -2629,5 +2661,59 @@ export class OrdersService {
         endDate: endDate?.toISOString(),
       },
     };
+  }
+  private async deductIngredients(
+    item: any,
+    user: any,
+    order: any,
+  ) {
+    try {
+      // 1. Find active BOM
+      const bom = await this.bomModel.findOne({
+        productId: item.productId,
+        isActive: true,
+        tenantId: user.tenantId,
+      });
+
+      if (!bom) {
+        this.logger.warn(`BOM not found for product ${item.productId} during backflushing.`);
+        return;
+      }
+
+      // 2. Iterate components
+      for (const component of bom.components) {
+        // Use item.quantityInBaseUnit if available, else item.quantity.
+        const orderQty = item.quantityInBaseUnit ?? item.quantity;
+        const requiredQty = orderQty * component.quantity;
+
+        if (requiredQty <= 0) continue;
+
+        // 4. Find Component SKU
+        const componentProduct = await this.productModel.findById(component.componentProductId);
+        if (!componentProduct) {
+          this.logger.warn(`Component product ${component.componentProductId} not found.`);
+          continue;
+        }
+
+        let ingredientSku = componentProduct.sku;
+        if (component.componentVariantId) {
+          // Find variant SKU
+          const variant = componentProduct.variants.find(v => String(v._id) === String(component.componentVariantId));
+          if (variant) ingredientSku = variant.sku;
+        }
+
+        // 5. Deduct
+        await this.inventoryService.deductStockBySku(
+          ingredientSku,
+          requiredQty,
+          user.tenantId,
+          user,
+          `Consumo Receta: ${item.productName || 'Plato'} (Orden #${order.orderNumber})`,
+          order._id.toString(),
+        );
+      }
+    } catch (error) {
+      this.logger.error(`Error in deductIngredients for item ${item.productSku}: ${error.message}`);
+    }
   }
 }

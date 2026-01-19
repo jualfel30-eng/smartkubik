@@ -1426,4 +1426,80 @@ export class InventoryService {
   private escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
+
+  async deductStockBySku(
+    sku: string,
+    quantity: number,
+    tenantId: string,
+    user: any,
+    reason: string = "Production Usage",
+    reference: string = "",
+    session?: ClientSession,
+  ): Promise<void> {
+    const inventoryQuery: any = {
+      tenantId: this.buildTenantFilter(tenantId),
+      isActive: true,
+    };
+
+    // Generic SKU lookup (matches reserveInventory logic)
+    if (sku.includes("-VAR")) {
+      inventoryQuery.variantSku = sku;
+    } else {
+      inventoryQuery.productSku = sku;
+    }
+
+    let inventory = await this.inventoryModel
+      .findOne(inventoryQuery)
+      .session(session ?? null);
+
+    // Fallback lookup if not found
+    if (!inventory) {
+      const altQuery: any = {
+        tenantId: this.buildTenantFilter(tenantId),
+        isActive: true,
+      };
+      if (sku.includes("-VAR")) {
+        altQuery.productSku = sku;
+      } else {
+        altQuery.variantSku = sku;
+      }
+      inventory = await this.inventoryModel
+        .findOne(altQuery)
+        .session(session ?? null);
+    }
+
+    if (!inventory) {
+      this.logger.warn(`Inventory not found for SKU: ${sku} during deduction. Skipping.`);
+      return;
+    }
+
+    // Deduct stock (allow negative for backflushing if necessary, or enforce check?)
+    // For restaurant speed, we often allow negative, but let's just reduce.
+    inventory.availableQuantity -= quantity;
+    inventory.totalQuantity -= quantity;
+
+    await inventory.save({ session });
+
+    await this.createMovementRecord(
+      {
+        inventoryId: inventory._id.toString(),
+        productId: inventory.productId.toString(),
+        productSku: sku,
+        movementType: "out", // or specific 'production' type if enum allows
+        quantity: quantity,
+        unitCost: inventory.averageCostPrice,
+        totalCost: quantity * inventory.averageCostPrice,
+        reason: reason,
+        reference: reference,
+        balanceAfter: {
+          totalQuantity: inventory.totalQuantity,
+          availableQuantity: inventory.availableQuantity,
+          reservedQuantity: inventory.reservedQuantity,
+          averageCostPrice: inventory.averageCostPrice,
+        },
+      },
+      user,
+      session,
+    );
+  }
 }

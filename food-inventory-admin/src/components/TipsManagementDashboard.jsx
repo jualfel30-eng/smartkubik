@@ -31,15 +31,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import {
   DollarSign,
-  Users,
   TrendingUp,
-  Calendar,
-  Settings,
   Download,
   Plus,
   Edit,
   Trash2,
   ShieldAlert,
+  Banknote,
+  CreditCard,
 } from 'lucide-react';
 import {
   getTipsDistributionRules,
@@ -207,6 +206,62 @@ export default function TipsManagementDashboard() {
     return names[type] || type;
   };
 
+  // Export to CSV function
+  const exportToCSV = () => {
+    if (!consolidatedReport || !consolidatedReport.byEmployee?.length) {
+      toast.error('No hay datos para exportar');
+      return;
+    }
+
+    const headers = ['Empleado', 'Total Propinas (USD)', 'Órdenes Servidas', 'Promedio por Orden', 'Efectivo', 'Tarjeta', 'Digital'];
+    const rows = consolidatedReport.byEmployee.map(emp => [
+      emp.name,
+      emp.totalTips?.toFixed(2) || '0.00',
+      emp.orders || 0,
+      emp.orders > 0 ? (emp.totalTips / emp.orders).toFixed(2) : '0.00',
+      emp.cashTips?.toFixed(2) || '0.00',
+      emp.cardTips?.toFixed(2) || '0.00',
+      emp.digitalTips?.toFixed(2) || '0.00',
+    ]);
+
+    // Add summary row
+    rows.push([]);
+    rows.push(['TOTALES',
+      consolidatedReport.totalTips?.toFixed(2) || '0.00',
+      consolidatedReport.totalOrders || 0,
+      consolidatedReport.averageTipPerOrder?.toFixed(2) || '0.00',
+      consolidatedReport.byMethod?.cash?.toFixed(2) || '0.00',
+      consolidatedReport.byMethod?.card?.toFixed(2) || '0.00',
+      consolidatedReport.byMethod?.digital?.toFixed(2) || '0.00',
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${cell}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `propinas_${selectedPeriod}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast.success('Reporte exportado exitosamente');
+  };
+
+  // Get period label for display
+  const getPeriodLabel = () => {
+    const labels = {
+      'last-week': 'Última Semana',
+      'last-month': 'Último Mes',
+      'last-3-months': 'Últimos 3 Meses',
+    };
+    return labels[selectedPeriod] || selectedPeriod;
+  };
+
   if (loading && !consolidatedReport) {
     return <div className="flex justify-center p-8 text-muted-foreground">Cargando dashboard de propinas...</div>;
   }
@@ -237,6 +292,10 @@ export default function TipsManagementDashboard() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={exportToCSV} disabled={!consolidatedReport?.byEmployee?.length}>
+            <Download className="mr-2 h-4 w-4" />
+            Exportar CSV
+          </Button>
           <Dialog open={distributeModalOpen} onOpenChange={setDistributeModalOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -302,17 +361,19 @@ export default function TipsManagementDashboard() {
       {/* Summary Cards */}
       {consolidatedReport && (
         <div className="grid gap-4 md:grid-cols-4">
-          <Card>
+          <Card className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/30 border-amber-200 dark:border-amber-800">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Propinas</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <div className="h-8 w-8 rounded-full bg-amber-100 dark:bg-amber-900 flex items-center justify-center">
+                <DollarSign className="h-4 w-4 text-amber-600" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                ${consolidatedReport.totalTips.toFixed(2)}
+              <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">
+                ${consolidatedReport.totalTips?.toFixed(2) || '0.00'}
               </div>
               <p className="text-xs text-muted-foreground">
-                {consolidatedReport.totalOrders} órdenes
+                {consolidatedReport.totalOrders || 0} órdenes en {getPeriodLabel().toLowerCase()}
               </p>
             </CardContent>
           </Card>
@@ -320,14 +381,16 @@ export default function TipsManagementDashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Promedio por Orden</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                <TrendingUp className="h-4 w-4 text-blue-600" />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                ${consolidatedReport.averageTipPerOrder.toFixed(2)}
+                ${consolidatedReport.averageTipPerOrder?.toFixed(2) || '0.00'}
               </div>
               <p className="text-xs text-muted-foreground">
-                {consolidatedReport.tipPercentage.toFixed(1)}% sobre ventas
+                {consolidatedReport.tipPercentage?.toFixed(1) || '0'}% sobre ventas
               </p>
             </CardContent>
           </Card>
@@ -335,17 +398,18 @@ export default function TipsManagementDashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Efectivo</CardTitle>
-              <DollarSign className="h-4 w-4 text-green-600" />
+              <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                <Banknote className="h-4 w-4 text-green-600" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                ${consolidatedReport.byMethod.cash.toFixed(2)}
+              <div className="text-2xl font-bold text-green-600">
+                ${consolidatedReport.byMethod?.cash?.toFixed(2) || '0.00'}
               </div>
               <p className="text-xs text-muted-foreground">
-                {((consolidatedReport.byMethod.cash / consolidatedReport.totalTips) * 100).toFixed(
-                  0,
-                )}
-                % del total
+                {consolidatedReport.totalTips > 0
+                  ? ((consolidatedReport.byMethod?.cash / consolidatedReport.totalTips) * 100).toFixed(0)
+                  : 0}% del total
               </p>
             </CardContent>
           </Card>
@@ -353,22 +417,18 @@ export default function TipsManagementDashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Tarjeta/Digital</CardTitle>
-              <DollarSign className="h-4 w-4 text-blue-600" />
+              <div className="h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
+                <CreditCard className="h-4 w-4 text-purple-600" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                $
-                {(consolidatedReport.byMethod.card + consolidatedReport.byMethod.digital).toFixed(
-                  2,
-                )}
+              <div className="text-2xl font-bold text-purple-600">
+                ${((consolidatedReport.byMethod?.card || 0) + (consolidatedReport.byMethod?.digital || 0)).toFixed(2)}
               </div>
               <p className="text-xs text-muted-foreground">
-                {(
-                  ((consolidatedReport.byMethod.card + consolidatedReport.byMethod.digital) /
-                    consolidatedReport.totalTips) *
-                  100
-                ).toFixed(0)}
-                % del total
+                {consolidatedReport.totalTips > 0
+                  ? (((consolidatedReport.byMethod?.card || 0) + (consolidatedReport.byMethod?.digital || 0)) / consolidatedReport.totalTips * 100).toFixed(0)
+                  : 0}% del total
               </p>
             </CardContent>
           </Card>

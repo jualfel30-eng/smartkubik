@@ -263,59 +263,46 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
 
         // Helper for parallel fetching
         const fetchAllPages = async (baseUrl) => {
-          const firstPage = await fetchApi(`${baseUrl}&page=1&limit=100`);
-          let allItems = firstPage.data || [];
+          const firstPage = await fetchApi(`${baseUrl}${baseUrl.includes('?') ? '&' : '?'}page=1&limit=100`);
+          let allItems = firstPage.data || firstPage.products || []; // Adapt to different response structures
           const totalPages = firstPage.pagination?.totalPages || 1;
 
           if (totalPages > 1) {
             const promises = [];
             for (let i = 2; i <= totalPages; i++) {
-              promises.push(fetchApi(`${baseUrl}&page=${i}&limit=100`));
+              promises.push(fetchApi(`${baseUrl}${baseUrl.includes('?') ? '&' : '?'}page=${i}&limit=100`));
             }
             const responses = await Promise.all(promises);
             responses.forEach(res => {
-              if (res.data) {
-                allItems = [...allItems, ...res.data];
+              if (res.data || res.products) {
+                allItems = [...allItems, ...(res.data || res.products)];
               }
             });
           }
           return allItems;
         };
 
-        // 1. Load ALL inventories in parallel
-        const allInventories = await fetchAllPages('/inventory?');
-
-        console.log('📦 [NewOrderForm] Total inventories loaded:', allInventories.length);
-
-        // Filter only active inventories with available quantity > 0
-        const availableInventories = allInventories.filter(inv =>
-          inv.isActive && inv.availableQuantity > 0
+        // 1. Determine Vertical / Mode
+        const isRestaurant = Boolean(
+          tenant?.vertical === 'food-service' ||
+          tenant?.settings?.vertical === 'food-service' ||
+          restaurantEnabled
         );
+        console.log('🏭 [NewOrderForm] Vertical Logic:', { vertical: tenant?.vertical, isRestaurant });
 
-        console.log('✅ [NewOrderForm] Available inventories:', availableInventories.length);
+        // 2. Fetch DATA in Parallel
+        // For Restaurants: We need ALL active products (even if no inventory record exists)
+        // For Retail: We typically only need products with inventory, but fetching all and filtering is safer/consistent
+        const [allActiveProducts, allInventories] = await Promise.all([
+          fetchAllPages('/products?isActive=true'),
+          fetchAllPages('/inventory?')
+        ]);
 
-        // Get unique product IDs from inventories (handle populated objects)
-        const productIds = [...new Set(availableInventories.map(inv => {
-          // Backend populates productId with full product object
-          if (typeof inv.productId === 'object' && inv.productId !== null) {
-            // Check if it's a populated product with _id
-            if (inv.productId._id) {
-              return String(inv.productId._id);
-            }
-            // Check if it's an ObjectId {$oid: "..."}
-            if (inv.productId.$oid) {
-              return inv.productId.$oid;
-            }
-          }
-          // Fallback to string conversion
-          return String(inv.productId);
-        }))];
+        console.log(`📦 [NewOrderForm] Loaded ${allActiveProducts.length} Products and ${allInventories.length} Inventory Records`);
 
-        console.log('🔑 [NewOrderForm] Unique product IDs from inventory:', productIds.length);
-
-        // Create inventory map for product quantities
+        // 3. Create Inventory Map
         const invMap = {};
-        availableInventories.forEach(inv => {
+        allInventories.forEach(inv => {
           let productId;
           if (typeof inv.productId === 'object' && inv.productId !== null) {
             productId = inv.productId._id ? String(inv.productId._id) : (inv.productId.$oid || String(inv.productId));
@@ -326,54 +313,41 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
         });
         setInventoryMap(invMap);
 
-        // 2. Load SPECIFIC products in parallel (Targeted Fetching)
-        if (productIds.length > 0) {
-          // Optimization: Fetch only the specific products we need using the new backend 'ids' filter
-          // We chunk the IDs to avoid URL length limits (e.g. 50 IDs per request)
-          const chunkSize = 50;
-          const chunks = [];
-          for (let i = 0; i < productIds.length; i += chunkSize) {
-            chunks.push(productIds.slice(i, i + chunkSize));
+        // 4. Merge and Filter
+        const validProducts = allActiveProducts.filter(product => {
+          const productId = String(product._id);
+          const stock = invMap[productId] || 0;
+          const type = product.productType || 'simple';
+
+          // Restaurant Logic
+          if (isRestaurant) {
+            // HIDE Raw Materials / Supplies from POS (unless they are explicitly set as saleable, which we assume 'simple' implies)
+            // We assume 'supply', 'raw_material', 'consumable' are back-of-house items not for direct sale in a restaurant POS
+            if (['supply', 'raw_material', 'consumable'].includes(type) || product.isIngredient) {
+              return false;
+            }
+            // Show EVERYTHING else active (Made-to-Order has 0 stock)
+            return true;
           }
 
-          console.log(`🚀 [NewOrderForm] Fetching ${productIds.length} products in ${chunks.length} chunks...`);
+          // Retail Logic: Only show if stock > 0
+          return stock > 0;
+        });
 
-          const productPromises = chunks.map(chunk =>
-            fetchApi(`/products?ids=${chunk.join(',')}&limit=${chunkSize}`)
-          );
+        console.log(`✅ [NewOrderForm] Final Display Products: ${validProducts.length} (Filtered from ${allActiveProducts.length})`);
+        setProducts(validProducts);
 
-          const productResponses = await Promise.all(productPromises);
-
-          let allProducts = [];
-          productResponses.forEach(res => {
-            if (res.data) {
-              allProducts = [...allProducts, ...res.data];
-            }
-          });
-
-          console.log('📋 [NewOrderForm] Total products loaded:', allProducts.length);
-
-          // Filter only products that have inventory (convert both to strings for comparison)
-          const productsWithStock = allProducts.filter(p => {
-            const productIdStr = String(p._id);
-            return productIds.includes(productIdStr);
-          });
-
-          console.log('🎯 [NewOrderForm] Products with stock:', productsWithStock.length);
-          setProducts(productsWithStock);
-        } else {
-          console.log('⚠️ [NewOrderForm] No product IDs found, setting empty products');
-          setProducts([]);
-        }
       } catch (err) {
-        console.error("❌ [NewOrderForm] Failed to fetch products with inventory:", err);
+        console.error("❌ [NewOrderForm] Failed to load products/inventory:", err);
+        toast.error("Error al cargar productos. Por favor recargue la página.");
         setProducts([]);
       } finally {
         setLoadingProducts(false);
       }
     };
     loadProducts();
-  }, []);
+  }, [tenant, restaurantEnabled]); // Added dependencies to re-run if tenant loads late
+
 
   const loadAvailableTables = useCallback(async () => {
     try {
