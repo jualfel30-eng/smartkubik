@@ -149,12 +149,14 @@ export class BillOfMaterialsService {
     user: any,
   ): Promise<BillOfMaterials[]> {
     const tenantId = new Types.ObjectId(user.tenantId);
+    console.log(`Searching BOM for product: ${productId} with populate...`);
     return this.billOfMaterialsModel
       .find({
         productId: new Types.ObjectId(productId),
         tenantId,
         isActive: true,
       })
+      .populate("components.componentProductId", "name sku unitOfMeasure")
       .lean()
       .exec();
   }

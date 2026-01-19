@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import {
   InventoryAlertRule,
   InventoryAlertRuleDocument,
@@ -17,6 +18,7 @@ export class InventoryAlertsService {
     @InjectModel(Inventory.name)
     private readonly inventoryModel: Model<InventoryDocument>,
     private readonly eventsService: EventsService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   private toObjectId(id: string) {
@@ -154,6 +156,17 @@ export class InventoryAlertsService {
           },
           user,
         );
+
+        // Emit event for notification center
+        this.eventEmitter.emit("inventory.alert.triggered", {
+          productName: inventory.productName,
+          productId: inventory.productId?.toString() || inventory._id.toString(),
+          alertType: "low_stock",
+          currentStock: inventory.availableQuantity,
+          minimumStock: rule.minQuantity,
+          tenantId: user.tenantId,
+        });
+
         rule.lastTriggeredAt = now;
         await rule.save();
         triggered += 1;

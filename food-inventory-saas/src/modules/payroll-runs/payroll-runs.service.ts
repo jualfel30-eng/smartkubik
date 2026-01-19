@@ -81,6 +81,7 @@ import { CreateSpecialPayrollRunDto } from "./dto/create-special-payroll-run.dto
 import { SpecialPayrollRunFiltersDto } from "./dto/special-payroll-run-filters.dto";
 import { PayrollWebhooksService } from "../payroll-webhooks/payroll-webhooks.service";
 import { TipsService } from "../tips/tips.service";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 
 type LeanEmployeeProfile = EmployeeProfile & {
   _id: Types.ObjectId;
@@ -164,6 +165,7 @@ export class PayrollRunsService {
     private readonly payrollEngine: PayrollEngineService,
     private readonly webhooksService: PayrollWebhooksService,
     private readonly tipsService: TipsService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   private toObjectId(id: string | Types.ObjectId) {
@@ -218,6 +220,18 @@ export class PayrollRunsService {
           status: "approved",
         },
       );
+
+      // Emit event for notification center - payroll pending payment
+      this.eventEmitter.emit("payroll.run.pending", {
+        runId: run._id.toString(),
+        label: run.label,
+        periodStart: run.periodStart,
+        periodEnd: run.periodEnd,
+        totalEmployees: run.totalEmployees,
+        netPay: run.netPay,
+        currency: run.currency,
+        tenantId,
+      });
     } else if (nextStatus === "paid") {
       const before = { status: current };
       run.status = "paid";
@@ -249,6 +263,18 @@ export class PayrollRunsService {
         },
         employees: run.totalEmployees,
         status: "paid",
+      });
+
+      // Emit event for notification center - payroll completed
+      this.eventEmitter.emit("payroll.run.completed", {
+        runId: run._id.toString(),
+        label: run.label,
+        periodStart: run.periodStart,
+        periodEnd: run.periodEnd,
+        totalEmployees: run.totalEmployees,
+        netPay: run.netPay,
+        currency: run.currency,
+        tenantId,
       });
     } else {
       run.status = nextStatus;

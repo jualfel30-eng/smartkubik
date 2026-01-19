@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { FilterQuery, Model, Types } from "mongoose";
 import {
   EmployeeProfile,
@@ -45,6 +46,7 @@ export class PayrollEmployeesService {
     @InjectModel(Customer.name)
     private readonly customerModel: Model<CustomerDocument>,
     private readonly notificationsService: NotificationsService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   private toObjectId(id: string | Types.ObjectId): Types.ObjectId {
@@ -129,6 +131,15 @@ export class PayrollEmployeesService {
       savedProfile.currentContractId = createdContract._id;
       await savedProfile.save();
     }
+
+    // Emit event for notification center
+    this.eventEmitter.emit("employee.created", {
+      employeeId: savedProfile._id.toString(),
+      employeeName: customer.name || customer.companyName,
+      position: dto.position,
+      department: dto.department,
+      tenantId,
+    });
 
     return this.mapProfile(savedProfile, createdContract, customer);
   }

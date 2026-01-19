@@ -60,9 +60,102 @@ const formatDecimalString = (value, decimals = 3) => {
 
 import { useMediaQuery } from '@/hooks/use-media-query';
 
-export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
+export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCustomer = null, existingOrder = null, onOrderUpdated = null, initialTableId = null }) {
   const { crmData: customers } = useCrmContext();
   const [activeTab, setActiveTab] = useState('products');
+  const [isEditMode, setIsEditMode] = useState(!!existingOrder);
+
+  // Efecto para inicializar mesa (si se pasa)
+  useEffect(() => {
+    if (initialTableId && !existingOrder) {
+      setSelectedTable(initialTableId);
+    }
+  }, [initialTableId, existingOrder]);
+
+  // Efecto para inicializar con cliente (si se pasa)
+  useEffect(() => {
+    if (initialCustomer && !existingOrder) {
+      setNewOrder(prev => ({
+        ...prev,
+        customerId: initialCustomer.customerId,
+        customerName: initialCustomer.name,
+        customerPhone: initialCustomer.phone,
+        // Otros campos si estuvieran disponibles
+      }));
+      setCustomerNameInput(initialCustomer.name || '');
+    }
+  }, [initialCustomer, existingOrder]);
+
+  // Efecto para cargar orden existente
+  useEffect(() => {
+    if (existingOrder) {
+      console.log('Loading existing order into form:', existingOrder);
+      setIsEditMode(true);
+
+      // Mapear items de la orden al formato del formulario
+      const mappedItems = existingOrder.items.map(item => ({
+        productId: item.productId,
+        productName: item.productName || item.product?.name,
+        name: item.productName || item.product?.name,
+        variantId: item.variantId,
+        variantSku: item.variantSku,
+        sku: item.productSku,
+        unitPrice: item.unitPrice,
+        quantity: item.quantity,
+        isSoldByWeight: false,
+        selectedUnit: item.selectedUnit,
+        modifiers: item.modifiers || [],
+        specialInstructions: item.specialInstructions,
+        removedIngredients: item.removedIngredients || [],
+        ivaApplicable: true,
+        discountPercentage: item.discountPercentage || 0,
+        discountAmount: item.discountAmount || 0,
+        discountReason: item.discountReason,
+        productType: item.product?.type || 'standard',
+        hasMultipleSellingUnits: !!item.selectedUnit,
+        promotionInfo: {
+          discountPercentage: 0,
+          originalPrice: item.unitPrice
+        }
+      }));
+
+      setNewOrder({
+        customerId: existingOrder.customerId,
+        customerName: existingOrder.customerName,
+        customerRif: existingOrder.customerRif || existingOrder.customer?.taxInfo?.taxId || '',
+        taxType: existingOrder.customer?.taxInfo?.taxType || 'V',
+        customerAddress: existingOrder.customerAddress || (existingOrder.shipping?.address?.street) || '',
+        customerPhone: existingOrder.customerPhone,
+        items: mappedItems,
+        deliveryMethod: existingOrder.fulfillmentType === 'store' ? 'pickup' : existingOrder.fulfillmentType,
+        shippingAddress: existingOrder.shipping?.address || { street: '', city: '', state: '', zipCode: '', country: 'Venezuela' },
+        notes: existingOrder.notes || '',
+        customerLocation: existingOrder.shipping?.address?.coordinates ? {
+          lat: existingOrder.shipping.address.coordinates.lat,
+          lng: existingOrder.shipping.address.coordinates.lng,
+          formattedAddress: existingOrder.shipping.address.street
+        } : null,
+        useExistingLocation: true,
+        generalDiscountPercentage: existingOrder.generalDiscountPercentage || 0,
+        generalDiscountReason: existingOrder.generalDiscountReason || '',
+      });
+
+      setCustomerNameInput(existingOrder.customerName || '');
+      if (existingOrder.customerRif) {
+        const parts = existingOrder.customerRif.split('-');
+        if (parts.length > 1) {
+          setCustomerRifInput(parts[1]);
+        } else {
+          setCustomerRifInput(existingOrder.customerRif);
+        }
+      }
+
+      if (existingOrder.tableId) {
+        setSelectedTable(existingOrder.tableId);
+      }
+    }
+  }, [existingOrder]);
+
   const isDesktop = useMediaQuery("(min-width: 1024px)");
   const shouldRenderMobileLayout = isEmbedded || !isDesktop;
 
@@ -1191,20 +1284,63 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
       }),
     };
     try {
-      const response = await fetchApi('/orders', { method: 'POST', body: JSON.stringify(payload) });
-      const createdOrder = response.data || response;
-      setNewOrder(initialOrderState);
-      setCustomerNameInput('');
-      setCustomerRifInput('');
-      setProductSearchInput('');
-      setSelectedTable('none');
-      if (onOrderCreated) {
-        onOrderCreated(createdOrder);
+      let response;
+      let orderData;
+
+      if (isEditMode && existingOrder) {
+        // UPDATE MODE
+        const updatePayload = {
+          items: payload.items,
+          subtotal: payload.subtotal,
+          ivaTotal: payload.ivaTotal,
+          igtfTotal: payload.igtfTotal,
+          shippingCost: payload.shippingCost,
+          totalAmount: payload.totalAmount,
+          generalDiscountPercentage: payload.generalDiscountPercentage,
+          generalDiscountReason: payload.generalDiscountReason,
+          notes: payload.notes,
+          tableId: payload.tableId,
+          // Mantener otros campos si es necesario
+        };
+
+        response = await fetchApi(`/orders/${existingOrder._id}`, { method: 'PATCH', body: JSON.stringify(updatePayload) });
+        orderData = response.data || response;
+        toast.success('Orden actualizada correctamente');
+
+        if (onOrderUpdated) {
+          onOrderUpdated(orderData);
+        }
+      } else {
+        // CREATE MODE
+        response = await fetchApi('/orders', { method: 'POST', body: JSON.stringify(payload) });
+        orderData = response.data || response;
+        toast.success('Orden creada correctamente');
+
+        if (onOrderCreated) {
+          onOrderCreated(orderData);
+        }
+      }
+
+      // Reset form if creating new, but maybe keep open if editing? 
+      // User specific flow: "Send to Kitchen" usually means "Save and Close" or "Save and Keep Open".
+      // Let's reset for now or follow callback interaction.
+      if (!isEditMode) {
+        setNewOrder(initialOrderState);
+        setCustomerNameInput('');
+        setCustomerRifInput('');
+        setProductSearchInput('');
+        setSelectedTable('none');
       }
     } catch (error) {
-      console.error('Error creating order:', error);
-      alert(`Error al crear la orden: ${error.message}`);
+      console.error('Error processing order:', error);
+      alert(`Error al procesar la orden: ${error.message}`);
     }
+  };
+
+  // Función específica para "Enviar a Cocina" (Solo guardar/actualizar sin pagar)
+  const handleSendToKitchen = () => {
+    // Reutiliza logica de create/update pero el botón tendrá texto diferente
+    handleCreateOrder();
   };
 
   const customerOptions = useMemo(() => {
@@ -1756,6 +1892,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                 onOpenGeneralDiscount={canApplyDiscounts ? handleOpenGeneralDiscount : undefined}
                 canApplyDiscounts={canApplyDiscounts}
                 isEmbedded={true}
+                onSendToKitchen={handleSendToKitchen}
+                isEditMode={isEditMode}
               />
             </TabsContent>
           </Tabs>
@@ -2073,6 +2211,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
               generalDiscountPercentage={newOrder.generalDiscountPercentage}
               onOpenGeneralDiscount={canApplyDiscounts ? handleOpenGeneralDiscount : undefined}
               canApplyDiscounts={canApplyDiscounts}
+              onSendToKitchen={handleSendToKitchen}
+              isEditMode={isEditMode}
             />
           </div>
         </div>

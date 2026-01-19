@@ -105,6 +105,7 @@ import { PayrollWebhooksModule } from "./modules/payroll-webhooks/payroll-webhoo
 import { UserThrottlerGuard } from "./guards/user-throttler.guard";
 import { AuditLogModule } from "./modules/audit-log/audit-log.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
+import { NotificationCenterModule } from "./modules/notification-center/notification-center.module";
 import { SecurityMonitoringModule } from "./modules/security-monitoring/security-monitoring.module";
 import { WarehousesModule } from "./modules/warehouses/warehouses.module";
 import { OpportunitiesModule } from "./modules/opportunities/opportunities.module";
@@ -524,6 +525,7 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     ProductCampaignModule,
     AuditLogModule,
     NotificationsModule,
+    NotificationCenterModule,
     SecurityMonitoringModule,
     WarehousesModule,
     OpportunitiesModule,

@@ -45,6 +45,8 @@ export function OrderSidebar({
   onOpenGeneralDiscount,
   canApplyDiscounts,
   handleFieldChange,
+  onSendToKitchen, // NEW
+  isEditMode, // NEW
 }) {
   return (
     <div className="flex flex-col">
@@ -173,14 +175,29 @@ export function OrderSidebar({
             </Button>
           )}
 
-          <Button
-            onClick={onCreateOrder}
-            disabled={isCreateDisabled}
-            className="w-full"
-            size="lg"
-          >
-            Crear Orden
-          </Button>
+          <div className="flex flex-col gap-2">
+            {onSendToKitchen && (
+              <Button
+                onClick={onSendToKitchen}
+                disabled={isCreateDisabled}
+                className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                size="lg"
+                variant="default"
+              >
+                {isEditMode ? 'Actualizar / Cocina' : 'Enviar a Cocina'}
+              </Button>
+            )}
+
+            <Button
+              onClick={onCreateOrder}
+              disabled={isCreateDisabled}
+              className={`w-full ${!onSendToKitchen ? '' : 'bg-green-600 hover:bg-green-700'}`} // Green logic if we have two buttons
+              size="lg"
+              variant={onSendToKitchen ? "default" : "default"} // Override style
+            >
+              {isEditMode ? 'Pagar / Cerrar' : (onSendToKitchen ? 'Pagar Inmediato' : 'Crear Orden')}
+            </Button>
+          </div>
 
           {isCreateDisabled && items.length === 0 && (
             <p className="text-xs text-center text-muted-foreground">

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import {
   BankAccount,
   BankAccountDocument,
@@ -20,6 +21,7 @@ export class BankAlertsService {
     @InjectModel(BankAccount.name)
     private readonly bankAccountModel: Model<BankAccountDocument>,
     private readonly eventsService: EventsService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async evaluateBalance(
@@ -83,6 +85,16 @@ export class BankAlertsService {
       await this.bankAccountModel
         .updateOne({ _id: account._id }, { $set: { lastAlertSentAt: now } })
         .exec();
+
+      // Emit event for notification center
+      this.eventEmitter.emit("bank.balance.low", {
+        accountId: account._id.toString(),
+        bankName: account.bankName,
+        currentBalance,
+        minimumBalance,
+        currency: account.currency,
+        tenantId,
+      });
 
       this.logger.warn(
         `Low balance alert triggered for bank account ${account._id}: balance ${currentBalance} ${account.currency}.`,

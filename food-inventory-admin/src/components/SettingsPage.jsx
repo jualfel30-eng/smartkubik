@@ -14,6 +14,7 @@ import ChangePasswordForm from './ChangePasswordForm'; // Importar ChangePasswor
 import UsageAndBilling from './UsageAndBilling'; // Importar UsageAndBilling
 import { DeliverySettings } from './DeliverySettings'; // Importar DeliverySettings
 import { NotificationSettings } from './NotificationSettings';
+import { UserNotificationPreferences } from './UserNotificationPreferences';
 import WhatsAppConnection from './WhatsAppConnection'; // Importar WhatsAppConnection
 import { useAuth } from '@/hooks/use-auth.jsx'; // Importar useAuth
 import TenantKnowledgeBaseManager from './TenantKnowledgeBaseManager';
@@ -868,14 +869,17 @@ const SettingsPage = () => {
           </div>
         </TabsContent>
         <TabsContent value="notifications" className="mt-10">
-          <NotificationSettings
-            settings={settings.settings}
-            onSettingChange={(newPrefs) => setNestedValue('settings.notifications', newPrefs)}
-          />
-          <div className="mt-6 flex justify-end">
-            <Button size="lg" onClick={handleSaveSettings} disabled={isSaving}>
-              {isSaving ? 'Guardando...' : 'Guardar Configuración'}
-            </Button>
+          <div className="space-y-8">
+            <UserNotificationPreferences />
+            <NotificationSettings
+              settings={settings.settings}
+              onSettingChange={(newPrefs) => setNestedValue('settings.notifications', newPrefs)}
+            />
+            <div className="flex justify-end">
+              <Button size="lg" onClick={handleSaveSettings} disabled={isSaving}>
+                {isSaving ? 'Guardando...' : 'Guardar Configuración'}
+              </Button>
+            </div>
           </div>
         </TabsContent>
         <TabsContent value="email" className="mt-10">

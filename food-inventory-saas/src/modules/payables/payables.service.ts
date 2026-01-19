@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, Logger } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Payable, PayableDocument } from "../../schemas/payable.schema";
 import { AccountingService } from "../accounting/accounting.service";
 import { EventsService } from "../events/events.service";
@@ -173,6 +174,7 @@ export class PayablesService {
     private readonly accountingService: AccountingService,
     private readonly eventsService: EventsService,
     private readonly exchangeRateService: ExchangeRateService,
+    private readonly eventEmitter: EventEmitter2,
   ) { }
 
   async create(
@@ -271,6 +273,16 @@ export class PayablesService {
         );
         // No re-throw - calendar event creation is not critical
       }
+
+      // Emit event for notification center
+      this.eventEmitter.emit("payable.due.approaching", {
+        payableId: savedPayable._id.toString(),
+        payableNumber: savedPayable.payableNumber,
+        payeeName: savedPayable.payeeName,
+        totalAmount: savedPayable.totalAmount,
+        dueDate: savedPayable.dueDate,
+        tenantId,
+      });
     }
     // --- End of Calendar Event Creation ---
 

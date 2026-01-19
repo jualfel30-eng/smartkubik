@@ -16,9 +16,11 @@ export const ActionPanel = ({
     onActionChange,
     activeConversation,
     tenant,
-    initialOrderId // New prop
+    initialOrderId, // New prop
+    initialTableId // New prop
 }) => {
     const [createdOrder, setCreatedOrder] = useState(null);
+    const [isEditing, setIsEditing] = useState(false); // NEW
     const [isProcessingDrawerOpen, setIsProcessingDrawerOpen] = useState(false);
     const { rate: exchangeRate } = useExchangeRate();
 
@@ -34,7 +36,16 @@ export const ActionPanel = ({
             if (isOpen && initialOrderId) {
                 try {
                     const response = await fetchApi(`/orders/${initialOrderId}`);
-                    setCreatedOrder(response.data || response);
+                    const orderData = response.data || response;
+                    setCreatedOrder(orderData);
+
+                    // Determine if we should open in Edit Mode
+                    // If order is not paid and is draft/pending, open in edit mode (table order flow)
+                    if (['draft', 'pending'].includes(orderData.status) && orderData.paymentStatus !== 'paid') {
+                        setIsEditing(true);
+                    } else {
+                        setIsEditing(false);
+                    }
                 } catch (error) {
                     toast.error("Error al cargar la orden");
                     console.error(error);
@@ -120,7 +131,7 @@ export const ActionPanel = ({
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-4">
-                {createdOrder && activeAction === 'order' ? (
+                {createdOrder && !isEditing && activeAction === 'order' ? (
                     <div className="flex flex-col items-center justify-center p-8 space-y-6 animate-in fade-in duration-300">
                         <div className="h-16 w-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
                             <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
@@ -153,6 +164,17 @@ export const ActionPanel = ({
                                 isEmbedded={true}
                                 initialCustomer={customerInfo}
                                 onOrderCreated={handleOrderCreated}
+                                initialTableId={initialTableId}
+                                existingOrder={isEditing ? createdOrder : null}
+                                onOrderUpdated={(updatedOrder) => {
+                                    setCreatedOrder(updatedOrder);
+                                    if (updatedOrder.paymentStatus === 'paid') {
+                                        setIsEditing(false);
+                                    }
+                                    // If still pending (sent to kitchen), invalidating/updating state is enough.
+                                    // User can close panel manually or continue editing.
+                                    toast.success("Orden actualizada");
+                                }}
                             />
                         )}
 

@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover.jsx';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth, AuthProvider } from './hooks/use-auth.jsx';
 import { useShift, ShiftProvider } from './context/ShiftContext.jsx';
@@ -68,7 +67,6 @@ import {
   Zap,
   AlertCircle,
   PlusCircle,
-  Bell,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { Toaster as ShadcnToaster } from '@/components/ui/toaster';
@@ -78,6 +76,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { CrmProvider } from './context/CrmContext.jsx';
 import { AccountingProvider } from './context/AccountingContext.jsx';
 import { NotificationProvider, useNotification } from './context/NotificationContext.jsx';
+import { NotificationCenter } from './components/NotificationCenter.jsx';
 import { TenantPickerDialog } from '@/components/auth/TenantPickerDialog.jsx';
 import {
   Sidebar,
@@ -922,61 +921,6 @@ function TenantLayout() {
     );
   };
 
-  const NotificationBell = () => {
-    const { unreadCount, notifications } = useNotification();
-    const [open, setOpen] = useState(false);
-
-    return (
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell size={20} />
-            {unreadCount > 0 && (
-              <Badge variant="destructive" className="absolute -top-1 -right-1 px-1 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] rounded-full">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </Badge>
-            )}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-80 p-0" align="end">
-          <div className="p-3 border-b border-border font-medium">Notificaciones</div>
-          <div className="max-h-[300px] overflow-y-auto">
-            {notifications.length === 0 && unreadCount === 0 ? (
-              <div className="p-4 text-center text-muted-foreground text-sm">
-                No tienes notificaciones
-              </div>
-            ) : (
-              <div className="flex flex-col">
-                {unreadCount > 0 && (
-                  <div className="p-3 border-b border-border hover:bg-muted/50 cursor-pointer flex items-start gap-3 transition-colors" onClick={() => navigate('/whatsapp')}>
-                    <div className="bg-green-100 text-green-600 rounded-full p-2 mt-0.5">
-                      <MessageSquare size={16} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">WhatsApp</p>
-                      <p className="text-xs text-muted-foreground">{unreadCount} mensajes sin leer</p>
-                    </div>
-                  </div>
-                )}
-                {notifications.map((notif, idx) => (
-                  <div key={idx} className="p-3 border-b border-border hover:bg-muted/50 cursor-pointer flex items-start gap-3 transition-colors">
-                    <div className="bg-blue-100 text-blue-600 rounded-full p-2 mt-0.5">
-                      <AlertCircle size={16} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{notif.title || 'Alerta'}</p>
-                      <p className="text-xs text-muted-foreground">{notif.message || notif.productName || 'Nueva notificación'}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </PopoverContent>
-      </Popover>
-    );
-  };
-
   return (
     <SidebarProvider defaultOpen={false}>
       <Toaster richColors />
@@ -1039,7 +983,7 @@ function TenantLayout() {
                   {tenant?.name || 'Seleccionar organización'}
                 </Button>
               )}
-              <NotificationBell />
+              <NotificationCenter />
               <ThemeToggle />
               <Button id="settings-button" variant="outline" size="icon" onClick={() => navigate('/settings')}>
                 <Settings size={12} />

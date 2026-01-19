@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { fetchApi } from '../../lib/api';
+import { useAuth } from '@/hooks/use-auth'; // NEW
+import { ActionPanel } from '../chat/ActionPanel'; // NEW
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -26,6 +28,12 @@ export function FloorPlan() {
   const [tableConfigModal, setTableConfigModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedSection, setSelectedSection] = useState('all');
+
+  // ActionPanel integration
+  const [isActionPanelOpen, setIsActionPanelOpen] = useState(false);
+  const [actionPanelOrderId, setActionPanelOrderId] = useState(null);
+  const [actionPanelTableId, setActionPanelTableId] = useState(null);
+  const { tenant } = useAuth();
 
   const fetchFloorPlan = async () => {
     try {
@@ -128,6 +136,19 @@ export function FloorPlan() {
 
   const handleEditTable = () => {
     setTableConfigModal(true);
+  };
+
+  const handleViewOrder = () => {
+    if (!selectedTable) return;
+
+    if (selectedTable.currentOrderId) {
+      setActionPanelOrderId(selectedTable.currentOrderId);
+      setActionPanelTableId(null);
+    } else {
+      setActionPanelOrderId(null);
+      setActionPanelTableId(selectedTable._id);
+    }
+    setIsActionPanelOpen(true);
   };
 
   const filteredSections = selectedSection === 'all'
@@ -432,6 +453,13 @@ export function FloorPlan() {
                         Limpiar Mesa
                       </Button>
                       <Button
+                        onClick={handleViewOrder}
+                        className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        <DollarSign className="w-4 h-4" />
+                        {selectedTable.currentOrderId ? 'Ver / Editar Orden' : 'Crear Orden'}
+                      </Button>
+                      <Button
                         variant="outline"
                         className="w-full flex items-center justify-center gap-2"
                       >
@@ -496,6 +524,31 @@ export function FloorPlan() {
           }}
         />
       )}
+      {tableConfigModal && (
+        <TableConfigModal
+          table={selectedTable}
+          sections={floorPlan?.sections?.map(s => s.section) || []}
+          onClose={() => setTableConfigModal(false)}
+          onSuccess={() => {
+            fetchFloorPlan();
+            setTableConfigModal(false);
+            setSelectedTable(null);
+          }}
+        />
+      )}
+
+      <ActionPanel
+        isOpen={isActionPanelOpen}
+        onClose={() => {
+          setIsActionPanelOpen(false);
+          fetchFloorPlan(); // Refresh tables when closing panel (to see occupancy updates)
+        }}
+        activeAction="order"
+        onActionChange={() => { }}
+        tenant={tenant}
+        initialOrderId={actionPanelOrderId}
+        initialTableId={actionPanelTableId}
+      />
     </div>
   );
 }
