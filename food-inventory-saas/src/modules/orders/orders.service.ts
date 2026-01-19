@@ -79,6 +79,13 @@ export class OrdersService {
     @InjectConnection() private readonly connection: Connection,
   ) { }
 
+  private async getTenantVerticalProfile(tenantId: string | Types.ObjectId): Promise<any> {
+    const tenant = await this.tenantModel.findById(tenantId).select('vertical settings').lean() as any;
+    // Prioritize specific vertical setting, fallback to tenant vertical, then default
+    const verticalKey = tenant?.settings?.vertical || tenant?.vertical || 'food-service';
+    return getVerticalProfile(verticalKey);
+  }
+
   async getPaymentMethods(user: any): Promise<any> {
     const tenant = await this.tenantModel.findById(user.tenantId);
     if (!tenant) {
@@ -781,22 +788,49 @@ export class OrdersService {
 
     if (createOrderDto.autoReserve) {
       // IMPORTANTE: Usar quantityInBaseUnit para productos multi-unidad
-      const reservationItems = savedOrder.items.map((item) => ({
-        productSku: item.variantSku || item.productSku,
-        // Si tiene unidad seleccionada, usar quantityInBaseUnit, sino usar quantity normal
-        quantity: item.quantityInBaseUnit ?? item.quantity,
-      }));
-      await this.inventoryService.reserveInventory(
-        { orderId: savedOrder._id.toString(), items: reservationItems },
-        user,
-        undefined,
-      );
-      savedOrder.inventoryReservation = {
-        isReserved: true,
-        reservedAt: new Date(),
-      };
-      await savedOrder.save();
+      const reservationItems: { productSku: string; quantity: number }[] = [];
+      const tenantProfile = await this.getTenantVerticalProfile(user.tenantId);
+      const isFoodService = tenantProfile?.key === "food-service" || tenantProfile?.baseVertical === "FOOD_SERVICE";
+
+      for (const item of savedOrder.items) {
+        // Para Food Service, verificar si el producto tiene receta (BOM)
+        // Si tiene receta, NO reservamos el producto terminado (se hará backflushing de ingredientes al pagar)
+        if (isFoodService) {
+          const hasBom = await this.bomModel.exists({
+            productId: item.productId,
+            isActive: true,
+            tenantId: user.tenantId
+          });
+
+          if (hasBom) {
+            this.logger.log(`Skipping inventory reservation for Manufactured Item (Recipe): ${item.productSku}`);
+            continue;
+          }
+        }
+
+        reservationItems.push({
+          productSku: item.variantSku || item.productSku,
+          // Si tiene unidad seleccionada, usar quantityInBaseUnit, sino usar quantity normal
+          quantity: item.quantityInBaseUnit ?? item.quantity,
+        });
+      }
+
+      if (reservationItems.length > 0) {
+        await this.inventoryService.reserveInventory(
+          { orderId: savedOrder._id.toString(), items: reservationItems },
+          user,
+          undefined,
+        );
+        savedOrder.inventoryReservation = {
+          isReserved: true,
+          reservedAt: new Date(),
+        };
+        await savedOrder.save();
+      } else {
+        this.logger.log(`No items require reservation for order ${savedOrder.orderNumber} (All items are Manufactured/Recipes or list is empty)`);
+      }
     }
+
 
     // Send WhatsApp confirmation (async, don't block response)
     setImmediate(async () => {
