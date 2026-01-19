@@ -15,6 +15,7 @@ import {
   BankAccount,
   BankAccountDocument,
 } from "../../schemas/bank-account.schema";
+import { Table, TableDocument } from "../../schemas/table.schema";
 import {
   CreateOrderDto,
   UpdateOrderDto,
@@ -62,6 +63,8 @@ export class OrdersService {
     private bomModel: Model<BillOfMaterialsDocument>,
     @InjectModel(Modifier.name)
     private modifierModel: Model<Modifier>,
+    @InjectModel(Table.name)
+    private tableModel: Model<TableDocument>,
     private readonly inventoryService: InventoryService,
     private readonly accountingService: AccountingService,
     private readonly paymentsService: PaymentsService,
@@ -639,6 +642,11 @@ export class OrdersService {
       inventoryReservation: { isReserved: false },
       createdBy: user.id,
       tenantId: user.tenantId,
+      // Persist customer data snapshots
+      customerRif: createOrderDto.customerRif,
+      taxType: createOrderDto.taxType,
+      customerPhone: createOrderDto.customerPhone,
+      customerAddress: createOrderDto.customerAddress,
     };
 
     const shouldAssignEmployee =
@@ -686,6 +694,23 @@ export class OrdersService {
     await this.tenantModel.findByIdAndUpdate(user.tenantId, {
       $inc: { "usage.currentOrders": 1 },
     });
+
+    // ========================================
+    // RESTAURANT: Update Table Status if applicable
+    // ========================================
+    if (createOrderDto.tableId) {
+      try {
+        await this.tableModel.findByIdAndUpdate(createOrderDto.tableId, {
+          status: 'occupied',
+          currentOrderId: savedOrder._id,
+          seatedAt: new Date(), // Reset seated time or keep original? Usually reset on new order or seat.
+          // Assuming seating happens before ordering, we might just want to link the order.
+        });
+        this.logger.log(`Table ${createOrderDto.tableId} linked to order ${savedOrder.orderNumber}`);
+      } catch (tableError) {
+        this.logger.error(`Failed to update table ${createOrderDto.tableId}: ${tableError.message}`);
+      }
+    }
 
     // ========================================
     // MARKETING: Track coupon and promotion usage
@@ -1103,6 +1128,8 @@ export class OrdersService {
       orderNumber,
       customerId: customer._id,
       customerName: dto.customerName,
+      customerRif: dto.customerRif,
+      taxType: dto.taxType,
       customerEmail: dto.customerEmail,
       customerPhone: dto.customerPhone,
       items: orderItems,
@@ -1412,6 +1439,7 @@ export class OrdersService {
     return this.orderModel
       .findOne({ _id: id, tenantId })
       .populate("payments")
+      .populate("customerId", "name taxInfo") // Populate customer to get RIF/TaxID
       .populate("assignedTo", "firstName lastName email")
       .populate("items.productId", "name sku ivaApplicable") // Fix: Populate productId, not product
       .exec();
@@ -1440,12 +1468,156 @@ export class OrdersService {
     const order = await this.orderModel.findById(id);
     if (!order) throw new NotFoundException("Orden no encontrada");
     const previousStatus = order.status || "";
-    const updatedOrder = await this.orderModel.findByIdAndUpdate(
-      id,
-      { ...updateOrderDto, updatedBy: user.id },
-      { new: true },
-    );
 
+    // ========================================
+    // SMART ITEM ARRAY MERGING FOR POS WORKFLOWS
+    // ========================================
+    let processedItems = order.items; // Default: keep existing items
+
+    if (updateOrderDto.items && updateOrderDto.items.length > 0) {
+      // Build a processed items array
+      const newProcessedItems: any[] = [];
+
+      for (const itemDto of updateOrderDto.items) {
+        // Check if this item already exists (has _id from frontend)
+        const existingItem = order.items.find(
+          (oi: any) => oi._id && oi._id.toString() === (itemDto as any)._id
+        );
+
+        if (existingItem) {
+          // UPDATE existing item (preserve metadata, update quantity/modifiers if changed)
+          const existingItemObj: any = (existingItem as any).toObject ? (existingItem as any).toObject() : existingItem;
+          newProcessedItems.push({
+            ...existingItemObj,
+            quantity: itemDto.quantity,
+            modifiers: itemDto.modifiers || existingItemObj.modifiers,
+            specialInstructions: itemDto.specialInstructions || existingItemObj.specialInstructions,
+            removedIngredients: itemDto.removedIngredients || existingItemObj.removedIngredients,
+            // Keep existing metadata
+            _id: (existingItem as any)._id,
+            status: (itemDto as any).status || existingItemObj.status,
+            addedAt: (itemDto as any).addedAt || existingItemObj.addedAt,
+          });
+        } else {
+          // NEW item - process it fully
+          const product = await this.productModel
+            .findById(itemDto.productId)
+            .session(null);
+          if (!product) {
+            this.logger.warn(
+              `Product ${itemDto.productId} not found for new item in order ${order.orderNumber}`
+            );
+            continue;
+          }
+
+          const variant = this.resolveVariant(product, itemDto);
+          if (!variant) {
+            this.logger.warn(
+              `Variant not found for product ${product.sku} in order ${order.orderNumber}`
+            );
+            continue;
+          }
+
+          const attributes = this.buildOrderItemAttributes(product, variant, itemDto);
+          const attributeSummary = this.buildAttributeSummary(attributes);
+
+          // Calculate pricing for new item
+          let unitPrice = variant.basePrice || 0;
+          let conversionFactor = 1;
+          let quantityInBaseUnit = itemDto.quantity;
+
+          if (itemDto.selectedUnit && product.sellingUnits?.length > 0) {
+            const selectedUnitDef = product.sellingUnits.find(
+              (u) => u.abbreviation === itemDto.selectedUnit
+            );
+            if (selectedUnitDef) {
+              unitPrice = selectedUnitDef.pricePerUnit || unitPrice;
+              conversionFactor = selectedUnitDef.conversionFactor || 1;
+              quantityInBaseUnit = itemDto.quantity * conversionFactor;
+            }
+          }
+
+          const modifierAdjustment = (itemDto.modifiers || []).reduce(
+            (sum, mod) => sum + (mod.priceAdjustment || 0) * (mod.quantity || 1),
+            0
+          );
+          const finalUnitPrice = unitPrice + modifierAdjustment;
+          const totalPrice = finalUnitPrice * itemDto.quantity;
+          const ivaAmount = (itemDto.ivaApplicable ?? product.ivaApplicable)
+            ? totalPrice * 0.16
+            : 0;
+          const igtfAmount = 0;
+          const finalPrice = totalPrice + ivaAmount + igtfAmount;
+
+          const inventoryRecord = await this.inventoryService.findByProductSku(
+            variant.sku,
+            user.tenantId
+          );
+          const costPrice = inventoryRecord?.averageCostPrice || 0;
+
+          newProcessedItems.push({
+            productId: new Types.ObjectId(itemDto.productId),
+            productSku: variant.sku,
+            productName: product.name,
+            variantId: variant._id ? new Types.ObjectId(variant._id) : undefined,
+            variantSku: variant.sku,
+            attributes,
+            attributeSummary,
+            quantity: itemDto.quantity,
+            selectedUnit: itemDto.selectedUnit,
+            conversionFactor,
+            quantityInBaseUnit,
+            unitPrice,
+            totalPrice,
+            costPrice,
+            modifiers: itemDto.modifiers || [],
+            specialInstructions: itemDto.specialInstructions,
+            removedIngredients: itemDto.removedIngredients?.map(
+              (id) => new Types.ObjectId(id)
+            ) || [],
+            ivaAmount,
+            igtfAmount,
+            finalPrice,
+            status: "sent_to_kitchen", // New items should be visible in kitchen
+            addedAt: new Date(),
+          });
+        }
+      }
+
+      processedItems = newProcessedItems as any;
+    }
+
+    // ========================================
+    // BUILD UPDATE PAYLOAD
+    // ========================================
+    const updatePayload: any = {
+      ...updateOrderDto,
+      items: processedItems,
+      updatedBy: user.id,
+    };
+
+    // Ensure denormalized customer fields are preserved
+    if (updateOrderDto.customerRif !== undefined) {
+      updatePayload.customerRif = updateOrderDto.customerRif;
+    }
+    if (updateOrderDto.taxType !== undefined) {
+      updatePayload.taxType = updateOrderDto.taxType;
+    }
+    if (updateOrderDto.customerPhone !== undefined) {
+      updatePayload.customerPhone = updateOrderDto.customerPhone;
+    }
+    if (updateOrderDto.customerAddress !== undefined) {
+      updatePayload.customerAddress = updateOrderDto.customerAddress;
+    }
+
+    const updatedOrder = await this.orderModel
+      .findByIdAndUpdate(id, updatePayload, { new: true })
+      .populate("customerId", "name taxInfo")
+      .populate("items.productId", "name sku type");
+
+    // ========================================
+    // POST-UPDATE INVENTORY MOVEMENTS
+    // ========================================
     const fulfillmentStatuses = ["shipped", "delivered"];
     const movedToFulfillment =
       updatedOrder &&
@@ -1495,6 +1667,16 @@ export class OrdersService {
           }
         });
       }
+    }
+
+    // Emit update event (e.g. for Kitchen Display sync)
+    if (updatedOrder) {
+      this.eventEmitter.emit("order.updated", {
+        orderId: updatedOrder._id,
+        tenantId: user.tenantId,
+        status: updatedOrder.status,
+        items: updatedOrder.items,
+      });
     }
 
     return updatedOrder;

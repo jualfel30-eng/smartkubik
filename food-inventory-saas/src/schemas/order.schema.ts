@@ -194,10 +194,19 @@ export class Order {
   customerName: string;
 
   @Prop({ type: String })
+  customerRif?: string; // Denormalized TaxID for persistence
+
+  @Prop({ type: String, default: 'V' })
+  taxType?: string;
+
+  @Prop({ type: String })
   customerEmail?: string;
 
   @Prop({ type: String })
   customerPhone?: string;
+
+  @Prop({ type: String })
+  customerAddress?: string;
 
   @Prop({ type: [OrderItemSchema] })
   items: OrderItem[];

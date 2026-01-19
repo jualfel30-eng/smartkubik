@@ -29,6 +29,7 @@ import {
   StorefrontConfig,
   StorefrontConfigSchema,
 } from "../../schemas/storefront-config.schema";
+import { Table, TableSchema } from "../../schemas/table.schema";
 import { AccountingModule } from "../accounting/accounting.module";
 import { RolesModule } from "../roles/roles.module";
 import { PaymentsModule } from "../payments/payments.module";
@@ -67,6 +68,7 @@ import { MarketingModule } from "../marketing/marketing.module";
       { name: Modifier.name, schema: ModifierSchema },
       { name: TenantPaymentConfig.name, schema: TenantPaymentConfigSchema },
       { name: StorefrontConfig.name, schema: StorefrontConfigSchema },
+      { name: Table.name, schema: TableSchema },
     ]),
   ],
   controllers: [OrdersController, OrdersPublicController],
@@ -81,4 +83,4 @@ import { MarketingModule } from "../marketing/marketing.module";
     WhatsAppOrderNotificationsService,
   ],
 })
-export class OrdersModule {}
+export class OrdersModule { }

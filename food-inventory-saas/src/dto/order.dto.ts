@@ -343,6 +343,11 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => RegisterPaymentDto)
   payments?: RegisterPaymentDto[];
+
+  @ApiPropertyOptional({ description: "ID de la mesa (si es restaurante)" })
+  @IsOptional()
+  @IsMongoId()
+  tableId?: string;
 }
 
 export class UpdateOrderDto {
@@ -396,6 +401,83 @@ export class UpdateOrderDto {
   @IsString()
   @SanitizeText()
   internalNotes?: string;
+
+  // ========================================
+  // POS WORKFLOW FIELDS (for table orders)
+  // ========================================
+
+  @ApiPropertyOptional({ description: "RIF o C.I. del cliente" })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  customerRif?: string;
+
+  @ApiPropertyOptional({ description: "Tipo de documento fiscal (V, E, J, G)" })
+  @IsOptional()
+  @IsEnum(["V", "E", "J", "G"])
+  taxType?: string;
+
+  @ApiPropertyOptional({ description: "Teléfono del cliente" })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  customerPhone?: string;
+
+  @ApiPropertyOptional({ description: "Dirección del cliente" })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  customerAddress?: string;
+
+  @ApiPropertyOptional({ description: "Items de la orden", type: [CreateOrderItemDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrderItemDto)
+  items?: CreateOrderItemDto[];
+
+  @ApiPropertyOptional({ description: "Subtotal de la orden (sin impuestos)" })
+  @IsOptional()
+  @IsNumber()
+  subtotal?: number;
+
+  @ApiPropertyOptional({ description: "Monto total de IVA" })
+  @IsOptional()
+  @IsNumber()
+  ivaTotal?: number;
+
+  @ApiPropertyOptional({ description: "Monto total de IGTF" })
+  @IsOptional()
+  @IsNumber()
+  igtfTotal?: number;
+
+  @ApiPropertyOptional({ description: "Costo de envío" })
+  @IsOptional()
+  @IsNumber()
+  shippingCost?: number;
+
+  @ApiPropertyOptional({ description: "Monto total final" })
+  @IsOptional()
+  @IsNumber()
+  totalAmount?: number;
+
+  @ApiPropertyOptional({ description: "Porcentaje de descuento general" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  generalDiscountPercentage?: number;
+
+  @ApiPropertyOptional({ description: "Razón del descuento general" })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  generalDiscountReason?: string;
+
+  @ApiPropertyOptional({ description: "ID de la mesa (restaurantes)" })
+  @IsOptional()
+  @IsMongoId()
+  tableId?: string;
 }
 
 export class OrderPaymentDto {
