@@ -176,27 +176,39 @@ export function OrderSidebar({
           )}
 
           <div className="flex flex-col gap-2">
-            {onSendToKitchen && (
+            {/* LOGICA DE BOTONES SEGUN VERTICAL */}
+            {onSendToKitchen ? (
+              /* RESTAURANT VERTICAL (Buttons: Orange & Green) */
+              <>
+                <Button
+                  onClick={onSendToKitchen}
+                  disabled={isCreateDisabled}
+                  className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                  size="lg"
+                >
+                  {isEditMode ? 'Actualizar / Cocina' : 'Enviar a Cocina'}
+                </Button>
+
+                <Button
+                  onClick={onCreateOrder}
+                  disabled={isCreateDisabled}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  size="lg"
+                >
+                  {isEditMode ? 'Pagar / Cerrar' : 'Pagar Inmediato'}
+                </Button>
+              </>
+            ) : (
+              /* STANDARD VERTICAL (Single Blue Button) */
               <Button
-                onClick={onSendToKitchen}
+                onClick={onCreateOrder}
                 disabled={isCreateDisabled}
-                className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                 size="lg"
-                variant="default"
               >
-                {isEditMode ? 'Actualizar / Cocina' : 'Enviar a Cocina'}
+                {isEditMode ? 'Actualizar Orden' : 'Crear Orden'}
               </Button>
             )}
-
-            <Button
-              onClick={onCreateOrder}
-              disabled={isCreateDisabled}
-              className={`w-full ${!onSendToKitchen ? '' : 'bg-green-600 hover:bg-green-700'}`} // Green logic if we have two buttons
-              size="lg"
-              variant={onSendToKitchen ? "default" : "default"} // Override style
-            >
-              {isEditMode ? 'Pagar / Cerrar' : (onSendToKitchen ? 'Pagar Inmediato' : 'Crear Orden')}
-            </Button>
           </div>
 
           {isCreateDisabled && items.length === 0 && (

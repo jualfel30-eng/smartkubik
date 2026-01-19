@@ -151,6 +151,23 @@ export function FloorPlan() {
     setIsActionPanelOpen(true);
   };
 
+  const handleTableClick = (table) => {
+    setSelectedTable(table);
+
+    // Auto-open order if occupied and has order
+    // Auto-open order if occupied and has order
+    if (table.status === 'occupied' && table.currentOrderId) {
+      // Ensure we handle both string ID and populated object
+      const orderId = typeof table.currentOrderId === 'object'
+        ? table.currentOrderId._id || table.currentOrderId.toString()
+        : table.currentOrderId;
+
+      setActionPanelOrderId(orderId);
+      setActionPanelTableId(null);
+      setIsActionPanelOpen(true);
+    }
+  };
+
   const filteredSections = selectedSection === 'all'
     ? floorPlan?.sections || []
     : floorPlan?.sections?.filter(s => s.section === selectedSection) || [];
@@ -286,7 +303,7 @@ export function FloorPlan() {
                     {section.tables.map((table) => (
                       <button
                         key={table._id}
-                        onClick={() => setSelectedTable(table)}
+                        onClick={() => handleTableClick(table)}
                         className={`
                           ${getStatusColor(table.status)}
                           ${selectedTable?._id === table._id ? 'ring-4 ring-yellow-400 scale-105' : ''}

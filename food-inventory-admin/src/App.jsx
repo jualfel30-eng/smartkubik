@@ -1119,7 +1119,11 @@ function TenantLayout() {
                 <Route path="hospitality/floor-plan" element={<HotelFloorPlanPage />} />
                 <Route path="calendar" element={<CalendarModule />} />
                 <Route path="production" element={<ProductionManagement />} />
-                <Route path="restaurant/floor-plan" element={<TablesPage />} />
+                <Route path="restaurant/floor-plan" element={
+                  <CrmProvider>
+                    <TablesPage />
+                  </CrmProvider>
+                } />
                 <Route path="restaurant/kitchen-display" element={<KitchenDisplay />} />
                 <Route path="restaurant/reservations" element={<ReservationsPage />} />
                 <Route path="restaurant/tips" element={<TipsPage />} />

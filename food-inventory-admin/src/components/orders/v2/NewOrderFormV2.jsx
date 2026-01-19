@@ -18,6 +18,7 @@ import { SearchableSelect } from './custom/SearchableSelect';
 import { LocationPicker } from '@/components/ui/LocationPicker.jsx';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
 import ModifierSelector from '@/components/restaurant/ModifierSelector.jsx';
+import { OrderProcessingDrawer } from '../OrderProcessingDrawer';
 import { useAuth } from '@/hooks/use-auth.jsx';
 import { toast } from 'sonner';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group.jsx';
@@ -65,6 +66,9 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
   const [activeTab, setActiveTab] = useState('products');
   const [isEditMode, setIsEditMode] = useState(!!existingOrder);
 
+  // Ref to prevent useEffect race condition when updating orders
+  const previousOrderId = useRef(null);
+
   // Efecto para inicializar mesa (si se pasa)
   useEffect(() => {
     if (initialTableId && !existingOrder) {
@@ -88,9 +92,11 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
 
   // Efecto para cargar orden existente
   useEffect(() => {
-    if (existingOrder) {
+    // Only reinitialize if this is a different order (prevent race condition)
+    if (existingOrder && existingOrder._id !== previousOrderId.current) {
       console.log('Loading existing order into form:', existingOrder);
       setIsEditMode(true);
+      previousOrderId.current = existingOrder._id;
 
       // Mapear items de la orden al formato del formulario
       const mappedItems = existingOrder.items.map(item => ({
@@ -113,6 +119,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         discountReason: item.discountReason,
         productType: item.product?.type || 'standard',
         hasMultipleSellingUnits: !!item.selectedUnit,
+        // Preserve metadata defined in backend schema
+        _id: item._id, // Critical for updates
+        status: item.status || 'pending',
+        addedAt: item.addedAt,
         promotionInfo: {
           discountPercentage: 0,
           originalPrice: item.unitPrice
@@ -125,7 +135,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         customerRif: existingOrder.customerRif || existingOrder.customer?.taxInfo?.taxId || '',
         taxType: existingOrder.customer?.taxInfo?.taxType || 'V',
         customerAddress: existingOrder.customerAddress || (existingOrder.shipping?.address?.street) || '',
-        customerPhone: existingOrder.customerPhone,
+        customerPhone: existingOrder.customerPhone || existingOrder.customer?.contacts?.find(c => c.type === 'phone')?.value || '',
+        customerEmail: existingOrder.customerEmail || existingOrder.customer?.email || '',
         items: mappedItems,
         deliveryMethod: existingOrder.fulfillmentType === 'store' ? 'pickup' : existingOrder.fulfillmentType,
         shippingAddress: existingOrder.shipping?.address || { street: '', city: '', state: '', zipCode: '', country: 'Venezuela' },
@@ -140,13 +151,15 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         generalDiscountReason: existingOrder.generalDiscountReason || '',
       });
 
+      const rifValue = existingOrder.customerRif || existingOrder.customer?.taxInfo?.taxId;
       setCustomerNameInput(existingOrder.customerName || '');
-      if (existingOrder.customerRif) {
-        const parts = existingOrder.customerRif.split('-');
+
+      if (rifValue) {
+        const parts = rifValue.split('-');
         if (parts.length > 1) {
           setCustomerRifInput(parts[1]);
         } else {
-          setCustomerRifInput(existingOrder.customerRif);
+          setCustomerRifInput(rifValue);
         }
       }
 
@@ -197,6 +210,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
   // Customization state
   const [showRecipeCustomizer, setShowRecipeCustomizer] = useState(false);
   const [customizerItem, setCustomizerItem] = useState(null);
+
+  // Payment Drawer State
+  const [isProcessingDrawerOpen, setIsProcessingDrawerOpen] = useState(false);
+  const [processingOrderData, setProcessingOrderData] = useState(null);
 
   const [customerSearchResults, setCustomerSearchResults] = useState([]);
   const customerSearchTimeout = useRef(null);
@@ -1245,11 +1262,19 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
       customerRif: newOrder.customerRif,
       taxType: newOrder.taxType,
       customerAddress: newOrder.customerAddress,
+      customerAddress: newOrder.customerAddress,
       customerPhone: newOrder.customerPhone,
+      customerEmail: newOrder.customerEmail, // Added email to payload
       items: newOrder.items.map(item => {
         console.log('[DEBUG] Processing item for payload:', item.productName, 'Removed Ingredients:', item.removedIngredients);
+
+        // Extract productId correctly (handle both populated object and direct ID)
+        const productIdValue = typeof item.productId === 'object' && item.productId?._id
+          ? item.productId._id
+          : item.productId;
+
         return {
-          productId: item.productId,
+          productId: productIdValue,
           variantId: item.variantId,
           variantSku: item.variantSku,
           quantity: item.isSoldByWeight
@@ -1267,6 +1292,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
             discountAmount: item.discountAmount,
             discountReason: item.discountReason,
           }),
+          // Pass back preserved metadata so backend doesn't treat as new
+          ...(item._id && { _id: item._id }),
+          ...(item.status && { status: item.status }),
+          ...(item.addedAt && { addedAt: item.addedAt }),
         };
       }),
       notes: newOrder.notes,
@@ -1282,6 +1311,12 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         generalDiscountPercentage: newOrder.generalDiscountPercentage,
         generalDiscountReason: newOrder.generalDiscountReason,
       }),
+      // Critical: Send customer data for persistence during creation
+      customerRif: newOrder.customerRif,
+      taxType: newOrder.taxType,
+      customerPhone: newOrder.customerPhone,
+      customerEmail: newOrder.customerEmail,
+      customerAddress: newOrder.customerAddress,
     };
     try {
       let response;
@@ -1291,6 +1326,12 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         // UPDATE MODE
         const updatePayload = {
           items: payload.items,
+          customerRif: payload.customerRif,        // PRESERVE CUSTOMER DATA
+          taxType: payload.taxType,
+          taxType: payload.taxType,
+          customerPhone: payload.customerPhone,
+          customerEmail: payload.customerEmail, // Added email to update payload
+          customerAddress: payload.customerAddress,
           subtotal: payload.subtotal,
           ivaTotal: payload.ivaTotal,
           igtfTotal: payload.igtfTotal,
@@ -1300,7 +1341,6 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
           generalDiscountReason: payload.generalDiscountReason,
           notes: payload.notes,
           tableId: payload.tableId,
-          // Mantener otros campos si es necesario
         };
 
         response = await fetchApi(`/orders/${existingOrder._id}`, { method: 'PATCH', body: JSON.stringify(updatePayload) });
@@ -1331,16 +1371,54 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         setProductSearchInput('');
         setSelectedTable('none');
       }
+      if (!isEditMode) {
+        setNewOrder(initialOrderState);
+        setCustomerNameInput('');
+        setCustomerRifInput('');
+        setProductSearchInput('');
+        setSelectedTable('none');
+      }
+
+      return orderData; // Return data for chaining
     } catch (error) {
       console.error('Error processing order:', error);
       alert(`Error al procesar la orden: ${error.message}`);
+      return null;
     }
   };
 
-  // Función específica para "Enviar a Cocina" (Solo guardar/actualizar sin pagar)
-  const handleSendToKitchen = () => {
-    // Reutiliza logica de create/update pero el botón tendrá texto diferente
-    handleCreateOrder();
+  // Función específica para "Enviar a Cocina" (Guardar/actualizar Y enviar items nuevos a cocina)
+  const handleSendToKitchen = async () => {
+    // Primero guarda/actualiza la orden
+    const savedOrder = await handleCreateOrder();
+
+    if (savedOrder && savedOrder._id) {
+      try {
+        // Luego envía los items nuevos a cocina manualmente
+        await fetchApi('/kitchen-display/send-new-items', {
+          method: 'POST',
+          body: JSON.stringify({ orderId: savedOrder._id }),
+        });
+        toast.success('Orden actualizada y nuevos items enviados a cocina');
+      } catch (error) {
+        console.error('Error sending to kitchen:', error);
+        toast.warning('Orden guardada pero hubo un problema enviando a cocina');
+      }
+    }
+  };
+
+  const handlePayOrder = async () => {
+    const savedOrder = await handleCreateOrder();
+    if (savedOrder) {
+      // Si estamos en modo edición (mesas) y damos "Pagar/Cerrar",
+      // forzamos la llamada a onOrderCreated para que el padre abra el Wizard de Pagos inmediatamente
+      if (isEditMode && onOrderCreated) {
+        onOrderCreated(savedOrder);
+      } else {
+        setProcessingOrderData(savedOrder);
+        setIsProcessingDrawerOpen(true);
+      }
+    }
   };
 
   const customerOptions = useMemo(() => {
@@ -1433,7 +1511,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
           const itemTotal = quantity * unitPrice;
 
           return (
-            <div key={`${item.productId}-${index}`} className="flex justify-between items-start text-sm border-b pb-2">
+            <div key={item._id || `${item.productId}-${index}`} className="flex justify-between items-start text-sm border-b pb-2">
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">{item.name}</p>
                 <p className="text-xs text-muted-foreground">
@@ -1469,12 +1547,13 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
               <TableHead>Precio Unit.</TableHead>
               <TableHead>Total</TableHead>
               {canApplyDiscounts && <TableHead className="w-28 text-center">Descuentos</TableHead>}
+              {isEditMode && existingOrder && tenant?.vertical === 'FOOD_SERVICE' && <TableHead className="w-24 text-center">Cocina</TableHead>}
               <TableHead className="w-20 text-center">Borrar</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {newOrder.items.map(item => (
-              <TableRow key={item.productId}>
+            {newOrder.items.map((item, index) => (
+              <TableRow key={item._id || `${item.productId}-${index}`}>
                 <TableCell>
                   <TooltipProvider>
                     <Tooltip delayDuration={300}>
@@ -1681,6 +1760,41 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                     </div>
                   </TableCell>
                 )}
+                {isEditMode && existingOrder && tenant?.vertical === 'FOOD_SERVICE' && (
+                  <TableCell className="text-center">
+                    {!item._id ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          if (!existingOrder._id) return;
+                          try {
+                            await fetchApi('/kitchen-display/send-single-item', {
+                              method: 'POST',
+                              body: JSON.stringify({
+                                orderId: existingOrder._id,
+                                itemId: item.productId + '-' + Date.now(), // Temporal ID
+                                productName: item.name,
+                                quantity: item.quantity,
+                                modifiers: item.modifiers?.map(m => m.name) || [],
+                                specialInstructions: item.specialInstructions
+                              })
+                            });
+                            toast.success(`"${item.name}" enviado a cocina`);
+                          } catch (error) {
+                            console.error('Error sending item to kitchen:', error);
+                            toast.error('Error al enviar a cocina');
+                          }
+                        }}
+                        className="text-xs h-7 px-2"
+                      >
+                        📨 Enviar
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-green-600">✓ En cocina</span>
+                    )}
+                  </TableCell>
+                )}
                 <TableCell className="text-center">
                   <Button variant="ghost" size="icon" onClick={() => removeProductFromOrder(item.productId)}>
                     <Trash2 className="h-4 w-4 text-red-500" />
@@ -1863,6 +1977,36 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                     isLoading={isSearchingCustomers}
                     customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
                   />
+
+                  {/* NUEVOS CAMPOS DE CONTACTO PARA MÓVIL/EMBEDDED */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      value={newOrder.customerPhone || ''}
+                      onChange={(e) => handleFieldChange('customerPhone', e.target.value)}
+                      placeholder="Teléfono"
+                      className="h-9 text-sm"
+                    />
+                    <Input
+                      type="email"
+                      value={newOrder.customerEmail || ''}
+                      onChange={(e) => handleFieldChange('customerEmail', e.target.value)}
+                      placeholder="Email"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <SearchableSelect
+                    options={addressOptions}
+                    onSelection={handleCustomerAddressSelection}
+                    value={getCustomerAddressValue()}
+                    placeholder="Dirección..."
+                    isCreatable={true}
+                    onInputChange={(val) => {
+                      if (val && val !== newOrder.customerAddress) {
+                        handleFieldChange('customerAddress', val);
+                      }
+                    }}
+                    customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
+                  />
                 </div>
               </div>
 
@@ -1883,7 +2027,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                 calculatingShipping={calculatingShipping}
                 bcvRate={bcvRate}
                 loadingRate={loadingRate}
-                onCreateOrder={handleCreateOrder}
+                onCreateOrder={handlePayOrder}
                 isCreateDisabled={isCreateDisabled}
                 notes={newOrder.notes}
                 onNotesChange={(value) => handleFieldChange('notes', value)}
@@ -2056,15 +2200,31 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="customerAddress">Dirección</Label>
-                  <SearchableSelect
-                    options={addressOptions}
-                    onSelection={handleCustomerAddressSelection}
-                    value={getCustomerAddressValue()}
-                    placeholder="Escriba la dirección..."
-                    isCreatable={true}
+                  <Label htmlFor="customerEmail">Correo Electrónico</Label>
+                  <Input
+                    id="customerEmail"
+                    type="email"
+                    value={newOrder.customerEmail || ''}
+                    onChange={(e) => handleFieldChange('customerEmail', e.target.value)}
+                    placeholder="cliente@ejemplo.com"
                   />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="customerAddress">Dirección</Label>
+                <SearchableSelect
+                  options={addressOptions}
+                  onSelection={handleCustomerAddressSelection}
+                  value={getCustomerAddressValue()}
+                  placeholder="Escriba la dirección o seleccione..."
+                  isCreatable={true}
+                  onInputChange={(val) => {
+                    // Update address directly as user types if it's text input
+                    if (val && val !== newOrder.customerAddress) {
+                      handleFieldChange('customerAddress', val);
+                    }
+                  }}
+                />
               </div>
             </div>
 
@@ -2203,7 +2363,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
               calculatingShipping={calculatingShipping}
               bcvRate={bcvRate}
               loadingRate={loadingRate}
-              onCreateOrder={handleCreateOrder}
+              onCreateOrder={handlePayOrder}
               isCreateDisabled={isCreateDisabled}
               notes={newOrder.notes}
               onNotesChange={(value) => handleFieldChange('notes', value)}
@@ -2211,7 +2371,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
               generalDiscountPercentage={newOrder.generalDiscountPercentage}
               onOpenGeneralDiscount={canApplyDiscounts ? handleOpenGeneralDiscount : undefined}
               canApplyDiscounts={canApplyDiscounts}
-              onSendToKitchen={handleSendToKitchen}
+              // Only pass onSendToKitchen if it's a restaurant, enabling the 2-button layout
+              onSendToKitchen={tenant?.vertical === 'FOOD_SERVICE' ? handleSendToKitchen : undefined}
               isEditMode={isEditMode}
             />
           </div>
@@ -2374,6 +2535,22 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         initialRemovedIngredients={customizerItem?.removedIngredients || []}
         onConfirm={handleConfirmCustomization}
       />
+
+      {/* Payment Processing Drawer */}
+      {processingOrderData && (
+        <OrderProcessingDrawer
+          open={isProcessingDrawerOpen}
+          onOpenChange={setIsProcessingDrawerOpen}
+          order={processingOrderData}
+          fullScreen={false}
+          onOrderUpdated={(updated) => {
+            // If order updated in drawer (e.g. paid), update local state or notify parent
+            if (onOrderUpdated) onOrderUpdated(updated);
+            // Optionally close drawer if status is final? 
+            // OrderProcessingDrawer handles its own flow.
+          }}
+        />
+      )}
     </>
   );
 }
