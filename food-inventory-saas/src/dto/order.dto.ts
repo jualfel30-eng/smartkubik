@@ -37,10 +37,31 @@ export class ShippingAddressDto {
   @IsNotEmpty()
   state: string;
 
-  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   zipCode?: string;
+}
+
+export class AppliedModifierDto {
+  @ApiProperty({ description: "ID del modificador" })
+  @IsMongoId()
+  modifierId: string;
+
+  @ApiProperty({ description: "Nombre del modificador" })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiPropertyOptional({ description: "Ajuste de precio", default: 0 })
+  @IsOptional()
+  @IsNumber()
+  priceAdjustment?: number = 0;
+
+  @ApiPropertyOptional({ description: "Cantidad", default: 1 })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  quantity?: number = 1;
 }
 
 export class CreateOrderItemDto {
@@ -85,10 +106,30 @@ export class CreateOrderItemDto {
   @IsObject()
   attributes?: Record<string, any>;
 
-  @ApiPropertyOptional({ description: "Override system VAT calculation" })
-  @IsOptional()
   @IsBoolean()
   ivaApplicable?: boolean;
+
+  @ApiPropertyOptional({ description: "Modificadores aplicados" })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AppliedModifierDto)
+  modifiers?: AppliedModifierDto[];
+
+  @ApiPropertyOptional({ description: "Instrucciones especiales" })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  specialInstructions?: string;
+
+  @ApiPropertyOptional({
+    description: "IDs de ingredientes removidos de la receta (para no deducirlos)",
+    type: [String]
+  })
+  @IsOptional()
+  @IsArray()
+  @IsMongoId({ each: true })
+  removedIngredients?: string[];
 }
 
 export class RegisterPaymentDto {

@@ -25,7 +25,7 @@ import { Permissions } from "../../decorators/permissions.decorator";
 @Controller("tables")
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class TablesController {
-  constructor(private readonly tablesService: TablesService) {}
+  constructor(private readonly tablesService: TablesService) { }
 
   @Post()
   @Permissions("restaurant_write")
@@ -67,6 +67,12 @@ export class TablesController {
   @Permissions("restaurant_write")
   async clearTable(@Param("id") id: string, @Request() req) {
     return this.tablesService.clearTable(id, req.user.tenantId);
+  }
+
+  @Post(":id/available")
+  @Permissions("restaurant_write")
+  async markAvailable(@Param("id") id: string, @Request() req) {
+    return this.tablesService.markAvailable(id, req.user.tenantId);
   }
 
   @Post("transfer")

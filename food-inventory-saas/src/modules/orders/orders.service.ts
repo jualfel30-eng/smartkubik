@@ -401,6 +401,18 @@ export class OrdersService {
             ? attributesSnapshot
             : undefined,
         attributeSummary,
+        modifiers: itemDto.modifiers
+          ? itemDto.modifiers.map((mod) => ({
+            ...mod,
+            modifierId: new Types.ObjectId(mod.modifierId),
+          }))
+          : [],
+        specialInstructions: itemDto.specialInstructions,
+        removedIngredients: itemDto.removedIngredients
+          ? itemDto.removedIngredients.map((id) => new Types.ObjectId(id))
+          : [],
+        lots: [],
+        addedAt: new Date(),
       } as OrderItem);
 
       subtotal += totalPrice;
@@ -1042,6 +1054,7 @@ export class OrdersService {
         finalPrice: item.quantity * item.unitPrice,
         lots: [],
         modifiers: [],
+        removedIngredients: [],
         discountAmount: 0,
         discountPercentage: 0,
         status: "pending",
@@ -2303,6 +2316,20 @@ export class OrdersService {
 
         // 4. Deducir cada ingrediente del inventario
         for (const ingredient of flatIngredients) {
+          // CHECK: Si el ingrediente está en la lista de removidos del item, no deducirlo
+          if (
+            item.removedIngredients &&
+            item.removedIngredients.some(
+              (removedId) =>
+                removedId.toString() === ingredient.productId.toString(),
+            )
+          ) {
+            this.logger.log(
+              `[Backflush] Ingredient ${ingredient.name} (${ingredient.sku}) skipped (removed by customer).`,
+            );
+            continue;
+          }
+
           try {
             // Buscar el inventario del ingrediente - primero por productId (más confiable), luego por SKU
             let inventory = await this.inventoryService.findByProductId(

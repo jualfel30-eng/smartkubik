@@ -28,7 +28,9 @@ export class KitchenDisplayService {
     private kitchenOrderModel: Model<KitchenOrder>,
     @InjectModel(Order.name)
     private orderModel: Model<Order>,
-  ) {}
+    @InjectModel('Product') // Inject Product model for manual name resolution
+    private productModel: Model<any>,
+  ) { }
 
   /**
    * Crear orden de cocina desde una Order
@@ -39,6 +41,7 @@ export class KitchenDisplayService {
   ): Promise<KitchenOrder> {
     const order = await this.orderModel
       .findOne({ _id: dto.orderId, tenantId })
+      .populate("items.removedIngredients", "name")
       .exec();
 
     if (!order) {
@@ -56,10 +59,49 @@ export class KitchenDisplayService {
       );
     }
 
-    // Mapear items de la orden a items de cocina
+    // Prepare to collect all ingredient IDs for manual fetching
+    const allIngredientIds = new Set<string>();
+
+    order.items.forEach((item: any) => {
+      if (item.removedIngredients && item.removedIngredients.length > 0) {
+        item.removedIngredients.forEach((id: any) => {
+          // Normalize ID to string
+          const idStr = (id._id || id).toString();
+          allIngredientIds.add(idStr);
+        });
+      }
+    });
+
+    // Fetch all ingredient names manualy
+    const ingredientMap = new Map<string, string>();
+    if (allIngredientIds.size > 0) {
+      const ingredients = await this.productModel.find({
+        _id: { $in: Array.from(allIngredientIds) }
+      }).select('name').exec();
+
+      ingredients.forEach(ing => {
+        ingredientMap.set(ing._id.toString(), ing.name);
+      });
+    }
+
+    // Map modifiers with active name resolution
     const kitchenItems = order.items.map((item: any) => {
       const modifiers =
         item.modifiers?.map((m: any) => m.name).filter(Boolean) || [];
+
+      // Add removed ingredients to modifiers list for display
+      if (item.removedIngredients && item.removedIngredients.length > 0) {
+        item.removedIngredients.forEach((ing: any) => {
+          const idStr = (ing._id || ing).toString();
+          const name = ingredientMap.get(idStr) || (ing.name ? ing.name : undefined);
+
+          if (name) {
+            modifiers.push(`Sin: ${name}`);
+          } else {
+            modifiers.push(`Sin: Ingrediente desconocido`);
+          }
+        });
+      }
 
       return {
         itemId: item._id.toString(),
@@ -211,7 +253,7 @@ export class KitchenDisplayService {
       kitchenOrder.totalPrepTime = Math.floor(
         (kitchenOrder.completedAt.getTime() -
           kitchenOrder.startedAt.getTime()) /
-          1000,
+        1000,
       );
     }
 
@@ -380,13 +422,13 @@ export class KitchenDisplayService {
     const avgWaitTime =
       waitTimes.length > 0
         ? waitTimes.reduce((sum, order) => {
-            const wait =
-              order.startedAt && order.receivedAt
-                ? (order.startedAt.getTime() - order.receivedAt.getTime()) /
-                  1000
-                : 0;
-            return sum + wait;
-          }, 0) / waitTimes.length
+          const wait =
+            order.startedAt && order.receivedAt
+              ? (order.startedAt.getTime() - order.receivedAt.getTime()) /
+              1000
+              : 0;
+          return sum + wait;
+        }, 0) / waitTimes.length
         : 0;
 
     return {
@@ -417,7 +459,7 @@ export class KitchenDisplayService {
         kitchenOrder.waitTime = Math.floor(
           (kitchenOrder.startedAt.getTime() -
             kitchenOrder.receivedAt.getTime()) /
-            1000,
+          1000,
         );
       }
       return;

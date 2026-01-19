@@ -110,6 +110,10 @@ export class OrderItem {
   @Prop({ type: String, trim: true })
   specialInstructions?: string;
 
+  // NUEVO: Ingredientes removidos (IDs de productos raw material)
+  @Prop({ type: [{ type: Types.ObjectId, ref: "Product" }], default: [] })
+  removedIngredients: Types.ObjectId[];
+
   @Prop({ type: Number, required: true })
   ivaAmount: number;
 
