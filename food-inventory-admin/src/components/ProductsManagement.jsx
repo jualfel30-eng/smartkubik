@@ -1270,6 +1270,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
 
     const payload = {
       name: editingProduct.name,
+      sku: editingProduct.sku, // Added SKU to payload
       category: normalizedCategory,
       subcategory: normalizedSubcategory,
       brand: editingProduct.brand,
@@ -3841,15 +3842,15 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-sku">SKU base</Label>
-                  <Input
-                    id="edit-sku"
-                    value={editingProduct.sku}
-                    readOnly
-                    disabled
-                    className="bg-muted cursor-not-allowed"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Este SKU identifica al producto dentro del sistema y no puede modificarse. Actualiza los SKU y códigos de barras desde la sección de variantes.
+                  <div className="flex gap-2">
+                    <Input
+                      id="edit-sku"
+                      value={editingProduct.sku}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, sku: e.target.value })}
+                    />
+                  </div>
+                  <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">
+                    ⚠️ Cambiar el SKU actualizará todo el historial de inventario. Asegúrese de que el nuevo SKU sea único.
                   </p>
                 </div>
                 <div className="col-span-2 space-y-2">

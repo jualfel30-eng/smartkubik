@@ -10,7 +10,7 @@ import {
 import { InjectModel, InjectConnection } from "@nestjs/mongoose";
 import { Model, Connection, Types } from "mongoose";
 import { Product, ProductDocument, ProductType } from "../../schemas/product.schema";
-import { Inventory, InventoryDocument } from "../../schemas/inventory.schema";
+import { Inventory, InventoryDocument, InventoryMovement, InventoryMovementDocument } from "../../schemas/inventory.schema";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import { CustomersService } from "../customers/customers.service";
 import { InventoryService } from "../inventory/inventory.service";
@@ -33,6 +33,8 @@ export class ProductsService {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(Inventory.name)
     private inventoryModel: Model<InventoryDocument>,
+    @InjectModel(InventoryMovement.name)
+    private inventoryMovementModel: Model<InventoryMovementDocument>,
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     private readonly customersService: CustomersService,
     private readonly inventoryService: InventoryService,
@@ -780,10 +782,41 @@ export class ProductsService {
       );
     }
 
+    // Check if SKU is being updated
+    if (updateProductDto.sku && updateProductDto.sku !== productBeforeUpdate.sku) {
+      const existingProduct = await this.productModel.findOne({
+        sku: updateProductDto.sku,
+        tenantId: user.tenantId,
+      });
+
+      if (existingProduct) {
+        throw new BadRequestException(
+          `El SKU ${updateProductDto.sku} ya está en uso por otro producto.`,
+        );
+      }
+    }
+
     const updateData = { ...updateProductDto, updatedBy: user.id };
     const updatedProduct = await this.productModel
       .findByIdAndUpdate(id, updateData, { new: true })
       .exec();
+
+    // Cascade update to Inventory and InventoryMovement if SKU changed
+    if (updateProductDto.sku && updateProductDto.sku !== productBeforeUpdate.sku) {
+      await this.inventoryModel.updateMany(
+        { productId: productBeforeUpdate._id },
+        { $set: { productSku: updateProductDto.sku } },
+      );
+
+      await this.inventoryMovementModel.updateMany(
+        { productId: productBeforeUpdate._id },
+        { $set: { productSku: updateProductDto.sku } },
+      );
+
+      this.logger.log(
+        `Cascaded SKU update from ${productBeforeUpdate.sku} to ${updateProductDto.sku} for product ${id}`,
+      );
+    }
 
     if (storageDifference !== 0) {
       await this.tenantModel.findByIdAndUpdate(user.tenantId, {

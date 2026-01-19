@@ -10,7 +10,12 @@ import {
   ProductConsumableConfig,
   ProductConsumableConfigSchema,
 } from "../../schemas/product-consumable-config.schema";
-import { Inventory, InventorySchema } from "../../schemas/inventory.schema";
+import {
+  Inventory,
+  InventorySchema,
+  InventoryMovement,
+  InventoryMovementSchema,
+} from "../../schemas/inventory.schema";
 import { CustomersModule } from "../customers/customers.module"; // Reemplazo
 import { SuppliersModule } from "../suppliers/suppliers.module"; // Added
 import { InventoryModule } from "../inventory/inventory.module";
@@ -29,6 +34,7 @@ import { RolesModule } from "../roles/roles.module";
         schema: ProductConsumableConfigSchema,
       },
       { name: Inventory.name, schema: InventorySchema },
+      { name: InventoryMovement.name, schema: InventoryMovementSchema },
     ]),
     forwardRef(() => CustomersModule), // Reemplazo
     forwardRef(() => InventoryModule),

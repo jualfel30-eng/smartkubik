@@ -406,6 +406,12 @@ export class CreateProductDto {
 }
 
 export class UpdateProductDto {
+  @ApiPropertyOptional({ description: "SKU único del producto" })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  sku?: string;
+
   @ApiPropertyOptional({ description: "Nombre del producto" })
   @IsOptional()
   @IsString()
