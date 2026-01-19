@@ -31,7 +31,7 @@ import {
 @Controller("kitchen-display")
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 export class KitchenDisplayController {
-  constructor(private readonly kitchenDisplayService: KitchenDisplayService) {}
+  constructor(private readonly kitchenDisplayService: KitchenDisplayService) { }
 
   /**
    * Crear orden de cocina desde una Order confirmada
@@ -139,5 +139,33 @@ export class KitchenDisplayController {
   async getStats(@Request() req: any) {
     const tenantId = req.user.tenantId;
     return this.kitchenDisplayService.getStats(tenantId);
+  }
+
+  /**
+   * Manually sync new items to kitchen (send only new items)
+   * POST /kitchen-display/send-new-items
+   */
+  @Post("send-new-items")
+  @Permissions("restaurant_write", "orders_write")
+  async sendNewItemsToKitchen(
+    @Body() body: { orderId: string },
+    @Request() req: any,
+  ) {
+    const tenantId = req.user.tenantId;
+    return this.kitchenDisplayService.syncWithOrder(body.orderId, tenantId);
+  }
+
+  /**
+   * Send a SINGLE specific item to kitchen
+   * POST /kitchen-display/send-single-item
+   */
+  @Post("send-single-item")
+  @Permissions("restaurant_write", "orders_write")
+  async sendSingleItemToKitchen(
+    @Body() body: { orderId: string; itemId: string; productName: string; quantity: number; modifiers?: string[]; specialInstructions?: string },
+    @Request() req: any,
+  ) {
+    const tenantId = req.user.tenantId;
+    return this.kitchenDisplayService.addSingleItemToKitchen(body, tenantId);
   }
 }

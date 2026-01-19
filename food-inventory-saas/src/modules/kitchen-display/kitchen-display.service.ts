@@ -142,6 +142,205 @@ export class KitchenDisplayService {
   }
 
   /**
+   * Sincronizar orden de cocina con orden existente (añadir nuevos items)
+   */
+  async syncWithOrder(orderId: string, tenantId: string): Promise<KitchenOrder | null> {
+    this.logger.log(`[SYNC] Starting sync for order ${orderId}`);
+
+    const order = await this.orderModel
+      .findOne({ _id: orderId, tenantId })
+      .populate("items.removedIngredients", "name")
+      .exec();
+
+    if (!order) {
+      this.logger.warn(`[SYNC] Order ${orderId} not found, skipping sync`);
+      return null;
+    }
+
+    const kitchenOrder = await this.kitchenOrderModel
+      .findOne({ orderId: orderId, tenantId, isDeleted: false })
+      .exec();
+
+    // If kitchen order doesn't exist, DO NOT CREATE IT HERE
+    // Let the order.created event handle creation to avoid duplicates
+    if (!kitchenOrder) {
+      this.logger.log(`[SYNC] No kitchen order found for order ${orderId}, skipping sync (will be handled by order.created event)`);
+      return null;
+    }
+
+    this.logger.log(`[SYNC] Found existing kitchen order ${kitchenOrder.orderNumber} with ${kitchenOrder.items.length} items`);
+
+    // Strategy change: Since item IDs change on every order update,
+    // we use timestamp-based detection instead
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+
+    const existingProductNames = new Set(kitchenOrder.items.map(i => i.productName));
+    this.logger.log(`[SYNC] Existing products in kitchen: ${Array.from(existingProductNames).join(', ')}`);
+
+    // Only add items that have recent addedAt timestamp (added in last 2 minutes)
+    const newItems = order.items.filter((item: any) => {
+      const hasRecentTimestamp = item.addedAt && new Date(item.addedAt) > twoMinutesAgo;
+
+      if (hasRecentTimestamp) {
+        this.logger.log(`[SYNC] Item "${item.productName}" has recent timestamp: ${item.addedAt} - ADDING`);
+        return true;
+      }
+
+      // Don't add items without recent timestamp
+      this.logger.log(`[SYNC] Item "${item.productName}" skipped (no recent timestamp or already in kitchen)`);
+      return false;
+    });
+
+    if (newItems.length === 0) {
+      this.logger.log(`[SYNC] No new items to add to kitchen order ${kitchenOrder.orderNumber}`);
+      return kitchenOrder;
+    }
+
+    this.logger.log(`[SYNC] Found ${newItems.length} new items to add to kitchen order`);
+
+    // Process new items logic (similar to create)
+    // ---------------------------------------------------------
+    // Prepare to collect all ingredient IDs for manual fetching
+    const allIngredientIds = new Set<string>();
+
+    newItems.forEach((item: any) => {
+      if (item.removedIngredients && item.removedIngredients.length > 0) {
+        item.removedIngredients.forEach((id: any) => {
+          const idStr = (id._id || id).toString();
+          allIngredientIds.add(idStr);
+        });
+      }
+    });
+
+    // Fetch all ingredient names manualy
+    const ingredientMap = new Map<string, string>();
+    if (allIngredientIds.size > 0) {
+      const ingredients = await this.productModel.find({
+        _id: { $in: Array.from(allIngredientIds) }
+      }).select('name').exec();
+
+      ingredients.forEach(ing => {
+        ingredientMap.set(ing._id.toString(), ing.name);
+      });
+    }
+
+    const newKitchenItems = newItems.map((item: any) => {
+      const modifiers =
+        item.modifiers?.map((m: any) => m.name).filter(Boolean) || [];
+
+      if (item.removedIngredients && item.removedIngredients.length > 0) {
+        item.removedIngredients.forEach((ing: any) => {
+          const idStr = (ing._id || ing).toString();
+          const name = ingredientMap.get(idStr) || (ing.name ? ing.name : undefined);
+          if (name) {
+            modifiers.push(`Sin: ${name}`);
+          } else {
+            modifiers.push(`Sin: Ingrediente desconocido`);
+          }
+        });
+      }
+
+      return {
+        itemId: item._id.toString(),
+        productName: item.productName,
+        quantity: item.quantity,
+        modifiers,
+        specialInstructions: item.specialInstructions,
+        status: "pending", // New items start as pending
+      };
+    });
+    // ---------------------------------------------------------
+
+    // Push new items
+    kitchenOrder.items.push(...newKitchenItems);
+
+    // If order was completed, reopen it? Or just keep it as is?
+    // Usually if new items arrive, it might be 'preparing' again if it was 'ready'.
+    // Logic: If we add items, ensure global status reflects work to be done.
+    if (kitchenOrder.status === 'ready' || kitchenOrder.status === 'completed') {
+      kitchenOrder.status = 'preparing';
+      kitchenOrder.completedAt = undefined;
+    }
+
+    await kitchenOrder.save();
+    this.logger.log(`Synced kitchen order ${kitchenOrder.orderNumber}: Added ${newKitchenItems.length} new items`);
+
+    return kitchenOrder;
+  }
+
+  /**
+   * Add a SINGLE specific item to kitchen order
+   */
+  async addSingleItemToKitchen(data: { orderId: string; itemId: string; productName: string; quantity: number; modifiers?: string[]; specialInstructions?: string }, tenantId: string): Promise<KitchenOrder> {
+    this.logger.log(`[SINGLE ITEM] Adding item "${data.productName}" to kitchen for order ${data.orderId}`);
+
+    let kitchenOrder = await this.kitchenOrderModel
+      .findOne({ orderId: data.orderId, tenantId, isDeleted: false })
+      .exec();
+
+    // If no kitchen order exists, create it first
+    if (!kitchenOrder) {
+      this.logger.log(`[SINGLE ITEM] No kitchen order found, creating one`);
+      try {
+        const dto: CreateKitchenOrderDto = {
+          orderId: data.orderId,
+          priority: 'normal',
+        };
+        kitchenOrder = await this.createFromOrder(dto, tenantId);
+
+        if (!kitchenOrder) {
+          throw new Error('Failed to create kitchen order');
+        }
+      } catch (error) {
+        // If creation failed because it already exists, try to fetch it again
+        if (error.message && error.message.includes('already exists')) {
+          this.logger.warn(`[SINGLE ITEM] Kitchen order already exists, fetching it`);
+          kitchenOrder = await this.kitchenOrderModel
+            .findOne({ orderId: new Types.ObjectId(data.orderId), tenantId, isDeleted: false })
+            .exec();
+
+          if (!kitchenOrder) {
+            throw new Error('Kitchen order exists but could not be fetched');
+          }
+        } else {
+          throw error;
+        }
+      }
+    }
+
+    // Check if this item already exists in kitchen
+    const existingItem = kitchenOrder.items.find(i => i.itemId === data.itemId);
+    if (existingItem) {
+      this.logger.warn(`[SINGLE ITEM] Item ${data.itemId} already exists in kitchen, skipping`);
+      return kitchenOrder;
+    }
+
+    // Add the single item
+    const newKitchenItem = {
+      itemId: data.itemId,
+      productName: data.productName,
+      quantity: data.quantity,
+      modifiers: data.modifiers || [],
+      specialInstructions: data.specialInstructions,
+      status: "pending",
+    };
+
+    kitchenOrder.items.push(newKitchenItem);
+
+    // Reopen if was completed
+    if (kitchenOrder.status === 'ready' || kitchenOrder.status === 'completed') {
+      kitchenOrder.status = 'preparing';
+      kitchenOrder.completedAt = undefined;
+    }
+
+    await kitchenOrder.save();
+    this.logger.log(`[SINGLE ITEM] Added "${data.productName}" to kitchen order ${kitchenOrder.orderNumber}`);
+
+    return kitchenOrder;
+  }
+
+
+  /**
    * Obtener todas las órdenes activas con filtros
    */
   async findActive(

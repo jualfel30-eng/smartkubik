@@ -30,4 +30,21 @@ export class KitchenDisplayListener {
             }
         }
     }
+
+    // DISABLED: Automatic sync causes duplications because all item timestamps get updated
+    // Users will manually send new items to kitchen via button instead
+    /*
+    @OnEvent('order.updated')
+    async handleOrderUpdatedEvent(payload: any) {
+        try {
+            // Only sync if there are items in the payload
+            if (payload.items && payload.items.length > 0) {
+                 this.logger.log(`Received order.updated event for order ${payload.orderId} - Syncing items to kitchen`);
+                 await this.kitchenDisplayService.syncWithOrder(payload.orderId, payload.tenantId);
+            }
+        } catch (error) {
+             this.logger.error(`Failed to sync kitchen order from event: ${error.message}`, error.stack);
+        }
+    }
+    */
 }
