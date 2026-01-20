@@ -1260,9 +1260,14 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
       customerName: newOrder.customerName,
       source: 'pos',
       items: newOrder.items.map(item => {
+        // Extract productId correctly (handle both populated object and direct ID)
+        const productIdValue = typeof item.productId === 'object' && item.productId?._id
+          ? item.productId._id
+          : item.productId;
+
         // Ensure quantity is number
         return {
-          productId: item.productId,
+          productId: productIdValue,
           productName: item.productName,
           quantity: item.isSoldByWeight
             ? parseFloat(item.quantity) || 0
