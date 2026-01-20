@@ -1257,26 +1257,13 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
     }
 
     const payload = {
-      customerId: newOrder.customerId || undefined,
       customerName: newOrder.customerName,
-      customerRif: newOrder.customerRif,
-      taxType: newOrder.taxType,
-      customerAddress: newOrder.customerAddress,
-      customerAddress: newOrder.customerAddress,
-      customerPhone: newOrder.customerPhone,
-      customerEmail: newOrder.customerEmail, // Added email to payload
+      source: 'pos',
       items: newOrder.items.map(item => {
-        console.log('[DEBUG] Processing item for payload:', item.productName, 'Removed Ingredients:', item.removedIngredients);
-
-        // Extract productId correctly (handle both populated object and direct ID)
-        const productIdValue = typeof item.productId === 'object' && item.productId?._id
-          ? item.productId._id
-          : item.productId;
-
+        // Ensure quantity is number
         return {
-          productId: productIdValue,
-          variantId: item.variantId,
-          variantSku: item.variantSku,
+          productId: item.productId,
+          productName: item.productName,
           quantity: item.isSoldByWeight
             ? parseFloat(item.quantity) || 0
             : parseInt(item.quantity, 10) || 0,
@@ -1312,6 +1299,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         generalDiscountReason: newOrder.generalDiscountReason,
       }),
       // Critical: Send customer data for persistence during creation
+      customerId: newOrder.customerId || undefined,
       customerRif: newOrder.customerRif,
       taxType: newOrder.taxType,
       customerPhone: newOrder.customerPhone,
@@ -1357,20 +1345,13 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         toast.success('Orden creada correctamente');
 
         if (onOrderCreated) {
-          onOrderCreated(orderData);
+          onOrderCreated(orderData, options.autoWizard); // Pass autoWizard flag
         }
       }
 
       // Reset form if creating new, but maybe keep open if editing? 
       // User specific flow: "Send to Kitchen" usually means "Save and Close" or "Save and Keep Open".
       // Let's reset for now or follow callback interaction.
-      if (!isEditMode) {
-        setNewOrder(initialOrderState);
-        setCustomerNameInput('');
-        setCustomerRifInput('');
-        setProductSearchInput('');
-        setSelectedTable('none');
-      }
       if (!isEditMode) {
         setNewOrder(initialOrderState);
         setCustomerNameInput('');
@@ -1389,8 +1370,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
 
   // Función específica para "Enviar a Cocina" (Guardar/actualizar Y enviar items nuevos a cocina)
   const handleSendToKitchen = async () => {
-    // Primero guarda/actualiza la orden
-    const savedOrder = await handleCreateOrder();
+    // Primero guarda/actualiza la orden - PERO NO ABRE WIZARD (autoWizard: false)
+    const savedOrder = await handleCreateOrder({ autoWizard: false });
 
     if (savedOrder && savedOrder._id) {
       try {
@@ -1399,7 +1380,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
           method: 'POST',
           body: JSON.stringify({ orderId: savedOrder._id }),
         });
-        toast.success('Orden actualizada y nuevos items enviados a cocina');
+        toast.success('Items enviados a cocina');
       } catch (error) {
         console.error('Error sending to kitchen:', error);
         toast.warning('Orden guardada pero hubo un problema enviando a cocina');
@@ -1408,12 +1389,13 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
   };
 
   const handlePayOrder = async () => {
-    const savedOrder = await handleCreateOrder();
+    // Guardar y abrir wizard (autoWizard: true)
+    const savedOrder = await handleCreateOrder({ autoWizard: true });
     if (savedOrder) {
       // Si estamos en modo edición (mesas) y damos "Pagar/Cerrar",
       // forzamos la llamada a onOrderCreated para que el padre abra el Wizard de Pagos inmediatamente
       if (isEditMode && onOrderCreated) {
-        onOrderCreated(savedOrder);
+        onOrderCreated(savedOrder, true);
       } else {
         setProcessingOrderData(savedOrder);
         setIsProcessingDrawerOpen(true);

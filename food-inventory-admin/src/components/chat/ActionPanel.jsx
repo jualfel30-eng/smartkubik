@@ -79,11 +79,15 @@ export const ActionPanel = ({
         phone: activeConversation.customerPhoneNumber,
     } : null;
 
-    const handleOrderCreated = (order) => {
+    const handleOrderCreated = (order, autoWizard = true) => {
         console.log('Order created:', order);
         setCreatedOrder(order);
         setIsEditing(false); // Exit edit mode to show success screen background
-        setIsProcessingDrawerOpen(true); // Auto-open wizard
+
+        if (autoWizard) {
+            setIsProcessingDrawerOpen(true); // Auto-open wizard ONLY if requested
+        }
+
         toast.success("Orden creada exitosamente.");
     };
 
