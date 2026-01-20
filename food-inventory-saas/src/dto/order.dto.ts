@@ -130,6 +130,22 @@ export class CreateOrderItemDto {
   @IsArray()
   @IsMongoId({ each: true })
   removedIngredients?: string[];
+
+  @ApiPropertyOptional({ description: "ID del item (para actualizaciones)" })
+  @IsOptional()
+  @IsMongoId()
+  _id?: string;
+
+  @ApiPropertyOptional({ description: "Fecha de agregado (para actualizaciones)" })
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  addedAt?: Date;
+
+  @ApiPropertyOptional({ description: "Estado (para actualizaciones)" })
+  @IsOptional()
+  @IsString()
+  status?: string;
 }
 
 export class RegisterPaymentDto {

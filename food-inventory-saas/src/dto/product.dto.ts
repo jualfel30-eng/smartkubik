@@ -399,6 +399,11 @@ export class CreateProductDto {
   @IsBoolean()
   igtfExempt?: boolean;
 
+  @ApiPropertyOptional({ description: "Enviar a cocina/comanda", default: true })
+  @IsOptional()
+  @IsBoolean()
+  sendToKitchen?: boolean;
+
   @ApiProperty({ description: "Categoría fiscal del producto" })
   @IsString()
   @IsNotEmpty()
@@ -580,6 +585,11 @@ export class UpdateProductDto {
   @IsOptional()
   @IsBoolean()
   igtfExempt?: boolean;
+
+  @ApiPropertyOptional({ description: "Enviar a cocina/comanda" })
+  @IsOptional()
+  @IsBoolean()
+  sendToKitchen?: boolean;
 }
 
 export class ProductQueryDto {

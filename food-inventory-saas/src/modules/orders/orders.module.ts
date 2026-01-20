@@ -41,6 +41,7 @@ import { CouponsModule } from "../coupons/coupons.module";
 import { PromotionsModule } from "../promotions/promotions.module";
 import { WhapiModule } from "../whapi/whapi.module";
 import { MarketingModule } from "../marketing/marketing.module";
+import { TablesModule } from "../tables/tables.module";
 
 @Module({
   imports: [
@@ -57,7 +58,9 @@ import { MarketingModule } from "../marketing/marketing.module";
     CouponsModule,
     PromotionsModule,
     WhapiModule,
+    WhapiModule,
     forwardRef(() => MarketingModule),
+    TablesModule,
     MongooseModule.forFeature([
       { name: Order.name, schema: OrderSchema },
       { name: Customer.name, schema: CustomerSchema },

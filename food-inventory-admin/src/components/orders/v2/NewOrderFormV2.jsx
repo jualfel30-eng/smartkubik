@@ -64,7 +64,15 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCustomer = null, existingOrder = null, onOrderUpdated = null, initialTableId = null }) {
   const { crmData: customers } = useCrmContext();
   const [activeTab, setActiveTab] = useState('products');
+  const [activeOrder, setActiveOrder] = useState(existingOrder || null);
   const [isEditMode, setIsEditMode] = useState(!!existingOrder);
+
+  useEffect(() => {
+    if (existingOrder) {
+      setActiveOrder(existingOrder);
+      setIsEditMode(true);
+    }
+  }, [existingOrder]);
 
   // Ref to prevent useEffect race condition when updating orders
   const previousOrderId = useRef(null);
@@ -91,15 +99,15 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
   }, [initialCustomer, existingOrder]);
 
   // Efecto para cargar orden existente
+  // Efecto para cargar orden existente
   useEffect(() => {
     // Only reinitialize if this is a different order (prevent race condition)
-    if (existingOrder && existingOrder._id !== previousOrderId.current) {
-      console.log('Loading existing order into form:', existingOrder);
+    if (activeOrder && activeOrder._id !== previousOrderId.current) {
+      console.log('Loading existing order into form:', activeOrder);
       setIsEditMode(true);
-      previousOrderId.current = existingOrder._id;
+      previousOrderId.current = activeOrder._id;
 
-      // Mapear items de la orden al formato del formulario
-      const mappedItems = existingOrder.items.map(item => ({
+      const itemsMapped = activeOrder.items.map(item => ({
         productId: item.productId,
         productName: item.productName || item.product?.name,
         name: item.productName || item.product?.name,
@@ -119,7 +127,6 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         discountReason: item.discountReason,
         productType: item.product?.type || 'standard',
         hasMultipleSellingUnits: !!item.selectedUnit,
-        // Preserve metadata defined in backend schema
         _id: item._id, // Critical for updates
         status: item.status || 'pending',
         addedAt: item.addedAt,
@@ -130,29 +137,43 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
       }));
 
       setNewOrder({
-        customerId: existingOrder.customerId,
-        customerName: existingOrder.customerName,
-        customerRif: existingOrder.customerRif || existingOrder.customer?.taxInfo?.taxId || '',
-        taxType: existingOrder.customer?.taxInfo?.taxType || 'V',
-        customerAddress: existingOrder.customerAddress || (existingOrder.shipping?.address?.street) || '',
-        customerPhone: existingOrder.customerPhone || existingOrder.customer?.contacts?.find(c => c.type === 'phone')?.value || '',
-        customerEmail: existingOrder.customerEmail || existingOrder.customer?.email || '',
-        items: mappedItems,
-        deliveryMethod: existingOrder.fulfillmentType === 'store' ? 'pickup' : existingOrder.fulfillmentType,
-        shippingAddress: existingOrder.shipping?.address || { street: '', city: '', state: '', zipCode: '', country: 'Venezuela' },
-        notes: existingOrder.notes || '',
-        customerLocation: existingOrder.shipping?.address?.coordinates ? {
-          lat: existingOrder.shipping.address.coordinates.lat,
-          lng: existingOrder.shipping.address.coordinates.lng,
-          formattedAddress: existingOrder.shipping.address.street
+        customerId: activeOrder.customer?._id || activeOrder.customerId || '',
+        customerName: activeOrder.customerName || '',
+        customerRif: activeOrder.customerRif || activeOrder.customer?.taxInfo?.taxId || '',
+        taxType: activeOrder.taxType || (activeOrder.customerRif ? activeOrder.customerRif.charAt(0) : 'V'),
+        customerPhone: activeOrder.customerPhone || '',
+        customerAddress: activeOrder.customerAddress || (activeOrder.shippingAddress?.street ? activeOrder.shippingAddress.street : ''),
+        items: itemsMapped,
+        deliveryMethod: activeOrder.fulfillmentType === 'delivery_local' ? 'delivery'
+          : activeOrder.fulfillmentType === 'delivery_national' ? 'envio_nacional'
+            : activeOrder.fulfillmentType === 'pickup' ? 'pickup'
+              : 'pickup', // Default/fallback
+        notes: activeOrder.notes || '',
+        shippingAddress: activeOrder.shipping?.address || {
+          state: 'Carabobo',
+          city: 'Valencia',
+          street: '',
+        },
+        generalDiscountPercentage: activeOrder.generalDiscountPercentage || 0,
+        generalDiscountReason: activeOrder.generalDiscountReason || '',
+        customerLocation: activeOrder.shipping?.address?.coordinates ? {
+          lat: activeOrder.shipping.address.coordinates.lat,
+          lng: activeOrder.shipping.address.coordinates.lng,
+          formattedAddress: activeOrder.shipping.address.street
         } : null,
         useExistingLocation: true,
-        generalDiscountPercentage: existingOrder.generalDiscountPercentage || 0,
-        generalDiscountReason: existingOrder.generalDiscountReason || '',
       });
 
-      const rifValue = existingOrder.customerRif || existingOrder.customer?.taxInfo?.taxId;
-      setCustomerNameInput(existingOrder.customerName || '');
+      // CRITICAL: Restore table selection so updates don't lose the table association
+      if (activeOrder.tableId) {
+        setSelectedTable(activeOrder.tableId._id || activeOrder.tableId); // Handle object or string
+      } else {
+        setSelectedTable('none');
+      }
+
+      // Update auxiliary inputs that drive UI
+      const rifValue = activeOrder.customerRif || activeOrder.customer?.taxInfo?.taxId;
+      setCustomerNameInput(activeOrder.customerName || '');
 
       if (rifValue) {
         const parts = rifValue.split('-');
@@ -163,11 +184,11 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         }
       }
 
-      if (existingOrder.tableId) {
-        setSelectedTable(existingOrder.tableId);
+      if (activeOrder.tableId) {
+        setSelectedTable(activeOrder.tableId);
       }
     }
-  }, [existingOrder]);
+  }, [activeOrder]);
 
   const isDesktop = useMediaQuery("(min-width: 1024px)");
   const shouldRenderMobileLayout = isEmbedded || !isDesktop;
@@ -1240,7 +1261,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
     toast.success('Descuento general aplicado correctamente');
   };
 
-  const handleCreateOrder = async (options = { autoWizard: true }) => {
+  const handleCreateOrder = async (options = { autoWizard: true, reset: true }) => {
     if (newOrder.items.length === 0) {
       alert('Agrega al menos un producto a la orden.');
       return;
@@ -1315,12 +1336,11 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
       let response;
       let orderData;
 
-      if (isEditMode && existingOrder) {
+      if (isEditMode && activeOrder) {
         // UPDATE MODE
         const updatePayload = {
           items: payload.items,
           customerRif: payload.customerRif,        // PRESERVE CUSTOMER DATA
-          taxType: payload.taxType,
           taxType: payload.taxType,
           customerPhone: payload.customerPhone,
           customerEmail: payload.customerEmail, // Added email to update payload
@@ -1336,7 +1356,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
           tableId: payload.tableId,
         };
 
-        response = await fetchApi(`/orders/${existingOrder._id}`, { method: 'PATCH', body: JSON.stringify(updatePayload) });
+        response = await fetchApi(`/orders/${activeOrder._id}`, { method: 'PATCH', body: JSON.stringify(updatePayload) });
         orderData = response.data || response;
         toast.success('Orden actualizada correctamente');
 
@@ -1349,15 +1369,18 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         orderData = response.data || response;
         toast.success('Orden creada correctamente');
 
-        if (onOrderCreated) {
-          onOrderCreated(orderData, options.autoWizard); // Pass autoWizard flag
+        // FIXED: Only call onOrderCreated (triggering parent modal) if autoWizard is TRUE
+        // If we are just sending to kitchen (autoWizard: false), we stay in form.
+        if (onOrderCreated && options.autoWizard) {
+          onOrderCreated(orderData, options.autoWizard);
         }
       }
 
       // Reset form if creating new, but maybe keep open if editing? 
       // User specific flow: "Send to Kitchen" usually means "Save and Close" or "Save and Keep Open".
       // Let's reset for now or follow callback interaction.
-      if (!isEditMode) {
+      // Reset form if creating new AND reset option is true
+      if (!isEditMode && options.reset !== false) {
         setNewOrder(initialOrderState);
         setCustomerNameInput('');
         setCustomerRifInput('');
@@ -1374,12 +1397,22 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
   };
 
   // Función específica para "Enviar a Cocina" (Guardar/actualizar Y enviar items nuevos a cocina)
+  // Función específica para "Enviar a Cocina" (Guardar/actualizar Y enviar items nuevos a cocina)
   const handleSendToKitchen = async () => {
     // Primero guarda/actualiza la orden - PERO NO ABRE WIZARD (autoWizard: false)
-    const savedOrder = await handleCreateOrder({ autoWizard: false });
+    // IMPORTANT: reset: false to keep form open and allow adding more items
+    const savedOrder = await handleCreateOrder({ autoWizard: false, reset: false });
 
     if (savedOrder && savedOrder._id) {
+      // Switch to Edit Mode immediately for smooth flow
+      setActiveOrder(savedOrder);
+      setIsEditMode(true);
+      previousOrderId.current = savedOrder._id; // Sync ref to prevent re-load effect loop if triggered
+
       try {
+        // Check for items that should be sent to kitchen logic
+        // Only send items that have 'sendToKitchen' flag (will be filtered by backend, but we can prevent empty call)
+
         // Luego envía los items nuevos a cocina manualmente
         await fetchApi('/kitchen-display/send-new-items', {
           method: 'POST',

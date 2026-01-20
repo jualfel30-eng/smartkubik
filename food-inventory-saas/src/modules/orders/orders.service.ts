@@ -47,6 +47,7 @@ import { WhapiService } from "../whapi/whapi.service";
 import { InventoryMovementsService } from "../inventory/inventory-movements.service";
 import { MovementType } from "../../dto/inventory-movement.dto";
 import { WhatsAppOrderNotificationsService } from "./whatsapp-order-notifications.service";
+import { TablesService } from "../tables/tables.service";
 
 @Injectable()
 export class OrdersService {
@@ -78,6 +79,7 @@ export class OrdersService {
     private readonly whapiService: WhapiService,
     private readonly inventoryMovementsService: InventoryMovementsService,
     private readonly whatsappOrderNotificationsService: WhatsAppOrderNotificationsService,
+    private readonly tablesService: TablesService,
     private readonly eventEmitter: EventEmitter2,
     @InjectConnection() private readonly connection: Connection,
   ) { }
@@ -1441,6 +1443,8 @@ export class OrdersService {
       .populate("payments")
       .populate("customerId", "name taxInfo") // Populate customer to get RIF/TaxID
       .populate("assignedTo", "firstName lastName email")
+      .populate("assignedWaiterId", "firstName lastName")
+      .populate("tableId", "tableNumber name") // Populate table info for frontend context
       .populate("items.productId", "name sku ivaApplicable") // Fix: Populate productId, not product
       .exec();
   }
@@ -2639,6 +2643,21 @@ export class OrdersService {
     if (order.fulfillmentStatus === 'delivered') {
       order.fulfillmentDate = new Date();
       (order as any).deliveredAt = new Date();
+    }
+
+    // ===============================================
+    // AUTO-CLEAN TABLE LOGIC
+    // ===============================================
+    this.logger.log(`Attempting auto-clean for order ${order.orderNumber}. TableID: ${order.tableId}`);
+
+    if (order.tableId) {
+      try {
+        await this.tablesService.clearTable(order.tableId.toString(), user.tenantId);
+        this.logger.log(`Auto-cleaned table ${order.tableId} for completed order ${order.orderNumber}`);
+      } catch (err) {
+        this.logger.warn(`Failed to auto-clean table ${order.tableId}: ${err.message}`);
+        // Do not fail the order completion if table update fails
+      }
     }
 
 

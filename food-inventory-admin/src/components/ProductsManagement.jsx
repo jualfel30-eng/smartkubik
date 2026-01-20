@@ -341,6 +341,7 @@ const initialNewProductState = {
   description: '',
   ingredients: '',
   isPerishable: false,
+  sendToKitchen: true, // Default to true for restaurant products
   shelfLifeDays: 0,
   storageTemperature: 'ambiente',
   ivaApplicable: true,
@@ -538,6 +539,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
     return baseVertical === 'RETAIL' && allowsWeight === false;
   }, [verticalConfig]);
   const supportsVariants = verticalConfig?.supportsVariants !== false;
+  const isRestaurant = verticalConfig?.baseVertical === 'FOOD_SERVICE';
 
   const ingredientLabel = isNonFoodRetailVertical ? 'Composición' : 'Ingredientes';
 
@@ -1309,6 +1311,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         }
       }),
       variants: sanitizedVariants,
+      sendToKitchen: editingProduct.sendToKitchen, // CRITICAL: Ensure this is saved
     };
 
     if (productAttributesPayload !== undefined) {
@@ -2220,6 +2223,20 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                       }
                     />
                     <Label htmlFor="isPerishable">Es Perecedero</Label>
+                  </div>
+                )}
+
+                {/* Send to Kitchen Toggle (Restaurant Only) */}
+                {isRestaurant && (
+                  <div className="flex items-center space-x-2 pt-2">
+                    <Switch
+                      id="sendToKitchen"
+                      checked={newProduct.sendToKitchen !== false}
+                      onCheckedChange={(checked) =>
+                        setNewProduct({ ...newProduct, sendToKitchen: checked })
+                      }
+                    />
+                    <Label htmlFor="sendToKitchen">Enviar a Cocina / Comanda</Label>
                   </div>
                 )}
                 {verticalConfig?.allowsWeight && (
@@ -3925,6 +3942,20 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                       }
                     />
                     <Label htmlFor="edit-isPerishable">Es Perecedero</Label>
+                  </div>
+                )}
+
+                {/* Edit Send to Kitchen (Restaurant Only) */}
+                {isRestaurant && (
+                  <div className="flex items-center space-x-2 pt-2">
+                    <Switch
+                      id="edit-sendToKitchen"
+                      checked={editingProduct.sendToKitchen !== false}
+                      onCheckedChange={(checked) =>
+                        setEditingProduct({ ...editingProduct, sendToKitchen: checked })
+                      }
+                    />
+                    <Label htmlFor="edit-sendToKitchen">Enviar a Cocina / Comanda</Label>
                   </div>
                 )}
 

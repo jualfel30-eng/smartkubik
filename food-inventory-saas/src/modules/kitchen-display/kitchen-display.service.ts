@@ -84,34 +84,41 @@ export class KitchenDisplayService {
       });
     }
 
+    // Fetch product details for sendToKitchen check
+    const productIds = order.items.map((i: any) => i.productId);
+    const products = await this.productModel.find({ _id: { $in: productIds } }).select('sendToKitchen').exec();
+    const sendToKitchenMap = new Map(products.map(p => [p._id.toString(), p.sendToKitchen !== false]));
+
     // Map modifiers with active name resolution
-    const kitchenItems = order.items.map((item: any) => {
-      const modifiers =
-        item.modifiers?.map((m: any) => m.name).filter(Boolean) || [];
+    const kitchenItems = order.items
+      .filter((item: any) => sendToKitchenMap.get(item.productId.toString()) !== false)
+      .map((item: any) => {
+        const modifiers =
+          item.modifiers?.map((m: any) => m.name).filter(Boolean) || [];
 
-      // Add removed ingredients to modifiers list for display
-      if (item.removedIngredients && item.removedIngredients.length > 0) {
-        item.removedIngredients.forEach((ing: any) => {
-          const idStr = (ing._id || ing).toString();
-          const name = ingredientMap.get(idStr) || (ing.name ? ing.name : undefined);
+        // Add removed ingredients to modifiers list for display
+        if (item.removedIngredients && item.removedIngredients.length > 0) {
+          item.removedIngredients.forEach((ing: any) => {
+            const idStr = (ing._id || ing).toString();
+            const name = ingredientMap.get(idStr) || (ing.name ? ing.name : undefined);
 
-          if (name) {
-            modifiers.push(`Sin: ${name}`);
-          } else {
-            modifiers.push(`Sin: Ingrediente desconocido`);
-          }
-        });
-      }
+            if (name) {
+              modifiers.push(`Sin: ${name}`);
+            } else {
+              modifiers.push(`Sin: Ingrediente desconocido`);
+            }
+          });
+        }
 
-      return {
-        itemId: item._id.toString(),
-        productName: item.productName,
-        quantity: item.quantity,
-        modifiers,
-        specialInstructions: item.specialInstructions,
-        status: "pending",
-      };
-    });
+        return {
+          itemId: item._id.toString(),
+          productName: item.productName,
+          quantity: item.quantity,
+          modifiers,
+          specialInstructions: item.specialInstructions,
+          status: "pending",
+        };
+      });
 
     const kitchenOrder = new this.kitchenOrderModel({
       orderId: order._id,
@@ -224,31 +231,38 @@ export class KitchenDisplayService {
       });
     }
 
-    const newKitchenItems = newItems.map((item: any) => {
-      const modifiers =
-        item.modifiers?.map((m: any) => m.name).filter(Boolean) || [];
+    const productIds = newItems.map((i: any) => i.productId);
+    const products = await this.productModel.find({ _id: { $in: productIds } }).select('sendToKitchen').exec();
+    // Default to true if sendToKitchen is undefined (backwards compatibility)
+    const sendToKitchenMap = new Map(products.map(p => [p._id.toString(), p.sendToKitchen !== false]));
 
-      if (item.removedIngredients && item.removedIngredients.length > 0) {
-        item.removedIngredients.forEach((ing: any) => {
-          const idStr = (ing._id || ing).toString();
-          const name = ingredientMap.get(idStr) || (ing.name ? ing.name : undefined);
-          if (name) {
-            modifiers.push(`Sin: ${name}`);
-          } else {
-            modifiers.push(`Sin: Ingrediente desconocido`);
-          }
-        });
-      }
+    const newKitchenItems = newItems
+      .filter((item: any) => sendToKitchenMap.get(item.productId.toString()) !== false)
+      .map((item: any) => {
+        const modifiers =
+          item.modifiers?.map((m: any) => m.name).filter(Boolean) || [];
 
-      return {
-        itemId: item._id.toString(),
-        productName: item.productName,
-        quantity: item.quantity,
-        modifiers,
-        specialInstructions: item.specialInstructions,
-        status: "pending", // New items start as pending
-      };
-    });
+        if (item.removedIngredients && item.removedIngredients.length > 0) {
+          item.removedIngredients.forEach((ing: any) => {
+            const idStr = (ing._id || ing).toString();
+            const name = ingredientMap.get(idStr) || (ing.name ? ing.name : undefined);
+            if (name) {
+              modifiers.push(`Sin: ${name}`);
+            } else {
+              modifiers.push(`Sin: Ingrediente desconocido`);
+            }
+          });
+        }
+
+        return {
+          itemId: item._id.toString(),
+          productName: item.productName,
+          quantity: item.quantity,
+          modifiers,
+          specialInstructions: item.specialInstructions,
+          status: "pending", // New items start as pending
+        };
+      });
     // ---------------------------------------------------------
 
     // Push new items

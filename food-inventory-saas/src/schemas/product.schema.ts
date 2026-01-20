@@ -257,6 +257,9 @@ export class Product {
   @Prop({ type: Boolean, required: true, default: false })
   igtfExempt: boolean;
 
+  @Prop({ type: Boolean, default: true })
+  sendToKitchen: boolean; // Indicates if product should be sent to kitchen display/printers
+
   // Promoción/Oferta activa (separado de descuentos por volumen)
   @Prop({ type: Boolean, default: false })
   hasActivePromotion: boolean;

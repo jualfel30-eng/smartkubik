@@ -547,7 +547,7 @@ export class ProductsService {
       "sku name brand origin description ingredients category subcategory productType isActive hasActivePromotion promotion " +
       "unitOfMeasure isSoldByWeight hasMultipleSellingUnits sellingUnits " +
       "price salePrice image imageUrl images attributes inventoryConfig " +
-      "ivaApplicable igtfExempt taxCategory isPerishable shelfLifeDays storageTemperature " +
+      "ivaApplicable igtfExempt taxCategory isPerishable shelfLifeDays storageTemperature sendToKitchen " +
       "variants.name variants.sku variants.isActive variants.barcode variants.basePrice variants.costPrice variants.price variants.unit variants.unitSize variants.images variants.attributes";
 
     // Build projection to include text score when doing text search
@@ -703,7 +703,7 @@ export class ProductsService {
         "variants.barcode": normalized,
       })
       .select(
-        "name sku brand category subcategory productType isActive hasActivePromotion promotion variants.name variants.sku variants.barcode variants.basePrice variants.price variants.images unitOfMeasure hasMultipleSellingUnits sellingUnits isSoldByWeight",
+        "name sku brand category subcategory productType isActive hasActivePromotion promotion variants.name variants.sku variants.barcode variants.basePrice variants.price variants.images unitOfMeasure hasMultipleSellingUnits sellingUnits isSoldByWeight sendToKitchen",
       )
       .lean();
 

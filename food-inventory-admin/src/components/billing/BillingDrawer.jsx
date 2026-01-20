@@ -206,12 +206,17 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                     // Fetch full Customer data because Order only stores ID and Name
                     let fullCustomer = null;
                     if (freshOrder.customerId || freshOrder.customer) {
-                        const cId = typeof freshOrder.customer === 'object' ? freshOrder.customer._id : (freshOrder.customerId || freshOrder.customer);
-                        try {
-                            const custRes = await api.get(`/customers/${cId}`);
-                            fullCustomer = custRes.data || custRes;
-                        } catch (err) {
-                            console.warn("Could not fetch full customer details", err);
+                        // ROBUST ID EXTRACTION: Handle populated objects vs strings
+                        const cVal = freshOrder.customer || freshOrder.customerId;
+                        const cId = typeof cVal === 'object' ? cVal._id : cVal;
+
+                        if (cId) {
+                            try {
+                                const custRes = await api.get(`/customers/${cId}`);
+                                fullCustomer = custRes.data || custRes;
+                            } catch (err) {
+                                console.warn("Could not fetch full customer details", err);
+                            }
                         }
                     }
 

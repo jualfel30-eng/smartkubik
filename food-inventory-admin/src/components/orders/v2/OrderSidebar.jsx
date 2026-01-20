@@ -180,14 +180,17 @@ export function OrderSidebar({
             {onSendToKitchen ? (
               /* RESTAURANT VERTICAL (Buttons: Orange & Green) */
               <>
-                <Button
-                  onClick={onSendToKitchen}
-                  disabled={isCreateDisabled}
-                  className="w-full bg-orange-600 hover:bg-orange-700 text-white"
-                  size="lg"
-                >
-                  {isEditMode ? 'Actualizar / Cocina' : 'Enviar a Cocina'}
-                </Button>
+                {/* Only show "Enviar a Cocina" for NEW orders. Hide when editing (user preference) */}
+                {!isEditMode && (
+                  <Button
+                    onClick={onSendToKitchen}
+                    disabled={isCreateDisabled}
+                    className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                    size="lg"
+                  >
+                    Enviar a Cocina
+                  </Button>
+                )}
 
                 <Button
                   onClick={onCreateOrder}
