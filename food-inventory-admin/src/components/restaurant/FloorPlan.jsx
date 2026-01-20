@@ -522,9 +522,18 @@ export function FloorPlan() {
         <SeatGuestsModal
           table={selectedTable}
           onClose={() => setSeatGuestsModal(false)}
-          onSuccess={() => {
+          onSuccess={(updatedTable) => {
             fetchFloorPlan();
             setSeatGuestsModal(false);
+
+            // Auto-open Order Drawer
+            // Use the updated table ID or fall back to selectedTable
+            const tableId = updatedTable?._id || selectedTable?._id;
+            if (tableId) {
+              setActionPanelOrderId(null);
+              setActionPanelTableId(tableId);
+              setIsActionPanelOpen(true);
+            }
           }}
         />
       )}

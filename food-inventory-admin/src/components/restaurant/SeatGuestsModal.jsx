@@ -51,7 +51,7 @@ export default function SeatGuestsModal({ table, onClose, onSuccess }) {
     setLoading(true);
 
     try {
-      await fetchApi('/tables/seat-guests', {
+      const response = await fetchApi('/tables/seat-guests', {
         method: 'POST',
         body: JSON.stringify({
           tableId: table._id,
@@ -60,7 +60,7 @@ export default function SeatGuestsModal({ table, onClose, onSuccess }) {
         }),
       });
 
-      onSuccess();
+      onSuccess(response);
     } catch (err) {
       setError(err.message || 'Error al sentar comensales');
       setLoading(false);
