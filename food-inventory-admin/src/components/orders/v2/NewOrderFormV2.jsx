@@ -1240,7 +1240,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
     toast.success('Descuento general aplicado correctamente');
   };
 
-  const handleCreateOrder = async () => {
+  const handleCreateOrder = async (options = { autoWizard: true }) => {
     if (newOrder.items.length === 0) {
       alert('Agrega al menos un producto a la orden.');
       return;
