@@ -651,6 +651,19 @@ export class OrdersService {
       customerAddress: createOrderDto.customerAddress,
     };
 
+    // LINK WAITER FROM TABLE IF APPLICABLE
+    if (createOrderDto.tableId) {
+      try {
+        const table = await this.tableModel.findById(createOrderDto.tableId).select('assignedServerId').lean();
+        if (table?.assignedServerId) {
+          orderData.assignedWaiterId = table.assignedServerId;
+          this.logger.log(`Assigned waiter ${table.assignedServerId} from table ${createOrderDto.tableId} to order`);
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to fetch table waiter: ${err.message}`);
+      }
+    }
+
     const shouldAssignEmployee =
       FEATURES.EMPLOYEE_PERFORMANCE_TRACKING && user?.id && user?.tenantId;
 
@@ -1130,8 +1143,8 @@ export class OrdersService {
       orderNumber,
       customerId: customer._id,
       customerName: dto.customerName,
-      customerRif: dto.customerRif,
-      taxType: dto.taxType,
+      customerRif: (dto as any).customerRif,
+      taxType: (dto as any).taxType,
       customerEmail: dto.customerEmail,
       customerPhone: dto.customerPhone,
       items: orderItems,
@@ -1671,6 +1684,8 @@ export class OrdersService {
           }
         });
       }
+
+
     }
 
     // Emit update event (e.g. for Kitchen Display sync)
@@ -1953,6 +1968,99 @@ export class OrdersService {
       this.logger.log(
         `Order ${order.orderNumber} fully paid. Triggering ingredient deduction...`,
       );
+
+      // CRITICAL: Reload order after update to get tableId for cleanup
+      const freshOrder = await this.orderModel.findById(orderId).select('tableId deliveryMethod orderNumber').lean();
+
+      // Auto-clean table if applicable (Safety Net for Payment)
+      if (freshOrder?.tableId) {
+        setImmediate(async () => {
+          try {
+            // Robust conversion to string ID with validation
+            let tableIdStr: string;
+
+            if (freshOrder.tableId instanceof Types.ObjectId) {
+              tableIdStr = freshOrder.tableId.toString();
+            } else if (typeof freshOrder.tableId === 'string') {
+              tableIdStr = freshOrder.tableId;
+            } else if (freshOrder.tableId && typeof freshOrder.tableId === 'object' && '_id' in freshOrder.tableId) {
+              // Handle populated tableId object
+              tableIdStr = (freshOrder.tableId as any)._id.toString();
+            } else {
+              tableIdStr = String(freshOrder.tableId || '');
+            }
+
+            // Validate the converted ID
+            if (!tableIdStr || tableIdStr === 'null' || tableIdStr === 'undefined' || tableIdStr === '[object Object]') {
+              this.logger.warn(
+                `[TABLE CLEANUP] Invalid tableId for order ${order.orderNumber}. ` +
+                `Raw value: ${JSON.stringify(freshOrder.tableId)}, Converted: "${tableIdStr}"`
+              );
+              return;
+            }
+
+            this.logger.log(
+              `[TABLE CLEANUP] Attempting to clear table ${tableIdStr} for order ${order.orderNumber} (${freshOrder.deliveryMethod || 'unknown'})`
+            );
+
+            await this.tablesService.clearTable(tableIdStr, user.tenantId);
+
+            this.logger.log(
+              `✅ [TABLE CLEANUP] Successfully auto-cleaned table ${tableIdStr} after payment for order ${order.orderNumber}`
+            );
+          } catch (err) {
+            this.logger.error(
+              `❌ [TABLE CLEANUP] Failed to auto-clean table for order ${order.orderNumber}: ${err.message}`,
+              err.stack
+            );
+          }
+        });
+      }
+
+      // Auto-clean table if applicable (Safety Net for Payment)
+      if (order.tableId) {
+        setImmediate(async () => {
+          try {
+            // Robust conversion to string ID with validation
+            let tableIdStr: string;
+
+            if (order.tableId instanceof Types.ObjectId) {
+              tableIdStr = order.tableId.toString();
+            } else if (typeof order.tableId === 'string') {
+              tableIdStr = order.tableId;
+            } else if (order.tableId && typeof order.tableId === 'object' && '_id' in order.tableId) {
+              // Handle populated tableId object
+              tableIdStr = (order.tableId as any)._id.toString();
+            } else {
+              tableIdStr = String(order.tableId || '');
+            }
+
+            // Validate the converted ID
+            if (!tableIdStr || tableIdStr === 'null' || tableIdStr === 'undefined' || tableIdStr === '[object Object]') {
+              this.logger.warn(
+                `[TABLE CLEANUP] Invalid tableId for order ${order.orderNumber}. ` +
+                `Raw value: ${JSON.stringify(order.tableId)}, Converted: "${tableIdStr}"`
+              );
+              return;
+            }
+
+            this.logger.log(
+              `[TABLE CLEANUP] Attempting to clear table ${tableIdStr} for order ${order.orderNumber} (${order.deliveryMethod})`
+            );
+
+            await this.tablesService.clearTable(tableIdStr, user.tenantId);
+
+            this.logger.log(
+              `✅ [TABLE CLEANUP] Successfully auto-cleaned table ${tableIdStr} after payment for order ${order.orderNumber}`
+            );
+          } catch (err) {
+            this.logger.error(
+              `❌ [TABLE CLEANUP] Failed to auto-clean table for order ${order.orderNumber}: ${err.message}`,
+              err.stack
+            );
+          }
+        });
+      }
       // Ejecutar en background para no bloquear la respuesta
       setImmediate(async () => {
         try {
@@ -2587,7 +2695,7 @@ export class OrdersService {
     const order = await this.orderModel.findOne({
       _id: id,
       tenantId: user.tenantId,
-    });
+    }).select('+tableId'); // CRITICAL: Explicitly include tableId for cleanup logic
 
     if (!order) {
       throw new NotFoundException("Orden no encontrada");
@@ -2648,16 +2756,50 @@ export class OrdersService {
     // ===============================================
     // AUTO-CLEAN TABLE LOGIC
     // ===============================================
-    this.logger.log(`Attempting auto-clean for order ${order.orderNumber}. TableID: ${order.tableId}`);
-
     if (order.tableId) {
-      try {
-        await this.tablesService.clearTable(order.tableId.toString(), user.tenantId);
-        this.logger.log(`Auto-cleaned table ${order.tableId} for completed order ${order.orderNumber}`);
-      } catch (err) {
-        this.logger.warn(`Failed to auto-clean table ${order.tableId}: ${err.message}`);
-        // Do not fail the order completion if table update fails
-      }
+      setImmediate(async () => {
+        try {
+          // Robust conversion to string ID with validation (same as registerPayments)
+          let tableIdStr: string;
+
+          if (order.tableId instanceof Types.ObjectId) {
+            tableIdStr = order.tableId.toString();
+          } else if (typeof order.tableId === 'string') {
+            tableIdStr = order.tableId;
+          } else if (order.tableId && typeof order.tableId === 'object' && '_id' in order.tableId) {
+            // Handle populated tableId object
+            tableIdStr = (order.tableId as any)._id.toString();
+          } else {
+            tableIdStr = String(order.tableId || '');
+          }
+
+          // Validate the converted ID
+          if (!tableIdStr || tableIdStr === 'null' || tableIdStr === 'undefined' || tableIdStr === '[object Object]') {
+            this.logger.warn(
+              `[TABLE CLEANUP - Complete] Invalid tableId for order ${order.orderNumber}. ` +
+              `Raw value: ${JSON.stringify(order.tableId)}, Converted: "${tableIdStr}"`
+            );
+            return;
+          }
+
+          this.logger.log(
+            `[TABLE CLEANUP - Complete] Attempting to clear table ${tableIdStr} for order ${order.orderNumber}`
+          );
+
+          await this.tablesService.clearTable(tableIdStr, user.tenantId);
+
+          this.logger.log(
+            `✅ [TABLE CLEANUP - Complete] Successfully auto-cleaned table ${tableIdStr} for order ${order.orderNumber}`
+          );
+        } catch (err) {
+          this.logger.error(
+            `❌ [TABLE CLEANUP - Complete] Failed to auto-clean table for order ${order.orderNumber}: ${err.message}`,
+            err.stack
+          );
+        }
+      });
+    } else {
+      this.logger.log(`[TABLE CLEANUP - Complete] No tableId found for order ${order.orderNumber}, skipping table cleanup`);
     }
 
 

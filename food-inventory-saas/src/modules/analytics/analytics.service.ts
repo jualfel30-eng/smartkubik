@@ -1016,9 +1016,13 @@ export class AnalyticsService {
         empData.tipsCount++;
         empData.ordersServed++;
 
-        if (tip.method === "cash") {
+        // Categorize tip by method (support both legacy and current format)
+        const methodLower = (tip.method || '').toLowerCase();
+        if (methodLower.includes('efectivo') || methodLower.includes('cash')) {
           empData.cashTips += tip.amount;
-        } else if (tip.method === "card") {
+        } else if (methodLower.includes('card') || methodLower.includes('tarjeta') ||
+          methodLower.includes('pos') || methodLower.includes('pago_movil') ||
+          methodLower.includes('zelle') || methodLower.includes('transferencia')) {
           empData.cardTips += tip.amount;
         }
 

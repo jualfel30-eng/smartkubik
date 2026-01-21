@@ -300,7 +300,7 @@ export class KitchenDisplayService {
           orderId: data.orderId,
           priority: 'normal',
         };
-        kitchenOrder = await this.createFromOrder(dto, tenantId);
+        kitchenOrder = await this.createFromOrder(dto, tenantId) as any;
 
         if (!kitchenOrder) {
           throw new Error('Failed to create kitchen order');

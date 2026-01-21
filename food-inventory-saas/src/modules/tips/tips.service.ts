@@ -39,7 +39,9 @@ export class TipsService {
     private userModel: Model<UserDocument>,
     @InjectModel(Shift.name)
     private shiftModel: Model<ShiftDocument>,
-  ) {}
+    @InjectModel('Role')
+    private roleModel: Model<any>,
+  ) { }
 
   // ========== Distribution Rules ==========
 
@@ -47,9 +49,19 @@ export class TipsService {
     dto: CreateTipsDistributionRuleDto,
     tenantId: string,
   ): Promise<TipsDistributionRule> {
+    const tenantObjectId = new Types.ObjectId(tenantId);
+
+    // If new rule is active, deactivate others
+    if (dto.isActive) {
+      await this.tipsDistributionRuleModel.updateMany(
+        { tenantId: tenantObjectId, isActive: true },
+        { isActive: false },
+      );
+    }
+
     const rule = new this.tipsDistributionRuleModel({
       ...dto,
-      tenantId: new Types.ObjectId(tenantId),
+      tenantId: tenantObjectId,
     });
 
     return rule.save();
@@ -81,9 +93,19 @@ export class TipsService {
     dto: UpdateTipsDistributionRuleDto,
     tenantId: string,
   ): Promise<TipsDistributionRule> {
+    const tenantObjectId = new Types.ObjectId(tenantId);
+
+    // If setting to active, deactivate others first
+    if (dto.isActive) {
+      await this.tipsDistributionRuleModel.updateMany(
+        { tenantId: tenantObjectId, _id: { $ne: ruleId }, isActive: true },
+        { isActive: false },
+      );
+    }
+
     const rule = await this.tipsDistributionRuleModel
       .findOneAndUpdate(
-        { _id: ruleId, tenantId: new Types.ObjectId(tenantId) },
+        { _id: ruleId, tenantId: tenantObjectId },
         dto,
         { new: true },
       )
@@ -128,6 +150,7 @@ export class TipsService {
     order.tipsRecords.push({
       amount: dto.amount,
       method: dto.method,
+      employeeId: dto.employeeId ? new Types.ObjectId(dto.employeeId) : undefined, // Convert to ObjectId
       distributedAt: undefined,
     });
 
@@ -209,10 +232,27 @@ export class TipsService {
         .exec();
     } else {
       // Filtrar por roles incluidos en la regla
+      // FIX: Resolver Role IDs based on names provided in rule.includedRoles
+      const roleNames = rule.rules.includedRoles;
+      const roles = await this.roleModel.find({
+        tenantId: tenantObjectId,
+        name: { $in: roleNames.map(r => new RegExp(`^${r}$`, 'i')) } // Case insensitive match
+      }).select('_id').exec();
+
+      const roleIds = roles.map(r => r._id);
+
+      // Also try to match if includedRoles contain IDs directly (fallback)
+      const validObjectIds = roleNames.filter(r => Types.ObjectId.isValid(r)).map(r => new Types.ObjectId(r));
+      const allRoleIds = [...roleIds, ...validObjectIds];
+
+      if (allRoleIds.length === 0) {
+        this.logger.warn(`No roles found matching names: ${roleNames.join(', ')}`);
+      }
+
       eligibleEmployees = await this.userModel
         .find({
           tenantId: tenantObjectId,
-          role: { $in: rule.rules.includedRoles },
+          role: { $in: allRoleIds },
           isActive: true,
         })
         .exec();
@@ -584,7 +624,7 @@ export class TipsService {
       .find({
         tenantId,
         createdAt: { $gte: startDate, $lte: endDate },
-        status: { $in: ["completed", "closed"] },
+        status: { $nin: ["draft", "cancelled", "refunded"] }, // Show all except cancelled
         totalTipsAmount: { $gt: 0 },
       })
       .populate("assignedWaiterId", "firstName lastName")
@@ -653,15 +693,22 @@ export class TipsService {
       ...data,
     }));
 
-    // Por método
+    // Por método (support all payment method variations)
     let cash = 0,
       card = 0,
       digital = 0;
     orders.forEach((order) => {
       order.tipsRecords.forEach((tip) => {
-        if (tip.method === "cash") cash += tip.amount;
-        else if (tip.method === "card") card += tip.amount;
-        else if (tip.method === "digital") digital += tip.amount;
+        const methodLower = (tip.method || '').toLowerCase();
+        if (methodLower.includes('efectivo') || methodLower.includes('cash')) {
+          cash += tip.amount;
+        } else if (methodLower.includes('card') || methodLower.includes('tarjeta') ||
+          methodLower.includes('pos') || methodLower.includes('pago_movil') ||
+          methodLower.includes('zelle') || methodLower.includes('transferencia')) {
+          card += tip.amount;
+        } else if (methodLower.includes('digital')) {
+          digital += tip.amount;
+        }
       });
     });
 
