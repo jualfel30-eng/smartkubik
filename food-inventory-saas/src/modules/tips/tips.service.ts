@@ -17,6 +17,8 @@ import {
 import { Order, OrderDocument } from "../../schemas/order.schema";
 import { User, UserDocument } from "../../schemas/user.schema";
 import { Shift, ShiftDocument } from "../../schemas/shift.schema";
+import { EmployeeProfile, EmployeeProfileDocument } from "../../schemas/employee-profile.schema";
+import { Customer, CustomerDocument } from "../../schemas/customer.schema";
 import {
   CreateTipsDistributionRuleDto,
   UpdateTipsDistributionRuleDto,
@@ -41,6 +43,10 @@ export class TipsService {
     private shiftModel: Model<ShiftDocument>,
     @InjectModel('Role')
     private roleModel: Model<any>,
+    @InjectModel(EmployeeProfile.name)
+    private employeeProfileModel: Model<EmployeeProfileDocument>,
+    @InjectModel(Customer.name)
+    private customerModel: Model<CustomerDocument>,
   ) { }
 
   // ========== Distribution Rules ==========
@@ -627,7 +633,6 @@ export class TipsService {
         status: { $nin: ["draft", "cancelled", "refunded"] }, // Show all except cancelled
         totalTipsAmount: { $gt: 0 },
       })
-      .populate("assignedWaiterId", "firstName lastName")
       .exec();
 
     const totalTips = orders.reduce(
@@ -646,19 +651,82 @@ export class TipsService {
       { name: string; totalTips: number; orders: number }
     >();
 
+    // Collect all unique employee IDs
+    const allEmployeeIds = new Set<string>();
     orders.forEach((order) => {
       if (order.assignedWaiterId) {
         const empId =
           (order.assignedWaiterId as any)?._id?.toString?.() ||
           order.assignedWaiterId.toString();
-        const waiterAny = order.assignedWaiterId as any;
-        const waiterName =
-          waiterAny?.firstName || waiterAny?.lastName
-            ? `${waiterAny.firstName || ""} ${waiterAny.lastName || ""}`.trim()
-            : "Mesero";
+        allEmployeeIds.add(empId);
+      }
+    });
+
+    // Resolve names: check if IDs are EmployeeProfiles, then get Customer names
+    const employeeNames = new Map<string, string>();
+
+    if (allEmployeeIds.size > 0) {
+      const idsArray = Array.from(allEmployeeIds);
+
+      // 1. Check if these are EmployeeProfile IDs
+      const employeeProfiles = await this.employeeProfileModel
+        .find({ _id: { $in: idsArray } })
+        .select("_id customerId")
+        .lean()
+        .exec();
+
+      const profileMap = new Map(
+        employeeProfiles.map((p) => [p._id.toString(), p.customerId.toString()])
+      );
+
+      // 2. Get Customer names for the profiles found
+      if (employeeProfiles.length > 0) {
+        const customerIds = Array.from(profileMap.values());
+        const customers = await this.customerModel
+          .find({ _id: { $in: customerIds } })
+          .select("_id name lastName")
+          .lean()
+          .exec();
+
+        customers.forEach((c) => {
+          const fullName = `${c.name} ${c.lastName || ""}`.trim();
+          // Find which profile ID maps to this customer
+          for (const [profileId, custId] of profileMap.entries()) {
+            if (custId === c._id.toString()) {
+              employeeNames.set(profileId, fullName);
+            }
+          }
+        });
+      }
+
+      // 3. For IDs not found as EmployeeProfiles, try as Users (legacy)
+      const remainingIds = idsArray.filter((id) => !profileMap.has(id));
+      if (remainingIds.length > 0) {
+        const users = await this.userModel
+          .find({ _id: { $in: remainingIds } })
+          .select("_id firstName lastName")
+          .lean()
+          .exec();
+
+        users.forEach((u) => {
+          const fullName = `${u.firstName || ""} ${u.lastName || ""}`.trim();
+          employeeNames.set(u._id.toString(), fullName);
+        });
+      }
+    }
+
+    // Aggregate tips by employee
+    orders.forEach((order) => {
+      if (order.assignedWaiterId) {
+        const empId =
+          (order.assignedWaiterId as any)?._id?.toString?.() ||
+          order.assignedWaiterId.toString();
+
+        const empName = employeeNames.get(empId) || "Empleado Desconocido";
+
         if (!employeeMap.has(empId)) {
           employeeMap.set(empId, {
-            name: waiterName,
+            name: empName,
             totalTips: 0,
             orders: 0,
           });
