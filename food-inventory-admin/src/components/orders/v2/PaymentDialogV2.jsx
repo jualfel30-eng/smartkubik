@@ -25,13 +25,15 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bankAccounts, setBankAccounts] = useState([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [employees, setEmployees] = useState([]);
+  const [assignedTipEmployee, setAssignedTipEmployee] = useState('');
 
   // Tips state
   const [tipEnabled, setTipEnabled] = useState(false);
   const [tipMode, setTipMode] = useState('percentage'); // 'percentage' or 'custom'
   const [tipPercentage, setTipPercentage] = useState(null); // 10, 15, 18, 20, or null
   const [customTipAmount, setCustomTipAmount] = useState('');
-  const [tipMethod, setTipMethod] = useState('card'); // 'cash', 'card', 'digital'
+  const [tipMethod, setTipMethod] = useState(''); // Initialize empty, will rely on paymentMethods
 
   // Tip presets commonly used in restaurants
   const tipPresets = [
@@ -104,7 +106,10 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
       setTipMode('percentage');
       setTipPercentage(null);
       setCustomTipAmount('');
-      setTipMethod('card');
+      setCustomTipAmount('');
+      setTipMethod('');
+      const initialWaiterId = order.assignedWaiterId ? (typeof order.assignedWaiterId === 'object' ? order.assignedWaiterId._id : order.assignedWaiterId) : '';
+      setAssignedTipEmployee(initialWaiterId);
     }
   }, [order, isOpen, paymentMethods]);
 
@@ -125,13 +130,17 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
     if (isOpen) {
       // Fetch bank accounts
       setLoadingAccounts(true);
-      fetchApi('/bank-accounts')
-        .then(data => {
-          setBankAccounts(data || []);
+      Promise.all([
+        fetchApi('/bank-accounts'),
+        fetchApi('/payroll/employees?status=active') // Fetch active employees for tips
+      ])
+        .then(([accountsData, employeesRes]) => {
+          setBankAccounts(accountsData || []);
+          setEmployees(employeesRes.data || []);
         })
         .catch(err => {
-          console.error('Error loading bank accounts:', err);
-          toast.error('Error al cargar las cuentas bancarias');
+          console.error('Error loading data:', err);
+          toast.error('Error al cargar datos necesarios');
           setBankAccounts([]);
         })
         .finally(() => {
@@ -370,11 +379,15 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
       // Register tip if enabled and has amount
       if (tipEnabled && calculatedTipAmount > 0) {
         try {
+          // Send tip method directly (Backend DTO now accepts any string)
+          const methodToSend = tipMethod ||
+            ((paymentMode === 'single' && singlePayment.method) ? singlePayment.method : 'efectivo_usd');
+
           await registerTipsOnOrder(order._id, {
             amount: calculatedTipAmount,
             percentage: tipMode === 'percentage' ? tipPercentage : undefined,
-            method: tipMethod,
-            employeeId: order.assignedWaiterId || undefined,
+            method: methodToSend,
+            employeeId: assignedTipEmployee || undefined,
             notes: tipMode === 'percentage' ? `Propina ${tipPercentage}%` : 'Propina personalizada'
           });
           toast.success('Propina registrada', {
@@ -382,37 +395,15 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
           });
         } catch (tipError) {
           console.error("Error registering tip:", tipError);
-          toast.error('Error al registrar la propina', {
-            description: 'El pago se procesó pero la propina no se pudo registrar. Puede registrarla manualmente.'
+          // Warn but don't block flow
+          toast.warning('Pago registrado, pero hubo error en la propina.', {
+            description: 'Intente registrarla manualmente.'
           });
         }
       }
 
       onPaymentSuccess(response.data);
       triggerRefresh();
-
-      // Auto-complete Pickup Orders
-      const totalPaidUSD = paymentsPayload.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-      // Use a small epsilon for float comparison tolerance
-      const isFullPayment = Math.abs(remainingAmount - totalPaidUSD) < 0.1;
-
-      if (order.deliveryMethod === 'pickup' && isFullPayment) {
-        try {
-          await fetchApi(`/orders/${order._id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'delivered' })
-          });
-          toast.success('Orden completada y entregada automáticamente', {
-            description: 'La orden ha sido marcada como Entregada porque se pagó en su totalidad.'
-          });
-          // Refresh again to reflect the status change
-          triggerRefresh();
-        } catch (autoCompError) {
-          console.error("Auto-complete failed:", autoCompError);
-          // We don't block the flow if this optional step fails, users can still manually process it
-        }
-      }
     } catch (error) {
       console.error("Error submitting payment:", error);
       toast.error(`Error al registrar el pago: ${error.message}`);
@@ -824,9 +815,9 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="cash">Efectivo</SelectItem>
-                          <SelectItem value="card">Tarjeta</SelectItem>
-                          <SelectItem value="digital">Digital/QR</SelectItem>
+                          {paymentMethods.map(pm => (
+                            <SelectItem key={pm.id} value={pm.id}>{pm.name}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -843,9 +834,9 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="cash">Efectivo</SelectItem>
-                          <SelectItem value="card">Tarjeta</SelectItem>
-                          <SelectItem value="digital">Digital/QR</SelectItem>
+                          {paymentMethods.map(pm => (
+                            <SelectItem key={pm.id} value={pm.id}>{pm.name}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -864,16 +855,28 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                 )}
 
                 {/* Tip Summary */}
-                {calculatedTipAmount > 0 && (
-                  <div className="flex items-center justify-between p-2 bg-amber-100 dark:bg-amber-900/40 rounded-md text-sm">
-                    <span className="text-amber-800 dark:text-amber-200">
-                      {order?.assignedWaiterId ? 'Propina para el mesero asignado' : 'Propina general (se distribuirá según reglas)'}
-                    </span>
-                    <span className="font-semibold text-amber-900 dark:text-amber-100">
-                      +${calculatedTipAmount.toFixed(2)}
-                    </span>
-                  </div>
-                )}
+
+
+                {/* Employee Selector for Tips */}
+                <div className="pt-2">
+                  <Label htmlFor="tip-employee" className="text-sm">Asignar propina a:</Label>
+                  <Select value={assignedTipEmployee} onValueChange={setAssignedTipEmployee}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Seleccione mesero..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pool">Pool / General</SelectItem>
+                      {employees.map(emp => (
+                        <SelectItem key={emp._id} value={emp.customer?.id || emp.customerId}>
+                          {emp.customer?.name || emp.name || 'Sin Nombre'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {assignedTipEmployee ? 'Se asignará a este empleado específico' : 'Se usará la regla de distribución activa'}
+                  </p>
+                </div>
               </div>
             )}
           </div>
