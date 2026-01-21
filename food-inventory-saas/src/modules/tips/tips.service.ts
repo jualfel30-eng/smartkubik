@@ -17,6 +17,8 @@ import {
 import { Order, OrderDocument } from "../../schemas/order.schema";
 import { User, UserDocument } from "../../schemas/user.schema";
 import { Shift, ShiftDocument } from "../../schemas/shift.schema";
+import { EmployeeProfile, EmployeeProfileDocument } from "../../schemas/employee-profile.schema";
+import { Customer, CustomerDocument } from "../../schemas/customer.schema";
 import {
   CreateTipsDistributionRuleDto,
   UpdateTipsDistributionRuleDto,
@@ -41,6 +43,10 @@ export class TipsService {
     private shiftModel: Model<ShiftDocument>,
     @InjectModel('Role')
     private roleModel: Model<any>,
+    @InjectModel(EmployeeProfile.name)
+    private employeeProfileModel: Model<EmployeeProfileDocument>,
+    @InjectModel(Customer.name)
+    private customerModel: Model<CustomerDocument>,
   ) { }
 
   // ========== Distribution Rules ==========
@@ -643,40 +649,141 @@ export class TipsService {
     // Por empleado
     const employeeMap = new Map<
       string,
-      { name: string; totalTips: number; orders: number }
+      { name: string; totalTips: number; orders: number; orderIds: Set<string> }
     >();
+    const unknownEmployeeIds = new Set<string>();
 
     orders.forEach((order) => {
-      if (order.assignedWaiterId) {
+      let processedViaRecords = false;
+
+      // Estrategia 1: Usar tipsRecords (Más preciso, soporta split tips)
+      if (order.tipsRecords && order.tipsRecords.length > 0) {
+        // Filtrar records válidos con employeeId
+        const validRecords = order.tipsRecords.filter(
+          (t) => t.amount > 0 && t.employeeId,
+        );
+
+        if (validRecords.length > 0) {
+          processedViaRecords = true;
+          validRecords.forEach((tip) => {
+            const empId = tip.employeeId!.toString();
+            let empName = tip.employeeName;
+
+            // Si no tiene nombre en el record, intentar resolverlo
+            if (!empName) {
+              // Intentar matching con el waiter asignado de la orden
+              if (
+                order.assignedWaiterId &&
+                (order.assignedWaiterId as any)._id?.toString() === empId
+              ) {
+                const waiter = order.assignedWaiterId as any;
+                empName = `${waiter.firstName || ""} ${waiter.lastName || ""}`.trim();
+              } else {
+                // Marcar para búsqueda posterior
+                unknownEmployeeIds.add(empId);
+                empName = "Desconocido";
+              }
+            }
+
+            if (!employeeMap.has(empId)) {
+              employeeMap.set(empId, {
+                name: empName,
+                totalTips: 0,
+                orders: 0,
+                orderIds: new Set(),
+              });
+            }
+            const entry = employeeMap.get(empId)!;
+            entry.totalTips += tip.amount;
+            entry.orderIds.add(order._id.toString());
+          });
+        }
+      }
+
+      // Estrategia 2: Fallback a assignedWaiterId (Legacy o tips sin desglose)
+      if (!processedViaRecords && order.assignedWaiterId && order.totalTipsAmount > 0) {
         const empId =
-          (order.assignedWaiterId as any)?._id?.toString?.() ||
+          (order.assignedWaiterId as any)._id?.toString?.() ||
           order.assignedWaiterId.toString();
         const waiterAny = order.assignedWaiterId as any;
         const waiterName =
           waiterAny?.firstName || waiterAny?.lastName
             ? `${waiterAny.firstName || ""} ${waiterAny.lastName || ""}`.trim()
             : "Mesero";
+
         if (!employeeMap.has(empId)) {
           employeeMap.set(empId, {
             name: waiterName,
             totalTips: 0,
             orders: 0,
+            orderIds: new Set(),
           });
         }
         const emp = employeeMap.get(empId)!;
         emp.totalTips += order.totalTipsAmount;
-        emp.orders++;
+        emp.orderIds.add(order._id.toString());
       }
     });
+
+    // Resolver nombres faltantes
+    if (unknownEmployeeIds.size > 0) {
+      try {
+        const idsArray = Array.from(unknownEmployeeIds);
+
+        // 1. Intentar buscar directamente en Customers (para IDs de RRHH)
+        const customers = await this.customerModel
+          .find({ _id: { $in: idsArray } })
+          .select("name lastName")
+          .lean()
+          .exec();
+
+        const customerNames = new Map<string, string>();
+        customers.forEach((c) => {
+          const fullName = `${c.name} ${c.lastName || ""}`.trim();
+          customerNames.set(c._id.toString(), fullName);
+        });
+
+        // 2. Buscar usuarios (Fallback para IDs antiguos)
+        const users = await this.userModel
+          .find({ _id: { $in: idsArray } })
+          .select("firstName lastName")
+          .lean()
+          .exec();
+
+        // 3. Actualizar nombres en el mapa
+        idsArray.forEach((uid) => {
+          const entry = employeeMap.get(uid);
+          if (entry && (entry.name === "Desconocido" || !entry.name)) {
+            // Prioridad 1: Nombre de Cliente (RRHH directo)
+            if (customerNames.has(uid)) {
+              entry.name = customerNames.get(uid)!;
+              return;
+            }
+
+            // Prioridad 2: Nombre de Usuario (legacy)
+            const user = users.find((u) => u._id.toString() === uid);
+            if (user) {
+              entry.name = `${user.firstName || ""} ${user.lastName || ""}`.trim();
+            } else {
+              entry.name = "Empleado Inactivo";
+            }
+          }
+        });
+      } catch (err) {
+        this.logger.warn(`Error resolviendo nombres de empleados: ${err.message}`);
+      }
+    }
 
     const byEmployee = Array.from(employeeMap.entries()).map(
       ([employeeId, data]) => ({
         employeeId,
-        ...data,
+        name: data.name,
+        totalTips: data.totalTips,
+        orders: data.orderIds.size,
       }),
     );
 
-    // Por día
+    // Por día (sin cambios)
     const dayMap = new Map<string, { tips: number; orders: number }>();
     orders.forEach((order) => {
       const day = (order.createdAt || new Date()).toISOString().split("T")[0];

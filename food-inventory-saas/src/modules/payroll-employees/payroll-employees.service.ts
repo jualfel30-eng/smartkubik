@@ -47,7 +47,7 @@ export class PayrollEmployeesService {
     private readonly customerModel: Model<CustomerDocument>,
     private readonly notificationsService: NotificationsService,
     private readonly eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   private toObjectId(id: string | Types.ObjectId): Types.ObjectId {
     if (id instanceof Types.ObjectId) {
@@ -229,6 +229,7 @@ export class PayrollEmployeesService {
           "customerId",
           "name companyName email phone customerType contacts addresses taxInfo primaryLocation",
         )
+        .populate("userId", "firstName lastName email")
         .populate({
           path: "currentContractId",
           populate: {
@@ -547,23 +548,23 @@ export class PayrollEmployeesService {
     const primaryAddress =
       plainCustomer && Array.isArray((plainCustomer as any).addresses)
         ? (plainCustomer as any).addresses.find(
-            (address) => address?.isDefault,
-          ) || (plainCustomer as any).addresses[0]
+          (address) => address?.isDefault,
+        ) || (plainCustomer as any).addresses[0]
         : undefined;
 
     return {
       ...plainProfile,
       customer: plainCustomer
         ? {
-            id: (plainCustomer as any)._id,
-            name: (plainCustomer as any).name,
-            companyName: (plainCustomer as any).companyName,
-            email: primaryEmail,
-            phone: primaryPhone,
-            customerType: (plainCustomer as any).customerType,
-            taxInfo: (plainCustomer as any).taxInfo,
-            address: primaryAddress,
-          }
+          id: (plainCustomer as any)._id,
+          name: (plainCustomer as any).name,
+          companyName: (plainCustomer as any).companyName,
+          email: primaryEmail,
+          phone: primaryPhone,
+          customerType: (plainCustomer as any).customerType,
+          taxInfo: (plainCustomer as any).taxInfo,
+          address: primaryAddress,
+        }
         : undefined,
       currentContract: plainContract || undefined,
     };
@@ -702,12 +703,12 @@ export class PayrollEmployeesService {
 
     const tenureYears = contract.startDate
       ? Math.max(
-          0,
-          Math.floor(
-            (today.getTime() - new Date(contract.startDate).getTime()) /
-              (1000 * 60 * 60 * 24 * 365),
-          ),
-        )
+        0,
+        Math.floor(
+          (today.getTime() - new Date(contract.startDate).getTime()) /
+          (1000 * 60 * 60 * 24 * 365),
+        ),
+      )
       : 0;
 
     return await new Promise((resolve) => {
@@ -938,11 +939,11 @@ export class PayrollEmployeesService {
 
     const result = structureObjectId
       ? await this.contractModel.updateMany(filter, {
-          $set: { payrollStructureId: structureObjectId },
-        })
+        $set: { payrollStructureId: structureObjectId },
+      })
       : await this.contractModel.updateMany(filter, {
-          $unset: { payrollStructureId: "" },
-        });
+        $unset: { payrollStructureId: "" },
+      });
 
     return {
       matched: result.matchedCount ?? 0,
