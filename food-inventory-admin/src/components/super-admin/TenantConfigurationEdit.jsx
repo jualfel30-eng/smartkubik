@@ -63,7 +63,7 @@ const MODULE_GROUPS = {
   core: {
     title: 'Módulos Core',
     description: 'Funcionalidades básicas disponibles para todos',
-    modules: ['inventory', 'orders', 'customers', 'suppliers', 'reports', 'accounting', 'bankAccounts', 'payments']
+    modules: ['inventory', 'orders', 'customers', 'suppliers', 'reports', 'accounting', 'bankAccounts', 'payments', 'tips']
   },
   communication: {
     title: 'Comunicación & Marketing',
@@ -73,7 +73,7 @@ const MODULE_GROUPS = {
   food_service: {
     title: 'Restaurantes',
     description: 'Específico para negocios de comida',
-    modules: ['restaurant', 'tables', 'recipes', 'kitchenDisplay', 'menuEngineering', 'tips', 'reservations']
+    modules: ['restaurant', 'tables', 'recipes', 'kitchenDisplay', 'menuEngineering', 'reservations']
   },
   retail: {
     title: 'Retail',
@@ -116,7 +116,7 @@ const MODULE_LABELS = {
   recipes: 'Recetas',
   kitchenDisplay: 'Display de Cocina',
   menuEngineering: 'Ingeniería de Menú',
-  tips: 'Propinas',
+  tips: 'Propinas/Comisiones',
   reservations: 'Reservas',
   restaurant: 'Suite de Restaurante',
   pos: 'Punto de Venta',
@@ -541,45 +541,45 @@ export default function TenantConfigurationEdit() {
             </Button>
             <Button onClick={() => setPresetDialogOpen(true)}>Activar vertical restaurante</Button>
           </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
 
-    {/* Feature Flags por Tenant */}
-    <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5" />
-          <CardTitle>Feature Flags (Tenant)</CardTitle>
-        </div>
-        <CardDescription>
-          Activa/desactiva funcionalidades específicas para este tenant. Requiere que el módulo relacionado esté habilitado.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-center space-x-3 p-3 border rounded-lg">
-          <Checkbox
-            id="flag-multi-warehouse"
-            checked={!!featureFlags.ENABLE_MULTI_WAREHOUSE}
-            onCheckedChange={() => {
-              setEnabledModules((prev) => ({ ...prev, inventory: true }));
-              handleFeatureFlagToggle('ENABLE_MULTI_WAREHOUSE');
-            }}
-          />
-          <Label htmlFor="flag-multi-warehouse" className="space-y-1 cursor-pointer">
-            <div className="font-medium">Multi-Warehouse</div>
-            <div className="text-sm text-muted-foreground">
-              Permite gestionar múltiples almacenes, movimientos y alertas por almacén.
-            </div>
-            <div className="text-xs text-muted-foreground font-mono mt-1">
-              ENABLE_MULTI_WAREHOUSE
-            </div>
-          </Label>
-        </div>
-      </CardContent>
-    </Card>
+      {/* Feature Flags por Tenant */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5" />
+            <CardTitle>Feature Flags (Tenant)</CardTitle>
+          </div>
+          <CardDescription>
+            Activa/desactiva funcionalidades específicas para este tenant. Requiere que el módulo relacionado esté habilitado.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center space-x-3 p-3 border rounded-lg">
+            <Checkbox
+              id="flag-multi-warehouse"
+              checked={!!featureFlags.ENABLE_MULTI_WAREHOUSE}
+              onCheckedChange={() => {
+                setEnabledModules((prev) => ({ ...prev, inventory: true }));
+                handleFeatureFlagToggle('ENABLE_MULTI_WAREHOUSE');
+              }}
+            />
+            <Label htmlFor="flag-multi-warehouse" className="space-y-1 cursor-pointer">
+              <div className="font-medium">Multi-Warehouse</div>
+              <div className="text-sm text-muted-foreground">
+                Permite gestionar múltiples almacenes, movimientos y alertas por almacén.
+              </div>
+              <div className="text-xs text-muted-foreground font-mono mt-1">
+                ENABLE_MULTI_WAREHOUSE
+              </div>
+            </Label>
+          </div>
+        </CardContent>
+      </Card>
 
-    {/* Modules Section */}
-    <Card>
+      {/* Modules Section */}
+      <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
             <Settings className="h-5 w-5" />

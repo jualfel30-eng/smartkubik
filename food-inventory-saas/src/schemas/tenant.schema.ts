@@ -240,6 +240,12 @@ export class Tenant {
   name: string;
 
   @Prop({ type: String })
+  ownerFirstName?: string;
+
+  @Prop({ type: String })
+  ownerLastName?: string;
+
+  @Prop({ type: String })
   description?: string;
 
   @Prop({ type: String, required: true })
@@ -297,6 +303,7 @@ export class Tenant {
     bankAccounts?: boolean;
     hrCore?: boolean;
     timeAndAttendance?: boolean;
+    tips?: boolean; // Core module for all verticals (Tips for Food Service, Commissions for others)
 
     // Communication & Marketing modules
     chat?: boolean;
@@ -308,7 +315,6 @@ export class Tenant {
     recipes?: boolean;
     kitchenDisplay?: boolean;
     menuEngineering?: boolean;
-    tips?: boolean;
     reservations?: boolean;
 
     // RETAIL specific modules

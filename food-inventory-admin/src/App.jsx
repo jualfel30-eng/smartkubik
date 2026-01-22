@@ -6,6 +6,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth, AuthProvider } from './hooks/use-auth.jsx';
 import { useShift, ShiftProvider } from './context/ShiftContext.jsx';
 import { useTheme } from '@/components/ThemeProvider';
+import { useTipsLabels } from '@/hooks/useTipsLabels';
 import { ThemeProvider as MuiThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import SmartKubikLogoDark from '@/assets/logo-smartkubik.png';
 import SmartKubikLogoLight from '@/assets/logo-smartkubik-light.png';
@@ -329,6 +330,7 @@ function TenantLayout() {
     },
     { name: 'Entregas', href: 'fulfillment', icon: Truck, permission: 'orders_read' },
     { name: 'WhatsApp', href: 'whatsapp', icon: MessageSquare, permission: 'chat_read' },
+    { name: 'tips', href: 'tips', icon: DollarSign, permission: 'tips_read', requiresModule: 'tips', dynamicLabel: true }, // Dynamic label: Tips or Commissions
     {
       name: 'Inventario',
       href: 'inventory-management',
@@ -383,7 +385,6 @@ function TenantLayout() {
     { name: 'Mesas', href: 'restaurant/floor-plan', icon: Utensils, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Cocina (KDS)', href: 'restaurant/kitchen-display', icon: ChefHat, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Reservas', href: 'restaurant/reservations', icon: Calendar, permission: 'restaurant_read', requiresModule: 'restaurant' },
-    { name: 'Propinas', href: 'restaurant/tips', icon: DollarSign, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Ingeniería de Menú', href: 'restaurant/menu-engineering', icon: Target, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Recetas', href: 'restaurant/recipes', icon: BookOpen, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Órdenes de Compra', href: 'restaurant/purchase-orders', icon: FileText, permission: 'restaurant_read', requiresModule: 'restaurant' },
@@ -552,8 +553,17 @@ function TenantLayout() {
   const SidebarNavigation = () => {
     const { state, setOpen, isMobile, setOpenMobile } = useSidebar();
     const { unreadCount } = useNotification();
+    const tipsLabels = useTipsLabels();
 
     const currentBasePath = activeTab.split('?')[0];
+
+    // Helper function to get display name for menu items
+    const getDisplayName = (item) => {
+      if (item.dynamicLabel && item.name === 'tips') {
+        return tipsLabels.plural; // "Propinas" or "Comisiones"
+      }
+      return item.name;
+    };
 
     // Función optimizada para verificar si una ruta está activa
     const isRouteActive = useCallback((itemHref) => {
@@ -730,10 +740,10 @@ function TenantLayout() {
               <SidebarMenuItem>
                 <CollapsibleTrigger asChild>
                   <SidebarMenuButton
-                    tooltip={item.name}
+                    tooltip={getDisplayName(item)}
                     isActive={isItemActive}
                     className="justify-start"
-                    aria-label={item.name}
+                    aria-label={getDisplayName(item)}
                     onClick={() => {
                       if (state === 'collapsed') {
                         setOpen(true);
@@ -741,7 +751,7 @@ function TenantLayout() {
                     }}
                   >
                     <item.icon strokeWidth={1.25} />
-                    <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">{item.name}</span>
+                    <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">{getDisplayName(item)}</span>
                     <ChevronRight className="ml-auto transition-transform duration-200 group-data-[collapsible=icon]:hidden"
                       style={{ transform: openMenus[item.href] ? 'rotate(90deg)' : 'rotate(0deg)' }}
                     />
@@ -793,14 +803,14 @@ function TenantLayout() {
         return (
           <SidebarMenuItem key={item.href}>
             <SidebarMenuButton
-              tooltip={item.name}
+              tooltip={getDisplayName(item)}
               isActive={activeTab === item.href}
               className=""
-              aria-label={item.name}
+              aria-label={getDisplayName(item)}
               onClick={() => handleNavigationClick(item.href)}
             >
               <item.icon strokeWidth={1.25} />
-              <span className="text-sm font-medium group-data-[collapsible=icon]:hidden flex-1">{item.name}</span>
+              <span className="text-sm font-medium group-data-[collapsible=icon]:hidden flex-1">{getDisplayName(item)}</span>
               {item.href === 'whatsapp' && unreadCount > 0 && (
                 <Badge variant="destructive" className="ml-auto rounded-full px-1.5 py-0.5 text-[10px] h-5 min-w-5 flex items-center justify-center group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-0 group-data-[collapsible=icon]:right-0 group-data-[collapsible=icon]:shadow-md">
                   {unreadCount > 99 ? '99+' : unreadCount}
@@ -960,7 +970,7 @@ function TenantLayout() {
               <img src={logoSrc} alt="Smart Kubik" className="h-12 w-auto" />
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground">Hola, {user?.firstName || 'Usuario'}</span>
+              <span className="text-sm text-muted-foreground">Hola, {tenant?.ownerFirstName || user?.firstName || 'Usuario'}</span>
               <ShiftTimer />
               {isClockedIn ? (
                 <Button variant="destructive" size="sm" onClick={clockOut} disabled={isShiftLoading}>
@@ -1126,7 +1136,8 @@ function TenantLayout() {
                 } />
                 <Route path="restaurant/kitchen-display" element={<KitchenDisplay />} />
                 <Route path="restaurant/reservations" element={<ReservationsPage />} />
-                <Route path="restaurant/tips" element={<TipsPage />} />
+                <Route path="tips" element={<TipsPage />} />
+                <Route path="restaurant/tips" element={<Navigate to="/tips" replace />} /> {/* Redirect old route */}
                 <Route path="restaurant/menu-engineering" element={<MenuEngineeringPage />} />
                 <Route path="restaurant/recipes" element={<RecipesPage />} />
                 <Route path="restaurant/purchase-orders" element={<PurchaseOrdersPage />} />

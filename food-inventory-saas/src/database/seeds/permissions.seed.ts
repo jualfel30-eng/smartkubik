@@ -404,6 +404,23 @@ export class PermissionsSeed {
       module: "payroll",
     },
 
+    // Tips Module (CORE - available for all verticals)
+    {
+      name: "tips_read",
+      description: "Ver propinas/comisiones",
+      module: "tips",
+    },
+    {
+      name: "tips_write",
+      description: "Registrar y gestionar propinas/comisiones",
+      module: "tips",
+    },
+    {
+      name: "tips_distribute",
+      description: "Distribuir propinas/comisiones",
+      module: "tips",
+    },
+
     // CRM / Opportunities (Phase 1.2)
     {
       name: "opportunities_read",

@@ -20,6 +20,7 @@ import ProductVariantsPopover from './inline-edit/ProductVariantsPopover';
 import { toast } from 'sonner';
 import { fetchApi } from '../lib/api';
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
+import { useAuth } from '@/hooks/use-auth.jsx';
 import { useConsumables } from '@/hooks/useConsumables';
 import { useSupplies } from '@/hooks/useSupplies';
 import { UnitTypeFields } from './UnitTypes';
@@ -530,16 +531,18 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
   );
   const hasDynamicTemplateColumns = dynamicAttributeLabels.length > 0;
 
+  const { tenant } = useAuth();
+
+  // Get vertical directly from tenant (more reliable than verticalConfig)
+  const tenantVertical = tenant?.vertical || tenant?.verticalProfile?.key || verticalConfig?.baseVertical;
+
   const isNonFoodRetailVertical = useMemo(() => {
-    if (!verticalConfig) {
-      return false;
-    }
-    const baseVertical = verticalConfig.baseVertical;
-    const allowsWeight = verticalConfig.allowsWeight;
-    return baseVertical === 'RETAIL' && allowsWeight === false;
-  }, [verticalConfig]);
+    // For retail verticals, hide food-specific fields
+    return tenantVertical === 'RETAIL';
+  }, [tenantVertical]);
+
   const supportsVariants = verticalConfig?.supportsVariants !== false;
-  const isRestaurant = verticalConfig?.baseVertical === 'FOOD_SERVICE';
+  const isRestaurant = tenantVertical === 'FOOD_SERVICE';
 
   const ingredientLabel = isNonFoodRetailVertical ? 'Composición' : 'Ingredientes';
 
@@ -2176,15 +2179,17 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                     placeholder={getDynamicPlaceholder('description', newProduct.productType)}
                   />
                 </div>
-                <div className="col-span-2 space-y-2">
-                  <Label htmlFor="ingredients">{ingredientLabel}</Label>
-                  <Textarea
-                    id="ingredients"
-                    value={newProduct.ingredients}
-                    onChange={(e) => setNewProduct({ ...newProduct, ingredients: e.target.value })}
-                    placeholder={isNonFoodRetailVertical ? 'Describe la composición del producto' : 'Lista de ingredientes'}
-                  />
-                </div>
+                {!isNonFoodRetailVertical && (
+                  <div className="col-span-2 space-y-2">
+                    <Label htmlFor="ingredients">{ingredientLabel}</Label>
+                    <Textarea
+                      id="ingredients"
+                      value={newProduct.ingredients}
+                      onChange={(e) => setNewProduct({ ...newProduct, ingredients: e.target.value })}
+                      placeholder={isNonFoodRetailVertical ? 'Describe la composición del producto' : 'Lista de ingredientes'}
+                    />
+                  </div>
+                )}
                 {productAttributes.length > 0 && (
                   <div className="col-span-2 border-t pt-4 mt-4">
                     <div className="flex items-center justify-between mb-4">
@@ -3874,15 +3879,17 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   <Label htmlFor="edit-description">Descripción</Label>
                   <Textarea id="edit-description" value={editingProduct.description} onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })} />
                 </div>
-                <div className="col-span-2 space-y-2">
-                  <Label htmlFor="edit-ingredients">{ingredientLabel}</Label>
-                  <Textarea
-                    id="edit-ingredients"
-                    value={editingProduct.ingredients}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, ingredients: e.target.value })}
-                    placeholder={isNonFoodRetailVertical ? 'Describe la composición del producto' : 'Lista de ingredientes'}
-                  />
-                </div>
+                {!isNonFoodRetailVertical && (
+                  <div className="col-span-2 space-y-2">
+                    <Label htmlFor="edit-ingredients">{ingredientLabel}</Label>
+                    <Textarea
+                      id="edit-ingredients"
+                      value={editingProduct.ingredients}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, ingredients: e.target.value })}
+                      placeholder={isNonFoodRetailVertical ? 'Describe la composición del producto' : 'Lista de ingredientes'}
+                    />
+                  </div>
+                )}
                 {productAttributes.length > 0 && (
                   <div className="col-span-2 border-t pt-4 mt-4">
                     <div className="flex items-center justify-between mb-4">
