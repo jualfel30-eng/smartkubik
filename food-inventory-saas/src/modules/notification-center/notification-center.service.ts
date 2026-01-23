@@ -18,8 +18,9 @@ export interface UserContext {
   email?: string;
 }
 
+
 export interface UnreadCountResult {
-  count: number;
+  total: number;
   byCategory: Record<string, number>;
 }
 
@@ -41,7 +42,7 @@ export class NotificationCenterService {
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
     private readonly gateway: NotificationCenterGateway,
-  ) {}
+  ) { }
 
   /**
    * Create a new notification and dispatch it
@@ -171,14 +172,14 @@ export class NotificationCenterService {
     const results = await this.notificationModel.aggregate(pipeline);
 
     const byCategory: Record<string, number> = {};
-    let count = 0;
+    let total = 0;
 
     for (const result of results) {
       byCategory[result._id] = result.count;
-      count += result.count;
+      total += result.count;
     }
 
-    return { count, byCategory };
+    return { total, byCategory };
   }
 
   /**
@@ -214,7 +215,7 @@ export class NotificationCenterService {
     const unreadCounts = await this.findUnread(user);
     this.gateway.emitUnreadCount(
       user.id,
-      unreadCounts.count,
+      unreadCounts.total,
       unreadCounts.byCategory,
     );
 
@@ -253,7 +254,7 @@ export class NotificationCenterService {
     const unreadCounts = await this.findUnread(user);
     this.gateway.emitUnreadCount(
       user.id,
-      unreadCounts.count,
+      unreadCounts.total,
       unreadCounts.byCategory,
     );
 
@@ -288,7 +289,7 @@ export class NotificationCenterService {
     const unreadCounts = await this.findUnread(user);
     this.gateway.emitUnreadCount(
       user.id,
-      unreadCounts.count,
+      unreadCounts.total,
       unreadCounts.byCategory,
     );
   }

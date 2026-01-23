@@ -778,6 +778,10 @@ export class OrdersService {
     this.eventEmitter.emit("order.created", {
       orderId: savedOrder._id.toString(),
       tenantId: user.tenantId,
+      orderNumber: savedOrder.orderNumber,
+      customerName: savedOrder.customerName,
+      totalAmount: savedOrder.totalAmount,
+      source: createOrderDto.channel || "pos",
       items: savedOrder.items.map((item) => ({
         productId: item.productId.toString(),
         quantity: item.quantityInBaseUnit ?? item.quantity,
@@ -2070,6 +2074,18 @@ export class OrdersService {
             `Background ingredient deduction failed for order ${order.orderNumber}: ${error.message}`,
           );
         }
+      });
+
+      // Emit order.paid event for notification center
+      this.eventEmitter.emit("order.paid", {
+        orderId: order._id.toString(),
+        orderNumber: order.orderNumber,
+        customerId: order.customerId?.toString(),
+        customerName: order.customerName,
+        totalAmount: updatedTotalAmount,
+        paidAmount: totalPaidUSD,
+        tenantId: user.tenantId,
+        source: order.channel || "pos",
       });
     }
 

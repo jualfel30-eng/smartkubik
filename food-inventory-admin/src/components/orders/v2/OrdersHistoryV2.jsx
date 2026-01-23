@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 import { Input } from "@/components/ui/input";
@@ -68,6 +68,9 @@ export function OrdersHistoryV2() {
     // State for Order Processing Drawer
     const [isProcessingDrawerOpen, setIsProcessingDrawerOpen] = useState(false);
     const [selectedOrderForProcessing, setSelectedOrderForProcessing] = useState(null);
+
+    // Handle query parameters for auto-opening drawer from notifications
+    const [searchParams, setSearchParams] = useSearchParams();
 
     const productAttributes = useMemo(
         () => (verticalConfig?.attributeSchema || []).filter((attr) => attr.scope === 'product'),
@@ -147,6 +150,42 @@ export function OrdersHistoryV2() {
             fetchOrders(currentPage, pageLimit, debouncedSearchTerm);
         }
     }, [currentPage, pageLimit, debouncedSearchTerm, fetchOrders]);
+
+    // Effect to handle orderId query parameter from notifications
+    useEffect(() => {
+        const orderId = searchParams.get('orderId');
+        if (orderId && !isProcessingDrawerOpen) {
+            // Try to find the order in the current list first
+            const orderInList = data.orders.find(order => order._id === orderId);
+
+            if (orderInList) {
+                // Order is already in the list, open drawer immediately
+                setSelectedOrderForProcessing(orderInList);
+                setIsProcessingDrawerOpen(true);
+                // Remove the query parameter
+                searchParams.delete('orderId');
+                setSearchParams(searchParams, { replace: true });
+            } else {
+                // Order not in list, fetch it from API
+                fetchApi(`/orders/${orderId}`)
+                    .then(order => {
+                        setSelectedOrderForProcessing(order);
+                        setIsProcessingDrawerOpen(true);
+                        // Remove the query parameter
+                        searchParams.delete('orderId');
+                        setSearchParams(searchParams, { replace: true });
+                    })
+                    .catch(error => {
+                        console.error('Error fetching order from notification:', error);
+                        toast.error('No se pudo cargar la orden');
+                        // Remove the query parameter even on error
+                        searchParams.delete('orderId');
+                        setSearchParams(searchParams, { replace: true });
+                    });
+            }
+        }
+    }, [searchParams, setSearchParams, data.orders, isProcessingDrawerOpen]);
+
 
     const handleRefresh = useCallback(() => {
         fetchOrders(currentPage, pageLimit, debouncedSearchTerm);

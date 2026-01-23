@@ -45,7 +45,7 @@ export class CustomersService {
     @InjectModel(EmployeeProfile.name)
     private employeeProfileModel: Model<EmployeeProfileDocument>,
     private readonly loyaltyService: LoyaltyService,
-  ) {}
+  ) { }
 
   private toObjectId(id: string | Types.ObjectId): Types.ObjectId {
     if (id instanceof Types.ObjectId) {
@@ -822,14 +822,14 @@ export class CustomersService {
       );
       const daysSinceLastPurchase = Math.floor(
         (today.getTime() - new Date(lastOrderDate).getTime()) /
-          (1000 * 3600 * 24),
+        (1000 * 3600 * 24),
       );
       const rScore = 100 / (daysSinceLastPurchase + 1);
       const fScore = customerOrders.length;
       const mScore = customerOrders.reduce((sum, order) => {
         const daysAgo = Math.floor(
           (today.getTime() - new Date(order.createdAt).getTime()) /
-            (1000 * 3600 * 24),
+          (1000 * 3600 * 24),
         );
         const weight = Math.pow(0.99, daysAgo);
         return sum + order.totalAmount * weight;
@@ -924,14 +924,60 @@ export class CustomersService {
       : [tenantId];
     const idFilter = Types.ObjectId.isValid(id) ? new Types.ObjectId(id) : id;
 
-    return this.customerModel
+    // Fetch customer without populate to avoid ObjectId casting errors
+    const customer = await this.customerModel
       .findOne({
         _id: idFilter,
         tenantId: { $in: tenantCandidates },
       })
-      .populate("assignedTo", "firstName lastName")
-      .populate("createdBy", "firstName lastName")
+      .lean()
       .exec();
+
+    if (!customer) {
+      return null;
+    }
+
+    // Safe populate - only if valid ObjectId
+    // This prevents errors when fields contain invalid values like "assistant-bot"
+    if (customer.assignedTo) {
+      const assignedToStr = customer.assignedTo.toString();
+      if (Types.ObjectId.isValid(assignedToStr)) {
+        try {
+          const assignedUser = await this.customerModel.db
+            .collection('users')
+            .findOne(
+              { _id: new Types.ObjectId(assignedToStr) },
+              { projection: { firstName: 1, lastName: 1 } }
+            );
+          if (assignedUser) {
+            (customer as any).assignedTo = assignedUser;
+          }
+        } catch (error) {
+          this.logger.warn(`Failed to populate assignedTo for customer ${id}: ${error.message}`);
+        }
+      }
+    }
+
+    if (customer.createdBy) {
+      const createdByStr = customer.createdBy.toString();
+      if (Types.ObjectId.isValid(createdByStr)) {
+        try {
+          const createdByUser = await this.customerModel.db
+            .collection('users')
+            .findOne(
+              { _id: new Types.ObjectId(createdByStr) },
+              { projection: { firstName: 1, lastName: 1 } }
+            );
+          if (createdByUser) {
+            (customer as any).createdBy = createdByUser;
+          }
+        } catch (error) {
+          this.logger.warn(`Failed to populate createdBy for customer ${id}: ${error.message}`);
+        }
+      }
+    }
+
+    return customer as CustomerDocument;
   }
 
   async findByEmail(email: string, tenantId: string) {
@@ -1188,9 +1234,9 @@ export class CustomersService {
       firstPurchaseDate: item.firstPurchaseDate,
       daysSinceLastPurchase: item.lastPurchaseDate
         ? Math.floor(
-            (Date.now() - new Date(item.lastPurchaseDate).getTime()) /
-              (1000 * 3600 * 24),
-          )
+          (Date.now() - new Date(item.lastPurchaseDate).getTime()) /
+          (1000 * 3600 * 24),
+        )
         : null,
     }));
   }

@@ -7,7 +7,7 @@ import { NOTIFICATION_TYPES } from "../../schemas/notification.schema";
 export class NotificationCenterListener {
   private readonly logger = new Logger(NotificationCenterListener.name);
 
-  constructor(private readonly notificationService: NotificationCenterService) {}
+  constructor(private readonly notificationService: NotificationCenterService) { }
 
   // ================== SALES EVENTS ==================
 
@@ -28,19 +28,20 @@ export class NotificationCenterListener {
         {
           category: "sales",
           type: NOTIFICATION_TYPES.ORDER_CREATED,
-          title: `Nueva orden #${payload.orderNumber || payload.orderId.slice(-6)}`,
+          title: `Nueva orden #${payload.orderNumber || payload.orderId.slice(-6)} - Pago pendiente`,
           message: payload.customerName
             ? `${payload.customerName} - $${(payload.totalAmount || 0).toFixed(2)}`
             : `Total: $${(payload.totalAmount || 0).toFixed(2)}`,
-          priority: "medium",
+          priority: "low",
           entityType: "order",
           entityId: payload.orderId,
-          navigateTo: `/orders/${payload.orderId}`,
+          navigateTo: `/orders/history?orderId=${payload.orderId}`,
           metadata: {
             orderNumber: payload.orderNumber,
             customerName: payload.customerName,
             total: payload.totalAmount,
             source: payload.source,
+            status: "pending",
           },
         },
         payload.tenantId,
@@ -49,6 +50,51 @@ export class NotificationCenterListener {
     } catch (error) {
       this.logger.error(
         `Failed to create notification for order.created: ${error.message}`,
+      );
+    }
+  }
+
+  @OnEvent("order.paid")
+  async handleOrderPaid(payload: {
+    orderId: string;
+    tenantId: string;
+    customerId?: string;
+    orderNumber?: string;
+    customerName?: string;
+    totalAmount?: number;
+    paidAmount?: number;
+    source?: string;
+  }) {
+    this.logger.log(`Handling order.paid for order ${payload.orderId}`);
+
+    try {
+      await this.notificationService.create(
+        {
+          category: "sales",
+          type: NOTIFICATION_TYPES.ORDER_PAID,
+          title: `✅ Venta completada #${payload.orderNumber || payload.orderId.slice(-6)}`,
+          message: payload.customerName
+            ? `${payload.customerName} - $${(payload.paidAmount || 0).toFixed(2)}`
+            : `Total pagado: $${(payload.paidAmount || 0).toFixed(2)}`,
+          priority: "high",
+          entityType: "order",
+          entityId: payload.orderId,
+          navigateTo: `/orders/history?orderId=${payload.orderId}`,
+          metadata: {
+            orderNumber: payload.orderNumber,
+            customerName: payload.customerName,
+            totalAmount: payload.totalAmount,
+            paidAmount: payload.paidAmount,
+            source: payload.source,
+            status: "paid",
+          },
+        },
+        payload.tenantId,
+        { broadcast: true },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to create notification for order.paid: ${error.message}`,
       );
     }
   }
@@ -100,7 +146,7 @@ export class NotificationCenterListener {
           priority: newStatus === "cancelled" ? "high" : "medium",
           entityType: "order",
           entityId: order._id?.toString() || order.id,
-          navigateTo: `/orders/${order._id || order.id}`,
+          navigateTo: `/orders/history?orderId=${order._id || order.id}`,
           metadata: {
             orderNumber: order.orderNumber,
             previousStatus,

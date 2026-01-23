@@ -19,6 +19,7 @@ export const NOTIFICATION_TYPES = {
   ORDER_CONFIRMED: "order.confirmed",
   ORDER_FULFILLED: "order.fulfilled",
   ORDER_CANCELLED: "order.cancelled",
+  ORDER_PAID: "order.paid",
   // Inventory
   INVENTORY_LOW_STOCK: "inventory.low_stock",
   INVENTORY_EXPIRING: "inventory.expiring",
