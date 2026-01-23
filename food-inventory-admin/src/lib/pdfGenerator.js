@@ -166,18 +166,18 @@ export const generateDocumentPDF = async ({ documentType, orderData, customerDat
 
     const itemData = hasDiscounts
       ? [
-          item.productName,
-          quantity,
-          `$${unitPrice.toFixed(2)}`,
-          discount > 0 ? `-${discount}%` : '-',
-          `$${total.toFixed(2)}`
-        ]
+        item.productName,
+        quantity,
+        `$${unitPrice.toFixed(2)}`,
+        discount > 0 ? `-${discount}%` : '-',
+        `$${total.toFixed(2)}`
+      ]
       : [
-          item.productName,
-          quantity,
-          `$${unitPrice.toFixed(2)}`,
-          `$${total.toFixed(2)}`
-        ];
+        item.productName,
+        quantity,
+        `$${unitPrice.toFixed(2)}`,
+        `$${total.toFixed(2)}`
+      ];
     tableRows.push(itemData);
   });
 
@@ -186,25 +186,25 @@ export const generateDocumentPDF = async ({ documentType, orderData, customerDat
     head: [tableColumn],
     body: tableRows,
     headStyles: {
-        fillColor: templateSettings.primaryColor || '#000000'
+      fillColor: templateSettings.primaryColor || '#000000'
     },
     styles: {
-        halign: 'left'
+      halign: 'left'
     },
     columnStyles: hasDiscounts
       ? {
-          0: { halign: 'left' },
-          1: { halign: 'center' },
-          2: { halign: 'right' },
-          3: { halign: 'center' },
-          4: { halign: 'right' },
-        }
+        0: { halign: 'left' },
+        1: { halign: 'center' },
+        2: { halign: 'right' },
+        3: { halign: 'center' },
+        4: { halign: 'right' },
+      }
       : {
-          0: { halign: 'left' },
-          1: { halign: 'center' },
-          2: { halign: 'right' },
-          3: { halign: 'right' },
-        }
+        0: { halign: 'left' },
+        1: { halign: 'center' },
+        2: { halign: 'right' },
+        3: { halign: 'right' },
+      }
   });
 
   // 7. Add Totals with USD and Bs conversion
@@ -353,9 +353,14 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
   });
 
   // Divider
+  const margin = 8;
+  const contentWidth = 80 - (margin * 2);
+  const rightEdge = 80 - margin;
+  const centerX = 40;
+
   currentY += 2;
   doc.setLineWidth(0.1);
-  doc.line(5, currentY, 75, currentY);
+  doc.line(margin, currentY, rightEdge, currentY);
   currentY += 4;
 
   // Document title centered
@@ -365,42 +370,42 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
   currentY += 6;
 
   // Order info
-  doc.setFontSize(12);
+  doc.setFontSize(10);
   doc.setFont(undefined, 'normal');
-  doc.text(`Orden: ${orderData.orderNumber || ''}`, 5, currentY);
+  doc.text(`Orden: ${orderData.orderNumber || ''}`, margin, currentY);
   currentY += 4;
-  doc.text(`Fecha: ${new Date(orderData.createdAt).toLocaleDateString()}`, 5, currentY);
+  doc.text(`Fecha: ${new Date(orderData.createdAt).toLocaleDateString()}`, margin, currentY);
   currentY += 4;
   if (controlNumber) {
-    doc.text(`Control Fiscal: ${controlNumber}`, 5, currentY);
+    doc.text(`Control Fiscal: ${controlNumber}`, margin, currentY);
     currentY += 4;
   }
   if (fiscalHash) {
-    doc.text(`Hash: ${String(fiscalHash).slice(0, 24)}...`, 5, currentY);
+    doc.text(`Hash: ${String(fiscalHash).slice(0, 24)}...`, margin, currentY);
     currentY += 4;
   }
 
   // Customer info
-  doc.text(`Cliente: ${customerData?.name || orderData.customerName}`, 5, currentY);
+  doc.text(`Cliente: ${customerData?.name || orderData.customerName}`, margin, currentY);
   currentY += 4;
   if (customerData?.taxId) {
-    doc.text(`RIF: ${customerData.taxId}`, 5, currentY);
+    doc.text(`RIF: ${customerData.taxId}`, margin, currentY);
     currentY += 4;
   }
 
   // Divider
   currentY += 2;
-  doc.line(5, currentY, 75, currentY);
+  doc.line(margin, currentY, rightEdge, currentY);
   currentY += 4;
 
   // Products table
   doc.setFont(undefined, 'bold');
-  doc.setFontSize(10);
-  doc.text('Producto', 5, currentY);
-  doc.text('Cant', 50, currentY);
-  doc.text('Total', 70, currentY, { align: 'right' });
+  doc.setFontSize(9);
+  doc.text('Producto', margin, currentY);
+  doc.text('Cant', margin + 35, currentY);
+  doc.text('Total', rightEdge, currentY, { align: 'right' });
   currentY += 4;
-  doc.line(5, currentY, 75, currentY);
+  doc.line(margin, currentY, rightEdge, currentY);
   currentY += 4;
 
   doc.setFont(undefined, 'normal');
@@ -415,27 +420,27 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
     const total = quantity * finalUnitPrice;
 
     lines.forEach((line, idx) => {
-      doc.text(line, 5, currentY);
+      doc.text(line, margin, currentY);
       if (idx === 0) {
-        doc.text(String(quantity), 50, currentY);
-        doc.text(`$${total.toFixed(2)}`, 75, currentY, { align: 'right' });
+        doc.text(String(quantity), margin + 35, currentY);
+        doc.text(`$${total.toFixed(2)}`, rightEdge, currentY, { align: 'right' });
       }
       currentY += 4;
     });
 
     // Price per unit in smaller font
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     if (discount > 0) {
-      doc.text(`@ $${unitPrice.toFixed(2)} c/u (-${discount}%)`, 5, currentY);
+      doc.text(`@ $${unitPrice.toFixed(2)} c/u (-${discount}%)`, margin, currentY);
     } else {
-      doc.text(`@ $${unitPrice.toFixed(2)} c/u`, 5, currentY);
+      doc.text(`@ $${unitPrice.toFixed(2)} c/u`, margin, currentY);
     }
     currentY += 4;
     doc.setFontSize(8);
   });
 
   // Divider
-  doc.line(5, currentY, 75, currentY);
+  doc.line(margin, currentY, rightEdge, currentY);
   currentY += 4;
 
   // Totals
@@ -446,38 +451,38 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
   const generalDiscountAmount = orderData.generalDiscountAmount || 0;
 
   if (orderData.subtotal) {
-    doc.text('Subtotal:', 5, currentY); // labels left-aligned
-    doc.text(`$${orderData.subtotal.toFixed(2)}`, 75, currentY, { align: 'right' });
+    doc.text('Subtotal:', margin, currentY); // labels left-aligned
+    doc.text(`$${orderData.subtotal.toFixed(2)}`, rightEdge, currentY, { align: 'right' });
     currentY += 4;
   }
   if (generalDiscountAmount > 0) {
-    doc.text('Desc. General:', 5, currentY);
-    doc.text(`-$${generalDiscountAmount.toFixed(2)}`, 75, currentY, { align: 'right' });
+    doc.text('Desc. General:', margin, currentY);
+    doc.text(`-$${generalDiscountAmount.toFixed(2)}`, rightEdge, currentY, { align: 'right' });
     currentY += 4;
   }
   if (orderData.ivaTotal) {
-    doc.text('IVA:', 5, currentY);
-    doc.text(`$${orderData.ivaTotal.toFixed(2)}`, 75, currentY, { align: 'right' });
+    doc.text('IVA:', margin, currentY);
+    doc.text(`$${orderData.ivaTotal.toFixed(2)}`, rightEdge, currentY, { align: 'right' });
     currentY += 4;
   }
   if (orderData.igtfTotal) {
-    doc.text('IGTF:', 5, currentY);
-    doc.text(`$${orderData.igtfTotal.toFixed(2)}`, 75, currentY, { align: 'right' });
+    doc.text('IGTF:', margin, currentY);
+    doc.text(`$${orderData.igtfTotal.toFixed(2)}`, rightEdge, currentY, { align: 'right' });
     currentY += 4;
   }
   if (orderData.shippingCost) {
-    doc.text('Envío:', 5, currentY);
-    doc.text(`$${orderData.shippingCost.toFixed(2)}`, 75, currentY, { align: 'right' });
+    doc.text('Envío:', margin, currentY);
+    doc.text(`$${orderData.shippingCost.toFixed(2)}`, rightEdge, currentY, { align: 'right' });
     currentY += 4;
   }
 
-  doc.setFontSize(12);
-  doc.text('TOTAL USD:', 5, currentY);
-  doc.text(`$${totalUSD.toFixed(2)}`, 75, currentY, { align: 'right' });
+  doc.setFontSize(11);
+  doc.text('TOTAL USD:', margin, currentY);
+  doc.text(`$${totalUSD.toFixed(2)}`, rightEdge, currentY, { align: 'right' });
   currentY += 5;
 
-  doc.text('TOTAL Bs:', 5, currentY);
-  doc.text(`Bs ${totalBs.toFixed(2)}`, 75, currentY, { align: 'right' });
+  doc.text('TOTAL Bs:', margin, currentY);
+  doc.text(`Bs ${totalBs.toFixed(2)}`, rightEdge, currentY, { align: 'right' });
   currentY += 6;
 
   // Footer
