@@ -589,6 +589,18 @@ export class UpdateTenantSettingsDto {
   @SanitizeString()
   name?: string;
 
+  @ApiProperty({ example: "Juan" })
+  @IsString()
+  @IsOptional()
+  @SanitizeString()
+  ownerFirstName?: string;
+
+  @ApiProperty({ example: "Pérez" })
+  @IsString()
+  @IsOptional()
+  @SanitizeString()
+  ownerLastName?: string;
+
   @ApiProperty({ type: ContactInfoDto })
   @IsOptional()
   @ValidateNested()

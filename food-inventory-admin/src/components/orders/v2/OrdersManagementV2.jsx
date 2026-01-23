@@ -11,7 +11,7 @@ import { PaymentDialogV2 } from './PaymentDialogV2';
 import { OrderStatusSelector } from './OrderStatusSelector';
 import { OrderDetailsDialog } from './OrderDetailsDialog';
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Search, Download, ChefHat, Settings, Eye, EyeOff } from "lucide-react";
+import { RefreshCw, Search, Download, ChefHat, Settings, Eye, EyeOff, RotateCcw } from "lucide-react";
 import BillingDrawer from '@/components/billing/BillingDrawer';
 import { OrderProcessingDrawer } from '../OrderProcessingDrawer';
 import { useDebounce } from '@/hooks/use-debounce.js';
@@ -465,16 +465,32 @@ export function OrdersManagementV2() {
               : 'Consulta y administra el historial de pedidos.'}
           </p>
         </div>
-        <div>
-          {activeView === 'create' ? (
-            <Button variant="outline" onClick={() => setActiveView('history')}>
-              Historial de Órdenes
-            </Button>
-          ) : (
-            <Button onClick={() => setActiveView('create')}>
-              Crear Nueva Orden
-            </Button>
-          )}
+        <div className="flex gap-2">
+          <Button
+            variant={activeView === 'create' ? 'default' : 'outline'}
+            onClick={() => setActiveView('create')}
+          >
+            Crear Nueva Orden
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setActiveView('create');
+              // Trigger event to clear the order form
+              setTimeout(() => {
+                document.dispatchEvent(new CustomEvent('clear-order-form'));
+              }, 100);
+            }}
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Nueva Orden
+          </Button>
+          <Button
+            variant={activeView === 'history' ? 'default' : 'outline'}
+            onClick={() => setActiveView('history')}
+          >
+            Historial de Órdenes
+          </Button>
         </div>
       </div>
 

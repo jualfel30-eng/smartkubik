@@ -10,10 +10,12 @@ import { fetchApi, registerTipsOnOrder } from '@/lib/api';
 import { X, Plus, Calculator, Wand2, HandCoins } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from "@/components/ui/badge";
+import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
 
 export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exchangeRate }) {
   const { paymentMethods, paymentMethodsLoading } = useCrmContext();
   const { triggerRefresh } = useAccountingContext();
+  const { isFoodService } = useVerticalConfig();
 
   const [paymentMode, setPaymentMode] = useState('single');
   const [singlePayment, setSinglePayment] = useState({ method: '', reference: '', bankAccountId: '' });
@@ -862,7 +864,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                   <Label htmlFor="tip-employee" className="text-sm">Asignar propina a:</Label>
                   <Select value={assignedTipEmployee} onValueChange={setAssignedTipEmployee}>
                     <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Seleccione mesero..." />
+                      <SelectValue placeholder={isFoodService ? "Seleccione mesero..." : "Seleccione vendedor..."} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="pool">Pool / General</SelectItem>

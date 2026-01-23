@@ -26,6 +26,8 @@ import { DEFAULT_VERTICAL_KEY, getVerticalProfile, listVerticalProfiles } from '
 
 const initialSettings = {
   name: '',
+  ownerFirstName: '',
+  ownerLastName: '',
   website: '',
   logo: '',
   verticalProfile: {
@@ -318,7 +320,8 @@ const SettingsPage = () => {
           applySettingsData(response.data);
           updateTenantContext?.({
             name: response.data.name,
-            contactInfo: response.data.contactInfo,
+            ownerFirstName: response.data.ownerFirstName,
+            ownerLastName: response.data.ownerLastName,            contactInfo: response.data.contactInfo,
             taxInfo: response.data.taxInfo,
             verticalProfile: {
               key: response.data.verticalProfile?.key || settings.verticalProfile.key,
@@ -472,7 +475,9 @@ const SettingsPage = () => {
                   <CardDescription>Datos principales de tu empresa.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Nombre del Negocio</Label><Input name="name" value={settings.name} onChange={handleInputChange} /></div>
+                  <div className="space-y-2"><Label>Nombre del Propietario</Label><Input name="ownerFirstName" value={settings.ownerFirstName || ''} onChange={handleInputChange} placeholder="Nombre" /></div>
+                  <div className="space-y-2"><Label>Apellido del Propietario</Label><Input name="ownerLastName" value={settings.ownerLastName || ''} onChange={handleInputChange} placeholder="Apellido" /></div>
+                  <div className="space-y-2 md:col-span-2"><Label>Nombre del Negocio</Label><Input name="name" value={settings.name} onChange={handleInputChange} /></div>
                   <div className="space-y-2"><Label>Sitio Web</Label><Input name="website" value={settings.website} onChange={handleInputChange} /></div>
                   <div className="space-y-2"><Label>Email de Contacto</Label><Input name="contactInfo.email" value={settings.contactInfo.email} onChange={handleInputChange} /></div>
                   <div className="space-y-2"><Label>Teléfono</Label><Input name="contactInfo.phone" value={settings.contactInfo.phone} onChange={handleInputChange} /></div>

@@ -47,7 +47,11 @@ export function OrderSidebar({
   handleFieldChange,
   onSendToKitchen, // NEW
   isEditMode, // NEW
+  context = 'default', // 'whatsapp' | 'tables' | 'default'
 }) {
+  // Ajustar padding según contexto
+  const bottomPadding = context === 'whatsapp' ? 'pb-8' : 'pb-2';
+
   return (
     <div className="flex flex-col">
       {/* Sección scrolleable */}
@@ -96,7 +100,7 @@ export function OrderSidebar({
       </div>
 
       {/* Resumen y Botón - Sticky en bottom */}
-      <div className="pt-4 pb-2 bg-background">
+      <div className={`pt-4 ${bottomPadding} bg-background`}>
         <div className="p-4 border rounded-lg space-y-4 bg-card">
           <Label className="text-base font-semibold">Resumen</Label>
           <div className="space-y-2">

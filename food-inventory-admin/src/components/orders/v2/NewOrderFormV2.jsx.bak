@@ -80,6 +80,18 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
   // Ref to prevent useEffect race condition when updating orders
   const previousOrderId = useRef(null);
 
+  // Determine context for draft key
+  const draftContext = useMemo(() => {
+    if (initialTableId) return `table_${initialTableId}`;
+    if (isEmbedded) return 'whatsapp';
+    return 'pos';
+  }, [initialTableId, isEmbedded]);
+
+  const { tenant, hasPermission } = useAuth();
+  const { saveDraft, loadDraft, clearDraft, hasDraft } = useOrderDraft(tenant?.id, draftContext);
+
+  const [showDraftDialog, setShowDraftDialog] = useState(false);
+  const [pendingDraft, setPendingDraft] = useState(null);
 
   // Efecto para inicializar mesa (si se pasa)
   useEffect(() => {
@@ -258,67 +270,6 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
 
   const [customerSearchResults, setCustomerSearchResults] = useState([]);
   const customerSearchTimeout = useRef(null);
-
-  // ========== DRAFT FUNCTIONALITY ==========
-
-  // Check for draft on mount
-  useEffect(() => {
-    if (!existingOrder && !initialCustomer && hasDraft()) {
-      const draft = loadDraft();
-      if (draft) {
-        setPendingDraft(draft);
-        setShowDraftDialog(true);
-      }
-    }
-  }, [existingOrder, initialCustomer, hasDraft, loadDraft]);
-
-  // Auto-save draft (debounced)
-  useEffect(() => {
-    if (existingOrder) return; // Don't save drafts when editing existing orders
-
-    const timeoutId = setTimeout(() => {
-      // Only save if there's meaningful data
-      if (newOrder.items.length > 0 || newOrder.customerName || newOrder.customerRif) {
-        saveDraft(newOrder);
-      }
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [newOrder, existingOrder, saveDraft]);
-
-  // Draft handling functions
-  const handleLoadDraft = () => {
-    if (pendingDraft) {
-      setNewOrder(pendingDraft);
-      setShowDraftDialog(false);
-      toast.success('Borrador cargado');
-    }
-  };
-
-  const handleDiscardDraft = () => {
-    clearDraft();
-    setShowDraftDialog(false);
-    setPendingDraft(null);
-    toast.info('Borrador descartado');
-  };
-
-  const handleClearCurrentDraft = () => {
-    clearDraft();
-    setNewOrder(initialOrderState);
-    toast.info('Orden reiniciada');
-  };
-
-  // Listen for clear-order-form event from parent component
-  useEffect(() => {
-    const handleClearEvent = () => {
-      handleClearCurrentDraft();
-    };
-
-    document.addEventListener('clear-order-form', handleClearEvent);
-    return () => document.removeEventListener('clear-order-form', handleClearEvent);
-  }, []);
-
-  // ========== END DRAFT FUNCTIONALITY ==========
   const barcodeInputRef = useRef(null);
   const lastScannedRef = useRef({ code: '', at: 0 });
   const restaurantEnabled = Boolean(
@@ -1529,9 +1480,6 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
     // Guardar y abrir wizard (autoWizard: true)
     const savedOrder = await handleCreateOrder({ autoWizard: true });
     if (savedOrder) {
-      // Clear draft after successful order creation
-      clearDraft();
-
       // Si estamos en modo edición (mesas) y damos "Pagar/Cerrar",
       // forzamos la llamada a onOrderCreated para que el padre abra el Wizard de Pagos inmediatamente
       if (isEditMode && onOrderCreated) {
@@ -1956,32 +1904,6 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
 
   return (
     <>
-      {/* Draft confirmation dialog */}
-      <AlertDialog open={showDraftDialog} onOpenChange={setShowDraftDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Borrador encontrado</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tienes una orden sin terminar. ¿Deseas continuar donde lo dejaste?
-              {pendingDraft && (
-                <div className="mt-2 text-sm space-y-1">
-                  <p>• {pendingDraft.items?.length || 0} items</p>
-                  {pendingDraft.customerName && <p>• Cliente: {pendingDraft.customerName}</p>}
-                </div>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleDiscardDraft}>
-              Descartar
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleLoadDraft}>
-              Continuar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       {supportsModifiers && showModifierSelector && pendingProductConfig && (
         <ModifierSelector
           product={{
@@ -2090,7 +2012,6 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
               <div className="space-y-4 border rounded-lg p-3 bg-card/50">
                 <Label className="text-sm font-semibold">Cliente</Label>
                 <div className="space-y-3">
-                  {/* Tax Type + RIF + Customer Name in same row */}
                   <div className="flex gap-2">
                     <Select value={newOrder.taxType} onValueChange={(value) => handleFieldChange('taxType', value)}>
                       <SelectTrigger className="w-[65px] h-9">
@@ -2103,7 +2024,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                         <SelectItem value="G">G</SelectItem>
                       </SelectContent>
                     </Select>
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1">
                       <SearchableSelect
                         options={rifOptions}
                         onSelection={handleCustomerRifSelection}
@@ -2115,19 +2036,17 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                         customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
                       />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <SearchableSelect
-                        options={customerOptions}
-                        onSelection={handleCustomerNameSelection}
-                        onInputChange={handleCustomerNameInputChange}
-                        inputValue={customerNameInput}
-                        value={getCustomerNameValue()}
-                        placeholder="Nombre..."
-                        isLoading={isSearchingCustomers}
-                        customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
-                      />
-                    </div>
                   </div>
+                  <SearchableSelect
+                    options={customerOptions}
+                    onSelection={handleCustomerNameSelection}
+                    onInputChange={handleCustomerNameInputChange}
+                    inputValue={customerNameInput}
+                    value={getCustomerNameValue()}
+                    placeholder="Nombre del cliente..."
+                    isLoading={isSearchingCustomers}
+                    customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
+                  />
 
                   {/* NUEVOS CAMPOS DE CONTACTO PARA MÓVIL/EMBEDDED */}
                   <div className="grid grid-cols-2 gap-2">

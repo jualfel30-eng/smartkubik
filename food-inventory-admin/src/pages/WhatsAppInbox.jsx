@@ -83,6 +83,19 @@ const WhatsAppInbox = () => {
     setIsActionPanelOpen(false);
   };
 
+  // ESC key listener to close ActionPanel
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isActionPanelOpen) {
+        setIsActionPanelOpen(false);
+        setOrderIdToView(null);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isActionPanelOpen]);
+
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -288,8 +301,8 @@ const WhatsAppInbox = () => {
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-background text-foreground font-sans rounded-lg border border-border shadow-sm md:flex-row">
-      {/* Conversations Sidebar */}
-      <div className={`${isSidebarOpen ? 'flex' : 'hidden'} w-full flex-shrink-0 flex-col border-border bg-card border-b md:h-full md:w-80 md:border-b-0 md:border-r lg:w-96 transition-all duration-300 ease-in-out`}>
+      {/* Conversations Sidebar - Hide when ActionPanel is open */}
+      <div className={`${isSidebarOpen && !isActionPanelOpen ? 'flex' : 'hidden'} w-full flex-shrink-0 flex-col border-border bg-card border-b md:h-full md:w-80 md:border-b-0 md:border-r lg:w-96 transition-all duration-300 ease-in-out`}>
         <div className="border-border border-b p-4 flex-shrink-0 sticky top-0 z-20 bg-card flex justify-between items-center">
           <h2 className="text-xl font-bold">Conversations</h2>
         </div>
@@ -320,8 +333,8 @@ const WhatsAppInbox = () => {
         </div>
       </div>
 
-      {/* Active Chat Area */}
-      <div className={`${!isSidebarOpen || activeConversation ? 'flex' : 'hidden md:flex'} w-full flex-1 min-h-0 flex-col transition-all duration-300`}>
+      {/* Active Chat Area - Resize to 35% when ActionPanel is open */}
+      <div className={`${!isSidebarOpen || activeConversation ? 'flex' : 'hidden md:flex'} ${isActionPanelOpen ? 'w-[35%]' : 'w-full'} flex-1 min-h-0 flex-col transition-all duration-300 ease-in-out`}>
         {activeConversation ? (
           <>
             {/* Chat Header - Sticky */}
@@ -342,10 +355,36 @@ const WhatsAppInbox = () => {
                 <h2 className="text-xl font-bold truncate">{activeConversation.customerName || activeConversation.customerPhoneNumber}</h2>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" variant="outline" onClick={() => { setActiveAction('order'); setIsActionPanelOpen(true); }}>
+                <Button
+                  size="sm"
+                  variant={isActionPanelOpen && activeAction === 'order' ? 'default' : 'outline'}
+                  onClick={() => {
+                    if (isActionPanelOpen && activeAction === 'order') {
+                      setIsActionPanelOpen(false); // Toggle: close if already open
+                      setOrderIdToView(null);
+                    } else {
+                      setActiveAction('order');
+                      setIsActionPanelOpen(true);
+                      setIsSidebarOpen(false); // Close inbox
+                    }
+                  }}
+                >
                   <ShoppingBag className="h-4 w-4 mr-2" /> <span className="hidden sm:inline">Orden</span>
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => { setActiveAction('reservation'); setIsActionPanelOpen(true); }}>
+                <Button
+                  size="sm"
+                  variant={isActionPanelOpen && activeAction === 'reservation' ? 'default' : 'outline'}
+                  onClick={() => {
+                    if (isActionPanelOpen && activeAction === 'reservation') {
+                      setIsActionPanelOpen(false);
+                      setOrderIdToView(null);
+                    } else {
+                      setActiveAction('reservation');
+                      setIsActionPanelOpen(true);
+                      setIsSidebarOpen(false);
+                    }
+                  }}
+                >
                   <Calendar className="h-4 w-4 mr-2" /> <span className="hidden sm:inline">Reserva</span>
                 </Button>
               </div>
@@ -477,19 +516,23 @@ const WhatsAppInbox = () => {
         )}
       </div>
 
-      {/* Action Panel */}
-      <ActionPanel
-        isOpen={isActionPanelOpen}
-        onClose={() => {
-          setIsActionPanelOpen(false);
-          setOrderIdToView(null);
-        }}
-        activeAction={activeAction}
-        onActionChange={setActiveAction}
-        activeConversation={activeConversation}
-        tenant={tenant}
-        initialOrderId={orderIdToView}
-      />
+      {/* Action Panel - Side panel (not Sheet overlay) */}
+      {isActionPanelOpen && (
+        <div className="w-[65%] border-l border-border flex-shrink-0 animate-in slide-in-from-right duration-300">
+          <ActionPanel
+            isOpen={isActionPanelOpen}
+            onClose={() => {
+              setIsActionPanelOpen(false);
+              setOrderIdToView(null);
+            }}
+            activeAction={activeAction}
+            onActionChange={setActiveAction}
+            activeConversation={activeConversation}
+            tenant={tenant}
+            initialOrderId={orderIdToView}
+          />
+        </div>
+      )}
     </div>
   );
 };

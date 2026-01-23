@@ -7,7 +7,7 @@ import { useSidebar } from '@/components/ui/sidebar';
 
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { History } from 'lucide-react';
+import { History, RotateCcw } from 'lucide-react';
 
 export function OrdersPOS() {
     const navigate = useNavigate();
@@ -49,10 +49,22 @@ export function OrdersPOS() {
                         Punto de Venta (POS)
                     </p>
                 </div>
-                <Button variant="outline" className="gap-2" onClick={() => navigate('/orders/history')}>
-                    <History className="h-4 w-4" />
-                    Historial de Órdenes
-                </Button>
+                <div className="flex gap-2">
+                    <Button
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => {
+                            document.dispatchEvent(new CustomEvent('clear-order-form'));
+                        }}
+                    >
+                        <RotateCcw className="h-4 w-4" />
+                        Nueva Orden
+                    </Button>
+                    <Button variant="outline" className="gap-2" onClick={() => navigate('/orders/history')}>
+                        <History className="h-4 w-4" />
+                        Historial de Órdenes
+                    </Button>
+                </div>
             </div>
 
             <NewOrderFormV2 onOrderCreated={handleOrderCreated} />
