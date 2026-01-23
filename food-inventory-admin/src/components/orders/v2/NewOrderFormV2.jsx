@@ -91,18 +91,27 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
   // Efecto para inicializar con cliente (si se pasa)
   useEffect(() => {
     if (initialCustomer && !existingOrder) {
+      const addr = initialCustomer.address || '';
       setNewOrder(prev => ({
         ...prev,
         customerId: initialCustomer.customerId,
         customerName: initialCustomer.name,
         customerPhone: initialCustomer.phone,
-        // Otros campos si estuvieran disponibles
+        customerRif: initialCustomer.taxId || prev.customerRif,
+        taxType: initialCustomer.taxType || prev.taxType,
+        customerEmail: initialCustomer.email || prev.customerEmail,
+        customerAddress: addr || initialCustomer.customerAddress || prev.customerAddress,
+        customerLocation: initialCustomer.location || prev.customerLocation,
+        // Set delivery method to delivery if we have an address and it's from WhatsApp
+        deliveryMethod: (isEmbedded && (addr || initialCustomer.customerAddress)) ? 'delivery' : prev.deliveryMethod,
       }));
       setCustomerNameInput(initialCustomer.name || '');
+      if (initialCustomer.taxId) {
+        setCustomerRifInput(initialCustomer.taxId);
+      }
     }
   }, [initialCustomer, existingOrder]);
 
-  // Efecto para cargar orden existente
   // Efecto para cargar orden existente
   useEffect(() => {
     // Only reinitialize if this is a different order (prevent race condition)
@@ -258,6 +267,69 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
 
   const [customerSearchResults, setCustomerSearchResults] = useState([]);
   const customerSearchTimeout = useRef(null);
+
+  // Auto-lookup customer by phone when entered manually (POS or WhatsApp fallback)
+  useEffect(() => {
+    // Evitar error si newOrder aún no está definido (aunque aquí debería estarlo)
+    if (!newOrder) return;
+
+    const phone = newOrder.customerPhone;
+
+    // Solo buscar si:
+    // 1. Hay un teléfono de al menos 8 dígitos
+    // 2. NO estamos editando una orden existente
+    // 3. NO tenemos ya un customerId asignado (para no sobrescribir selecciones manuales)
+    if (!phone || phone.length < 8 || existingOrder || (newOrder.customerId && newOrder.customerId !== '')) {
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const response = await fetchApi(`/customers?search=${encodeURIComponent(phone)}&limit=1`);
+        const customers = response?.data || [];
+
+        if (customers.length > 0) {
+          const customer = customers[0];
+
+          // Extraer RIF y tipo
+          const fullRif = customer.taxInfo?.taxId || '';
+          let taxType = customer.taxInfo?.taxType || 'V';
+          let rifNumber = fullRif;
+
+          if (fullRif.includes('-')) {
+            const parts = fullRif.split('-');
+            taxType = parts[0];
+            rifNumber = parts.slice(1).join('-');
+          }
+
+          // Obtener dirección (más robusto: chequear addresses array y primaryLocation)
+          const address = customer.primaryLocation?.address ||
+            (customer.addresses && customer.addresses.length > 0 ? customer.addresses[0].street : '');
+
+          setNewOrder(prev => ({
+            ...prev,
+            customerId: customer._id,
+            customerName: customer.name,
+            customerRif: rifNumber,
+            taxType: taxType,
+            customerAddress: address || prev.customerAddress,
+            customerEmail: customer.email || prev.customerEmail,
+            customerLocation: customer.primaryLocation || null,
+            // Si encontramos dirección, ponemos delivery por defecto (especialmente útil para WhatsApp)
+            deliveryMethod: address ? 'delivery' : prev.deliveryMethod,
+          }));
+
+          setCustomerNameInput(customer.name);
+          setCustomerRifInput(rifNumber);
+          toast.success(`Cliente encontrado: ${customer.name}`);
+        }
+      } catch (error) {
+        console.error('Error in phone auto-lookup:', error);
+      }
+    }, 1000); // 1 second debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [newOrder.customerPhone, existingOrder, newOrder.customerId]);
 
   // ========== DRAFT FUNCTIONALITY ==========
 

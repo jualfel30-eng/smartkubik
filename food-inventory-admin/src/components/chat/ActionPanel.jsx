@@ -24,6 +24,9 @@ export const ActionPanel = ({
     const [isProcessingDrawerOpen, setIsProcessingDrawerOpen] = useState(false);
     const { rate: exchangeRate } = useExchangeRate();
 
+    const [crmCustomer, setCrmCustomer] = useState(null);
+    const [loadingCustomer, setLoadingCustomer] = useState(false);
+
     // Reset state when action changes or panel closes
     useEffect(() => {
         if (!isOpen) {
@@ -66,12 +69,69 @@ export const ActionPanel = ({
         }
     }, [activeAction, initialOrderId]);
 
-    // Extract customer info from conversation
-    const customerInfo = activeConversation ? {
-        customerId: activeConversation.customerId,
-        name: activeConversation.customerName || activeConversation.customerPhoneNumber,
-        phone: activeConversation.customerPhoneNumber,
-    } : null;
+    // UseEffect to search customer by phone in CRM
+    useEffect(() => {
+        if (!activeConversation?.customerPhoneNumber) {
+            setCrmCustomer(null);
+            return;
+        }
+
+        const searchCustomerByPhone = async () => {
+            setLoadingCustomer(true);
+            try {
+                // Search in CRM by phone number using the correct /customers?search endpoint
+                // We use encodeURIComponent to handle special characters like '+'
+                const phoneTerm = activeConversation.customerPhoneNumber;
+                const response = await fetchApi(`/customers?search=${encodeURIComponent(phoneTerm)}&limit=5`);
+
+                // The /customers endpoint returns { success: true, data: [customers], pagination: {...} }
+                const customers = response?.data || [];
+
+                if (Array.isArray(customers) && customers.length > 0) {
+                    // Find if any customer has an exact match for the phone number in their contacts
+                    // This is safer than just taking the first result if the search is fuzzy
+                    const exactMatch = customers.find(c =>
+                        c.contacts?.some(contact => contact.value.includes(phoneTerm))
+                    );
+
+                    setCrmCustomer(exactMatch || customers[0]);
+                } else {
+                    setCrmCustomer(null);
+                }
+            } catch (error) {
+                console.error('Error searching customer in WhatsApp lookup:', error);
+                setCrmCustomer(null);
+            } finally {
+                setLoadingCustomer(false);
+            }
+        };
+
+        searchCustomerByPhone();
+    }, [activeConversation?.customerPhoneNumber]);
+
+    // Extract customer info from conversation or CRM lookup
+    const customerInfo = React.useMemo(() => {
+        if (!activeConversation) return null;
+
+        if (crmCustomer) {
+            return {
+                customerId: crmCustomer._id,
+                name: crmCustomer.name,
+                phone: crmCustomer.phone || activeConversation.customerPhoneNumber,
+                taxId: crmCustomer.taxInfo?.taxId,
+                taxType: crmCustomer.taxInfo?.taxType || 'V',
+                email: crmCustomer.email,
+                address: crmCustomer.primaryLocation?.address || (crmCustomer.addresses && crmCustomer.addresses.length > 0 ? crmCustomer.addresses[0].street : ''),
+                location: crmCustomer.primaryLocation,
+            };
+        }
+
+        return {
+            customerId: activeConversation.customerId,
+            name: activeConversation.customerName || '', // Don't use phone as fallback name
+            phone: activeConversation.customerPhoneNumber,
+        };
+    }, [activeConversation, crmCustomer]);
 
     const handleOrderCreated = (order, autoWizard = true) => {
         console.log('Order created:', order);
