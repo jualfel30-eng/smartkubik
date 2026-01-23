@@ -2004,7 +2004,7 @@ export class OrdersService {
             }
 
             this.logger.log(
-              `[TABLE CLEANUP] Attempting to clear table ${tableIdStr} for order ${order.orderNumber} (${freshOrder.deliveryMethod || 'unknown'})`
+              `[TABLE CLEANUP] Attempting to clear table ${tableIdStr} for order ${order.orderNumber} (${(freshOrder as any).deliveryMethod || 'unknown'})`
             );
 
             await this.tablesService.clearTable(tableIdStr, user.tenantId);
@@ -2049,7 +2049,7 @@ export class OrdersService {
             }
 
             this.logger.log(
-              `[TABLE CLEANUP] Attempting to clear table ${tableIdStr} for order ${order.orderNumber} (${order.deliveryMethod})`
+              `[TABLE CLEANUP] Attempting to clear table ${tableIdStr} for order ${order.orderNumber} (${(order as any).deliveryMethod})`
             );
 
             await this.tablesService.clearTable(tableIdStr, user.tenantId);

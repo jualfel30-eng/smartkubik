@@ -381,9 +381,19 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
       // Register tip if enabled and has amount
       if (tipEnabled && calculatedTipAmount > 0) {
         try {
-          // Send tip method directly (Backend DTO now accepts any string)
-          const methodToSend = tipMethod ||
+          // Map internal payment methods to API allowed values (cash, card, digital)
+          const mapToTipMethod = (methodId) => {
+            if (!methodId) return 'cash'; // Default
+            if (methodId.includes('efectivo')) return 'cash';
+            if (methodId.includes('tarjeta') || methodId.includes('pos')) return 'card';
+            if (methodId.includes('zelle') || methodId.includes('pago_movil') || methodId.includes('transferencia')) return 'digital';
+            return 'cash'; // Fallback
+          };
+
+          const selectedMethod = tipMethod ||
             ((paymentMode === 'single' && singlePayment.method) ? singlePayment.method : 'efectivo_usd');
+
+          const methodToSend = mapToTipMethod(selectedMethod);
 
           await registerTipsOnOrder(order._id, {
             amount: calculatedTipAmount,

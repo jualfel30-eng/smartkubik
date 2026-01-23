@@ -8,6 +8,10 @@ import {
 import { Service, ServiceDocument } from "../../schemas/service.schema";
 import { Resource, ResourceDocument } from "../../schemas/resource.schema";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
+import {
+  TipsDistributionRule,
+  TipsDistributionRuleDocument,
+} from "../../schemas/tips-distribution-rule.schema";
 import { PAYROLL_SYSTEM_ACCOUNTS } from "../../config/payroll-system-accounts.config";
 
 @Injectable()
@@ -23,7 +27,9 @@ export class SeedingService {
     private resourceModel: Model<ResourceDocument>,
     @InjectModel(Tenant.name)
     private tenantModel: Model<TenantDocument>,
-  ) {}
+    @InjectModel(TipsDistributionRule.name)
+    private tipsDistributionRuleModel: Model<TipsDistributionRuleDocument>,
+  ) { }
 
   async seedChartOfAccounts(tenantId: string, session?: ClientSession) {
     this.logger.log(
@@ -158,6 +164,96 @@ export class SeedingService {
     } catch (error) {
       this.logger.error(
         `Error durante el seeding del plan de cuentas para el tenant: ${tenantId}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  async seedTipsDistributionRules(tenantId: string, session?: ClientSession) {
+    this.logger.log(
+      `Iniciando seeding de reglas de distribución de propinas para el tenant: ${tenantId}`,
+    );
+
+    try {
+      // Verificar si ya existen reglas (evitar duplicados si se llama accidentalmente)
+      const existingQuery = this.tipsDistributionRuleModel.exists({
+        tenantId: new Types.ObjectId(tenantId),
+      });
+
+      if (session) {
+        existingQuery.session(session);
+      }
+
+      const existing = await existingQuery;
+      if (existing) {
+        this.logger.log(
+          `Las reglas de distribución de propinas ya existen para el tenant: ${tenantId}, omitiendo.`,
+        );
+        return;
+      }
+
+      const defaultRules = [
+        {
+          name: "Distribución Equitativa",
+          type: "equal",
+          isActive: true,
+          rules: {
+            includedRoles: ["waiter", "bartender", "busboy"],
+            poolTips: true,
+          },
+        },
+        {
+          name: "Por Horas Trabajadas",
+          type: "by-hours",
+          isActive: false,
+          rules: {
+            hourlyWeight: 1.0,
+            includedRoles: ["waiter", "bartender"],
+            poolTips: true,
+          },
+        },
+        {
+          name: "Por Ventas Generadas",
+          type: "by-sales",
+          isActive: false,
+          rules: {
+            salesWeight: 1.0,
+            includedRoles: ["waiter"],
+            poolTips: false,
+          },
+        },
+        {
+          name: "Distribución Personalizada",
+          type: "custom",
+          isActive: false,
+          rules: {
+            customFormula: "// Escribe tu fórmula personalizada aquí",
+            includedRoles: [],
+            poolTips: false,
+          },
+        },
+      ];
+
+      for (const ruleData of defaultRules) {
+        const rule = new this.tipsDistributionRuleModel({
+          ...ruleData,
+          tenantId: new Types.ObjectId(tenantId),
+        });
+
+        if (session) {
+          await rule.save({ session });
+        } else {
+          await rule.save();
+        }
+      }
+
+      this.logger.log(
+        `4 reglas de distribución de propinas creadas exitosamente para el tenant: ${tenantId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error durante el seeding de reglas de distribución de propinas para el tenant: ${tenantId}`,
         error.stack,
       );
       throw error;

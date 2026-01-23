@@ -162,14 +162,22 @@ export class OnboardingService {
           },
         });
         savedTenant = await newTenant.save({ session });
-        this.logger.log(`Paso 1/6: Tenant creado con ID: ${savedTenant._id}`);
+        this.logger.log(`Paso 1/7: Tenant creado con ID: ${savedTenant._id}`);
 
         await this.seedingService.seedChartOfAccounts(
           savedTenant._id.toString(),
           session,
         );
         this.logger.log(
-          `Paso 2/6: Plan de cuentas creado para el tenant: ${savedTenant._id}`,
+          `Paso 2/7: Plan de cuentas creado para el tenant: ${savedTenant._id}`,
+        );
+
+        await this.seedingService.seedTipsDistributionRules(
+          savedTenant._id.toString(),
+          session,
+        );
+        this.logger.log(
+          `Paso 3/7: Reglas de distribución de propinas creadas para el tenant: ${savedTenant._id}`,
         );
 
         const adminRole =
@@ -184,7 +192,7 @@ export class OnboardingService {
           );
         }
         this.logger.log(
-          `Paso 3/6: Rol de administrador asignado para el tenant: ${savedTenant._id}`,
+          `Paso 4/7: Rol de administrador asignado para el tenant: ${savedTenant._id}`,
         );
 
         const hashedPassword = await bcrypt.hash(dto.password, 12);
@@ -199,7 +207,7 @@ export class OnboardingService {
         });
         savedUser = await newUser.save({ session });
         this.logger.log(
-          `Paso 4/6: Usuario administrador creado con ID: ${savedUser._id}`,
+          `Paso 5/7: Usuario administrador creado con ID: ${savedUser._id}`,
         );
 
         const newMembership = new this.userTenantMembershipModel({
@@ -211,7 +219,7 @@ export class OnboardingService {
         });
         savedMembership = await newMembership.save({ session });
         this.logger.log(
-          `Paso 5/6: Membresía creada para el usuario en el tenant.`,
+          `Paso 6/7: Membresía creada para el usuario en el tenant.`,
         );
 
         // Crear series de facturación por defecto
@@ -220,7 +228,7 @@ export class OnboardingService {
           session,
         );
         this.logger.log(
-          `Paso 6/6: Series de facturación creadas para el tenant: ${savedTenant._id}`,
+          `Paso 7/7: Series de facturación creadas para el tenant: ${savedTenant._id}`,
         );
       });
 

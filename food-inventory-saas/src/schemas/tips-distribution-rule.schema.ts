@@ -24,6 +24,14 @@ export class TipsDistributionRules {
   // Pool vs individual
   @Prop({ type: Boolean, default: false })
   poolTips: boolean; // true = poolear todas las propinas
+
+  // Para tipo 'fixed-percentage'
+  @Prop({ type: Number, min: 0 })
+  fixedPercentage?: number; // ej: 5 para 5%
+
+  // Para tipo 'fixed-amount'
+  @Prop({ type: Number, min: 0 })
+  fixedAmount?: number; // ej: 10 para $10 por venta
 }
 
 const TipsDistributionRulesSchema = SchemaFactory.createForClass(
@@ -43,7 +51,7 @@ export class TipsDistributionRule {
 
   @Prop({
     type: String,
-    enum: ["equal", "by-hours", "by-sales", "custom"],
+    enum: ["equal", "by-hours", "by-sales", "custom", "fixed-percentage", "fixed-amount"],
     required: true,
   })
   type: string;

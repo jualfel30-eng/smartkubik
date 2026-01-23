@@ -9,6 +9,10 @@ import {
 } from "../../schemas/chart-of-accounts.schema";
 import { Service, ServiceSchema } from "../../schemas/service.schema";
 import { Resource, ResourceSchema } from "../../schemas/resource.schema";
+import {
+  TipsDistributionRule,
+  TipsDistributionRuleSchema,
+} from "../../schemas/tips-distribution-rule.schema";
 
 @Module({
   imports: [
@@ -16,6 +20,7 @@ import { Resource, ResourceSchema } from "../../schemas/resource.schema";
       { name: ChartOfAccounts.name, schema: ChartOfAccountsSchema },
       { name: Service.name, schema: ServiceSchema },
       { name: Resource.name, schema: ResourceSchema },
+      { name: TipsDistributionRule.name, schema: TipsDistributionRuleSchema },
     ]),
     SeederModule,
   ],
@@ -23,4 +28,4 @@ import { Resource, ResourceSchema } from "../../schemas/resource.schema";
   providers: [SeedingService],
   exports: [SeedingService],
 })
-export class SeedingModule {}
+export class SeedingModule { }

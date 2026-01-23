@@ -205,14 +205,20 @@ export class TipsService {
       throw new NotFoundException("Distribution rule not found");
     }
 
-    // 2. Obtener órdenes del período con propinas no distribuidas
+    // 2. Obtener órdenes del período
+    const query: any = {
+      tenantId,
+      status: { $in: ["completed", "closed"] },
+      createdAt: { $gte: startDate, $lte: endDate },
+    };
+
+    // Si NO es comisión fija, solo órdenes con propinas
+    if (!["fixed-percentage", "fixed-amount"].includes(rule.type)) {
+      query.totalTipsAmount = { $gt: 0 };
+    }
+
     const orders = await this.orderModel
-      .find({
-        tenantId,
-        status: { $in: ["completed", "closed"] },
-        createdAt: { $gte: startDate, $lte: endDate },
-        totalTipsAmount: { $gt: 0 },
-      })
+      .find(query)
       .populate("assignedWaiterId", "firstName lastName role")
       .exec();
 
@@ -220,11 +226,14 @@ export class TipsService {
       throw new BadRequestException("No orders with tips found in this period");
     }
 
-    // 3. Calcular total de propinas
-    const totalTips = orders.reduce(
-      (sum, order) => sum + order.totalTipsAmount,
-      0,
-    );
+    // 3. Calcular total de propinas (solo para tipos que poolean o usan propinas registradas)
+    let totalTips = 0;
+    if (!["fixed-percentage", "fixed-amount"].includes(rule.type)) {
+      totalTips = orders.reduce(
+        (sum, order) => sum + order.totalTipsAmount,
+        0,
+      );
+    }
 
     // 4. Obtener empleados elegibles
     let eligibleEmployees: UserDocument[];
@@ -305,6 +314,24 @@ export class TipsService {
         );
         break;
 
+      case "fixed-percentage":
+        distribution = await this.distributeByFixedPercentage(
+          eligibleEmployees,
+          orders,
+          rule.rules.fixedPercentage || 0,
+        );
+        totalTips = distribution.reduce((sum, d) => sum + d.amount, 0);
+        break;
+
+      case "fixed-amount":
+        distribution = await this.distributeByFixedAmount(
+          eligibleEmployees,
+          orders,
+          rule.rules.fixedAmount || 0,
+        );
+        totalTips = distribution.reduce((sum, d) => sum + d.amount, 0);
+        break;
+
       case "custom":
         throw new BadRequestException(
           "Custom distribution formulas not yet implemented",
@@ -317,13 +344,104 @@ export class TipsService {
     }
 
     // 6. Actualizar órdenes con la distribución
+    // 6. Actualizar órdenes con la distribución
+    // Primero, crear un mapa de montos por empleado para búsqueda rápida
+    const employeeAmounts = new Map<string, number>();
+    distribution.forEach(d => {
+      // El monto en 'distribution' es el total del período. Necesitamos saber cuánto corresponde a ESTA orden.
+      // Esto es complejo porque 'distribution' tiene el agregado.
+      // Revisemos las estrategias:
+      // - Equitativa: totalTips / N. Se asigna a todas las órdenes del mesero? No, equitativa divide el POZO.
+      // - Por Ventas: Proporcional a ventas.
+      // - Fixed %: (Venta * %). Esto es por orden.
+
+      // ERROR: La arquitectura actual calcula un 'distribution' agreggado al final (array de empleados con sus totales).
+      // Pero para actualizar 'order.tipsRecords', necesitamos saber cuánto de esa orden específica va a cada empleado.
+
+      // Para Fixed % y Fixed Amount, el cálculo es PER ORDER.
+      // Deberíamos hacer el cálculo y actualización PER ORDER, o tener una estrategia que devuelva el desglose por orden.
+
+      // SOLUCIÓN TEMPORAL RÁPIDA:
+      // Si es Fixed % o Fixed Amount, el monto se calcula sobre la orden.
+      // Si es Equitativa/Sales/Hours, es sobre un pozo (totalTips).
+
+    });
+
+    // RE-PENSANDO:
+    // El método 'distributeTips' actual mezcla dos conceptos:
+    // 1. Calcular cuánto le toca a cada empleado en TOTAL (para el reporte y nómina).
+    // 2. Actualizar el histórico en cada ORDEN.
+
+    // Para Fixed Rate/Amount, el paso 6 está MAL porque usa order.totalTipsAmount (que puede ser 0).
+    // Deberíamos, para esos tipos, calcular el valor real por orden.
+
     for (const order of orders) {
-      const distributionForOrder = distribution.map((d) => ({
-        employeeId: new Types.ObjectId(d.employeeId),
-        employeeName: d.name,
-        amount: order.totalTipsAmount / distribution.length, // Simplificado por ahora
-        distributedAt: new Date(),
-      }));
+      let recordsToAdd = [];
+
+      if (rule.type === 'fixed-percentage' || rule.type === 'fixed-amount') {
+        // Calcular comisión específica para esta orden
+        const percentage = rule.rules.fixedPercentage || 0;
+        const fixedAmt = rule.rules.fixedAmount || 0;
+
+        // Buscar empleado asignado
+        if (order.assignedWaiterId) {
+          let amount = 0;
+          if (rule.type === 'fixed-percentage') {
+            amount = (order.totalAmount * percentage) / 100;
+          } else {
+            amount = fixedAmt;
+          }
+
+          if (amount > 0) {
+            recordsToAdd.push({
+              employeeId: order.assignedWaiterId,
+              employeeName: 'Waiter', // Deberíamos buscar el nombre real si es posible, o dejar que el populate lo resuelva
+              amount: Number(amount.toFixed(2)),
+              distributedAt: new Date(),
+              method: 'digital', // Asumimos digital/interno para comisiones
+              type: 'commission' // Nuevo campo o reutilizar existente?
+            });
+          }
+        }
+      } else {
+        // Lógica original para distribución de pozo (Equitativa, Horas, Ventas)
+        // Aquí SÍ distribuimos order.totalTipsAmount
+        if (order.totalTipsAmount > 0) {
+          recordsToAdd = distribution.map((d) => ({
+            employeeId: new Types.ObjectId(d.employeeId),
+            employeeName: d.name,
+            amount: order.totalTipsAmount / distribution.length, // OJO: Esto asume equitativa sobre la orden. 
+            // Si la regla es "por horas", ¿cómo distribuimos una orden específica? 
+            // Matemáticamente: (TotalTipsEmpleado / TotalTipsGlobal) * OrderTips? No necesariamente.
+            // Por simplicidad actual mantenemos el comportamiento previo para pozo: dividir entre todos los elegibles.
+            distributedAt: new Date(),
+          }));
+        }
+      }
+
+      if (recordsToAdd.length > 0) {
+        // Convertir a objetos planos si es necesario o usar push directo
+        // Necesitamos los nombres de empleados para recordsToAdd en fixed cases
+        // Optimizacion: Usar el mapa de empleados 'eligibleEmployees'
+
+        if (rule.type === 'fixed-percentage' || rule.type === 'fixed-amount') {
+          const emp = eligibleEmployees.find(e => e._id.toString() === order.assignedWaiterId.toString());
+          if (emp) {
+            recordsToAdd[0].employeeName = `${emp.firstName} ${emp.lastName}`;
+          }
+        }
+
+        // Actualizar order.totalTipsAmount si es comisión fija (porque no existía antes)
+        if (rule.type === 'fixed-percentage' || rule.type === 'fixed-amount') {
+          const totalComm = recordsToAdd.reduce((sum, r) => sum + r.amount, 0);
+          order.totalTipsAmount = (order.totalTipsAmount || 0) + totalComm;
+        }
+
+        const existingRecords = order.tipsRecords || [];
+        order.tipsRecords = [...existingRecords, ...recordsToAdd];
+
+        await order.save();
+      }
 
       order.tipsRecords.forEach((tip) => {
         tip.distributedAt = new Date();
@@ -449,6 +567,71 @@ export class TipsService {
       ...emp,
       amount: Number(((emp.hoursWorked / totalHours) * totalTips).toFixed(2)),
     }));
+  }
+
+  // Distribución por porcentaje fijo por venta
+  private async distributeByFixedPercentage(
+    employees: UserDocument[],
+    orders: OrderDocument[],
+    percentage: number,
+  ): Promise<
+    Array<{
+      employeeId: string;
+      name: string;
+      amount: number;
+      ordersServed: number;
+      salesGenerated: number;
+    }>
+  > {
+    return employees.map((emp) => {
+      const empOrders = orders.filter(
+        (o) => o.assignedWaiterId?.toString() === emp._id.toString(),
+      );
+
+      const salesGenerated = empOrders.reduce(
+        (sum, order) => sum + order.totalAmount,
+        0,
+      );
+
+      const amount = (salesGenerated * percentage) / 100;
+
+      return {
+        employeeId: emp._id.toString(),
+        name: `${emp.firstName} ${emp.lastName}`,
+        amount: Number(amount.toFixed(2)),
+        ordersServed: empOrders.length,
+        salesGenerated,
+      };
+    });
+  }
+
+  // Distribución por monto fijo por venta
+  private async distributeByFixedAmount(
+    employees: UserDocument[],
+    orders: OrderDocument[],
+    fixedAmount: number,
+  ): Promise<
+    Array<{
+      employeeId: string;
+      name: string;
+      amount: number;
+      ordersServed: number;
+    }>
+  > {
+    return employees.map((emp) => {
+      const empOrders = orders.filter(
+        (o) => o.assignedWaiterId?.toString() === emp._id.toString(),
+      );
+
+      const amount = empOrders.length * fixedAmount;
+
+      return {
+        employeeId: emp._id.toString(),
+        name: `${emp.firstName} ${emp.lastName}`,
+        amount: Number(amount.toFixed(2)),
+        ordersServed: empOrders.length,
+      };
+    });
   }
 
   // Distribución por ventas generadas
@@ -631,7 +814,7 @@ export class TipsService {
         tenantId,
         createdAt: { $gte: startDate, $lte: endDate },
         status: { $nin: ["draft", "cancelled", "refunded"] }, // Show all except cancelled
-        totalTipsAmount: { $gt: 0 },
+        $or: [{ totalTipsAmount: { $gt: 0 } }, { "tipsRecords.0": { $exists: true } }],
       })
       .exec();
 
