@@ -166,7 +166,7 @@ export class PayrollRunsService {
     private readonly webhooksService: PayrollWebhooksService,
     private readonly tipsService: TipsService,
     private readonly eventEmitter: EventEmitter2,
-  ) {}
+  ) { }
 
   private toObjectId(id: string | Types.ObjectId) {
     if (id instanceof Types.ObjectId) return id;
@@ -229,7 +229,7 @@ export class PayrollRunsService {
         periodEnd: run.periodEnd,
         totalEmployees: run.totalEmployees,
         netPay: run.netPay,
-        currency: run.currency,
+        currency: (run as any).currency,
         tenantId,
       });
     } else if (nextStatus === "paid") {
@@ -273,7 +273,7 @@ export class PayrollRunsService {
         periodEnd: run.periodEnd,
         totalEmployees: run.totalEmployees,
         netPay: run.netPay,
-        currency: run.currency,
+        currency: (run as any).currency,
         tenantId,
       });
     } else {
@@ -462,11 +462,11 @@ export class PayrollRunsService {
           html,
           attachments: payslips
             ? [
-                {
-                  filename: payslips.filename,
-                  content: payslips.buffer,
-                },
-              ]
+              {
+                filename: payslips.filename,
+                content: payslips.buffer,
+              },
+            ]
             : undefined,
         });
       }
@@ -924,13 +924,13 @@ export class PayrollRunsService {
     const structureObjectIds = structures.map((structure) => structure._id);
     const rules = structureObjectIds.length
       ? await this.ruleModel
-          .find({
-            structureId: { $in: structureObjectIds },
-            tenantId: tenantObjectId,
-            isActive: true,
-          })
-          .sort({ priority: 1 })
-          .lean()
+        .find({
+          structureId: { $in: structureObjectIds },
+          tenantId: tenantObjectId,
+          isActive: true,
+        })
+        .sort({ priority: 1 })
+        .lean()
       : [];
 
     const structureMap = new Map<string, LeanPayrollStructure>();
@@ -1042,10 +1042,10 @@ export class PayrollRunsService {
 
     const run = reuseRunId
       ? await this.runModel.findOneAndUpdate(
-          { _id: this.toObjectId(reuseRunId) },
-          { $set: runPayload },
-          { new: true },
-        )
+        { _id: this.toObjectId(reuseRunId) },
+        { $set: runPayload },
+        { new: true },
+      )
       : await this.runModel.create(runPayload);
 
     if (!run) {
@@ -1326,11 +1326,11 @@ export class PayrollRunsService {
     );
     const conceptDocs = conceptCodes.length
       ? await this.conceptModel
-          .find({
-            tenantId: this.toObjectId(tenantId),
-            code: { $in: conceptCodes },
-          })
-          .lean<LeanPayrollConcept[]>()
+        .find({
+          tenantId: this.toObjectId(tenantId),
+          code: { $in: conceptCodes },
+        })
+        .lean<LeanPayrollConcept[]>()
       : [];
     const conceptMap = new Map(conceptDocs.map((c) => [c.code, c]));
 
@@ -1813,9 +1813,8 @@ export class PayrollRunsService {
     });
 
     entries.forEach((entry) => {
-      const key = `${entry.employeeId?.toString?.() || "n/a"}:${
-        entry.contractId?.toString?.() || "n/a"
-      }`;
+      const key = `${entry.employeeId?.toString?.() || "n/a"}:${entry.contractId?.toString?.() || "n/a"
+        }`;
       if (!linesMap.has(key)) {
         const meta = metadataMap.get(key);
         linesMap.set(key, {
@@ -2110,9 +2109,8 @@ export class PayrollRunsService {
         legacyEmployees += 1;
         return;
       }
-      const key = `${calculation.structureId}:${
-        calculation.structureVersion ?? "latest"
-      }`;
+      const key = `${calculation.structureId}:${calculation.structureVersion ?? "latest"
+        }`;
       if (!summaryMap.has(key)) {
         const structure = structureMap.get(calculation.structureId);
         summaryMap.set(key, {
@@ -2252,15 +2250,15 @@ export class PayrollRunsService {
       compensationType: contract?.compensationType,
       benefitsTotal: Array.isArray(contract?.benefits)
         ? contract!.benefits.reduce(
-            (sum, benefit) => sum + (benefit.amount || 0),
-            0,
-          )
+          (sum, benefit) => sum + (benefit.amount || 0),
+          0,
+        )
         : 0,
       deductionsTotal: Array.isArray(contract?.deductions)
         ? contract!.deductions.reduce(
-            (sum, deduction) => sum + (deduction.amount || 0),
-            0,
-          )
+          (sum, deduction) => sum + (deduction.amount || 0),
+          0,
+        )
         : 0,
       scheduleHours: schedule?.hoursPerWeek || 0,
     };
@@ -2589,9 +2587,9 @@ export class PayrollRunsService {
     }
     const payableResponse = run.metadata?.payableId
       ? {
-          payableId: run.metadata.payableId,
-          number: run.metadata.payableNumber,
-        }
+        payableId: run.metadata.payableId,
+        number: run.metadata.payableNumber,
+      }
       : await this.createPayableForSpecialRun(run, tenantId, userId);
     const paymentDto: CreatePaymentDto = {
       paymentType: "payable",
@@ -2615,9 +2613,9 @@ export class PayrollRunsService {
       amountVes:
         (dto.currency || run.metadata?.currency || "USD") === "VES"
           ? (run.netPay || 0) +
-            (dto.applyIgtf && dto.igtfRate
-              ? (run.netPay || 0) * dto.igtfRate
-              : 0)
+          (dto.applyIgtf && dto.igtfRate
+            ? (run.netPay || 0) * dto.igtfRate
+            : 0)
           : undefined,
     };
     const payment = await this.paymentsService.create(paymentDto, {

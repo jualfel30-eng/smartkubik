@@ -376,7 +376,7 @@ export class TipsService {
     // Deberíamos, para esos tipos, calcular el valor real por orden.
 
     for (const order of orders) {
-      let recordsToAdd = [];
+      let recordsToAdd: any[] = [];
 
       if (rule.type === 'fixed-percentage' || rule.type === 'fixed-amount') {
         // Calcular comisión específica para esta orden
@@ -425,9 +425,11 @@ export class TipsService {
         // Optimizacion: Usar el mapa de empleados 'eligibleEmployees'
 
         if (rule.type === 'fixed-percentage' || rule.type === 'fixed-amount') {
-          const emp = eligibleEmployees.find(e => e._id.toString() === order.assignedWaiterId.toString());
-          if (emp) {
-            recordsToAdd[0].employeeName = `${emp.firstName} ${emp.lastName}`;
+          if (order.assignedWaiterId) {
+            const emp = eligibleEmployees.find(e => e._id.toString() === order.assignedWaiterId!.toString());
+            if (emp) {
+              recordsToAdd[0].employeeName = `${emp.firstName} ${emp.lastName}`;
+            }
           }
         }
 

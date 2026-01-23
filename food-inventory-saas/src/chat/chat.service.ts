@@ -657,7 +657,7 @@ export class ChatService {
       );
 
       // Fetch User Context if Authorized
-      let userContext = null;
+      let userContext: any = null;
       if (userId) {
         userContext = await this.usersService.findById(userId);
         if (userContext) {
