@@ -206,7 +206,7 @@ export class InvoicePdfService {
         });
 
         let y = 10;
-        const margin = 2;
+        const margin = 5;
         const centerX = 40;
 
         // Logo Check
@@ -262,7 +262,7 @@ export class InvoicePdfService {
         }
         y += 2;
 
-        pdf.line(margin, y, 78, y);
+        pdf.line(margin, y, 80 - margin, y);
         y += 4;
 
         // Doc Info
@@ -286,7 +286,7 @@ export class InvoicePdfService {
         pdf.text(`RIF: ${customer?.taxId || "N/A"}`, margin, y);
         y += 6;
 
-        pdf.line(margin, y, 78, y);
+        pdf.line(margin, y, 80 - margin, y);
         y += 2;
 
         // Items
@@ -306,33 +306,34 @@ export class InvoicePdfService {
             theme: 'plain',
             styles: { fontSize: 8, cellPadding: 1, overflow: 'linebreak' },
             columnStyles: {
-                0: { cellWidth: 40 },
+                0: { cellWidth: 35 },
                 1: { cellWidth: 10, halign: 'center' },
-                2: { cellWidth: 20, halign: 'right' }
+                2: { cellWidth: 25, halign: 'right' }
             },
             headStyles: { fontStyle: 'bold' }
         });
 
         y = (pdf as any).lastAutoTable.finalY + 4;
-        pdf.line(margin, y, 78, y);
+        pdf.line(margin, y, 80 - margin, y);
         y += 5;
 
         // Totals
+        const rightEdge = 80 - margin;
         pdf.setFontSize(9);
         pdf.text(`SUBTOTAL:`, 40, y, { align: "right" });
-        pdf.text(`${doc.totals?.subtotal?.toFixed(2)}`, 78, y, { align: "right" });
+        pdf.text(`${doc.totals?.subtotal?.toFixed(2)}`, rightEdge, y, { align: "right" });
         y += 4;
 
         (doc.totals?.taxes || []).forEach(tax => {
             pdf.text(`${tax.type || 'Tax'} (${tax.rate}%)`, 40, y, { align: "right" });
-            pdf.text(`${(tax.amount || 0).toFixed(2)}`, 78, y, { align: "right" });
+            pdf.text(`${(tax.amount || 0).toFixed(2)}`, rightEdge, y, { align: "right" });
             y += 4;
         });
 
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(11);
         pdf.text(`TOTAL ${doc.totals?.currency || "VES"}:`, 40, y, { align: "right" });
-        pdf.text(`${doc.totals?.grandTotal?.toFixed(2)}`, 78, y, { align: "right" });
+        pdf.text(`${doc.totals?.grandTotal?.toFixed(2)}`, rightEdge, y, { align: "right" });
         y += 8;
 
         pdf.setFontSize(8);
