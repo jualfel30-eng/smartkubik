@@ -110,7 +110,14 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
       setCustomTipAmount('');
       setCustomTipAmount('');
       setTipMethod('');
-      const initialWaiterId = order.assignedWaiterId ? (typeof order.assignedWaiterId === 'object' ? order.assignedWaiterId._id : order.assignedWaiterId) : '';
+      // Extract customerId from assignedWaiterId (Employee has customerId field)
+      const initialWaiterId = order.assignedWaiterId
+        ? (typeof order.assignedWaiterId === 'object'
+          ? (typeof order.assignedWaiterId.customerId === 'object'
+            ? order.assignedWaiterId.customerId._id || order.assignedWaiterId.customerId
+            : order.assignedWaiterId.customerId)
+          : order.assignedWaiterId)
+        : '';
       setAssignedTipEmployee(initialWaiterId);
     }
   }, [order, isOpen, paymentMethods]);
