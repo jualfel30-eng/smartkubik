@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { fetchApi } from '../../lib/api';
-import { useAuth } from '@/hooks/use-auth'; // NEW
-import { ActionPanel } from '../chat/ActionPanel'; // NEW
+import { OrderSheetForTables } from '../orders/v2/OrderSheetForTables'; // Sheet para Mesas con layout de 2 columnas
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -13,7 +12,6 @@ import {
   Link2,
   CheckCircle,
   XCircle,
-  AlertCircle,
   Sparkles,
   Timer,
   DollarSign
@@ -29,11 +27,10 @@ export function FloorPlan() {
   const [loading, setLoading] = useState(true);
   const [selectedSection, setSelectedSection] = useState('all');
 
-  // ActionPanel integration
-  const [isActionPanelOpen, setIsActionPanelOpen] = useState(false);
-  const [actionPanelOrderId, setActionPanelOrderId] = useState(null);
-  const [actionPanelTableId, setActionPanelTableId] = useState(null);
-  const { tenant } = useAuth();
+  // OrderSheet integration
+  const [isOrderSheetOpen, setIsOrderSheetOpen] = useState(false);
+  const [orderSheetOrderId, setOrderSheetOrderId] = useState(null);
+  const [orderSheetTableId, setOrderSheetTableId] = useState(null);
 
   const fetchFloorPlan = async () => {
     try {
@@ -142,19 +139,18 @@ export function FloorPlan() {
     if (!selectedTable) return;
 
     if (selectedTable.currentOrderId) {
-      setActionPanelOrderId(selectedTable.currentOrderId);
-      setActionPanelTableId(null);
+      setOrderSheetOrderId(selectedTable.currentOrderId);
+      setOrderSheetTableId(null);
     } else {
-      setActionPanelOrderId(null);
-      setActionPanelTableId(selectedTable._id);
+      setOrderSheetOrderId(null);
+      setOrderSheetTableId(selectedTable._id);
     }
-    setIsActionPanelOpen(true);
+    setIsOrderSheetOpen(true);
   };
 
   const handleTableClick = (table) => {
     setSelectedTable(table);
 
-    // Auto-open order if occupied and has order
     // Auto-open order if occupied and has order
     if (table.status === 'occupied' && table.currentOrderId) {
       // Ensure we handle both string ID and populated object
@@ -162,9 +158,9 @@ export function FloorPlan() {
         ? table.currentOrderId._id || table.currentOrderId.toString()
         : table.currentOrderId;
 
-      setActionPanelOrderId(orderId);
-      setActionPanelTableId(null);
-      setIsActionPanelOpen(true);
+      setOrderSheetOrderId(orderId);
+      setOrderSheetTableId(null);
+      setIsOrderSheetOpen(true);
     }
   };
 
@@ -526,13 +522,13 @@ export function FloorPlan() {
             fetchFloorPlan();
             setSeatGuestsModal(false);
 
-            // Auto-open Order Drawer
+            // Auto-open Order Sheet
             // Use the updated table ID or fall back to selectedTable
             const tableId = updatedTable?._id || selectedTable?._id;
             if (tableId) {
-              setActionPanelOrderId(null);
-              setActionPanelTableId(tableId);
-              setIsActionPanelOpen(true);
+              setOrderSheetOrderId(null);
+              setOrderSheetTableId(tableId);
+              setIsOrderSheetOpen(true);
             }
           }}
         />
@@ -563,17 +559,15 @@ export function FloorPlan() {
         />
       )}
 
-      <ActionPanel
-        isOpen={isActionPanelOpen}
+      {/* Order Sheet for Tables - Sheet modal con layout de 2 columnas */}
+      <OrderSheetForTables
+        isOpen={isOrderSheetOpen}
         onClose={() => {
-          setIsActionPanelOpen(false);
-          fetchFloorPlan(); // Refresh tables when closing panel (to see occupancy updates)
+          setIsOrderSheetOpen(false);
+          fetchFloorPlan(); // Refresh tables when closing sheet (to see occupancy updates)
         }}
-        activeAction="order"
-        onActionChange={() => { }}
-        tenant={tenant}
-        initialOrderId={actionPanelOrderId}
-        initialTableId={actionPanelTableId}
+        initialOrderId={orderSheetOrderId}
+        initialTableId={orderSheetTableId}
       />
     </div>
   );
