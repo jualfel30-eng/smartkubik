@@ -18,9 +18,18 @@ export default function SeatGuestsModal({ table, onClose, onSuccess }) {
 
   const fetchServers = async () => {
     try {
-      // Fetch users with role 'waiter' or 'server'
-      const response = await fetchApi('/users?role=waiter');
-      setServers(response);
+      // Fetch active employees from payroll module
+      const response = await fetchApi('/payroll/employees?status=active');
+      const employeeList = response.data || response || [];
+      console.log('Employee data from payroll:', employeeList); // Debug log
+      // Filter only waiters/servers if position field exists
+      const waiters = employeeList.filter(emp =>
+        !emp.position ||
+        emp.position.toLowerCase().includes('mesero') ||
+        emp.position.toLowerCase().includes('waiter') ||
+        emp.position.toLowerCase().includes('server')
+      );
+      setServers(waiters.length > 0 ? waiters : employeeList); // If no waiters found, show all employees
     } catch (err) {
       console.error('Error fetching servers:', err);
     }
@@ -146,7 +155,7 @@ export default function SeatGuestsModal({ table, onClose, onSuccess }) {
               <option value="">Sin asignar</option>
               {servers.map((server) => (
                 <option key={server._id} value={server._id}>
-                  {server.name} {server.lastName}
+                  {server.customer?.name || server.name || 'Sin Nombre'} {server.position ? `- ${server.position}` : ''}
                 </option>
               ))}
             </select>
