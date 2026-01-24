@@ -114,14 +114,14 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
 
   // Efecto para cargar orden existente
   useEffect(() => {
-    // Only reinitialize if this is a different order (prevent race condition)
-    if (activeOrder && activeOrder._id !== previousOrderId.current) {
+    // Modified: Allow reloading if activeOrder changes (even if ID is same) to support updates (e.g. sending to kitchen)
+    if (activeOrder) {
       console.log('Loading existing order into form:', activeOrder);
       setIsEditMode(true);
       previousOrderId.current = activeOrder._id;
 
       const itemsMapped = activeOrder.items.map(item => ({
-        productId: item.productId,
+        productId: item.productId._id || item.productId, // Handle both populated and unpopulated
         productName: item.productName || item.product?.name,
         name: item.productName || item.product?.name,
         variantId: item.variantId,
@@ -138,7 +138,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         discountPercentage: item.discountPercentage || 0,
         discountAmount: item.discountAmount || 0,
         discountReason: item.discountReason,
-        productType: item.product?.type || 'standard',
+        productType: item.productType || 'standard',
         hasMultipleSellingUnits: !!item.selectedUnit,
         _id: item._id, // Critical for updates
         status: item.status || 'pending',
@@ -1568,7 +1568,6 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
   };
 
   // Función específica para "Enviar a Cocina" (Guardar/actualizar Y enviar items nuevos a cocina)
-  // Función específica para "Enviar a Cocina" (Guardar/actualizar Y enviar items nuevos a cocina)
   const handleSendToKitchen = async () => {
     // Primero guarda/actualiza la orden - PERO NO ABRE WIZARD (autoWizard: false)
     // IMPORTANT: reset: false to keep form open and allow adding more items
@@ -1578,7 +1577,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
       // Switch to Edit Mode immediately for smooth flow
       setActiveOrder(savedOrder);
       setIsEditMode(true);
-      previousOrderId.current = savedOrder._id; // Sync ref to prevent re-load effect loop if triggered
+      // NOTE: Removed previousOrderId.current update here to allow useEffect to re-hydrate/merge items correctly
 
       try {
         // Check for items that should be sent to kitchen logic
@@ -1594,6 +1593,126 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         console.error('Error sending to kitchen:', error);
         toast.warning('Orden guardada pero hubo un problema enviando a cocina');
       }
+    }
+  };
+
+  // Función para enviar un solo item a cocina Y persistirlo en la orden
+  const handleSendSingleItemToKitchen = async (item) => {
+    if (!isEditMode || !activeOrder) {
+      toast.error('Debe existir una orden para enviar items individuales');
+      return;
+    }
+
+    try {
+      // Step 1: Persist ALL current items (including the new one) via PATCH
+      const productIdValue = typeof item.productId === 'object' && item.productId?._id
+        ? item.productId._id
+        : item.productId;
+
+      const updatePayload = {
+        items: newOrder.items.map(i => {
+          const itemProductId = typeof i.productId === 'object' && i.productId?._id
+            ? i.productId._id
+            : i.productId;
+
+          return {
+            productId: itemProductId,
+            productName: i.productName,
+            quantity: i.isSoldByWeight
+              ? parseFloat(i.quantity) || 0
+              : parseInt(i.quantity, 10) || 0,
+            ...(i.selectedUnit && { selectedUnit: i.selectedUnit }),
+            modifiers: i.modifiers || [],
+            specialInstructions: i.specialInstructions,
+            removedIngredients: i.removedIngredients || [],
+            unitPrice: i.unitPrice,
+            finalPrice: getItemFinalUnitPrice(i),
+            ivaApplicable: i.ivaApplicable,
+            ...(i.discountPercentage && {
+              discountPercentage: i.discountPercentage,
+              discountAmount: i.discountAmount,
+              discountReason: i.discountReason,
+            }),
+            ...(i._id && { _id: i._id }),
+            ...(i.status && { status: i.status }),
+            ...(i.addedAt && { addedAt: i.addedAt }),
+          };
+        }),
+        customerRif: newOrder.customerRif,
+        taxType: newOrder.taxType,
+        customerPhone: newOrder.customerPhone,
+        customerEmail: newOrder.customerEmail,
+        customerAddress: newOrder.customerAddress,
+        subtotal: totals.subtotal,
+        ivaTotal: totals.iva,
+        igtfTotal: totals.igtf,
+        shippingCost: totals.shipping,
+        totalAmount: totals.total,
+        generalDiscountPercentage: newOrder.generalDiscountPercentage,
+        generalDiscountReason: newOrder.generalDiscountReason,
+        notes: newOrder.notes,
+        ...(restaurantEnabled && selectedTable !== 'none' && { tableId: selectedTable }),
+      };
+
+      const response = await fetchApi(`/orders/${activeOrder._id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updatePayload),
+      });
+
+      const updatedOrder = response.data || response;
+
+      // Step 2: Find the newly persisted item (it will have _id now)
+      const persistedItem = updatedOrder.items.find(i => {
+        const iProductId = typeof i.productId === 'object' && i.productId?._id
+          ? i.productId._id
+          : i.productId;
+
+        return (
+          iProductId === productIdValue &&
+          i.quantity === (item.isSoldByWeight ? parseFloat(item.quantity) : parseInt(item.quantity, 10)) &&
+          i.specialInstructions === item.specialInstructions &&
+          // Compare modifiers
+          JSON.stringify(i.modifiers || []) === JSON.stringify(item.modifiers || [])
+        );
+      });
+
+      if (!persistedItem || !persistedItem._id) {
+        throw new Error('No se pudo encontrar el item persistido');
+      }
+
+      // Step 3: Send to kitchen using the real _id
+      await fetchApi('/kitchen-display/send-single-item', {
+        method: 'POST',
+        body: JSON.stringify({
+          orderId: updatedOrder._id,
+          itemId: persistedItem._id,
+          productName: item.name || item.productName,
+          quantity: persistedItem.quantity,
+          modifiers: (persistedItem.modifiers || []).map(m => m.name || m),
+          specialInstructions: persistedItem.specialInstructions,
+        }),
+      });
+
+      // Step 4: Update local state with the updated order
+      setActiveOrder(updatedOrder);
+      setNewOrder({
+        ...newOrder,
+        items: updatedOrder.items.map(i => ({
+          ...i,
+          productId: typeof i.productId === 'object' ? i.productId._id : i.productId,
+          name: i.productName,
+        })),
+      });
+
+      // Step 5: Notify parent if callback exists
+      if (onOrderUpdated) {
+        onOrderUpdated(updatedOrder);
+      }
+
+      toast.success(`"${item.name || item.productName}" enviado a cocina y agregado a la cuenta`);
+    } catch (error) {
+      console.error('Error sending single item to kitchen:', error);
+      toast.error('Error al enviar item a cocina');
     }
   };
 
@@ -1960,26 +2079,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={async () => {
-                          if (!existingOrder._id) return;
-                          try {
-                            await fetchApi('/kitchen-display/send-single-item', {
-                              method: 'POST',
-                              body: JSON.stringify({
-                                orderId: existingOrder._id,
-                                itemId: item.productId + '-' + Date.now(), // Temporal ID
-                                productName: item.name,
-                                quantity: item.quantity,
-                                modifiers: item.modifiers?.map(m => m.name) || [],
-                                specialInstructions: item.specialInstructions
-                              })
-                            });
-                            toast.success(`"${item.name}" enviado a cocina`);
-                          } catch (error) {
-                            console.error('Error sending item to kitchen:', error);
-                            toast.error('Error al enviar a cocina');
-                          }
-                        }}
+                        onClick={() => handleSendSingleItemToKitchen(item)}
                         className="text-xs h-7 px-2"
                       >
                         📨 Enviar
