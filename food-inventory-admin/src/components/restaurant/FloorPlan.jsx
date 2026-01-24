@@ -31,6 +31,7 @@ export function FloorPlan() {
   const [isOrderSheetOpen, setIsOrderSheetOpen] = useState(false);
   const [orderSheetOrderId, setOrderSheetOrderId] = useState(null);
   const [orderSheetTableId, setOrderSheetTableId] = useState(null);
+  const [orderSheetWaiterId, setOrderSheetWaiterId] = useState(null);
 
   const fetchFloorPlan = async () => {
     try {
@@ -525,9 +526,13 @@ export function FloorPlan() {
             // Auto-open Order Sheet
             // Use the updated table ID or fall back to selectedTable
             const tableId = updatedTable?._id || selectedTable?._id;
+            // Extract waiter ID (can be ObjectId or string)
+            const waiterId = updatedTable?.assignedServerId?._id || updatedTable?.assignedServerId || null;
+
             if (tableId) {
               setOrderSheetOrderId(null);
               setOrderSheetTableId(tableId);
+              setOrderSheetWaiterId(waiterId);
               setIsOrderSheetOpen(true);
             }
           }}
@@ -568,6 +573,7 @@ export function FloorPlan() {
         }}
         initialOrderId={orderSheetOrderId}
         initialTableId={orderSheetTableId}
+        initialWaiterId={orderSheetWaiterId}
       />
     </div>
   );

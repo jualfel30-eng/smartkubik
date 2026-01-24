@@ -64,7 +64,7 @@ const formatDecimalString = (value, decimals = 3) => {
 
 import { useMediaQuery } from '@/hooks/use-media-query';
 
-export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCustomer = null, existingOrder = null, onOrderUpdated = null, initialTableId = null }) {
+export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCustomer = null, existingOrder = null, onOrderUpdated = null, initialTableId = null, initialWaiterId = null }) {
   const { crmData: customers } = useCrmContext();
   const [activeTab, setActiveTab] = useState('products');
   const [activeOrder, setActiveOrder] = useState(existingOrder || null);
@@ -87,6 +87,16 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
       setSelectedTable(initialTableId);
     }
   }, [initialTableId, existingOrder]);
+
+  // Efecto para inicializar mesero asignado (si se pasa desde la mesa)
+  useEffect(() => {
+    if (initialWaiterId && !existingOrder) {
+      setNewOrder(prev => ({
+        ...prev,
+        assignedTo: initialWaiterId
+      }));
+    }
+  }, [initialWaiterId, existingOrder]);
 
   // Efecto para inicializar con cliente (si se pasa)
   useEffect(() => {

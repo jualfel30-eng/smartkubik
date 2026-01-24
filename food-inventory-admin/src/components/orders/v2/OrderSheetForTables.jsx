@@ -19,7 +19,8 @@ export const OrderSheetForTables = ({
   isOpen,
   onClose,
   initialTableId,
-  initialOrderId
+  initialOrderId,
+  initialWaiterId
 }) => {
   const [createdOrder, setCreatedOrder] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -145,6 +146,7 @@ export const OrderSheetForTables = ({
                 <NewOrderFormV2
                   isEmbedded={false}  // FALSE = Layout de 2 columnas (desktop)
                   initialTableId={initialTableId}
+                  initialWaiterId={initialWaiterId}
                   onOrderCreated={handleOrderCreated}
                   existingOrder={isEditing ? createdOrder : null}
                   onOrderUpdated={handleOrderUpdated}
