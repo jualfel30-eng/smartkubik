@@ -657,6 +657,10 @@ export class OrdersService {
         const table = await this.tableModel.findById(createOrderDto.tableId).select('assignedServerId').lean();
         if (table?.assignedServerId) {
           orderData.assignedWaiterId = table.assignedServerId;
+          // Also copy to assignedTo if not explicitly set in DTO
+          if (!createOrderDto.assignedTo) {
+            orderData.assignedTo = table.assignedServerId;
+          }
           this.logger.log(`Assigned waiter ${table.assignedServerId} from table ${createOrderDto.tableId} to order`);
         }
       } catch (err) {
