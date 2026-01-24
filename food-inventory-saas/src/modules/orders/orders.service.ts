@@ -1464,7 +1464,14 @@ export class OrdersService {
       .populate("payments")
       .populate("customerId", "name taxInfo") // Populate customer to get RIF/TaxID
       .populate("assignedTo", "firstName lastName email")
-      .populate("assignedWaiterId", "firstName lastName customerId") // Include customerId for tips section
+      .populate({
+        path: "assignedWaiterId",
+        select: "firstName lastName customerId",
+        populate: {
+          path: "customerId",
+          select: "_id name"
+        }
+      }) // Nested populate for tips section
       .populate("tableId", "tableNumber name") // Populate table info for frontend context
       .populate("items.productId", "name sku ivaApplicable") // Fix: Populate productId, not product
       .exec();

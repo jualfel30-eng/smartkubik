@@ -108,17 +108,9 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
       setTipMode('percentage');
       setTipPercentage(null);
       setCustomTipAmount('');
-      setCustomTipAmount('');
       setTipMethod('');
-      // Extract customerId from assignedWaiterId (Employee has customerId field)
-      const initialWaiterId = order.assignedWaiterId
-        ? (typeof order.assignedWaiterId === 'object'
-          ? (typeof order.assignedWaiterId.customerId === 'object'
-            ? order.assignedWaiterId.customerId._id || order.assignedWaiterId.customerId
-            : order.assignedWaiterId.customerId)
-          : order.assignedWaiterId)
-        : '';
-      setAssignedTipEmployee(initialWaiterId);
+      // Note: assignedTipEmployee will be initialized in the employee loading useEffect
+      // to avoid race condition
     }
   }, [order, isOpen, paymentMethods]);
 
@@ -136,8 +128,8 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
 
   // Fetch bank accounts when dialog opens
   useEffect(() => {
-    if (isOpen) {
-      // Fetch bank accounts
+    if (isOpen && order) {
+      // Fetch bank accounts and employees
       setLoadingAccounts(true);
       Promise.all([
         fetchApi('/bank-accounts'),
@@ -145,7 +137,38 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
       ])
         .then(([accountsData, employeesRes]) => {
           setBankAccounts(accountsData || []);
-          setEmployees(employeesRes.data || []);
+          const employeesList = employeesRes.data || [];
+          setEmployees(employeesList);
+
+          // Initialize assigned tip employee AFTER employees are loaded
+          console.log('PaymentDialog - Initializing tip employee after load');
+          console.log('PaymentDialog - order.assignedWaiterId:', order.assignedWaiterId);
+
+          let initialWaiterId = '';
+          if (order.assignedWaiterId) {
+            if (typeof order.assignedWaiterId === 'object') {
+              // It's an EmployeeProfile object with nested customerId
+              const customerId = order.assignedWaiterId.customerId;
+              if (customerId) {
+                initialWaiterId = typeof customerId === 'object' ? customerId._id : customerId;
+              }
+            } else {
+              // It's a string (ObjectId) - need to find matching employee
+              const matchingEmployee = employeesList.find(emp => emp._id === order.assignedWaiterId);
+              if (matchingEmployee) {
+                initialWaiterId = matchingEmployee.customer?.id || matchingEmployee.customerId;
+              }
+            }
+          }
+
+          console.log('PaymentDialog - Extracted initialWaiterId:', initialWaiterId);
+          console.log('PaymentDialog - Available employees:', employeesList.map(e => ({
+            id: e._id,
+            customerId: e.customer?.id || e.customerId,
+            name: e.customer?.name || e.name
+          })));
+
+          setAssignedTipEmployee(initialWaiterId);
         })
         .catch(err => {
           console.error('Error loading data:', err);
@@ -156,7 +179,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
           setLoadingAccounts(false);
         });
     }
-  }, [isOpen]);
+  }, [isOpen, order]);
 
   // Map payment method IDs to the names stored in bank accounts
   const mapPaymentMethodToName = (methodId) => {
