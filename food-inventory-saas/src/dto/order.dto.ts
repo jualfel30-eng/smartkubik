@@ -246,6 +246,14 @@ export class CreateOrderDto {
   @SanitizeString()
   customerPhone?: string;
 
+  @ApiPropertyOptional({
+    description: "ID del empleado asignado a la orden",
+    example: "60d0fe4f5311236168a109ca",
+  })
+  @IsOptional()
+  @IsMongoId()
+  assignedTo?: string;
+
   @ApiProperty({ description: "Items de la orden", type: [CreateOrderItemDto] })
   @IsArray()
   @ArrayMinSize(1)

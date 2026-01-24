@@ -68,6 +68,7 @@ import {
   Zap,
   AlertCircle,
   PlusCircle,
+  Trash2,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { Toaster as ShadcnToaster } from '@/components/ui/toaster';
@@ -158,6 +159,7 @@ const MenuEngineeringPage = lazy(() => import('./pages/MenuEngineeringPage.jsx')
 const RecipesPage = lazy(() => import('./pages/RecipesPage.jsx'));
 const PurchaseOrdersPage = lazy(() => import('./pages/PurchaseOrdersPage.jsx'));
 const MarketingPage = lazy(() => import('./pages/MarketingPage.jsx'));
+const WasteManagementPage = lazy(() => import('./pages/WasteManagementPage.jsx'));
 const WhatsAppInbox = lazy(() => import('./pages/WhatsAppInbox.jsx')); // <-- Componente de WhatsApp añadido
 const AssistantChatWidget = lazy(() => import('@/components/AssistantChatWidget.jsx'));
 const PaymentsManagementDashboard = lazy(() => import('@/components/hospitality/PaymentsManagementDashboard.jsx'));
@@ -318,6 +320,8 @@ function TenantLayout() {
 
   const navLinks = [
     { name: 'Panel de Control', href: 'dashboard', icon: LayoutDashboard, permission: 'dashboard_read' },
+
+    // 1. Módulos Operativos
     {
       name: 'Órdenes',
       href: 'orders',
@@ -328,9 +332,6 @@ function TenantLayout() {
         { name: 'Historial', href: 'orders/history', icon: List },
       ]
     },
-    { name: 'Entregas', href: 'fulfillment', icon: Truck, permission: 'orders_read' },
-    { name: 'WhatsApp', href: 'whatsapp', icon: MessageSquare, permission: 'chat_read' },
-    { name: 'tips', href: 'tips', icon: DollarSign, permission: 'tips_read', requiresModule: 'tips', dynamicLabel: true }, // Dynamic label: Tips or Commissions
     {
       name: 'Inventario',
       href: 'inventory-management',
@@ -362,8 +363,12 @@ function TenantLayout() {
         },
         { name: 'Compras', href: 'inventory-management?tab=purchases', icon: Truck },
         { name: 'Proveedores', href: 'inventory-management?tab=suppliers', icon: Truck },
+        { name: 'Control de Mermas', href: 'waste-control', icon: Trash2, permission: 'inventory_read' },
       ]
     },
+    { name: 'Entregas', href: 'fulfillment', icon: Truck, permission: 'orders_read' },
+    { name: 'WhatsApp', href: 'whatsapp', icon: MessageSquare, permission: 'chat_read' },
+    { name: 'Compras', href: 'purchases', icon: Truck, permission: 'purchases_read' },
     {
       name: 'Producción',
       href: 'production',
@@ -382,12 +387,33 @@ function TenantLayout() {
       ]
     },
     { name: 'Mi Storefront', href: 'storefront', icon: Store, permission: 'dashboard_read', requiresModule: 'ecommerce' },
+
+    // Módulos específicos de Restaurante
     { name: 'Mesas', href: 'restaurant/floor-plan', icon: Utensils, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Cocina (KDS)', href: 'restaurant/kitchen-display', icon: ChefHat, permission: 'restaurant_read', requiresModule: 'restaurant' },
+    { name: 'Recetas', href: 'restaurant/recipes', icon: BookOpen, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Reservas', href: 'restaurant/reservations', icon: Calendar, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Ingeniería de Menú', href: 'restaurant/menu-engineering', icon: Target, permission: 'restaurant_read', requiresModule: 'restaurant' },
-    { name: 'Recetas', href: 'restaurant/recipes', icon: BookOpen, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Órdenes de Compra', href: 'restaurant/purchase-orders', icon: FileText, permission: 'restaurant_read', requiresModule: 'restaurant' },
+
+    // Módulos específicos de Hotel / Servicios
+    { name: 'Operaciones Hotel', href: 'hospitality/operations', icon: Building2, permission: 'appointments_read', requiresModule: 'appointments', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
+    { name: 'Plano Hotel', href: 'hospitality/floor-plan', icon: Building, permission: 'appointments_read', requiresModule: 'appointments', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
+    { name: 'Recursos', href: 'resources', icon: UserSquare, permission: 'appointments_read', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
+    { name: 'Servicios', href: 'services', icon: Briefcase, permission: 'appointments_read', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
+    {
+      name: 'Citas',
+      href: 'appointments',
+      icon: Calendar,
+      permission: 'appointments_read',
+      requiresVertical: ['SERVICES', 'HOSPITALITY'],
+      children: [
+        { name: 'Lista', href: 'appointments?tab=list', icon: List },
+        { name: 'Calendario hotel', href: 'appointments?tab=calendar', icon: Calendar },
+      ]
+    },
+
+    // 2. Marketing y CRM
     {
       name: 'Marketing',
       href: 'marketing',
@@ -410,60 +436,6 @@ function TenantLayout() {
         { name: 'Lealtad', href: 'marketing?tab=loyalty', icon: Award },
         { name: 'Cupones', href: 'marketing?tab=coupons', icon: Tag },
         { name: 'Promociones', href: 'marketing?tab=promotions', icon: Percent },
-      ]
-    },
-    {
-      name: 'Cuentas por Pagar',
-      href: 'accounts-payable',
-      icon: ArrowDownRight,
-      permission: 'accounting_read',
-      children: [
-        { name: 'Cuentas por Pagar', href: 'accounts-payable?tab=monthly', icon: TrendingDown },
-        { name: 'Pagos Recurrentes', href: 'accounts-payable?tab=recurring', icon: RefreshCw },
-        { name: 'Historial', href: 'accounts-payable?tab=history', icon: List },
-      ]
-    },
-    {
-      name: 'Cuentas por Cobrar',
-      href: 'receivables?tab=pending',
-      icon: ArrowUpRight,
-      permission: 'accounting_read',
-      children: [
-        { name: 'Pendientes', href: 'receivables?tab=pending', icon: Clock },
-        { name: 'Confirmados', href: 'receivables?tab=confirmed', icon: CheckCircle2 },
-        { name: 'Por cliente', href: 'receivables?tab=customers', icon: Users },
-        { name: 'Reportes', href: 'receivables?tab=reports', icon: TrendingUp },
-      ]
-    },
-    {
-      name: 'Contabilidad General',
-      href: 'accounting',
-      icon: BookCopy,
-      permission: 'accounting_read',
-      children: [
-        { name: 'Libro Diario', href: 'accounting?tab=journal', icon: FileText },
-        { name: 'Plan de Cuentas', href: 'accounting?tab=chart-of-accounts', icon: List },
-        { name: 'Balance de Comprobación', href: 'accounting/reports/trial-balance', icon: BarChart3 },
-        { name: 'Libro Mayor', href: 'accounting/reports/general-ledger', icon: BookOpen },
-        { name: 'Estado de Resultados', href: 'accounting?tab=profit-loss', icon: TrendingUp },
-        { name: 'Balance General', href: 'accounting?tab=balance-sheet', icon: AreaChart },
-        { name: 'Períodos Contables', href: 'accounting/periods', icon: Calendar },
-        { name: 'Asientos Recurrentes', href: 'accounting/recurring-entries', icon: RefreshCw },
-        { name: 'Facturas Electrónicas', href: 'accounting/electronic-invoices', icon: Receipt },
-        { name: 'Retenciones ISLR', href: 'accounting/islr-withholding', icon: FileText },
-        { name: 'Informes', href: 'accounting?tab=reports', icon: FileText },
-      ]
-    },
-    { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: CreditCard, permission: 'accounting_read', requiresModule: 'bankAccounts' },
-    {
-      name: 'Facturación Electrónica',
-      href: 'billing',
-      icon: FileText,
-      permission: 'billing_read',
-      children: [
-        { name: 'Dashboard', href: 'billing', icon: BarChart3 },
-        { name: 'Nueva Factura', href: 'billing/create', icon: Receipt },
-        { name: 'Series de Numeración', href: 'billing/sequences', icon: List },
       ]
     },
     {
@@ -490,6 +462,50 @@ function TenantLayout() {
             { name: 'Pipeline', href: 'crm?tab=pipeline', icon: BarChart3 },
           ]
         }
+      ]
+    },
+
+    // 3. Contabilidad, Finanzas y RH
+    {
+      name: 'Contabilidad General',
+      href: 'accounting',
+      icon: BookCopy,
+      permission: 'accounting_read',
+      children: [
+        { name: 'Libro Diario', href: 'accounting?tab=journal', icon: FileText },
+        { name: 'Plan de Cuentas', href: 'accounting?tab=chart-of-accounts', icon: List },
+        { name: 'Balance de Comprobación', href: 'accounting/reports/trial-balance', icon: BarChart3 },
+        { name: 'Libro Mayor', href: 'accounting/reports/general-ledger', icon: BookOpen },
+        { name: 'Estado de Resultados', href: 'accounting?tab=profit-loss', icon: TrendingUp },
+        { name: 'Balance General', href: 'accounting?tab=balance-sheet', icon: AreaChart },
+        { name: 'Períodos Contables', href: 'accounting/periods', icon: Calendar },
+        { name: 'Asientos Recurrentes', href: 'accounting/recurring-entries', icon: RefreshCw },
+        { name: 'Facturas Electrónicas', href: 'accounting/electronic-invoices', icon: Receipt },
+        { name: 'Retenciones ISLR', href: 'accounting/islr-withholding', icon: FileText },
+        { name: 'Informes', href: 'accounting?tab=reports', icon: FileText },
+      ]
+    },
+    {
+      name: 'Cuentas por Pagar',
+      href: 'accounts-payable',
+      icon: ArrowDownRight,
+      permission: 'accounting_read',
+      children: [
+        { name: 'Cuentas por Pagar', href: 'accounts-payable?tab=monthly', icon: TrendingDown },
+        { name: 'Pagos Recurrentes', href: 'accounts-payable?tab=recurring', icon: RefreshCw },
+        { name: 'Historial', href: 'accounts-payable?tab=history', icon: List },
+      ]
+    },
+    {
+      name: 'Cuentas por Cobrar',
+      href: 'receivables?tab=pending',
+      icon: ArrowUpRight,
+      permission: 'accounting_read',
+      children: [
+        { name: 'Pendientes', href: 'receivables?tab=pending', icon: Clock },
+        { name: 'Confirmados', href: 'receivables?tab=confirmed', icon: CheckCircle2 },
+        { name: 'Por cliente', href: 'receivables?tab=customers', icon: Users },
+        { name: 'Reportes', href: 'receivables?tab=reports', icon: TrendingUp },
       ]
     },
     {
@@ -521,22 +537,22 @@ function TenantLayout() {
         }
       ],
     },
-    { name: 'Compras', href: 'purchases', icon: Truck, permission: 'purchases_read' },
+    { name: 'tips', href: 'tips', icon: DollarSign, permission: 'tips_read', requiresModule: 'tips', dynamicLabel: true }, // Dynamic label: Tips or Commissions
+    { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: CreditCard, permission: 'accounting_read', requiresModule: 'bankAccounts' },
     {
-      name: 'Citas',
-      href: 'appointments',
-      icon: Calendar,
-      permission: 'appointments_read',
-      requiresVertical: ['SERVICES', 'HOSPITALITY'],
+      name: 'Facturación Electrónica',
+      href: 'billing',
+      icon: FileText,
+      permission: 'billing_read',
       children: [
-        { name: 'Lista', href: 'appointments?tab=list', icon: List },
-        { name: 'Calendario hotel', href: 'appointments?tab=calendar', icon: Calendar },
+        { name: 'Dashboard', href: 'billing', icon: BarChart3 },
+        { name: 'Nueva Factura', href: 'billing/create', icon: Receipt },
+        { name: 'Series de Numeración', href: 'billing/sequences', icon: List },
       ]
     },
-    { name: 'Servicios', href: 'services', icon: Briefcase, permission: 'appointments_read', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
-    { name: 'Recursos', href: 'resources', icon: UserSquare, permission: 'appointments_read', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
-    { name: 'Operaciones Hotel', href: 'hospitality/operations', icon: Building2, permission: 'appointments_read', requiresModule: 'appointments', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
-    { name: 'Plano Hotel', href: 'hospitality/floor-plan', icon: Building, permission: 'appointments_read', requiresModule: 'appointments', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
+    { name: 'Reportes', href: 'reports', icon: AreaChart, permission: 'reports_read' },
+
+    // 4. Calendario
     {
       name: 'Calendario',
       href: 'calendar',
@@ -547,7 +563,6 @@ function TenantLayout() {
         { name: 'Configuración', href: 'calendar?tab=management', icon: Settings },
       ]
     },
-    { name: 'Reportes', href: 'reports', icon: AreaChart, permission: 'reports_read' },
   ];
 
   const SidebarNavigation = () => {
@@ -561,6 +576,9 @@ function TenantLayout() {
     const getDisplayName = (item) => {
       if (item.dynamicLabel && item.name === 'tips') {
         return tipsLabels.plural; // "Propinas" or "Comisiones"
+      }
+      if (item.name === 'Citas' && tenant?.vertical === 'HOSPITALITY') {
+        return 'Reservaciones';
       }
       return item.name;
     };
@@ -1141,6 +1159,7 @@ function TenantLayout() {
                 <Route path="restaurant/menu-engineering" element={<MenuEngineeringPage />} />
                 <Route path="restaurant/recipes" element={<RecipesPage />} />
                 <Route path="restaurant/purchase-orders" element={<PurchaseOrdersPage />} />
+                <Route path="waste-control" element={<WasteManagementPage />} />
                 <Route path="marketing" element={
                   <CrmProvider>
                     <MarketingPage />

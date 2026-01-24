@@ -383,11 +383,11 @@ export class NotificationCenterService {
   ): Promise<boolean> {
     const prefs = await this.getPreferences(userId, tenantId);
 
-    if (!prefs.enabled) {
+    if (!prefs?.enabled) {
       return false;
     }
 
-    const categoryPrefs = prefs.categories?.[category];
+    const categoryPrefs = prefs?.categories?.[category];
     if (!categoryPrefs) {
       return channel === "inApp"; // Default to in-app if no prefs
     }
