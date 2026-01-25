@@ -21,7 +21,7 @@ export const RubikLoader = ({
     <div className={containerClass}>
       <div style={{ width: size, height: size }}>
         <Lottie
-          path="/Rubik's Cube Loader.json"
+          path="/rubik_cube_loader.json"
           loop={true}
           autoplay={true}
           renderer="svg"
