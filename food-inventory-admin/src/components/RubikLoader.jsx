@@ -9,7 +9,7 @@ import Lottie from 'lottie-react';
  * @param {boolean} props.fullScreen - Si debe ocupar toda la pantalla (default: false)
  */
 export const RubikLoader = ({
-  size = 200,
+  size = 120,
   message = 'Cargando...',
   fullScreen = false
 }) => {

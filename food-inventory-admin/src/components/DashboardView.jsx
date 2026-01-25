@@ -45,7 +45,9 @@ import { ProfitAndLossChart } from '@/components/charts/ProfitAndLossChart.jsx';
 import { CustomerSegmentationChart } from '@/components/charts/CustomerSegmentationChart.jsx';
 import { EmployeePerformanceChart } from '@/components/charts/EmployeePerformanceChart.jsx';
 import { InventoryAttributeTable } from '@/components/tables/InventoryAttributeTable.jsx';
+import { InventoryAttributeTable } from '@/components/tables/InventoryAttributeTable.jsx';
 import { SalesAttributeTable } from '@/components/tables/SalesAttributeTable.jsx';
+import { RubikLoader } from './RubikLoader';
 
 const statusMap = {
   draft: { label: 'Borrador', colorClassName: 'bg-gray-200 text-gray-800' },
@@ -59,8 +61,8 @@ const statusMap = {
 };
 
 const getStatusBadge = (status) => {
-    const statusInfo = statusMap[status] || { label: status, colorClassName: 'bg-gray-200' };
-    return <Badge className={statusInfo.colorClassName}>{statusInfo.label}</Badge>;
+  const statusInfo = statusMap[status] || { label: status, colorClassName: 'bg-gray-200' };
+  return <Badge className={statusInfo.colorClassName}>{statusInfo.label}</Badge>;
 };
 
 function DashboardView() {
@@ -100,7 +102,7 @@ function DashboardView() {
   }, []);
 
   if (loading) {
-    return <DashboardSkeleton />;
+    return <RubikLoader />;
   }
 
   if (error) {
@@ -269,11 +271,11 @@ function DashboardView() {
                   <SalesByCategoryChart data={chartData.sales.categories} />
                   {((chartData.sales.attributes?.schema?.length ?? 0) > 0 &&
                     (chartData.sales.attributes?.combinations?.length ?? 0) > 0) ? (
-                      <SalesAttributeTable
-                        schema={chartData.sales.attributes.schema}
-                        combinations={chartData.sales.attributes.combinations}
-                      />
-                    ) : null}
+                    <SalesAttributeTable
+                      schema={chartData.sales.attributes.schema}
+                      combinations={chartData.sales.attributes.combinations}
+                    />
+                  ) : null}
                 </div>
                 <SalesComparisonCard comparison={chartData.sales.comparison} />
               </div>
@@ -373,9 +375,9 @@ function DashboardView() {
                     <span className="font-medium">{alert.productName}</span>
                     {
                       alert.alerts.lowStock ? (
-                          <Badge variant="destructive">Stock Bajo</Badge>
+                        <Badge variant="destructive">Stock Bajo</Badge>
                       ) : alert.alerts.nearExpiration ? (
-                          <Badge variant="secondary">Próximo a Vencer</Badge>
+                        <Badge variant="secondary">Próximo a Vencer</Badge>
                       ) : null
                     }
                   </div>
