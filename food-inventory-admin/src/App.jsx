@@ -145,7 +145,8 @@ const DocsArticle = lazy(() => import('./pages/DocsArticle.jsx'));
 const ComprasManagement = lazy(() => import('@/components/ComprasManagement.jsx'));
 const BankAccountsManagement = lazy(() => import('@/components/BankAccountsManagement.jsx'));
 const BankReconciliationView = lazy(() => import('@/components/BankReconciliationView.jsx'));
-const RubikLoader = lazy(() => import('@/components/RubikLoader.jsx'));
+// RubikLoader imported directly (not lazy) - it's used as the loading fallback
+import { RubikLoader } from '@/components/RubikLoader.jsx';
 const ServicesManagement = lazy(() => import('@/components/ServicesManagement.jsx'));
 const ResourcesManagement = lazy(() => import('@/components/ResourcesManagement.jsx'));
 const AppointmentsManagement = lazy(() => import('@/components/AppointmentsManagement.jsx'));
@@ -179,11 +180,9 @@ const BillingSequencesManager = lazy(() => import('@/components/billing/BillingS
 const FulfillmentDashboard = lazy(() => import('@/components/fulfillment/FulfillmentDashboard.jsx').then(module => ({ default: module.FulfillmentDashboard })));
 
 
-// Loading fallback component
+// Loading fallback component - RubikLoader is now directly imported (not lazy)
 const LoadingFallback = () => (
-  <Suspense fallback={<div className="flex items-center justify-center h-screen"><div className="text-lg">Cargando...</div></div>}>
-    <RubikLoader fullScreen message="Cargando..." />
-  </Suspense>
+  <RubikLoader fullScreen message="Cargando..." />
 );
 
 

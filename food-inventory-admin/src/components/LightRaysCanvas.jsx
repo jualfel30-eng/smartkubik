@@ -21,7 +21,8 @@ class LightRays {
         this.mouse = { x: 0.5, y: 0.5 };
         this.smoothMouse = { x: 0.5, y: 0.5 };
         this.animationId = null;
-        this.isVisible = false;
+        this.isVisible = true;
+        this.isTabVisible = true;
 
         this.init();
     }
@@ -200,14 +201,49 @@ class LightRays {
 
         this.handleResize = this.handleResize.bind(this);
         this.handleMouseMove = this.handleMouseMove.bind(this);
+        this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
 
         window.addEventListener('resize', this.handleResize);
+        document.addEventListener('visibilitychange', this.handleVisibilityChange);
+
         if (this.options.followMouse) {
             window.addEventListener('mousemove', this.handleMouseMove);
         }
 
+        // Setup IntersectionObserver to pause when out of viewport
+        this.setupIntersectionObserver();
+
         this.handleResize();
         this.start();
+    }
+
+    setupIntersectionObserver() {
+        if (!('IntersectionObserver' in window)) return;
+
+        this.intersectionObserver = new IntersectionObserver(
+            (entries) => {
+                entries.forEach(entry => {
+                    this.isVisible = entry.isIntersecting;
+                    if (this.isVisible && this.isTabVisible) {
+                        this.start();
+                    } else {
+                        this.stop();
+                    }
+                });
+            },
+            { threshold: 0.1 }
+        );
+
+        this.intersectionObserver.observe(this.container);
+    }
+
+    handleVisibilityChange() {
+        this.isTabVisible = !document.hidden;
+        if (this.isVisible && this.isTabVisible) {
+            this.start();
+        } else {
+            this.stop();
+        }
     }
 
     handleResize() {
@@ -221,20 +257,21 @@ class LightRays {
         this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
         this.gl.uniform2f(this.uniforms.iResolution, this.canvas.width, this.canvas.height);
 
-        const { anchor, dir } = this.getAnchorAndDir(this.options.optionsRaysOrigin || 'top-center', this.canvas.width, this.canvas.height);
+        const { anchor, dir } = this.getAnchorAndDir(this.options.raysOrigin, this.canvas.width, this.canvas.height);
         this.gl.uniform2f(this.uniforms.rayPos, anchor[0], anchor[1]);
         this.gl.uniform2f(this.uniforms.rayDir, dir[0], dir[1]);
     }
 
     handleMouseMove(e) {
-        if (!this.container) return;
+        if (!this.container || !this.isVisible) return;
         const rect = this.container.getBoundingClientRect();
         this.mouse.x = (e.clientX - rect.left) / rect.width;
         this.mouse.y = (e.clientY - rect.top) / rect.height;
     }
 
     render(time) {
-        if (!this.gl) return;
+        if (!this.gl || !this.isVisible || !this.isTabVisible) return;
+
         this.gl.uniform1f(this.uniforms.iTime, time * 0.001);
 
         if (this.options.followMouse && this.options.mouseInfluence > 0) {
@@ -249,7 +286,7 @@ class LightRays {
     }
 
     start() {
-        if (!this.animationId) {
+        if (!this.animationId && this.isVisible && this.isTabVisible) {
             this.animationId = requestAnimationFrame(t => this.render(t));
         }
     }
@@ -265,6 +302,12 @@ class LightRays {
         this.stop();
         window.removeEventListener('resize', this.handleResize);
         window.removeEventListener('mousemove', this.handleMouseMove);
+        document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+
+        if (this.intersectionObserver) {
+            this.intersectionObserver.disconnect();
+        }
+
         if (this.canvas && this.canvas.parentNode) {
             this.canvas.parentNode.removeChild(this.canvas);
         }

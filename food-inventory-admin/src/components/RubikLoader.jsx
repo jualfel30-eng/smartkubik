@@ -1,5 +1,7 @@
 import React from 'react';
 import Lottie from 'lottie-react';
+// Import JSON directly - bundled with the app, no network fetch needed
+import rubikAnimation from '@/assets/rubik_cube_loader.json';
 
 /**
  * Componente de loader con animación de Cubo Rubik
@@ -21,10 +23,12 @@ export const RubikLoader = ({
     <div className={containerClass}>
       <div style={{ width: size, height: size }}>
         <Lottie
-          path="/rubik_cube_loader.json"
+          animationData={rubikAnimation}
           loop={true}
           autoplay={true}
-          renderer="svg"
+          rendererSettings={{
+            preserveAspectRatio: 'xMidYMid slice'
+          }}
         />
       </div>
       {message && (
