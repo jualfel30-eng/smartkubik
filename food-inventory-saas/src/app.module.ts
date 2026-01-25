@@ -59,6 +59,7 @@ import { BankReconciliationModule } from "./modules/bank-reconciliation/bank-rec
 import { PayrollModule } from "./modules/payroll/payroll.module";
 import { PayrollEmployeesModule } from "./modules/payroll-employees/payroll-employees.module";
 import { TipsModule } from "./modules/tips/tips.module";
+import { CommissionsModule } from "./modules/commissions/commissions.module";
 import { ReservationsModule } from "./modules/reservations/reservations.module";
 import { WhapiModule } from "./modules/whapi/whapi.module";
 import { ServicePackagesModule } from "./modules/service-packages/service-packages.module";
@@ -487,6 +488,7 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     PayrollModule,
     PayrollEmployeesModule,
     TipsModule,
+    CommissionsModule,
     ReservationsModule,
     AppointmentsModule,
     ServicePackagesModule,

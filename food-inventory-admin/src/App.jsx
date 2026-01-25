@@ -155,6 +155,7 @@ const TablesPage = lazy(() => import('./pages/TablesPage.jsx'));
 const KitchenDisplay = lazy(() => import('@/components/restaurant/KitchenDisplay.jsx'));
 const ReservationsPage = lazy(() => import('./pages/ReservationsPage.jsx'));
 const TipsPage = lazy(() => import('./pages/TipsPage.jsx'));
+const CommissionsPage = lazy(() => import('./pages/CommissionsPage.jsx'));
 const MenuEngineeringPage = lazy(() => import('./pages/MenuEngineeringPage.jsx'));
 const RecipesPage = lazy(() => import('./pages/RecipesPage.jsx'));
 const PurchaseOrdersPage = lazy(() => import('./pages/PurchaseOrdersPage.jsx'));
@@ -538,6 +539,7 @@ function TenantLayout() {
       ],
     },
     { name: 'tips', href: 'tips', icon: DollarSign, permission: 'tips_read', requiresModule: 'tips', dynamicLabel: true }, // Dynamic label: Tips or Commissions
+    { name: 'Comisiones y Metas', href: 'commissions', icon: Target, permission: 'commissions_read', requiresModule: 'commissions' },
     { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: CreditCard, permission: 'accounting_read', requiresModule: 'bankAccounts' },
     {
       name: 'Facturación Electrónica',
@@ -1156,6 +1158,7 @@ function TenantLayout() {
                 <Route path="restaurant/reservations" element={<ReservationsPage />} />
                 <Route path="tips" element={<TipsPage />} />
                 <Route path="restaurant/tips" element={<Navigate to="/tips" replace />} /> {/* Redirect old route */}
+                <Route path="commissions" element={<CommissionsPage />} />
                 <Route path="restaurant/menu-engineering" element={<MenuEngineeringPage />} />
                 <Route path="restaurant/recipes" element={<RecipesPage />} />
                 <Route path="restaurant/purchase-orders" element={<PurchaseOrdersPage />} />
