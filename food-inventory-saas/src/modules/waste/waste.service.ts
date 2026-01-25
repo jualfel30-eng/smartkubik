@@ -16,6 +16,7 @@ import {
 import { ConfigService } from "@nestjs/config";
 import { ChatOpenAI } from "@langchain/openai";
 import { InventoryService } from "../inventory/inventory.service";
+import { AccountingService } from "../accounting/accounting.service";
 
 @Injectable()
 export class WasteService {
@@ -28,6 +29,7 @@ export class WasteService {
     private readonly productModel: Model<ProductDocument>,
     private readonly inventoryService: InventoryService,
     private readonly configService: ConfigService,
+    private readonly accountingService: AccountingService,
   ) {
     // Inicializar OpenAI si está disponible
     const openaiKey = this.configService.get<string>("OPENAI_API_KEY");
@@ -74,7 +76,15 @@ export class WasteService {
         costPerUnit =
           defaultUnit?.costPerUnit || product.sellingUnits[0].costPerUnit || 0;
       }
+
+      // FALLBACK: Use main variant cost price if no supplier/selling unit found
+      // This covers "Simple" products (Finished Goods) that don't have suppliers
+      if (costPerUnit === 0 && product.variants && product.variants.length > 0) {
+        costPerUnit = product.variants[0].costPrice || 0;
+      }
+
       // If we fall through here, costPerUnit remains 0, which is safe
+
       console.log(`Computed costPerUnit: ${costPerUnit} for product ${product._id}`);
       const totalCost = costPerUnit * dto.quantity;
 
@@ -147,6 +157,23 @@ export class WasteService {
         console.error("Error deducting inventory for waste (STACK):", error.stack);
         console.error("Error deducting inventory for waste (MSG):", error.message);
         // We don't fail the waste creation if inventory update fails, but log it
+      }
+
+      // 3. Registrar pérdida en contabilidad (asíncrono)
+      if (totalCost > 0) {
+        setImmediate(async () => {
+          try {
+            await this.accountingService.createJournalEntryForWaste(
+              savedEntry,
+              tenantId,
+            );
+          } catch (error) {
+            console.error(
+              `Error recording accounting entry for waste ${savedEntry._id}:`,
+              error,
+            );
+          }
+        });
       }
 
       return savedEntry;

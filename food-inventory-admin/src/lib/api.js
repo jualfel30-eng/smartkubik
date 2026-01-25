@@ -1600,6 +1600,25 @@ export const fileIvaDeclaration = (id, data) => {
   });
 };
 
+// ============ PRODUCTS API ============
+
+export const getProducts = (params = {}) => {
+  const queryParams = new URLSearchParams();
+
+  Object.keys(params).forEach(key => {
+    if (params[key] !== undefined && params[key] !== null) {
+      queryParams.append(key, params[key]);
+    }
+  });
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/products${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getProduct = (id) => {
+  return fetchApi(`/products/${id}`);
+};
+
 // ============ BILL OF MATERIALS (RECIPES) API ============
 
 export const getBillOfMaterials = (params = {}) => {

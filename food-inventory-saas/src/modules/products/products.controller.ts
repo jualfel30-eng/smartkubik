@@ -92,6 +92,7 @@ export class ProductsController {
   @Get()
   @Permissions("products_read")
   async findAll(@Query() query: ProductQueryDto, @Request() req) {
+    console.log(`GET /products called with query:`, query, `User:`, req.user.email);
     const result = await this.productsService.findAll(query, req.user.tenantId);
     return {
       success: true,
