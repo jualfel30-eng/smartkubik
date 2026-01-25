@@ -1,45 +1,57 @@
-import React from 'react';
-import Lottie from 'lottie-react';
+import React, { useEffect, useRef } from 'react';
+import lottie from 'lottie-web';
 // Import JSON directly - bundled with the app, no network fetch needed
 import rubikAnimation from '@/assets/rubik_cube_loader.json';
 
 /**
  * Componente de loader con animación de Cubo Rubik
- * @param {Object} props - Propiedades del componente
- * @param {number} props.size - Tamaño del loader en píxeles (default: 200)
- * @param {string} props.message - Mensaje opcional a mostrar debajo del loader
- * @param {boolean} props.fullScreen - Si debe ocupar toda la pantalla (default: false)
+ * Usa lottie-web directamente para mejor compatibilidad con Safari iOS
  */
 export const RubikLoader = ({
   size = 120,
   message = 'Cargando...',
   fullScreen = false
 }) => {
-  const lottieRef = React.useRef(null);
-  const intervalRef = React.useRef(null);
+  const containerRef = useRef(null);
+  const animationRef = useRef(null);
 
-  React.useEffect(() => {
-    if (lottieRef.current) {
-      lottieRef.current.play();
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    // Destroy previous animation if exists
+    if (animationRef.current) {
+      animationRef.current.destroy();
     }
 
-    // Safari iOS fallback: force loop check every second
-    // This ensures looping even if onComplete doesn't fire reliably
-    intervalRef.current = setInterval(() => {
-      if (lottieRef.current) {
-        const currentFrame = lottieRef.current.currentFrame;
-        const totalFrames = lottieRef.current.totalFrames;
-
-        // If we're at or near the end, restart
-        if (currentFrame >= totalFrames - 1) {
-          lottieRef.current.goToAndPlay(0, true);
-        }
+    // Create animation using lottie-web directly
+    animationRef.current = lottie.loadAnimation({
+      container: containerRef.current,
+      renderer: 'svg',
+      loop: true,
+      autoplay: true,
+      animationData: rubikAnimation,
+      rendererSettings: {
+        preserveAspectRatio: 'xMidYMid slice',
+        progressiveLoad: false,
+        hideOnTransparent: true,
+        className: 'lottie-svg-class'
       }
-    }, 1100); // Check slightly after 1 second (animation is ~1s at 30fps)
+    });
+
+    // Safari iOS fix: ensure animation keeps playing
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && animationRef.current) {
+        animationRef.current.play();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (animationRef.current) {
+        animationRef.current.destroy();
+        animationRef.current = null;
       }
     };
   }, []);
@@ -50,29 +62,13 @@ export const RubikLoader = ({
 
   return (
     <div className={containerClass}>
-      <div style={{
-        width: size,
-        height: size,
-        willChange: 'transform' // Safari iOS performance hint
-      }}>
-        <Lottie
-          lottieRef={lottieRef}
-          animationData={rubikAnimation}
-          loop={false}
-          autoplay={true}
-          rendererSettings={{
-            preserveAspectRatio: 'xMidYMid slice',
-            progressiveLoad: false,
-            hideOnTransparent: true
-          }}
-          renderer="svg" // Force SVG renderer for Safari iOS compatibility
-          onComplete={() => {
-            // Primary loop mechanism
-            lottieRef.current?.goToAndPlay(0, true);
-          }}
-          style={{ width: '100%', height: '100%' }}
-        />
-      </div>
+      <div
+        ref={containerRef}
+        style={{
+          width: size,
+          height: size,
+        }}
+      />
       {message && (
         <p className="mt-4 text-sm text-muted-foreground animate-pulse">
           {message}
