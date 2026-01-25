@@ -139,7 +139,7 @@ export default function CommissionManagementDashboard() {
   const fetchCommissionPlans = useCallback(async () => {
     try {
       const data = await getCommissionPlans();
-      setCommissionPlans(data);
+      setCommissionPlans(Array.isArray(data) ? data : []);
     } catch (error) {
       toast.error('Error al cargar planes de comisiones', { description: error.message });
     }
@@ -148,7 +148,8 @@ export default function CommissionManagementDashboard() {
   const fetchCommissionRecords = useCallback(async () => {
     try {
       const data = await getCommissionRecords({ status: statusFilter !== 'all' ? statusFilter : undefined });
-      setCommissionRecords(data.data || data);
+      const records = data.data || data;
+      setCommissionRecords(Array.isArray(records) ? records : []);
     } catch (error) {
       toast.error('Error al cargar registros de comisiones', { description: error.message });
     }
@@ -157,7 +158,7 @@ export default function CommissionManagementDashboard() {
   const fetchPendingCommissions = useCallback(async () => {
     try {
       const data = await getPendingCommissions();
-      setPendingCommissions(data);
+      setPendingCommissions(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching pending commissions:', error);
     }
@@ -166,7 +167,8 @@ export default function CommissionManagementDashboard() {
   const fetchGoals = useCallback(async () => {
     try {
       const data = await getGoals();
-      setGoals(data.data || data);
+      const goalsList = data.data || data;
+      setGoals(Array.isArray(goalsList) ? goalsList : []);
     } catch (error) {
       toast.error('Error al cargar metas', { description: error.message });
     }
@@ -175,7 +177,8 @@ export default function CommissionManagementDashboard() {
   const fetchBonuses = useCallback(async () => {
     try {
       const data = await getBonuses();
-      setBonuses(data.data || data);
+      const bonusesList = data.data || data;
+      setBonuses(Array.isArray(bonusesList) ? bonusesList : []);
     } catch (error) {
       toast.error('Error al cargar bonos', { description: error.message });
     }
@@ -184,7 +187,7 @@ export default function CommissionManagementDashboard() {
   const fetchPendingBonuses = useCallback(async () => {
     try {
       const data = await getPendingBonuses();
-      setPendingBonuses(data);
+      setPendingBonuses(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching pending bonuses:', error);
     }
@@ -193,7 +196,7 @@ export default function CommissionManagementDashboard() {
   const fetchEmployees = useCallback(async () => {
     try {
       const data = await getTenantUsers();
-      setEmployees(data);
+      setEmployees(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching employees:', error);
     }
