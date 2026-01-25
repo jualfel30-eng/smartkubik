@@ -16,11 +16,32 @@ export const RubikLoader = ({
   fullScreen = false
 }) => {
   const lottieRef = React.useRef(null);
+  const intervalRef = React.useRef(null);
 
   React.useEffect(() => {
     if (lottieRef.current) {
       lottieRef.current.play();
     }
+
+    // Safari iOS fallback: force loop check every second
+    // This ensures looping even if onComplete doesn't fire reliably
+    intervalRef.current = setInterval(() => {
+      if (lottieRef.current) {
+        const currentFrame = lottieRef.current.currentFrame;
+        const totalFrames = lottieRef.current.totalFrames;
+
+        // If we're at or near the end, restart
+        if (currentFrame >= totalFrames - 1) {
+          lottieRef.current.goToAndPlay(0, true);
+        }
+      }
+    }, 1100); // Check slightly after 1 second (animation is ~1s at 30fps)
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
   }, []);
 
   const containerClass = fullScreen
@@ -29,15 +50,24 @@ export const RubikLoader = ({
 
   return (
     <div className={containerClass}>
-      <div style={{ width: size, height: size }}>
+      <div style={{
+        width: size,
+        height: size,
+        willChange: 'transform' // Safari iOS performance hint
+      }}>
         <Lottie
           lottieRef={lottieRef}
           animationData={rubikAnimation}
           loop={false}
           autoplay={true}
+          rendererSettings={{
+            preserveAspectRatio: 'xMidYMid slice',
+            progressiveLoad: false,
+            hideOnTransparent: true
+          }}
+          renderer="svg" // Force SVG renderer for Safari iOS compatibility
           onComplete={() => {
-            // Force replay on completion to create a manual loop
-            // This is more robust on mobile than native loop prop
+            // Primary loop mechanism
             lottieRef.current?.goToAndPlay(0, true);
           }}
           style={{ width: '100%', height: '100%' }}
