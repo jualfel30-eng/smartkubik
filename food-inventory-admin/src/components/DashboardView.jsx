@@ -45,7 +45,6 @@ import { ProfitAndLossChart } from '@/components/charts/ProfitAndLossChart.jsx';
 import { CustomerSegmentationChart } from '@/components/charts/CustomerSegmentationChart.jsx';
 import { EmployeePerformanceChart } from '@/components/charts/EmployeePerformanceChart.jsx';
 import { InventoryAttributeTable } from '@/components/tables/InventoryAttributeTable.jsx';
-import { InventoryAttributeTable } from '@/components/tables/InventoryAttributeTable.jsx';
 import { SalesAttributeTable } from '@/components/tables/SalesAttributeTable.jsx';
 import { RubikLoader } from './RubikLoader';
 
