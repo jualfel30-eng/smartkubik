@@ -16,5 +16,24 @@
 }
 
 .PhoneInputCountry {
-    margin-right: 0.5rem;
+  margin-right: 0.5rem;
+}
+
+/* Forced override for Login Hero Title */
+.hero-title-forced {
+  font-size: 40px !important;
+  /* Fallback for mobile */
+  line-height: 1.1 !important;
+}
+
+@media (min-width: 768px) {
+  .hero-title-forced {
+    font-size: 60px !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-title-forced {
+    font-size: 64px !important;
+  }
 }
