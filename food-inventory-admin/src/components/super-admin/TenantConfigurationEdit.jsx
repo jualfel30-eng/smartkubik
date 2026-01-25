@@ -98,7 +98,7 @@ const MODULE_GROUPS = {
   hr: {
     title: 'RRHH & Nómina',
     description: 'Gestión de colaboradores, contratos y asistencia',
-    modules: ['payroll', 'hr_core', 'time_and_attendance']
+    modules: ['payroll', 'hr_core', 'time_and_attendance', 'commissions']
   }
 };
 
@@ -138,6 +138,7 @@ const MODULE_LABELS = {
   payroll: 'Nómina',
   hr_core: 'Core de RRHH',
   time_and_attendance: 'Tiempo y Asistencia',
+  commissions: 'Comisiones (Ventas)',
   // Manufacturing modules
   production: 'Órdenes de Producción',
   bom: 'Listas de Materiales (BOM)',

@@ -303,7 +303,8 @@ export class Tenant {
     bankAccounts?: boolean;
     hrCore?: boolean;
     timeAndAttendance?: boolean;
-    tips?: boolean; // Core module for all verticals (Tips for Food Service, Commissions for others)
+    tips?: boolean; // Core module for all verticals (Tips for Food Service)
+    commissions?: boolean; // General Commissions module for sales
 
     // Communication & Marketing modules
     chat?: boolean;
