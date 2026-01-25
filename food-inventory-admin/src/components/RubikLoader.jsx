@@ -6,7 +6,7 @@ import './RubikLoader.css';
  * Compatible con todos los navegadores incluyendo Safari iOS
  */
 export const RubikLoader = ({
-  size = 120,
+  size = 72,
   message = 'Cargando...',
   fullScreen = false
 }) => {
