@@ -447,6 +447,52 @@ export class PermissionsSeed {
       description: "Ver todas las oportunidades del tenant (Manager)",
       module: "opportunities",
     },
+
+    // Commissions Module
+    {
+      name: "commissions_read",
+      description: "Ver planes y registros de comisiones",
+      module: "commissions",
+    },
+    {
+      name: "commissions_write",
+      description: "Crear y gestionar planes de comisiones",
+      module: "commissions",
+    },
+    {
+      name: "commissions_approve",
+      description: "Aprobar o rechazar comisiones pendientes",
+      module: "commissions",
+    },
+
+    // Goals Module
+    {
+      name: "goals_read",
+      description: "Ver metas de ventas y progreso",
+      module: "goals",
+    },
+    {
+      name: "goals_write",
+      description: "Crear y gestionar metas de ventas",
+      module: "goals",
+    },
+
+    // Bonuses Module
+    {
+      name: "bonuses_read",
+      description: "Ver bonos de empleados",
+      module: "bonuses",
+    },
+    {
+      name: "bonuses_write",
+      description: "Crear y gestionar bonos de empleados",
+      module: "bonuses",
+    },
+    {
+      name: "bonuses_approve",
+      description: "Aprobar o rechazar bonos pendientes",
+      module: "bonuses",
+    },
   ];
 
   constructor(@InjectConnection() private readonly connection: Connection) { }

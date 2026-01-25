@@ -416,6 +416,25 @@ export class Order {
   assignedWaiterId?: Types.ObjectId;
 
   // ========================================
+  // COMISIONES (Sales Commission Tracking)
+  // ========================================
+
+  @Prop({ type: Types.ObjectId, ref: "User" })
+  salesPersonId?: Types.ObjectId; // Vendedor asignado (puede ser diferente a waiter)
+
+  @Prop({ type: Boolean, default: false })
+  commissionCalculated: boolean; // ¿Ya se calculó la comisión?
+
+  @Prop({ type: Types.ObjectId, ref: "CommissionRecord" })
+  commissionRecordId?: Types.ObjectId; // Referencia al registro de comisión
+
+  @Prop({ type: Number, default: 0 })
+  commissionAmount: number; // Monto de comisión (desnormalizado para reportes)
+
+  @Prop({ type: Boolean, default: false })
+  contributesToGoals: boolean; // ¿Esta venta contribuye a metas? (default true después de procesarse)
+
+  // ========================================
   // MARKETING: Cupones y Promociones
   // ========================================
 
@@ -523,6 +542,11 @@ OrderSchema.index({ totalAmount: -1, createdAt: -1, tenantId: 1 });
 OrderSchema.index({ tableId: 1, tenantId: 1 });
 OrderSchema.index({ isSplit: 1, activeSplitId: 1, tenantId: 1 });
 OrderSchema.index({ source: 1, createdAt: -1, tenantId: 1 });
+
+// Comisiones
+OrderSchema.index({ salesPersonId: 1, createdAt: -1, tenantId: 1 });
+OrderSchema.index({ commissionCalculated: 1, status: 1, tenantId: 1 });
+OrderSchema.index({ commissionRecordId: 1, tenantId: 1 });
 
 // Índice de texto para búsqueda
 OrderSchema.index({

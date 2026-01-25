@@ -2046,6 +2046,231 @@ export const deleteRecurringEntry = (id) => {
   });
 };
 
+// ============ COMMISSIONS MODULE API ============
+
+// Commission Plans
+export const getCommissionPlans = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.isActive !== undefined) queryParams.append('isActive', params.isActive);
+  if (params.type) queryParams.append('type', params.type);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/commissions/plans${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getCommissionPlan = (id) => {
+  return fetchApi(`/commissions/plans/${id}`);
+};
+
+export const createCommissionPlan = (planData) => {
+  return fetchApi('/commissions/plans', {
+    method: 'POST',
+    body: JSON.stringify(planData),
+  });
+};
+
+export const updateCommissionPlan = (id, planData) => {
+  return fetchApi(`/commissions/plans/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(planData),
+  });
+};
+
+export const deleteCommissionPlan = (id) => {
+  return fetchApi(`/commissions/plans/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+// Commission Records
+export const getCommissionRecords = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.employeeId) queryParams.append('employeeId', params.employeeId);
+  if (params.status) queryParams.append('status', params.status);
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+  if (params.page) queryParams.append('page', params.page);
+  if (params.limit) queryParams.append('limit', params.limit);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/commissions/records${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getCommissionRecord = (id) => {
+  return fetchApi(`/commissions/records/${id}`);
+};
+
+export const approveCommission = (id) => {
+  return fetchApi(`/commissions/records/${id}/approve`, {
+    method: 'PATCH',
+  });
+};
+
+export const rejectCommission = (id, reason) => {
+  return fetchApi(`/commissions/records/${id}/reject`, {
+    method: 'PATCH',
+    body: JSON.stringify({ reason }),
+  });
+};
+
+export const bulkApproveCommissions = (recordIds) => {
+  return fetchApi('/commissions/records/bulk-approve', {
+    method: 'POST',
+    body: JSON.stringify({ recordIds }),
+  });
+};
+
+export const getEmployeeCommissionsSummary = (employeeId, params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/commissions/employees/${employeeId}/summary${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getCommissionsReport = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+  if (params.groupBy) queryParams.append('groupBy', params.groupBy);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/commissions/reports/summary${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getPendingCommissions = () => {
+  return fetchApi('/commissions/records/pending');
+};
+
+// ============ GOALS MODULE API ============
+
+export const getGoals = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.employeeId) queryParams.append('employeeId', params.employeeId);
+  if (params.status) queryParams.append('status', params.status);
+  if (params.type) queryParams.append('type', params.type);
+  if (params.period) queryParams.append('period', params.period);
+  if (params.page) queryParams.append('page', params.page);
+  if (params.limit) queryParams.append('limit', params.limit);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/goals${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getGoal = (id) => {
+  return fetchApi(`/goals/${id}`);
+};
+
+export const createGoal = (goalData) => {
+  return fetchApi('/goals', {
+    method: 'POST',
+    body: JSON.stringify(goalData),
+  });
+};
+
+export const updateGoal = (id, goalData) => {
+  return fetchApi(`/goals/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(goalData),
+  });
+};
+
+export const deleteGoal = (id) => {
+  return fetchApi(`/goals/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+export const getGoalProgress = (id) => {
+  return fetchApi(`/goals/${id}/progress`);
+};
+
+export const updateGoalProgress = (id, amount) => {
+  return fetchApi(`/goals/${id}/progress`, {
+    method: 'PATCH',
+    body: JSON.stringify({ amount }),
+  });
+};
+
+export const getActiveGoals = () => {
+  return fetchApi('/goals/active');
+};
+
+export const getGoalsDashboard = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.period) queryParams.append('period', params.period);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/goals/dashboard${queryString ? `?${queryString}` : ''}`);
+};
+
+// ============ BONUSES MODULE API ============
+
+export const getBonuses = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.employeeId) queryParams.append('employeeId', params.employeeId);
+  if (params.status) queryParams.append('status', params.status);
+  if (params.type) queryParams.append('type', params.type);
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+  if (params.page) queryParams.append('page', params.page);
+  if (params.limit) queryParams.append('limit', params.limit);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/bonuses${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getBonus = (id) => {
+  return fetchApi(`/bonuses/${id}`);
+};
+
+export const createBonus = (bonusData) => {
+  return fetchApi('/bonuses', {
+    method: 'POST',
+    body: JSON.stringify(bonusData),
+  });
+};
+
+export const updateBonus = (id, bonusData) => {
+  return fetchApi(`/bonuses/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(bonusData),
+  });
+};
+
+export const deleteBonus = (id) => {
+  return fetchApi(`/bonuses/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+export const approveBonus = (id) => {
+  return fetchApi(`/bonuses/${id}/approve`, {
+    method: 'PATCH',
+  });
+};
+
+export const rejectBonus = (id, reason) => {
+  return fetchApi(`/bonuses/${id}/reject`, {
+    method: 'PATCH',
+    body: JSON.stringify({ reason }),
+  });
+};
+
+export const getPendingBonuses = () => {
+  return fetchApi('/bonuses/pending');
+};
+
+export const getBonusesSummary = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/bonuses/summary${queryString ? `?${queryString}` : ''}`);
+};
+
 // Generic API client for axios-like usage
 export const api = {
   get: (url, config = {}) => fetchApi(url, { ...config, method: 'GET' }),

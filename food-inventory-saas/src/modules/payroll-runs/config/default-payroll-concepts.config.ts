@@ -126,4 +126,50 @@ export const DEFAULT_PAYROLL_CONCEPTS: DefaultPayrollConceptBlueprint[] = [
     metadata: { category: "worker_contribution", localization: "VE" },
     localization: "VE",
   },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // COMPENSACIÓN VARIABLE - Comisiones, Bonos y Propinas
+  // ════════════════════════════════════════════════════════════════════════════
+  {
+    code: "COMMISSION",
+    name: "Comisiones sobre Ventas",
+    conceptType: "earning",
+    description: "Comisiones por ventas realizadas durante el período.",
+    debitAccountCode: "5301", // Gasto de Comisiones
+    creditAccountCode: "2107", // Comisiones por Pagar
+    calculation: defaultCalculation,
+    metadata: {
+      category: "variable",
+      isTaxable: true,
+      source: "commissions",
+    },
+  },
+  {
+    code: "GOAL_BONUS",
+    name: "Bonos por Metas",
+    conceptType: "earning",
+    description: "Bonos otorgados por cumplimiento de metas de ventas.",
+    debitAccountCode: "5302", // Gasto de Bonos
+    creditAccountCode: "2108", // Bonos por Pagar
+    calculation: defaultCalculation,
+    metadata: {
+      category: "variable",
+      isTaxable: true,
+      source: "goals",
+    },
+  },
+  {
+    code: "TIPS",
+    name: "Propinas",
+    conceptType: "earning",
+    description: "Propinas recibidas de clientes durante el período.",
+    debitAccountCode: "2109", // Propinas por Pagar (se revierte)
+    creditAccountCode: "2103", // Sueldos por Pagar
+    calculation: defaultCalculation,
+    metadata: {
+      category: "variable",
+      isTaxable: true,
+      source: "tips",
+    },
+  },
 ];

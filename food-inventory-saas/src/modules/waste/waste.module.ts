@@ -5,6 +5,7 @@ import { WasteService } from "./waste.service";
 import { WasteEntry, WasteEntrySchema } from "../../schemas/waste-entry.schema";
 import { Product, ProductSchema } from "../../schemas/product.schema";
 import { InventoryModule } from "../inventory/inventory.module";
+import { AccountingModule } from "../accounting/accounting.module";
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { InventoryModule } from "../inventory/inventory.module";
       { name: Product.name, schema: ProductSchema },
     ]),
     InventoryModule,
+    AccountingModule,
   ],
   controllers: [WasteController],
   providers: [WasteService],

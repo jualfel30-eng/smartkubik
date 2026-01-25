@@ -74,4 +74,15 @@ export const ALL_PERMISSIONS = [
   "opportunities_update",
   "opportunities_delete",
   "opportunities_view_all",
+  // Commissions Module
+  "commissions_read",
+  "commissions_write",
+  "commissions_approve",
+  // Goals Module
+  "goals_read",
+  "goals_write",
+  // Bonuses Module
+  "bonuses_read",
+  "bonuses_write",
+  "bonuses_approve",
 ];

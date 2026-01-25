@@ -55,6 +55,7 @@ import {
 import { MailModule } from "../mail/mail.module";
 import { PayrollWebhooksModule } from "../payroll-webhooks/payroll-webhooks.module";
 import { TipsModule } from "../tips/tips.module";
+import { CommissionsModule } from "../commissions/commissions.module";
 
 @Module({
   imports: [
@@ -81,6 +82,7 @@ import { TipsModule } from "../tips/tips.module";
     MailModule,
     PayrollWebhooksModule,
     TipsModule,
+    CommissionsModule,
   ],
   controllers: [PayrollRunsController],
   providers: [PayrollRunsService, PayrollEngineService, PayablesService],

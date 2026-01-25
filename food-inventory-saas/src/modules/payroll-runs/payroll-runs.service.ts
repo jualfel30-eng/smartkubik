@@ -82,6 +82,8 @@ import { SpecialPayrollRunFiltersDto } from "./dto/special-payroll-run-filters.d
 import { PayrollWebhooksService } from "../payroll-webhooks/payroll-webhooks.service";
 import { TipsService } from "../tips/tips.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
+import { CommissionService } from "../commissions/services/commission.service";
+import { BonusService } from "../commissions/services/bonus.service";
 
 type LeanEmployeeProfile = EmployeeProfile & {
   _id: Types.ObjectId;
@@ -166,6 +168,8 @@ export class PayrollRunsService {
     private readonly webhooksService: PayrollWebhooksService,
     private readonly tipsService: TipsService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly commissionService: CommissionService,
+    private readonly bonusService: BonusService,
   ) { }
 
   private toObjectId(id: string | Types.ObjectId) {
@@ -375,6 +379,9 @@ export class PayrollRunsService {
     };
     await run.save();
 
+    // Marcar comisiones y bonos como pagados
+    await this.markCommissionsAndBonusesAsPaid(run, tenantId);
+
     await this.notifyPayrollPayment(run, paymentsMeta, tenantId);
 
     await this.recordAudit({
@@ -388,6 +395,85 @@ export class PayrollRunsService {
     });
 
     return run.toObject();
+  }
+
+  /**
+   * Marcar comisiones y bonos incluidos en la nómina como pagados
+   */
+  private async markCommissionsAndBonusesAsPaid(
+    run: PayrollRunDocument,
+    tenantId: string,
+  ): Promise<void> {
+    const runId = run._id.toString();
+
+    // Obtener IDs de empleados en la nómina
+    const employeeIds = (run.lines || [])
+      .map((line) => line.employeeId?.toString())
+      .filter(Boolean) as string[];
+
+    if (employeeIds.length === 0) return;
+
+    // Buscar comisiones aprobadas para estos empleados en el período
+    const periodStart = run.periodStart;
+    const periodEnd = run.periodEnd;
+
+    // Marcar comisiones como pagadas
+    let totalCommissionsMarked = 0;
+    for (const employeeId of employeeIds) {
+      try {
+        const result = await this.commissionService.getApprovedCommissions(
+          employeeId,
+          periodStart,
+          periodEnd,
+          tenantId,
+        );
+
+        if (result.recordIds.length > 0) {
+          const markedCount = await this.commissionService.markAsPaid(
+            result.recordIds,
+            runId,
+            tenantId,
+          );
+          totalCommissionsMarked += markedCount;
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to mark commissions as paid for employee ${employeeId}: ${error.message}`,
+        );
+      }
+    }
+
+    // Marcar bonos como pagados
+    let totalBonusesMarked = 0;
+    for (const employeeId of employeeIds) {
+      try {
+        const result = await this.bonusService.getApprovedBonuses(
+          employeeId,
+          periodStart,
+          periodEnd,
+          tenantId,
+        );
+
+        if (result.bonusIds.length > 0) {
+          const periodLabel = run.label || `${run.periodStart?.toISOString()} - ${run.periodEnd?.toISOString()}`;
+          const markedCount = await this.bonusService.markAsPaid(
+            result.bonusIds,
+            runId,
+            periodLabel,
+            tenantId,
+          );
+          totalBonusesMarked += markedCount;
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to mark bonuses as paid for employee ${employeeId}: ${error.message}`,
+        );
+      }
+    }
+
+    this.logger.log(
+      `Marked ${totalCommissionsMarked} commissions and ${totalBonusesMarked} bonuses as paid for payroll run ${runId}`,
+    );
   }
 
   private async notifyPayrollPayment(
@@ -974,6 +1060,67 @@ export class PayrollRunsService {
       // Continuar sin propinas si hay error
     }
 
+    // Obtener comisiones aprobadas del período para cada empleado
+    const employeeCommissionsMap = new Map<string, number>();
+    try {
+      const commissionsReport =
+        await this.commissionService.getAllApprovedCommissionsForPayroll(
+          periodStart,
+          periodEnd,
+          tenantId,
+        );
+
+      // Mapear comisiones por employeeId
+      if (commissionsReport && Array.isArray(commissionsReport)) {
+        commissionsReport.forEach((empComm: any) => {
+          if (empComm.employeeId && empComm.totalCommissions > 0) {
+            employeeCommissionsMap.set(
+              empComm.employeeId,
+              empComm.totalCommissions,
+            );
+          }
+        });
+      }
+
+      this.logger.log(
+        `Loaded commissions for ${employeeCommissionsMap.size} employees in payroll period`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to load commissions for payroll period: ${error.message}`,
+      );
+      // Continuar sin comisiones si hay error
+    }
+
+    // Obtener bonos aprobados del período para cada empleado
+    const employeeBonusesMap = new Map<string, number>();
+    try {
+      const bonusesReport =
+        await this.bonusService.getAllApprovedBonusesForPayroll(
+          periodStart,
+          periodEnd,
+          tenantId,
+        );
+
+      // Mapear bonos por employeeId
+      if (bonusesReport && Array.isArray(bonusesReport)) {
+        bonusesReport.forEach((empBonus: any) => {
+          if (empBonus.employeeId && empBonus.totalBonuses > 0) {
+            employeeBonusesMap.set(empBonus.employeeId, empBonus.totalBonuses);
+          }
+        });
+      }
+
+      this.logger.log(
+        `Loaded bonuses for ${employeeBonusesMap.size} employees in payroll period`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to load bonuses for payroll period: ${error.message}`,
+      );
+      // Continuar sin bonos si hay error
+    }
+
     const computations = this.computeRunEntries(
       employees,
       activeContractMap,
@@ -984,6 +1131,8 @@ export class PayrollRunsService {
       conceptById,
       structures,
       employeeTipsMap,
+      employeeCommissionsMap,
+      employeeBonusesMap,
     );
 
     const structureSummary = this.buildStructureSummary(
@@ -1588,6 +1737,8 @@ export class PayrollRunsService {
     conceptById: Map<string, LeanPayrollConcept>,
     allStructures: LeanPayrollStructure[],
     employeeTipsMap: Map<string, number>,
+    employeeCommissionsMap: Map<string, number> = new Map(),
+    employeeBonusesMap: Map<string, number> = new Map(),
   ): PayrollComputationResult {
     const entries: PayrollRun["entries"] = [];
     let grossPay = 0;
@@ -1788,6 +1939,123 @@ export class PayrollRunsService {
         });
 
         grossPay += tipsAmount;
+      }
+    });
+
+    // Incluir comisiones aprobadas del período como earnings
+    employees.forEach((employee) => {
+      const employeeId = employee._id.toString();
+      const commissionsAmount = employeeCommissionsMap.get(employeeId);
+
+      if (commissionsAmount && commissionsAmount > 0) {
+        const contract = contracts.get(employeeId);
+        const customer = customerMap.get(
+          (employee as any).customerId?.toString?.() || "",
+        );
+        const employeeName =
+          customer?.name ||
+          customer?.companyName ||
+          employee.position ||
+          "Empleado";
+
+        // Buscar o crear concepto de comisiones
+        let commissionsConcept =
+          conceptByCode.get("COMMISSION") || conceptByCode.get("COMISIONES");
+
+        if (!commissionsConcept) {
+          commissionsConcept = {
+            tenantId: employee.tenantId,
+            code: "COMMISSION",
+            name: "Comisiones sobre Ventas",
+            conceptType: "earning",
+            calculation: { method: "fixed_amount" },
+            isActive: true,
+            metadata: {
+              category: "variable",
+              isTaxable: true,
+              appliesToAllEmployees: false,
+            },
+          };
+        }
+
+        const resolvedCommissionsConcept = commissionsConcept;
+
+        entries.push({
+          employeeId: employee._id,
+          contractId: contract?._id,
+          employeeName,
+          department: employee.department,
+          conceptCode: resolvedCommissionsConcept.code,
+          conceptName: resolvedCommissionsConcept.name || "Comisiones",
+          conceptType: (resolvedCommissionsConcept.conceptType ||
+            "earning") as any,
+          amount: commissionsAmount,
+          breakdown: {
+            source: "commissions",
+            calculationType: "fixed",
+            baseAmount: commissionsAmount,
+          },
+        });
+
+        grossPay += commissionsAmount;
+      }
+    });
+
+    // Incluir bonos aprobados del período como earnings
+    employees.forEach((employee) => {
+      const employeeId = employee._id.toString();
+      const bonusesAmount = employeeBonusesMap.get(employeeId);
+
+      if (bonusesAmount && bonusesAmount > 0) {
+        const contract = contracts.get(employeeId);
+        const customer = customerMap.get(
+          (employee as any).customerId?.toString?.() || "",
+        );
+        const employeeName =
+          customer?.name ||
+          customer?.companyName ||
+          employee.position ||
+          "Empleado";
+
+        // Buscar o crear concepto de bonos
+        let bonusConcept =
+          conceptByCode.get("GOAL_BONUS") || conceptByCode.get("BONOS");
+
+        if (!bonusConcept) {
+          bonusConcept = {
+            tenantId: employee.tenantId,
+            code: "GOAL_BONUS",
+            name: "Bonos por Metas",
+            conceptType: "earning",
+            calculation: { method: "fixed_amount" },
+            isActive: true,
+            metadata: {
+              category: "variable",
+              isTaxable: true,
+              appliesToAllEmployees: false,
+            },
+          };
+        }
+
+        const resolvedBonusConcept = bonusConcept;
+
+        entries.push({
+          employeeId: employee._id,
+          contractId: contract?._id,
+          employeeName,
+          department: employee.department,
+          conceptCode: resolvedBonusConcept.code,
+          conceptName: resolvedBonusConcept.name || "Bonos",
+          conceptType: (resolvedBonusConcept.conceptType || "earning") as any,
+          amount: bonusesAmount,
+          breakdown: {
+            source: "bonuses",
+            calculationType: "fixed",
+            baseAmount: bonusesAmount,
+          },
+        });
+
+        grossPay += bonusesAmount;
       }
     });
 
