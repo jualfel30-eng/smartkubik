@@ -24,30 +24,43 @@ export const RubikLoader = ({
     }
 
     // Create animation using lottie-web directly
-    animationRef.current = lottie.loadAnimation({
+    // Safari iOS: use autoplay: false and manually trigger play()
+    const anim = lottie.loadAnimation({
       container: containerRef.current,
       renderer: 'svg',
       loop: true,
-      autoplay: true,
+      autoplay: false, // Disabled - we'll manually play for Safari iOS
       animationData: rubikAnimation,
       rendererSettings: {
-        preserveAspectRatio: 'xMidYMid slice',
-        progressiveLoad: false,
-        hideOnTransparent: true,
-        className: 'lottie-svg-class'
+        preserveAspectRatio: 'xMidYMid meet'
       }
     });
 
-    // Safari iOS fix: ensure animation keeps playing
+    animationRef.current = anim;
+
+    // Safari iOS fix: manually trigger play after animation is loaded
+    anim.addEventListener('DOMLoaded', () => {
+      anim.play();
+    });
+
+    // Fallback: force play after a short delay if DOMLoaded doesn't fire
+    const playTimeout = setTimeout(() => {
+      if (animationRef.current) {
+        animationRef.current.goToAndPlay(0, true);
+      }
+    }, 100);
+
+    // Keep animation playing when page becomes visible again
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && animationRef.current) {
-        animationRef.current.play();
+        animationRef.current.goToAndPlay(0, true);
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      clearTimeout(playTimeout);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (animationRef.current) {
         animationRef.current.destroy();
