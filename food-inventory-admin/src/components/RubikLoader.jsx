@@ -17,6 +17,14 @@ export const RubikLoader = ({
 }) => {
   const lottieRef = React.useRef(null);
 
+  // Clone and patch the animation data to fix the truncated duration
+  // The original file (rubik_cube_loader.json) incorrectly specifies "op": 31 (1 second)
+  // but contains animation data for 900 frames (30 seconds). We force the correct duration here.
+  const fullDurationAnimation = React.useMemo(() => ({
+    ...rubikAnimation,
+    op: 900 // Extend animation to full 30 seconds
+  }), []);
+
   React.useEffect(() => {
     if (lottieRef.current) {
       lottieRef.current.play();
@@ -32,7 +40,7 @@ export const RubikLoader = ({
       <div style={{ width: size, height: size }}>
         <Lottie
           lottieRef={lottieRef}
-          animationData={rubikAnimation}
+          animationData={fullDurationAnimation}
           loop={true}
           autoplay={true}
           onComplete={() => {
