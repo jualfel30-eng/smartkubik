@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import Lottie from 'lottie-react';
 // Import JSON directly - bundled with the app, no network fetch needed
 import rubikAnimation from '@/assets/rubik_cube_loader.json';
@@ -15,15 +15,6 @@ export const RubikLoader = ({
   message = 'Cargando...',
   fullScreen = false
 }) => {
-  const lottieRef = useRef(null);
-
-  // Ensure animation plays on mount
-  useEffect(() => {
-    if (lottieRef.current) {
-      lottieRef.current.play();
-    }
-  }, []);
-
   const containerClass = fullScreen
     ? 'fixed inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm z-50'
     : 'flex flex-col items-center justify-center p-8';
@@ -32,10 +23,9 @@ export const RubikLoader = ({
     <div className={containerClass}>
       <div style={{ width: size, height: size }}>
         <Lottie
-          lottieRef={lottieRef}
           animationData={rubikAnimation}
-          loop
-          autoplay
+          loop={true}
+          autoplay={true}
           style={{ width: '100%', height: '100%' }}
         />
       </div>
