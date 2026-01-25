@@ -15,6 +15,14 @@ export const RubikLoader = ({
   message = 'Cargando...',
   fullScreen = false
 }) => {
+  const lottieRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (lottieRef.current) {
+      lottieRef.current.play();
+    }
+  }, []);
+
   const containerClass = fullScreen
     ? 'fixed inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm z-50'
     : 'flex flex-col items-center justify-center p-8';
@@ -23,9 +31,14 @@ export const RubikLoader = ({
     <div className={containerClass}>
       <div style={{ width: size, height: size }}>
         <Lottie
+          lottieRef={lottieRef}
           animationData={rubikAnimation}
           loop={true}
           autoplay={true}
+          onComplete={() => {
+            // Force replay on completion just in case loop prop fails on some devices
+            lottieRef.current?.goToAndPlay(0, true);
+          }}
           style={{ width: '100%', height: '100%' }}
         />
       </div>
