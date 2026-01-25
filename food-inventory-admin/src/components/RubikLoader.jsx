@@ -1,70 +1,37 @@
 import React, { useEffect, useRef } from 'react';
-import lottie from 'lottie-web';
-// Import JSON directly - bundled with the app, no network fetch needed
+import Lottie from 'lottie-react';
 import rubikAnimation from '@/assets/rubik_cube_loader.json';
 
 /**
  * Componente de loader con animación de Cubo Rubik
- * Usa lottie-web directamente para mejor compatibilidad con Safari iOS
+ * Compatible con Safari iOS usando un intervalo para mantener la animación
  */
 export const RubikLoader = ({
   size = 120,
   message = 'Cargando...',
   fullScreen = false
 }) => {
-  const containerRef = useRef(null);
-  const animationRef = useRef(null);
+  const lottieRef = useRef(null);
+  const intervalRef = useRef(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    // Safari iOS fix: Use an interval to keep the animation running
+    // This is a workaround for Safari iOS not respecting loop=true
+    intervalRef.current = setInterval(() => {
+      if (lottieRef.current) {
+        const currentFrame = lottieRef.current.animationItem?.currentFrame || 0;
+        const totalFrames = lottieRef.current.animationItem?.totalFrames || 31;
 
-    // Destroy previous animation if exists
-    if (animationRef.current) {
-      animationRef.current.destroy();
-    }
-
-    // Create animation using lottie-web directly
-    // Safari iOS: use autoplay: false and manually trigger play()
-    const anim = lottie.loadAnimation({
-      container: containerRef.current,
-      renderer: 'svg',
-      loop: true,
-      autoplay: false, // Disabled - we'll manually play for Safari iOS
-      animationData: rubikAnimation,
-      rendererSettings: {
-        preserveAspectRatio: 'xMidYMid meet'
+        // If animation is near the end or stopped, restart it
+        if (currentFrame >= totalFrames - 2 || currentFrame === 0) {
+          lottieRef.current.goToAndPlay(0, true);
+        }
       }
-    });
-
-    animationRef.current = anim;
-
-    // Safari iOS fix: manually trigger play after animation is loaded
-    anim.addEventListener('DOMLoaded', () => {
-      anim.play();
-    });
-
-    // Fallback: force play after a short delay if DOMLoaded doesn't fire
-    const playTimeout = setTimeout(() => {
-      if (animationRef.current) {
-        animationRef.current.goToAndPlay(0, true);
-      }
-    }, 100);
-
-    // Keep animation playing when page becomes visible again
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && animationRef.current) {
-        animationRef.current.goToAndPlay(0, true);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    }, 50); // Check every 50ms
 
     return () => {
-      clearTimeout(playTimeout);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (animationRef.current) {
-        animationRef.current.destroy();
-        animationRef.current = null;
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
       }
     };
   }, []);
@@ -75,12 +42,12 @@ export const RubikLoader = ({
 
   return (
     <div className={containerClass}>
-      <div
-        ref={containerRef}
-        style={{
-          width: size,
-          height: size,
-        }}
+      <Lottie
+        lottieRef={lottieRef}
+        animationData={rubikAnimation}
+        loop={true}
+        autoplay={true}
+        style={{ width: size, height: size }}
       />
       {message && (
         <p className="mt-4 text-sm text-muted-foreground animate-pulse">
