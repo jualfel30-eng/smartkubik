@@ -205,12 +205,16 @@ export class InvoicePdfService {
             format: [80, 297] // Fixed long height, usually ok for viewing
         });
 
-        let y = 10;
+        const settings = tenant?.settings;
+        const initialY = 5; // Adjusted to 5mm as requested (was 1, which caused cutoff)
+        let y = initialY;
         const margin = 5;
         const centerX = 40;
 
         // Logo Check
-        if (logoData) {
+        const shouldPrintLogo = settings?.billingPreferences?.printLogoOnThermal !== false;
+
+        if (logoData && shouldPrintLogo) {
             try {
                 const props = (pdf as any).getImageProperties(logoData);
                 const aspectRatio = props.width / props.height;

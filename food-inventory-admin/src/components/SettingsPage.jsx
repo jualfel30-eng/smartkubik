@@ -321,7 +321,7 @@ const SettingsPage = () => {
           updateTenantContext?.({
             name: response.data.name,
             ownerFirstName: response.data.ownerFirstName,
-            ownerLastName: response.data.ownerLastName,            contactInfo: response.data.contactInfo,
+            ownerLastName: response.data.ownerLastName, contactInfo: response.data.contactInfo,
             taxInfo: response.data.taxInfo,
             verticalProfile: {
               key: response.data.verticalProfile?.key || settings.verticalProfile.key,
@@ -710,6 +710,21 @@ const SettingsPage = () => {
                       Estándar para facturas normales, Térmica para tickets de caja. Los montos se mostrarán en USD y Bs usando el tipo de cambio del BCV.
                     </p>
                   </div>
+
+                  {settings.settings.invoiceFormat === 'thermal' && (
+                    <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm mt-4">
+                      <div className="space-y-0.5">
+                        <Label>Imprimir Logo en Ticket Térmico</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Ocultar para ahorrar papel y tinta en impresoras de recibos.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={settings.settings.billingPreferences?.printLogoOnThermal !== false}
+                        onCheckedChange={(checked) => handleSwitchChange('settings.billingPreferences.printLogoOnThermal', checked)}
+                      />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 

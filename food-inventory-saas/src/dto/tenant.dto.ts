@@ -375,6 +375,11 @@ export class BillingPreferencesDto {
   printers?: {
     receiptPrinterIp?: string;
   };
+
+  @ApiProperty({ example: true, required: false })
+  @IsOptional()
+  @IsBoolean()
+  printLogoOnThermal?: boolean;
 }
 
 export class NotificationSettingsDto {
