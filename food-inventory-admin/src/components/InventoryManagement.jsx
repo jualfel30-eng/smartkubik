@@ -960,7 +960,7 @@ function InventoryManagement() {
   const handleConfirmExport = async (selectedColumnKeys) => {
     try {
       // 1. Fetch ALL data in BATCHES
-      const BATCH_SIZE = 2000;
+      const BATCH_SIZE = 100; // Backend limit is stricter here (100)
       let allItems = [];
       let page = 1;
       let hasMore = true;

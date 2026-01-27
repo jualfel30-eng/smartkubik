@@ -1843,7 +1843,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
   const handleConfirmExport = async (selectedColumnKeys) => {
     try {
       // 1. Fetch ALL data matching current filters in BATCHES
-      const BATCH_SIZE = 2000; // Backend max limit
+      const BATCH_SIZE = 1000; // Backend max limit might be 2000, using 1000 for safety
       let allProducts = [];
       let page = 1;
       let hasMore = true;
