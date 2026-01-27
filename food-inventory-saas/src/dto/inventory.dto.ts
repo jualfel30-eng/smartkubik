@@ -343,7 +343,7 @@ export class InventoryQueryDto {
   @Transform(({ value }) => parseInt(value))
   @IsNumber()
   @Min(1)
-  @Max(100)
+  @Max(10000)
   limit?: number = 20;
 
   @ApiPropertyOptional({ description: "Término de búsqueda (SKU o nombre)" })
@@ -417,7 +417,7 @@ export class InventoryMovementQueryDto {
   @Transform(({ value }) => parseInt(value))
   @IsNumber()
   @Min(1)
-  @Max(100)
+  @Max(10000)
   limit?: number = 20;
 
   @ApiPropertyOptional({ description: "ID del inventario" })
