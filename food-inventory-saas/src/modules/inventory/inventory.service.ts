@@ -1066,7 +1066,7 @@ export class InventoryService {
         .sort(sortOptions)
         .skip(skip)
         .limit(limitNumber)
-        .populate("productId", "name category brand isPerishable")
+        .populate("productId", "name category brand isPerishable variants")
         .exec(),
       this.inventoryModel.countDocuments(filter),
     ]);

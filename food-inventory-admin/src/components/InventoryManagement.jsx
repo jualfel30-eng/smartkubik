@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { SearchableSelect } from '@/components/orders/v2/custom/SearchableSelect';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu.jsx';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu.jsx';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert.jsx';
 import { ExportOptionsDialog } from './ExportOptionsDialog';
 import * as XLSX from 'xlsx';
@@ -80,6 +80,20 @@ function InventoryManagement() {
   const [editingLotIndex, setEditingLotIndex] = useState(null);
   const [editingLotData, setEditingLotData] = useState(null);
   const [productSearchInput, setProductSearchInput] = useState('');
+  const [visibleColumns, setVisibleColumns] = useState({
+    sku: true,
+    product: true,
+    category: true,
+    available: true,
+    cost: true,
+    location: true,
+    expiration: true,
+    lots: true,
+    status: true,
+    actions: true,
+    sellingPrice: false,
+    totalValue: false
+  });
 
   // Estados para transferencias
   const [warehouses, setWarehouses] = useState([]);
@@ -959,34 +973,14 @@ function InventoryManagement() {
 
   const handleConfirmExport = async (selectedColumnKeys) => {
     try {
-      // 1. Fetch ALL data in BATCHES
-      const BATCH_SIZE = 100; // Backend limit is stricter here (100)
-      let allItems = [];
-      let page = 1;
-      let hasMore = true;
+      // 1. Fetch ALL data (using high limit)
+      const params = new URLSearchParams({
+        page: '1',
+        limit: '10000', // Backend now supports up to 10000
+      });
 
-      toast.info("Iniciando exportación...");
-
-      while (hasMore) {
-        const params = new URLSearchParams({
-          page: page.toString(),
-          limit: BATCH_SIZE.toString(),
-        });
-
-        const response = await fetchApi(`/inventory?${params.toString()}`);
-        const items = response.data || [];
-        allItems = [...allItems, ...items];
-
-        const pagination = response.pagination || {};
-        const totalPages = pagination.totalPages || 1;
-
-        if (page >= totalPages || items.length === 0) {
-          hasMore = false;
-        } else {
-          page++;
-          toast.info(`Cargando página ${page} de ${totalPages}...`);
-        }
-      }
+      const response = await fetchApi(`/inventory?${params.toString()}`);
+      let allItems = response.data || [];
 
       // Aplicar los mismos filtros que en frontend si es necesario
       if (typeof committedSearch === 'string' && committedSearch.trim()) {
@@ -1413,6 +1407,27 @@ function InventoryManagement() {
                 />
               </div>
             </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">Columnas</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Alternar columnas</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem checked={visibleColumns.sku} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, sku: checked }))}>SKU</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={visibleColumns.product} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, product: checked }))}>Producto</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={visibleColumns.category} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, category: checked }))}>Categoría</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={visibleColumns.available} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, available: checked }))}>Stock</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={visibleColumns.cost} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, cost: checked }))}>Costo</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={visibleColumns.location} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, location: checked }))}>Ubicación</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={visibleColumns.expiration} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, expiration: checked }))}>Vencimiento</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={visibleColumns.lots} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, lots: checked }))}>Lotes</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={visibleColumns.sellingPrice} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, sellingPrice: checked }))}>Precio Venta</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={visibleColumns.totalValue} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, totalValue: checked }))}>Valor Total</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={visibleColumns.status} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, status: checked }))}>Estado</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={visibleColumns.actions} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, actions: checked }))}>Acciones</DropdownMenuCheckboxItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Select value={filterCategory} onValueChange={setFilterCategory}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filtrar por categoría" />
@@ -1429,32 +1444,60 @@ function InventoryManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Producto</TableHead>
-                  <TableHead>Categoría</TableHead>
-                  <TableHead>Stock Disponible</TableHead>
-                  <TableHead>Costo Promedio</TableHead>
-                  {multiWarehouseEnabled && binLocations.length > 0 && <TableHead>Ubicación</TableHead>}
-                  <TableHead>Vencimiento (1er Lote)</TableHead>
-                  <TableHead>Lotes</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Acciones</TableHead>
+                  {visibleColumns.sku && <TableHead>SKU</TableHead>}
+                  {visibleColumns.product && <TableHead>Producto</TableHead>}
+                  {visibleColumns.category && <TableHead>Categoría</TableHead>}
+                  {visibleColumns.available && <TableHead>Stock Disponible</TableHead>}
+                  {visibleColumns.cost && <TableHead>Costo Promedio</TableHead>}
+                  {visibleColumns.sellingPrice && <TableHead>Precio Venta</TableHead>}
+                  {visibleColumns.totalValue && <TableHead>Valor Total</TableHead>}
+                  {multiWarehouseEnabled && binLocations.length > 0 && visibleColumns.location && <TableHead>Ubicación</TableHead>}
+                  {visibleColumns.expiration && <TableHead>Vencimiento (1er Lote)</TableHead>}
+                  {visibleColumns.lots && <TableHead>Lotes</TableHead>}
+                  {visibleColumns.status && <TableHead>Estado</TableHead>}
+                  {visibleColumns.actions && <TableHead>Acciones</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredData.map((item) => (
                   <TableRow key={item._id}>
-                    <TableCell className="font-medium">{item.productSku}</TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{item.productName}</div>
-                        <div className="text-sm text-muted-foreground">{item.productId?.brand || 'N/A'}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{formatProductCategory(item.productId?.category)}</TableCell>
-                    <TableCell>{item.availableQuantity} unidades</TableCell>
-                    <TableCell>${item.averageCostPrice.toFixed(2)}</TableCell>
-                    {multiWarehouseEnabled && binLocations.length > 0 && (
+                    {visibleColumns.sku && <TableCell className="font-medium">{item.productSku}</TableCell>}
+                    {visibleColumns.product && (
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{item.productName}</div>
+                          <div className="text-sm text-muted-foreground">{item.productId?.brand || 'N/A'}</div>
+                        </div>
+                      </TableCell>
+                    )}
+                    {visibleColumns.category && <TableCell>{formatProductCategory(item.productId?.category)}</TableCell>}
+                    {visibleColumns.available && <TableCell>{item.availableQuantity} unidades</TableCell>}
+                    {visibleColumns.cost && <TableCell>${item.averageCostPrice.toFixed(2)}</TableCell>}
+                    {visibleColumns.sellingPrice && (
+                      <TableCell>
+                        ${(() => {
+                          const variants = item.productId?.variants || [];
+                          const variant = item.variantSku
+                            ? variants.find(v => v.sku === item.variantSku)
+                            : variants[0];
+                          const price = variant?.basePrice || 0;
+                          return price.toFixed(2);
+                        })()}
+                      </TableCell>
+                    )}
+                    {visibleColumns.totalValue && (
+                      <TableCell>
+                        ${(() => {
+                          const variants = item.productId?.variants || [];
+                          const variant = item.variantSku
+                            ? variants.find(v => v.sku === item.variantSku)
+                            : variants[0];
+                          const price = variant?.basePrice || 0;
+                          return (item.availableQuantity * price).toFixed(2);
+                        })()}
+                      </TableCell>
+                    )}
+                    {multiWarehouseEnabled && binLocations.length > 0 && visibleColumns.location && (
                       <TableCell>
                         {getBinLocationName(item.binLocationId) ? (
                           <div className="flex items-center gap-1">
@@ -1466,47 +1509,53 @@ function InventoryManagement() {
                         )}
                       </TableCell>
                     )}
-                    <TableCell>
-                      {item.lots && item.lots.length > 0 ? (
-                        <span>{new Date(item.lots[0].expirationDate).toLocaleDateString()}</span>
-                      ) : (
-                        <span className="text-muted-foreground">N/A</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {item.lots && item.lots.length > 0 ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedInventoryForLots(item);
-                            setIsLotsDialogOpen(true);
-                          }}
-                        >
-                          <Package className="h-4 w-4 mr-1" />
-                          {item.lots.length === 1 ? 'Ver lote' : `Ver ${item.lots.length} lotes`}
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Sin lotes</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(item)}</TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => handleEditItem(item)}><Edit className="h-4 w-4" /></Button>
-                        {multiWarehouseEnabled && warehouses.length > 1 && (
+                    {visibleColumns.expiration && (
+                      <TableCell>
+                        {item.lots && item.lots.length > 0 ? (
+                          <span>{new Date(item.lots[0].expirationDate).toLocaleDateString()}</span>
+                        ) : (
+                          <span className="text-muted-foreground">N/A</span>
+                        )}
+                      </TableCell>
+                    )}
+                    {visibleColumns.lots && (
+                      <TableCell>
+                        {item.lots && item.lots.length > 0 ? (
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleOpenTransfer(item)}
-                            title="Transferir a otro almacén"
+                            onClick={() => {
+                              setSelectedInventoryForLots(item);
+                              setIsLotsDialogOpen(true);
+                            }}
                           >
-                            <ArrowRightLeft className="h-4 w-4" />
+                            <Package className="h-4 w-4 mr-1" />
+                            {item.lots.length === 1 ? 'Ver lote' : `Ver ${item.lots.length} lotes`}
                           </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Sin lotes</span>
                         )}
-                        <Button variant="outline" size="sm" onClick={() => handleDeleteItem(item._id)} className="text-red-600 hover:text-red-700"><Trash2 className="h-4 w-4" /></Button>
-                      </div>
-                    </TableCell>
+                      </TableCell>
+                    )}
+                    {visibleColumns.status && <TableCell>{getStatusBadge(item)}</TableCell>}
+                    {visibleColumns.actions && (
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button variant="outline" size="sm" onClick={() => handleEditItem(item)}><Edit className="h-4 w-4" /></Button>
+                          {multiWarehouseEnabled && warehouses.length > 1 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenTransfer(item)}
+                              title="Transferir a otro almacén"
+                            >
+                              <ArrowRightLeft className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button variant="outline" size="sm" onClick={() => handleDeleteItem(item._id)} className="text-red-600 hover:text-red-700"><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

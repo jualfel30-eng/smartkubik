@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog.jsx';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu.jsx';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu.jsx';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
@@ -432,6 +432,17 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newProduct, setNewProduct] = useState(initialNewProductState);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [visibleColumns, setVisibleColumns] = useState({
+    sku: true,
+    name: true,
+    category: true,
+    price: true,
+    cost: true,
+    variants: true,
+    promotion: true,
+    status: true,
+    actions: true
+  });
   const [additionalVariants, setAdditionalVariants] = useState([]);
   const [isBarcodeDialogOpen, setIsBarcodeDialogOpen] = useState(false);
   const [barcodeCaptureTarget, setBarcodeCaptureTarget] = useState(null);
@@ -1842,52 +1853,32 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
 
   const handleConfirmExport = async (selectedColumnKeys) => {
     try {
-      // 1. Fetch ALL data matching current filters in BATCHES
-      const BATCH_SIZE = 1000; // Backend max limit might be 2000, using 1000 for safety
-      let allProducts = [];
-      let page = 1;
-      let hasMore = true;
+      // 1. Fetch ALL data matching current filters (using high limit)
+      const params = new URLSearchParams({
+        page: '1',
+        limit: '10000', // Backend now supports up to 10000
+      });
 
-      toast.info("Iniciando exportación...");
-
-      while (hasMore) {
-        const params = new URLSearchParams({
-          page: page.toString(),
-          limit: BATCH_SIZE.toString(),
-        });
-
-        if (statusFilter === 'active') {
-          params.set('isActive', 'true');
-        } else if (statusFilter === 'inactive') {
-          params.set('isActive', 'false');
-        } else {
-          params.set('includeInactive', 'true');
-        }
-
-        if (searchTerm.trim()) {
-          params.set('search', searchTerm.trim());
-        }
-
-        if (filterCategory && filterCategory !== 'all') {
-          params.set('category', filterCategory);
-        }
-
-        params.set('productType', defaultProductType);
-
-        const response = await fetchApi(`/products?${params.toString()}`);
-        const products = response.data || [];
-        allProducts = [...allProducts, ...products];
-
-        const pagination = response.pagination || {};
-        const totalPages = pagination.totalPages || 1;
-
-        if (page >= totalPages || products.length === 0) {
-          hasMore = false;
-        } else {
-          page++;
-          toast.info(`Cargando página ${page} de ${totalPages}...`);
-        }
+      if (statusFilter === 'active') {
+        params.set('isActive', 'true');
+      } else if (statusFilter === 'inactive') {
+        params.set('isActive', 'false');
+      } else {
+        params.set('includeInactive', 'true');
       }
+
+      if (searchTerm.trim()) {
+        params.set('search', searchTerm.trim());
+      }
+
+      if (filterCategory && filterCategory !== 'all') {
+        params.set('category', filterCategory);
+      }
+
+      params.set('productType', defaultProductType);
+
+      const response = await fetchApi(`/products?${params.toString()}`);
+      const allProducts = response.data || [];
 
       if (allProducts.length === 0) {
         toast.warning("No hay datos para exportar con los filtros actuales.");
@@ -1990,6 +1981,24 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
             <DropdownMenuItem onSelect={() => document.getElementById('bulk-upload-input').click()}>
               Importar
             </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline">Columnas</Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Alternar columnas</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuCheckboxItem checked={visibleColumns.sku} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, sku: checked }))}>SKU</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.name} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, name: checked }))}>Producto</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.category} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, category: checked }))}>Categoría</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.price} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, price: checked }))}>Precio</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.cost} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, cost: checked }))}>Costo</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.variants} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, variants: checked }))}>Variantes</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.promotion} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, promotion: checked }))}>Promoción</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.status} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, status: checked }))}>Estado</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.actions} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, actions: checked }))}>Acciones</DropdownMenuCheckboxItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <DropdownMenu>
@@ -3657,39 +3666,43 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Producto</TableHead>
-                  <TableHead>Categoría</TableHead>
-                  {showSalesFields && <TableHead className="text-right">Precio Venta</TableHead>}
-                  <TableHead className="text-right">Costo</TableHead>
-                  <TableHead>Variantes</TableHead>
-                  {showSalesFields && <TableHead>Promoción</TableHead>}
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Acciones</TableHead>
+                  {visibleColumns.sku && <TableHead>SKU</TableHead>}
+                  {visibleColumns.name && <TableHead>Producto</TableHead>}
+                  {visibleColumns.category && <TableHead>Categoría</TableHead>}
+                  {showSalesFields && visibleColumns.price && <TableHead className="text-right">Precio Venta</TableHead>}
+                  {visibleColumns.cost && <TableHead className="text-right">Costo</TableHead>}
+                  {visibleColumns.variants && <TableHead>Variantes</TableHead>}
+                  {showSalesFields && visibleColumns.promotion && <TableHead>Promoción</TableHead>}
+                  {visibleColumns.status && <TableHead>Estado</TableHead>}
+                  {visibleColumns.actions && <TableHead>Acciones</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredProducts.map(product => (
                   <TableRow key={product._id}>
-                    <TableCell className="font-mono">{product.sku}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-col gap-1 w-[200px]">
-                        <span className="font-medium text-slate-800 dark:text-slate-100 truncate" title={product.name}>
-                          {product.name}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-mono sm:hidden">{product.brand}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <InlineEditableCell
-                        value={Array.isArray(product.category) ? product.category.join(', ') : (product.category || '')}
-                        type="text"
-                        suggestions={categories}
-                        onSave={(val) => handleInlineUpdate(product._id, 'category', val)}
-                        className="w-[120px] text-xs text-slate-500 font-medium dark:text-slate-400"
-                      />
-                    </TableCell>
-                    {showSalesFields && (
+                    {visibleColumns.sku && <TableCell className="font-mono">{product.sku}</TableCell>}
+                    {visibleColumns.name && (
+                      <TableCell>
+                        <div className="flex flex-col gap-1 w-[200px]">
+                          <span className="font-medium text-slate-800 dark:text-slate-100 truncate" title={product.name}>
+                            {product.name}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono sm:hidden">{product.brand}</span>
+                        </div>
+                      </TableCell>
+                    )}
+                    {visibleColumns.category && (
+                      <TableCell>
+                        <InlineEditableCell
+                          value={Array.isArray(product.category) ? product.category.join(', ') : (product.category || '')}
+                          type="text"
+                          suggestions={categories}
+                          onSave={(val) => handleInlineUpdate(product._id, 'category', val)}
+                          className="w-[120px] text-xs text-slate-500 font-medium dark:text-slate-400"
+                        />
+                      </TableCell>
+                    )}
+                    {showSalesFields && visibleColumns.price && (
                       <TableCell className="text-right">
                         {product.variants?.length > 1 ? (
                           <ProductVariantsPopover
@@ -3711,29 +3724,31 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                         )}
                       </TableCell>
                     )}
-                    <TableCell className="text-right">
-                      {/* Costo Inline - Reuse Popover logic if multiple variants or simple inline */}
-                      {product.variants?.length > 1 ? (
-                        <ProductVariantsPopover
-                          variants={product.variants}
-                          onUpdateVariant={(idx, field, val) => handleInlineUpdate(product._id, field, val, idx)}
-                        >
-                          <div className="text-muted-foreground cursor-pointer inline-flex items-center justify-end gap-1 group hover:bg-muted/50 p-1 rounded transition-colors">
-                            ${(product.variants[0]?.costPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                            <span className="text-[10px] text-blue-500 font-bold group-hover:underline decoration-blue-500">(+)</span>
-                          </div>
-                        </ProductVariantsPopover>
-                      ) : (
-                        <InlineEditableCell
-                          value={product.variants?.[0]?.costPrice || 0}
-                          type="currency"
-                          onSave={(val) => handleInlineUpdate(product._id, 'costPrice', val)}
-                          className="justify-end text-muted-foreground"
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>{product.variants.length}</TableCell>
-                    {showSalesFields && (
+                    {visibleColumns.cost && (
+                      <TableCell className="text-right">
+                        {/* Costo Inline - Reuse Popover logic if multiple variants or simple inline */}
+                        {product.variants?.length > 1 ? (
+                          <ProductVariantsPopover
+                            variants={product.variants}
+                            onUpdateVariant={(idx, field, val) => handleInlineUpdate(product._id, field, val, idx)}
+                          >
+                            <div className="text-muted-foreground cursor-pointer inline-flex items-center justify-end gap-1 group hover:bg-muted/50 p-1 rounded transition-colors">
+                              ${(product.variants[0]?.costPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              <span className="text-[10px] text-blue-500 font-bold group-hover:underline decoration-blue-500">(+)</span>
+                            </div>
+                          </ProductVariantsPopover>
+                        ) : (
+                          <InlineEditableCell
+                            value={product.variants?.[0]?.costPrice || 0}
+                            type="currency"
+                            onSave={(val) => handleInlineUpdate(product._id, 'costPrice', val)}
+                            className="justify-end text-muted-foreground"
+                          />
+                        )}
+                      </TableCell>
+                    )}
+                    {visibleColumns.variants && <TableCell>{product.variants.length}</TableCell>}
+                    {showSalesFields && visibleColumns.promotion && (
                       <TableCell>
                         {product.hasActivePromotion && product.promotion?.isActive ? (
                           <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
@@ -3744,89 +3759,93 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                         )}
                       </TableCell>
                     )}
-                    <TableCell>
-                      {product.isActive ?
-                        <Badge className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Activo</Badge> :
-                        <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Inactivo</Badge>}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => {
-                          const productToEdit = JSON.parse(JSON.stringify(product));
-                          if (!productToEdit.variants || productToEdit.variants.length === 0) {
-                            productToEdit.variants = [{
-                              name: 'Estándar',
-                              basePrice: 0,
-                              costPrice: 0,
-                              attributes: {},
-                            }];
-                          } else {
-                            productToEdit.variants = productToEdit.variants.map((variant) => ({
-                              ...variant,
-                              attributes: variant.attributes || {},
-                            }));
-                          }
-                          if (!productToEdit.attributes) {
-                            productToEdit.attributes = {};
-                          }
-                          // Ensure top-level origin is copied to attributes for display
-                          if (productToEdit.origin && !productToEdit.attributes.origin) {
-                            productToEdit.attributes.origin = productToEdit.origin;
-                          }
-                          if (!productToEdit.inventoryConfig) { // Defensive check
-                            productToEdit.inventoryConfig = { minimumStock: 10, maximumStock: 100, reorderPoint: 20, reorderQuantity: 50, trackLots: true, trackExpiration: true, fefoEnabled: true };
-                          }
-                          if (productToEdit.isSoldByWeight === undefined) {
-                            productToEdit.isSoldByWeight = false;
-                          }
-                          if (productToEdit.unitOfMeasure === undefined) {
-                            productToEdit.unitOfMeasure = 'unidad';
-                          }
-                          if (productToEdit.hasMultipleSellingUnits === undefined) {
-                            productToEdit.hasMultipleSellingUnits = false;
-                          }
-                          if (!productToEdit.sellingUnits) {
-                            productToEdit.sellingUnits = [];
-                          }
-                          // Fix: Map legacy attributes.storageCondition to native storageTemperature if missing
-                          if (!productToEdit.storageTemperature && productToEdit.attributes?.storageCondition) {
-                            const map = { 'Ambiente': 'ambiente', 'Refrigerado': 'refrigerado', 'Congelado': 'congelado' };
-                            productToEdit.storageTemperature = map[productToEdit.attributes.storageCondition] || productToEdit.attributes.storageCondition.toLowerCase();
-                          }
-                          productToEdit.sellingUnits = productToEdit.sellingUnits.map((unit) => {
-                            // Calculate inverted factor for display (e.g. 1 / 0.05 = 20)
-                            const factor = unit?.conversionFactor;
-
-                            // If conversionFactorInput exists (draft), use it. 
-                            // Otherwise, calculate from factor: 1/factor
-                            let conversionSource = unit?.conversionFactorInput || '';
-                            if (!conversionSource && factor) {
-                              conversionSource = parseFloat((1 / factor).toFixed(4)).toString();
+                    {visibleColumns.status && (
+                      <TableCell>
+                        {product.isActive ?
+                          <Badge className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Activo</Badge> :
+                          <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Inactivo</Badge>}
+                      </TableCell>
+                    )}
+                    {visibleColumns.actions && (
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button variant="outline" size="sm" onClick={() => {
+                            const productToEdit = JSON.parse(JSON.stringify(product));
+                            if (!productToEdit.variants || productToEdit.variants.length === 0) {
+                              productToEdit.variants = [{
+                                name: 'Estándar',
+                                basePrice: 0,
+                                costPrice: 0,
+                                attributes: {},
+                              }];
+                            } else {
+                              productToEdit.variants = productToEdit.variants.map((variant) => ({
+                                ...variant,
+                                attributes: variant.attributes || {},
+                              }));
                             }
+                            if (!productToEdit.attributes) {
+                              productToEdit.attributes = {};
+                            }
+                            // Ensure top-level origin is copied to attributes for display
+                            if (productToEdit.origin && !productToEdit.attributes.origin) {
+                              productToEdit.attributes.origin = productToEdit.origin;
+                            }
+                            if (!productToEdit.inventoryConfig) { // Defensive check
+                              productToEdit.inventoryConfig = { minimumStock: 10, maximumStock: 100, reorderPoint: 20, reorderQuantity: 50, trackLots: true, trackExpiration: true, fefoEnabled: true };
+                            }
+                            if (productToEdit.isSoldByWeight === undefined) {
+                              productToEdit.isSoldByWeight = false;
+                            }
+                            if (productToEdit.unitOfMeasure === undefined) {
+                              productToEdit.unitOfMeasure = 'unidad';
+                            }
+                            if (productToEdit.hasMultipleSellingUnits === undefined) {
+                              productToEdit.hasMultipleSellingUnits = false;
+                            }
+                            if (!productToEdit.sellingUnits) {
+                              productToEdit.sellingUnits = [];
+                            }
+                            // Fix: Map legacy attributes.storageCondition to native storageTemperature if missing
+                            if (!productToEdit.storageTemperature && productToEdit.attributes?.storageCondition) {
+                              const map = { 'Ambiente': 'ambiente', 'Refrigerado': 'refrigerado', 'Congelado': 'congelado' };
+                              productToEdit.storageTemperature = map[productToEdit.attributes.storageCondition] || productToEdit.attributes.storageCondition.toLowerCase();
+                            }
+                            productToEdit.sellingUnits = productToEdit.sellingUnits.map((unit) => {
+                              // Calculate inverted factor for display (e.g. 1 / 0.05 = 20)
+                              const factor = unit?.conversionFactor;
 
-                            const priceSource =
-                              unit?.pricePerUnitInput ?? unit?.pricePerUnit ?? '';
-                            const costSource =
-                              unit?.costPerUnitInput ?? unit?.costPerUnit ?? '';
-                            return {
-                              ...unit,
-                              conversionFactorInput: normalizeDecimalInput(conversionSource),
-                              // Keep original factor internally
-                              conversionFactor: factor,
-                              pricePerUnitInput: normalizeDecimalInput(priceSource),
-                              pricePerUnit: parseDecimalInput(priceSource),
-                              costPerUnitInput: normalizeDecimalInput(costSource),
-                              costPerUnit: parseDecimalInput(costSource),
-                            };
-                          });
-                          productToEdit.category = normalizeStringList(productToEdit.category);
-                          productToEdit.subcategory = normalizeStringList(productToEdit.subcategory);
-                          setEditingProduct(productToEdit);
-                          setIsEditDialogOpen(true);
-                        }}><Edit className="h-4 w-4" /></Button>
-                        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleDeleteProduct(product._id)}><Trash2 className="h-4 w-4" /></Button>
-                      </div>
-                    </TableCell>
+                              // If conversionFactorInput exists (draft), use it. 
+                              // Otherwise, calculate from factor: 1/factor
+                              let conversionSource = unit?.conversionFactorInput || '';
+                              if (!conversionSource && factor) {
+                                conversionSource = parseFloat((1 / factor).toFixed(4)).toString();
+                              }
+
+                              const priceSource =
+                                unit?.pricePerUnitInput ?? unit?.pricePerUnit ?? '';
+                              const costSource =
+                                unit?.costPerUnitInput ?? unit?.costPerUnit ?? '';
+                              return {
+                                ...unit,
+                                conversionFactorInput: normalizeDecimalInput(conversionSource),
+                                // Keep original factor internally
+                                conversionFactor: factor,
+                                pricePerUnitInput: normalizeDecimalInput(priceSource),
+                                pricePerUnit: parseDecimalInput(priceSource),
+                                costPerUnitInput: normalizeDecimalInput(costSource),
+                                costPerUnit: parseDecimalInput(costSource),
+                              };
+                            });
+                            productToEdit.category = normalizeStringList(productToEdit.category);
+                            productToEdit.subcategory = normalizeStringList(productToEdit.subcategory);
+                            setEditingProduct(productToEdit);
+                            setIsEditDialogOpen(true);
+                          }}><Edit className="h-4 w-4" /></Button>
+                          <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleDeleteProduct(product._id)}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
