@@ -141,6 +141,7 @@ const BlogIndex = lazy(() => import('./pages/BlogIndex.jsx'));
 const BlogPost = lazy(() => import('./pages/BlogPost.jsx'));
 const DocsLanding = lazy(() => import('./pages/DocsLanding.jsx'));
 const DocsCategoryPage = lazy(() => import('./pages/DocsCategoryPage.jsx'));
+const TimeClock = lazy(() => import('./pages/TimeClock.jsx'));
 const DocsArticle = lazy(() => import('./pages/DocsArticle.jsx'));
 const ComprasManagement = lazy(() => import('@/components/ComprasManagement.jsx'));
 const BankAccountsManagement = lazy(() => import('@/components/BankAccountsManagement.jsx'));
@@ -1139,6 +1140,7 @@ function TenantLayout() {
                 } />
                 <Route path="services" element={<ServicesManagement />} />
                 <Route path="resources" element={<ResourcesManagement />} />
+                <Route path="fichar" element={<TimeClock />} />
                 <Route path="hospitality/deposits" element={
                   <CrmProvider>
                     <PaymentsManagementDashboard />

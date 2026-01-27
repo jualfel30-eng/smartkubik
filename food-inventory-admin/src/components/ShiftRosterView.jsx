@@ -271,6 +271,7 @@ export default function ShiftRosterView() {
                                 fetchData();
                                 setShowShiftDialog(false);
                             }}
+                            preloadedEmployees={users}
                         />
                     </div>
                 </SheetContent>

@@ -8,41 +8,47 @@ import { fetchApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { Trash2 } from 'lucide-react';
 
-export function ShiftDialogContent({ event, defaultValues, onClose, onSave }) {
+export function ShiftDialogContent({ event, defaultValues, onClose, onSave, preloadedEmployees = [] }) {
     const [formData, setFormData] = useState({
         userId: '',
         scheduledStart: '',
         scheduledEnd: '',
         notes: ''
     });
-    const [employees, setEmployees] = useState([]);
+    const [employees, setEmployees] = useState(preloadedEmployees);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         if (event) {
-            setFormData({
-                userId: event.userId?._id || event.userId || '',
+            setFormData(prev => ({
+                ...prev,
+                userId: event.employeeId?._id || event.employeeId || event.userId?._id || event.userId || '',
                 scheduledStart: event.scheduledStart ? new Date(event.scheduledStart).toISOString().slice(0, 16) : '',
                 scheduledEnd: event.scheduledEnd ? new Date(event.scheduledEnd).toISOString().slice(0, 16) : '',
                 notes: event.notes || ''
-            });
+            }));
         } else if (defaultValues) {
             const start = new Date(defaultValues.date);
             start.setHours(9, 0, 0, 0); // Default 9 AM
             const end = new Date(defaultValues.date);
             end.setHours(17, 0, 0, 0); // Default 5 PM
 
-            setFormData({
+            setFormData(prev => ({
+                ...prev,
                 userId: defaultValues.userId || '',
                 scheduledStart: start.toISOString().slice(0, 16),
                 scheduledEnd: end.toISOString().slice(0, 16),
                 notes: ''
-            });
+            }));
         }
     }, [event, defaultValues]);
 
     useEffect(() => {
         const loadEmployees = async () => {
+            if (preloadedEmployees && preloadedEmployees.length > 0) {
+                setEmployees(preloadedEmployees);
+                return;
+            }
             try {
                 const response = await fetchApi('/payroll/employees?limit=100');
                 const employeesList = Array.isArray(response.data)
@@ -56,7 +62,7 @@ export function ShiftDialogContent({ event, defaultValues, onClose, onSave }) {
             }
         };
         loadEmployees();
-    }, []);
+    }, [preloadedEmployees]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
