@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { SearchableSelect } from '@/components/orders/v2/custom/SearchableSelect';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu.jsx';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert.jsx';
+import { ExportOptionsDialog } from './ExportOptionsDialog';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { fetchApi } from '../lib/api';
@@ -62,6 +63,10 @@ function InventoryManagement() {
     averageCostPrice: 0,
     lots: [],
   });
+
+  // Estados para exportación
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState('xlsx');
   const [variantQuantities, setVariantQuantities] = useState([]);
   const [selectedProductDetails, setSelectedProductDetails] = useState(null);
   const [editFormData, setEditFormData] = useState({ newQuantity: 0, reason: '', binLocationId: '' });
@@ -925,40 +930,141 @@ function InventoryManagement() {
     saveAs(new Blob([wbout], { type: 'application/octet-stream' }), 'plantilla_ajuste_inventario.xlsx');
   };
 
-  const handleExport = (fileType) => {
-    const dataToExport = filteredData.map(item => {
-      const row = {
-        SKU: item.productSku,
-        VariantSKU: item.variantSku || '',
-        Producto: item.productName,
-        Categoría: item.productId?.category,
-        Marca: item.productId?.brand,
-        'Stock Disponible': item.availableQuantity,
-        'Stock Total': item.totalQuantity,
-        'Costo Promedio': item.averageCostPrice,
-        'Fecha de Vencimiento (Primer Lote)': item.lots?.[0]?.expirationDate
-          ? new Date(item.lots[0].expirationDate).toLocaleDateString()
-          : 'N/A',
-      };
+  const openExportDialog = (format) => {
+    setExportFormat(format);
+    setIsExportDialogOpen(true);
+  };
 
-      inventoryAttributeColumns.forEach(({ descriptor, header }) => {
-        row[header] =
-          item.inventoryAttributes?.[descriptor.key] ??
-          item.attributes?.[descriptor.key] ??
-          '';
+  const getExportColumns = () => {
+    const baseColumns = [
+      { key: 'sku', label: 'SKU', defaultChecked: true },
+      { key: 'variantSku', label: 'Variant SKU', defaultChecked: true },
+      { key: 'product', label: 'Producto', defaultChecked: true },
+      { key: 'category', label: 'Categoría', defaultChecked: true },
+      { key: 'brand', label: 'Marca', defaultChecked: true },
+      { key: 'available', label: 'Stock Disponible', defaultChecked: true },
+      { key: 'total', label: 'Stock Total', defaultChecked: true },
+      { key: 'cost', label: 'Costo Promedio', defaultChecked: true },
+      { key: 'expiration', label: 'Fecha Vencimiento (1er Lote)', defaultChecked: true },
+    ];
+
+    const iAttrs = inventoryAttributeColumns.map(({ descriptor }) => ({
+      key: `iAttr_${descriptor.key}`,
+      label: `Attr: ${descriptor.label || descriptor.key}`,
+      defaultChecked: false
+    }));
+
+    return [...baseColumns, ...iAttrs];
+  };
+
+  const handleConfirmExport = async (selectedColumnKeys) => {
+    try {
+      // 1. Fetch ALL data in BATCHES
+      const BATCH_SIZE = 2000;
+      let allItems = [];
+      let page = 1;
+      let hasMore = true;
+
+      toast.info("Iniciando exportación...");
+
+      while (hasMore) {
+        const params = new URLSearchParams({
+          page: page.toString(),
+          limit: BATCH_SIZE.toString(),
+        });
+
+        const response = await fetchApi(`/inventory?${params.toString()}`);
+        const items = response.data || [];
+        allItems = [...allItems, ...items];
+
+        const pagination = response.pagination || {};
+        const totalPages = pagination.totalPages || 1;
+
+        if (page >= totalPages || items.length === 0) {
+          hasMore = false;
+        } else {
+          page++;
+          toast.info(`Cargando página ${page} de ${totalPages}...`);
+        }
+      }
+
+      // Aplicar los mismos filtros que en frontend si es necesario
+      if (typeof committedSearch === 'string' && committedSearch.trim()) {
+        const searchLower = committedSearch.trim().toLowerCase();
+        allItems = allItems.filter(item => {
+          const candidates = [
+            item.productName,
+            item.productSku,
+            item.variantSku,
+            item.productId?.name,
+            item.productId?.sku,
+          ].filter(Boolean).map(v => String(v).toLowerCase());
+          return candidates.some(v => v.includes(searchLower));
+        });
+      }
+
+      if (filterCategory && filterCategory !== 'all') {
+        allItems = allItems.filter(item => item.productId?.category === filterCategory);
+      }
+
+      const inventoryWithAttributes = allItems.map((item) => ({
+        ...item,
+        inventoryAttributes: item.attributes || item.inventoryAttributes || {},
+      }));
+
+      if (inventoryWithAttributes.length === 0) {
+        toast.warning("No hay datos para exportar.");
+        return;
+      }
+
+      // 2. Process Data
+      const dataToExport = inventoryWithAttributes.map(item => {
+        const row = {};
+
+        if (selectedColumnKeys.includes('sku')) row['SKU'] = item.productSku;
+        if (selectedColumnKeys.includes('variantSku')) row['VariantSKU'] = item.variantSku || '';
+        if (selectedColumnKeys.includes('product')) row['Producto'] = item.productName;
+        if (selectedColumnKeys.includes('category')) row['Categoría'] = item.productId?.category;
+        if (selectedColumnKeys.includes('brand')) row['Marca'] = item.productId?.brand;
+        if (selectedColumnKeys.includes('available')) row['Stock Disponible'] = item.availableQuantity;
+        if (selectedColumnKeys.includes('total')) row['Stock Total'] = item.totalQuantity;
+        if (selectedColumnKeys.includes('cost')) row['Costo Promedio'] = item.averageCostPrice;
+        if (selectedColumnKeys.includes('expiration')) {
+          row['Fecha de Vencimiento (Primer Lote)'] = item.lots?.[0]?.expirationDate
+            ? new Date(item.lots[0].expirationDate).toLocaleDateString()
+            : 'N/A';
+        }
+
+        inventoryAttributeColumns.forEach(({ descriptor }) => {
+          const key = `iAttr_${descriptor.key}`;
+          if (selectedColumnKeys.includes(key)) {
+            row[`Attr: ${descriptor.label}`] =
+              item.inventoryAttributes?.[descriptor.key] ??
+              item.attributes?.[descriptor.key] ??
+              '';
+          }
+        });
+
+        return row;
       });
 
-      return row;
-    });
+      // 3. Generate File
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Inventario");
 
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Inventario");
-    if (fileType === 'csv') {
-      const csv = XLSX.utils.sheet_to_csv(ws);
-      saveAs(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), 'inventario.csv');
-    } else {
-      XLSX.writeFile(wb, 'inventario.xlsx');
+      if (exportFormat === 'csv') {
+        const csv = XLSX.utils.sheet_to_csv(ws);
+        saveAs(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), 'inventario.csv');
+      } else {
+        XLSX.writeFile(wb, 'inventario.xlsx');
+      }
+
+      toast.success(`Exportación completada: ${dataToExport.length} filas.`);
+
+    } catch (err) {
+      console.error("Export error", err);
+      throw err;
     }
   };
 
@@ -1117,8 +1223,8 @@ function InventoryManagement() {
               <Button variant="outline" size="sm" className="w-full sm:w-auto"><Download className="h-4 w-4 mr-2" />Exportar</Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => handleExport('xlsx')}>Exportar a .xlsx</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('csv')}>Exportar a .csv</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openExportDialog('xlsx')}>Exportar a .xlsx</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openExportDialog('csv')}>Exportar a .csv</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <Button onClick={loadData} disabled={loading} variant="outline" size="sm" className="w-full sm:w-auto">
@@ -1934,6 +2040,13 @@ function InventoryManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ExportOptionsDialog
+        open={isExportDialogOpen}
+        onClose={() => setIsExportDialogOpen(false)}
+        onExport={handleConfirmExport}
+        columns={getExportColumns()}
+        title={exportFormat === 'xlsx' ? "Exportar a Excel" : "Exportar a CSV"}
+      />
     </div>
   );
 }

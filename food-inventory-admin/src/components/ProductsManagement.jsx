@@ -17,6 +17,7 @@ import { Switch } from '@/components/ui/switch.jsx';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip.jsx';
 import InlineEditableCell from './inline-edit/InlineEditableCell';
 import ProductVariantsPopover from './inline-edit/ProductVariantsPopover';
+import { ExportOptionsDialog } from './ExportOptionsDialog';
 import { toast } from 'sonner';
 import { fetchApi } from '../lib/api';
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
@@ -448,6 +449,10 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
   // Estados para preview de imágenes
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [previewImageSrc, setPreviewImageSrc] = useState('');
+
+  // Estados para exportación
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState('xlsx'); // 'xlsx' or 'csv'
 
   const verticalConfig = useVerticalConfig();
   const { createConsumableConfig } = useConsumables();
@@ -1794,95 +1799,162 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory, productTypeFilter); // Recargar la lista de productos
 
     } catch (error) {
-      alert(`Error al importar los productos: ${error.message}`);
+      console.error("Export failed", error);
+      throw error; // Let dialog handle it
     }
   };
 
-  const handleExportExcel = () => {
-    const dataToExport = filteredProducts.map((p) => {
-      const variant = p.variants?.[0] || {};
-      const row = {
-        SKU: p.sku,
-        Nombre: p.name,
-        Categoría: p.category,
-        Subcategoría: p.subcategory,
-        Marca: p.brand,
-        Descripción: p.description,
-        'Vendible por Peso': p.isSoldByWeight ? 'Sí' : 'No',
-        'Unidad de Medida': p.unitOfMeasure,
-        'Variante Nombre': variant?.name,
-        'Variante SKU': variant?.sku,
-        'Variante Precio Costo': variant?.costPrice,
-        'Variante Precio Venta': variant?.basePrice,
-      };
-
-      productAttributeColumns.forEach(({ descriptor }) => {
-        const headerLabel = descriptor.label
-          ? `Atributo Producto (${descriptor.key}) - ${descriptor.label}`
-          : `Atributo Producto (${descriptor.key})`;
-        row[headerLabel] = (p.attributes && p.attributes[descriptor.key]) ?? '';
-      });
-
-      variantAttributeColumns.forEach(({ descriptor }) => {
-        const headerLabel = descriptor.label
-          ? `Atributo Variante (${descriptor.key}) - ${descriptor.label}`
-          : `Atributo Variante (${descriptor.key})`;
-        const variantAttrs =
-          (variant && variant.attributes) || {};
-        row[headerLabel] = variantAttrs[descriptor.key] ?? '';
-      });
-
-      return row;
-    });
-
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Productos");
-    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    saveAs(new Blob([wbout], { type: 'application/octet-stream' }), 'productos.xlsx');
+  const openExportDialog = (format) => {
+    setExportFormat(format);
+    setIsExportDialogOpen(true);
   };
 
-  const handleExportCsv = () => {
-    const dataToExport = filteredProducts.map((p) => {
-      const variant = p.variants?.[0] || {};
-      const row = {
-        SKU: p.sku,
-        Nombre: p.name,
-        Categoría: p.category,
-        Subcategoría: p.subcategory,
-        Marca: p.brand,
-        Descripción: p.description,
-        'Vendible por Peso': p.isSoldByWeight ? 'Sí' : 'No',
-        'Unidad de Medida': p.unitOfMeasure,
-        'Variante Nombre': variant?.name,
-        'Variante SKU': variant?.sku,
-        'Variante Precio Costo': variant?.costPrice,
-        'Variante Precio Venta': variant?.basePrice,
-      };
+  const getExportColumns = () => {
+    const baseColumns = [
+      { key: 'sku', label: 'SKU', defaultChecked: true },
+      { key: 'name', label: 'Nombre', defaultChecked: true },
+      { key: 'category', label: 'Categoría', defaultChecked: true },
+      { key: 'subcategory', label: 'Subcategoría', defaultChecked: true },
+      { key: 'brand', label: 'Marca', defaultChecked: true },
+      { key: 'description', label: 'Descripción', defaultChecked: false },
+      { key: 'isSoldByWeight', label: 'Vendible por Peso', defaultChecked: false },
+      { key: 'unitOfMeasure', label: 'Unidad de Medida', defaultChecked: true },
+      { key: 'variantName', label: 'Variante Nombre', defaultChecked: true },
+      { key: 'variantSku', label: 'Variante SKU', defaultChecked: true },
+      { key: 'variantCost', label: 'Variante Costo', defaultChecked: true },
+      { key: 'variantPrice', label: 'Variante Precio', defaultChecked: true },
+    ];
 
-      productAttributeColumns.forEach(({ descriptor }) => {
-        const headerLabel = descriptor.label
-          ? `Atributo Producto (${descriptor.key}) - ${descriptor.label}`
-          : `Atributo Producto (${descriptor.key})`;
-        row[headerLabel] = (p.attributes && p.attributes[descriptor.key]) ?? '';
-      });
+    const pAttrs = productAttributeColumns.map(({ descriptor }) => ({
+      key: `pAttr_${descriptor.key}`,
+      label: `Attr: ${descriptor.label || descriptor.key}`,
+      defaultChecked: false
+    }));
 
-      variantAttributeColumns.forEach(({ descriptor }) => {
-        const headerLabel = descriptor.label
-          ? `Atributo Variante (${descriptor.key}) - ${descriptor.label}`
-          : `Atributo Variante (${descriptor.key})`;
-        const variantAttrs =
-          (variant && variant.attributes) || {};
-        row[headerLabel] = variantAttrs[descriptor.key] ?? '';
-      });
+    const vAttrs = variantAttributeColumns.map(({ descriptor }) => ({
+      key: `vAttr_${descriptor.key}`,
+      label: `Attr Var: ${descriptor.label || descriptor.key}`,
+      defaultChecked: false
+    }));
 
-      return row;
-    });
+    return [...baseColumns, ...pAttrs, ...vAttrs];
+  };
 
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
-    const csv = XLSX.utils.sheet_to_csv(ws);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    saveAs(blob, 'productos.csv');
+  const handleConfirmExport = async (selectedColumnKeys) => {
+    try {
+      // 1. Fetch ALL data matching current filters in BATCHES
+      const BATCH_SIZE = 2000; // Backend max limit
+      let allProducts = [];
+      let page = 1;
+      let hasMore = true;
+
+      toast.info("Iniciando exportación...");
+
+      while (hasMore) {
+        const params = new URLSearchParams({
+          page: page.toString(),
+          limit: BATCH_SIZE.toString(),
+        });
+
+        if (statusFilter === 'active') {
+          params.set('isActive', 'true');
+        } else if (statusFilter === 'inactive') {
+          params.set('isActive', 'false');
+        } else {
+          params.set('includeInactive', 'true');
+        }
+
+        if (searchTerm.trim()) {
+          params.set('search', searchTerm.trim());
+        }
+
+        if (filterCategory && filterCategory !== 'all') {
+          params.set('category', filterCategory);
+        }
+
+        params.set('productType', defaultProductType);
+
+        const response = await fetchApi(`/products?${params.toString()}`);
+        const products = response.data || [];
+        allProducts = [...allProducts, ...products];
+
+        const pagination = response.pagination || {};
+        const totalPages = pagination.totalPages || 1;
+
+        if (page >= totalPages || products.length === 0) {
+          hasMore = false;
+        } else {
+          page++;
+          toast.info(`Cargando página ${page} de ${totalPages}...`);
+        }
+      }
+
+      if (allProducts.length === 0) {
+        toast.warning("No hay datos para exportar con los filtros actuales.");
+        return;
+      }
+
+      // 2. Process data based on selected columns
+      const processedData = allProducts.map(p => {
+        const variantsToExport = (p.variants && p.variants.length > 0) ? p.variants : [{}];
+        const pRows = [];
+
+        variantsToExport.forEach(v => {
+          const row = {};
+
+          if (selectedColumnKeys.includes('sku')) row['SKU'] = p.sku;
+          if (selectedColumnKeys.includes('name')) row['Nombre'] = p.name;
+          if (selectedColumnKeys.includes('category')) row['Categoría'] = Array.isArray(p.category) ? p.category.join(', ') : p.category;
+          if (selectedColumnKeys.includes('subcategory')) row['Subcategoría'] = Array.isArray(p.subcategory) ? p.subcategory.join(', ') : p.subcategory;
+          if (selectedColumnKeys.includes('brand')) row['Marca'] = p.brand;
+          if (selectedColumnKeys.includes('description')) row['Descripción'] = p.description;
+          if (selectedColumnKeys.includes('isSoldByWeight')) row['Vendible por Peso'] = p.isSoldByWeight ? 'Sí' : 'No';
+          if (selectedColumnKeys.includes('unitOfMeasure')) row['Unidad de Medida'] = p.unitOfMeasure;
+          if (selectedColumnKeys.includes('variantName')) row['Variante Nombre'] = v.name || '';
+          if (selectedColumnKeys.includes('variantSku')) row['Variante SKU'] = v.sku || '';
+          if (selectedColumnKeys.includes('variantCost')) row['Variante Costo'] = v.costPrice || 0;
+          if (selectedColumnKeys.includes('variantPrice')) row['Variante Precio'] = v.basePrice || 0;
+
+          // Attributes
+          productAttributeColumns.forEach(({ descriptor }) => {
+            const key = `pAttr_${descriptor.key}`;
+            if (selectedColumnKeys.includes(key)) {
+              row[`Attr: ${descriptor.label}`] = (p.attributes && p.attributes[descriptor.key]) ?? '';
+            }
+          });
+
+          variantAttributeColumns.forEach(({ descriptor }) => {
+            const key = `vAttr_${descriptor.key}`;
+            if (selectedColumnKeys.includes(key)) {
+              const vAttrs = v.attributes || {};
+              row[`Attr Var: ${descriptor.label}`] = vAttrs[descriptor.key] ?? '';
+            }
+          });
+
+          pRows.push(row);
+        });
+
+        return pRows;
+      }).flat();
+
+      // 3. Generate File
+      const ws = XLSX.utils.json_to_sheet(processedData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Productos");
+
+      if (exportFormat === 'csv') {
+        const csv = XLSX.utils.sheet_to_csv(ws);
+        saveAs(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `productos_${new Date().toISOString().slice(0, 10)}.csv`);
+      } else {
+        XLSX.writeFile(wb, `productos_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      }
+
+      toast.success(`Exportación completada: ${processedData.length} filas.`);
+
+    } catch (error) {
+      console.error("Export failed", error);
+      throw error;
+    }
   };
 
   if (loading) return <div>Cargando productos...</div>;
@@ -1925,12 +1997,8 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
             <Button variant="outline">Exportar</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuItem onSelect={handleExportExcel}>
-              Exportar como Excel (.xlsx)
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={handleExportCsv}>
-              Exportar como CSV (.csv)
-            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => openExportDialog('xlsx')}>Exportar a Excel (.xlsx)</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => openExportDialog('csv')}>Exportar a CSV (.csv)</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <input
@@ -4945,6 +5013,13 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
           </div>
         </DialogContent>
       </Dialog>
+      <ExportOptionsDialog
+        open={isExportDialogOpen}
+        onClose={() => setIsExportDialogOpen(false)}
+        onExport={handleConfirmExport}
+        columns={getExportColumns()}
+        title={exportFormat === 'xlsx' ? "Exportar a Excel" : "Exportar a CSV"}
+      />
     </div >
   );
 }
