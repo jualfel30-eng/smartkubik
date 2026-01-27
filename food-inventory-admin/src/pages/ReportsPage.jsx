@@ -6,44 +6,76 @@ import CashFlowStatement from '../components/CashFlowStatement';
 import FoodCostWidget from '../components/FoodCostWidget';
 import TipsReportWidget from '../components/TipsReportWidget';
 import MenuEngineeringWidget from '../components/MenuEngineeringWidget';
-import TipsManagementDashboard from '../components/TipsManagementDashboard';
+
+import { useVerticalConfig } from '../hooks/useVerticalConfig';
 
 const ReportsPage = () => {
+  const verticalConfig = useVerticalConfig();
+  const allowedReports = verticalConfig?.availableReports || [];
+
+  // Helper to check if a report is allowed
+  const isAllowed = (reportKey) => allowedReports.includes(reportKey);
+
   return (
     <div className="container mx-auto p-4 space-y-6">
       <h1 className="text-3xl font-bold text-foreground">Reportes</h1>
+
       <div>
+
+        {/* Cash Flow - Top Priority for all verticals */}
+        {isAllowed('cash-flow') && (
+          <div className="mb-6">
+            <CashFlowStatement />
+          </div>
+        )}
+
         {/* Food Cost % - KPI #1 para restaurantes */}
-        <FoodCostWidget />
+        {isAllowed('food-cost') && (
+          <FoodCostWidget />
+        )}
 
         {/* Tips Report - Quick Win #3 */}
-        <div className="mt-6">
-          <TipsReportWidget />
-        </div>
+        {isAllowed('tips') && (
+          <div className="mt-6">
+            <TipsReportWidget />
+          </div>
+        )}
 
         {/* Menu Engineering - Quick Win #4 */}
-        <div className="mt-6">
-          <MenuEngineeringWidget />
-        </div>
+        {isAllowed('menu-engineering') && (
+          <div className="mt-6">
+            <MenuEngineeringWidget />
+          </div>
+        )}
 
         {/* Tips Management - Phase 1.2 */}
-        <div className="mt-6">
-          <TipsManagementDashboard />
-        </div>
+        {isAllowed('tips-management') && (
+          <div className="mt-6">
+            <TipsManagementDashboard />
+          </div>
+        )}
 
-        {/* Aquí se pueden agregar más reportes en el futuro, quizás con un sistema de pestañas */}
-        <div className="mt-6">
-          <PerformanceReport />
-        </div>
-        <div className="mt-6">
-          <AccountsReceivableReport />
-        </div>
-        <div className="mt-6">
-          <AccountsPayableReport />
-        </div>
-        <div className="mt-6">
-          <CashFlowStatement />
-        </div>
+        {/* Performance Report (Sales) */}
+        {isAllowed('performance') && (
+          <div className="mt-6">
+            <PerformanceReport />
+          </div>
+        )}
+
+        {/* Accounts Receivable */}
+        {isAllowed('ar') && (
+          <div className="mt-6">
+            <AccountsReceivableReport />
+          </div>
+        )}
+
+        {/* Accounts Payable */}
+        {isAllowed('ap') && (
+          <div className="mt-6">
+            <AccountsPayableReport />
+          </div>
+        )}
+
       </div>
     </div>
   );

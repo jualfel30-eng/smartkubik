@@ -23,7 +23,7 @@ import {
 } from "../../dto/accounting.dto";
 import { Order, OrderDocument } from "../../schemas/order.schema"; // <-- FIXED
 import { PurchaseOrderDocument } from "../../schemas/purchase-order.schema";
-import { PaymentDocument } from "../../schemas/payment.schema";
+import { Payment, PaymentDocument } from "../../schemas/payment.schema";
 import { Payable, PayableDocument } from "../../schemas/payable.schema";
 import { PayrollConcept } from "../../schemas/payroll-concept.schema";
 import { PayrollRunDocument } from "../../schemas/payroll-run.schema";
@@ -44,7 +44,9 @@ export class AccountingService {
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
     @InjectModel(Payable.name) private payableModel: Model<PayableDocument>,
     @InjectModel(BillingDocument.name)
+    @InjectModel(BillingDocument.name)
     private billingModel: Model<BillingDocumentDocument>,
+    @InjectModel(Payment.name) private paymentModel: Model<PaymentDocument>,
   ) { }
 
   private async generateNextCode(
@@ -1211,8 +1213,37 @@ export class AccountingService {
       }
     }
 
-    // Step 4: Calculate totals and return
+    // Step 4: Calculate totals
     const netCashFlow = totalCashInflow - totalCashOutflow;
+
+    // Step 5: Get Inflow Breakdown by Payment Method (from Operational Data)
+    // We use the Payments collection because Journal Entries often lack specific method metadata (or it's buried in description)
+    const paymentBreakdown = await this.paymentModel.aggregate([
+      {
+        $match: {
+          tenantId: tenantObjectId,
+          date: { $gte: from, $lte: to },
+          status: "confirmed", // Only confirmed payments
+          paymentType: "sale", // Only sales inflows (ignore payables/outflows for now)
+        },
+      },
+      {
+        $group: {
+          _id: "$method", // Group by method (zelle, cash, etc.)
+          total: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { total: -1 } }, // Highest amounts first
+    ]);
+
+    // Format breakdown for frontend
+    const inflowBreakdown = paymentBreakdown.map((p) => ({
+      method: p._id || "Otros",
+      total: p.total,
+      count: p.count,
+      percentage: totalCashInflow > 0 ? (p.total / totalCashInflow) * 100 : 0
+    }));
 
     return {
       period: { from, to },
@@ -1220,6 +1251,7 @@ export class AccountingService {
         total: totalCashInflow,
         details: cashInflows,
       },
+      inflowBreakdown, // <--- New Field
       cashOutflows: {
         total: totalCashOutflow,
         details: cashOutflows,

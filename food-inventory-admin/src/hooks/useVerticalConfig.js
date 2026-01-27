@@ -4,7 +4,21 @@ import { DEFAULT_VERTICAL_KEY, getVerticalProfile } from '@/config/verticalProfi
 
 export const useVerticalConfig = () => {
   const { tenant } = useAuth();
-  const key = tenant?.verticalProfile?.key || DEFAULT_VERTICAL_KEY;
+
+  let key = tenant?.verticalProfile?.key;
+
+  // Fallback logic if verticalProfile is missing OR if there is a mismatch (e.g. Retail tenant with Food Service profile)
+  if (!key || (tenant?.vertical === 'RETAIL' && key === 'food-service')) {
+    if (tenant?.vertical === 'RETAIL' || tenant?.businessType === 'retail') {
+      // Default to a retail profile if generic 'RETAIL' is found
+      key = 'retail-fashion';
+    } else if (tenant?.vertical === 'FOOD_SERVICE') {
+      key = 'food-service';
+    } else {
+      key = DEFAULT_VERTICAL_KEY;
+    }
+  }
+
   const overrides = useMemo(
     () => tenant?.verticalProfile?.overrides || {},
     [tenant?.verticalProfile?.overrides],
