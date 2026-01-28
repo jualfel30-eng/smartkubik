@@ -69,6 +69,16 @@ import {
   AlertCircle,
   PlusCircle,
   Trash2,
+  Bike,
+  BanknoteArrowUp,
+  BanknoteArrowDown,
+  CircleDollarSign,
+  HandCoins,
+  PackageCheck,
+  MessageCircleMore,
+  Boxes,
+  PackagePlus,
+  UserCheck,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { Toaster as ShadcnToaster } from '@/components/ui/toaster';
@@ -146,6 +156,8 @@ const DocsArticle = lazy(() => import('./pages/DocsArticle.jsx'));
 const ComprasManagement = lazy(() => import('@/components/ComprasManagement.jsx'));
 const BankAccountsManagement = lazy(() => import('@/components/BankAccountsManagement.jsx'));
 const BankReconciliationView = lazy(() => import('@/components/BankReconciliationView.jsx'));
+import { DriverLayout } from '@/components/drivers/DriverLayout.jsx';
+import { DriverDashboard } from '@/components/drivers/DriverDashboard.jsx';
 // RubikLoader imported directly (not lazy) - it's used as the loading fallback
 import { RubikLoader } from '@/components/RubikLoader.jsx';
 const ServicesManagement = lazy(() => import('@/components/ServicesManagement.jsx'));
@@ -336,7 +348,7 @@ function TenantLayout() {
     {
       name: 'Inventario',
       href: 'inventory-management',
-      icon: Package,
+      icon: Boxes,
       permission: 'inventory_read',
       children: [
         {
@@ -362,13 +374,14 @@ function TenantLayout() {
             { name: 'Alertas de Stock', href: 'inventory-management?tab=inventory-alerts', icon: AlertCircle },
           ],
         },
-        { name: 'Compras', href: 'inventory-management?tab=purchases', icon: Truck },
-        { name: 'Proveedores', href: 'inventory-management?tab=suppliers', icon: Truck },
+        { name: 'Compras', href: 'inventory-management?tab=purchases', icon: PackagePlus },
+        { name: 'Proveedores', href: 'inventory-management?tab=suppliers', icon: UserCheck },
         { name: 'Control de Mermas', href: 'waste-control', icon: Trash2, permission: 'inventory_read' },
       ]
     },
-    { name: 'Entregas', href: 'fulfillment', icon: Truck, permission: 'orders_read' },
-    { name: 'WhatsApp', href: 'whatsapp', icon: MessageSquare, permission: 'chat_read' },
+    { name: 'Entregas', href: 'fulfillment', icon: PackageCheck, permission: 'orders_read' },
+    { name: 'Portal Repartidores', href: 'driver', icon: Truck, permission: 'orders_read' }, // TODO: Add driver permission
+    { name: 'WhatsApp', href: 'whatsapp', icon: MessageCircleMore, permission: 'chat_read' },
     { name: 'Compras', href: 'purchases', icon: Truck, permission: 'purchases_read' },
     {
       name: 'Producción',
@@ -387,7 +400,7 @@ function TenantLayout() {
         { name: 'Versiones', href: 'production?tab=versions', icon: Layers },
       ]
     },
-    { name: 'Mi Storefront', href: 'storefront', icon: Store, permission: 'dashboard_read', requiresModule: 'ecommerce' },
+    { name: 'Mi Sitio Web', href: 'storefront', icon: Store, permission: 'dashboard_read', requiresModule: 'ecommerce' },
 
     // Módulos específicos de Restaurante
     { name: 'Mesas', href: 'restaurant/floor-plan', icon: Utensils, permission: 'restaurant_read', requiresModule: 'restaurant' },
@@ -470,7 +483,7 @@ function TenantLayout() {
     {
       name: 'Contabilidad General',
       href: 'accounting',
-      icon: BookCopy,
+      icon: Calculator,
       permission: 'accounting_read',
       children: [
         { name: 'Libro Diario', href: 'accounting?tab=journal', icon: FileText },
@@ -489,7 +502,7 @@ function TenantLayout() {
     {
       name: 'Cuentas por Pagar',
       href: 'accounts-payable',
-      icon: ArrowDownRight,
+      icon: BanknoteArrowDown,
       permission: 'accounting_read',
       children: [
         { name: 'Cuentas por Pagar', href: 'accounts-payable?tab=monthly', icon: TrendingDown },
@@ -500,7 +513,7 @@ function TenantLayout() {
     {
       name: 'Cuentas por Cobrar',
       href: 'receivables?tab=pending',
-      icon: ArrowUpRight,
+      icon: BanknoteArrowUp,
       permission: 'accounting_read',
       children: [
         { name: 'Pendientes', href: 'receivables?tab=pending', icon: Clock },
@@ -538,8 +551,8 @@ function TenantLayout() {
         }
       ],
     },
-    { name: 'tips', href: 'tips', icon: DollarSign, permission: 'tips_read', requiresModule: 'tips', dynamicLabel: true }, // Dynamic label: Tips or Commissions
-    { name: 'Comisiones y Metas', href: 'commissions', icon: Target, permission: 'commissions_read', requiresModule: 'commissions' },
+    { name: 'tips', href: 'tips', icon: CircleDollarSign, permission: 'tips_read', requiresModule: 'tips', dynamicLabel: true }, // Dynamic label: Tips or Commissions
+    { name: 'Comisiones y Metas', href: 'commissions', icon: HandCoins, permission: 'commissions_read', requiresModule: 'commissions' },
     { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: CreditCard, permission: 'accounting_read', requiresModule: 'bankAccounts' },
     {
       name: 'Facturación Electrónica',
@@ -1215,6 +1228,12 @@ function AppContent() {
           <Route path="/docs" element={<DocsLanding />} />
           <Route path="/docs/:category" element={<DocsCategoryPage />} />
           <Route path="/docs/:category/:slug" element={<DocsArticle />} />
+          <Route path="/docs/:category/:slug" element={<DocsArticle />} />
+          <Route path="/driver" element={<ProtectedRoute><DriverLayout /></ProtectedRoute>}>
+            <Route path="pool" element={<DriverDashboard />} />
+            <Route path="active" element={<DriverDashboard />} />
+            <Route index element={<Navigate to="pool" replace />} />
+          </Route>
           <Route path="/login" element={<LoginV2 />} />
           <Route path="/register" element={<Register />} />
           <Route path="/confirm-account" element={<ConfirmAccount />} />

@@ -76,6 +76,7 @@ export function OrderSidebar({
                     <SelectValue placeholder="Seleccione método..." />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="store">Venta en Tienda</SelectItem>
                     <SelectItem value="pickup">Pickup (Retiro en tienda)</SelectItem>
                     <SelectItem value="delivery">Delivery (Entrega local)</SelectItem>
                     <SelectItem value="envio_nacional">Envío Nacional</SelectItem>

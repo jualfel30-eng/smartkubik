@@ -5,9 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Search, Truck, Package, CheckCircle, Clock } from 'lucide-react';
+import { Search, Truck, Package, CheckCircle, Clock, Store } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { OrderFulfillmentCard } from './OrderFulfillmentCard';
+import { DeliveryConfigDialog } from './DeliveryConfigDialog';
+import { Settings as SettingsIcon } from 'lucide-react';
+import { fetchApi } from '@/lib/api';
 
 export function FulfillmentDashboard() {
     const { token, tenant } = useAuth();
@@ -16,6 +19,13 @@ export function FulfillmentDashboard() {
     const [filterType, setFilterType] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('pending');
+    const [isConfigOpen, setIsConfigOpen] = useState(false);
+    const [activeMethods, setActiveMethods] = useState({
+        enablePickup: true,
+        enableDelivery: true,
+        enableNationalShipping: false,
+        enablePosOrders: false
+    });
 
     const API_URL = import.meta.env.VITE_API_URL;
 
@@ -53,6 +63,26 @@ export function FulfillmentDashboard() {
             setLoading(false);
         }
     };
+
+    const loadConfig = async () => {
+        try {
+            const data = await fetchApi('/delivery/rates');
+            if (data?.settings) {
+                setActiveMethods({
+                    enablePickup: data.settings.enablePickup,
+                    enableDelivery: data.settings.enableDelivery,
+                    enableNationalShipping: data.settings.enableNationalShipping,
+                    enablePosOrders: data.settings.enablePosOrders
+                });
+            }
+        } catch (error) {
+            console.error('Error loading config:', error);
+        }
+    };
+
+    useEffect(() => {
+        loadConfig();
+    }, []);
 
     useEffect(() => {
         fetchOrders();
@@ -97,6 +127,9 @@ export function FulfillmentDashboard() {
                     <p className="text-muted-foreground">Administra el flujo de preparación y envío de pedidos.</p>
                 </div>
                 <div className="flex gap-2">
+                    <Button variant="outline" size="icon" onClick={() => setIsConfigOpen(true)}>
+                        <SettingsIcon className="h-4 w-4" />
+                    </Button>
                     <Button variant="outline" onClick={fetchOrders} disabled={loading}>
                         {loading ? 'Actualizando...' : 'Actualizar'}
                     </Button>
@@ -115,27 +148,53 @@ export function FulfillmentDashboard() {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                         <Button
                             variant={filterType === 'all' ? 'secondary' : 'ghost'}
                             onClick={() => setFilterType('all')}
                         >
                             Todos
                         </Button>
-                        <Button
-                            variant={filterType === 'delivery' ? 'secondary' : 'ghost'}
-                            onClick={() => setFilterType('delivery')}
-                            className="gap-2"
-                        >
-                            <Truck className="h-4 w-4" /> Delivery
-                        </Button>
-                        <Button
-                            variant={filterType === 'pickup' ? 'secondary' : 'ghost'}
-                            onClick={() => setFilterType('pickup')}
-                            className="gap-2"
-                        >
-                            <Package className="h-4 w-4" /> Pickup
-                        </Button>
+
+                        {activeMethods.enableDelivery && (
+                            <Button
+                                variant={filterType === 'delivery' ? 'secondary' : 'ghost'}
+                                onClick={() => setFilterType('delivery')}
+                                className="gap-2"
+                            >
+                                <Truck className="h-4 w-4" /> Delivery
+                            </Button>
+                        )}
+
+                        {activeMethods.enablePickup && (
+                            <Button
+                                variant={filterType === 'pickup' ? 'secondary' : 'ghost'}
+                                onClick={() => setFilterType('pickup')}
+                                className="gap-2"
+                            >
+                                <Package className="h-4 w-4" /> Pickup
+                            </Button>
+                        )}
+
+                        {activeMethods.enableNationalShipping && (
+                            <Button
+                                variant={filterType === 'shipping' ? 'secondary' : 'ghost'}
+                                onClick={() => setFilterType('shipping')}
+                                className="gap-2"
+                            >
+                                <Truck className="h-4 w-4" /> Nacional
+                            </Button>
+                        )}
+
+                        {activeMethods.enablePosOrders && (
+                            <Button
+                                variant={filterType === 'pos' ? 'secondary' : 'ghost'}
+                                onClick={() => setFilterType('pos')}
+                                className="gap-2"
+                            >
+                                <Store className="h-4 w-4" /> Tienda
+                            </Button>
+                        )}
                     </div>
                 </CardContent>
             </Card>
@@ -181,6 +240,18 @@ export function FulfillmentDashboard() {
                     </TabsContent>
                 ))}
             </Tabs>
+
+            <DeliveryConfigDialog
+                open={isConfigOpen}
+                onOpenChange={setIsConfigOpen}
+                onConfigChange={(newConfig) => {
+                    setActiveMethods(newConfig);
+                    // Reset filter if current filter is disabled
+                    if (filterType === 'pos' && !newConfig.enablePosOrders) setFilterType('all');
+                    if (filterType === 'shipping' && !newConfig.enableNationalShipping) setFilterType('all');
+                    loadConfig(); // Reload to be sure
+                }}
+            />
         </div>
     );
 }
