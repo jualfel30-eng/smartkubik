@@ -497,6 +497,15 @@ export class Order {
   @Prop({ type: Types.ObjectId, ref: "User" })
   fulfilledBy?: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: "User" })
+  deliveryDriver?: Types.ObjectId;
+
+  @Prop({ type: Date })
+  driverAssignedAt?: Date;
+
+  @Prop({ type: String })
+  deliveryProofPhoto?: string;
+
   // ========================================
   // BILLING DOCUMENT LINK
   // ========================================

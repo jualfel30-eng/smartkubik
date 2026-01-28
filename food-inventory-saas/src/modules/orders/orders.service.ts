@@ -432,6 +432,13 @@ export class OrdersService {
       createOrderDto.deliveryMethod &&
       createOrderDto.deliveryMethod !== "pickup"
     ) {
+      // Default initialization ensuring address is saved
+      shippingInfo = {
+        method: createOrderDto.deliveryMethod,
+        cost: createOrderDto.shippingCost || 0,
+        address: createOrderDto.shippingAddress,
+      };
+
       try {
         const deliveryCostResult =
           await this.deliveryService.calculateDeliveryCost({
@@ -448,20 +455,14 @@ export class OrdersService {
 
         shippingCost = deliveryCostResult.cost || 0;
 
-        if (
-          createOrderDto.deliveryMethod === "delivery" ||
-          createOrderDto.deliveryMethod === "envio_nacional"
-        ) {
-          shippingInfo = {
-            method: createOrderDto.deliveryMethod,
-            cost: shippingCost,
-            distance: deliveryCostResult.distance,
-            estimatedDuration: deliveryCostResult.duration,
-            address: createOrderDto.shippingAddress,
-          };
-        }
+        // Update with calculated values
+        shippingInfo.cost = shippingCost;
+        shippingInfo.distance = deliveryCostResult.distance;
+        shippingInfo.estimatedDuration = deliveryCostResult.duration;
+
       } catch (error) {
         this.logger.warn(`Error calculating delivery cost: ${error.message}`);
+        // Fallback: shippingInfo already has address and default cost
       }
     } else if (createOrderDto.deliveryMethod === "pickup") {
       shippingInfo = {

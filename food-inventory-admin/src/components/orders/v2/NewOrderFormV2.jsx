@@ -170,7 +170,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         deliveryMethod: activeOrder.fulfillmentType === 'delivery_local' ? 'delivery'
           : activeOrder.fulfillmentType === 'delivery_national' ? 'envio_nacional'
             : activeOrder.fulfillmentType === 'pickup' ? 'pickup'
-              : 'pickup', // Default/fallback
+              : activeOrder.fulfillmentType === 'store' ? 'store'
+                : 'pickup', // Default/fallback
         notes: activeOrder.notes || '',
         shippingAddress: activeOrder.shipping?.address || {
           state: 'Carabobo',
@@ -435,7 +436,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
   // Calculate shipping cost when delivery method, location, or order amount changes
   useEffect(() => {
     const calculateShipping = async () => {
-      if (newOrder.deliveryMethod === 'pickup') {
+      if (newOrder.deliveryMethod === 'pickup' || newOrder.deliveryMethod === 'store') {
         setShippingCost(0);
         return;
       }
@@ -1494,7 +1495,17 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
       }),
       notes: newOrder.notes,
       deliveryMethod: newOrder.deliveryMethod,
-      shippingAddress: (newOrder.deliveryMethod === 'delivery' || newOrder.deliveryMethod === 'envio_nacional') && newOrder.shippingAddress.street ? newOrder.shippingAddress : undefined,
+      shippingAddress: (newOrder.deliveryMethod === 'delivery' || newOrder.deliveryMethod === 'envio_nacional')
+        ? (newOrder.customerLocation
+          ? {
+            street: newOrder.customerLocation.formattedAddress || newOrder.customerLocation.address || newOrder.customerLocation.manualAddress || "Ubicación Seleccionada",
+            city: newOrder.shippingAddress?.city || 'Valencia',
+            state: newOrder.shippingAddress?.state || 'Carabobo',
+            coordinates: newOrder.customerLocation.coordinates
+          }
+          : (newOrder.shippingAddress?.street ? newOrder.shippingAddress : undefined)
+        )
+        : undefined,
       ...(restaurantEnabled && selectedTable !== 'none' && { tableId: selectedTable }),
       subtotal: totals.subtotal,
       ivaTotal: totals.iva,
@@ -2118,6 +2129,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
       return <p className="text-sm">Retiro en tienda</p>;
     }
 
+    if (newOrder.deliveryMethod === 'store') {
+      return <p className="text-sm">Venta en Tienda</p>;
+    }
+
     if (newOrder.deliveryMethod === 'delivery') {
       if (newOrder.customerLocation?.formattedAddress) {
         return <p className="text-sm">{newOrder.customerLocation.formattedAddress}</p>;
@@ -2143,14 +2158,16 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Borrador encontrado</AlertDialogTitle>
-            <AlertDialogDescription>
-              Tienes una orden sin terminar. ¿Deseas continuar donde lo dejaste?
-              {pendingDraft && (
-                <div className="mt-2 text-sm space-y-1">
-                  <p>• {pendingDraft.items?.length || 0} items</p>
-                  {pendingDraft.customerName && <p>• Cliente: {pendingDraft.customerName}</p>}
-                </div>
-              )}
+            <AlertDialogDescription asChild>
+              <div className="text-muted-foreground text-sm">
+                Tienes una orden sin terminar. ¿Deseas continuar donde lo dejaste?
+                {pendingDraft && (
+                  <div className="mt-2 text-sm space-y-1">
+                    <p>• {pendingDraft.items?.length || 0} items</p>
+                    {pendingDraft.customerName && <p>• Cliente: {pendingDraft.customerName}</p>}
+                  </div>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

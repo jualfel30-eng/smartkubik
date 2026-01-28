@@ -119,6 +119,7 @@ import { ActivitiesModule } from "./modules/activities/activities.module";
 import { RemindersModule } from "./modules/reminders/reminders.module";
 import { TenantPaymentConfigModule } from "./modules/tenant-payment-config/tenant-payment-config.module";
 import { BinancePayModule } from "./modules/binance-pay/binance-pay.module";
+import { DriversModule } from "./modules/drivers/drivers.module";
 
 import { Redis } from "ioredis";
 
@@ -135,7 +136,7 @@ let sharedSecondaryRedisConnection: Redis | null = null;
       delimiter: ".",
       newListener: false,
       removeListener: false,
-      maxListeners: 20, // Increased to handle more event types
+      maxListeners: 20,
       verboseMemoryLeak: false,
       ignoreErrors: false,
     }),
@@ -169,22 +170,21 @@ let sharedSecondaryRedisConnection: Redis | null = null;
       },
       inject: [ConfigService],
     }),
-    // Rate Limiting Configuration
     ThrottlerModule.forRoot([
       {
         name: "short",
-        ttl: 60000, // 1 minuto
-        limit: process.env.NODE_ENV === "production" ? 50 : 200, // 200 requests/min en dev, 50 en prod
+        ttl: 60000,
+        limit: process.env.NODE_ENV === "production" ? 50 : 200,
       },
       {
         name: "medium",
-        ttl: 600000, // 10 minutos
-        limit: process.env.NODE_ENV === "production" ? 300 : 1000, // 1000 requests/10min en dev, 300 en prod
+        ttl: 600000,
+        limit: process.env.NODE_ENV === "production" ? 300 : 1000,
       },
       {
         name: "long",
-        ttl: 3600000, // 1 hora
-        limit: process.env.NODE_ENV === "production" ? 1000 : 3000, // 3000 requests/hora en dev, 1000 en prod
+        ttl: 3600000,
+        limit: process.env.NODE_ENV === "production" ? 1000 : 3000,
       },
     ]),
     ...(process.env.DISABLE_BULLMQ === "true"
@@ -213,7 +213,6 @@ let sharedSecondaryRedisConnection: Redis | null = null;
               },
             };
 
-            // Return existing shared connection if available
             if (sharedRedisConnection) {
               return {
                 connection: sharedRedisConnection,
@@ -234,7 +233,6 @@ let sharedSecondaryRedisConnection: Redis | null = null;
               const config: Record<string, any> = {
                 host: parsed.hostname,
                 port: parsed.port ? Number(parsed.port) : 6379,
-                // Essential for BullMQ when reusing connections
                 maxRetriesPerRequest: null,
                 enableReadyCheck: false,
               };
@@ -257,7 +255,6 @@ let sharedSecondaryRedisConnection: Redis | null = null;
               const tlsQuery =
                 parsed.searchParams.get("tls") ||
                 parsed.searchParams.get("ssl");
-
               const tlsExplicitlyDisabled =
                 tlsQuery && tlsQuery.toLowerCase() === "false";
 
@@ -317,11 +314,9 @@ let sharedSecondaryRedisConnection: Redis | null = null;
               }
             }
 
-            // Create the shared instance
             console.log("--- Initializing Shared Redis Connection for BullMQ ---");
             sharedRedisConnection = new Redis(redisOpts);
 
-            // Handle error events to prevent crash on connection loss
             sharedRedisConnection.on('error', (err) => {
               console.error('Shared Redis Connection Error:', err);
             });
@@ -349,7 +344,6 @@ let sharedSecondaryRedisConnection: Redis | null = null;
               },
             };
 
-            // Return existing shared secondary connection if available
             if (sharedSecondaryRedisConnection) {
               return {
                 connection: sharedSecondaryRedisConnection,
@@ -407,10 +401,16 @@ let sharedSecondaryRedisConnection: Redis | null = null;
               const tlsQuery =
                 parsed.searchParams.get("tls") ||
                 parsed.searchParams.get("ssl");
+              const tlsExplicitlyDisabled =
+                tlsQuery && tlsQuery.toLowerCase() === "false";
+
               const forceTls =
-                parsed.protocol === "rediss:" ||
-                tlsQuery === "true" ||
-                parsed.hostname.endsWith(".redis-cloud.com");
+                !tlsExplicitlyDisabled &&
+                (parsed.protocol === "rediss:" ||
+                  (tlsQuery && tlsQuery.toLowerCase() === "true") ||
+                  parsed.hostname.endsWith(".redis-cloud.com") ||
+                  configService.get<string>("REDIS_TLS") === "true");
+
               if (forceTls) {
                 config.tls = {
                   rejectUnauthorized: false,
@@ -540,12 +540,12 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     RemindersModule,
     TenantPaymentConfigModule,
     BinancePayModule,
+    DriversModule,
   ],
   controllers: [AppController, TenantController],
   providers: [
     AppService,
     TenantService,
-    // Aplicar ThrottlerGuard globalmente
     {
       provide: APP_GUARD,
       useClass: UserThrottlerGuard,
