@@ -259,6 +259,14 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
   const [calculatingShipping, setCalculatingShipping] = useState(false);
   const [isSearchingCustomers, setIsSearchingCustomers] = useState(false);
 
+  // Shipping Provider State
+  const [shippingProviders, setShippingProviders] = useState([]);
+  const [selectedProvider, setSelectedProvider] = useState(null);
+  const [availableStates, setAvailableStates] = useState([]);
+  const [availableCities, setAvailableCities] = useState([]);
+  const [availableAgencies, setAvailableAgencies] = useState([]);
+  const [selectedAgency, setSelectedAgency] = useState(null);
+
   // Estados para descuentos
   const [showItemDiscountDialog, setShowItemDiscountDialog] = useState(false);
   const [selectedItemForDiscount, setSelectedItemForDiscount] = useState(null);
@@ -341,6 +349,31 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
 
     return () => clearTimeout(timeoutId);
   }, [newOrder.customerPhone, existingOrder, newOrder.customerId]);
+
+  // Fetch Shipping Providers on mount
+  useEffect(() => {
+    const loadProviders = async () => {
+      try {
+        const response = await fetchApi('/shipping-providers');
+        if (response && (response.data || Array.isArray(response))) {
+          setShippingProviders(response.data || response);
+        }
+      } catch (error) {
+        console.error('Error fetching shipping providers:', error);
+      }
+    };
+    loadProviders();
+  }, []);
+
+  // Update available states when provider changes
+  useEffect(() => {
+    if (selectedProvider) {
+      setAvailableStates(selectedProvider.regions || []);
+      // Reset dependent selections if they don't match (logic handled in UI handlers usually, but good to clear here if needed)
+    } else {
+      setAvailableStates([]);
+    }
+  }, [selectedProvider]);
 
   // ========== DRAFT FUNCTIONALITY ==========
 
@@ -1503,9 +1536,16 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
             state: newOrder.shippingAddress?.state || 'Carabobo',
             coordinates: newOrder.customerLocation.coordinates
           }
+
           : (newOrder.shippingAddress?.street ? newOrder.shippingAddress : undefined)
         )
         : undefined,
+      courierCompany: selectedProvider ? selectedProvider.name : undefined,
+      shippingAddressInfo: selectedAgency ? {
+        agencyCode: selectedAgency.code,
+        agencyName: selectedAgency.name,
+        provider: selectedProvider.name
+      } : undefined,
       ...(restaurantEnabled && selectedTable !== 'none' && { tableId: selectedTable }),
       subtotal: totals.subtotal,
       ivaTotal: totals.iva,
@@ -2662,35 +2702,118 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
             {/* Shipping Address - if envio_nacional */}
             {newOrder.deliveryMethod === 'envio_nacional' && (
               <div className="p-4 border rounded-lg space-y-4 bg-card">
-                <Label className="text-base font-semibold">Dirección de Entrega Nacional</Label>
+                <Label className="text-base font-semibold">Datos de Envío Nacional</Label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Provider Selection */}
                   <div className="space-y-2">
-                    <Label>Dirección</Label>
+                    <Label>Empresa de Encomiendas</Label>
+                    <Select
+                      value={selectedProvider ? selectedProvider.code : ''}
+                      onValueChange={(val) => {
+                        const provider = shippingProviders.find(p => p.code === val);
+                        setSelectedProvider(provider);
+                        setAvailableStates(provider?.regions || []);
+                        setAvailableCities([]);
+                        setAvailableAgencies([]);
+                        setSelectedAgency(null);
+                        handleAddressChange('street', ''); // Clear address
+                        handleAddressChange('state', '');
+                        handleAddressChange('city', '');
+                      }}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Seleccione empresa..." /></SelectTrigger>
+                      <SelectContent>
+                        {shippingProviders.map(p => (
+                          <SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* State Selection */}
+                  <div className="space-y-2">
+                    <Label>Estado</Label>
+                    <Select
+                      value={newOrder.shippingAddress.state}
+                      onValueChange={(val) => {
+                        handleAddressChange('state', val);
+                        const region = availableStates.find(r => r.state === val);
+                        setAvailableCities(region ? region.cities : []);
+                        setAvailableAgencies([]);
+                        handleAddressChange('city', '');
+                      }}
+                      disabled={!selectedProvider}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Seleccione estado..." /></SelectTrigger>
+                      <SelectContent>
+                        {availableStates.map(r => (
+                          <SelectItem key={r.state} value={r.state}>{r.state}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* City Selection */}
+                  <div className="space-y-2">
+                    <Label>Ciudad</Label>
+                    <Select
+                      value={newOrder.shippingAddress.city}
+                      onValueChange={(val) => {
+                        handleAddressChange('city', val);
+                        const city = availableCities.find(c => c.name === val);
+                        setAvailableAgencies(city ? city.agencies : []);
+                        setSelectedAgency(null);
+                        // Reset address if it was an agency address? Maybe not to persist manual edits if needed.
+                      }}
+                      disabled={!newOrder.shippingAddress.state}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Seleccione ciudad..." /></SelectTrigger>
+                      <SelectContent>
+                        {availableCities.map(c => (
+                          <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Agency Selection */}
+                  <div className="space-y-2">
+                    <Label>Agencia de Destino</Label>
+                    <Select
+                      value={selectedAgency ? selectedAgency.code : 'manual'}
+                      onValueChange={(val) => {
+                        if (val === 'manual') {
+                          setSelectedAgency(null);
+                          handleAddressChange('street', '');
+                          return;
+                        }
+                        const agency = availableAgencies.find(a => a.code === val);
+                        setSelectedAgency(agency);
+                        if (agency) {
+                          handleAddressChange('street', `${agency.name} - ${agency.address} (${agency.code})`);
+                        }
+                      }}
+                      disabled={!newOrder.shippingAddress.city}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Seleccione agencia..." /></SelectTrigger>
+                      <SelectContent>
+                        {availableAgencies.map(a => (
+                          <SelectItem key={a.code} value={a.code}>{a.name}</SelectItem>
+                        ))}
+                        <SelectItem value="manual">Ingresar manualmente</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Full Address Display/Edit */}
+                  <div className="col-span-1 md:col-span-2 space-y-2">
+                    <Label>Dirección Completa (Agencia)</Label>
                     <Textarea
                       value={newOrder.shippingAddress.street}
                       onChange={(e) => handleAddressChange('street', e.target.value)}
-                      placeholder="Ej: Av. Bolívar, Edificio ABC, Piso 1, Apto 1A"
+                      placeholder="Dirección de la agencia seleccionada..."
+                      rows={2}
                     />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Estado</Label>
-                      <Select value={newOrder.shippingAddress.state} onValueChange={(v) => handleAddressChange('state', v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {venezuelaData.map(e => <SelectItem key={e.estado} value={e.estado}>{e.estado}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Municipio / Ciudad</Label>
-                      <Select value={newOrder.shippingAddress.city} onValueChange={(v) => handleAddressChange('city', v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {municipios.map((m, index) => <SelectItem key={`${m}-${index}`} value={m}>{m}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </div>
                 </div>
               </div>

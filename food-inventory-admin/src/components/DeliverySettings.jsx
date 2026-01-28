@@ -14,10 +14,16 @@ import { venezuelaData } from '@/lib/venezuela-data';
 export function DeliverySettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [providers, setProviders] = useState([]);
   const [config, setConfig] = useState({
     businessLocation: null,
     deliveryZones: [],
     nationalShippingRates: [],
+    shipping: {
+      enabled: true,
+      activeProviders: [],
+      defaultProvider: null,
+    },
     settings: {
       enablePickup: true,
       enableDelivery: true,
@@ -34,12 +40,25 @@ export function DeliverySettings() {
   const loadConfiguration = async () => {
     try {
       setLoading(true);
-      const data = await fetchApi('/delivery/rates');
+      const [data, providersData] = await Promise.all([
+        fetchApi('/delivery/rates'),
+        fetchApi('/shipping-providers'),
+      ]);
+
+      if (providersData) {
+        setProviders(providersData);
+      }
+
       if (data) {
         setConfig({
           businessLocation: data.businessLocation || null,
           deliveryZones: data.deliveryZones || [],
           nationalShippingRates: data.nationalShippingRates || [],
+          shipping: {
+            enabled: data.shipping?.enabled ?? true,
+            activeProviders: data.shipping?.activeProviders || [],
+            defaultProvider: data.shipping?.defaultProvider || null,
+          },
           settings: {
             enablePickup: data.settings?.enablePickup ?? true,
             enableDelivery: data.settings?.enableDelivery ?? true,
@@ -104,33 +123,22 @@ export function DeliverySettings() {
     });
   };
 
-  const addNationalRate = () => {
+  const toggleProvider = (providerCode) => {
+    const currentProviders = config.shipping.activeProviders;
+    let newProviders;
+
+    if (currentProviders.includes(providerCode)) {
+      newProviders = currentProviders.filter((p) => p !== providerCode);
+    } else {
+      newProviders = [...currentProviders, providerCode];
+    }
+
     setConfig({
       ...config,
-      nationalShippingRates: [
-        ...config.nationalShippingRates,
-        {
-          state: '',
-          city: '',
-          rate: 0,
-          estimatedDays: 0,
-          courierCompany: '',
-          isActive: true,
-        },
-      ],
-    });
-  };
-
-  const updateNationalRate = (index, field, value) => {
-    const updatedRates = [...config.nationalShippingRates];
-    updatedRates[index] = { ...updatedRates[index], [field]: value };
-    setConfig({ ...config, nationalShippingRates: updatedRates });
-  };
-
-  const removeNationalRate = (index) => {
-    setConfig({
-      ...config,
-      nationalShippingRates: config.nationalShippingRates.filter((_, i) => i !== index),
+      shipping: {
+        ...config.shipping,
+        activeProviders: newProviders,
+      },
     });
   };
 
@@ -409,102 +417,69 @@ export function DeliverySettings() {
         <TabsContent value="national">
           <Card>
             <CardHeader>
-              <CardTitle>Tarifas de Envío Nacional</CardTitle>
-              <CardDescription>Define tarifas fijas por estado o ciudad</CardDescription>
+              <CardTitle>Integraciones de Envío Nacional</CardTitle>
+              <CardDescription>
+                Activa los proveedores de envío que deseas utilizar. Las tarifas se calcularán
+                automáticamente.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <Button onClick={addNationalRate} variant="outline" className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Agregar Tarifa
-              </Button>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between p-4 border rounded-lg bg-gray-50 dark:bg-gray-800">
+                <div>
+                  <h3 className="font-medium">Habilitar Envíos Nacionales</h3>
+                  <p className="text-sm text-gray-500">
+                    Activar el sistema de cálculo de envíos nacionales
+                  </p>
+                </div>
+                <Switch
+                  checked={config.shipping.enabled}
+                  onCheckedChange={(checked) =>
+                    setConfig({
+                      ...config,
+                      shipping: { ...config.shipping, enabled: checked },
+                    })
+                  }
+                />
+              </div>
 
-              {config.nationalShippingRates.length === 0 ? (
+              {providers.length === 0 ? (
                 <div className="text-center p-8 text-gray-500">
-                  No hay tarifas nacionales configuradas. Agrega una tarifa para empezar.
+                  Cargando proveedores de envío...
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Activo</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Ciudad</TableHead>
-                      <TableHead>Tarifa ($)</TableHead>
-                      <TableHead>Días Estimados</TableHead>
-                      <TableHead>Courier</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {config.nationalShippingRates.map((rate, index) => (
-                      <TableRow key={index}>
-                        <TableCell>
-                          <Switch
-                            checked={rate.isActive}
-                            onCheckedChange={(checked) => updateNationalRate(index, 'isActive', checked)}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <select
-                            value={rate.state}
-                            onChange={(e) => updateNationalRate(index, 'state', e.target.value)}
-                            className="w-full p-2 border rounded"
-                          >
-                            <option value="">Seleccionar...</option>
-                            {venezuelaData.map((state) => (
-                              <option key={state.estado} value={state.estado}>
-                                {state.estado}
-                              </option>
-                            ))}
-                          </select>
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={rate.city}
-                            onChange={(e) => updateNationalRate(index, 'city', e.target.value)}
-                            placeholder="Opcional"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={rate.rate}
-                            onChange={(e) => updateNationalRate(index, 'rate', parseFloat(e.target.value) || 0)}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min="0"
-                            value={rate.estimatedDays}
-                            onChange={(e) =>
-                              updateNationalRate(index, 'estimatedDays', parseInt(e.target.value) || 0)
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={rate.courierCompany}
-                            onChange={(e) => updateNationalRate(index, 'courierCompany', e.target.value)}
-                            placeholder="Ej: MRW"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeNationalRate(index)}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {providers.map((provider) => (
+                    <div
+                      key={provider.code}
+                      className="flex items-center justify-between p-4 border rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        {provider.logoUrl ? (
+                          <div className="w-12 h-12 rounded-full bg-white p-2 flex items-center justify-center border border-gray-100 shadow-sm overflow-hidden">
+                            <img
+                              src={provider.logoUrl}
+                              alt={provider.name}
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center font-bold text-gray-400">
+                            {provider.name.substring(0, 2)}
+                          </div>
+                        )}
+                        <div>
+                          <h4 className="font-medium">{provider.name}</h4>
+                          <p className="text-xs text-gray-500">{provider.code}</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={config.shipping.activeProviders.includes(provider.code)}
+                        onCheckedChange={() => toggleProvider(provider.code)}
+                        disabled={!config.shipping.enabled}
+                      />
+                    </div>
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>

@@ -125,7 +125,9 @@ export const DriverDashboard = () => {
                                     destination={
                                         order.shipping?.address?.coordinates
                                             ? { lat: order.shipping.address.coordinates.lat, lng: order.shipping.address.coordinates.lng }
-                                            : null
+                                            : order.shipping?.address
+                                                ? `${order.shipping.address.street}, ${order.shipping.address.city}`
+                                                : null
                                     }
                                 />
                             </div>

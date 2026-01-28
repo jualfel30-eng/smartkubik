@@ -139,7 +139,7 @@ export class OrderShipping {
   @Prop({
     type: String,
     required: true,
-    enum: ["pickup", "delivery", "envio_nacional"],
+    enum: ["pickup", "delivery", "envio_nacional", "store"],
   })
   method: string;
 

@@ -138,6 +138,13 @@ export class TenantSettings {
   };
 
   @Prop({ type: Object })
+  shipping?: {
+    enabled: boolean;
+    activeProviders: string[]; // Array of provider codes (e.g., ['MRW-VE', 'ZOOM-VE'])
+    defaultProvider?: string;
+  };
+
+  @Prop({ type: Object })
   payroll?: {
     baseCurrency?: string;
     defaultPaySchedule?: "monthly" | "biweekly" | "weekly";

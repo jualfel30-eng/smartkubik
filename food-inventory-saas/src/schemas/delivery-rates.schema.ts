@@ -88,6 +88,13 @@ export class DeliveryRates {
     googleMapsApiKey?: string;
   };
 
+  @Prop({ type: Object })
+  shipping?: {
+    enabled: boolean;
+    activeProviders: string[]; // e.g. ['MRW-VE', 'ZOOM-VE', 'TEALCA-VE', 'LIBERTY-VE']
+    defaultProvider?: string;
+  };
+
   @Prop({ type: Types.ObjectId, ref: "User" })
   updatedBy?: Types.ObjectId;
 }

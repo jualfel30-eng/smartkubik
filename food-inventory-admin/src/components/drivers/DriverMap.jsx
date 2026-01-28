@@ -144,7 +144,8 @@ export const DriverMap = ({ origin, destination, className }) => {
             directionsService.route(
                 {
                     origin: originPos,
-                    destination: destPos,
+                    // If destPos is null (e.g. it was a string address), use the raw destination string
+                    destination: destPos || destination,
                     travelMode: window.google.maps.TravelMode.DRIVING,
                 },
                 (result, status) => {
