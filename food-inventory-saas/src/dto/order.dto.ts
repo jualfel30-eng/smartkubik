@@ -265,7 +265,7 @@ export class CreateOrderDto {
     description: "Método de entrega (pickup, delivery, envio_nacional)",
   })
   @IsOptional()
-  @IsEnum(["pickup", "delivery", "envio_nacional"])
+  @IsEnum(["pickup", "delivery", "envio_nacional", "store"])
   deliveryMethod?: string;
 
   @ApiPropertyOptional({ description: "Dirección de envío para la orden" })
