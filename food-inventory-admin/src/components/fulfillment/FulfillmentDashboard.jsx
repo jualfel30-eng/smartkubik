@@ -42,7 +42,13 @@ export function FulfillmentDashboard() {
             });
 
             if (filterType !== 'all') {
-                queryParams.append('fulfillmentType', filterType);
+                // Map frontend filter values to backend expected values
+                let backendFilterValue = filterType;
+                if (filterType === 'shipping') backendFilterValue = 'delivery_national';
+                else if (filterType === 'delivery') backendFilterValue = 'delivery_local';
+                else if (filterType === 'pos') backendFilterValue = 'store';
+
+                queryParams.append('fulfillmentType', backendFilterValue);
             }
 
             if (searchTerm) {
