@@ -18,6 +18,7 @@ export const VERTICAL_FEATURES = {
     bankAccounts: true,
     hrCore: false,
     timeAndAttendance: false,
+    cashRegister: true, // ✅ HABILITADO - Cierre de caja y arqueos
 
     // Communication & Marketing
     chat: false,
@@ -61,6 +62,7 @@ export const VERTICAL_FEATURES = {
     bankAccounts: true,
     hrCore: false,
     timeAndAttendance: false,
+    cashRegister: true, // ✅ HABILITADO - Cierre de caja y arqueos
 
     // Communication & Marketing
     chat: false,
@@ -101,6 +103,7 @@ export const VERTICAL_FEATURES = {
     bankAccounts: true,
     hrCore: true, // ✅ HABILITADO - Gestión de personal hotelero
     timeAndAttendance: true, // ✅ HABILITADO - Control de asistencia del personal
+    cashRegister: true, // ✅ HABILITADO - Cierre de caja y arqueos
 
     // Communication & Marketing
     chat: true, // ✅ HABILITADO - Comunicación con huéspedes
@@ -144,6 +147,7 @@ export const VERTICAL_FEATURES = {
     bankAccounts: true,
     hrCore: false,
     timeAndAttendance: false,
+    cashRegister: true, // ✅ HABILITADO - Cierre de caja y arqueos
 
     // Communication & Marketing (opt-in modules)
     chat: false,
@@ -184,6 +188,7 @@ export const VERTICAL_FEATURES = {
     bankAccounts: true,
     hrCore: true,
     timeAndAttendance: true,
+    cashRegister: true, // ✅ HABILITADO - Cierre de caja y arqueos
 
     // Communication & Marketing
     chat: false,
@@ -222,6 +227,7 @@ export const VERTICAL_FEATURES = {
     bankAccounts: true,
     hrCore: false,
     timeAndAttendance: false,
+    cashRegister: true, // ✅ HABILITADO - Cierre de caja y arqueos
 
     // Communication & Marketing (opt-in modules)
     chat: false,

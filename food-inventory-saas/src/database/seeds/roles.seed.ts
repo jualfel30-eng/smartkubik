@@ -63,6 +63,22 @@ export class RolesSeed {
         "opportunities_update",
         "opportunities_delete",
         "opportunities_view_all",
+        // Cash Register permissions for Manager
+        "cash_register_read",
+        "cash_register_open",
+        "cash_register_write",
+        "cash_register_close",
+        "cash_register_admin",
+        "cash_register_approve",
+        "cash_register_reports",
+        "cash_register_export",
+        // Billing permissions for Manager
+        "billing_read",
+        "billing_create",
+        // Appointments permissions for Manager
+        "appointments_read",
+        "appointments_create",
+        "appointments_update",
       ],
     },
     {
@@ -82,6 +98,14 @@ export class RolesSeed {
         "opportunities_read",
         "opportunities_create",
         "opportunities_update",
+        // Cash Register permissions for Employee (basic)
+        "cash_register_read",
+        "cash_register_open",
+        "cash_register_write",
+        "cash_register_close",
+        // Appointments permissions for Employee
+        "appointments_read",
+        "appointments_create",
       ],
     },
   ];

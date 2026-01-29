@@ -85,4 +85,16 @@ export const ALL_PERMISSIONS = [
   "bonuses_read",
   "bonuses_write",
   "bonuses_approve",
+  // Cash Register Module (Cierre de Caja)
+  "cash_register_read",
+  "cash_register_open",
+  "cash_register_write",
+  "cash_register_close",
+  "cash_register_admin",
+  "cash_register_approve",
+  "cash_register_reports",
+  "cash_register_export",
+  // Billing Module
+  "billing_create",
+  "billing_void",
 ];

@@ -17,13 +17,15 @@ export class PermissionsService {
       "dashboard",
       "users",
       "roles",
-      "tenant_settings",
+      "tenant",
       "events",
       "crm",
       "products",
       "payables",
       "storefront",
       "accounting",
+      "cash", // Cash Register module (cierre de caja)
+      "billing", // Billing/Invoicing module (facturación)
     ];
 
     const allRequiredModules = [

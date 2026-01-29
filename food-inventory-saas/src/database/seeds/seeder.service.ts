@@ -6,6 +6,7 @@ import { RolesSeed } from "./roles.seed";
 import { UnitTypesSeed } from "./unit-types.seed";
 import { addApplyDiscountsPermission } from "../migrations/add-apply-discounts-permission";
 import { addProductionModulePermissions } from "../migrations/add-production-module-permissions";
+import { addCashRegisterModulePermissions } from "../migrations/add-cash-register-module";
 
 @Injectable()
 export class SeederService {
@@ -62,6 +63,7 @@ export class SeederService {
 
       await addApplyDiscountsPermission(this.connection);
       await addProductionModulePermissions(this.connection);
+      await addCashRegisterModulePermissions(this.connection);
 
       this.logger.log("✅ Migrations completed successfully");
     } catch (error) {

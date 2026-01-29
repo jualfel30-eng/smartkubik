@@ -312,6 +312,7 @@ export class Tenant {
     timeAndAttendance?: boolean;
     tips?: boolean; // Core module for all verticals (Tips for Food Service)
     commissions?: boolean; // General Commissions module for sales
+    cashRegister?: boolean; // Cash register sessions and closings (Cierre de Caja)
 
     // Communication & Marketing modules
     chat?: boolean;

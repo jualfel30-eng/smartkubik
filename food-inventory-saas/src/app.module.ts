@@ -120,6 +120,7 @@ import { RemindersModule } from "./modules/reminders/reminders.module";
 import { TenantPaymentConfigModule } from "./modules/tenant-payment-config/tenant-payment-config.module";
 import { BinancePayModule } from "./modules/binance-pay/binance-pay.module";
 import { DriversModule } from "./modules/drivers/drivers.module";
+import { CashRegisterModule } from "./modules/cash-register/cash-register.module";
 
 import { Redis } from "ioredis";
 
@@ -541,6 +542,7 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     TenantPaymentConfigModule,
     BinancePayModule,
     DriversModule,
+    CashRegisterModule,
   ],
   controllers: [AppController, TenantController],
   providers: [
