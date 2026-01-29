@@ -631,8 +631,8 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                       />
                       {/* Show change calculation */}
                       {singlePayment.amountTendered && (
-                        <div className="p-3 bg-green-50 border border-green-200 rounded-md">
-                          <p className="text-sm font-medium text-green-700 flex items-center gap-2">
+                        <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+                          <p className="text-sm font-medium text-green-700 dark:text-green-300 flex items-center gap-2">
                             <HandCoins className="w-4 h-4" />
                             Vuelto: {isVesMethod(singlePayment.method) ? 'Bs' : '$'} {
                               (() => {
@@ -657,7 +657,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                             return (
                               <>
                                 {parseFloat(singlePayment.amountTendered) < totalToPay && (
-                                  <p className="text-xs text-red-600 mt-1">
+                                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
                                     ⚠️ El monto recibido es menor que el total {igtfAmount > 0 && '(incluye IGTF)'}
                                   </p>
                                 )}
@@ -681,9 +681,9 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
 
                                 {/* Show breakdown if already divided */}
                                 {singlePayment.changeGivenBreakdown && (
-                                  <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded-md">
-                                    <p className="text-xs font-medium text-purple-900">Vuelto Dividido:</p>
-                                    <ul className="text-xs text-purple-700 mt-1 space-y-0.5">
+                                  <div className="mt-2 p-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-md">
+                                    <p className="text-xs font-medium text-purple-900 dark:text-purple-100">Vuelto Dividido:</p>
+                                    <ul className="text-xs text-purple-700 dark:text-purple-300 mt-1 space-y-0.5">
                                       <li>• USD: ${singlePayment.changeGivenBreakdown.usd.toFixed(2)} (Efectivo)</li>
                                       <li>• VES: Bs {singlePayment.changeGivenBreakdown.ves.toFixed(2)} ({singlePayment.changeGivenBreakdown.vesMethod === 'efectivo_ves' ? 'Efectivo' : 'PagoMóvil'})</li>
                                     </ul>
@@ -889,8 +889,8 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                             />
                             {/* Show change calculation */}
                             {line.amountTendered && lineAmount > 0 && (
-                              <div className="p-2 bg-green-50 border border-green-200 rounded-md">
-                                <p className="text-sm font-medium text-green-700 flex items-center gap-2">
+                              <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+                                <p className="text-sm font-medium text-green-700 dark:text-green-300 flex items-center gap-2">
                                   <HandCoins className="w-4 h-4" />
                                   Vuelto: {lineIsVes ? 'Bs' : '$'} {
                                     (() => {
@@ -1124,7 +1124,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                 </div>
 
                 {Math.abs(mixedPaymentTotals.totalUSD - (remainingAmount + mixedPaymentTotals.igtf)) > 0.01 && (
-                  <div className={`flex justify-between text-sm p-2 rounded ${mixedPaymentTotals.totalUSD < (remainingAmount + mixedPaymentTotals.igtf) ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'}`}>
+                  <div className={`flex justify-between text-sm p-2 rounded ${mixedPaymentTotals.totalUSD < (remainingAmount + mixedPaymentTotals.igtf) ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'}`}>
                     <span className="font-semibold">
                       {mixedPaymentTotals.totalUSD < (remainingAmount + mixedPaymentTotals.igtf) ? '⚠️ Falta por cubrir:' : '⚠️ Exceso de pago:'}
                     </span>
@@ -1147,12 +1147,13 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
             </DialogFooter>
           </div>
         </DialogContent>
-      </Dialog>
+      </Dialog >
 
       {/* Mixed Change Modal */}
-      <MixedChangeModal
+      < MixedChangeModal
         isOpen={mixedChangeModalOpen}
-        onClose={() => setMixedChangeModalOpen(false)}
+        onClose={() => setMixedChangeModalOpen(false)
+        }
         totalChange={(() => {
           if (currentChangeContext === 'single' && singlePayment.amountTendered) {
             const baseAmount = isVesMethod(singlePayment.method) ? remainingAmountVes : remainingAmount;

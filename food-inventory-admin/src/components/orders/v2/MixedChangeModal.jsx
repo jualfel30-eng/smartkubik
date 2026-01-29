@@ -107,11 +107,11 @@ export default function MixedChangeModal({
 
                 <div className="space-y-4 py-4">
                     {/* Total Change Display */}
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-                        <p className="text-sm font-medium text-blue-900">
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                        <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
                             Vuelto Total: <span className="text-lg">${totalChange.toFixed(2)}</span>
                         </p>
-                        <p className="text-xs text-blue-700 mt-1">
+                        <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
                             ≈ Bs {(totalChange * exchangeRate).toFixed(2)} (Tasa: {exchangeRate})
                         </p>
                     </div>
@@ -178,17 +178,17 @@ export default function MixedChangeModal({
 
                     {/* Error Message */}
                     {error && (
-                        <div className="p-3 bg-red-50 border border-red-200 rounded-md flex items-start gap-2">
-                            <AlertCircle className="w-4 h-4 text-red-600 mt-0.5" />
-                            <p className="text-sm text-red-600">{error}</p>
+                        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md flex items-start gap-2">
+                            <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5" />
+                            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
                         </div>
                     )}
 
                     {/* Summary */}
                     {!error && usdAmount && vesAmount && (
-                        <div className="p-3 bg-green-50 border border-green-200 rounded-md">
-                            <p className="text-sm font-medium text-green-900">Resumen:</p>
-                            <ul className="text-xs text-green-700 mt-1 space-y-1">
+                        <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+                            <p className="text-sm font-medium text-green-900 dark:text-green-100">Resumen:</p>
+                            <ul className="text-xs text-green-700 dark:text-green-300 mt-1 space-y-1">
                                 <li>• USD: ${parseFloat(usdAmount).toFixed(2)} (Efectivo)</li>
                                 <li>• VES: Bs {parseFloat(vesAmount).toFixed(2)} ({vesMethod === 'efectivo_ves' ? 'Efectivo' : 'PagoMóvil'})</li>
                             </ul>

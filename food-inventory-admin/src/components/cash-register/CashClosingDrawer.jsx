@@ -15,6 +15,7 @@ import { Calculator } from 'lucide-react';
 import { useCashRegister } from '@/contexts/CashRegisterContext';
 import { fetchApi } from '../../lib/api';
 import { toast } from 'sonner';
+import { DenominationCounter } from './DenominationCounter';
 
 /**
  * Drawer de doble función: Apertura y Cierre rápido de caja
@@ -36,6 +37,10 @@ export function CashClosingDrawer({ trigger }) {
         closingNotes: '',
         exchangeRate: '',
     });
+
+    // Desgloses de efectivo
+    const [breakdownUsd, setBreakdownUsd] = useState({});
+    const [breakdownVes, setBreakdownVes] = useState({});
 
     // Datos para apertura
     const [openingData, setOpeningData] = useState({
@@ -86,8 +91,8 @@ export function CashClosingDrawer({ trigger }) {
             .filter(m => m.type === 'out' && m.currency === 'VES')
             .reduce((sum, m) => sum + m.amount, 0);
 
-        const expectedUsd = (currentSession.openingAmountUsd || 0) + (totals.cashUsd || 0) + cashInUsd - cashOutUsd;
-        const expectedVes = (currentSession.openingAmountVes || 0) + (totals.cashVes || 0) + cashInVes - cashOutVes;
+        const expectedUsd = (currentSession.openingAmountUsd || 0) + (totals.cashUsd || 0) - (totals.changeGivenUsd || 0) + cashInUsd - cashOutUsd;
+        const expectedVes = (currentSession.openingAmountVes || 0) + (totals.cashVes || 0) - (totals.changeGivenVes || 0) + cashInVes - cashOutVes;
 
         return { expectedUsd, expectedVes };
     };
@@ -107,6 +112,17 @@ export function CashClosingDrawer({ trigger }) {
             style: 'currency',
             currency
         }).format(amount || 0);
+    };
+
+    // Handlers para el contador
+    const handleConfirmUsdCount = (total, counts) => {
+        setClosingData(prev => ({ ...prev, closingAmountUsd: total.toFixed(2) }));
+        setBreakdownUsd(counts);
+    };
+
+    const handleConfirmVesCount = (total, counts) => {
+        setClosingData(prev => ({ ...prev, closingAmountVes: total.toFixed(2) }));
+        setBreakdownVes(counts);
     };
 
     // Handler para abrir sesión
@@ -153,6 +169,34 @@ export function CashClosingDrawer({ trigger }) {
         try {
             setLoading(true);
 
+            // Helper para mapear a DTO (d_100, d_50, etc)
+            const mapToDto = (counts) => {
+                const mapped = {};
+                Object.entries(counts).forEach(([k, v]) => {
+                    if (k === 'coins') mapped.coins = v;
+                    else mapped[`d_${k}`] = v;
+                });
+                return mapped;
+            };
+
+            // Construir closingFunds
+            const closingFunds = [];
+            // Siempre enviamos la estructura si hay monto, aunque no haya breakdown detallado (counts vacíos)
+            if (closingData.closingAmountUsd) {
+                closingFunds.push({
+                    currency: 'USD',
+                    amount: parseFloat(closingData.closingAmountUsd) || 0,
+                    denominations: mapToDto(breakdownUsd)
+                });
+            }
+            if (closingData.closingAmountVes) {
+                closingFunds.push({
+                    currency: 'VES',
+                    amount: parseFloat(closingData.closingAmountVes) || 0,
+                    denominations: mapToDto(breakdownVes)
+                });
+            }
+
             await fetchApi(`/cash-register/sessions/${currentSession._id}/close`, {
                 method: 'POST',
                 body: JSON.stringify({
@@ -160,6 +204,7 @@ export function CashClosingDrawer({ trigger }) {
                     closingAmountVes: parseFloat(closingData.closingAmountVes) || 0,
                     closingNotes: closingData.closingNotes,
                     exchangeRate: parseFloat(closingData.exchangeRate) || undefined,
+                    closingFunds,
                 }),
             });
 
@@ -285,13 +330,20 @@ export function CashClosingDrawer({ trigger }) {
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Real (Contado)</Label>
-                                        <Input
-                                            type="number"
-                                            className="text-right font-mono"
-                                            placeholder="0.00"
-                                            value={closingData.closingAmountUsd}
-                                            onChange={e => setClosingData({ ...closingData, closingAmountUsd: e.target.value })}
-                                        />
+                                        <div className="flex gap-2">
+                                            <Input
+                                                type="number"
+                                                className="text-right font-mono"
+                                                placeholder="0.00"
+                                                value={closingData.closingAmountUsd}
+                                                onChange={e => setClosingData({ ...closingData, closingAmountUsd: e.target.value })}
+                                            />
+                                            <DenominationCounter
+                                                currency="USD"
+                                                onConfirm={handleConfirmUsdCount}
+                                                initialCounts={breakdownUsd}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                                 <div className={`text-xs text-right font-medium px-2 py-1 rounded ${getDiffBadgeColor(diffUsd)}`}>
@@ -310,13 +362,20 @@ export function CashClosingDrawer({ trigger }) {
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Real (Contado)</Label>
-                                        <Input
-                                            type="number"
-                                            className="text-right font-mono"
-                                            placeholder="0.00"
-                                            value={closingData.closingAmountVes}
-                                            onChange={e => setClosingData({ ...closingData, closingAmountVes: e.target.value })}
-                                        />
+                                        <div className="flex gap-2">
+                                            <Input
+                                                type="number"
+                                                className="text-right font-mono"
+                                                placeholder="0.00"
+                                                value={closingData.closingAmountVes}
+                                                onChange={e => setClosingData({ ...closingData, closingAmountVes: e.target.value })}
+                                            />
+                                            <DenominationCounter
+                                                currency="VES"
+                                                onConfirm={handleConfirmVesCount}
+                                                initialCounts={breakdownVes}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                                 <div className={`text-xs text-right font-medium px-2 py-1 rounded ${getDiffBadgeColor(diffVes)}`}>

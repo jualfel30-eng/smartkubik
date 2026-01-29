@@ -239,17 +239,15 @@ export class CashRegisterService {
 
       const expectedCashUsd =
         (session.openingAmountUsd || 0) +
-        calculatedTotals.salesUsd + // Use salesUsd which includes cash - change? NO. 
-        // calculatedTotals.cashUsd is Net Cash? 
-        // Logic check: calculatedTotals.cashUsd = CashReceived (Positive) + ChangeGiven (Negative).
-        // So cashUsd matches the Net Cash in drawer from sales.
-        calculatedTotals.cashUsd +
+        calculatedTotals.cashUsd -
+        (calculatedTotals.changeGivenUsd || 0) +
         cashInUsd -
         cashOutUsd;
 
       const expectedCashVes =
         (session.openingAmountVes || 0) +
-        calculatedTotals.cashVes +
+        calculatedTotals.cashVes -
+        (calculatedTotals.changeGivenVes || 0) +
         cashInVes -
         cashOutVes;
 
@@ -301,9 +299,19 @@ export class CashRegisterService {
           { currency: 'VES', totalChangeGiven: calculatedTotals.changeGivenVes || 0, transactionCount: 0 }
         ],
 
+        // NEW: Cash Breakdown (Denominations)
+        cashBreakdown: dto.closingFunds?.map(fund => ({
+          currency: fund.currency,
+          counts: fund.denominations || {},
+          totalAmount: fund.amount
+        })) || [],
+
+        openingFundUsd: session.openingAmountUsd,
+        openingFundVes: session.openingAmountVes,
+
         // NEW: Cash Movements
         cashInMovementsUsd: cashInUsd,
-        cashInMovementsVes: cashInVes, // Ensure schema has this field? Yes checked schema.
+        cashInMovementsVes: cashInVes,
         cashOutMovementsUsd: cashOutUsd,
         cashOutMovementsVes: cashOutVes,
 
@@ -329,7 +337,7 @@ export class CashRegisterService {
         ],
         hasDifferences,
 
-        status: hasDifferences ? 'pending_approval' : 'approved', // Auto-aprobar si no hay diferencias
+        status: hasDifferences ? 'pending_approval' : 'approved',
         cashierNotes: dto.closingNotes,
         createdBy: new Types.ObjectId(userId),
         exchangeRate: dto.exchangeRate || 1,
@@ -381,13 +389,13 @@ export class CashRegisterService {
       status: { $nin: ['draft', 'cancelled'] },
     }).lean();
 
-    this.logger.warn(`[calculateSessionTotals] Session: ${sessionId} (ObjectId: ${sessionObjectId}) | Orders found: ${orders.length}`);
-    if (orders.length > 0) {
-      this.logger.warn(`[calculateSessionTotals] First order: ${orders[0].orderNumber} | Payments: ${JSON.stringify(orders[0].paymentRecords)}`);
-      this.logger.warn(`[calculateSessionTotals] All Orders Payment Records: ${JSON.stringify(orders.map(o => ({ no: o.orderNumber, pay: o.paymentRecords })))}`);
-    } else {
-      this.logger.warn(`[calculateSessionTotals] No orders found directly. Query: cashSessionId=${sessionObjectId}, tenantId=${tenantId}`);
-    }
+    // this.logger.warn(`[calculateSessionTotals] Session: ${sessionId} (ObjectId: ${sessionObjectId}) | Orders found: ${orders.length}`);
+    // if (orders.length > 0) {
+    //   this.logger.warn(`[calculateSessionTotals] First order: ${orders[0].orderNumber} | Payments: ${JSON.stringify(orders[0].paymentRecords)}`);
+    //   this.logger.warn(`[calculateSessionTotals] All Orders Payment Records: ${JSON.stringify(orders.map(o => ({ no: o.orderNumber, pay: o.paymentRecords })))}`);
+    // } else {
+    //   this.logger.warn(`[calculateSessionTotals] No orders found directly. Query: cashSessionId=${sessionObjectId}, tenantId=${tenantId}`);
+    // }
 
     // Inicializar totales
     const totals = {
@@ -524,7 +532,7 @@ export class CashRegisterService {
           } else if (method.includes('pago_movil') || method.includes('mobile')) {
             totals.mobilePaymentVes += (payment.amountVes || amount);
           } else {
-            this.logger.warn(`[calculateSessionTotals] Falling to OTHER: Method=${method} Currency=${currency} Amount=${amount} AmountVes=${payment.amountVes}`);
+            // Fallback to OTHER
             if (currency === 'USD') totals.otherUsd += amount;
             else totals.otherVes += (payment.amountVes || amount);
           }

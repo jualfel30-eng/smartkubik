@@ -298,6 +298,20 @@ export class CashRegisterClosing {
   @Prop({ type: Number, default: 0 })
   expectedCashVes: number;
 
+  // === ARQUEO DE EFECTIVO DETALLADO (Denominations) ===
+  @Prop({
+    type: [{
+      currency: String,
+      counts: { type: Object, default: {} }, // { '100': 5, '50': 2, etc. }
+      totalAmount: Number
+    }], default: []
+  })
+  cashBreakdown: Array<{
+    currency: string;
+    counts: Record<string, number>;
+    totalAmount: number;
+  }>;
+
   // === TIPO DE CAMBIO ===
   @Prop({ type: Number, required: true })
   exchangeRate: number; // Tasa usada para el cierre
