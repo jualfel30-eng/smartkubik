@@ -573,6 +573,32 @@ export default function CashRegisterDashboard() {
                 <p className="text-sm text-muted-foreground">Ventas (USD)</p>
                 <p className="text-2xl font-bold">{formatCurrency(currentSession.calculatedTotals?.salesUsd || currentSession.totalSalesUsd || 0, 'USD')}</p>
               </div>
+
+              {/* Cash Tender Metrics */}
+              <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+                <p className="text-sm text-muted-foreground">Efectivo Recibido (USD)</p>
+                <p className="text-xl font-semibold text-blue-600">
+                  {formatCurrency(currentSession.calculatedTotals?.cashReceivedUsd || 0, 'USD')}
+                </p>
+              </div>
+              <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+                <p className="text-sm text-muted-foreground">Vuelto Dado (USD)</p>
+                <p className="text-xl font-semibold text-orange-600">
+                  {formatCurrency(currentSession.calculatedTotals?.changeGivenUsd || 0, 'USD')}
+                </p>
+              </div>
+              <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+                <p className="text-sm text-muted-foreground">Vuelto Dado (VES)</p>
+                <p className="text-xl font-semibold text-orange-600">
+                  {formatCurrency(currentSession.calculatedTotals?.changeGivenVes || 0, 'VES')}
+                </p>
+              </div>
+              <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+                <p className="text-sm text-muted-foreground">Pago Móvil (Vuelto)</p>
+                <p className="text-xl font-semibold text-purple-600">
+                  {formatCurrency(Math.abs(currentSession.calculatedTotals?.mobilePaymentVes || 0), 'VES')}
+                </p>
+              </div>
             </div>
 
             {/* Movimientos de efectivo */}
