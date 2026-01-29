@@ -11,6 +11,7 @@ import { X, Plus, Calculator, Wand2, HandCoins } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from "@/components/ui/badge";
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
+import MixedChangeModal from './MixedChangeModal';
 
 export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exchangeRate }) {
   const { paymentMethods, paymentMethodsLoading } = useCrmContext();
@@ -18,8 +19,13 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
   const { isFoodService } = useVerticalConfig();
 
   const [paymentMode, setPaymentMode] = useState('single');
-  const [singlePayment, setSinglePayment] = useState({ method: '', reference: '', bankAccountId: '' });
+  const [singlePayment, setSinglePayment] = useState({ method: '', reference: '', bankAccountId: '', amountTendered: '', changeGivenBreakdown: null });
   const [mixedPayments, setMixedPayments] = useState([]);
+
+  // Mixed change modal state
+  const [mixedChangeModalOpen, setMixedChangeModalOpen] = useState(false);
+  const [currentChangeContext, setCurrentChangeContext] = useState(null); // 'single' or line id for mixed
+
   const buildIdempotencyKey = (ref) => {
     if (!order?._id) return undefined;
     return ref ? `${order._id}-${ref}` : `${order._id}-single`;
@@ -100,7 +106,8 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
       setSinglePayment({
         method: defaultMethod,
         reference: '',
-        bankAccountId: ''
+        bankAccountId: '',
+        amountTendered: ''
       });
       setMixedPayments([]);
       // Reset tips state
@@ -234,9 +241,11 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
       amount: '',
       method: defaultMethod,
       reference: '',
-      bankAccountId: ''
+      bankAccountId: '',
+      amountTendered: '' // For cash tender tracking
     }]);
   };
+
 
   const handleUpdatePaymentLine = (id, field, value) => {
     setMixedPayments(prev => prev.map(p => {
@@ -289,6 +298,20 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
 
     return { subtotalUSD, igtf, totalUSD, totalVES };
   }, [mixedPayments, paymentMode, exchangeRate, order]);
+
+  // Handler for mixed change modal confirmation
+  const handleMixedChangeConfirm = (breakdown) => {
+    if (currentChangeContext === 'single') {
+      setSinglePayment(p => ({ ...p, changeGivenBreakdown: breakdown }));
+    } else {
+      // For mixed payments (future implementation)
+      setMixedPayments(prev => prev.map(line =>
+        line.id === currentChangeContext
+          ? { ...line, changeGivenBreakdown: breakdown }
+          : line
+      ));
+    }
+  };
 
   const handleSubmit = async () => {
     if (!order) return;
@@ -348,6 +371,19 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
         isConfirmed: true,
       };
 
+      // Add cash tender tracking for cash payments
+      const isCashPayment = singlePayment.method?.toLowerCase().includes('efectivo') ||
+        singlePayment.method?.toLowerCase().includes('cash');
+      if (isCashPayment && singlePayment.amountTendered) {
+        singlePaymentPayload.amountTendered = parseFloat(singlePayment.amountTendered);
+        singlePaymentPayload.changeGiven = singlePaymentPayload.amountTendered - amountUSD;
+
+        // Add mixed change breakdown if present
+        if (singlePayment.changeGivenBreakdown) {
+          singlePaymentPayload.changeGivenBreakdown = singlePayment.changeGivenBreakdown;
+        }
+      }
+
       if (singlePayment.bankAccountId) {
         singlePaymentPayload.bankAccountId = singlePayment.bankAccountId;
       }
@@ -387,6 +423,14 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
           reference: p.reference,
           isConfirmed: true,
         };
+
+        // Add cash tender tracking for cash payments
+        const isCashPayment = p.method?.toLowerCase().includes('efectivo') ||
+          p.method?.toLowerCase().includes('cash');
+        if (isCashPayment && p.amountTendered) {
+          payment.amountTendered = parseFloat(p.amountTendered);
+          payment.changeGiven = payment.amountTendered - amountUSD;
+        }
 
         // Solo agregar bankAccountId si existe
         if (p.bankAccountId) {
@@ -457,522 +501,672 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
   if (!order) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[700px] flex flex-col h-[90vh] p-0 gap-0">
-        <DialogHeader className="p-6 pb-2">
-          <DialogTitle>Registrar Pago</DialogTitle>
-          <DialogDescription>
-            Orden: {order.orderNumber} | Balance Pendiente: ${remainingAmount.toFixed(2)} USD
-            {remainingAmountVes > 0 && ` / Bs ${remainingAmountVes.toFixed(2)}`}
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-[700px] flex flex-col h-[90vh] p-0 gap-0">
+          <DialogHeader className="p-6 pb-2">
+            <DialogTitle>Registrar Pago</DialogTitle>
+            <DialogDescription>
+              Orden: {order.orderNumber} | Balance Pendiente: ${remainingAmount.toFixed(2)} USD
+              {remainingAmountVes > 0 && ` / Bs ${remainingAmountVes.toFixed(2)}`}
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-6 pt-2 space-y-4">
-          <Select value={paymentMode} onValueChange={setPaymentMode}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="single">Pago Único</SelectItem>
-              <SelectItem value="mixed">Pago Mixto</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex-1 overflow-y-auto p-6 pt-2 space-y-4">
+            <Select value={paymentMode} onValueChange={setPaymentMode}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="single">Pago Único</SelectItem>
+                <SelectItem value="mixed">Pago Mixto</SelectItem>
+              </SelectContent>
+            </Select>
 
-          {paymentMode === 'single' ? (
-            <div className="p-4 border rounded-lg space-y-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="single-method" className="text-right">Método</Label>
-                <Select value={singlePayment.method} onValueChange={(v) => setSinglePayment(p => ({ ...p, method: v, bankAccountId: '' }))} disabled={paymentMethodsLoading}>
-                  <SelectTrigger id="single-method" className="col-span-3"><SelectValue placeholder="Seleccione un método" /></SelectTrigger>
-                  <SelectContent>{paymentMethods.map(m => m.id !== 'pago_mixto' && <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              {singleMethodHasBankAccounts ? (
+            {paymentMode === 'single' ? (
+              <div className="p-4 border rounded-lg space-y-4">
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="single-bank-account" className="text-right">Cuenta Bancaria</Label>
-                  <Select
-                    value={singlePayment.bankAccountId}
-                    onValueChange={(v) => setSinglePayment(p => ({ ...p, bankAccountId: v }))}
-                    disabled={loadingAccounts || !singlePayment.method}
-                  >
-                    <SelectTrigger id="single-bank-account" className="col-span-3">
-                      <SelectValue placeholder={
-                        loadingAccounts
-                          ? "Cargando..."
-                          : "Seleccione una cuenta (opcional)"
-                      } />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filteredBankAccounts.map(account => (
-                        <SelectItem key={account._id} value={account._id}>
-                          {account.accountName} - {account.bankName} ({account.currency})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
+                  <Label htmlFor="single-method" className="text-right">Método</Label>
+                  <Select value={singlePayment.method} onValueChange={(v) => setSinglePayment(p => ({ ...p, method: v, bankAccountId: '' }))} disabled={paymentMethodsLoading}>
+                    <SelectTrigger id="single-method" className="col-span-3"><SelectValue placeholder="Seleccione un método" /></SelectTrigger>
+                    <SelectContent>{paymentMethods.map(m => m.id !== 'pago_mixto' && <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-              ) : (
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right">Cuenta Bancaria</Label>
-                  <div className="col-span-3 text-sm text-muted-foreground">
-                    No hay cuentas registradas para este método. El pago se registrará sin cuenta.
+                {singleMethodHasBankAccounts ? (
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="single-bank-account" className="text-right">Cuenta Bancaria</Label>
+                    <Select
+                      value={singlePayment.bankAccountId}
+                      onValueChange={(v) => setSinglePayment(p => ({ ...p, bankAccountId: v }))}
+                      disabled={loadingAccounts || !singlePayment.method}
+                    >
+                      <SelectTrigger id="single-bank-account" className="col-span-3">
+                        <SelectValue placeholder={
+                          loadingAccounts
+                            ? "Cargando..."
+                            : "Seleccione una cuenta (opcional)"
+                        } />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredBankAccounts.map(account => (
+                          <SelectItem key={account._id} value={account._id}>
+                            {account.accountName} - {account.bankName} ({account.currency})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                </div>
-              )}
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right">
-                  Monto a Pagar
-                </Label>
-                <div className="col-span-3">
-                  <div className="p-3 bg-muted rounded-md space-y-2">
-                    {requiresIgtf(singlePayment.method) && !isVesMethod(singlePayment.method) ? (
-                      <>
-                        <div className="flex justify-between text-sm">
-                          <span>Monto orden:</span>
-                          <span>${remainingAmount.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm text-orange-600">
-                          <span>IGTF (3%):</span>
-                          <span>${calculateIgtf(remainingAmount, singlePayment.method).toFixed(2)}</span>
-                        </div>
-                        <div className="pt-2 border-t">
-                          <div className="flex justify-between">
-                            <span className="font-semibold">Total a cobrar:</span>
-                            <span className="text-lg font-bold">
-                              ${(remainingAmount + calculateIgtf(remainingAmount, singlePayment.method)).toFixed(2)}
-                            </span>
+                ) : (
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label className="text-right">Cuenta Bancaria</Label>
+                    <div className="col-span-3 text-sm text-muted-foreground">
+                      No hay cuentas registradas para este método. El pago se registrará sin cuenta.
+                    </div>
+                  </div>
+                )}
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">
+                    Monto a Pagar
+                  </Label>
+                  <div className="col-span-3">
+                    <div className="p-3 bg-muted rounded-md space-y-2">
+                      {requiresIgtf(singlePayment.method) && !isVesMethod(singlePayment.method) ? (
+                        <>
+                          <div className="flex justify-between text-sm">
+                            <span>Monto orden:</span>
+                            <span>${remainingAmount.toFixed(2)}</span>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            ≈ Bs {((remainingAmount + calculateIgtf(remainingAmount, singlePayment.method)) * (exchangeRate || 1)).toFixed(2)}
-                          </p>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-lg font-semibold">
-                          {isVesMethod(singlePayment.method)
-                            ? `Bs ${remainingAmountVes.toFixed(2)}`
-                            : `$${remainingAmount.toFixed(2)}`
-                          }
-                        </p>
-                        {singlePayment.method && (
-                          <p className="text-sm text-muted-foreground mt-1">
+                          <div className="flex justify-between text-sm text-orange-600">
+                            <span>IGTF (3%):</span>
+                            <span>${calculateIgtf(remainingAmount, singlePayment.method).toFixed(2)}</span>
+                          </div>
+                          <div className="pt-2 border-t">
+                            <div className="flex justify-between">
+                              <span className="font-semibold">Total a cobrar:</span>
+                              <span className="text-lg font-bold">
+                                ${(remainingAmount + calculateIgtf(remainingAmount, singlePayment.method)).toFixed(2)}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              ≈ Bs {((remainingAmount + calculateIgtf(remainingAmount, singlePayment.method)) * (exchangeRate || 1)).toFixed(2)}
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-lg font-semibold">
                             {isVesMethod(singlePayment.method)
-                              ? `≈ $${remainingAmount.toFixed(2)} USD`
-                              : `≈ Bs ${remainingAmountVes.toFixed(2)}`
+                              ? `Bs ${remainingAmountVes.toFixed(2)}`
+                              : `$${remainingAmount.toFixed(2)}`
                             }
                           </p>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="single-reference" className="text-right">Referencia</Label>
-                <Input id="single-reference" value={singlePayment.reference} onChange={(e) => setSinglePayment(p => ({ ...p, reference: e.target.value }))} className="col-span-3" />
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {mixedPayments.map((line, index) => {
-                const lineIsVes = isVesMethod(line.method);
-                const lineAmount = Number(line.amount) || 0;
-                const rate = exchangeRate || (order?.totalAmountVes / order?.totalAmount) || 1;
-                // Si es VES, el monto ingresado ya está en Bs. Si es USD, convertir a Bs
-                const lineAmountVes = lineIsVes ? lineAmount : lineAmount * rate;
-                const lineAmountUsd = lineIsVes ? lineAmount / rate : lineAmount;
-                const lineIgtf = lineIsVes ? 0 : lineAmount * 0.03;
-                const filteredAccounts = bankAccounts.filter(account =>
-                  account.acceptedPaymentMethods &&
-                  account.acceptedPaymentMethods.includes(mapPaymentMethodToName(line.method))
-                );
-
-                // --- SMART FILL LOGIC START ---
-                // 1. Estimate Total IGTF based on current entries
-                const currentTotalIGTF = mixedPayments.reduce((sum, p) => {
-                  const pIsVes = isVesMethod(p.method);
-                  const pRaw = Number(p.amount) || 0;
-                  return sum + (pIsVes ? 0 : pRaw * 0.03);
-                }, 0);
-
-                const dynamicTotalRequired = remainingAmount + currentTotalIGTF;
-
-                // 2. Calculate what has been paid so far (in USD equivalent) by ALL other lines
-                const otherLinesPaidUSD = mixedPayments
-                  .filter(p => p.id !== line.id)
-                  .reduce((sum, p) => {
-                    const pIsVes = isVesMethod(p.method);
-                    const pRaw = Number(p.amount) || 0;
-                    return sum + (pIsVes ? pRaw / rate : pRaw);
-                  }, 0);
-
-                // 3. Global Deficit
-                const currentLinePaidUSD = lineIsVes ? lineAmount / rate : lineAmount;
-                const globalPaidUSD = otherLinesPaidUSD + currentLinePaidUSD;
-                const globalDeficitUSD = Math.max(0, dynamicTotalRequired - globalPaidUSD);
-
-                // 4. Missing Amount (Target to Fill)
-                const missingUSD = globalDeficitUSD;
-                const missingVES = missingUSD * rate;
-                // --- SMART FILL LOGIC END ---
-
-                return (
-                  <div key={line.id} className="p-3 border rounded-lg space-y-3 bg-card shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold">Línea {index + 1}</span>
-                      {mixedPayments.length > 2 && (
-                        <Button variant="ghost" size="icon" onClick={() => handleRemovePaymentLine(line.id)}>
-                          <X className="h-4 w-4 text-red-500" />
-                        </Button>
+                          {singlePayment.method && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {isVesMethod(singlePayment.method)
+                                ? `≈ $${remainingAmount.toFixed(2)} USD`
+                                : `≈ Bs ${remainingAmountVes.toFixed(2)}`
+                              }
+                            </p>
+                          )}
+                        </>
                       )}
                     </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="single-reference" className="text-right">Referencia</Label>
+                  <Input id="single-reference" value={singlePayment.reference} onChange={(e) => setSinglePayment(p => ({ ...p, reference: e.target.value }))} className="col-span-3" />
+                </div>
 
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <Label>Forma de Pago</Label>
-                        <Select
-                          value={line.method}
-                          onValueChange={(v) => handleUpdatePaymentLine(line.id, 'method', v)}
-                          disabled={paymentMethodsLoading}
-                        >
-                          <SelectTrigger><SelectValue placeholder="Seleccione método" /></SelectTrigger>
-                          <SelectContent>
-                            {paymentMethods.map(m => m.id !== 'pago_mixto' && (
-                              <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                {/* Cash Tender Input - Only for cash payments */}
+                {(singlePayment.method?.toLowerCase().includes('efectivo') || singlePayment.method?.toLowerCase().includes('cash')) && (
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="single-tender" className="text-right font-medium">Monto Recibido</Label>
+                    <div className="col-span-3 space-y-2">
+                      <Input
+                        id="single-tender"
+                        type="number"
+                        step="0.01"
+                        placeholder={isVesMethod(singlePayment.method) ? "Ej: 25000.00" : "Ej: 100.00"}
+                        value={singlePayment.amountTendered || ''}
+                        onChange={(e) => setSinglePayment(p => ({ ...p, amountTendered: e.target.value }))}
+                      />
+                      {/* Show change calculation */}
+                      {singlePayment.amountTendered && (
+                        <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                          <p className="text-sm font-medium text-green-700 flex items-center gap-2">
+                            <HandCoins className="w-4 h-4" />
+                            Vuelto: {isVesMethod(singlePayment.method) ? 'Bs' : '$'} {
+                              (() => {
+                                // Calculate total amount including IGTF if applicable
+                                const baseAmount = isVesMethod(singlePayment.method) ? remainingAmountVes : remainingAmount;
+                                const igtfAmount = requiresIgtf(singlePayment.method) && !isVesMethod(singlePayment.method)
+                                  ? calculateIgtf(remainingAmount, singlePayment.method)
+                                  : 0;
+                                const totalToPay = baseAmount + igtfAmount;
+                                return (parseFloat(singlePayment.amountTendered) - totalToPay).toFixed(2);
+                              })()
+                            }
+                          </p>
+                          {(() => {
+                            const baseAmount = isVesMethod(singlePayment.method) ? remainingAmountVes : remainingAmount;
+                            const igtfAmount = requiresIgtf(singlePayment.method) && !isVesMethod(singlePayment.method)
+                              ? calculateIgtf(remainingAmount, singlePayment.method)
+                              : 0;
+                            const totalToPay = baseAmount + igtfAmount;
+                            const calculatedChange = parseFloat(singlePayment.amountTendered) - totalToPay;
 
-                      <div className="space-y-2">
-                        <Label>Cuenta Bancaria (Opcional)</Label>
-                        <Select
-                          value={line.bankAccountId}
-                          onValueChange={(v) => handleUpdatePaymentLine(line.id, 'bankAccountId', v)}
-                          disabled={loadingAccounts || !line.method || filteredAccounts.length === 0}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder={
-                              loadingAccounts ? "Cargando..." :
-                                !line.method ? "Seleccione método primero" :
-                                  filteredAccounts.length === 0 ? "No hay cuentas" :
-                                    "Seleccione cuenta (opcional)"
-                            } />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {filteredAccounts.map(account => (
-                              <SelectItem key={account._id} value={account._id}>
-                                {account.accountName} - {account.bankName} ({account.currency})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                            return (
+                              <>
+                                {parseFloat(singlePayment.amountTendered) < totalToPay && (
+                                  <p className="text-xs text-red-600 mt-1">
+                                    ⚠️ El monto recibido es menor que el total {igtfAmount > 0 && '(incluye IGTF)'}
+                                  </p>
+                                )}
+
+                                {/* Dividir Vuelto Button - Only for USD payments with change > 0 */}
+                                {!isVesMethod(singlePayment.method) && calculatedChange > 0 && !singlePayment.changeGivenBreakdown && (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full mt-2"
+                                    onClick={() => {
+                                      setCurrentChangeContext('single');
+                                      setMixedChangeModalOpen(true);
+                                    }}
+                                  >
+                                    <HandCoins className="w-4 h-4 mr-2" />
+                                    Dividir Vuelto (USD + Bs)
+                                  </Button>
+                                )}
+
+                                {/* Show breakdown if already divided */}
+                                {singlePayment.changeGivenBreakdown && (
+                                  <div className="mt-2 p-2 bg-purple-50 border border-purple-200 rounded-md">
+                                    <p className="text-xs font-medium text-purple-900">Vuelto Dividido:</p>
+                                    <ul className="text-xs text-purple-700 mt-1 space-y-0.5">
+                                      <li>• USD: ${singlePayment.changeGivenBreakdown.usd.toFixed(2)} (Efectivo)</li>
+                                      <li>• VES: Bs {singlePayment.changeGivenBreakdown.ves.toFixed(2)} ({singlePayment.changeGivenBreakdown.vesMethod === 'efectivo_ves' ? 'Efectivo' : 'PagoMóvil'})</li>
+                                    </ul>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="w-full mt-1 text-xs"
+                                      onClick={() => setSinglePayment(p => ({ ...p, changeGivenBreakdown: null }))}
+                                    >
+                                      Cancelar División
+                                    </Button>
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </div>
+                      )}
                     </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {mixedPayments.map((line, index) => {
+                  const lineIsVes = isVesMethod(line.method);
+                  const lineAmount = Number(line.amount) || 0;
+                  const rate = exchangeRate || (order?.totalAmountVes / order?.totalAmount) || 1;
+                  // Si es VES, el monto ingresado ya está en Bs. Si es USD, convertir a Bs
+                  const lineAmountVes = lineIsVes ? lineAmount : lineAmount * rate;
+                  const lineAmountUsd = lineIsVes ? lineAmount / rate : lineAmount;
+                  const lineIgtf = lineIsVes ? 0 : lineAmount * 0.03;
+                  const filteredAccounts = bankAccounts.filter(account =>
+                    account.acceptedPaymentMethods &&
+                    account.acceptedPaymentMethods.includes(mapPaymentMethodToName(line.method))
+                  );
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2">
-                        <Label>{lineIsVes ? 'Monto en Bs' : 'Monto en $'}</Label>
-                        <div className="flex gap-2">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            placeholder={lineIsVes ? `Ej: ${remainingAmountVes.toFixed(2)}` : `Ej: ${remainingAmount.toFixed(2)}`}
-                            value={line.amount}
-                            onChange={(e) => handleUpdatePaymentLine(line.id, 'amount', e.target.value)}
-                            className={missingUSD > 0.01 && lineAmount === 0 ? "border-blue-400 flex-1" : "flex-1"}
-                          />
+                  // --- SMART FILL LOGIC START ---
+                  // 1. Estimate Total IGTF based on current entries
+                  const currentTotalIGTF = mixedPayments.reduce((sum, p) => {
+                    const pIsVes = isVesMethod(p.method);
+                    const pRaw = Number(p.amount) || 0;
+                    return sum + (pIsVes ? 0 : pRaw * 0.03);
+                  }, 0);
+
+                  const dynamicTotalRequired = remainingAmount + currentTotalIGTF;
+
+                  // 2. Calculate what has been paid so far (in USD equivalent) by ALL other lines
+                  const otherLinesPaidUSD = mixedPayments
+                    .filter(p => p.id !== line.id)
+                    .reduce((sum, p) => {
+                      const pIsVes = isVesMethod(p.method);
+                      const pRaw = Number(p.amount) || 0;
+                      return sum + (pIsVes ? pRaw / rate : pRaw);
+                    }, 0);
+
+                  // 3. Global Deficit
+                  const currentLinePaidUSD = lineIsVes ? lineAmount / rate : lineAmount;
+                  const globalPaidUSD = otherLinesPaidUSD + currentLinePaidUSD;
+                  const globalDeficitUSD = Math.max(0, dynamicTotalRequired - globalPaidUSD);
+
+                  // 4. Missing Amount (Target to Fill)
+                  const missingUSD = globalDeficitUSD;
+                  const missingVES = missingUSD * rate;
+                  // --- SMART FILL LOGIC END ---
+
+                  return (
+                    <div key={line.id} className="p-3 border rounded-lg space-y-3 bg-card shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold">Línea {index + 1}</span>
+                        {mixedPayments.length > 2 && (
+                          <Button variant="ghost" size="icon" onClick={() => handleRemovePaymentLine(line.id)}>
+                            <X className="h-4 w-4 text-red-500" />
+                          </Button>
+                        )}
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <Label>Forma de Pago</Label>
+                          <Select
+                            value={line.method}
+                            onValueChange={(v) => handleUpdatePaymentLine(line.id, 'method', v)}
+                            disabled={paymentMethodsLoading}
+                          >
+                            <SelectTrigger><SelectValue placeholder="Seleccione método" /></SelectTrigger>
+                            <SelectContent>
+                              {paymentMethods.map(m => m.id !== 'pago_mixto' && (
+                                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Cuenta Bancaria (Opcional)</Label>
+                          <Select
+                            value={line.bankAccountId}
+                            onValueChange={(v) => handleUpdatePaymentLine(line.id, 'bankAccountId', v)}
+                            disabled={loadingAccounts || !line.method || filteredAccounts.length === 0}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder={
+                                loadingAccounts ? "Cargando..." :
+                                  !line.method ? "Seleccione método primero" :
+                                    filteredAccounts.length === 0 ? "No hay cuentas" :
+                                      "Seleccione cuenta (opcional)"
+                              } />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {filteredAccounts.map(account => (
+                                <SelectItem key={account._id} value={account._id}>
+                                  {account.accountName} - {account.bankName} ({account.currency})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>{lineIsVes ? 'Monto en Bs' : 'Monto en $'}</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder={lineIsVes ? `Ej: ${remainingAmountVes.toFixed(2)}` : `Ej: ${remainingAmount.toFixed(2)}`}
+                              value={line.amount}
+                              onChange={(e) => handleUpdatePaymentLine(line.id, 'amount', e.target.value)}
+                              className={missingUSD > 0.01 && lineAmount === 0 ? "border-blue-400 flex-1" : "flex-1"}
+                            />
+                            {missingUSD > 0.01 && (
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="secondary"
+                                className="shrink-0 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 border-blue-200 border"
+                                onClick={() => {
+                                  const currentVal = Number(line.amount) || 0;
+                                  const newVal = currentVal + (lineIsVes ? missingVES : missingUSD);
+                                  handleUpdatePaymentLine(line.id, 'amount', newVal.toFixed(2));
+                                }}
+                                title={`Autocompletar faltante: $${missingUSD.toFixed(2)}`}
+                              >
+                                <Wand2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+
+                          {/* Interactive Helper Text */}
                           {missingUSD > 0.01 && (
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="secondary"
-                              className="shrink-0 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 border-blue-200 border"
+                            <div
+                              className="text-xs text-muted-foreground pl-1 flex items-center gap-1 cursor-pointer hover:bg-muted/50 p-1 rounded transition-colors group"
                               onClick={() => {
                                 const currentVal = Number(line.amount) || 0;
                                 const newVal = currentVal + (lineIsVes ? missingVES : missingUSD);
                                 handleUpdatePaymentLine(line.id, 'amount', newVal.toFixed(2));
                               }}
-                              title={`Autocompletar faltante: $${missingUSD.toFixed(2)}`}
                             >
-                              <Wand2 className="h-4 w-4" />
-                            </Button>
+                              <Calculator className="w-3 h-3 group-hover:text-blue-600" />
+                              <span>
+                                Falta: <span className="font-medium text-blue-600 group-hover:underline">${missingUSD.toFixed(2)}</span>
+                                {rate > 0 && (
+                                  <>
+                                    {' '}≈{' '}
+                                    <span className="font-medium text-green-600">Bs {missingVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                  </>
+                                )}
+                              </span>
+                            </div>
+                          )}
+
+                          {lineIsVes && lineAmount > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              Equivalente: ${lineAmountUsd.toFixed(2)} USD
+                            </p>
+                          )}
+                          {!lineIsVes && lineAmount > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              Equivalente: Bs {lineAmountVes.toFixed(2)}
+                            </p>
+                          )}
+                          {!lineIsVes && lineAmount > 0 && lineIgtf > 0 && (
+                            <p className="text-xs text-orange-600">
+                              IGTF (3%): +${lineIgtf.toFixed(2)}
+                            </p>
                           )}
                         </div>
 
-                        {/* Interactive Helper Text */}
-                        {missingUSD > 0.01 && (
-                          <div
-                            className="text-xs text-muted-foreground pl-1 flex items-center gap-1 cursor-pointer hover:bg-muted/50 p-1 rounded transition-colors group"
-                            onClick={() => {
-                              const currentVal = Number(line.amount) || 0;
-                              const newVal = currentVal + (lineIsVes ? missingVES : missingUSD);
-                              handleUpdatePaymentLine(line.id, 'amount', newVal.toFixed(2));
-                            }}
-                          >
-                            <Calculator className="w-3 h-3 group-hover:text-blue-600" />
-                            <span>
-                              Falta: <span className="font-medium text-blue-600 group-hover:underline">${missingUSD.toFixed(2)}</span>
-                              {rate > 0 && (
-                                <>
-                                  {' '}≈{' '}
-                                  <span className="font-medium text-green-600">Bs {missingVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                </>
-                              )}
-                            </span>
+                        {/* Cash Tender Input - Only for cash payments */}
+                        {(line.method?.toLowerCase().includes('efectivo') || line.method?.toLowerCase().includes('cash')) && (
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium">Monto Recibido</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder={lineIsVes ? "Ej: 100.00" : "Ej: 50.00"}
+                              value={line.amountTendered || ''}
+                              onChange={(e) => handleUpdatePaymentLine(line.id, 'amountTendered', e.target.value)}
+                              className="w-full"
+                            />
+                            {/* Show change calculation */}
+                            {line.amountTendered && lineAmount > 0 && (
+                              <div className="p-2 bg-green-50 border border-green-200 rounded-md">
+                                <p className="text-sm font-medium text-green-700 flex items-center gap-2">
+                                  <HandCoins className="w-4 h-4" />
+                                  Vuelto: {lineIsVes ? 'Bs' : '$'} {
+                                    (() => {
+                                      // Include IGTF in total if applicable
+                                      const totalToPay = lineAmount + (lineIgtf || 0);
+                                      return (parseFloat(line.amountTendered) - totalToPay).toFixed(2);
+                                    })()
+                                  }
+                                </p>
+                                {(() => {
+                                  const totalToPay = lineAmount + (lineIgtf || 0);
+                                  return parseFloat(line.amountTendered) < totalToPay && (
+                                    <p className="text-xs text-red-600 mt-1">
+                                      ⚠️ El monto recibido es menor que el total {lineIgtf > 0 && '(incluye IGTF)'}
+                                    </p>
+                                  );
+                                })()}
+                              </div>
+                            )}
                           </div>
                         )}
 
-                        {lineIsVes && lineAmount > 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            Equivalente: ${lineAmountUsd.toFixed(2)} USD
-                          </p>
-                        )}
-                        {!lineIsVes && lineAmount > 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            Equivalente: Bs {lineAmountVes.toFixed(2)}
-                          </p>
-                        )}
-                        {!lineIsVes && lineAmount > 0 && lineIgtf > 0 && (
-                          <p className="text-xs text-orange-600">
-                            IGTF (3%): +${lineIgtf.toFixed(2)}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Referencia</Label>
-                        <Input
-                          placeholder="Referencia..."
-                          value={line.reference}
-                          onChange={(e) => handleUpdatePaymentLine(line.id, 'reference', e.target.value)}
-                        />
+                        <div className="space-y-2">
+                          <Label>Referencia</Label>
+                          <Input
+                            placeholder="Referencia..."
+                            value={line.reference}
+                            onChange={(e) => handleUpdatePaymentLine(line.id, 'reference', e.target.value)}
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
 
-              <Button variant="outline" size="sm" onClick={handleAddPaymentLine} className="w-full border-dashed p-4">
-                <Plus className="h-4 w-4 mr-2" />Añadir línea de pago
-              </Button>
-            </div>
-          )
-          }
-
-          {/* Tips Section */}
-          <div className="border rounded-lg p-4 bg-gradient-to-r from-amber-50/50 to-yellow-50/50 dark:from-amber-950/20 dark:to-yellow-950/20">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <HandCoins className="h-5 w-5 text-amber-600" />
-                <Label className="text-base font-semibold">Propina</Label>
-                {calculatedTipAmount > 0 && (
-                  <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
-                    ${calculatedTipAmount.toFixed(2)}
-                  </Badge>
-                )}
+                <Button variant="outline" size="sm" onClick={handleAddPaymentLine} className="w-full border-dashed p-4">
+                  <Plus className="h-4 w-4 mr-2" />Añadir línea de pago
+                </Button>
               </div>
-              <div className="flex items-center gap-2">
-                <Label htmlFor="tip-toggle" className="text-sm text-muted-foreground cursor-pointer">
-                  {tipEnabled ? 'Incluir propina' : 'Sin propina'}
-                </Label>
-                <input
-                  id="tip-toggle"
-                  type="checkbox"
-                  checked={tipEnabled}
-                  onChange={(e) => {
-                    setTipEnabled(e.target.checked);
-                    if (!e.target.checked) {
-                      setTipPercentage(null);
-                      setCustomTipAmount('');
-                    }
-                  }}
-                  className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
-                />
-              </div>
-            </div>
+            )
+            }
 
-            {tipEnabled && (
-              <div className="space-y-4">
-                {/* Tip Percentage Presets */}
-                <div className="space-y-2">
-                  <Label className="text-sm">Porcentaje sugerido</Label>
-                  <div className="flex gap-2 flex-wrap">
-                    {tipPresets.map((preset) => (
+            {/* Tips Section */}
+            <div className="border rounded-lg p-4 bg-gradient-to-r from-amber-50/50 to-yellow-50/50 dark:from-amber-950/20 dark:to-yellow-950/20">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <HandCoins className="h-5 w-5 text-amber-600" />
+                  <Label className="text-base font-semibold">Propina</Label>
+                  {calculatedTipAmount > 0 && (
+                    <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                      ${calculatedTipAmount.toFixed(2)}
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="tip-toggle" className="text-sm text-muted-foreground cursor-pointer">
+                    {tipEnabled ? 'Incluir propina' : 'Sin propina'}
+                  </Label>
+                  <input
+                    id="tip-toggle"
+                    type="checkbox"
+                    checked={tipEnabled}
+                    onChange={(e) => {
+                      setTipEnabled(e.target.checked);
+                      if (!e.target.checked) {
+                        setTipPercentage(null);
+                        setCustomTipAmount('');
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
+              {tipEnabled && (
+                <div className="space-y-4">
+                  {/* Tip Percentage Presets */}
+                  <div className="space-y-2">
+                    <Label className="text-sm">Porcentaje sugerido</Label>
+                    <div className="flex gap-2 flex-wrap">
+                      {tipPresets.map((preset) => (
+                        <Button
+                          key={preset.value}
+                          type="button"
+                          variant={tipMode === 'percentage' && tipPercentage === preset.value ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => {
+                            setTipMode('percentage');
+                            setTipPercentage(preset.value);
+                            setCustomTipAmount('');
+                          }}
+                          className={tipMode === 'percentage' && tipPercentage === preset.value
+                            ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                            : 'hover:bg-amber-50 hover:border-amber-300 dark:hover:bg-amber-950'
+                          }
+                        >
+                          {preset.label}
+                        </Button>
+                      ))}
                       <Button
-                        key={preset.value}
                         type="button"
-                        variant={tipMode === 'percentage' && tipPercentage === preset.value ? 'default' : 'outline'}
+                        variant={tipMode === 'custom' ? 'default' : 'outline'}
                         size="sm"
                         onClick={() => {
-                          setTipMode('percentage');
-                          setTipPercentage(preset.value);
-                          setCustomTipAmount('');
+                          setTipMode('custom');
+                          setTipPercentage(null);
                         }}
-                        className={tipMode === 'percentage' && tipPercentage === preset.value
+                        className={tipMode === 'custom'
                           ? 'bg-amber-600 hover:bg-amber-700 text-white'
                           : 'hover:bg-amber-50 hover:border-amber-300 dark:hover:bg-amber-950'
                         }
                       >
-                        {preset.label}
+                        Otro
                       </Button>
-                    ))}
-                    <Button
-                      type="button"
-                      variant={tipMode === 'custom' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => {
-                        setTipMode('custom');
-                        setTipPercentage(null);
-                      }}
-                      className={tipMode === 'custom'
-                        ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                        : 'hover:bg-amber-50 hover:border-amber-300 dark:hover:bg-amber-950'
-                      }
-                    >
-                      Otro
-                    </Button>
+                    </div>
+                  </div>
+
+                  {/* Custom Amount Input */}
+                  {tipMode === 'custom' && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="custom-tip">Monto de propina (USD)</Label>
+                        <Input
+                          id="custom-tip"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="Ej: 5.00"
+                          value={customTipAmount}
+                          onChange={(e) => setCustomTipAmount(e.target.value)}
+                          className="border-amber-200 focus:border-amber-400 focus:ring-amber-400"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Método de propina</Label>
+                        <Select value={tipMethod} onValueChange={setTipMethod}>
+                          <SelectTrigger className="border-amber-200">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {paymentMethods.map(pm => (
+                              <SelectItem key={pm.id} value={pm.id}>{pm.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tip Method for Percentage Mode */}
+                  {tipMode === 'percentage' && tipPercentage && (
+                    <div className="grid grid-cols-2 gap-4 items-end">
+                      <div className="space-y-2">
+                        <Label>Método de propina</Label>
+                        <Select value={tipMethod} onValueChange={setTipMethod}>
+                          <SelectTrigger className="border-amber-200">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {paymentMethods.map(pm => (
+                              <SelectItem key={pm.id} value={pm.id}>{pm.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="p-3 bg-amber-100/50 dark:bg-amber-900/30 rounded-md">
+                        <p className="text-sm text-muted-foreground">Propina calculada:</p>
+                        <p className="text-lg font-bold text-amber-700 dark:text-amber-400">
+                          ${calculatedTipAmount.toFixed(2)} USD
+                        </p>
+                        {exchangeRate > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            ≈ Bs {(calculatedTipAmount * exchangeRate).toFixed(2)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tip Summary */}
+
+
+                  {/* Employee Selector for Tips */}
+                  <div className="pt-2">
+                    <Label htmlFor="tip-employee" className="text-sm">Asignar propina a:</Label>
+                    <Select value={assignedTipEmployee} onValueChange={setAssignedTipEmployee}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder={isFoodService ? "Seleccione mesero..." : "Seleccione vendedor..."} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pool">Pool / General</SelectItem>
+                        {employees.map(emp => (
+                          <SelectItem key={emp._id} value={emp.customer?.id || emp.customerId}>
+                            {emp.customer?.name || emp.name || 'Sin Nombre'}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {assignedTipEmployee ? 'Se asignará a este empleado específico' : 'Se usará la regla de distribución activa'}
+                    </p>
                   </div>
                 </div>
+              )}
+            </div>
+          </div>
 
-                {/* Custom Amount Input */}
-                {tipMode === 'custom' && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="custom-tip">Monto de propina (USD)</Label>
-                      <Input
-                        id="custom-tip"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="Ej: 5.00"
-                        value={customTipAmount}
-                        onChange={(e) => setCustomTipAmount(e.target.value)}
-                        className="border-amber-200 focus:border-amber-400 focus:ring-amber-400"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Método de propina</Label>
-                      <Select value={tipMethod} onValueChange={setTipMethod}>
-                        <SelectTrigger className="border-amber-200">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {paymentMethods.map(pm => (
-                            <SelectItem key={pm.id} value={pm.id}>{pm.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+          {/* Fixed Footer Section */}
+          <div className="p-6 bg-muted/30 border-t mt-auto space-y-4">
+            {paymentMode === 'mixed' && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Subtotal Orden:</span>
+                  <span>${remainingAmount.toFixed(2)}</span>
+                </div>
+                {mixedPaymentTotals.igtf > 0 && (
+                  <div className="flex justify-between text-sm text-orange-600">
+                    <span>+ IGTF (3%):</span>
+                    <span>${mixedPaymentTotals.igtf.toFixed(2)}</span>
                   </div>
                 )}
 
-                {/* Tip Method for Percentage Mode */}
-                {tipMode === 'percentage' && tipPercentage && (
-                  <div className="grid grid-cols-2 gap-4 items-end">
-                    <div className="space-y-2">
-                      <Label>Método de propina</Label>
-                      <Select value={tipMethod} onValueChange={setTipMethod}>
-                        <SelectTrigger className="border-amber-200">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {paymentMethods.map(pm => (
-                            <SelectItem key={pm.id} value={pm.id}>{pm.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="p-3 bg-amber-100/50 dark:bg-amber-900/30 rounded-md">
-                      <p className="text-sm text-muted-foreground">Propina calculada:</p>
-                      <p className="text-lg font-bold text-amber-700 dark:text-amber-400">
-                        ${calculatedTipAmount.toFixed(2)} USD
-                      </p>
-                      {exchangeRate > 0 && (
-                        <p className="text-xs text-muted-foreground">
-                          ≈ Bs {(calculatedTipAmount * exchangeRate).toFixed(2)}
-                        </p>
-                      )}
-                    </div>
+                <div className="flex justify-between text-base font-medium border-t pt-1">
+                  <span>Total Requerido:</span>
+                  <span>${(remainingAmount + mixedPaymentTotals.igtf).toFixed(2)}</span>
+                </div>
+
+                <div className="flex justify-between font-bold text-lg bg-muted/50 p-2 rounded">
+                  <span>Total Pagado:</span>
+                  <span>${mixedPaymentTotals.totalUSD.toFixed(2)}</span>
+                </div>
+
+                {Math.abs(mixedPaymentTotals.totalUSD - (remainingAmount + mixedPaymentTotals.igtf)) > 0.01 && (
+                  <div className={`flex justify-between text-sm p-2 rounded ${mixedPaymentTotals.totalUSD < (remainingAmount + mixedPaymentTotals.igtf) ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'}`}>
+                    <span className="font-semibold">
+                      {mixedPaymentTotals.totalUSD < (remainingAmount + mixedPaymentTotals.igtf) ? '⚠️ Falta por cubrir:' : '⚠️ Exceso de pago:'}
+                    </span>
+                    <span className="font-semibold">
+                      ${Math.abs(mixedPaymentTotals.totalUSD - (remainingAmount + mixedPaymentTotals.igtf)).toFixed(2)}
+                    </span>
                   </div>
                 )}
 
-                {/* Tip Summary */}
-
-
-                {/* Employee Selector for Tips */}
-                <div className="pt-2">
-                  <Label htmlFor="tip-employee" className="text-sm">Asignar propina a:</Label>
-                  <Select value={assignedTipEmployee} onValueChange={setAssignedTipEmployee}>
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder={isFoodService ? "Seleccione mesero..." : "Seleccione vendedor..."} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pool">Pool / General</SelectItem>
-                      {employees.map(emp => (
-                        <SelectItem key={emp._id} value={emp.customer?.id || emp.customerId}>
-                          {emp.customer?.name || emp.name || 'Sin Nombre'}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {assignedTipEmployee ? 'Se asignará a este empleado específico' : 'Se usará la regla de distribución activa'}
-                  </p>
+                <div className="flex justify-between font-semibold text-sm text-green-600">
+                  <span>Equivalente total en Bolívares:</span>
+                  <span>Bs {mixedPaymentTotals.totalVES.toFixed(2)}</span>
                 </div>
               </div>
             )}
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <DialogClose asChild><Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button></DialogClose>
+              <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? 'Registrando...' : 'Registrar Pago'}</Button>
+            </DialogFooter>
           </div>
-        </div>
+        </DialogContent>
+      </Dialog>
 
-        {/* Fixed Footer Section */}
-        <div className="p-6 bg-muted/30 border-t mt-auto space-y-4">
-          {paymentMode === 'mixed' && (
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm text-muted-foreground">
-                <span>Subtotal Orden:</span>
-                <span>${remainingAmount.toFixed(2)}</span>
-              </div>
-              {mixedPaymentTotals.igtf > 0 && (
-                <div className="flex justify-between text-sm text-orange-600">
-                  <span>+ IGTF (3%):</span>
-                  <span>${mixedPaymentTotals.igtf.toFixed(2)}</span>
-                </div>
-              )}
-
-              <div className="flex justify-between text-base font-medium border-t pt-1">
-                <span>Total Requerido:</span>
-                <span>${(remainingAmount + mixedPaymentTotals.igtf).toFixed(2)}</span>
-              </div>
-
-              <div className="flex justify-between font-bold text-lg bg-muted/50 p-2 rounded">
-                <span>Total Pagado:</span>
-                <span>${mixedPaymentTotals.totalUSD.toFixed(2)}</span>
-              </div>
-
-              {Math.abs(mixedPaymentTotals.totalUSD - (remainingAmount + mixedPaymentTotals.igtf)) > 0.01 && (
-                <div className={`flex justify-between text-sm p-2 rounded ${mixedPaymentTotals.totalUSD < (remainingAmount + mixedPaymentTotals.igtf) ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'}`}>
-                  <span className="font-semibold">
-                    {mixedPaymentTotals.totalUSD < (remainingAmount + mixedPaymentTotals.igtf) ? '⚠️ Falta por cubrir:' : '⚠️ Exceso de pago:'}
-                  </span>
-                  <span className="font-semibold">
-                    ${Math.abs(mixedPaymentTotals.totalUSD - (remainingAmount + mixedPaymentTotals.igtf)).toFixed(2)}
-                  </span>
-                </div>
-              )}
-
-              <div className="flex justify-between font-semibold text-sm text-green-600">
-                <span>Equivalente total en Bolívares:</span>
-                <span>Bs {mixedPaymentTotals.totalVES.toFixed(2)}</span>
-              </div>
-            </div>
-          )}
-
-          <DialogFooter className="gap-2 sm:gap-0">
-            <DialogClose asChild><Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button></DialogClose>
-            <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? 'Registrando...' : 'Registrar Pago'}</Button>
-          </DialogFooter>
-        </div>
-      </DialogContent>
-    </Dialog>
+      {/* Mixed Change Modal */}
+      <MixedChangeModal
+        isOpen={mixedChangeModalOpen}
+        onClose={() => setMixedChangeModalOpen(false)}
+        totalChange={(() => {
+          if (currentChangeContext === 'single' && singlePayment.amountTendered) {
+            const baseAmount = isVesMethod(singlePayment.method) ? remainingAmountVes : remainingAmount;
+            const igtfAmount = requiresIgtf(singlePayment.method) && !isVesMethod(singlePayment.method)
+              ? calculateIgtf(remainingAmount, singlePayment.method)
+              : 0;
+            const totalToPay = baseAmount + igtfAmount;
+            return parseFloat(singlePayment.amountTendered) - totalToPay;
+          }
+          return 0;
+        })()}
+        exchangeRate={exchangeRate || (order?.totalAmountVes / order?.totalAmount) || 1}
+        onConfirm={handleMixedChangeConfirm}
+      />
+    </>
   );
 }
