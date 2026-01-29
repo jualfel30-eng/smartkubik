@@ -281,6 +281,14 @@ export class Order {
     confirmedAt?: Date;
     confirmedMethod?: string;
     igtf?: number;
+    // Cash tender tracking
+    amountTendered?: number;
+    changeGiven?: number;
+    changeGivenBreakdown?: {
+      usd: number;
+      ves: number;
+      vesMethod?: string;
+    };
   }>;
 
   @Prop({ type: String, required: true, default: "pending" })

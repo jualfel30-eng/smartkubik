@@ -485,6 +485,65 @@ export class PaymentsService {
       );
     }
 
+    // === Cash Tender & Change Validation ===
+    const isCashPayment = paymentDetails.method?.toLowerCase().includes('efectivo') ||
+      paymentDetails.method?.toLowerCase().includes('cash');
+
+    if (isCashPayment && paymentDetails.amountTendered) {
+      // Validate that tender amount is sufficient
+      if (paymentDetails.amountTendered < paymentDetails.amount) {
+        throw new BadRequestException(
+          `Amount tendered ($${paymentDetails.amountTendered}) is less than payment amount ($${paymentDetails.amount})`
+        );
+      }
+
+      // Calculate change if not provided
+      if (paymentDetails.changeGiven === undefined || paymentDetails.changeGiven === null) {
+        paymentDetails.changeGiven = paymentDetails.amountTendered - paymentDetails.amount;
+        this.logger.log(
+          `Auto-calculated change: tendered=${paymentDetails.amountTendered}, amount=${paymentDetails.amount}, change=${paymentDetails.changeGiven}`
+        );
+      }
+    } else if (isCashPayment && !paymentDetails.amountTendered) {
+      // Legacy cash payment without tender tracking - assume exact payment
+      paymentDetails.amountTendered = paymentDetails.amount;
+      paymentDetails.changeGiven = 0;
+      paymentDetails.isLegacyPayment = true;
+    }
+
+    // === Mixed Change Validation (USD + VES) ===
+    if (paymentDetails.changeGivenBreakdown) {
+      // Only allow breakdown for cash payments
+      if (!isCashPayment) {
+        throw new BadRequestException(
+          'Change breakdown is only allowed for cash payments'
+        );
+      }
+
+      const { usd, ves, vesMethod } = paymentDetails.changeGivenBreakdown;
+
+      // Validate that breakdown totals match changeGiven
+      const breakdownTotal = (usd || 0) + (ves || 0);
+      const tolerance = 0.01; // Allow 1 cent tolerance for rounding
+
+      if (Math.abs(breakdownTotal - (paymentDetails.changeGiven || 0)) > tolerance) {
+        throw new BadRequestException(
+          `Change breakdown total ($${breakdownTotal.toFixed(2)}) does not match changeGiven ($${(paymentDetails.changeGiven || 0).toFixed(2)})`
+        );
+      }
+
+      // Validate VES method if VES amount is provided
+      if (ves && ves > 0 && !vesMethod) {
+        throw new BadRequestException(
+          'vesMethod is required when VES change is given'
+        );
+      }
+
+      this.logger.log(
+        `Mixed change breakdown: USD=$${usd}, VES=Bs${ves}, method=${vesMethod || 'N/A'}`
+      );
+    }
+
     // Create and save the core payment document first
     const newPayment = new this.paymentModel({
       ...paymentDetails,

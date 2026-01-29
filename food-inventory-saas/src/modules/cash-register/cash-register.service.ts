@@ -405,7 +405,10 @@ export class CashRegisterService {
       mobilePaymentVes: 0, // Pago móvil solo en VES
       otherUsd: 0,
       otherVes: 0,
-      changeGivenUsd: 0,
+      // Cash tender tracking
+      cashReceivedUsd: 0, // Efectivo recibido (amountTendered)
+      cashReceivedVes: 0,
+      changeGivenUsd: 0,   // Vueltos dados
       changeGivenVes: 0,
     };
 
@@ -541,7 +544,7 @@ export class CashRegisterService {
         summary.totalAmountVes += (amount * fallbackRate);
       }
 
-      // Process payments for detailed breakdown (Logic for Change Given)
+      // Process payments for detailed breakdown
       if (order.paymentRecords && order.paymentRecords.length > 0) {
         for (const payment of order.paymentRecords) {
           const method = (payment.method || 'other').toLowerCase();
@@ -549,12 +552,57 @@ export class CashRegisterService {
           const amount = payment.amount || 0;
           const amountVes = payment.amountVes || 0;
 
-          // Calculate change (negative amounts)
-          if (amount < 0 || amountVes < 0) {
-            if (method.includes('efectivo') || method.includes('cash') || method.includes('vuelto') || method.includes('change')) {
-              // It's a change/vuelto
-              if (currency === 'USD') totals.changeGivenUsd = (totals.changeGivenUsd || 0) + Math.abs(amount);
-              else totals.changeGivenVes = (totals.changeGivenVes || 0) + Math.abs(amountVes || amount);
+          // === NEW: Use explicit tender and change tracking ===
+          const isCashPayment = method.includes('efectivo') || method.includes('cash');
+
+          if (isCashPayment) {
+            // Use explicit changeGiven if available (new payments)
+            if (payment.changeGiven !== undefined && payment.changeGiven !== null) {
+              // Check if there's a breakdown (mixed change: USD + VES)
+              if (payment.changeGivenBreakdown) {
+                const { usd, ves, vesMethod } = payment.changeGivenBreakdown;
+
+                // Track USD change
+                if (usd && usd > 0) {
+                  totals.changeGivenUsd = (totals.changeGivenUsd || 0) + usd;
+                }
+
+                // Track VES change (could be efectivo or pago_movil)
+                if (ves && ves > 0) {
+                  totals.changeGivenVes = (totals.changeGivenVes || 0) + ves;
+
+                  // Track the VES change by method (for detailed reporting)
+                  if (vesMethod === 'pago_movil_ves') {
+                    totals.mobilePaymentVes = (totals.mobilePaymentVes || 0) - ves; // Negative because it's outgoing
+                  }
+                }
+
+                this.logger.debug(
+                  `Mixed change tracked: USD=$${usd}, VES=Bs${ves}, method=${vesMethod}`
+                );
+              } else {
+                // Simple change (single currency)
+                if (currency === 'USD') {
+                  totals.changeGivenUsd = (totals.changeGivenUsd || 0) + payment.changeGiven;
+                } else {
+                  totals.changeGivenVes = (totals.changeGivenVes || 0) + payment.changeGiven;
+                }
+              }
+
+              // Track cash received (tender) regardless of breakdown
+              if (payment.amountTendered) {
+                if (currency === 'USD') {
+                  totals.cashReceivedUsd = (totals.cashReceivedUsd || 0) + payment.amountTendered;
+                } else {
+                  totals.cashReceivedVes = (totals.cashReceivedVes || 0) + payment.amountTendered;
+                }
+              }
+            } else {
+              // Legacy: infer change from negative amounts (old method)
+              if (amount < 0 || amountVes < 0) {
+                if (currency === 'USD') totals.changeGivenUsd = (totals.changeGivenUsd || 0) + Math.abs(amount);
+                else totals.changeGivenVes = (totals.changeGivenVes || 0) + Math.abs(amountVes || amount);
+              }
             }
           }
         }
