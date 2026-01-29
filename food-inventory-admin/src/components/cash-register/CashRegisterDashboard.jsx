@@ -101,8 +101,8 @@ export default function CashRegisterDashboard() {
   // Formulario apertura de caja
   const [openForm, setOpenForm] = useState({
     registerName: 'Caja Principal',
-    openingAmountUsd: 0,
-    openingAmountVes: 0,
+    openingAmountUsd: '',
+    openingAmountVes: '',
     openingNotes: '',
     workShift: 'morning',
   });
@@ -208,16 +208,26 @@ export default function CashRegisterDashboard() {
   const handleOpenSession = async () => {
     try {
       setLoading(true);
+
+      // Parse string values to numbers for API
+      const payload = {
+        registerName: openForm.registerName,
+        openingAmountUsd: parseFloat(openForm.openingAmountUsd) || 0,
+        openingAmountVes: parseFloat(openForm.openingAmountVes) || 0,
+        openingNotes: openForm.openingNotes,
+        workShift: openForm.workShift,
+      };
+
       await fetchApi('/cash-register/sessions/open', {
         method: 'POST',
-        body: JSON.stringify(openForm),
+        body: JSON.stringify(payload),
       });
       toast.success('Caja abierta correctamente');
       setOpenSessionModal(false);
       setOpenForm({
         registerName: 'Caja Principal',
-        openingAmountUsd: 0,
-        openingAmountVes: 0,
+        openingAmountUsd: '',
+        openingAmountVes: '',
         openingNotes: '',
         workShift: 'morning',
       });
@@ -893,16 +903,20 @@ export default function CashRegisterDashboard() {
                 <Label>Fondo Inicial USD</Label>
                 <Input
                   type="number"
+                  step="0.01"
+                  placeholder="0.00"
                   value={openForm.openingAmountUsd}
-                  onChange={(e) => setOpenForm(prev => ({ ...prev, openingAmountUsd: parseFloat(e.target.value) || 0 }))}
+                  onChange={(e) => setOpenForm(prev => ({ ...prev, openingAmountUsd: e.target.value }))}
                 />
               </div>
               <div>
                 <Label>Fondo Inicial VES</Label>
                 <Input
                   type="number"
+                  step="0.01"
+                  placeholder="0.00"
                   value={openForm.openingAmountVes}
-                  onChange={(e) => setOpenForm(prev => ({ ...prev, openingAmountVes: parseFloat(e.target.value) || 0 }))}
+                  onChange={(e) => setOpenForm(prev => ({ ...prev, openingAmountVes: e.target.value }))}
                 />
               </div>
             </div>

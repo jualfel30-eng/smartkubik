@@ -1,9 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useCashRegister } from '../../contexts/CashRegisterContext';
-import { fetchApi } from '../../lib/api';
+import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-// UI Components
 import {
     Sheet,
     SheetContent,
@@ -15,15 +11,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
+import { Calculator } from 'lucide-react';
+import { useCashRegister } from '@/contexts/CashRegisterContext';
+import { fetchApi } from '../../lib/api';
 import { toast } from 'sonner';
 
-// Icons
-import {
-    Calculator,
-} from 'lucide-react';
-
+/**
+ * Drawer de doble función: Apertura y Cierre rápido de caja
+ * - Si NO hay sesión activa: muestra formulario de apertura
+ * - Si SÍ hay sesión activa: muestra formulario de cierre
+ */
 export function CashClosingDrawer({ trigger }) {
     const { currentSession, hasActiveSession, refreshSession } = useCashRegister();
     const navigate = useNavigate();
@@ -31,6 +28,8 @@ export function CashClosingDrawer({ trigger }) {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [totals, setTotals] = useState(null);
+
+    // Datos para cierre
     const [closingData, setClosingData] = useState({
         closingAmountUsd: '',
         closingAmountVes: '',
@@ -38,15 +37,21 @@ export function CashClosingDrawer({ trigger }) {
         exchangeRate: '',
     });
 
-    // Cargar totales cuando se abre el drawer
+    // Datos para apertura
+    const [openingData, setOpeningData] = useState({
+        registerName: 'Caja Principal',
+        openingAmountUsd: '',
+        openingAmountVes: '',
+        openingNotes: '',
+    });
+
+    // Cargar totales cuando se abre el drawer (solo para cierre)
     const fetchTotals = useCallback(async () => {
         if (!currentSession?._id) return;
 
         try {
-            setLoading(true);
             const response = await fetchApi(`/cash-register/sessions/${currentSession._id}/totals`);
-            console.log('[CashClosingDrawer] Totals received:', response.data || response);
-            setTotals(response.data || response);
+            setTotals(response);
         } catch (error) {
             console.error('Error fetching totals:', error);
             // Non-blocking error
@@ -61,7 +66,7 @@ export function CashClosingDrawer({ trigger }) {
         }
     }, [open, hasActiveSession, fetchTotals]);
 
-    // Calcular esperados
+    // Calcular esperados (solo para cierre)
     const calculateExpected = () => {
         if (!currentSession || !totals) return { expectedUsd: 0, expectedVes: 0 };
 
@@ -104,7 +109,39 @@ export function CashClosingDrawer({ trigger }) {
         }).format(amount || 0);
     };
 
+    // Handler para abrir sesión
+    const handleOpenSession = async () => {
+        setLoading(true);
+        try {
+            const payload = {
+                registerName: openingData.registerName,
+                openingAmountUsd: parseFloat(openingData.openingAmountUsd) || 0,
+                openingAmountVes: parseFloat(openingData.openingAmountVes) || 0,
+                openingNotes: openingData.openingNotes,
+            };
 
+            await fetchApi('/cash-register/sessions/open', {
+                method: 'POST',
+                body: JSON.stringify(payload),
+            });
+
+            toast.success('Caja abierta exitosamente');
+            setOpen(false);
+            await refreshSession();
+
+            // Resetear formulario de apertura
+            setOpeningData({
+                registerName: 'Caja Principal',
+                openingAmountUsd: '',
+                openingAmountVes: '',
+                openingNotes: '',
+            });
+        } catch (error) {
+            toast.error(error.message || 'Error al abrir la caja');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Enviar cierre
     const handleClose = async () => {
@@ -130,8 +167,6 @@ export function CashClosingDrawer({ trigger }) {
             refreshSession();
             setOpen(false);
 
-            // Preguntar si desea ver el reporte
-            // (En React router v6 no hay confirm nativo bonito, usamos window.confirm o toast action)
             setTimeout(() => {
                 navigate('/cash-register');
             }, 500);
@@ -144,94 +179,165 @@ export function CashClosingDrawer({ trigger }) {
         }
     };
 
-    // Si no hay sesión activa, mostrar mensaje
-    if (!hasActiveSession) {
-        return null; // O mostrar botón deshabilitado
-    }
-
     return (
         <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
                 {trigger || (
                     <Button variant="outline" size="sm" className="gap-2">
                         <Calculator className="h-4 w-4" />
-                        Cierre Rápido
+                        {hasActiveSession ? 'Cierre Rápido' : 'Abrir Caja'}
                     </Button>
                 )}
             </SheetTrigger>
             <SheetContent className="overflow-y-auto sm:max-w-xl">
                 <SheetHeader>
-                    <SheetTitle>Cierre de Caja Rápido</SheetTitle>
+                    <SheetTitle>
+                        {hasActiveSession ? 'Cierre de Caja Rápido' : 'Apertura de Caja'}
+                    </SheetTitle>
                     <SheetDescription>
-                        {currentSession?.registerName} - {currentSession?.cashierName}
+                        {hasActiveSession
+                            ? `${currentSession?.registerName} - ${currentSession?.cashierName}`
+                            : 'Ingresa los datos iniciales para abrir una nueva sesión de caja'
+                        }
                     </SheetDescription>
                 </SheetHeader>
 
                 <div className="py-6 px-6 space-y-6">
-                    <div className="space-y-4">
-                        <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
-                            <h4 className="text-sm font-medium text-muted-foreground mb-2">Conteo de Efectivo (USD)</h4>
+                    {!hasActiveSession ? (
+                        // ===== FORMULARIO DE APERTURA =====
+                        <div className="space-y-4">
+                            <div>
+                                <Label>Nombre de Caja</Label>
+                                <Input
+                                    value={openingData.registerName}
+                                    onChange={(e) => setOpeningData(prev => ({
+                                        ...prev,
+                                        registerName: e.target.value
+                                    }))}
+                                    placeholder="Ej: Caja Principal"
+                                />
+                            </div>
+
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label>Sistema (Esperado)</Label>
-                                    <div className="h-10 px-3 py-2 rounded-md border bg-muted text-muted-foreground font-mono text-right flex items-center justify-end">
-                                        {formatMoney(expectedUsd, 'USD')}
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Real (Contado)</Label>
+                                <div>
+                                    <Label>Monto Inicial USD ($)</Label>
                                     <Input
                                         type="number"
+                                        step="0.01"
                                         className="text-right font-mono"
+                                        value={openingData.openingAmountUsd}
+                                        onChange={(e) => setOpeningData(prev => ({
+                                            ...prev,
+                                            openingAmountUsd: e.target.value
+                                        }))}
                                         placeholder="0.00"
-                                        value={closingData.closingAmountUsd}
-                                        onChange={e => setClosingData({ ...closingData, closingAmountUsd: e.target.value })}
+                                    />
+                                </div>
+
+                                <div>
+                                    <Label>Monto Inicial Bs.</Label>
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        className="text-right font-mono"
+                                        value={openingData.openingAmountVes}
+                                        onChange={(e) => setOpeningData(prev => ({
+                                            ...prev,
+                                            openingAmountVes: e.target.value
+                                        }))}
+                                        placeholder="0.00"
                                     />
                                 </div>
                             </div>
-                            <div className={`text-xs text-right font-medium px-2 py-1 rounded ${getDiffBadgeColor(diffUsd)}`}>
-                                Diferencia: {diffUsd > 0 ? '+' : ''}{formatMoney(diffUsd, 'USD')}
-                            </div>
-                        </div>
 
-                        <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
-                            <h4 className="text-sm font-medium text-muted-foreground mb-2">Conteo de Efectivo (VES)</h4>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label>Sistema (Esperado)</Label>
-                                    <div className="h-10 px-3 py-2 rounded-md border bg-muted text-muted-foreground font-mono text-right flex items-center justify-end">
-                                        {formatMoney(expectedVes, 'VES')}
+                            <div>
+                                <Label>Notas de Apertura (Opcional)</Label>
+                                <textarea
+                                    className="w-full min-h-[80px] px-3 py-2 text-sm border rounded-md resize-none"
+                                    value={openingData.openingNotes}
+                                    onChange={(e) => setOpeningData(prev => ({
+                                        ...prev,
+                                        openingNotes: e.target.value
+                                    }))}
+                                    placeholder="Observaciones sobre la apertura..."
+                                />
+                            </div>
+
+                            <Button
+                                className="w-full"
+                                onClick={handleOpenSession}
+                                disabled={loading || !openingData.registerName}
+                            >
+                                {loading ? 'Abriendo...' : 'Abrir Caja'}
+                            </Button>
+                        </div>
+                    ) : (
+                        // ===== FORMULARIO DE CIERRE =====
+                        <div className="space-y-4">
+                            <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
+                                <h4 className="text-sm font-medium text-muted-foreground mb-2">Conteo de Efectivo (USD)</h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Sistema (Esperado)</Label>
+                                        <div className="h-10 px-3 py-2 rounded-md border bg-muted text-muted-foreground font-mono text-right flex items-center justify-end">
+                                            {formatMoney(expectedUsd, 'USD')}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Real (Contado)</Label>
+                                        <Input
+                                            type="number"
+                                            className="text-right font-mono"
+                                            placeholder="0.00"
+                                            value={closingData.closingAmountUsd}
+                                            onChange={e => setClosingData({ ...closingData, closingAmountUsd: e.target.value })}
+                                        />
                                     </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label>Real (Contado)</Label>
-                                    <Input
-                                        type="number"
-                                        className="text-right font-mono"
-                                        placeholder="0.00"
-                                        value={closingData.closingAmountVes}
-                                        onChange={e => setClosingData({ ...closingData, closingAmountVes: e.target.value })}
-                                    />
+                                <div className={`text-xs text-right font-medium px-2 py-1 rounded ${getDiffBadgeColor(diffUsd)}`}>
+                                    Diferencia: {diffUsd > 0 ? '+' : ''}{formatMoney(diffUsd, 'USD')}
                                 </div>
                             </div>
-                            <div className={`text-xs text-right font-medium px-2 py-1 rounded ${getDiffBadgeColor(diffVes)}`}>
-                                Diferencia: {diffVes > 0 ? '+' : ''}{formatMoney(diffVes, 'VES')}
+
+                            <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
+                                <h4 className="text-sm font-medium text-muted-foreground mb-2">Conteo de Efectivo (VES)</h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Sistema (Esperado)</Label>
+                                        <div className="h-10 px-3 py-2 rounded-md border bg-muted text-muted-foreground font-mono text-right flex items-center justify-end">
+                                            {formatMoney(expectedVes, 'VES')}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Real (Contado)</Label>
+                                        <Input
+                                            type="number"
+                                            className="text-right font-mono"
+                                            placeholder="0.00"
+                                            value={closingData.closingAmountVes}
+                                            onChange={e => setClosingData({ ...closingData, closingAmountVes: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                                <div className={`text-xs text-right font-medium px-2 py-1 rounded ${getDiffBadgeColor(diffVes)}`}>
+                                    Diferencia: {diffVes > 0 ? '+' : ''}{formatMoney(diffVes, 'VES')}
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="space-y-2">
-                            <Label>Notas</Label>
-                            <Input
-                                placeholder="Observaciones..."
-                                value={closingData.closingNotes}
-                                onChange={e => setClosingData({ ...closingData, closingNotes: e.target.value })}
-                            />
-                        </div>
-                    </div>
+                            <div className="space-y-2">
+                                <Label>Notas</Label>
+                                <Input
+                                    placeholder="Observaciones..."
+                                    value={closingData.closingNotes}
+                                    onChange={e => setClosingData({ ...closingData, closingNotes: e.target.value })}
+                                />
+                            </div>
 
-                    <Button className="w-full" onClick={handleClose} disabled={loading}>
-                        {loading ? 'Cerrando...' : 'Confirmar Cierre'}
-                    </Button>
+                            <Button className="w-full" onClick={handleClose} disabled={loading}>
+                                {loading ? 'Cerrando...' : 'Confirmar Cierre'}
+                            </Button>
+                        </div>
+                    )}
                 </div>
             </SheetContent>
         </Sheet>

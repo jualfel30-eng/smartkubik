@@ -88,6 +88,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { CrmProvider } from './context/CrmContext.jsx';
 import { AccountingProvider } from './context/AccountingContext.jsx';
 import { NotificationProvider, useNotification } from './context/NotificationContext.jsx';
+import { CashRegisterProvider } from './contexts/CashRegisterContext.jsx';
 import { NotificationCenter } from './components/NotificationCenter.jsx';
 import { TenantPickerDialog } from '@/components/auth/TenantPickerDialog.jsx';
 import {
@@ -191,6 +192,7 @@ const BillingCreateForm = lazy(() => import('@/components/billing/BillingCreateF
 const BillingDocumentDetail = lazy(() => import('@/components/billing/BillingDocumentDetail.jsx'));
 const BillingSequencesManager = lazy(() => import('@/components/billing/BillingSequencesManager.jsx'));
 const FulfillmentDashboard = lazy(() => import('@/components/fulfillment/FulfillmentDashboard.jsx').then(module => ({ default: module.FulfillmentDashboard })));
+const CashRegisterPage = lazy(() => import('./pages/CashRegisterPage.jsx'));
 
 
 // Loading fallback component - RubikLoader is now directly imported (not lazy)
@@ -554,6 +556,7 @@ function TenantLayout() {
     { name: 'tips', href: 'tips', icon: CircleDollarSign, permission: 'tips_read', requiresModule: 'tips', dynamicLabel: true }, // Dynamic label: Tips or Commissions
     { name: 'Comisiones y Metas', href: 'commissions', icon: HandCoins, permission: 'commissions_read', requiresModule: 'commissions' },
     { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: CreditCard, permission: 'accounting_read', requiresModule: 'bankAccounts' },
+    { name: 'Cierre de Caja', href: 'cash-register', icon: Receipt, permission: 'cash_register_read', requiresModule: 'cashRegister' },
     {
       name: 'Facturación Electrónica',
       href: 'billing',
@@ -1138,6 +1141,7 @@ function TenantLayout() {
                 <Route path="billing/create" element={<BillingCreateForm />} />
                 <Route path="billing/sequences" element={<BillingSequencesManager />} />
                 <Route path="billing/documents/:id" element={<BillingDocumentDetail />} />
+                <Route path="cash-register" element={<CashRegisterPage />} />
                 <Route path="bank-accounts" element={<BankAccountsManagement />} />
                 <Route path="bank-accounts/:accountId/reconciliation" element={<BankReconciliationView />} />
                 <Route path="organizations" element={<OrganizationsManagement />} />
@@ -1262,7 +1266,9 @@ function AppContent() {
               <ProtectedRoute requireOrganization>
                 <ShiftProvider>
                   <AccountingProvider>
-                    <TenantLayout />
+                    <CashRegisterProvider>
+                      <TenantLayout />
+                    </CashRegisterProvider>
                   </AccountingProvider>
                 </ShiftProvider>
               </ProtectedRoute>
