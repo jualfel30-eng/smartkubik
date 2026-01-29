@@ -372,6 +372,20 @@ export class CreateOrderDto {
   @IsOptional()
   @IsMongoId()
   tableId?: string;
+
+  // ============================================
+  // INTEGRACIÓN CON CAJA REGISTRADORA
+  // ============================================
+
+  @ApiPropertyOptional({ description: "ID de la sesión de caja activa" })
+  @IsOptional()
+  @IsMongoId()
+  cashSessionId?: string;
+
+  @ApiPropertyOptional({ description: "Nombre/ID de la caja física" })
+  @IsOptional()
+  @IsString()
+  cashRegisterId?: string;
 }
 
 export class UpdateOrderDto {

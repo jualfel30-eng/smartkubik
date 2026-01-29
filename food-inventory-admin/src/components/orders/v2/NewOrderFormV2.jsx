@@ -22,6 +22,7 @@ import { useOrderDraft } from '@/hooks/useOrderDraft';
 import ModifierSelector from '@/components/restaurant/ModifierSelector.jsx';
 import { OrderProcessingDrawer } from '../OrderProcessingDrawer';
 import { useAuth } from '@/hooks/use-auth.jsx';
+import { useCashRegister } from '@/contexts/CashRegisterContext';
 import { toast } from 'sonner';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group.jsx';
 import { BarcodeScannerDialog } from '@/components/BarcodeScannerDialog.jsx';
@@ -220,6 +221,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
 
   const { rate: bcvRate, loading: loadingRate, error: rateError } = useExchangeRate();
   const { tenant, hasPermission } = useAuth();
+  const { sessionId, registerId } = useCashRegister();
   const canApplyDiscounts = hasPermission('orders_apply_discounts');
 
   // Determine context for draft key
@@ -1562,7 +1564,11 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
       taxType: newOrder.taxType,
       customerPhone: newOrder.customerPhone,
       customerEmail: newOrder.customerEmail,
+      customerEmail: newOrder.customerEmail,
       customerAddress: newOrder.customerAddress,
+      // Cash Register Integration
+      cashSessionId: sessionId,
+      cashRegisterId: registerId,
     };
     try {
       let response;

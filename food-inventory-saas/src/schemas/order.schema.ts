@@ -523,6 +523,16 @@ export class Order {
   })
   billingDocumentType: string;
 
+  // ============================================
+  // INTEGRACIÓN CON CAJA REGISTRADORA
+  // ============================================
+
+  @Prop({ type: Types.ObjectId, ref: 'CashRegisterSession', default: null })
+  cashSessionId: Types.ObjectId;
+
+  @Prop({ type: String, default: null })
+  cashRegisterId: string; // Nombre de la caja: "Caja 1", "Caja Principal", etc.
+
   @Prop({ type: String, ref: "Tenant", required: true })
   tenantId: string;
 
@@ -564,3 +574,6 @@ OrderSchema.index({
   customerEmail: "text",
   customerPhone: "text",
 });
+
+// Cash Register integration
+OrderSchema.index({ cashSessionId: 1, tenantId: 1 });

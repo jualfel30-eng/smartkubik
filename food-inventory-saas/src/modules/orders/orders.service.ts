@@ -645,11 +645,16 @@ export class OrdersService {
       inventoryReservation: { isReserved: false },
       createdBy: user.id,
       tenantId: user.tenantId,
+
+      // CRITICAL: Mapping Cash Register Session
+      cashSessionId: createOrderDto.cashSessionId ? new Types.ObjectId(createOrderDto.cashSessionId) : undefined,
+      cashRegisterId: createOrderDto.cashRegisterId,
       // Persist customer data snapshots
       customerRif: createOrderDto.customerRif,
       taxType: createOrderDto.taxType,
       customerPhone: createOrderDto.customerPhone,
       customerAddress: createOrderDto.customerAddress,
+
     };
 
     // LINK WAITER FROM TABLE IF APPLICABLE

@@ -8,6 +8,8 @@ import { useSidebar } from '@/components/ui/sidebar';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { History, RotateCcw } from 'lucide-react';
+import { CashRegisterIndicator } from '@/components/cash-register/CashRegisterIndicator';
+import { CashClosingDrawer } from '@/components/cash-register/CashClosingDrawer';
 
 export function OrdersPOS() {
     const navigate = useNavigate();
@@ -64,6 +66,8 @@ export function OrdersPOS() {
                         <History className="h-4 w-4" />
                         Historial de Órdenes
                     </Button>
+                    <CashClosingDrawer />
+                    <CashRegisterIndicator />
                 </div>
             </div>
 

@@ -26,11 +26,20 @@ export const useOrders = () => {
     loadOrders();
   }, [loadOrders]);
 
-  const addOrder = async (orderData) => {
+  const addOrder = async (orderData, cashRegisterInfo = null) => {
     try {
+      // Si hay info de caja, agregarla a los datos de la orden
+      const orderWithCashRegister = cashRegisterInfo
+        ? {
+          ...orderData,
+          cashSessionId: cashRegisterInfo.sessionId,
+          cashRegisterId: cashRegisterInfo.registerId,
+        }
+        : orderData;
+
       await fetchApi('/orders', {
         method: 'POST',
-        body: JSON.stringify(orderData),
+        body: JSON.stringify(orderWithCashRegister),
       });
       await loadOrders();
       await loadCustomers(); // << RECARGAR DATOS DEL CRM
@@ -68,13 +77,13 @@ export const useOrders = () => {
     }
   };
 
-  return { 
-    ordersData, 
-    loading, 
-    error, 
-    addOrder, 
-    updateOrder, 
-    deleteOrder, 
+  return {
+    ordersData,
+    loading,
+    error,
+    addOrder,
+    updateOrder,
+    deleteOrder,
     loadOrders, // <-- Add this
   };
 };
