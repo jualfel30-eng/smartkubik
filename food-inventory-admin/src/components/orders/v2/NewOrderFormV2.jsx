@@ -1564,7 +1564,6 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
       taxType: newOrder.taxType,
       customerPhone: newOrder.customerPhone,
       customerEmail: newOrder.customerEmail,
-      customerEmail: newOrder.customerEmail,
       customerAddress: newOrder.customerAddress,
       // Cash Register Integration
       cashSessionId: sessionId,
