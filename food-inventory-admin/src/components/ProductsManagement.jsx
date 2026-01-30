@@ -553,9 +553,10 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
   const tenantVertical = tenant?.vertical || tenant?.verticalProfile?.key || verticalConfig?.baseVertical;
 
   const isNonFoodRetailVertical = useMemo(() => {
-    // For retail verticals, hide food-specific fields
-    return tenantVertical === 'RETAIL';
-  }, [tenantVertical]);
+    // For retail verticals, hide food-specific fields ONLY if they are not using the food-service profile
+    // This allows Supermarkets (Retail vertical + Food Service profile) to see food fields
+    return verticalConfig?.key !== 'food-service';
+  }, [verticalConfig]);
 
   const supportsVariants = verticalConfig?.supportsVariants !== false;
   const isRestaurant = tenantVertical === 'FOOD_SERVICE';
@@ -2738,7 +2739,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
               )}
 
               {/* Unidades múltiples para mercancía y materias primas (comida) */}
-              {!isNonFoodRetailVertical && (newProduct.productType === 'simple' || newProduct.productType === 'raw_material') && (
+              {(newProduct.productType === 'simple' || newProduct.productType === 'raw_material') && (
                 <div className="col-span-2 border-t pt-4 mt-4">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex-1">

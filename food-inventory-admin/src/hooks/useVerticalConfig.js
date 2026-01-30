@@ -7,8 +7,8 @@ export const useVerticalConfig = () => {
 
   let key = tenant?.verticalProfile?.key;
 
-  // Fallback logic if verticalProfile is missing OR if there is a mismatch (e.g. Retail tenant with Food Service profile)
-  if (!key || (tenant?.vertical === 'RETAIL' && key === 'food-service')) {
+  // Fallback logic if verticalProfile is missing
+  if (!key) {
     if (tenant?.vertical === 'RETAIL' || tenant?.businessType === 'retail') {
       // Default to a retail profile if generic 'RETAIL' is found
       key = 'retail-fashion';
