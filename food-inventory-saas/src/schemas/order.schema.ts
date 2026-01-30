@@ -258,6 +258,10 @@ export class Order {
         amountVes: Number,
         exchangeRate: Number,
         currency: String,
+        // New fields for cash tracking
+        amountTendered: Number,
+        changeGiven: Number,
+        changeGivenBreakdown: Object,
         reference: String,
         date: Date,
         isConfirmed: { type: Boolean, default: false },

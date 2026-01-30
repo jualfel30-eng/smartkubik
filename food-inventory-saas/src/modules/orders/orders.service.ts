@@ -1864,6 +1864,12 @@ export class OrdersService {
             currency: p.currency || "USD",
             reference: p.reference || "",
             bankAccountId: p.bankAccountId,
+            // Nuevos campos para tracking de vuelto / cash tender
+            // Asegurar que pasen si existen en el DTO de entrada (BulkRegisterPaymentItemDto)
+            amountTendered: (p as any).amountTendered,
+            changeGiven: (p as any).changeGiven,
+            changeGivenBreakdown: (p as any).changeGivenBreakdown,
+
             customerId: order.customerId
               ? order.customerId.toString()
               : undefined,
@@ -1916,6 +1922,10 @@ export class OrdersService {
         confirmedAt: paymentDoc.confirmedAt,
         confirmedMethod: paymentDoc.status === "confirmed" ? paymentDoc.method : undefined,
         igtf: igtf,
+        // Map new fields to Order snapshot as well
+        amountTendered: paymentDoc.amountTendered,
+        changeGiven: paymentDoc.changeGiven,
+        changeGivenBreakdown: paymentDoc.changeGivenBreakdown
       };
     });
 

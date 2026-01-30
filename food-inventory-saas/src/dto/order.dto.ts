@@ -197,9 +197,7 @@ export class RegisterPaymentDto {
   @IsNumber()
   igtf?: number;
 
-  @ApiPropertyOptional({
-    description: "ID de la cuenta bancaria (para pagos confirmados)",
-  })
+  @ApiPropertyOptional({ description: "ID de la cuenta bancaria (para pagos confirmados)" })
   @IsOptional()
   @IsMongoId()
   bankAccountId?: string;
@@ -208,6 +206,22 @@ export class RegisterPaymentDto {
   @IsOptional()
   @IsBoolean()
   isConfirmed?: boolean;
+
+  // New fields for cash tender tracking
+  @ApiPropertyOptional({ description: "Monto entregado por el cliente" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  amountTendered?: number;
+
+  @ApiPropertyOptional({ description: "Vuelto entregado" })
+  @IsOptional()
+  @IsNumber()
+  changeGiven?: number;
+
+  @ApiPropertyOptional({ description: "Desglose del vuelto" })
+  @IsOptional()
+  changeGivenBreakdown?: any;
 }
 
 export class CreateOrderDto {

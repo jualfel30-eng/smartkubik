@@ -29,6 +29,8 @@ import {
   ApproveClosingDto,
   RejectClosingDto,
   CashRegisterReportDto,
+  CashRegisterChangeReportDto,
+  CashRegisterDenominationReportDto,
 } from "../../dto/cash-register.dto";
 
 @Injectable()
@@ -387,7 +389,7 @@ export class CashRegisterService {
       tenantId,
       // Consideramos órdenes que no estén canceladas ni en borrador
       status: { $nin: ['draft', 'cancelled'] },
-    }).lean();
+    }).populate('paymentRecords').lean();
 
     // this.logger.warn(`[calculateSessionTotals] Session: ${sessionId} (ObjectId: ${sessionObjectId}) | Orders found: ${orders.length}`);
     // if (orders.length > 0) {
@@ -1323,6 +1325,153 @@ export class CashRegisterService {
         ),
       },
     };
+  }
+
+  async getChangeAnalysis(
+    tenantId: string,
+    dto: CashRegisterChangeReportDto,
+  ): Promise<any> {
+    const periodStart = new Date(dto.startDate);
+    const periodEnd = new Date(dto.endDate);
+    periodEnd.setHours(23, 59, 59, 999);
+
+    const matchStage: any = {
+      tenantId,
+      createdAt: { $gte: periodStart, $lte: periodEnd },
+      status: { $ne: "cancelled" },
+      "paymentRecords.changeGiven": { $gt: 0 },
+    };
+
+    if (dto.cashierIds?.length) {
+      matchStage.createdBy = { $in: dto.cashierIds.map((id) => new Types.ObjectId(id)) };
+    }
+
+    const pipeline = [
+      { $match: matchStage },
+      { $unwind: "$paymentRecords" },
+      // Filter again after unwind to only get payments with change
+      {
+        $match: {
+          "paymentRecords.changeGiven": { $gt: 0 },
+        },
+      },
+      {
+        $group: {
+          _id: "$createdBy",
+          totalChangeGivenUsd: {
+            $sum: { $ifNull: ["$paymentRecords.changeGivenBreakdown.usd", 0] },
+          },
+          totalChangeGivenVes: {
+            $sum: { $ifNull: ["$paymentRecords.changeGivenBreakdown.ves", 0] },
+          },
+          totalAmountTendered: {
+            $sum: { $ifNull: ["$paymentRecords.amountTendered", 0] },
+          }, // Be careful, mixed currency tender might need normalization if useful
+          transactionCount: { $sum: 1 },
+          avgChangeUsd: {
+            $avg: { $ifNull: ["$paymentRecords.changeGivenBreakdown.usd", 0] },
+          },
+          maxChangeUsd: {
+            $max: { $ifNull: ["$paymentRecords.changeGivenBreakdown.usd", 0] },
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "cashier",
+        },
+      },
+      {
+        $unwind: { path: "$cashier", preserveNullAndEmptyArrays: true },
+      },
+      {
+        $project: {
+          cashierName: {
+            $concat: ["$cashier.firstName", " ", "$cashier.lastName"],
+          },
+          cashierEmail: "$cashier.email",
+          totalChangeGivenUsd: 1,
+          totalChangeGivenVes: 1,
+          transactionCount: 1,
+          avgChangeUsd: 1,
+          maxChangeUsd: 1,
+        },
+      },
+    ];
+
+    return this.orderModel.aggregate(pipeline).exec();
+  }
+
+  async getDenominationReport(
+    tenantId: string,
+    dto: CashRegisterDenominationReportDto,
+  ): Promise<any> {
+    const periodStart = new Date(dto.startDate);
+    const periodEnd = new Date(dto.endDate);
+    periodEnd.setHours(23, 59, 59, 999);
+
+    const matchStage: any = {
+      tenantId,
+      periodEnd: { $gte: periodStart, $lte: periodEnd },
+      status: "approved",
+    };
+
+    if (dto.cashierIds?.length) {
+      matchStage.cashierId = {
+        $in: dto.cashierIds.map((id) => new Types.ObjectId(id)),
+      };
+    }
+
+    const pipeline: any[] = [
+      { $match: matchStage },
+      // Separate currency breakdowns
+      { $unwind: "$cashBreakdown" },
+      // Convert counts object to array
+      {
+        $addFields: {
+          "cashBreakdown.countsArray": {
+            $objectToArray: "$cashBreakdown.counts",
+          },
+        },
+      },
+      { $unwind: "$cashBreakdown.countsArray" },
+      {
+        $group: {
+          _id: {
+            currency: "$cashBreakdown.currency",
+            denomination: "$cashBreakdown.countsArray.k",
+          },
+          totalCount: { $sum: "$cashBreakdown.countsArray.v" },
+        },
+      },
+      // Check if denomination is numeric to sort correctly
+      {
+        $addFields: {
+          numericDenomination: { $toDouble: "$_id.denomination" },
+        },
+      },
+      { $sort: { "_id.currency": 1, numericDenomination: -1 } },
+      {
+        $group: {
+          _id: "$_id.currency",
+          denominations: {
+            $push: {
+              denomination: "$_id.denomination",
+              count: "$totalCount",
+              totalValue: { $multiply: ["$totalCount", "$numericDenomination"] },
+            },
+          },
+          totalCurrencyValue: {
+            $sum: { $multiply: ["$totalCount", "$numericDenomination"] },
+          },
+        },
+      },
+    ];
+
+    return this.closingModel.aggregate(pipeline).exec();
   }
 
   // ============================================

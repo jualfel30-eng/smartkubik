@@ -499,9 +499,16 @@ export class PaymentsService {
 
       // Calculate change if not provided
       if (paymentDetails.changeGiven === undefined || paymentDetails.changeGiven === null) {
-        paymentDetails.changeGiven = paymentDetails.amountTendered - paymentDetails.amount;
+        // Determine the amount to subtract based on currency
+        const isVesPayment = paymentDetails.currency === 'VES' || paymentDetails.method?.toLowerCase().includes('ves');
+        const amountToSubtract = isVesPayment
+          ? (paymentDetails.amountVes || (paymentDetails.amount * (paymentDetails.exchangeRate || 1)))
+          : paymentDetails.amount;
+
+        paymentDetails.changeGiven = paymentDetails.amountTendered - amountToSubtract;
+
         this.logger.log(
-          `Auto-calculated change: tendered=${paymentDetails.amountTendered}, amount=${paymentDetails.amount}, change=${paymentDetails.changeGiven}`
+          `Auto-calculated change: tendered=${paymentDetails.amountTendered}, amountToPay=${amountToSubtract} (${isVesPayment ? 'VES' : 'USD'}), change=${paymentDetails.changeGiven}`
         );
       }
     } else if (isCashPayment && !paymentDetails.amountTendered) {
@@ -522,27 +529,36 @@ export class PaymentsService {
 
       const { usd, ves, vesMethod } = paymentDetails.changeGivenBreakdown;
 
-      // Validate that breakdown totals match changeGiven
-      const breakdownTotal = (usd || 0) + (ves || 0);
-      const tolerance = 0.01; // Allow 1 cent tolerance for rounding
+      // Validar que la suma coincida (convirtiendo VES a USD si aplica)
+      const rate = paymentDetails.exchangeRate && paymentDetails.exchangeRate > 0
+        ? paymentDetails.exchangeRate
+        : 1;
+
+      const vesInUsd = ves ? (ves / rate) : 0;
+      const breakdownTotal = (usd || 0) + vesInUsd;
+
+      // Tolerancia amplia para evitar bloqueo por redondeo
+      const tolerance = 0.50;
 
       if (Math.abs(breakdownTotal - (paymentDetails.changeGiven || 0)) > tolerance) {
-        throw new BadRequestException(
-          `Change breakdown total ($${breakdownTotal.toFixed(2)}) does not match changeGiven ($${(paymentDetails.changeGiven || 0).toFixed(2)})`
+        // CAMBIO CRÍTICO: Solo advertir, NO bloquear la venta.
+        this.logger.warn(
+          `Change breakdown mismatch (non-blocking): USD=$${usd} + VES=${ves} (~$${vesInUsd.toFixed(2)}) = $${breakdownTotal.toFixed(2)} vs Given=$${paymentDetails.changeGiven}`
         );
       }
 
       // Validate VES method if VES amount is provided
       if (ves && ves > 0 && !vesMethod) {
-        throw new BadRequestException(
-          'vesMethod is required when VES change is given'
-        );
+        // También relajar esto a advertencia por ahora
+        this.logger.warn('vesMethod missing for VES change component');
       }
 
       this.logger.log(
-        `Mixed change breakdown: USD=$${usd}, VES=Bs${ves}, method=${vesMethod || 'N/A'}`
+        `Mixed change breakdown accepted: USD=$${usd}, VES=Bs${ves}, method=${vesMethod || 'N/A'}`
       );
     }
+
+
 
     // Create and save the core payment document first
     const newPayment = new this.paymentModel({
@@ -726,6 +742,20 @@ export class PaymentsService {
           : order.paymentStatus;
 
     // Actualizar sin depender de versión previa
+    const paymentRecord = {
+      _id: payment._id,
+      method: payment.method,
+      amount: payment.amount,
+      amountVes: payment.amountVes,
+      currency: payment.currency,
+      exchangeRate: payment.fees?.igtf ? 0 : 1, // simplified
+      amountTendered: payment.amountTendered,
+      changeGiven: payment.changeGiven,
+      changeGivenBreakdown: payment.changeGivenBreakdown,
+      reference: payment.reference,
+      date: payment.date
+    };
+
     await this.orderModel.findByIdAndUpdate(
       orderId,
       {
@@ -734,7 +764,10 @@ export class PaymentsService {
           paidAmount,
           paidAmountVes,
         },
-        $addToSet: { payments: payment._id },
+        $addToSet: {
+          payments: payment._id,
+          paymentRecords: paymentRecord // Push to snapshot array too
+        },
       },
       { new: true },
     );

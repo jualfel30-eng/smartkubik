@@ -396,6 +396,21 @@ export class CashRegisterReportDto {
   includeDetails?: boolean;
 }
 
+export class CashRegisterChangeReportDto {
+  @IsDateString()
+  startDate: string;
+
+  @IsDateString()
+  endDate: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsMongoId({ each: true })
+  cashierIds?: string[];
+}
+
+export class CashRegisterDenominationReportDto extends CashRegisterChangeReportDto { }
+
 // ============================================
 // DTOs de Respuesta
 // ============================================

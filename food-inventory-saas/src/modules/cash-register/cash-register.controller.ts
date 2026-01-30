@@ -27,6 +27,8 @@ import {
   RejectClosingDto,
   ExportClosingDto,
   CashRegisterReportDto,
+  CashRegisterChangeReportDto,
+  CashRegisterDenominationReportDto,
 } from "../../dto/cash-register.dto";
 
 @Controller("cash-register")
@@ -208,6 +210,30 @@ export class CashRegisterController {
     @Request() req: any,
   ) {
     return this.cashRegisterService.generateReport(req.user.tenantId, dto);
+  }
+
+  /**
+   * Generar reporte detallado de vueltos y movimientos de efectivo
+   */
+  @Post("reports/change-analysis")
+  @Permissions("cash_register_reports")
+  async getChangeAnalysis(
+    @Body() dto: CashRegisterChangeReportDto,
+    @Request() req: any,
+  ) {
+    return this.cashRegisterService.getChangeAnalysis(req.user.tenantId, dto);
+  }
+
+  /**
+   * Generar reporte de flujo de denominaciones (billetes)
+   */
+  @Post("reports/denominations")
+  @Permissions("cash_register_reports")
+  async getDenominationReport(
+    @Body() dto: CashRegisterDenominationReportDto,
+    @Request() req: any,
+  ) {
+    return this.cashRegisterService.getDenominationReport(req.user.tenantId, dto);
   }
 
   // ============================================
