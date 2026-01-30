@@ -85,7 +85,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         this.logger.warn(`⚠️ Role not found in DB, using payload role`);
       }
     } else {
-      this.logger.warn(`⚠️ No role._id in payload, cannot load from DB`);
+      this.logger.debug(`⚠️ No role._id in payload, cannot load from DB`);
     }
 
     const userObject = {

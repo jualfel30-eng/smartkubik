@@ -23,7 +23,7 @@ import {
 export class InventoryMovementsController {
   constructor(
     private readonly inventoryMovementsService: InventoryMovementsService,
-  ) {}
+  ) { }
 
   @Post()
   @Permissions("inventory_write")
@@ -44,6 +44,9 @@ export class InventoryMovementsController {
   @Post("transfers")
   @Permissions("inventory_write")
   async createTransfer(@Body() dto: CreateTransferDto, @Request() req) {
+    console.log("🐛 DEBUG Transfer - Incoming DTO:", JSON.stringify(dto));
+    console.log("🐛 DEBUG Transfer - TenantID:", req.user.tenantId);
+    console.log("🐛 DEBUG Transfer - UserID:", req.user.id);
     return this.inventoryMovementsService.createTransfer(
       dto,
       req.user.tenantId,
