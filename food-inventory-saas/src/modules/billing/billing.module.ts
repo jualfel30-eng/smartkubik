@@ -51,6 +51,7 @@ import { SeniatExportService } from "./services/seniat-export.service";
 import { ImprentaProviderFactory } from "./providers/imprenta-provider.factory";
 import { ChatModule } from "../../chat/chat.module";
 import { InvoicePdfService } from "./invoice-pdf.service";
+import { ExchangeRateModule } from "../exchange-rate/exchange-rate.module";
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { InvoicePdfService } from "./invoice-pdf.service";
       { name: Order.name, schema: OrderSchema },
       { name: Tenant.name, schema: TenantSchema },
     ]),
+    ExchangeRateModule,
     forwardRef(() => ChatModule),
   ],
   controllers: [

@@ -5,6 +5,7 @@ import { BillingDocumentDocument } from "../../schemas/billing-document.schema";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { ExchangeRateService } from "../../modules/exchange-rate/exchange-rate.service";
 
 @Injectable()
 export class InvoicePdfService {
@@ -12,6 +13,7 @@ export class InvoicePdfService {
 
     constructor(
         @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
+        private readonly exchangeRateService: ExchangeRateService,
     ) { }
 
     async generate(doc: BillingDocumentDocument): Promise<Buffer> {
@@ -24,6 +26,19 @@ export class InvoicePdfService {
 
         const settings = tenant?.settings;
         const invoiceFormat = settings?.invoiceFormat || 'standard';
+
+        // --- RATE RESOLUTION ---
+        let resolvedRate = doc.totals?.exchangeRate;
+        if (!resolvedRate || resolvedRate === 1) {
+            try {
+                this.logger.warn(`Invoice ${doc.documentNumber} has no exchange rate (or 1). Fetching current BCV rate as fallback.`);
+                const bcv = await this.exchangeRateService.getBCVRate();
+                resolvedRate = bcv.rate;
+            } catch (e) {
+                this.logger.error('Failed to fetch fallback exchange rate', e);
+                resolvedRate = 1;
+            }
+        }
 
         // --- LOGO FETCHING ---
         let logoData: string | null = null;
@@ -45,13 +60,13 @@ export class InvoicePdfService {
         }
 
         if (invoiceFormat === 'thermal') {
-            return this.generateThermal(doc, tenant, logoData, logoFormat);
+            return this.generateThermal(doc, tenant, logoData, logoFormat, resolvedRate);
         } else {
-            return this.generateStandard(doc, tenant, logoData, logoFormat);
+            return this.generateStandard(doc, tenant, logoData, logoFormat, resolvedRate);
         }
     }
 
-    private generateStandard(doc: BillingDocumentDocument, tenant: any, logoData: string | null, logoFormat: string): Buffer {
+    private generateStandard(doc: BillingDocumentDocument, tenant: any, logoData: string | null, logoFormat: string, exchangeRate: number): Buffer {
         const pdf = new jsPDF();
         let y = 20;
 
@@ -166,9 +181,33 @@ export class InvoicePdfService {
 
         pdf.setFontSize(10);
 
+        // Helper to format dual currency
+        const formatDual = (amount: number, type: 'subtotal' | 'tax' | 'total') => {
+            // Default to USD if currency is missing (common in this system)
+            const baseCurrency = doc.totals?.currency || "USD";
+            const rate = exchangeRate || 1;
+
+            let usd = 0;
+            let ves = 0;
+
+            if (baseCurrency === 'USD') {
+                usd = amount;
+                ves = amount * rate;
+            } else {
+                ves = amount;
+                usd = amount / (rate || 1);
+            }
+
+            // For Total, make it larger/bold
+            if (type === 'total') {
+                return `${usd.toFixed(2)} USD / Bs ${ves.toFixed(2)}`;
+            }
+            return `${usd.toFixed(2)} USD / Bs ${ves.toFixed(2)}`;
+        };
+
         // Subtotal
         pdf.text("Subtotal:", 130, finalY);
-        pdf.text(doc.totals?.subtotal?.toFixed(2) || "0.00", 195, finalY, { align: "right" });
+        pdf.text(formatDual(doc.totals?.subtotal || 0, 'subtotal'), 195, finalY, { align: "right" });
 
         let currentY = finalY + 5;
 
@@ -178,7 +217,9 @@ export class InvoicePdfService {
             const taxRate = typeof tax.rate === 'number' ? tax.rate : 0;
             const taxType = tax.type || 'Tax';
             pdf.text(`${taxType} (${taxRate}%)`, 130, currentY);
-            pdf.text(taxAmount.toFixed(2), 195, currentY, { align: "right" });
+
+            // Calculate dual for tax
+            pdf.text(formatDual(taxAmount, 'tax'), 195, currentY, { align: "right" });
             currentY += 5;
         });
 
@@ -186,8 +227,7 @@ export class InvoicePdfService {
         pdf.setFontSize(12);
         pdf.setFont("helvetica", "bold");
         pdf.text("TOTAL:", 130, currentY + 2);
-        const currency = doc.totals?.currency || "VES";
-        pdf.text(`${doc.totals?.grandTotal?.toFixed(2) || "0.00"} ${currency}`, 195, currentY + 2, { align: "right" });
+        pdf.text(formatDual(doc.totals?.grandTotal || 0, 'total'), 195, currentY + 2, { align: "right" });
 
         // Footer
         const pageHeight = pdf.internal.pageSize.height;
@@ -198,7 +238,7 @@ export class InvoicePdfService {
         return Buffer.from(pdf.output("arraybuffer"));
     }
 
-    private generateThermal(doc: BillingDocumentDocument, tenant: any, logoData: string | null, logoFormat: string): Buffer {
+    private generateThermal(doc: BillingDocumentDocument, tenant: any, logoData: string | null, logoFormat: string, exchangeRate: number): Buffer {
         // 80mm width paper
         const pdf = new jsPDF({
             unit: 'mm',
@@ -324,20 +364,53 @@ export class InvoicePdfService {
         // Totals
         const rightEdge = 80 - margin;
         pdf.setFontSize(9);
+        // Helper to format dual currency
+        const formatDual = (amount: number) => {
+            // Default to USD if currency is missing
+            const baseCurrency = doc.totals?.currency || "USD";
+            const rate = exchangeRate || 1;
+
+            let usd = 0;
+            let ves = 0;
+
+            if (baseCurrency === 'USD') {
+                usd = amount;
+                ves = amount * rate;
+            } else {
+                ves = amount;
+                usd = amount / (rate || 1);
+            }
+            return { usd, ves };
+        };
+
+        const subtotalDual = formatDual(doc.totals?.subtotal || 0);
         pdf.text(`SUBTOTAL:`, 40, y, { align: "right" });
-        pdf.text(`${doc.totals?.subtotal?.toFixed(2)}`, rightEdge, y, { align: "right" });
+        pdf.text(`$${subtotalDual.usd.toFixed(2)}`, rightEdge, y, { align: "right" });
+        y += 4;
+        pdf.text(`Bs ${subtotalDual.ves.toFixed(2)}`, rightEdge, y, { align: "right" });
         y += 4;
 
+        // Add separator
+        y += 2;
+
         (doc.totals?.taxes || []).forEach(tax => {
+            const taxDual = formatDual(tax.amount || 0);
             pdf.text(`${tax.type || 'Tax'} (${tax.rate}%)`, 40, y, { align: "right" });
-            pdf.text(`${(tax.amount || 0).toFixed(2)}`, rightEdge, y, { align: "right" });
+            pdf.text(`$${taxDual.usd.toFixed(2)} / Bs ${taxDual.ves.toFixed(2)}`, rightEdge, y, { align: "right" });
             y += 4;
         });
 
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(11);
-        pdf.text(`TOTAL ${doc.totals?.currency || "VES"}:`, 40, y, { align: "right" });
-        pdf.text(`${doc.totals?.grandTotal?.toFixed(2)}`, rightEdge, y, { align: "right" });
+
+        const totalDual = formatDual(doc.totals?.grandTotal || 0);
+
+        pdf.text(`TOTAL USD:`, 40, y, { align: "right" });
+        pdf.text(`$${totalDual.usd.toFixed(2)}`, rightEdge, y, { align: "right" });
+        y += 5;
+
+        pdf.text(`TOTAL VES:`, 40, y, { align: "right" });
+        pdf.text(`Bs ${totalDual.ves.toFixed(2)}`, rightEdge, y, { align: "right" });
         y += 8;
 
         pdf.setFontSize(8);
