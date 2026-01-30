@@ -5,6 +5,7 @@ import AccountsPayableReport from '../components/AccountsPayableReport';
 import CashFlowStatement from '../components/CashFlowStatement';
 import FoodCostWidget from '../components/FoodCostWidget';
 import TipsReportWidget from '../components/TipsReportWidget';
+import TipsManagementDashboard from '../components/TipsManagementDashboard';
 import MenuEngineeringWidget from '../components/MenuEngineeringWidget';
 
 import { useVerticalConfig } from '../hooks/useVerticalConfig';

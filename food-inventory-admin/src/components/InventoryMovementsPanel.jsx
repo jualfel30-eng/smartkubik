@@ -76,13 +76,13 @@ export default function InventoryMovementsPanel() {
   const fetchMovements = async ({ page: overridePage, limit: overrideLimit } = {}) => {
     setLoading(true);
     try {
-    const params = new URLSearchParams();
-    const page = overridePage ?? pagination.page;
-    const limit = (overrideLimit ?? pagination.limit) || 50;
-    params.append('page', page);
-    params.append('limit', limit);
-    if (filters.movementType && filters.movementType !== 'all') params.append('movementType', filters.movementType);
-    if (filters.warehouseId && filters.warehouseId !== 'all') params.append('warehouseId', filters.warehouseId);
+      const params = new URLSearchParams();
+      const page = overridePage ?? pagination.page;
+      const limit = (overrideLimit ?? pagination.limit) || 50;
+      params.append('page', page);
+      params.append('limit', limit);
+      if (filters.movementType && filters.movementType !== 'all') params.append('movementType', filters.movementType);
+      if (filters.warehouseId && filters.warehouseId !== 'all') params.append('warehouseId', filters.warehouseId);
       if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
       if (filters.dateTo) params.append('dateTo', filters.dateTo);
       const response = await fetchApi(`/inventory-movements?${params.toString()}`);
@@ -117,6 +117,7 @@ export default function InventoryMovementsPanel() {
   };
 
   useEffect(() => {
+    console.log('🔄 InventoryMovementsPanel MOUNTED');
     fetchAuxData();
     fetchMovements();
   }, []);
@@ -338,12 +339,12 @@ export default function InventoryMovementsPanel() {
                   <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {warehouses.map((wh) => (
-                  <SelectItem key={wh._id || wh.id} value={wh._id || wh.id}>
-                    {wh.code} · {wh.name}
-                  </SelectItem>
-                ))}
+                  <SelectItem value="all">Todos</SelectItem>
+                  {warehouses.map((wh) => (
+                    <SelectItem key={wh._id || wh.id} value={wh._id || wh.id}>
+                      {wh.code} · {wh.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

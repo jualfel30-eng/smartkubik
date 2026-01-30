@@ -554,7 +554,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem(STORAGE_KEYS.LAST_LOCATION);
   };
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     tenant,
     tenantConfirmed: tenant ? tenant.isConfirmed !== false : true,
@@ -574,7 +574,17 @@ export const AuthProvider = ({ children }) => {
     saveLastLocation,
     getLastLocation,
     clearLastLocation,
-  };
+  }), [
+    user,
+    tenant,
+    token,
+    memberships,
+    activeMembershipId,
+    isSwitchingTenant,
+    isAuthenticated,
+    multiTenantEnabled,
+    permissions,
+  ]);
 
   return (
     <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

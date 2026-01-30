@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { fetchApi } from '../lib/api';
 
 const FeatureFlagsContext = createContext(null);
@@ -106,12 +106,12 @@ export const FeatureFlagsProvider = ({ children }) => {
     return flags[featureName] === true;
   };
 
-  const value = {
+  const value = useMemo(() => ({
     flags,
     loading,
     error,
     isFeatureEnabled,
-  };
+  }), [flags, loading, error]);
 
   return (
     <FeatureFlagsContext.Provider value={value}>
