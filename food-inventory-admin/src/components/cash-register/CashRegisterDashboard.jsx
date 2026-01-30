@@ -392,9 +392,17 @@ export default function CashRegisterDashboard() {
     if (selectedClosing) setClosingNote(selectedClosing.notes || "");
   }, [selectedClosing]);
 
+  /* ========== PRINT FIX ========== */
   const handlePrintClosing = async (closing = null) => {
-    const targetClosing = closing || selectedClosing;
-    if (!targetClosing) return;
+    // If closing is an event object (has type/preventDefault), treat as null to fallback to selectedClosing
+    // Otherwise use closing if it has an _id, or fallback to selectedClosing
+    const targetClosing = (closing && closing._id) ? closing : selectedClosing;
+
+    if (!targetClosing || !targetClosing._id) {
+      console.warn("No valid closing object found for printing");
+      return;
+    }
+
     try {
       const token = localStorage.getItem('accessToken');
       const baseUrl = import.meta.env.VITE_API_URL || 'https://api.smartkubik.com/api/v1';
@@ -1577,7 +1585,7 @@ export default function CashRegisterDashboard() {
                   <Download className="h-4 w-4 mr-2" />
                   Exportar PDF
                 </Button>
-                <Button variant="default" onClick={handlePrintClosing}>
+                <Button variant="default" onClick={() => handlePrintClosing()}>
                   <Printer className="h-4 w-4 mr-2" />
                   Imprimir Ticket
                 </Button>
