@@ -427,9 +427,17 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
         // Add cash tender tracking for cash payments
         const isCashPayment = p.method?.toLowerCase().includes('efectivo') ||
           p.method?.toLowerCase().includes('cash');
-        if (isCashPayment && p.amountTendered) {
-          payment.amountTendered = parseFloat(p.amountTendered);
-          payment.changeGiven = payment.amountTendered - amountUSD;
+
+        if (isCashPayment) {
+          // Ensure we capture amountTendered if present, or default to amount (but we should validate this before submit)
+          if (p.amountTendered) {
+            payment.amountTendered = parseFloat(p.amountTendered);
+            payment.changeGiven = payment.amountTendered - amountUSD;
+          } else {
+            // Fallback to exact amount if user didn't enter anything (though we will validate this)
+            payment.amountTendered = amountUSD;
+            payment.changeGiven = 0;
+          }
         }
 
         // Solo agregar bankAccountId si existe

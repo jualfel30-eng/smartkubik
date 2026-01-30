@@ -141,6 +141,33 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
                   <Button variant="ghost" size="icon" onClick={() => handleRemovePayment(line.id)}><X className="h-4 w-4 text-red-500" /></Button>
                 </div>
 
+                {/* Cash Tender Input - Only for cash payments */}
+                {(line.method?.toLowerCase().includes('efectivo') || line.method?.toLowerCase().includes('cash')) && (
+                  <div className="mt-2 pl-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs font-medium w-24">Monto Recibido:</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder={isVesMethod(line.method) ? "Ej: 100.00" : "Ej: 50.00"}
+                        value={line.amountTendered || ''}
+                        onChange={(e) => handleUpdatePayment(line.id, 'amountTendered', e.target.value)}
+                        className="h-8 w-40"
+                      />
+                    </div>
+                    {/* Show change calculation */}
+                    {line.amountTendered && Number(line.amount) > 0 && (
+                      <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md text-xs">
+                        <p className="font-bold text-green-700 dark:text-green-300 flex items-center gap-2">
+                          Vuelto: {isVesMethod(line.method) ? 'Bs' : '$'} {
+                            (parseFloat(line.amountTendered) - Number(line.amount)).toFixed(2)
+                          }
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Helper Text for VES conversion */}
                 {lineRemaining > 0.01 && (
                   <div

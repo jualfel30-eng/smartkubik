@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -53,6 +54,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchApi } from '../../lib/api';
+import CashRegisterReports from './CashRegisterReports';
 
 // Helpers para formatear moneda
 const formatCurrency = (amount, currency = 'USD') => {
@@ -78,7 +80,8 @@ export default function CashRegisterDashboard() {
   const { currentSession, refreshSession } = useCashRegister();
 
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('current');
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') || 'current');
 
   // Estado de sesión actual (managed by Context now)
   const [allOpenSessions, setAllOpenSessions] = useState([]);
@@ -97,6 +100,34 @@ export default function CashRegisterDashboard() {
   // Cierre seleccionado para ver detalle
   const [selectedClosing, setSelectedClosing] = useState(null);
   const [closingNote, setClosingNote] = useState("");
+  const [lastClosingId, setLastClosingId] = useState(null);
+
+  // Sync tab status from URL
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && tabParam !== activeTab) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams, activeTab]);
+
+  // Effect to handle deep linking to closing detail
+  useEffect(() => {
+    const closingId = searchParams.get('closingId');
+    if (closingId && activeTab === 'history') {
+      const fetchDeepLinkedClosing = async () => {
+        try {
+          const response = await fetchApi(`/cash-register/closings/${closingId}`);
+          if (response) {
+            setSelectedClosing(response);
+            setViewClosingModal(true);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      };
+      fetchDeepLinkedClosing();
+    }
+  }, [searchParams, activeTab]);
 
   // Formulario apertura de caja
   const [openForm, setOpenForm] = useState({
@@ -257,7 +288,10 @@ export default function CashRegisterDashboard() {
       toast.success('Cierre de caja generado correctamente', {
         description: `Número de cierre: ${response?.closingNumber}`,
       });
-      setCloseSessionModal(false);
+
+      setLastClosingId(response?.closingId || response?._id); // Capture ID
+
+      // setCloseSessionModal(false); // REMOVED: Do not auto-close
       setCloseForm({
         closingAmountUsd: 0,
         closingAmountVes: 0,
@@ -358,14 +392,15 @@ export default function CashRegisterDashboard() {
     if (selectedClosing) setClosingNote(selectedClosing.notes || "");
   }, [selectedClosing]);
 
-  const handlePrintClosing = async () => {
-    if (!selectedClosing) return;
+  const handlePrintClosing = async (closing = null) => {
+    const targetClosing = closing || selectedClosing;
+    if (!targetClosing) return;
     try {
       const token = localStorage.getItem('accessToken');
       const baseUrl = import.meta.env.VITE_API_URL || 'https://api.smartkubik.com/api/v1';
 
       // We use raw fetch here to handle the blob response
-      const response = await fetch(`${baseUrl}/cash-register/closings/${selectedClosing._id}/export`, {
+      const response = await fetch(`${baseUrl}/cash-register/closings/${targetClosing._id}/export`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -389,15 +424,48 @@ export default function CashRegisterDashboard() {
     }
   };
 
+  // Helper para descargar blob
+  const downloadBlob = (blob, filename) => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  };
+
   const handleExportClosing = async (closingId, format) => {
     try {
-      await fetchApi(`/cash-register/closings/${closingId}/export`, {
+      const token = localStorage.getItem('accessToken');
+      const baseUrl = import.meta.env.VITE_API_URL || 'https://api.smartkubik.com/api/v1';
+
+      const response = await fetch(`${baseUrl}/cash-register/closings/${closingId}/export`, {
         method: 'POST',
-        body: JSON.stringify({ format }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ format })
       });
+
+      if (!response.ok) throw new Error('Error al exportar');
+
+      const blob = await response.blob();
+      const extension = format === 'excel' ? 'xlsx' : 'pdf';
+      const filename = `cierre-${closingId}.${extension}`;
+
+      if (format === 'pdf') {
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, '_blank');
+      } else {
+        downloadBlob(blob, filename);
+      }
+
       toast.success(`Exportación generada en formato ${format.toUpperCase()}`);
-      // En producción aquí se descargaría el archivo
     } catch (error) {
+      console.error(error);
       toast.error('Error al exportar cierre');
     }
   };
@@ -855,54 +923,8 @@ export default function CashRegisterDashboard() {
           </Card>
         </TabsContent>
 
-        {/* Tab: Reportes */}
         <TabsContent value="reports" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
-                  Reporte Diario
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Resumen de todas las transacciones del día actual
-                </p>
-                <Button className="w-full">Generar Reporte</Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Reporte Semanal
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Consolidado de ventas y cierres de la semana
-                </p>
-                <Button className="w-full">Generar Reporte</Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Reporte Mensual
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Análisis completo del mes con comparativas
-                </p>
-                <Button className="w-full">Generar Reporte</Button>
-              </CardContent>
-            </Card>
-          </div>
+          <CashRegisterReports />
         </TabsContent>
       </Tabs>
 
@@ -983,95 +1005,146 @@ export default function CashRegisterDashboard() {
       </Dialog>
 
       {/* Modal: Cerrar Caja */}
-      <Dialog open={closeSessionModal} onOpenChange={setCloseSessionModal}>
-        <DialogContent className="sm:max-w-5xl">
+      <Dialog open={closeSessionModal} onOpenChange={(val) => {
+        setCloseSessionModal(val);
+        if (!val) setLastClosingId(null);
+      }}>
+        <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Cerrar Caja</DialogTitle>
             <DialogDescription>
-              Declara el efectivo en caja para generar el cierre
+              {lastClosingId
+                ? "El cierre se ha procesado correctamente"
+                : "Declara el efectivo en caja para generar el cierre"
+              }
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="p-4 bg-muted rounded-lg">
-              <p className="text-sm font-medium">Sesión: {currentSession?.sessionNumber}</p>
-              <p className="text-sm text-muted-foreground">
-                Abierta desde: {formatDate(currentSession?.openedAt)}
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
-                <h4 className="text-sm font-medium text-muted-foreground mb-2">Conteo de Efectivo (USD)</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Sistema (Esperado)</Label>
-                    <div className="h-10 px-3 py-2 rounded-md border bg-muted text-muted-foreground font-mono text-right flex items-center justify-end">
-                      {formatCurrency(expectedUsd, 'USD')}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Real (Contado)</Label>
-                    <Input
-                      type="number"
-                      className="text-right font-mono"
-                      value={closeForm.closingAmountUsd}
-                      onChange={(e) => setCloseForm(prev => ({ ...prev, closingAmountUsd: parseFloat(e.target.value) || 0 }))}
-                    />
-                  </div>
+
+          {lastClosingId ? (
+            // ===== VISTA DE ÉXITO =====
+            <div className="space-y-6 py-4">
+              <div className="text-center space-y-2">
+                <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                  <span className="text-2xl">✅</span>
                 </div>
-                <div className={`text-xs text-right font-medium px-2 py-1 rounded ${getDiffBadgeColor(diffUsd)}`}>
-                  Diferencia: {diffUsd > 0 ? '+' : ''}{formatCurrency(diffUsd, 'USD')}
-                </div>
+                <h3 className="text-lg font-bold text-green-700">¡Caja Cerrada Exitosamente!</h3>
+                <p className="text-sm text-muted-foreground">
+                  El cierre se ha registrado correctamente.
+                  <br />ID: #{lastClosingId?.slice(-6)}
+                </p>
               </div>
 
-              <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
-                <h4 className="text-sm font-medium text-muted-foreground mb-2">Conteo de Efectivo (VES)</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-w-2xl mx-auto">
+                <Button variant="outline" className="w-full" onClick={() => window.open(`${import.meta.env.VITE_API_URL}/cash-register/closings/${lastClosingId}/export?format=pdf`, '_blank')}>
+                  📄 Descargar PDF
+                </Button>
+                <Button variant="outline" className="w-full" onClick={() => {/* TODO: Excel */ toast.info('Descarga Excel pendiente') }}>
+                  📊 Descargar Excel
+                </Button>
+                <Button variant="secondary" className="w-full" onClick={() => {
+                  setCloseSessionModal(false);
+                  setSelectedClosing({ _id: lastClosingId });
+                  navigate(`/cash-register?tab=history&closingId=${lastClosingId}`);
+                }}>
+                  👁️ Ver Detalle
+                </Button>
+              </div>
+
+              <DialogFooter className="sm:justify-center">
+                <Button className="w-full md:w-auto" onClick={() => {
+                  setCloseSessionModal(false);
+                  setLastClosingId(null);
+                }}>
+                  Finalizar
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            // ===== FORMULARIO NORMAL =====
+            <>
+              <div className="space-y-4">
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm font-medium">Sesión: {currentSession?.sessionNumber}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Abierta desde: {formatDate(currentSession?.openedAt)}
+                  </p>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Sistema (Esperado)</Label>
-                    <div className="h-10 px-3 py-2 rounded-md border bg-muted text-muted-foreground font-mono text-right flex items-center justify-end">
-                      {formatCurrency(expectedVes, 'VES')}
+                  <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
+                    <h4 className="text-sm font-medium text-muted-foreground mb-2">Conteo de Efectivo (USD)</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Sistema (Esperado)</Label>
+                        <div className="h-10 px-3 py-2 rounded-md border bg-muted text-muted-foreground font-mono text-right flex items-center justify-end">
+                          {formatCurrency(expectedUsd, 'USD')}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Real (Contado)</Label>
+                        <Input
+                          type="number"
+                          className="text-right font-mono"
+                          value={closeForm.closingAmountUsd}
+                          onChange={(e) => setCloseForm(prev => ({ ...prev, closingAmountUsd: parseFloat(e.target.value) || 0 }))}
+                        />
+                      </div>
+                    </div>
+                    <div className={`text-xs text-right font-medium px-2 py-1 rounded ${getDiffBadgeColor(diffUsd)}`}>
+                      Diferencia: {diffUsd > 0 ? '+' : ''}{formatCurrency(diffUsd, 'USD')}
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Real (Contado)</Label>
-                    <Input
-                      type="number"
-                      className="text-right font-mono"
-                      value={closeForm.closingAmountVes}
-                      onChange={(e) => setCloseForm(prev => ({ ...prev, closingAmountVes: parseFloat(e.target.value) || 0 }))}
-                    />
+
+                  <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
+                    <h4 className="text-sm font-medium text-muted-foreground mb-2">Conteo de Efectivo (VES)</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Sistema (Esperado)</Label>
+                        <div className="h-10 px-3 py-2 rounded-md border bg-muted text-muted-foreground font-mono text-right flex items-center justify-end">
+                          {formatCurrency(expectedVes, 'VES')}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Real (Contado)</Label>
+                        <Input
+                          type="number"
+                          className="text-right font-mono"
+                          value={closeForm.closingAmountVes}
+                          onChange={(e) => setCloseForm(prev => ({ ...prev, closingAmountVes: parseFloat(e.target.value) || 0 }))}
+                        />
+                      </div>
+                    </div>
+                    <div className={`text-xs text-right font-medium px-2 py-1 rounded ${getDiffBadgeColor(diffVes)}`}>
+                      Diferencia: {diffVes > 0 ? '+' : ''}{formatCurrency(diffVes, 'VES')}
+                    </div>
                   </div>
                 </div>
-                <div className={`text-xs text-right font-medium px-2 py-1 rounded ${getDiffBadgeColor(diffVes)}`}>
-                  Diferencia: {diffVes > 0 ? '+' : ''}{formatCurrency(diffVes, 'VES')}
+                <div>
+                  <Label>Tasa de Cambio (BCV)</Label>
+                  <Input
+                    type="number"
+                    value={closeForm.exchangeRate}
+                    onChange={(e) => setCloseForm(prev => ({ ...prev, exchangeRate: parseFloat(e.target.value) || 0 }))}
+                  />
+                </div>
+                <div>
+                  <Label>Notas del Cierre</Label>
+                  <Textarea
+                    value={closeForm.closingNotes}
+                    onChange={(e) => setCloseForm(prev => ({ ...prev, closingNotes: e.target.value }))}
+                    placeholder="Observaciones al cerrar la caja..."
+                  />
                 </div>
               </div>
-            </div>
-            <div>
-              <Label>Tasa de Cambio (BCV)</Label>
-              <Input
-                type="number"
-                value={closeForm.exchangeRate}
-                onChange={(e) => setCloseForm(prev => ({ ...prev, exchangeRate: parseFloat(e.target.value) || 0 }))}
-              />
-            </div>
-            <div>
-              <Label>Notas del Cierre</Label>
-              <Textarea
-                value={closeForm.closingNotes}
-                onChange={(e) => setCloseForm(prev => ({ ...prev, closingNotes: e.target.value }))}
-                placeholder="Observaciones al cerrar la caja..."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCloseSessionModal(false)}>
-              Cancelar
-            </Button>
-            <Button variant="destructive" onClick={handleCloseSession} disabled={loading}>
-              {loading ? 'Cerrando...' : 'Cerrar Caja'}
-            </Button>
-          </DialogFooter>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCloseSessionModal(false)}>
+                  Cancelar
+                </Button>
+                <Button variant="destructive" onClick={handleCloseSession} disabled={loading}>
+                  {loading ? 'Cerrando...' : 'Cerrar Caja'}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 

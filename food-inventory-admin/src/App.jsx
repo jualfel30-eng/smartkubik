@@ -144,6 +144,7 @@ const GeneralLedger = lazy(() => import('@/components/accounting/GeneralLedger.j
 const AccountingPeriods = lazy(() => import('@/components/accounting/AccountingPeriods.jsx'));
 const RecurringEntries = lazy(() => import('@/components/accounting/RecurringEntries.jsx'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage.jsx'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const SuperAdminLayout = lazy(() => import('./layouts/SuperAdminLayout'));
 const SmartKubikLanding = lazy(() => import('./pages/SmartKubikLanding'));
 const SmartKubikLandingV2 = lazy(() => import('./pages/SmartKubikLandingV2'));
@@ -1194,7 +1195,7 @@ function TenantLayout() {
                 />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="reports" element={<ReportsPage />} />
-                <Route path="*" element={<Navigate to="dashboard" />} />
+                <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </Suspense>
           </div>
