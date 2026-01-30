@@ -1564,7 +1564,11 @@ export class CashRegisterService {
       doc.font('Helvetica').text('--------------------------------');
       closing.paymentMethodSummary.forEach(pm => {
         doc.text(`${this.getPaymentMethodName(pm.methodId)}:`);
-        doc.text(`  $${pm.totalAmountUsd.toFixed(2)} / Bs.${pm.totalAmountVes.toFixed(2)}`, { indent: 10 });
+        if (pm.currency === 'VES') {
+          doc.text(`  Bs. ${pm.totalAmountVes.toFixed(2)}`, { indent: 10 });
+        } else {
+          doc.text(`  $${pm.totalAmountUsd.toFixed(2)}`, { indent: 10 });
+        }
       });
       doc.moveDown();
 
