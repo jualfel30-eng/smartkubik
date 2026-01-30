@@ -586,6 +586,10 @@ export const AuthProvider = ({ children }) => {
     permissions,
   ]);
 
+  useEffect(() => {
+    // Inicialización ahora en useState
+  }, []);
+
   return (
     <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
   );

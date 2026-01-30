@@ -683,7 +683,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
       }
     };
     loadProducts();
-  }, [tenant, restaurantEnabled]); // Added dependencies to re-run if tenant loads late
+  }, [tenant?.id, restaurantEnabled]); // Added dependencies to re-run if tenant loads late
 
 
   const loadAvailableTables = useCallback(async () => {

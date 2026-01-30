@@ -62,6 +62,8 @@ function InventoryManagement() {
     totalQuantity: 0,
     averageCostPrice: 0,
     lots: [],
+    warehouseId: '',
+    binLocationId: '',
   });
 
   // Estados para exportación
@@ -648,6 +650,14 @@ function InventoryManagement() {
       delete payload.lots;
     }
 
+    // Add warehouse and bin location if multi-warehouse is enabled
+    if (multiWarehouseEnabled && newInventoryItem.warehouseId) {
+      payload.warehouseId = newInventoryItem.warehouseId;
+      if (newInventoryItem.binLocationId) {
+        payload.binLocationId = newInventoryItem.binLocationId;
+      }
+    }
+
     console.log('📤 [handleAddItem] Enviando payload (producto sin variantes):', payload);
 
     try {
@@ -733,10 +743,28 @@ function InventoryManagement() {
     }
   };
 
-  // Funciones para transferencias entre almacenes
   const handleOpenTransfer = (item) => {
+    console.log('🔍 Opening transfer for item:', item);
+
+    // Handle both populated productId (object) and unpopulated (string)
+    // Also fallback to variantId if productId is null/undefined
+    let productId = null;
+    if (typeof item.productId === 'string' && item.productId) {
+      productId = item.productId;
+    } else if (item.productId?._id) {
+      productId = item.productId._id;
+    } else if (item.variantId) {
+      // Use variantId when productId is null (common in inventory records)
+      productId = typeof item.variantId === 'string' ? item.variantId : item.variantId._id;
+    } else if (item._id) {
+      // Last resort: use the inventory item's own _id
+      productId = item._id;
+    }
+
+    console.log('🔍 Extracted productId:', productId);
+
     setTransferForm({
-      productId: item.productId?._id || item.productId,
+      productId: productId,
       productName: item.productName,
       productSku: item.productSku,
       sourceWarehouseId: item.warehouseId || '',
@@ -751,8 +779,12 @@ function InventoryManagement() {
   };
 
   const handleSaveTransfer = async () => {
+    // Debug: log the transfer form state
+    console.log('🔍 Transfer form state:', transferForm);
+
     // Validaciones
     if (!transferForm.productId) {
+      console.error('❌ productId is missing:', transferForm.productId);
       toast.error('Producto no especificado.');
       return;
     }
@@ -1340,17 +1372,66 @@ function InventoryManagement() {
                     />
                   </div>
                 )}
-                <div className="space-y-2">
-                  <Label htmlFor="averageCostPrice">Costo Promedio por Unidad ($)</Label>
-                  <NumberInput
-                    id="averageCostPrice"
-                    value={newInventoryItem.averageCostPrice ?? ''}
-                    onValueChange={(val) => setNewInventoryItem({ ...newInventoryItem, averageCostPrice: val })}
-                    step={0.01}
-                    min={0}
-                    placeholder="Costo promedio"
-                  />
-                </div>
+                {/* Warehouse and Bin Location selectors - only show when multi-warehouse is enabled */}
+                {multiWarehouseEnabled && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>Almacén</Label>
+                      <Select
+                        value={newInventoryItem.warehouseId}
+                        onValueChange={(v) => setNewInventoryItem({ ...newInventoryItem, warehouseId: v, binLocationId: '' })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar almacén" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {warehouses.map((wh) => (
+                            <SelectItem key={wh._id || wh.id} value={wh._id || wh.id}>
+                              {wh.code} · {wh.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {binLocations.filter(b => b.warehouseId === newInventoryItem.warehouseId).length > 0 && (
+                      <div className="space-y-2">
+                        <Label>Ubicación (opcional)</Label>
+                        <Select
+                          value={newInventoryItem.binLocationId}
+                          onValueChange={(v) => setNewInventoryItem({ ...newInventoryItem, binLocationId: v === 'none' ? '' : v })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sin ubicación" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Sin ubicación</SelectItem>
+                            {binLocations
+                              .filter(b => b.warehouseId === newInventoryItem.warehouseId)
+                              .map((bin) => (
+                                <SelectItem key={bin._id || bin.id} value={bin._id || bin.id}>
+                                  {bin.code} - {bin.zone || 'N/A'}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Only show average cost when NOT using variant inventory */}
+                {!useVariantInventory && (
+                  <div className="space-y-2">
+                    <Label htmlFor="averageCostPrice">Costo Promedio por Unidad ($)</Label>
+                    <NumberInput
+                      id="averageCostPrice"
+                      value={newInventoryItem.averageCostPrice ?? ''}
+                      onValueChange={(val) => setNewInventoryItem({ ...newInventoryItem, averageCostPrice: val })}
+                      step={0.01}
+                      min={0}
+                      placeholder="Costo promedio"
+                    />
+                  </div>
+                )}
                 {selectedProduct && selectedProduct.isPerishable ? (
                   <div className="space-y-4 border-t pt-4 mt-4">
                     <h4 className="font-medium">Lotes del Producto Perecedero</h4>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Button } from '@/components/ui/button.jsx';
@@ -12,6 +12,7 @@ import { fetchApi } from '@/lib/api';
 import { format } from 'date-fns';
 import { Loader2, RefreshCw, Plus, ArrowRightLeft } from 'lucide-react';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
+import { SearchableSelect } from './orders/v2/custom/SearchableSelect';
 
 const MOVEMENT_TYPES = [
   { value: 'all', label: 'Todos' },
@@ -56,6 +57,7 @@ export default function InventoryMovementsPanel() {
     quantity: 1,
     reason: '',
   });
+  const [productSearchInput, setProductSearchInput] = useState('');
 
   const productOptions = useMemo(() => {
     const map = new Map();
@@ -102,12 +104,16 @@ export default function InventoryMovementsPanel() {
 
   const fetchAuxData = async () => {
     try {
-      const [invRes, whRes, binRes] = await Promise.all([
+      const [invRes, whResPromise, binResPromise] = await Promise.all([
         fetchApi('/inventory?limit=100'),
         multiWarehouseEnabled ? fetchApi('/warehouses') : Promise.resolve([]),
         multiWarehouseEnabled ? fetchApi('/bin-locations') : Promise.resolve([]),
       ]);
+      const whRes = await whResPromise; // Resolve the promise for whRes
+      const binRes = await binResPromise; // Resolve the promise for binRes
+
       setInventories(invRes?.data || invRes || []);
+      console.log('🏭 [InventoryMovementsPanel] Warehouses loaded:', whRes.data || whRes);
       // fetchApi returns the array directly, not wrapped in { data: [...] }
       setWarehouses(Array.isArray(whRes) ? whRes : whRes?.data || []);
       setBinLocations(Array.isArray(binRes) ? binRes : binRes?.data || []);
@@ -116,7 +122,11 @@ export default function InventoryMovementsPanel() {
     }
   };
 
+  const hasMountedRef = useRef(false);
+
   useEffect(() => {
+    if (hasMountedRef.current) return;
+    hasMountedRef.current = true;
     console.log('🔄 InventoryMovementsPanel MOUNTED');
     fetchAuxData();
     fetchMovements();
@@ -258,6 +268,12 @@ export default function InventoryMovementsPanel() {
     }
     setSaving(true);
     try {
+      console.log('🚀 [Transfer] Sending payload:', {
+        productId: transferForm.productId,
+        sourceWarehouseId: transferForm.sourceWarehouseId,
+        destinationWarehouseId: transferForm.destinationWarehouseId,
+        quantity: Number(transferForm.quantity)
+      });
       await fetchApi('/inventory-movements/transfers', {
         method: 'POST',
         body: JSON.stringify({
@@ -571,21 +587,25 @@ export default function InventoryMovementsPanel() {
           <div className="space-y-4">
             <div className="space-y-1">
               <Label>Producto</Label>
-              <Select
-                value={transferForm.productId}
-                onValueChange={(v) => setTransferForm((prev) => ({ ...prev, productId: v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona producto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {productOptions.map((prod) => (
-                    <SelectItem key={prod.id} value={prod.id}>
-                      {prod.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={productOptions.map(p => ({
+                  value: p.id,
+                  label: `${p.name} (${p.sku || 'N/A'})`,
+                  product: p,
+                }))}
+                onSelection={(option) => {
+                  setTransferForm((prev) => ({ ...prev, productId: option.value }));
+                  setProductSearchInput('');
+                }}
+                inputValue={productSearchInput}
+                onInputChange={setProductSearchInput}
+                value={transferForm.productId ? {
+                  value: transferForm.productId,
+                  label: productOptions.find(p => p.id === transferForm.productId)?.name || '',
+                } : null}
+                placeholder="Buscar producto..."
+                isDisabled={false}
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
