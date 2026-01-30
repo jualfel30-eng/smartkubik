@@ -42,6 +42,11 @@
     "clear-tenant": "tsx scripts/clear-tenant-data.ts",
     "verify-tenant": "tsx scripts/verify-tenant-data.ts",
     "fix-user-tenant": "tsx scripts/fix-user-tenant.ts",
+    "migrate:inventory-warehouses": "ts-node -r dotenv/config -r tsconfig-paths/register src/scripts/migrate-inventory-to-warehouses.ts",
+    "migrate:fix-orphaned-warehouses": "ts-node -r dotenv/config -r tsconfig-paths/register src/scripts/fix-orphaned-warehouse-refs.ts",
+    "migrate:sync-warehouse-names": "ts-node -r dotenv/config -r tsconfig-paths/register src/scripts/sync-warehouse-names.ts",
+    "migrate:fix-invalid-warehouse-refs": "ts-node -r dotenv/config -r tsconfig-paths/register src/scripts/fix-invalid-warehouse-refs.ts",
+    "migrate:fix-null-product-ids": "ts-node -r dotenv/config -r tsconfig-paths/register src/scripts/fix-null-product-ids.ts",
     "load-test:hospitality-notifications": "ts-node -r dotenv/config scripts/hospitality-notification-load-test.ts"
   },
   "dependencies": {

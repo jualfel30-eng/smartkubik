@@ -20,7 +20,7 @@ export class InventoryMovementsService {
     @InjectModel(Product.name)
     private readonly productModel: Model<ProductDocument>,
     private readonly inventoryAlertsService: InventoryAlertsService,
-  ) {}
+  ) { }
 
   async create(
     dto: CreateInventoryMovementDto,
@@ -205,9 +205,18 @@ export class InventoryMovementsService {
     // Validate source warehouse exists and is active
     const sourceWarehouse = await this.warehouseModel.findOne({
       _id: sourceWarehouseOid,
-      tenantId: tenantOid,
+      $or: [
+        { tenantId: tenantOid },
+        { tenantId: tenantId }, // Handle string tenantId
+      ],
       isDeleted: { $ne: true },
     });
+
+    // DEBUG: Check if warehouse exists at all (without tenant filter)
+    if (!sourceWarehouse) {
+      const anyWarehouse = await this.warehouseModel.findOne({ _id: sourceWarehouseOid });
+    }
+
     if (!sourceWarehouse) {
       throw new NotFoundException("Almacén origen no encontrado.");
     }
@@ -218,7 +227,10 @@ export class InventoryMovementsService {
     // Validate destination warehouse exists and is active
     const destWarehouse = await this.warehouseModel.findOne({
       _id: destWarehouseOid,
-      tenantId: tenantOid,
+      $or: [
+        { tenantId: tenantOid },
+        { tenantId: tenantId }, // Handle string tenantId
+      ],
       isDeleted: { $ne: true },
     });
     if (!destWarehouse) {
@@ -232,8 +244,20 @@ export class InventoryMovementsService {
     const sourceInventory = await this.inventoryModel.findOne({
       productId: productOid,
       warehouseId: sourceWarehouseOid,
-      tenantId: tenantOid,
+      $or: [
+        { tenantId: tenantOid },
+        { tenantId: tenantId }, // Handle string tenantId
+      ],
     });
+
+    // DEBUG: Check if inventory exists without tenant filter
+    if (!sourceInventory) {
+      const anyInventory = await this.inventoryModel.findOne({
+        productId: productOid,
+        warehouseId: sourceWarehouseOid,
+      });
+    }
+
     if (!sourceInventory) {
       throw new NotFoundException("No existe inventario del producto en el almacén origen.");
     }
@@ -253,7 +277,10 @@ export class InventoryMovementsService {
     let destInventory = await this.inventoryModel.findOne({
       productId: productOid,
       warehouseId: destWarehouseOid,
-      tenantId: tenantOid,
+      $or: [
+        { tenantId: tenantOid },
+        { tenantId: tenantId }, // Handle string tenantId
+      ],
     });
 
     if (!destInventory) {
@@ -294,7 +321,7 @@ export class InventoryMovementsService {
         },
         isActive: true,
         createdBy: userOid,
-        tenantId: tenantOid,
+        tenantId: tenantId, // Use string format to match existing records
       });
       await destInventory.save();
     }

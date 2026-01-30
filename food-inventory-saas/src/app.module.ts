@@ -13,6 +13,7 @@ import { AuthModule } from "./auth/auth.module";
 import { OnboardingModule } from "./modules/onboarding/onboarding.module";
 import { ProductsModule } from "./modules/products/products.module";
 import { InventoryModule } from "./modules/inventory/inventory.module";
+import { InventoryMovementsModule } from "./modules/inventory/inventory-movements.module";
 import { OrdersModule } from "./modules/orders/orders.module";
 import { CustomersModule } from "./modules/customers/customers.module";
 import { PricingModule } from "./modules/pricing/pricing.module";
@@ -447,6 +448,7 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     OnboardingModule,
     ProductsModule,
     InventoryModule,
+    InventoryMovementsModule,
     ConsumablesModule,
     SuppliesModule,
     UnitConversionsModule,

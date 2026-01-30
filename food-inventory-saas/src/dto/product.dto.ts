@@ -605,7 +605,7 @@ export class ProductQueryDto {
   @Transform(({ value }) => parseInt(value))
   @IsNumber()
   @Min(1)
-  @Max(2000)
+  @Max(20000)
   limit?: number = 20;
 
   @ApiPropertyOptional({ description: "Término de búsqueda" })
