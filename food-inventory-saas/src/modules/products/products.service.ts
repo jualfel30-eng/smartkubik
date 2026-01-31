@@ -490,24 +490,20 @@ export class ProductsService {
     }
     // PERFORMANCE OPTIMIZATION: Use text search instead of regex for better performance
     if (isSearching) {
-      // Check if search looks like a SKU or barcode (alphanumeric, no spaces)
-      // Treat as SKU/barcode only if it has alphanumerics AND a delimiter or digit
-      looksLikeCode =
-        /^[A-Z0-9\-_]+$/i.test(searchTerm) && /[0-9\-_]/.test(searchTerm);
+      // UX IMPROVEMENT: Use Regex for ALL searches to support partial matching (autocomplete).
+      // Previous optimization using $text search broke partial matching (e.g., "Coc" didn't find "Coca-Cola").
+      const regex = new RegExp(this.escapeRegExp(searchTerm), "i");
 
-      if (looksLikeCode) {
-        // For SKU/barcode searches, use optimized regex on indexed fields only
-        const regex = new RegExp(`^${this.escapeRegExp(searchTerm)}`, "i");
-        filter.$or = [
-          { sku: regex },
-          { "variants.sku": regex },
-          { "variants.barcode": regex },
-        ];
-      } else {
-        // Prefer MongoDB text search (leverages index on name/description/tags)
-        filter.$text = { $search: searchTerm };
-        useTextSearch = true;
-      }
+      filter.$or = [
+        { name: regex },
+        { brand: regex },
+        { sku: regex },
+        { "variants.name": regex },
+        { "variants.sku": regex },
+        { "variants.barcode": regex },
+      ];
+
+      useTextSearch = false;
     }
 
     const skip = (pageNumber - 1) * limitNumber;

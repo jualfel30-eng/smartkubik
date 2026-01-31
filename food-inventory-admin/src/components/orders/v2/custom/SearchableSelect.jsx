@@ -136,6 +136,7 @@ export function SearchableSelect({
           handleChange({ value: event.target.value, label: event.target.value, __isNew__: true }, { action: 'create-option' });
         }
       } : undefined}
+      filterOption={asyncSearch ? null : undefined}
       {...props}
     />
   );
