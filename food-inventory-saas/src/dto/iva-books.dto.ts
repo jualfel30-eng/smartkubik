@@ -282,6 +282,31 @@ export class CreateIvaSalesBookDto {
   @IsString()
   @IsOptional()
   observations?: string;
+
+  // Traceability Fields
+  @IsString()
+  @IsOptional()
+  originalCurrency?: string;
+
+  @IsNumber()
+  @IsOptional()
+  exchangeRate?: number;
+
+  @IsNumber()
+  @IsOptional()
+  originalBaseAmount?: number;
+
+  @IsNumber()
+  @IsOptional()
+  originalIvaAmount?: number;
+
+  @IsNumber()
+  @IsOptional()
+  originalTotalAmount?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  isForeignCurrency?: boolean;
 }
 
 export class UpdateIvaSalesBookDto {

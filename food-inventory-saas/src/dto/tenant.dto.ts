@@ -80,6 +80,23 @@ export class TaxInfoDto {
   @IsOptional()
   @SanitizeString()
   businessName: string;
+
+  @ApiPropertyOptional({ example: true, description: "Si el tenant es agente de retención de IVA" })
+  @IsOptional()
+  @IsBoolean()
+  isRetentionAgent?: boolean;
+
+  @ApiPropertyOptional({ example: "especial", description: "Tipo de contribuyente: ordinario o especial", enum: ["ordinario", "especial"] })
+  @IsOptional()
+  @IsString()
+  @IsIn(["ordinario", "especial"])
+  taxpayerType?: string;
+
+  @ApiPropertyOptional({ example: 75, description: "Porcentaje de retención de IVA (75 o 100) — solo aplica si es Contribuyente Especial", enum: [75, 100] })
+  @IsOptional()
+  @IsNumber()
+  @IsIn([75, 100])
+  specialTaxpayerWithholdingRate?: number;
 }
 
 export class CurrencySettingsDto {

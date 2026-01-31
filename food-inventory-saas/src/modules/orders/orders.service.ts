@@ -582,6 +582,28 @@ export class OrdersService {
       .filter((p) => p.method.includes("_usd"))
       .reduce((sum, p) => sum + p.amount, 0);
     const igtfTotal = foreignCurrencyPaymentAmount * 0.03;
+
+    // ============ IVA WITHHOLDING (Retención de IVA por Contribuyente Especial) ============
+    let ivaWithholdingPercentage = 0;
+    let ivaWithholdingAmount = 0;
+    const customerIsSpecialTaxpayer = createOrderDto.customerIsSpecialTaxpayer || false;
+
+    if (customerIsSpecialTaxpayer && ivaTotal > 0) {
+      // El % de retención depende del tipo de contribuyente del TENANT (vendedor):
+      // - Tenant Ordinario → retención fija del 75%
+      // - Tenant Especial → usa la tasa configurada (75% o 100%) según su designación SENIAT
+      const tenantTaxpayerType = tenant.taxInfo?.taxpayerType || 'ordinario';
+      if (tenantTaxpayerType === 'especial') {
+        ivaWithholdingPercentage = tenant.taxInfo?.specialTaxpayerWithholdingRate || 75;
+      } else {
+        ivaWithholdingPercentage = 75;
+      }
+      ivaWithholdingAmount = ivaTotal * (ivaWithholdingPercentage / 100);
+      this.logger.log(
+        `IVA Withholding: Customer is special taxpayer. Tenant type: ${tenantTaxpayerType}, Rate: ${ivaWithholdingPercentage}%, Withheld: ${ivaWithholdingAmount}`,
+      );
+    }
+
     const totalAmount =
       subtotal +
       ivaTotal +
@@ -655,6 +677,10 @@ export class OrdersService {
       customerPhone: createOrderDto.customerPhone,
       customerAddress: createOrderDto.customerAddress,
 
+      // IVA Withholding (Retención de IVA)
+      customerIsSpecialTaxpayer,
+      ivaWithholdingPercentage,
+      ivaWithholdingAmount,
     };
 
     // LINK WAITER FROM TABLE IF APPLICABLE
@@ -2745,10 +2771,22 @@ export class OrdersService {
     }
 
     // Validate order is fully paid
+    // For delivery notes: backend totalAmount includes IVA, but the customer only pays subtotal + shipping
+    // so paymentStatus may be 'partial' even though the effective amount is fully covered
     if (order.paymentStatus !== 'paid') {
-      throw new BadRequestException(
-        'La orden debe estar completamente pagada antes de completarla'
-      );
+      if (order.billingDocumentType === 'delivery_note') {
+        const effectiveTotal = (order.subtotal || 0) + (order.shippingCost || 0);
+        const paidAmount = order.paidAmount || 0;
+        if (paidAmount < effectiveTotal - 0.01) {
+          throw new BadRequestException(
+            'La orden debe estar completamente pagada antes de completarla'
+          );
+        }
+      } else {
+        throw new BadRequestException(
+          'La orden debe estar completamente pagada antes de completarla'
+        );
+      }
     }
 
     // Validate order has billing document (invoice)

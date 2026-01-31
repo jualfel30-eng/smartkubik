@@ -248,6 +248,11 @@ export class CreateOrderDto {
   @IsEnum(["V", "E", "J", "G"])
   taxType?: string;
 
+  @ApiPropertyOptional({ description: "Cliente es Contribuyente Especial (retiene IVA)" })
+  @IsOptional()
+  @IsBoolean()
+  customerIsSpecialTaxpayer?: boolean;
+
   @ApiPropertyOptional({ description: "Dirección del cliente (para creación)" })
   @IsOptional()
   @IsString()
@@ -468,6 +473,11 @@ export class UpdateOrderDto {
   @IsOptional()
   @IsEnum(["V", "E", "J", "G"])
   taxType?: string;
+
+  @ApiPropertyOptional({ description: "Cliente es Contribuyente Especial (retiene IVA)" })
+  @IsOptional()
+  @IsBoolean()
+  customerIsSpecialTaxpayer?: boolean;
 
   @ApiPropertyOptional({ description: "Teléfono del cliente" })
   @IsOptional()

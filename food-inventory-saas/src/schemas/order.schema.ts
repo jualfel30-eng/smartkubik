@@ -199,6 +199,15 @@ export class Order {
   @Prop({ type: String, default: 'V' })
   taxType?: string;
 
+  @Prop({ type: Boolean, default: false })
+  customerIsSpecialTaxpayer?: boolean; // Cliente es Contribuyente Especial (retiene IVA)
+
+  @Prop({ type: Number, default: 0 })
+  ivaWithholdingPercentage?: number; // 75 o 100, según tipo de contribuyente del tenant
+
+  @Prop({ type: Number, default: 0 })
+  ivaWithholdingAmount?: number; // Monto de IVA retenido por el cliente
+
   @Prop({ type: String })
   customerEmail?: string;
 

@@ -292,6 +292,8 @@ export class Tenant {
     businessName: string;
     isRetentionAgent: boolean;
     taxRegime: string;
+    taxpayerType: string; // 'ordinario' | 'especial'
+    specialTaxpayerWithholdingRate: number; // 75 | 100 — solo aplica si taxpayerType es 'especial'
   };
 
   @Prop({ type: TenantSettingsSchema })

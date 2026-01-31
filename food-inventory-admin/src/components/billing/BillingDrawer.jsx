@@ -43,7 +43,7 @@ import { useExchangeRate } from '../../hooks/useExchangeRate';
 import InvoiceDeliveryDialog from './InvoiceDeliveryDialog';
 import { useCrmContext } from '../../context/CrmContext';
 
-const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
+const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated, initialDocumentType }) => {
     const navigate = useNavigate();
     const { rate: bcvRate, loading: loadingRate } = useExchangeRate();
     const { paymentMethods, paymentMethodsLoading } = useCrmContext();
@@ -176,19 +176,36 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
         // Calculate total for pre-filling Bs amount
         const totalAmount = items.reduce((sum, item) => sum + (item.total || 0), 0);
 
+        const docType = initialDocumentType || 'invoice';
+
+        // Si es Nota de Entrega, eliminar IVA de los items al inicializar
+        const finalItems = docType === 'delivery_note'
+            ? items.map(item => {
+                const subtotal = item.quantity * item.unitPrice;
+                const discountAmount = (subtotal * (item.discount || 0)) / 100;
+                return {
+                    ...item,
+                    _originalTaxRate: item.taxRate,
+                    taxRate: 0,
+                    tax: 0,
+                    total: subtotal - discountAmount
+                };
+            })
+            : items;
+
         setFormData({
-            type: 'invoice',
+            type: docType,
             issueDate: new Date().toISOString().split('T')[0],
             customer: customerId,
             customerData,
-            items,
+            items: finalItems,
             notes: `Orden #${orderData.orderNumber}`,
             paymentMethod,
             currency: 'VES',
             exchangeRate: bcvRate || orderData.exchangeRate || 1,
             amountBs: orderData.totalAmountVes || (totalAmount * (bcvRate || orderData.exchangeRate || 1))
         });
-    }, [bcvRate]);
+    }, [bcvRate, initialDocumentType]);
 
     // Effect: When opened, fetch FRESH order details AND full customer details
     useEffect(() => {
@@ -326,11 +343,16 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
             return;
         }
 
+        // Si es Nota de Entrega, forzar taxRate a 0
+        const itemToAdd = formData.type === 'delivery_note'
+            ? { ...newItem, _originalTaxRate: newItem.taxRate, taxRate: 0 }
+            : newItem;
+
         const item = {
-            ...newItem,
-            subtotal: calculateItemSubtotal(newItem),
-            tax: calculateItemTax(newItem),
-            total: calculateItemTotal(newItem)
+            ...itemToAdd,
+            subtotal: calculateItemSubtotal(itemToAdd),
+            tax: calculateItemTax(itemToAdd),
+            total: calculateItemTotal(itemToAdd)
         };
 
         setFormData({
@@ -382,7 +404,8 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
         const taxes = formData.items.reduce((sum, item) => sum + calculateItemTax(item), 0);
 
         // IGTF viene de la orden (ya fue calculado en payments)
-        const igtf = order?.igtfTotal || 0;
+        // Nota de Entrega no lleva IGTF
+        const igtf = formData.type === 'delivery_note' ? 0 : (order?.igtfTotal || 0);
 
         const total = subtotal - discounts + taxes + igtf;
 
@@ -445,12 +468,13 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                     subtotal: totals.subtotal,
                     discounts: totals.discounts,
                     taxes: [
-                        {
+                        // Nota de Entrega no lleva IVA
+                        ...(formData.type !== 'delivery_note' ? [{
                             type: 'IVA',
                             rate: 16,
                             amount: totals.taxes,
                             base: totals.subtotal - totals.discounts
-                        },
+                        }] : []),
                         ...(totals.igtf > 0 ? [{
                             type: 'IGTF',
                             rate: 3,
@@ -548,7 +572,42 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                                 <div className="grid gap-4 md:grid-cols-2">
                                     <div>
                                         <Label>Tipo</Label>
-                                        <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value })}>
+                                        <Select value={formData.type} onValueChange={(value) => {
+                                            if (value === 'delivery_note') {
+                                                // Nota de Entrega: eliminar IVA de todos los items
+                                                const itemsSinIva = formData.items.map(item => {
+                                                    const subtotal = item.quantity * item.unitPrice;
+                                                    const discountAmount = (subtotal * (item.discount || 0)) / 100;
+                                                    return {
+                                                        ...item,
+                                                        _originalTaxRate: item.taxRate, // guardar tasa original para restaurar
+                                                        taxRate: 0,
+                                                        tax: 0,
+                                                        total: subtotal - discountAmount
+                                                    };
+                                                });
+                                                setFormData({ ...formData, type: value, items: itemsSinIva });
+                                            } else if (formData.type === 'delivery_note' && value !== 'delivery_note') {
+                                                // Restaurar tasas originales al cambiar desde Nota de Entrega
+                                                const itemsRestaurados = formData.items.map(item => {
+                                                    const restoredRate = item._originalTaxRate != null ? item._originalTaxRate : 16;
+                                                    const subtotal = item.quantity * item.unitPrice;
+                                                    const discountAmount = (subtotal * (item.discount || 0)) / 100;
+                                                    const base = subtotal - discountAmount;
+                                                    const tax = (base * restoredRate) / 100;
+                                                    return {
+                                                        ...item,
+                                                        taxRate: restoredRate,
+                                                        tax: tax,
+                                                        total: base + tax,
+                                                        _originalTaxRate: undefined
+                                                    };
+                                                });
+                                                setFormData({ ...formData, type: value, items: itemsRestaurados });
+                                            } else {
+                                                setFormData({ ...formData, type: value });
+                                            }
+                                        }}>
                                             <SelectTrigger>
                                                 <SelectValue />
                                             </SelectTrigger>
@@ -741,13 +800,23 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
 
                         {/* Totals */}
                         <div className="space-y-2 pt-4 border-t">
+                            {formData.type === 'delivery_note' && (
+                                <div className="flex items-center gap-2 p-2 rounded-md bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-xs">
+                                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                                    <span>Nota de Entrega: No aplica IVA ni IGTF</span>
+                                </div>
+                            )}
                             <div className="flex justify-between text-sm">
                                 <span className="text-muted-foreground">Subtotal:</span>
                                 <span>${totals.subtotal.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">IVA (16%):</span>
-                                <span>${totals.taxes.toFixed(2)}</span>
+                                <span className="text-muted-foreground">
+                                    {formData.type === 'delivery_note' ? 'IVA:' : 'IVA (16%):'}
+                                </span>
+                                <span className={formData.type === 'delivery_note' ? 'text-muted-foreground' : ''}>
+                                    ${totals.taxes.toFixed(2)}
+                                </span>
                             </div>
                             {totals.igtf > 0 && (
                                 <div className="flex justify-between text-sm text-orange-600">
@@ -808,7 +877,7 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                             </Button>
                             <Button className="w-full" onClick={handleIssue} disabled={loading}>
                                 <Send className="mr-2 h-4 w-4" />
-                                Emitir Factura
+                                {formData.type === 'delivery_note' ? 'Emitir Nota de Entrega' : 'Emitir Factura'}
                             </Button>
                         </div>
 

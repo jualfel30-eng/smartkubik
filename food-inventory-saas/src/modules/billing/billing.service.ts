@@ -147,6 +147,19 @@ export class BillingService {
         throw new NotFoundException("Documento original no encontrado");
       }
     }
+    // If creating from an order, check for IVA withholding data
+    let ivaWithholdingData: any = {};
+    if (dto.relatedOrderId) {
+      const relatedOrder: any = await this.orderModel.findById(dto.relatedOrderId).lean();
+      if (relatedOrder && relatedOrder.customerIsSpecialTaxpayer) {
+        ivaWithholdingData = {
+          requiresIvaWithholding: true,
+          withheldIvaPercentage: relatedOrder.ivaWithholdingPercentage || 0,
+          withheldIvaAmount: relatedOrder.ivaWithholdingAmount || 0,
+        };
+      }
+    }
+
     const billing = new this.billingModel({
       type: dto.type,
       seriesId: series._id,
@@ -168,6 +181,8 @@ export class BillingService {
       references: dto.originalDocumentId
         ? { originalDocumentId: dto.originalDocumentId, orderId: dto.relatedOrderId }
         : { orderId: dto.relatedOrderId },
+      // IVA Withholding from order (Contribuyente Especial)
+      ...ivaWithholdingData,
       tenantId,
     });
     await billing.save();
@@ -1019,6 +1034,13 @@ export class BillingService {
             email: order.customerEmail,
             phone: order.customerPhone
           };
+        }
+
+        // Sync IVA withholding data from order
+        if (order.customerIsSpecialTaxpayer) {
+          doc.requiresIvaWithholding = true;
+          doc.withheldIvaPercentage = order.ivaWithholdingPercentage || 0;
+          doc.withheldIvaAmount = order.ivaWithholdingAmount || 0;
         }
 
         await doc.save();
