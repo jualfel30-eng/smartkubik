@@ -2291,3 +2291,5 @@ export const api = {
   }),
   delete: (url, config = {}) => fetchApi(url, { ...config, method: 'DELETE' }),
 };
+
+// ==================== IVA Declaration API ====================

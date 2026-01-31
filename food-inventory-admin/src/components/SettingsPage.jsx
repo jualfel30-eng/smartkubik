@@ -59,6 +59,9 @@ const initialSettings = {
   taxInfo: {
     rif: '',
     businessName: '',
+    isRetentionAgent: false,
+    taxpayerType: 'ordinario',
+    specialTaxpayerWithholdingRate: 75,
   },
   settings: {
     currency: {
@@ -585,10 +588,82 @@ const SettingsPage = () => {
               <Card>
                 <CardHeader>
                   <CardTitle>Información Fiscal</CardTitle>
+                  <CardDescription>Datos fiscales y configuración de retenciones SENIAT</CardDescription>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>RIF</Label><Input name="taxInfo.rif" value={settings.taxInfo.rif} onChange={handleInputChange} /></div>
-                  <div className="space-y-2"><Label>Razón Social</Label><Input name="taxInfo.businessName" value={settings.taxInfo.businessName} onChange={handleInputChange} /></div>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>RIF</Label><Input name="taxInfo.rif" value={settings.taxInfo.rif} onChange={handleInputChange} /></div>
+                    <div className="space-y-2"><Label>Razón Social</Label><Input name="taxInfo.businessName" value={settings.taxInfo.businessName} onChange={handleInputChange} /></div>
+                  </div>
+
+                  <div className="border-t pt-4 mt-4">
+                    <Label className="text-sm font-semibold mb-3 block">Retención de IVA</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                          <Label className="text-sm">Agente de Retención</Label>
+                          <p className="text-xs text-muted-foreground">¿Su empresa está designada como agente de retención de IVA por el SENIAT?</p>
+                        </div>
+                        <Switch
+                          name="taxInfo.isRetentionAgent"
+                          checked={settings.taxInfo.isRetentionAgent || false}
+                          onCheckedChange={(c) => handleSwitchChange('taxInfo.isRetentionAgent', c)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Tipo de Contribuyente</Label>
+                        <Select
+                          value={settings.taxInfo.taxpayerType || 'ordinario'}
+                          onValueChange={(value) => {
+                            setSettings(prev => ({
+                              ...prev,
+                              taxInfo: { ...prev.taxInfo, taxpayerType: value }
+                            }));
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccione tipo..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ordinario">Contribuyente Ordinario</SelectItem>
+                            <SelectItem value="especial">Contribuyente Especial</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          {settings.taxInfo.taxpayerType === 'especial'
+                            ? 'Designado por el SENIAT como Contribuyente Especial.'
+                            : 'Al vender a un Contribuyente Especial, se retendrá el 75% del IVA.'
+                          }
+                        </p>
+                      </div>
+
+                      {settings.taxInfo.taxpayerType === 'especial' && (
+                        <div className="space-y-2">
+                          <Label>Porcentaje de Retención de IVA</Label>
+                          <Select
+                            value={String(settings.taxInfo.specialTaxpayerWithholdingRate || 75)}
+                            onValueChange={(value) => {
+                              setSettings(prev => ({
+                                ...prev,
+                                taxInfo: { ...prev.taxInfo, specialTaxpayerWithholdingRate: Number(value) }
+                              }));
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="75">75% — Retención parcial</SelectItem>
+                              <SelectItem value="100">100% — Retención total</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            Según su designación SENIAT, al vender a otro Contribuyente Especial se retendrá el {settings.taxInfo.specialTaxpayerWithholdingRate || 75}% del IVA.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 

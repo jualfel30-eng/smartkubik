@@ -499,6 +499,7 @@ function TenantLayout() {
         { name: 'Asientos Recurrentes', href: 'accounting/recurring-entries', icon: RefreshCw },
         { name: 'Facturas Electrónicas', href: 'accounting/electronic-invoices', icon: Receipt },
         { name: 'Retenciones ISLR', href: 'accounting/islr-withholding', icon: FileText },
+        { name: 'Declaración IVA', href: 'accounting?tab=iva-declaration', icon: FileText },
         { name: 'Informes', href: 'accounting?tab=reports', icon: FileText },
       ]
     },

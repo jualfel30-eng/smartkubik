@@ -27,7 +27,8 @@ import { toast } from 'sonner';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group.jsx';
 import { BarcodeScannerDialog } from '@/components/BarcodeScannerDialog.jsx';
 import { RecipeCustomizerDialog } from './RecipeCustomizerDialog.jsx';
-import { ChefHat } from 'lucide-react';
+import { ChefHat, ShieldCheck } from 'lucide-react';
+import { Switch } from '@/components/ui/switch.jsx';
 import ProductGridView from './ProductGridView';
 import ProductSearchView from './ProductSearchView';
 import ProductListView from './ProductListView';
@@ -40,6 +41,7 @@ const initialOrderState = {
   customerName: '',
   customerRif: '',
   taxType: 'V',
+  customerIsSpecialTaxpayer: false,
   customerPhone: '',
   customerAddress: '',
   items: [],
@@ -333,6 +335,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
             customerName: customer.name,
             customerRif: rifNumber,
             taxType: taxType,
+            customerIsSpecialTaxpayer: customer.taxInfo?.isRetentionAgent || false,
             customerAddress: address || prev.customerAddress,
             customerEmail: customer.email || prev.customerEmail,
             customerLocation: customer.primaryLocation || null,
@@ -814,6 +817,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
           customerName: customer.name,
           customerRif: rifNumber,
           taxType: taxType,
+          customerIsSpecialTaxpayer: customer.taxInfo?.isRetentionAgent || false,
           customerPhone: phone,
           customerAddress: address,
           customerLocation: customer.primaryLocation || null,
@@ -821,7 +825,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         }));
       }
     } else {
-      setNewOrder(prev => ({ ...prev, customerName: '', customerId: '', customerLocation: null, useExistingLocation: false }));
+      setNewOrder(prev => ({ ...prev, customerName: '', customerId: '', customerIsSpecialTaxpayer: false, customerLocation: null, useExistingLocation: false }));
     }
   };
 
@@ -857,6 +861,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
           customerName: customer.name,
           customerRif: rifNumber,
           taxType: taxType,
+          customerIsSpecialTaxpayer: customer.taxInfo?.isRetentionAgent || false,
           customerPhone: phone,
           customerAddress: address,
           customerLocation: customer.primaryLocation || null,
@@ -864,7 +869,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         }));
       }
     } else {
-      setNewOrder(prev => ({ ...prev, customerRif: '', customerId: '', customerLocation: null, useExistingLocation: false }));
+      setNewOrder(prev => ({ ...prev, customerRif: '', customerId: '', customerIsSpecialTaxpayer: false, customerLocation: null, useExistingLocation: false }));
     }
   };
 
@@ -1562,6 +1567,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
       customerId: newOrder.customerId || undefined,
       customerRif: newOrder.customerRif,
       taxType: newOrder.taxType,
+      customerIsSpecialTaxpayer: newOrder.customerIsSpecialTaxpayer || false,
       customerPhone: newOrder.customerPhone,
       customerEmail: newOrder.customerEmail,
       customerAddress: newOrder.customerAddress,
@@ -1579,6 +1585,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
           items: payload.items,
           customerRif: payload.customerRif,        // PRESERVE CUSTOMER DATA
           taxType: payload.taxType,
+          customerIsSpecialTaxpayer: payload.customerIsSpecialTaxpayer,
           customerPhone: payload.customerPhone,
           customerEmail: payload.customerEmail, // Added email to update payload
           customerAddress: payload.customerAddress,
@@ -1706,6 +1713,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         }),
         customerRif: newOrder.customerRif,
         taxType: newOrder.taxType,
+        customerIsSpecialTaxpayer: newOrder.customerIsSpecialTaxpayer || false,
         customerPhone: newOrder.customerPhone,
         customerEmail: newOrder.customerEmail,
         customerAddress: newOrder.customerAddress,
@@ -1861,7 +1869,23 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
     // IGTF will be calculated at payment confirmation time based on selected method
     const igtf = 0;
 
+    // IVA Withholding (Retención de IVA por Contribuyente Especial)
+    let ivaWithholdingPercentage = 0;
+    let ivaWithholdingAmount = 0;
+    if (newOrder.customerIsSpecialTaxpayer && ivaAfterDiscount > 0) {
+      const tenantTaxpayerType = tenant?.taxInfo?.taxpayerType || 'ordinario';
+      if (tenantTaxpayerType === 'especial') {
+        // Contribuyente Especial usa su tasa configurada (75% o 100%)
+        ivaWithholdingPercentage = tenant?.taxInfo?.specialTaxpayerWithholdingRate || 75;
+      } else {
+        // Contribuyente Ordinario siempre retiene 75%
+        ivaWithholdingPercentage = 75;
+      }
+      ivaWithholdingAmount = ivaAfterDiscount * (ivaWithholdingPercentage / 100);
+    }
+
     const total = subtotalAfterDiscount + ivaAfterDiscount + igtf + shippingCost;
+    const totalWithWithholding = total - ivaWithholdingAmount; // Lo que realmente cobramos
     return {
       subtotal,
       subtotalAfterDiscount,
@@ -1870,9 +1894,12 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
       ivaAfterDiscount,
       igtf,
       shipping: shippingCost,
-      total
+      ivaWithholdingPercentage,
+      ivaWithholdingAmount,
+      total,
+      totalWithWithholding,
     };
-  }, [newOrder.items, newOrder.generalDiscountPercentage, shippingCost]);
+  }, [newOrder.items, newOrder.generalDiscountPercentage, newOrder.customerIsSpecialTaxpayer, shippingCost, tenant]);
 
   const isCreateDisabled = newOrder.items.length === 0 || !newOrder.customerName || !newOrder.customerRif;
 
@@ -2402,6 +2429,18 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                     }}
                     customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
                   />
+                  {/* Contribuyente Especial - Mobile */}
+                  <div className="flex items-center justify-between rounded-md border p-2">
+                    <div className="flex items-center gap-1.5">
+                      <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
+                      <span className="text-xs font-medium">Contribuyente Especial</span>
+                    </div>
+                    <Switch
+                      checked={newOrder.customerIsSpecialTaxpayer || false}
+                      onCheckedChange={(checked) => handleFieldChange('customerIsSpecialTaxpayer', checked)}
+                      className="scale-90"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -2619,6 +2658,25 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                       handleFieldChange('customerAddress', val);
                     }
                   }}
+                />
+              </div>
+
+              {/* Contribuyente Especial Toggle */}
+              <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-amber-600" />
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium">Contribuyente Especial</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {newOrder.customerIsSpecialTaxpayer
+                        ? `Retiene ${totals.ivaWithholdingPercentage}% del IVA`
+                        : 'El cliente retiene IVA al pagar'}
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={newOrder.customerIsSpecialTaxpayer || false}
+                  onCheckedChange={(checked) => handleFieldChange('customerIsSpecialTaxpayer', checked)}
                 />
               </div>
 

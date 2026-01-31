@@ -11,12 +11,14 @@ import { X, Plus, Calculator, Wand2, HandCoins } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from "@/components/ui/badge";
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
+import { useModuleAccess } from '@/hooks/useModuleAccess';
 import MixedChangeModal from './MixedChangeModal';
 
-export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exchangeRate }) {
+export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exchangeRate, overrideTotalAmount, overrideTotalAmountVes, isDeliveryNote }) {
   const { paymentMethods, paymentMethodsLoading } = useCrmContext();
   const { triggerRefresh } = useAccountingContext();
   const { isFoodService } = useVerticalConfig();
+  const hasTipsModule = useModuleAccess('tips');
 
   const [paymentMode, setPaymentMode] = useState('single');
   const [singlePayment, setSinglePayment] = useState({ method: '', reference: '', bankAccountId: '', amountTendered: '', changeGivenBreakdown: null });
@@ -67,12 +69,17 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
 
   const remainingAmount = useMemo(() => {
     if (!order) return 0;
-    return (order.totalAmount || 0) - (order.paidAmount || 0);
-  }, [order]);
+    const effectiveTotal = overrideTotalAmount != null ? overrideTotalAmount : (order.totalAmount || 0);
+    return effectiveTotal - (order.paidAmount || 0);
+  }, [order, overrideTotalAmount]);
 
   const remainingAmountVes = useMemo(() => {
     if (!order) return 0;
 
+    // Si hay override (Nota de Entrega), usar el monto ajustado
+    if (overrideTotalAmountVes != null && overrideTotalAmountVes > 0) {
+      return overrideTotalAmountVes - (order.paidAmountVes || 0);
+    }
 
     // Si la orden tiene totalAmountVes definido y mayor que 0, usarlo directamente
     if (order.totalAmountVes && order.totalAmountVes > 0) {
@@ -209,7 +216,9 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
   };
 
   // Check if payment method requires IGTF (3% for USD payments)
+  // Nota de Entrega no lleva IGTF independientemente del método de pago
   const requiresIgtf = (methodId) => {
+    if (isDeliveryNote) return false;
     const igtfMethods = ['efectivo_usd', 'transferencia_usd', 'zelle_usd'];
     return igtfMethods.includes(methodId);
   };
@@ -287,9 +296,10 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
         totalVES += rawAmount;
       } else {
         // Monto ingresado en USD
-        const lineIgtf = rawAmount * 0.03;
+        // Nota de Entrega no lleva IGTF
+        const lineIgtf = isDeliveryNote ? 0 : rawAmount * 0.03;
         igtf += lineIgtf;
-        subtotalUSD += rawAmount; // This is the amount paid. It already INCLUDES the IGTF coverage if the user intended it.
+        subtotalUSD += rawAmount;
         totalVES += rawAmount * rateForCalc;
       }
     });
@@ -517,6 +527,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
             <DialogDescription>
               Orden: {order.orderNumber} | Balance Pendiente: ${remainingAmount.toFixed(2)} USD
               {remainingAmountVes > 0 && ` / Bs ${remainingAmountVes.toFixed(2)}`}
+              {isDeliveryNote && ' (Nota de Entrega — sin IVA/IGTF)'}
             </DialogDescription>
           </DialogHeader>
 
@@ -724,15 +735,15 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                   // Si es VES, el monto ingresado ya está en Bs. Si es USD, convertir a Bs
                   const lineAmountVes = lineIsVes ? lineAmount : lineAmount * rate;
                   const lineAmountUsd = lineIsVes ? lineAmount / rate : lineAmount;
-                  const lineIgtf = lineIsVes ? 0 : lineAmount * 0.03;
+                  const lineIgtf = (lineIsVes || isDeliveryNote) ? 0 : lineAmount * 0.03;
                   const filteredAccounts = bankAccounts.filter(account =>
                     account.acceptedPaymentMethods &&
                     account.acceptedPaymentMethods.includes(mapPaymentMethodToName(line.method))
                   );
 
                   // --- SMART FILL LOGIC START ---
-                  // 1. Estimate Total IGTF based on current entries
-                  const currentTotalIGTF = mixedPayments.reduce((sum, p) => {
+                  // 1. Estimate Total IGTF based on current entries (Nota de Entrega = 0)
+                  const currentTotalIGTF = isDeliveryNote ? 0 : mixedPayments.reduce((sum, p) => {
                     const pIsVes = isVesMethod(p.method);
                     const pRaw = Number(p.amount) || 0;
                     return sum + (pIsVes ? 0 : pRaw * 0.03);
@@ -941,7 +952,8 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
             )
             }
 
-            {/* Tips Section */}
+            {/* Tips Section - Only visible when tips module is enabled for the tenant's vertical */}
+            {hasTipsModule && (
             <div className="border rounded-lg p-4 bg-gradient-to-r from-amber-50/50 to-yellow-50/50 dark:from-amber-950/20 dark:to-yellow-950/20">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -1104,6 +1116,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                 </div>
               )}
             </div>
+            )}
           </div>
 
           {/* Fixed Footer Section */}

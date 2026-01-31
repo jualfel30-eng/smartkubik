@@ -1393,7 +1393,7 @@ const PayablesManagement = () => {
     setLoading(true);
     try {
       const accountsData = await fetchChartOfAccounts();
-      setAccounts(accountsData.data.filter(acc => acc.type === 'Gasto') || []);
+      setAccounts(accountsData.data.filter(acc => ['Gasto', 'Costo', 'Activo', 'Pasivo'].includes(acc.type)) || []);
       await fetchSuppliers();
       await fetchPayables();
     } catch (error) {

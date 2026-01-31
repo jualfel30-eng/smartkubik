@@ -31,6 +31,7 @@ export const VERTICAL_FEATURES = {
     kitchenDisplay: true,
     menuEngineering: true,
     tips: true,
+    commissions: false, // Opt-in: restaurantes con catering o ventas corporativas pueden habilitarlo
     reservations: true,
 
     // Disabled for food service
@@ -73,6 +74,8 @@ export const VERTICAL_FEATURES = {
     variants: true,
     ecommerce: true,
     loyaltyProgram: true,
+    commissions: true, // ✅ HABILITADO - Comisiones de vendedores por ventas
+    tips: false, // No aplica para retail (usar comisiones en su lugar)
 
     // Disabled for retail
     tables: false,
@@ -116,6 +119,7 @@ export const VERTICAL_FEATURES = {
     servicePackages: true, // Paquetes de servicios (spa, tours, etc.)
     reservations: true, // ✅ HABILITADO - Sistema de reservas de habitaciones
     tips: true, // ✅ HABILITADO - Propinas para personal de servicio
+    commissions: false, // Opt-in: hoteles con ventas corporativas pueden habilitarlo
 
     // Disabled for services
     tables: false, // No aplica para hoteles (solo para restaurantes)
@@ -162,6 +166,8 @@ export const VERTICAL_FEATURES = {
     dispatch: true,
 
     // Disabled for logistics
+    tips: false,
+    commissions: false,
     tables: false,
     recipes: false,
     kitchenDisplay: false,
@@ -195,6 +201,8 @@ export const VERTICAL_FEATURES = {
     marketing: true, // ✅ HABILITADO - Full marketing suite
 
     // All vertical-specific modules enabled (admin decides which to use)
+    tips: true, // ✅ HABILITADO - Propinas (HYBRID tiene todos los módulos)
+    commissions: true, // ✅ HABILITADO - Comisiones (HYBRID tiene todos los módulos)
     tables: true,
     recipes: true,
     kitchenDisplay: true,
@@ -252,6 +260,8 @@ export const VERTICAL_FEATURES = {
     compliance: false,
 
     // Disabled for manufacturing
+    tips: false,
+    commissions: false,
     tables: false,
     recipes: false,
     kitchenDisplay: false,

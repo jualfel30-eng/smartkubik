@@ -144,12 +144,32 @@ export function OrderSidebar({
               </div>
             )}
 
+            {totals.ivaWithholdingAmount > 0 && (
+              <>
+                <Separator />
+                <div className="flex justify-between text-sm text-amber-600 dark:text-amber-400">
+                  <span>Ret. IVA ({totals.ivaWithholdingPercentage}%):</span>
+                  <span>-${totals.ivaWithholdingAmount.toFixed(2)}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Cliente Contribuyente Especial - Retención a pagar al SENIAT
+                </p>
+              </>
+            )}
+
             <Separator />
 
             <div className="flex justify-between text-lg font-bold">
               <span>TOTAL:</span>
               <span className="text-primary">${totals.total.toFixed(2)}</span>
             </div>
+
+            {totals.ivaWithholdingAmount > 0 && (
+              <div className="flex justify-between text-sm font-semibold text-amber-600 dark:text-amber-400">
+                <span>A cobrar (neto):</span>
+                <span>${totals.totalWithWithholding.toFixed(2)}</span>
+              </div>
+            )}
 
             {bcvRate && !loadingRate && (
               <div className="flex justify-between text-xs text-muted-foreground mt-2">

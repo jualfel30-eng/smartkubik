@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import {
   CheckCircle2,
   Package,
@@ -83,6 +85,34 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
 
   // Billing drawer state
   const [showBillingDrawer, setShowBillingDrawer] = useState(false);
+
+  // Document type pre-selection (delivery_note = sin IVA/IGTF)
+  const [selectedDocumentType, setSelectedDocumentType] = useState('invoice');
+
+  // Effective totals adjusted for document type (delivery_note removes IVA/IGTF)
+  const effectiveTotals = React.useMemo(() => {
+    if (!orderData) return { totalAmount: 0, ivaTotal: 0, igtfTotal: 0, totalAmountVes: 0 };
+    if (selectedDocumentType === 'delivery_note') {
+      const subtotal = orderData.subtotal || 0;
+      const shipping = orderData.shippingCost || 0;
+      const total = subtotal + shipping;
+      const rate = orderData.totalAmount > 0 && orderData.totalAmountVes > 0
+        ? orderData.totalAmountVes / orderData.totalAmount
+        : 0;
+      return {
+        totalAmount: total,
+        ivaTotal: 0,
+        igtfTotal: 0,
+        totalAmountVes: total * rate,
+      };
+    }
+    return {
+      totalAmount: orderData.totalAmount || 0,
+      ivaTotal: orderData.ivaTotal || 0,
+      igtfTotal: orderData.igtfTotal || 0,
+      totalAmountVes: orderData.totalAmountVes || 0,
+    };
+  }, [orderData, selectedDocumentType]);
 
   // Refresh order data
   const refreshOrder = async () => {
@@ -160,16 +190,29 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
 
   const progress = (currentStep / STEPS.length) * 100;
 
+  // Helper: check if effectively paid (delivery notes may show 'partial' in backend
+  // because backend includes IVA in totalAmount, but the actual amount to pay is lower)
+  const isEffectivelyPaid = React.useCallback((ord) => {
+    if (!ord) return false;
+    if (ord.paymentStatus === 'paid') return true;
+    // For delivery notes: backend marks as 'partial' because paidAmount < totalAmount (with IVA)
+    // but if paidAmount covers the effective total (without IVA/IGTF), it's effectively paid
+    if (selectedDocumentType === 'delivery_note' && ord.paidAmount > 0) {
+      return ord.paidAmount >= effectiveTotals.totalAmount - 0.01; // tolerance for float
+    }
+    return false;
+  }, [selectedDocumentType, effectiveTotals.totalAmount]);
+
   // Recalculate these values whenever orderData changes
-  const isPaid = React.useMemo(() => orderData?.paymentStatus === 'paid', [orderData?.paymentStatus]);
-  const isPartiallyPaid = React.useMemo(() => orderData?.paymentStatus === 'partial', [orderData?.paymentStatus]);
+  const isPaid = React.useMemo(() => isEffectivelyPaid(orderData), [orderData, isEffectivelyPaid]);
+  const isPartiallyPaid = React.useMemo(() => !isPaid && orderData?.paymentStatus === 'partial', [orderData?.paymentStatus, isPaid]);
   const hasInvoice = React.useMemo(() =>
     orderData?.billingDocumentId && orderData?.billingDocumentType !== 'none',
     [orderData?.billingDocumentId, orderData?.billingDocumentType]
   );
   const balance = React.useMemo(() =>
-    (orderData?.totalAmount || 0) - (orderData?.paidAmount || 0),
-    [orderData?.totalAmount, orderData?.paidAmount]
+    (effectiveTotals.totalAmount || 0) - (orderData?.paidAmount || 0),
+    [effectiveTotals.totalAmount, orderData?.paidAmount]
   );
 
   // Step validation - recalculates on every render to ensure button state is always current
@@ -177,7 +220,8 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
     if (stepId === 1) return true;
     if (stepId === 2) {
       // PROCEED TO INVOICE: Needs fulfillment type selected AND fully paid
-      return fulfillmentType !== null && orderData?.paymentStatus === 'paid';
+      // For delivery notes, isPaid uses effective total (without IVA/IGTF)
+      return fulfillmentType !== null && isPaid;
     }
     if (stepId === 3) {
       // PROCEED TO CONFIRMATION: Needs invoice
@@ -227,7 +271,7 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
       // Phase 2: Fallback Retry Fetch (If no response passed)
       for (let i = 0; i < 3; i++) {
         updatedOrder = await refreshOrder();
-        if (updatedOrder?.paymentStatus === 'paid') {
+        if (isEffectivelyPaid(updatedOrder)) {
           break;
         }
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -237,8 +281,9 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
     // Force update parent
     if (onUpdate) await onUpdate();
 
-    // Auto-advance
-    if (updatedOrder?.paymentStatus === 'paid') {
+    // Auto-advance — use isEffectivelyPaid to handle delivery notes
+    // (backend may say 'partial' because IVA is still in totalAmount)
+    if (isEffectivelyPaid(updatedOrder)) {
       setCurrentStep(2); // Auto-advance to Invoice step (Step 2)
     } else {
       if (!paymentResponseOrder) {
@@ -309,6 +354,9 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
           isPartiallyPaid={isPartiallyPaid}
           balance={balance}
           onOpenPaymentDialog={() => setShowPaymentDialog(true)}
+          selectedDocumentType={selectedDocumentType}
+          onDocumentTypeChange={setSelectedDocumentType}
+          effectiveTotals={effectiveTotals}
         />;
       case 2:
         return <Step3Billing
@@ -340,6 +388,9 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
           onClose={() => setShowPaymentDialog(false)}
           order={orderData}
           onPaymentSuccess={handlePaymentSuccess}
+          overrideTotalAmount={selectedDocumentType === 'delivery_note' ? effectiveTotals.totalAmount : undefined}
+          overrideTotalAmountVes={selectedDocumentType === 'delivery_note' ? effectiveTotals.totalAmountVes : undefined}
+          isDeliveryNote={selectedDocumentType === 'delivery_note'}
         />
       )}
 
@@ -347,6 +398,7 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
       {showBillingDrawer && orderData?._id && (
         <BillingDrawer
           isOpen={showBillingDrawer}
+          initialDocumentType={selectedDocumentType}
           onClose={async (createdInvoice) => {
             setShowBillingDrawer(false);
 
@@ -504,14 +556,40 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
 
 // ==================== STEP COMPONENTS ====================
 
-function Step1SummaryAndPayment({ order, fulfillmentType, onFulfillmentTypeChange, isPaid, isPartiallyPaid, balance, onOpenPaymentDialog }) {
-  // Use stored VES amount from order
-  const totalAmountVes = order.totalAmountVes || 0;
-  // Calculate implied rate if not explicitly stored (avoid division by zero)
-  const impliedRate = order.totalAmount > 0 ? (totalAmountVes / order.totalAmount) : 0;
+function Step1SummaryAndPayment({ order, fulfillmentType, onFulfillmentTypeChange, isPaid, isPartiallyPaid, balance, onOpenPaymentDialog, selectedDocumentType, onDocumentTypeChange, effectiveTotals }) {
+  const isDeliveryNote = selectedDocumentType === 'delivery_note';
+
+  // Use effective totals (adjusted for document type)
+  const displayTotal = effectiveTotals?.totalAmount || order.totalAmount || 0;
+  const displayIva = effectiveTotals?.ivaTotal ?? order.ivaTotal ?? 0;
+  const displayIgtf = effectiveTotals?.igtfTotal ?? order.igtfTotal ?? 0;
+  const displayTotalVes = effectiveTotals?.totalAmountVes || order.totalAmountVes || 0;
+  const impliedRate = order.totalAmount > 0 && order.totalAmountVes > 0
+    ? (order.totalAmountVes / order.totalAmount)
+    : 0;
 
   return (
     <div className="space-y-6">
+      {/* Document Type Selector */}
+      <div>
+        <Label className="text-sm font-semibold mb-2 block">Tipo de Documento Fiscal</Label>
+        <Select value={selectedDocumentType} onValueChange={onDocumentTypeChange}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="invoice">Factura</SelectItem>
+            <SelectItem value="delivery_note">Nota de Entrega</SelectItem>
+          </SelectContent>
+        </Select>
+        {isDeliveryNote && (
+          <div className="flex items-center gap-2 mt-2 p-2 rounded-md bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-xs">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" />
+            <span>Nota de Entrega: No aplica IVA ni IGTF. El monto a cobrar se ajusta automáticamente.</span>
+          </div>
+        )}
+      </div>
+
       {/* Products Section */}
       <div>
         <h3 className="text-sm font-semibold mb-2">Productos</h3>
@@ -580,13 +658,23 @@ function Step1SummaryAndPayment({ order, fulfillmentType, onFulfillmentTypeChang
             <span>{formatCurrency(order.subtotal)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">IVA (16%):</span>
-            <span>{formatCurrency(order.ivaTotal)}</span>
+            <span className={`text-muted-foreground ${isDeliveryNote ? 'line-through' : ''}`}>
+              {isDeliveryNote ? 'IVA:' : 'IVA (16%):'}
+            </span>
+            <span className={isDeliveryNote ? 'line-through text-muted-foreground' : ''}>
+              {formatCurrency(displayIva)}
+            </span>
           </div>
-          {order.igtfTotal > 0 && (
+          {(order.igtfTotal > 0 || displayIgtf > 0) && !isDeliveryNote && (
             <div className="flex justify-between text-orange-600">
               <span>IGTF (3%):</span>
-              <span>{formatCurrency(order.igtfTotal)}</span>
+              <span>{formatCurrency(displayIgtf)}</span>
+            </div>
+          )}
+          {isDeliveryNote && order.igtfTotal > 0 && (
+            <div className="flex justify-between text-muted-foreground">
+              <span className="line-through">IGTF (3%):</span>
+              <span className="line-through">{formatCurrency(0)}</span>
             </div>
           )}
           <div className="flex justify-between">
@@ -596,19 +684,21 @@ function Step1SummaryAndPayment({ order, fulfillmentType, onFulfillmentTypeChang
           <Separator className="my-2" />
           <div className="flex justify-between text-base font-bold">
             <span>Total:</span>
-            <span>{formatCurrency(order.totalAmount)}</span>
+            <span>{formatCurrency(displayTotal)}</span>
           </div>
 
           {/* BCV Conversion Display */}
-          {totalAmountVes > 0 && (
+          {displayTotalVes > 0 && (
             <>
-              <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                <span>Tasa BCV:</span>
-                <span>Bs. {impliedRate.toFixed(2)}</span>
-              </div>
+              {impliedRate > 0 && (
+                <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                  <span>Tasa BCV:</span>
+                  <span>Bs. {impliedRate.toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm font-semibold text-blue-600 dark:text-blue-400 mt-1">
                 <span>Total en Bs.:</span>
-                <span>Bs. {totalAmountVes.toFixed(2)}</span>
+                <span>Bs. {displayTotalVes.toFixed(2)}</span>
               </div>
             </>
           )}
