@@ -27,7 +27,7 @@ export class BillingAccountingListener {
   constructor(
     private readonly accountingService: AccountingService,
     private readonly ivaSalesBookService: IvaSalesBookService,
-  ) {}
+  ) { }
 
   /**
    * Escucha emisión de documentos de facturación y crea automáticamente:
@@ -121,7 +121,7 @@ export class BillingAccountingListener {
   private async registerInSalesBook(event: BillingIssuedEvent) {
     // Validar RIF del cliente antes de proceder
     const customerRif = event.customerRif || "J-00000000-0";
-    if (!IvaSalesBookService.validateRIF(customerRif)) {
+    if (!/^[VEJPG]-\d{8,9}-\d$/.test(customerRif)) {
       this.logger.warn(
         `  ⚠️  RIF inválido para ${event.documentNumber}: "${customerRif}". Se registrará de todas formas.`,
       );
