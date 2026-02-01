@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Card,
   CardContent,
@@ -44,6 +45,10 @@ import {
   Eye,
   Loader2,
   FileSpreadsheet,
+  Send,
+  Wrench,
+  ExternalLink,
+  Plus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -52,8 +57,10 @@ import {
   validateDocumentForSENIAT,
   generateSeniatXML,
   downloadSeniatXML,
+  api,
 } from '../../lib/api';
 import SeniatValidation from './SeniatValidation';
+import InvoiceDeliveryDialog from '../billing/InvoiceDeliveryDialog';
 
 const ElectronicInvoicesManager = () => {
   const [loading, setLoading] = useState(false);
@@ -71,6 +78,8 @@ const ElectronicInvoicesManager = () => {
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [qrData, setQrData] = useState(null);
+  const [showDeliveryDialog, setShowDeliveryDialog] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -113,8 +122,6 @@ const ElectronicInvoicesManager = () => {
     }
   };
 
-  const loadStats = loadData;
-
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
   };
@@ -126,9 +133,9 @@ const ElectronicInvoicesManager = () => {
 
   const handleGenerateXML = async (documentId) => {
     try {
-      const result = await generateSeniatXML(documentId);
+      await generateSeniatXML(documentId);
       toast.success('XML generado correctamente');
-      loadStats();
+      loadData();
     } catch (error) {
       console.error('Error generating XML:', error);
       toast.error(error.message || 'Error al generar XML');
@@ -139,13 +146,13 @@ const ElectronicInvoicesManager = () => {
     try {
       const blob = await downloadSeniatXML(documentId);
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = window.document.createElement('a');
       a.href = url;
       a.download = `factura-${documentNumber}.xml`;
-      document.body.appendChild(a);
+      window.document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      a.remove();
       toast.success('XML descargado correctamente');
     } catch (error) {
       console.error('Error downloading XML:', error);
@@ -159,10 +166,34 @@ const ElectronicInvoicesManager = () => {
         qrCode: invoice.seniat.qrCode,
         verificationUrl: invoice.seniat.verificationUrl,
         documentNumber: invoice.documentNumber,
+        controlNumber: invoice.controlNumber,
       });
       setQrDialogOpen(true);
     } else {
       toast.warning('Este documento no tiene código QR generado');
+    }
+  };
+
+  const handleDeliverInvoice = (doc) => {
+    setSelectedInvoice(doc);
+    setShowDeliveryDialog(true);
+  };
+
+  const handleRepairInvoices = async () => {
+    try {
+      setLoading(true);
+      const response = await api.post('/billing/repair-invoices');
+      if (response.success) {
+        toast.success(`Reparación completada. ${response.repaired} facturas corregidas.`);
+        loadData();
+      } else {
+        toast.warning('La reparación finalizó pero revisa los logs.');
+      }
+    } catch (error) {
+      console.error('Error repairing invoices:', error);
+      toast.error('Error al intentar reparar facturas');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -174,14 +205,18 @@ const ElectronicInvoicesManager = () => {
     }).format(amount);
   };
 
-  const getStatusColor = (status) => {
-    const colors = {
-      draft: 'secondary',
-      issued: 'default',
-      sent: 'outline',
-      validated: 'default',
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      draft: { label: 'Borrador', variant: 'secondary' },
+      validated: { label: 'Validado', variant: 'outline' },
+      sent_to_imprenta: { label: 'Enviando...', variant: 'default' },
+      issued: { label: 'Emitida', variant: 'default' },
+      sent: { label: 'Enviada', variant: 'outline' },
+      closed: { label: 'Cerrada', variant: 'secondary' },
+      archived: { label: 'Archivada', variant: 'secondary' },
     };
-    return colors[status] || 'secondary';
+    const config = statusConfig[status] || { label: status, variant: 'secondary' };
+    return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
   const getDocumentTypeLabel = (type) => {
@@ -189,18 +224,45 @@ const ElectronicInvoicesManager = () => {
       invoice: 'Facturas',
       credit_note: 'Notas de Crédito',
       debit_note: 'Notas de Débito',
+      delivery_note: 'Notas de Entrega',
     };
     return labels[type] || type;
   };
 
+  const docTypeLabels = {
+    invoice: 'Factura',
+    credit_note: 'N. Crédito',
+    debit_note: 'N. Débito',
+    delivery_note: 'N. Entrega',
+    quote: 'Cotización',
+  };
+
   return (
     <div className="space-y-6">
+      {/* Header with actions */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Facturas Electrónicas SENIAT</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Facturación Electrónica</h2>
           <p className="text-muted-foreground">
-            Gestión de facturación electrónica según normativa SENIAT
+            Gestión de documentos fiscales electrónicos SENIAT
           </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleRepairInvoices} disabled={loading}>
+            <Wrench className="mr-2 h-4 w-4" />
+            Reparar
+          </Button>
+          <Link to="/billing/sequences">
+            <Button variant="outline" size="sm">
+              Series
+            </Button>
+          </Link>
+          <Link to="/billing/create">
+            <Button size="sm">
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva Factura
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -330,12 +392,13 @@ const ElectronicInvoicesManager = () => {
                   <SelectItem value="invoice">Factura</SelectItem>
                   <SelectItem value="credit_note">Nota de Crédito</SelectItem>
                   <SelectItem value="debit_note">Nota de Débito</SelectItem>
+                  <SelectItem value="delivery_note">Nota de Entrega</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="flex items-end">
-              <Button onClick={loadStats} disabled={loading} className="w-full">
+              <Button onClick={loadData} disabled={loading} className="w-full">
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -377,10 +440,10 @@ const ElectronicInvoicesManager = () => {
         </Card>
       )}
 
-      {/* Invoice Table */}
+      {/* Documents Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Historial de Facturas Electrónicas</CardTitle>
+          <CardTitle>Documentos</CardTitle>
           <CardDescription>
             {invoices.length > 0
               ? `${invoices.length} documento(s) encontrado(s)`
@@ -409,118 +472,126 @@ const ElectronicInvoicesManager = () => {
                     <TableCell colSpan={9} className="text-center py-12">
                       <FileText className="mx-auto h-12 w-12 text-muted-foreground/50" />
                       <p className="mt-4 text-muted-foreground">
-                        No hay facturas en el rango de fechas seleccionado.
+                        No hay documentos en el rango seleccionado.
                       </p>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  invoices.map((inv) => {
-                    const docTypeLabels = {
-                      invoice: 'Factura',
-                      credit_note: 'N. Crédito',
-                      debit_note: 'N. Débito',
-                      delivery_note: 'N. Entrega',
-                      quote: 'Cotización',
-                    };
-                    return (
-                      <TableRow key={inv._id}>
-                        <TableCell className="font-medium">
-                          {inv.documentNumber}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {docTypeLabels[inv.type] || inv.type}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div>{inv.customer?.name || '—'}</div>
-                          {inv.customer?.taxId && (
-                            <div className="text-xs text-muted-foreground">
-                              {inv.customer.taxId}
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {inv.issueDate
-                            ? new Date(inv.issueDate).toLocaleDateString('es-VE')
-                            : inv.createdAt
-                              ? new Date(inv.createdAt).toLocaleDateString('es-VE')
-                              : '—'}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {inv.totals?.grandTotal != null
-                            ? `$${inv.totals.grandTotal.toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
+                  invoices.map((inv) => (
+                    <TableRow key={inv._id}>
+                      <TableCell className="font-medium">
+                        {inv.documentNumber}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {docTypeLabels[inv.type] || inv.type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div>{inv.customer?.name || '—'}</div>
+                        {inv.customer?.taxId && (
+                          <div className="text-xs text-muted-foreground">
+                            {inv.customer.taxId}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {inv.issueDate
+                          ? new Date(inv.issueDate).toLocaleDateString('es-VE')
+                          : inv.createdAt
+                            ? new Date(inv.createdAt).toLocaleDateString('es-VE')
                             : '—'}
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {inv.totalsVes?.grandTotal != null
-                            ? `Bs. ${inv.totalsVes.grandTotal.toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
-                            : '—'}
-                        </TableCell>
-                        <TableCell>
-                          {inv.controlNumber ? (
-                            <span className="text-xs font-mono">{inv.controlNumber}</span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">Sin control</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={getStatusColor(inv.status)}>
-                            {inv.status === 'draft'
-                              ? 'Borrador'
-                              : inv.status === 'issued'
-                                ? 'Emitida'
-                                : inv.status === 'sent'
-                                  ? 'Enviada'
-                                  : inv.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center justify-center gap-1">
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {inv.totals?.grandTotal != null
+                          ? `$${inv.totals.grandTotal.toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
+                          : '—'}
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {inv.totalsVes?.grandTotal != null
+                          ? `Bs. ${inv.totalsVes.grandTotal.toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
+                          : '—'}
+                      </TableCell>
+                      <TableCell>
+                        {inv.controlNumber ? (
+                          <span className="text-xs font-mono">{inv.controlNumber}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Sin control</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {getStatusBadge(inv.status)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-center gap-1">
+                          {/* Validar SENIAT */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Validar SENIAT"
+                            onClick={() => handleValidate(inv)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {/* Entregar factura (solo emitidas) */}
+                          {inv.status === 'issued' && (
                             <Button
                               variant="ghost"
                               size="icon"
-                              title="Validar SENIAT"
-                              onClick={() => handleValidate(inv)}
+                              title="Entregar factura"
+                              onClick={() => handleDeliverInvoice(inv)}
                             >
-                              <Eye className="h-4 w-4" />
+                              <Send className="h-4 w-4" />
                             </Button>
-                            {inv.seniat?.xmlGenerated ? (
+                          )}
+                          {/* Descargar / Generar XML */}
+                          {inv.seniat?.xmlGenerated ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Descargar XML"
+                              onClick={() => handleDownloadXML(inv._id, inv.documentNumber)}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            inv.status === 'issued' && (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                title="Descargar XML"
-                                onClick={() => handleDownloadXML(inv._id, inv.documentNumber)}
+                                title="Generar XML"
+                                onClick={() => handleGenerateXML(inv._id)}
                               >
-                                <Download className="h-4 w-4" />
+                                <FileSpreadsheet className="h-4 w-4" />
                               </Button>
-                            ) : (
-                              inv.status === 'issued' && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  title="Generar XML"
-                                  onClick={() => handleGenerateXML(inv._id)}
-                                >
-                                  <FileSpreadsheet className="h-4 w-4" />
-                                </Button>
-                              )
-                            )}
-                            {inv.seniat?.qrCode && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                title="Ver QR"
-                                onClick={() => handleShowQR(inv)}
-                              >
-                                <QrCode className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
+                            )
+                          )}
+                          {/* Ver QR */}
+                          {inv.seniat?.qrCode && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Ver QR"
+                              onClick={() => handleShowQR(inv)}
+                            >
+                              <QrCode className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {/* Verificar en SENIAT */}
+                          {(inv.seniat?.verificationUrl || inv.taxInfo?.verificationUrl) && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Verificar en SENIAT"
+                              onClick={() => window.open(inv.seniat?.verificationUrl || inv.taxInfo?.verificationUrl, '_blank')}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>
@@ -543,7 +614,7 @@ const ElectronicInvoicesManager = () => {
               document={selectedDocument}
               onValidationComplete={(result) => {
                 if (result.valid) {
-                  loadStats();
+                  loadData();
                 }
               }}
             />
@@ -562,7 +633,7 @@ const ElectronicInvoicesManager = () => {
           <DialogHeader>
             <DialogTitle>Código QR - {qrData?.documentNumber}</DialogTitle>
             <DialogDescription>
-              Código QR para verificación de documento
+              Escanea para verificar en SENIAT
             </DialogDescription>
           </DialogHeader>
           {qrData && (
@@ -572,14 +643,22 @@ const ElectronicInvoicesManager = () => {
                 alt="QR Code"
                 className="max-w-full h-auto rounded-lg"
               />
+              {qrData.controlNumber && (
+                <p className="text-sm text-muted-foreground">
+                  Control: <span className="font-mono">{qrData.controlNumber}</span>
+                </p>
+              )}
               {qrData.verificationUrl && (
                 <div className="w-full text-center">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    URL de Verificación:
-                  </p>
-                  <div className="bg-muted p-3 rounded-md break-all text-sm">
-                    {qrData.verificationUrl}
-                  </div>
+                  <a
+                    href={qrData.verificationUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:underline inline-flex items-center gap-1"
+                  >
+                    Verificar en SENIAT
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
                 </div>
               )}
             </div>
@@ -591,6 +670,15 @@ const ElectronicInvoicesManager = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Invoice Delivery Dialog */}
+      <InvoiceDeliveryDialog
+        isOpen={showDeliveryDialog}
+        onClose={() => setShowDeliveryDialog(false)}
+        invoice={selectedInvoice}
+        customerEmail={selectedInvoice?.customer?.email}
+        customerPhone={selectedInvoice?.customer?.phone}
+      />
     </div>
   );
 };

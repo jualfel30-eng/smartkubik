@@ -490,18 +490,14 @@ function TenantLayout() {
       permission: 'accounting_read',
       children: [
         { name: 'Facturación Electrónica', href: 'accounting?tab=electronic-invoices', icon: Receipt },
-        { name: 'Integración Billing', href: 'accounting?tab=billing-dashboard', icon: Sparkles },
-        { name: 'Libro de Ventas', href: 'accounting?tab=sales-book', icon: BookOpen },
         { name: 'Libro Diario', href: 'accounting?tab=journal', icon: FileText },
         { name: 'Libro Mayor', href: 'accounting?tab=general-ledger', icon: BookOpen },
-        { name: 'Balance de Comprobación', href: 'accounting?tab=trial-balance', icon: BarChart3 },
+        { name: 'Libro de Ventas', href: 'accounting?tab=sales-book', icon: BookOpen },
         { name: 'Declaración IVA', href: 'accounting?tab=iva-declaration', icon: FileText },
         { name: 'Retenciones ISLR', href: 'accounting?tab=islr-withholding', icon: FileText },
+        { name: 'Balance de Comprobación', href: 'accounting?tab=trial-balance', icon: BarChart3 },
         { name: 'Estado de Resultados', href: 'accounting?tab=profit-loss', icon: TrendingUp },
         { name: 'Balance General', href: 'accounting?tab=balance-sheet', icon: AreaChart },
-        { name: 'Plan de Cuentas', href: 'accounting?tab=chart-of-accounts', icon: List },
-        { name: 'Períodos Contables', href: 'accounting?tab=periods', icon: Calendar },
-        { name: 'Asientos Recurrentes', href: 'accounting?tab=recurring-entries', icon: RefreshCw },
         { name: 'Informes', href: 'accounting?tab=reports', icon: FileText },
       ]
     },
@@ -561,17 +557,7 @@ function TenantLayout() {
     { name: 'Comisiones y Metas', href: 'commissions', icon: HandCoins, permission: 'commissions_read', requiresModule: 'commissions' },
     { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: CreditCard, permission: 'accounting_read', requiresModule: 'bankAccounts' },
     { name: 'Cierre de Caja', href: 'cash-register', icon: Receipt, permission: 'cash_register_read', requiresModule: 'cashRegister' },
-    {
-      name: 'Facturación Electrónica',
-      href: 'billing',
-      icon: FileText,
-      permission: 'billing_read',
-      children: [
-        { name: 'Dashboard', href: 'billing', icon: BarChart3 },
-        { name: 'Nueva Factura', href: 'billing/create', icon: Receipt },
-        { name: 'Series de Numeración', href: 'billing/sequences', icon: List },
-      ]
-    },
+    // Facturación Electrónica ahora vive dentro de Contabilidad General
     { name: 'Reportes', href: 'reports', icon: AreaChart, permission: 'reports_read' },
 
     // 4. Calendario
@@ -1141,7 +1127,7 @@ function TenantLayout() {
                 <Route path="accounting/recurring-entries" element={<RecurringEntries />} />
                 <Route path="accounting/electronic-invoices" element={<ElectronicInvoicesManager />} />
                 <Route path="accounting/islr-withholding" element={<IslrWithholdingList />} />
-                <Route path="billing" element={<BillingDashboard />} />
+                <Route path="billing" element={<Navigate to="/accounting?tab=electronic-invoices" replace />} />
                 <Route path="billing/create" element={<BillingCreateForm />} />
                 <Route path="billing/sequences" element={<BillingSequencesManager />} />
                 <Route path="billing/documents/:id" element={<BillingDocumentDetail />} />

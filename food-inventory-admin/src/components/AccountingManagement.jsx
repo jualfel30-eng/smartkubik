@@ -43,7 +43,6 @@ const TAB_GROUPS = [
     icon: FileText,
     tabs: [
       { id: 'electronic-invoices', label: 'Facturación Electrónica' },
-      { id: 'billing-dashboard', label: 'Integración Billing' },
     ],
   },
   {
@@ -63,6 +62,7 @@ const TAB_GROUPS = [
     tabs: [
       { id: 'iva-declaration', label: 'Declaración IVA' },
       { id: 'islr-withholding', label: 'Retenciones ISLR' },
+      { id: 'billing-dashboard', label: 'Integración Contable' },
     ],
   },
   {
@@ -166,9 +166,6 @@ const AccountingManagement = () => {
               <TabsContent value="electronic-invoices" className="space-y-4">
                 <ElectronicInvoicesManager />
               </TabsContent>
-              <TabsContent value="billing-dashboard">
-                <BillingComplianceDashboard />
-              </TabsContent>
 
               {/* Libros Contables */}
               <TabsContent value="journal">
@@ -195,6 +192,9 @@ const AccountingManagement = () => {
               </TabsContent>
               <TabsContent value="islr-withholding">
                 <IslrWithholdingList />
+              </TabsContent>
+              <TabsContent value="billing-dashboard">
+                <BillingComplianceDashboard />
               </TabsContent>
 
               {/* Estados Financieros */}
