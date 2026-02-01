@@ -462,11 +462,8 @@ export class BillingService {
       throw new NotFoundException('Documento no encontrado');
     }
 
-    // Convert to format expected by validation service
-    const validationDoc = this.mapToValidationFormat(doc);
-
-    // Run SENIAT validation
-    const result = await this.seniatValidation.validateForSENIAT(validationDoc);
+    // Run SENIAT validation directly on the document
+    const result = await this.seniatValidation.validateForSENIAT(doc as any);
 
     // Save validation errors in document if any
     if (!result.valid && result.errors.length > 0) {
@@ -815,13 +812,14 @@ export class BillingService {
       endDate: endDate.toISOString().split('T')[0],
     };
 
-    // Calculate amounts and group by type
+    // Calculate amounts and group by type (use VES amounts)
     documents.forEach((doc) => {
-      const total = doc.totals?.grandTotal || 0;
-      const taxAmount = (doc.totals?.taxes || []).reduce(
-        (sum, t) => sum + (t.amount || 0),
-        0,
-      );
+      const total = doc.totalsVes?.grandTotal || doc.totals?.grandTotal || 0;
+      const taxAmount = doc.totalsVes?.taxAmount ||
+        (doc.totals?.taxes || []).reduce(
+          (sum, t) => sum + (t.amount || 0),
+          0,
+        );
 
       stats.totalAmount += total;
       stats.totalTaxAmount += taxAmount;
@@ -848,7 +846,7 @@ export class BillingService {
           byMonth[monthKey] = { count: 0, amount: 0 };
         }
         byMonth[monthKey].count++;
-        byMonth[monthKey].amount += doc.totals?.grandTotal || 0;
+        byMonth[monthKey].amount += doc.totalsVes?.grandTotal || doc.totals?.grandTotal || 0;
       }
     });
 

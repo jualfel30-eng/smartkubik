@@ -1756,6 +1756,19 @@ export const downloadSeniatXML = async (documentId) => {
   return response.blob();
 };
 
+// List billing documents with filters
+export const listBillingDocuments = (filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.startDate) params.append('startDate', filters.startDate);
+  if (filters.endDate) params.append('endDate', filters.endDate);
+  if (filters.status) params.append('status', filters.status);
+  if (filters.documentType) params.append('documentType', filters.documentType);
+
+  return fetchApi(`/billing/documents?${params.toString()}`, {
+    method: 'GET',
+  });
+};
+
 // Get electronic invoice statistics
 export const getElectronicInvoiceStats = (filters = {}) => {
   const params = new URLSearchParams();

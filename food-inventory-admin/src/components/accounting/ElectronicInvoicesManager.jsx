@@ -48,6 +48,7 @@ import {
 import { toast } from 'sonner';
 import {
   getElectronicInvoiceStats,
+  listBillingDocuments,
   validateDocumentForSENIAT,
   generateSeniatXML,
   downloadSeniatXML,
@@ -72,35 +73,47 @@ const ElectronicInvoicesManager = () => {
   const [qrData, setQrData] = useState(null);
 
   useEffect(() => {
-    loadStats();
+    loadData();
   }, [filters]);
 
-  const loadStats = async () => {
+  const loadData = async () => {
     setLoading(true);
     try {
-      const data = await getElectronicInvoiceStats(filters);
-      setStats(data);
-    } catch (error) {
-      // Set default stats if endpoint doesn't exist yet (404)
-      if (error.message && (error.message.includes('404') || error.message.includes('Cannot GET'))) {
-        // Silently set default stats without logging errors
-        setStats({
-          totalInvoices: 0,
-          totalAmount: 0,
-          issuedInvoices: 0,
-          withXmlGenerated: 0,
-          totalTaxAmount: 0,
-          byDocumentType: {},
-        });
+      const [statsData, docsData] = await Promise.allSettled([
+        getElectronicInvoiceStats(filters),
+        listBillingDocuments(filters),
+      ]);
+
+      if (statsData.status === 'fulfilled') {
+        setStats(statsData.value);
       } else {
-        // Only log and show toast for non-404 errors
-        console.error('Error loading stats:', error);
-        toast.error('Error al cargar estadísticas');
+        const err = statsData.reason;
+        if (err?.message?.includes('404') || err?.message?.includes('Cannot GET')) {
+          setStats({
+            totalInvoices: 0,
+            totalAmount: 0,
+            issuedInvoices: 0,
+            withXmlGenerated: 0,
+            totalTaxAmount: 0,
+            byDocumentType: {},
+          });
+        }
       }
+
+      if (docsData.status === 'fulfilled') {
+        setInvoices(Array.isArray(docsData.value) ? docsData.value : []);
+      } else {
+        setInvoices([]);
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast.error('Error al cargar datos');
     } finally {
       setLoading(false);
     }
   };
+
+  const loadStats = loadData;
 
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
@@ -367,39 +380,148 @@ const ElectronicInvoicesManager = () => {
       {/* Invoice Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Facturas Electrónicas</CardTitle>
+          <CardTitle>Historial de Facturas Electrónicas</CardTitle>
+          <CardDescription>
+            {invoices.length > 0
+              ? `${invoices.length} documento(s) encontrado(s)`
+              : 'No hay documentos en el rango seleccionado'}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <Alert className="mb-4">
-            <FileSpreadsheet className="h-4 w-4" />
-            <AlertDescription>
-              Esta tabla mostrará las facturas electrónicas emitidas. Por ahora, utilice el módulo
-              de facturación para ver documentos individuales.
-            </AlertDescription>
-          </Alert>
-
           <div className="border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Número</TableHead>
+                  <TableHead>Tipo</TableHead>
                   <TableHead>Cliente</TableHead>
                   <TableHead>Fecha</TableHead>
-                  <TableHead className="text-right">Monto</TableHead>
+                  <TableHead className="text-right">Monto USD</TableHead>
+                  <TableHead className="text-right">Monto Bs.</TableHead>
                   <TableHead>Control</TableHead>
-                  <TableHead>XML</TableHead>
+                  <TableHead>Estado</TableHead>
                   <TableHead className="text-center">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
-                    <FileText className="mx-auto h-12 w-12 text-muted-foreground/50" />
-                    <p className="mt-4 text-muted-foreground">
-                      No hay datos para mostrar. Las facturas emitidas aparecerán aquí.
-                    </p>
-                  </TableCell>
-                </TableRow>
+                {invoices.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-12">
+                      <FileText className="mx-auto h-12 w-12 text-muted-foreground/50" />
+                      <p className="mt-4 text-muted-foreground">
+                        No hay facturas en el rango de fechas seleccionado.
+                      </p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  invoices.map((inv) => {
+                    const docTypeLabels = {
+                      invoice: 'Factura',
+                      credit_note: 'N. Crédito',
+                      debit_note: 'N. Débito',
+                      delivery_note: 'N. Entrega',
+                      quote: 'Cotización',
+                    };
+                    return (
+                      <TableRow key={inv._id}>
+                        <TableCell className="font-medium">
+                          {inv.documentNumber}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {docTypeLabels[inv.type] || inv.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div>{inv.customer?.name || '—'}</div>
+                          {inv.customer?.taxId && (
+                            <div className="text-xs text-muted-foreground">
+                              {inv.customer.taxId}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {inv.issueDate
+                            ? new Date(inv.issueDate).toLocaleDateString('es-VE')
+                            : inv.createdAt
+                              ? new Date(inv.createdAt).toLocaleDateString('es-VE')
+                              : '—'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {inv.totals?.grandTotal != null
+                            ? `$${inv.totals.grandTotal.toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
+                            : '—'}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {inv.totalsVes?.grandTotal != null
+                            ? `Bs. ${inv.totalsVes.grandTotal.toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
+                            : '—'}
+                        </TableCell>
+                        <TableCell>
+                          {inv.controlNumber ? (
+                            <span className="text-xs font-mono">{inv.controlNumber}</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Sin control</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusColor(inv.status)}>
+                            {inv.status === 'draft'
+                              ? 'Borrador'
+                              : inv.status === 'issued'
+                                ? 'Emitida'
+                                : inv.status === 'sent'
+                                  ? 'Enviada'
+                                  : inv.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Validar SENIAT"
+                              onClick={() => handleValidate(inv)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {inv.seniat?.xmlGenerated ? (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title="Descargar XML"
+                                onClick={() => handleDownloadXML(inv._id, inv.documentNumber)}
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              inv.status === 'issued' && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  title="Generar XML"
+                                  onClick={() => handleGenerateXML(inv._id)}
+                                >
+                                  <FileSpreadsheet className="h-4 w-4" />
+                                </Button>
+                              )
+                            )}
+                            {inv.seniat?.qrCode && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title="Ver QR"
+                                onClick={() => handleShowQR(inv)}
+                              >
+                                <QrCode className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
               </TableBody>
             </Table>
           </div>
