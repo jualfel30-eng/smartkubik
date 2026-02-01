@@ -844,26 +844,13 @@ export class OrdersService {
       );
     }
 
-    // Ejecutar contabilidad de forma asíncrona (no bloquear la respuesta)
-    setImmediate(async () => {
-      try {
-        await this.accountingService.createJournalEntryForSale(
-          savedOrder,
-          user.tenantId,
-        );
-        await this.accountingService.createJournalEntryForCOGS(
-          savedOrder,
-          user.tenantId,
-        );
-      } catch (accountingError) {
-        this.logger.error(
-          `Error en la contabilidad automática para la orden ${savedOrder.orderNumber}`,
-          accountingError.stack,
-        );
-      }
+    // Los asientos contables se generan SOLO desde la factura emitida
+    // (billing.document.issued → BillingAccountingListener)
+    // para evitar duplicidad y usar los montos VES ya calculados en la factura.
 
-      // Record transaction history if order is PAID (venta = pago)
-      if (savedOrder.paymentStatus === "paid") {
+    // Record transaction history if order is PAID (venta = pago)
+    if (savedOrder.paymentStatus === "paid") {
+      setImmediate(async () => {
         try {
           await this.transactionHistoryService.recordCustomerTransaction(
             savedOrder._id.toString(),
@@ -878,8 +865,8 @@ export class OrdersService {
             transactionError.stack,
           );
         }
-      }
-    });
+      });
+    }
 
     this.logger.log(`AutoReserve Check: ${createOrderDto.autoReserve}`);
 

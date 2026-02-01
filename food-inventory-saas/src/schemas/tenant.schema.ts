@@ -236,6 +236,10 @@ export class TenantSettings {
     printers?: {
       receiptPrinterIp?: string;
     };
+    /** Genera y emite factura automáticamente al pagar una orden */
+    autoInvoiceOnPayment?: boolean;
+    /** Tipo de documento a generar automáticamente */
+    autoInvoiceDocumentType?: "invoice" | "delivery_note";
   };
 }
 

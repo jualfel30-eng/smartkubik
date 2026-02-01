@@ -228,6 +228,26 @@ export class BillingService {
     doc.controlNumber = control.controlNumber || undefined;
     doc.status = "issued";
     doc.issueDate = new Date();
+
+    // Calcular y persistir montos en VES (fuente de verdad para contabilidad SENIAT)
+    const docCurrency = doc.totals?.currency || "VES";
+    const exRate: number =
+      docCurrency !== "VES" && (doc.totals?.exchangeRate ?? 0) > 0
+        ? (doc.totals!.exchangeRate as number)
+        : 1;
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const rawTaxAmount = (doc.totals?.taxes || []).reduce(
+      (s: number, t: any) => s + (t.amount || 0),
+      0,
+    );
+
+    doc.totalsVes = {
+      subtotal: round2((doc.totals?.subtotal || 0) * exRate),
+      taxAmount: round2(rawTaxAmount * exRate),
+      grandTotal: round2((doc.totals?.grandTotal || 0) * exRate),
+      exchangeRate: exRate,
+    };
+
     await doc.save();
 
     const hashPayload = createHash("sha256")
@@ -302,14 +322,6 @@ export class BillingService {
       tenantId,
     });
 
-    // Calcular totales para contabilidad
-    const taxAmount = (doc.totals?.taxes || []).reduce(
-      (sum, t) => sum + (t.amount || 0),
-      0,
-    );
-    const subtotal = doc.totals?.subtotal || 0;
-    const total = doc.totals?.grandTotal || 0;
-
     // Only listen for accounting integration if it is NOT a quote
     if (doc.type !== 'quote') {
       this.eventEmitter.emit("billing.document.issued", {
@@ -323,10 +335,17 @@ export class BillingService {
         customerName: doc.customer?.name,
         customerRif: doc.customer?.taxId,
         customerAddress: doc.customer?.address,
-        subtotal,
-        taxAmount,
-        total,
+        // Montos originales (moneda del documento)
+        subtotal: doc.totals?.subtotal || 0,
+        taxAmount: rawTaxAmount,
+        total: doc.totals?.grandTotal || 0,
         taxes: doc.totals?.taxes || [],
+        currency: docCurrency,
+        exchangeRate: exRate,
+        // Montos en VES pre-calculados (fuente de verdad para contabilidad)
+        subtotalVes: doc.totalsVes!.subtotal,
+        taxAmountVes: doc.totalsVes!.taxAmount,
+        totalVes: doc.totalsVes!.grandTotal,
       });
     }
 

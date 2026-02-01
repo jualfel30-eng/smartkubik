@@ -397,6 +397,25 @@ export class BillingPreferencesDto {
   @IsOptional()
   @IsBoolean()
   printLogoOnThermal?: boolean;
+
+  @ApiPropertyOptional({
+    example: true,
+    description:
+      "Genera y emite factura automáticamente al registrar pago completo de una orden",
+  })
+  @IsOptional()
+  @IsBoolean()
+  autoInvoiceOnPayment?: boolean;
+
+  @ApiPropertyOptional({
+    example: "invoice",
+    description:
+      "Tipo de documento fiscal a generar automáticamente: invoice (factura) o delivery_note (nota de entrega)",
+    enum: ["invoice", "delivery_note"],
+  })
+  @IsOptional()
+  @IsIn(["invoice", "delivery_note"])
+  autoInvoiceDocumentType?: "invoice" | "delivery_note";
 }
 
 export class NotificationSettingsDto {

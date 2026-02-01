@@ -51,6 +51,7 @@ import { SeniatExportService } from "./services/seniat-export.service";
 import { ImprentaProviderFactory } from "./providers/imprenta-provider.factory";
 import { ChatModule } from "../../chat/chat.module";
 import { InvoicePdfService } from "./invoice-pdf.service";
+import { AutoBillingListener } from "./listeners/auto-billing.listener";
 import { ExchangeRateModule } from "../exchange-rate/exchange-rate.module";
 
 @Module({
@@ -89,6 +90,7 @@ import { ExchangeRateModule } from "../exchange-rate/exchange-rate.module";
     BillingEvidencesService,
     SeniatValidationService,
     SeniatExportService,
+    AutoBillingListener,
   ],
   exports: [BillingService],
 })

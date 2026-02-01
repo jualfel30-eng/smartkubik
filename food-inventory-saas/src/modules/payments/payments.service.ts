@@ -713,7 +713,7 @@ export class PaymentsService {
   ): Promise<void> {
     const order = await this.orderModel
       .findById(orderId)
-      .select("payments paymentStatus totalAmount tenantId")
+      .select("payments paymentStatus totalAmount totalAmountVes tenantId orderNumber")
       .lean();
     if (!order) {
       throw new NotFoundException(`Order with ID ${orderId} not found.`);
@@ -773,33 +773,9 @@ export class PaymentsService {
     );
     this.logger.log(`Updated order ${orderId} with new payment ${payment._id}`);
 
-    // --- Automatic Journal Entry Creation ---
-    this.logger.log(
-      `[Accounting Hook] Attempting to create journal entry for sale payment ${payment._id}.`,
-    );
-    this.logger.debug(
-      `[Accounting Hook] Payment data: ${JSON.stringify(payment, null, 2)}`,
-    );
-    this.logger.debug(
-      `[Accounting Hook] Order data: ${JSON.stringify(order, null, 2)}`,
-    );
-    try {
-      // Note: The accounting service expects the embedded payment type, but our new PaymentDocument is compatible.
-      // We cast it to `any` to satisfy TypeScript for now. This is acceptable because the structure is correct.
-      await this.accountingService.createJournalEntryForPayment(
-        order,
-        payment as any,
-        tenantId,
-      );
-      this.logger.log(
-        `[Accounting Hook] SUCCESS: Journal entry created for sale payment ${payment._id}`,
-      );
-    } catch (accountingError) {
-      this.logger.error(
-        `[Accounting Hook] FAILED to create journal entry for sale payment ${payment._id}. The payment was processed correctly, but accounting needs review.`,
-        accountingError.stack,
-      );
-    }
+    // Los asientos contables se generan SOLO desde la factura emitida
+    // (billing.document.issued → BillingAccountingListener)
+    // para evitar duplicidad y usar los montos VES ya calculados en la factura.
   }
 
   private async handlePayablePayment(

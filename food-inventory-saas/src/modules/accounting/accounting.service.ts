@@ -44,7 +44,6 @@ export class AccountingService {
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
     @InjectModel(Payable.name) private payableModel: Model<PayableDocument>,
     @InjectModel(BillingDocument.name)
-    @InjectModel(BillingDocument.name)
     private billingModel: Model<BillingDocumentDocument>,
     @InjectModel(Payment.name) private paymentModel: Model<PaymentDocument>,
   ) { }
@@ -408,7 +407,7 @@ export class AccountingService {
       });
     }
 
-    // 3. Create and save the journal entry
+    // 4. Create and save the journal entry
     const entryDto: CreateJournalEntryDto = {
       date: new Date().toISOString(),
       description: `Asiento automático por venta de orden ${order.orderNumber}`,
@@ -766,6 +765,7 @@ export class AccountingService {
       ];
 
     if (igtfAmount > 0) {
+      // IGTF ya se calcula sobre el monto en VES
       const igtfExpenseAccount = await this.findOrCreateAccount(
         {
           code: "599",

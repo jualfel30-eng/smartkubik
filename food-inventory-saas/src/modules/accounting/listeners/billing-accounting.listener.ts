@@ -1,7 +1,13 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { OnEvent } from "@nestjs/event-emitter";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
 import { AccountingService } from "../accounting.service";
 import { IvaSalesBookService } from "../services/iva-sales-book.service";
+import {
+  BillingDocument,
+  BillingDocumentDocument,
+} from "../../../schemas/billing-document.schema";
 
 type BillingIssuedEvent = {
   documentId: string;
@@ -14,10 +20,17 @@ type BillingIssuedEvent = {
   customerName?: string;
   customerRif?: string;
   customerAddress?: string;
+  // Montos originales (moneda del documento)
   subtotal: number;
   taxAmount: number;
   total: number;
   taxes: Array<{ type: string; rate: number; amount: number }>;
+  currency: string;
+  exchangeRate: number;
+  // Montos en VES pre-calculados en issue() — fuente de verdad
+  subtotalVes: number;
+  taxAmountVes: number;
+  totalVes: number;
 };
 
 @Injectable()
@@ -27,41 +40,40 @@ export class BillingAccountingListener {
   constructor(
     private readonly accountingService: AccountingService,
     private readonly ivaSalesBookService: IvaSalesBookService,
-  ) { }
+    @InjectModel(BillingDocument.name)
+    private readonly billingDocumentModel: Model<BillingDocumentDocument>,
+  ) {}
 
   /**
    * Escucha emisión de documentos de facturación y crea automáticamente:
-   * 1. Asiento contable (débito CxC, crédito Ingresos + IVA)
+   * 1. Asiento contable en VES (débito CxC, crédito Ingresos + IVA)
    * 2. Entrada en Libro de Ventas IVA
    */
   @OnEvent("billing.document.issued")
   async handleBillingIssued(event: BillingIssuedEvent) {
     this.logger.log(
-      `📄 Procesando factura emitida: ${event.documentNumber} (${event.controlNumber})`,
+      `Procesando factura emitida: ${event.documentNumber} (${event.controlNumber}) ` +
+        `[${event.currency} @ ${event.exchangeRate}] → VES total: ${event.totalVes}`,
     );
 
     try {
-      // 1. Crear asiento contable
       await this.createJournalEntry(event);
-
-      // 2. Registrar en Libro de Ventas
       await this.registerInSalesBook(event);
 
       this.logger.log(
-        `✅ Factura ${event.documentNumber} procesada exitosamente`,
+        `Factura ${event.documentNumber} procesada exitosamente`,
       );
     } catch (error) {
       this.logger.error(
-        `❌ Error procesando factura ${event.documentNumber}: ${error.message}`,
+        `Error procesando factura ${event.documentNumber}: ${error.message}`,
       );
       throw error;
     }
   }
 
   /**
-   * Crea el asiento contable automático para la factura emitida
-   * Débito: 1102 Cuentas por Cobrar
-   * Crédito: 4101 Ingresos por Ventas + 2102 IVA por Pagar
+   * Crea el asiento contable usando los montos VES ya calculados en la factura.
+   * No recalcula nada — la factura es la fuente de verdad.
    */
   private async createJournalEntry(event: BillingIssuedEvent) {
     const lines: Array<{
@@ -71,32 +83,39 @@ export class BillingAccountingListener {
       description: string;
     }> = [];
 
-    // Tipo de documento determina el signo (credit_note invierte el asiento)
+    // credit_note invierte el asiento
     const isCredit = event.type === "credit_note";
     const multiplier = isCredit ? -1 : 1;
 
-    // Débito: Cuentas por Cobrar
+    const docLabel =
+      event.type === "invoice"
+        ? "Factura"
+        : event.type === "credit_note"
+          ? "Nota de Crédito"
+          : "Documento";
+
+    // Débito: Cuentas por Cobrar (monto total VES de la factura)
     lines.push({
-      accountId: "1102", // Cuentas por Cobrar
-      debit: event.total * multiplier,
+      accountId: "1102",
+      debit: event.totalVes * multiplier,
       credit: 0,
-      description: `${event.type === "invoice" ? "Factura" : event.type === "credit_note" ? "Nota de Crédito" : "Documento"} ${event.documentNumber}`,
+      description: `${docLabel} ${event.documentNumber}`,
     });
 
-    // Crédito: Ingresos por Ventas
+    // Crédito: Ingresos por Ventas (subtotal VES de la factura)
     lines.push({
-      accountId: "4101", // Ingresos por Ventas
+      accountId: "4101",
       debit: 0,
-      credit: event.subtotal * multiplier,
+      credit: event.subtotalVes * multiplier,
       description: `Venta ${event.customerName || "Cliente"}`,
     });
 
-    // Crédito: IVA por Pagar
-    if (event.taxAmount > 0) {
+    // Crédito: IVA por Pagar (IVA VES de la factura)
+    if (event.taxAmountVes > 0) {
       lines.push({
-        accountId: "2102", // IVA por Pagar
+        accountId: "2102",
         debit: 0,
-        credit: event.taxAmount * multiplier,
+        credit: event.taxAmountVes * multiplier,
         description: "IVA Débito Fiscal",
       });
     }
@@ -104,71 +123,41 @@ export class BillingAccountingListener {
     await this.accountingService.createJournalEntry(
       {
         date: event.issueDate,
-        description: `Factura ${event.documentNumber} - ${event.customerName || "Cliente"}`,
+        description: `${docLabel} ${event.documentNumber} - ${event.customerName || "Cliente"} (Bs. ${event.totalVes.toLocaleString("es-VE")})`,
         lines,
         isAutomatic: true,
       },
       event.tenantId,
     );
 
-    this.logger.log(`  ✓ Asiento contable creado para ${event.documentNumber}`);
+    this.logger.log(
+      `  Asiento contable creado: ${event.documentNumber} → Bs. ${event.totalVes}`,
+    );
   }
 
   /**
-   * Registra la factura en el Libro de Ventas IVA
-   * Valida RIF antes de crear la entrada
+   * Registra la factura en el Libro de Ventas IVA usando syncFromBillingDocument
    */
   private async registerInSalesBook(event: BillingIssuedEvent) {
-    // Validar RIF del cliente antes de proceder
-    const customerRif = event.customerRif || "J-00000000-0";
-    if (!/^[VEJPG]-\d{8,9}-\d$/.test(customerRif)) {
+    const billingDoc = await this.billingDocumentModel
+      .findById(event.documentId)
+      .lean();
+
+    if (!billingDoc) {
       this.logger.warn(
-        `  ⚠️  RIF inválido para ${event.documentNumber}: "${customerRif}". Se registrará de todas formas.`,
+        `BillingDocument ${event.documentId} no encontrado para registro en Libro de Ventas.`,
       );
+      return;
     }
 
-    // Extraer mes y año de la fecha de emisión
-    const issueDate = new Date(event.issueDate);
-    const month = issueDate.getMonth() + 1;
-    const year = issueDate.getFullYear();
-
-    // Obtener datos de IVA (asumiendo que el primer tax es IVA)
-    const ivaTax = event.taxes.find((t) => t.type === "IVA");
-    const ivaRate = ivaTax?.rate !== undefined ? ivaTax.rate : 16;
-    const ivaAmount = ivaTax?.amount !== undefined ? ivaTax.amount : event.taxAmount;
-
-    // Validar que el control number exista
-    if (!event.controlNumber) {
-      this.logger.warn(
-        `  ⚠️  Factura ${event.documentNumber} sin número de control SENIAT`,
-      );
-    }
-
-    await this.ivaSalesBookService.create(
-      {
-        month,
-        year,
-        operationDate: event.issueDate,
-        customerId: `BILLING-${event.documentId}`, // Usar documentId como referencia
-        customerName: event.customerName || "Cliente sin nombre",
-        customerRif,
-        customerAddress: event.customerAddress,
-        invoiceNumber: event.documentNumber,
-        invoiceControlNumber: event.controlNumber || "",
-        invoiceDate: event.issueDate,
-        transactionType: event.type === "invoice" ? "sale" : event.type === "credit_note" ? "credit_note" : "sale",
-        baseAmount: event.subtotal,
-        ivaRate,
-        ivaAmount,
-        totalAmount: event.total,
-        isElectronic: true, // SENIAT digital
-        electronicCode: event.controlNumber,
-      },
-      { tenantId: event.tenantId, _id: "system" } as any, // User system
+    await this.ivaSalesBookService.syncFromBillingDocument(
+      event.documentId,
+      billingDoc,
+      { tenantId: event.tenantId, _id: "system" } as any,
     );
 
     this.logger.log(
-      `  ✓ Entrada en Libro de Ventas creada para ${event.documentNumber}`,
+      `  Entrada en Libro de Ventas creada para ${event.documentNumber}`,
     );
   }
 }

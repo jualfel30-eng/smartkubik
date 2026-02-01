@@ -100,6 +100,15 @@ export class BillingDocument {
     exchangeRate?: number;
   };
 
+  /** Montos equivalentes en VES, calculados al emitir (issue) usando la tasa BCV del momento */
+  @Prop({ type: Object })
+  totalsVes?: {
+    subtotal: number;
+    taxAmount: number;
+    grandTotal: number;
+    exchangeRate: number;
+  };
+
   @Prop({
     type: [
       {
