@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useAuth } from '@/hooks/use-auth';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,8 @@ import {
     Printer
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+
+import { generateShippingLabelHTML } from './ShippingLabel';
 
 export const OrderFulfillmentCard = ({ order, onStatusUpdate }) => {
     const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
@@ -74,6 +77,19 @@ export const OrderFulfillmentCard = ({ order, onStatusUpdate }) => {
     const handlePrint = () => {
         // Use browser print for now, optimally would open specific invoice URL
         window.print();
+    };
+
+    const { tenant } = useAuth();
+
+    const handlePrintLabel = () => {
+        const labelHtml = generateShippingLabelHTML(order, tenant?.name);
+        const printWindow = window.open('', '_blank', 'width=600,height=600');
+        if (printWindow) {
+            printWindow.document.write(labelHtml);
+            printWindow.document.close();
+        } else {
+            alert('Por favor permite ventanas emergentes para imprimir la etiqueta.');
+        }
     };
 
     const isDelivery = order.fulfillmentType?.includes('delivery');
@@ -137,6 +153,12 @@ export const OrderFulfillmentCard = ({ order, onStatusUpdate }) => {
                 <Button variant="outline" size="icon" className="shrink-0" title="Imprimir" onClick={handlePrint}>
                     <Printer className="w-4 h-4" />
                 </Button>
+
+                {order.fulfillmentType === 'delivery_national' && (
+                    <Button variant="outline" size="icon" className="shrink-0" title="Imprimir Etiqueta de Envío" onClick={handlePrintLabel}>
+                        <Truck className="w-4 h-4" />
+                    </Button>
+                )}
 
                 {nextStatus[order.fulfillmentStatus] && (
                     <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
