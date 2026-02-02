@@ -267,7 +267,7 @@ export default function OrganizationSelector() {
       {/* Header */}
       <div className="border-b border-border bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <img src={logoSrc} alt="Smart Kubik" className="h-10 w-auto" />
+          <img src={logoSrc} alt="Smart Kubik" className="h-[30px] w-auto" />
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <Button variant="ghost" size="sm" onClick={handleLogout}>
@@ -331,8 +331,8 @@ export default function OrganizationSelector() {
                           </CardTitle>
                           <CardDescription className="text-xs mt-1">
                             {membership.role === 'owner' ? 'Propietario' :
-                             membership.role === 'admin' ? 'Administrador' :
-                             'Miembro'}
+                              membership.role === 'admin' ? 'Administrador' :
+                                'Miembro'}
                           </CardDescription>
                         </div>
                       </div>

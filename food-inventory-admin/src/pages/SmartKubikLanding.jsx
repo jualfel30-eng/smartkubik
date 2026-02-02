@@ -757,7 +757,8 @@ const SmartKubikLanding = () => {
                         <div id="nav-card" className="glass-card rounded-full px-6 py-3 flex justify-between items-center">
                             {/*  Logo  */}
                             <a href="#" className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer">
-                                <img src="/assets/logo-smartkubik.png" alt="SmartKubik Logo" className="h-8 w-auto" />
+                                <img src="/assets/logo-smartkubik.png" alt="SmartKubik Logo" className="h-[23px] w-auto" />
+
                             </a>
 
                             {/*  Nav Links - Desktop (V2 Style + New Links)  */}

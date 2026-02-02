@@ -116,8 +116,8 @@ function LoginV2() {
 
         {/* Logo - Top Left */}
         <div className="absolute top-0 left-0 px-6 py-12 lg:py-16 lg:px-6">
-          <img src={logoSmartKubik} alt="SmartKubik" className="h-12 w-auto hidden dark:block" />
-          <img src={logoSmartKubikLight} alt="SmartKubik" className="h-12 w-auto block dark:hidden" />
+          <img src={logoSmartKubik} alt="SmartKubik" className="h-9 w-auto hidden dark:block" />
+          <img src={logoSmartKubikLight} alt="SmartKubik" className="h-9 w-auto block dark:hidden" />
         </div>
 
         {/* Hero Section - Left Side */}
@@ -229,8 +229,8 @@ function LoginV2() {
               </div>
               {/* Logo at the very bottom */}
               <div className="flex justify-center mt-8">
-                <img src={logoSmartKubik} alt="SmartKubik" className="h-8 w-auto opacity-70 hidden dark:block" />
-                <img src={logoSmartKubikLight} alt="SmartKubik" className="h-8 w-auto opacity-70 block dark:hidden" />
+                <img src={logoSmartKubik} alt="SmartKubik" className="h-6 w-auto opacity-70 hidden dark:block" />
+                <img src={logoSmartKubikLight} alt="SmartKubik" className="h-6 w-auto opacity-70 block dark:hidden" />
               </div>
             </CardContent>
           </Card>
