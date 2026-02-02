@@ -19,7 +19,7 @@ export const PAYROLL_SYSTEM_ACCOUNTS: SystemAccountBlueprint[] = [
     metadata: { payrollCategory: "salary" },
   },
   {
-    code: "2103",
+    code: "2110",
     name: "Sueldos y Salarios por Pagar",
     type: "Pasivo",
     isSystemAccount: true,

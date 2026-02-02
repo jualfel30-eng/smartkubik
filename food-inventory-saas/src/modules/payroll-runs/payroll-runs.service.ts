@@ -84,6 +84,7 @@ import { TipsService } from "../tips/tips.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { CommissionService } from "../commissions/services/commission.service";
 import { BonusService } from "../commissions/services/bonus.service";
+import { ExchangeRateService } from "../exchange-rate/exchange-rate.service";
 
 type LeanEmployeeProfile = EmployeeProfile & {
   _id: Types.ObjectId;
@@ -170,6 +171,7 @@ export class PayrollRunsService {
     private readonly eventEmitter: EventEmitter2,
     private readonly commissionService: CommissionService,
     private readonly bonusService: BonusService,
+    private readonly exchangeRateService: ExchangeRateService,
   ) { }
 
   private toObjectId(id: string | Types.ObjectId) {
@@ -325,23 +327,49 @@ export class PayrollRunsService {
     const applyIgtf = Boolean(dto.applyIgtf);
     const igtfRate = dto.igtfRate ?? 0.03;
 
+    // Auto-fetch BCV rate for VES payments
+    let exchangeRate = dto.exchangeRate;
+    if (dto.currency === "VES" && !exchangeRate) {
+      try {
+        const rateData = await this.exchangeRateService.getBCVRate();
+        exchangeRate = rateData.rate;
+        this.logger.log(
+          `Payroll VES payment: BCV rate ${exchangeRate} (source: ${rateData.source})`,
+        );
+      } catch (error) {
+        this.logger.warn(
+          "Failed to get BCV rate for VES payroll payment",
+          error,
+        );
+        throw new BadRequestException(
+          "No se pudo obtener la tasa BCV para calcular el pago en VES.",
+        );
+      }
+    }
+
     for (const payable of payablesMeta) {
       if (!payable.payableId) {
         continue;
       }
-      const baseAmount = payable.netPay || run.netPay || 0;
+      const baseAmountUSD = payable.netPay || run.netPay || 0;
       const igtfAmount =
         applyIgtf && dto.currency === "USD"
-          ? parseFloat((baseAmount * igtfRate).toFixed(2))
+          ? parseFloat((baseAmountUSD * igtfRate).toFixed(2))
           : 0;
-      const totalAmount = baseAmount + igtfAmount;
+      const totalAmountUSD = baseAmountUSD + igtfAmount;
+
+      const isVes = dto.currency === "VES";
+      const amountVes = isVes && exchangeRate
+        ? parseFloat((totalAmountUSD * exchangeRate).toFixed(2))
+        : undefined;
+
       const paymentDto: CreatePaymentDto = {
         paymentType: "payable",
         payableId: payable.payableId,
         date: paymentDate.toISOString(),
-        amount: totalAmount,
-        amountVes: dto.currency === "VES" ? totalAmount : undefined,
-        exchangeRate: dto.exchangeRate as any,
+        amount: totalAmountUSD,
+        amountVes,
+        exchangeRate: exchangeRate as any,
         method: dto.method,
         currency: dto.currency,
         reference: dto.reference,
@@ -356,6 +384,8 @@ export class PayrollRunsService {
         paymentId: (payment as any)?._id?.toString?.(),
         payableId: payable.payableId,
         amount: payment.amount,
+        amountVes: amountVes || undefined,
+        exchangeRate: exchangeRate || undefined,
         igtf: igtfAmount,
         method: payment.method,
         currency: payment.currency,
@@ -1566,16 +1596,16 @@ export class PayrollRunsService {
       if (concept.conceptType === "earning") {
         if (bonusCodes.includes(code)) {
           debit = dto.bonusDebit || "5207";
-          credit = dto.bonusCredit || "2103";
+          credit = dto.bonusCredit || "2110";
         } else if (severanceCodes.includes(code)) {
           debit = dto.severanceDebit || "5205";
           credit = dto.severanceCredit || "2104";
         } else if (earningsCodes.length === 0 || earningsCodes.includes(code)) {
           debit = dto.earningsDebit || "5201";
-          credit = dto.earningsCredit || "2103";
+          credit = dto.earningsCredit || "2110";
         }
       } else if (concept.conceptType === "deduction") {
-        debit = dto.deductionsDebit || "2103";
+        debit = dto.deductionsDebit || "2110";
         credit = dto.deductionsCredit || "2102";
       } else if (concept.conceptType === "employer") {
         debit = dto.employerDebit || "5206";
@@ -2222,10 +2252,25 @@ export class PayrollRunsService {
 
     const missingAccounts: string[] = [];
     entries.forEach((entry) => {
-      const concept = conceptMap.get(entry.conceptCode);
+      let concept = conceptMap.get(entry.conceptCode);
+
+      // Si el concepto no existe en la BD (ej. BASE_PAY generado internamente),
+      // crear uno virtual para resolver cuentas por defecto
       if (!concept) {
-        missingAccounts.push(entry.conceptCode || "concepto_sin_codigo");
-        return;
+        const virtualConcept = {
+          code: entry.conceptCode || "concepto_sin_codigo",
+          conceptType: entry.conceptType || "earning",
+        } as LeanPayrollConcept;
+        const fallback = this.getDefaultAccountsForConcept(virtualConcept);
+        if (fallback.debit && fallback.credit) {
+          (virtualConcept as any).debitAccountId = fallback.debit;
+          (virtualConcept as any).creditAccountId = fallback.credit;
+          conceptMap.set(virtualConcept.code, virtualConcept);
+          concept = virtualConcept;
+        } else {
+          missingAccounts.push(entry.conceptCode || "concepto_sin_codigo");
+          return;
+        }
       }
 
       // Si falta mapeo, calcula cuentas por defecto según tipo/código
@@ -2265,7 +2310,7 @@ export class PayrollRunsService {
       prestacionesGasto: "5205",
       seguridadSocialGasto: "5206",
       bonos: "5207",
-      sueldosPorPagar: "2103",
+      sueldosPorPagar: "2110",
       prestacionesPorPagar: "2104",
       ssAportesPorPagar: "2105",
       faovParoPorPagar: "2106",
@@ -2603,13 +2648,13 @@ export class PayrollRunsService {
     const account = await this.chartModel
       .findOne({
         tenantId,
-        $or: [{ "metadata.payrollCategory": "net_pay" }, { code: "2103" }],
+        $or: [{ "metadata.payrollCategory": "net_pay" }, { code: "2110" }],
       })
       .select(["_id"])
       .lean();
     if (!account?._id) {
       throw new BadRequestException(
-        "No se encontró la cuenta de sueldos por pagar (2103) para generar el payable de nómina.",
+        "No se encontró la cuenta de sueldos por pagar (2110) para generar el payable de nómina.",
       );
     }
     return account._id.toString();
@@ -2801,10 +2846,10 @@ export class PayrollRunsService {
       return { debit: "5205", credit: "2104" };
     }
     if (type === "vacation_bonus") {
-      return { debit: "5201", credit: "2103" };
+      return { debit: "5201", credit: "2110" };
     }
     // bonus / thirteenth
-    return { debit: "5207", credit: "2103" };
+    return { debit: "5207", credit: "2110" };
   }
 
   private async createPayableForSpecialRun(

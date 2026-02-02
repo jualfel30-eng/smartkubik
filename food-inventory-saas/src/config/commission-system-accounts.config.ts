@@ -122,6 +122,6 @@ export const COMMISSION_ACCOUNT_CODES = {
   BONUS_EXPENSE: "5302",
 
   // Referencia a cuentas existentes (de payroll)
-  SALARIES_PAYABLE: "2103", // Para reverso al pagar nómina
+  SALARIES_PAYABLE: "2110", // Para reverso al pagar nómina
   CASH_BANK: "1101", // Para registro de propinas en efectivo
 } as const;
