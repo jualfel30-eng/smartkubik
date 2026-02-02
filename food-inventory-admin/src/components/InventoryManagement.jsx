@@ -12,6 +12,7 @@ import { SearchableSelect } from '@/components/orders/v2/custom/SearchableSelect
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu.jsx';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert.jsx';
 import { ExportOptionsDialog } from './ExportOptionsDialog';
+import { ShelfLabelWizard } from './inventory/ShelfLabelWizard';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { fetchApi } from '../lib/api';
@@ -34,7 +35,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   MapPin,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Printer
 } from 'lucide-react';
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
@@ -96,6 +98,8 @@ function InventoryManagement() {
     sellingPrice: false,
     totalValue: false
   });
+
+  const [isLabelWizardOpen, setIsLabelWizardOpen] = useState(false);
 
   // Estados para transferencias
   const [warehouses, setWarehouses] = useState([]);
@@ -1257,6 +1261,9 @@ function InventoryManagement() {
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             {loading ? 'Actualizando...' : 'Actualizar'}
           </Button>
+          <Button variant="secondary" size="sm" onClick={() => setIsLabelWizardOpen(true)} className="w-full sm:w-auto">
+            <Printer className="h-4 w-4 mr-2" /> Imprimir Etiquetas
+          </Button>
         </div>
         <div className="space-y-4">
           {inventoryAttributeColumns.length > 0 && (
@@ -2176,6 +2183,10 @@ function InventoryManagement() {
         onExport={handleConfirmExport}
         columns={getExportColumns()}
         title={exportFormat === 'xlsx' ? "Exportar a Excel" : "Exportar a CSV"}
+      />
+      <ShelfLabelWizard
+        isOpen={isLabelWizardOpen}
+        onClose={() => setIsLabelWizardOpen(false)}
       />
     </div>
   );
