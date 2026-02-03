@@ -9,6 +9,9 @@ export const ACCOUNT_TYPES = [
   "Gasto",
 ];
 
+export const COST_BEHAVIORS = ["fixed", "variable", "mixed"] as const;
+export const LIQUIDITY_CLASSES = ["current", "non_current"] as const;
+
 export type ChartOfAccountsDocument = ChartOfAccounts & Document;
 
 @Schema({ timestamps: true })
@@ -33,6 +36,20 @@ export class ChartOfAccounts {
 
   @Prop({ type: Boolean, default: true })
   isEditable?: boolean;
+
+  @Prop({
+    type: String,
+    enum: [...COST_BEHAVIORS, null],
+    default: null,
+  })
+  costBehavior?: string;
+
+  @Prop({
+    type: String,
+    enum: [...LIQUIDITY_CLASSES, null],
+    default: null,
+  })
+  liquidityClass?: string;
 
   @Prop({ type: Object })
   metadata?: Record<string, any>;

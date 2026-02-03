@@ -47,6 +47,7 @@ import { EmployeePerformanceChart } from '@/components/charts/EmployeePerformanc
 import { InventoryAttributeTable } from '@/components/tables/InventoryAttributeTable.jsx';
 import { SalesAttributeTable } from '@/components/tables/SalesAttributeTable.jsx';
 import { RubikLoader } from './RubikLoader';
+import { FinancialKpisDashboard } from '@/components/charts/FinancialKpisDashboard.jsx';
 
 const statusMap = {
   draft: { label: 'Borrador', colorClassName: 'bg-gray-200 text-gray-800' },
@@ -231,6 +232,9 @@ function DashboardView() {
           </Card>
         </div>
       )}
+
+      {/* KPIs Financieros - Vista ejecutiva para dueños de negocio */}
+      <FinancialKpisDashboard />
 
       {flags.DASHBOARD_CHARTS ? (
         <div className="space-y-6">

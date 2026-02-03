@@ -157,6 +157,8 @@ const TimeClock = lazy(() => import('./pages/TimeClock.jsx'));
 const DocsArticle = lazy(() => import('./pages/DocsArticle.jsx'));
 const ComprasManagement = lazy(() => import('@/components/ComprasManagement.jsx'));
 const BankAccountsManagement = lazy(() => import('@/components/BankAccountsManagement.jsx'));
+const FixedAssetsView = lazy(() => import('@/components/FixedAssetsView.jsx'));
+const InvestmentsView = lazy(() => import('@/components/InvestmentsView.jsx'));
 const BankReconciliationView = lazy(() => import('@/components/BankReconciliationView.jsx'));
 import { DriverLayout } from '@/components/drivers/DriverLayout.jsx';
 import { DriverDashboard } from '@/components/drivers/DriverDashboard.jsx';
@@ -556,6 +558,8 @@ function TenantLayout() {
     { name: 'tips', href: 'tips', icon: CircleDollarSign, permission: 'tips_read', requiresModule: 'tips', dynamicLabel: true }, // Dynamic label: Tips or Commissions
     { name: 'Comisiones y Metas', href: 'commissions', icon: HandCoins, permission: 'commissions_read', requiresModule: 'commissions' },
     { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: CreditCard, permission: 'accounting_read', requiresModule: 'bankAccounts' },
+    { name: 'Activos Fijos', href: 'fixed-assets', icon: Building, permission: 'reports_read' },
+    { name: 'Inversiones', href: 'investments', icon: Briefcase, permission: 'reports_read' },
     { name: 'Cierre de Caja', href: 'cash-register', icon: Receipt, permission: 'cash_register_read', requiresModule: 'cashRegister' },
     // Facturación Electrónica ahora vive dentro de Contabilidad General
     { name: 'Reportes', href: 'reports', icon: AreaChart, permission: 'reports_read' },
@@ -1132,6 +1136,8 @@ function TenantLayout() {
                 <Route path="billing/sequences" element={<BillingSequencesManager />} />
                 <Route path="billing/documents/:id" element={<BillingDocumentDetail />} />
                 <Route path="cash-register" element={<CashRegisterPage />} />
+                <Route path="fixed-assets" element={<FixedAssetsView />} />
+                <Route path="investments" element={<InvestmentsView />} />
                 <Route path="bank-accounts" element={<BankAccountsManagement />} />
                 <Route path="bank-accounts/:accountId/reconciliation" element={<BankReconciliationView />} />
                 <Route path="organizations" element={<OrganizationsManagement />} />

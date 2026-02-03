@@ -33,6 +33,27 @@ import {
 import { Service, ServiceDocument } from "../../schemas/service.schema";
 import { Resource, ResourceDocument } from "../../schemas/resource.schema";
 import { Customer, CustomerDocument } from "../../schemas/customer.schema";
+import {
+  ChartOfAccounts,
+  ChartOfAccountsDocument,
+} from "../../schemas/chart-of-accounts.schema";
+import {
+  JournalEntry,
+  JournalEntryDocument,
+} from "../../schemas/journal-entry.schema";
+import {
+  PayrollRun,
+  PayrollRunDocument,
+} from "../../schemas/payroll-run.schema";
+import {
+  FixedAsset,
+  FixedAssetDocument,
+} from "../../schemas/fixed-asset.schema";
+import {
+  Investment,
+  InvestmentDocument,
+} from "../../schemas/investment.schema";
+import { Payment, PaymentDocument } from "../../schemas/payment.schema";
 import { MenuEngineeringService } from "../menu-engineering/menu-engineering.service";
 
 const SUPPORTED_PERIODS = new Set([
@@ -80,6 +101,18 @@ export class AnalyticsService {
     private readonly resourceModel: Model<ResourceDocument>,
     @InjectModel(Customer.name)
     private readonly customerModel: Model<CustomerDocument>,
+    @InjectModel(ChartOfAccounts.name)
+    private readonly chartOfAccountsModel: Model<ChartOfAccountsDocument>,
+    @InjectModel(JournalEntry.name)
+    private readonly journalEntryModel: Model<JournalEntryDocument>,
+    @InjectModel(PayrollRun.name)
+    private readonly payrollRunModel: Model<PayrollRunDocument>,
+    @InjectModel(FixedAsset.name)
+    private readonly fixedAssetModel: Model<FixedAssetDocument>,
+    @InjectModel(Investment.name)
+    private readonly investmentModel: Model<InvestmentDocument>,
+    @InjectModel(Payment.name)
+    private readonly paymentModel: Model<PaymentDocument>,
     private readonly featureFlagsService: FeatureFlagsService,
     private readonly menuEngineeringService: MenuEngineeringService,
   ) { }
@@ -1688,6 +1721,1066 @@ export class AnalyticsService {
       floorPlan,
       timeSeries,
     };
+  }
+
+  // ──────────────────────────────────────────────────────────────────
+  // FINANCIAL KPIs  –  Single endpoint returning all 10 business KPIs
+  // ──────────────────────────────────────────────────────────────────
+
+  async getFinancialKpis(
+    tenantId: string,
+    period?: string,
+    compare = false,
+  ) {
+    const { objectId: tenantObjectId, key: tenantKey } =
+      this.normalizeTenantIdentifiers(tenantId);
+    const { from, to, groupBy } = this.buildDateRange(period);
+    const format = groupBy === "day" ? "%Y-%m-%d" : "%Y-%m";
+
+    // ── Shared base queries ──────────────────────────────────────
+    const orderMatch = {
+      tenantId: tenantKey,
+      status: { $nin: ["draft", "cancelled", "refunded"] },
+      createdAt: { $gte: from, $lte: to },
+    };
+
+    const payableMatch = {
+      tenantId: tenantKey,
+      status: { $in: ["open", "partially_paid", "paid"] },
+      issueDate: { $gte: from, $lte: to },
+    };
+
+    // Run all independent aggregations in parallel
+    const [
+      revenueAndCostResult,
+      orderStatsResult,
+      ticketTrendResult,
+      expenseResult,
+      payrollResult,
+      inventoryComputedResult,
+      receivablesResult,
+      inventoryValueResult,
+      pendingPayablesResult,
+      fixedAssetsResult,
+      investmentsResult,
+      confirmedPaymentsResult,
+      expensesByTypeResult,
+    ] = await Promise.all([
+      // 1. Revenue + direct cost from order items
+      this.orderModel.aggregate([
+        { $match: orderMatch },
+        { $unwind: "$items" },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: {
+              $sum: {
+                $ifNull: ["$items.finalPrice", "$items.totalPrice"],
+              },
+            },
+            totalDirectCost: {
+              $sum: {
+                $multiply: [
+                  { $ifNull: ["$items.costPrice", 0] },
+                  { $ifNull: ["$items.quantity", 0] },
+                ],
+              },
+            },
+            totalDiscounts: {
+              $sum: { $ifNull: ["$items.discountAmount", 0] },
+            },
+          },
+        },
+      ]),
+
+      // 2. Order-level stats (ticket promedio)
+      this.orderModel.aggregate([
+        { $match: orderMatch },
+        {
+          $group: {
+            _id: null,
+            totalAmount: { $sum: "$totalAmount" },
+            orderCount: { $sum: 1 },
+            avgTicket: { $avg: "$totalAmount" },
+            maxTicket: { $max: "$totalAmount" },
+            minTicket: { $min: "$totalAmount" },
+            totalOrderDiscounts: {
+              $sum: { $ifNull: ["$discountAmount", 0] },
+            },
+          },
+        },
+      ]),
+
+      // 3. Ticket trend over time
+      this.orderModel.aggregate([
+        { $match: orderMatch },
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format,
+                date: "$createdAt",
+                timezone: "UTC",
+              },
+            },
+            avgTicket: { $avg: "$totalAmount" },
+            orderCount: { $sum: 1 },
+            totalRevenue: { $sum: "$totalAmount" },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+
+      // 4. Expenses from payables
+      this.payableModel.aggregate([
+        { $match: payableMatch },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$totalAmount" },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+
+      // 5. Payroll costs
+      this.payrollRunModel.aggregate([
+        {
+          $match: {
+            tenantId: tenantObjectId,
+            status: { $in: ["approved", "posted", "paid"] },
+            periodStart: { $gte: from },
+            periodEnd: { $lte: to },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalNetPay: { $sum: "$netPay" },
+            totalGrossPay: { $sum: "$grossPay" },
+            totalEmployerCosts: { $sum: "$employerCosts" },
+            runCount: { $sum: 1 },
+          },
+        },
+      ]),
+
+      // 6. Inventory metrics computed on-the-fly via $lookup to orders
+      (async () => {
+        const periodDays = Math.max(
+          1,
+          Math.round((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)),
+        );
+        const perProduct = await this.inventoryModel.aggregate([
+          { $match: { tenantId: tenantObjectId, isActive: true } },
+          {
+            $lookup: {
+              from: "orders",
+              let: { pid: "$productId" },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $and: [
+                        { $eq: ["$tenantId", tenantKey] },
+                        { $not: { $in: ["$status", ["draft", "cancelled", "refunded"]] } },
+                        { $gte: ["$createdAt", from] },
+                        { $lte: ["$createdAt", to] },
+                      ],
+                    },
+                  },
+                },
+                { $unwind: "$items" },
+                { $match: { $expr: { $eq: ["$items.productId", "$$pid"] } } },
+                {
+                  $group: {
+                    _id: null,
+                    soldQty: { $sum: "$items.quantity" },
+                    soldCost: {
+                      $sum: {
+                        $multiply: [
+                          { $ifNull: ["$items.costPrice", 0] },
+                          { $ifNull: ["$items.quantity", 0] },
+                        ],
+                      },
+                    },
+                  },
+                },
+              ],
+              as: "sales",
+            },
+          },
+          {
+            $addFields: {
+              stockValue: {
+                $multiply: [
+                  { $ifNull: ["$totalQuantity", 0] },
+                  { $ifNull: ["$averageCostPrice", 0] },
+                ],
+              },
+              soldQty: { $ifNull: [{ $arrayElemAt: ["$sales.soldQty", 0] }, 0] },
+              soldCost: { $ifNull: [{ $arrayElemAt: ["$sales.soldCost", 0] }, 0] },
+            },
+          },
+          {
+            $addFields: {
+              turnoverRate: {
+                $cond: [
+                  { $gt: ["$stockValue", 0] },
+                  { $divide: ["$soldCost", "$stockValue"] },
+                  0,
+                ],
+              },
+              averageDailySales: { $divide: ["$soldQty", periodDays] },
+            },
+          },
+          {
+            $addFields: {
+              daysOnHand: {
+                $cond: [
+                  { $gt: ["$averageDailySales", 0] },
+                  { $divide: [{ $ifNull: ["$totalQuantity", 0] }, "$averageDailySales"] },
+                  0,
+                ],
+              },
+            },
+          },
+        ]);
+
+        const totalStockValue = perProduct.reduce(
+          (s, p) => s + (p.stockValue || 0),
+          0,
+        );
+        const totalItems = perProduct.reduce(
+          (s, p) => s + (p.totalQuantity || 0),
+          0,
+        );
+        const withSales = perProduct.filter((p) => p.turnoverRate > 0);
+        const avgTurnoverRate =
+          withSales.length > 0
+            ? withSales.reduce((s, p) => s + p.turnoverRate, 0) / withSales.length
+            : 0;
+        const avgDaysOnHand =
+          withSales.length > 0
+            ? withSales.reduce((s, p) => s + p.daysOnHand, 0) / withSales.length
+            : 0;
+        const lowStockCount = perProduct.filter(
+          (p) => p.alerts?.lowStock === true,
+        ).length;
+        const nearExpirationCount = perProduct.filter(
+          (p) => p.alerts?.nearExpiration === true,
+        ).length;
+
+        const metrics = [
+          {
+            avgTurnoverRate,
+            avgDaysOnHand,
+            totalStockValue,
+            totalItems,
+            productCount: perProduct.length,
+            lowStockCount,
+            nearExpirationCount,
+          },
+        ];
+
+        const topProducts = [...perProduct]
+          .sort((a, b) => b.turnoverRate - a.turnoverRate)
+          .slice(0, 20)
+          .map((p) => ({
+            productName: p.productName ?? "Sin nombre",
+            productSku: p.productSku,
+            turnoverRate: p.turnoverRate ?? 0,
+            daysOnHand: p.daysOnHand ?? 0,
+            averageDailySales: p.averageDailySales ?? 0,
+            stockValue: p.stockValue ?? 0,
+            totalQuantity: p.totalQuantity ?? 0,
+          }));
+
+        return { metrics, topProducts };
+      })().then((r) => r),
+
+      // 8. Accounts receivable (unpaid orders)
+      this.orderModel.aggregate([
+        {
+          $match: {
+            tenantId: tenantKey,
+            paymentStatus: { $in: ["pending", "partial"] },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalReceivable: {
+              $sum: {
+                $subtract: [
+                  { $ifNull: ["$totalAmount", 0] },
+                  { $ifNull: ["$paidAmount", 0] },
+                ],
+              },
+            },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+
+      // 9. Inventory total value (for liquidity)
+      this.inventoryModel.aggregate([
+        { $match: { tenantId: tenantObjectId, isActive: true } },
+        {
+          $group: {
+            _id: null,
+            totalValue: {
+              $sum: {
+                $multiply: [
+                  { $ifNull: ["$totalQuantity", 0] },
+                  { $ifNull: ["$averageCostPrice", 0] },
+                ],
+              },
+            },
+          },
+        },
+      ]),
+
+      // 10. Pending payables (short term liabilities)
+      this.payableModel.aggregate([
+        {
+          $match: {
+            tenantId: tenantKey,
+            status: { $in: ["open", "partially_paid"] },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalPayable: {
+              $sum: {
+                $subtract: [
+                  { $ifNull: ["$totalAmount", 0] },
+                  { $ifNull: ["$paidAmount", 0] },
+                ],
+              },
+            },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+
+      // 11. Fixed assets for depreciation (EBITDA)
+      this.fixedAssetModel
+        .find({ tenantId: tenantKey, status: "active" })
+        .lean(),
+
+      // 12. Investments (ROI)
+      this.investmentModel
+        .find({ tenantId: tenantKey, status: { $ne: "cancelled" } })
+        .lean(),
+
+      // 13. Confirmed payments (cash available)
+      this.paymentModel.aggregate([
+        {
+          $match: {
+            tenantId: tenantKey,
+            status: "confirmed",
+            date: { $gte: from, $lte: to },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalCollected: { $sum: "$amount" },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+
+      // 14. Expenses by type (for fixed vs variable approximation)
+      this.payableModel.aggregate([
+        { $match: payableMatch },
+        {
+          $group: {
+            _id: "$type",
+            total: { $sum: "$totalAmount" },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+    ]);
+
+    // ── Extract results ──────────────────────────────────────────
+    const rc = revenueAndCostResult[0] || {
+      totalRevenue: 0,
+      totalDirectCost: 0,
+      totalDiscounts: 0,
+    };
+    const os = orderStatsResult[0] || {
+      totalAmount: 0,
+      orderCount: 0,
+      avgTicket: 0,
+      maxTicket: 0,
+      minTicket: 0,
+      totalOrderDiscounts: 0,
+    };
+    const totalExpenses = expenseResult[0]?.total ?? 0;
+    const payroll = payrollResult[0] || {
+      totalNetPay: 0,
+      totalGrossPay: 0,
+      totalEmployerCosts: 0,
+      runCount: 0,
+    };
+    const inventoryMetricsResult = (inventoryComputedResult as any)?.metrics ?? [];
+    const topRotationResult = (inventoryComputedResult as any)?.topProducts ?? [];
+    const invMetrics = inventoryMetricsResult[0] || {
+      avgTurnoverRate: 0,
+      avgDaysOnHand: 0,
+      totalStockValue: 0,
+      totalItems: 0,
+      productCount: 0,
+      lowStockCount: 0,
+      nearExpirationCount: 0,
+    };
+
+    // ── 1. TICKET PROMEDIO ───────────────────────────────────────
+    const avgTicket = {
+      value: os.avgTicket ?? 0,
+      totalRevenue: os.totalAmount ?? 0,
+      orderCount: os.orderCount ?? 0,
+      maxTicket: os.maxTicket ?? 0,
+      minTicket: os.orderCount > 0 ? os.minTicket ?? 0 : 0,
+      trend: ticketTrendResult.map((t) => ({
+        period: t._id,
+        avgTicket: Number((t.avgTicket ?? 0).toFixed(2)),
+        orderCount: t.orderCount ?? 0,
+        totalRevenue: Number((t.totalRevenue ?? 0).toFixed(2)),
+      })),
+    };
+
+    // ── 2. MARGEN BRUTO ──────────────────────────────────────────
+    const totalRevenue = rc.totalRevenue ?? 0;
+    const totalDirectCost = rc.totalDirectCost ?? 0;
+    const grossProfit = totalRevenue - totalDirectCost;
+    const grossMarginPercent =
+      totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+
+    const grossMargin = {
+      totalRevenue: Number(totalRevenue.toFixed(2)),
+      totalDirectCost: Number(totalDirectCost.toFixed(2)),
+      grossProfit: Number(grossProfit.toFixed(2)),
+      grossMarginPercent: Number(grossMarginPercent.toFixed(2)),
+      status:
+        grossMarginPercent >= 50
+          ? "good"
+          : grossMarginPercent >= 30
+            ? "warning"
+            : "danger",
+    };
+
+    // ── 3. MARGEN DE CONTRIBUCION ────────────────────────────────
+    const totalDiscounts =
+      (rc.totalDiscounts ?? 0) + (os.totalOrderDiscounts ?? 0);
+    const contributionBase = totalRevenue - totalDiscounts - totalDirectCost;
+    const contributionMarginPercent =
+      totalRevenue > 0 ? (contributionBase / totalRevenue) * 100 : 0;
+
+    const contributionMargin = {
+      totalRevenue: Number(totalRevenue.toFixed(2)),
+      totalDiscounts: Number(totalDiscounts.toFixed(2)),
+      totalDirectCost: Number(totalDirectCost.toFixed(2)),
+      contributionMargin: Number(contributionBase.toFixed(2)),
+      contributionMarginPercent: Number(contributionMarginPercent.toFixed(2)),
+    };
+
+    // ── 4. COSTOS FIJOS vs VARIABLES ─────────────────────────────
+    // Approximate: payroll + utilities = fixed; purchase_order costs = variable
+    const expenseBreakdown = expensesByTypeResult.reduce(
+      (acc: Record<string, number>, item: { _id: string; total: number }) => {
+        acc[item._id] = item.total ?? 0;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
+
+    const fixedCostTypes = ["payroll", "utility_bill", "service_payment"];
+    const variableCostTypes = ["purchase_order"];
+
+    let estimatedFixedCosts = payroll.totalNetPay + payroll.totalEmployerCosts;
+    let estimatedVariableCosts = 0;
+    let unclassifiedCosts = 0;
+
+    for (const [type, amount] of Object.entries(expenseBreakdown)) {
+      if (fixedCostTypes.includes(type)) {
+        estimatedFixedCosts += amount as number;
+      } else if (variableCostTypes.includes(type)) {
+        estimatedVariableCosts += amount as number;
+      } else {
+        unclassifiedCosts += amount as number;
+      }
+    }
+
+    const fixedVsVariable = {
+      fixedCosts: Number(estimatedFixedCosts.toFixed(2)),
+      variableCosts: Number(estimatedVariableCosts.toFixed(2)),
+      unclassifiedCosts: Number(unclassifiedCosts.toFixed(2)),
+      totalCosts: Number(
+        (
+          estimatedFixedCosts +
+          estimatedVariableCosts +
+          unclassifiedCosts
+        ).toFixed(2),
+      ),
+      breakdown: expenseBreakdown,
+      payrollDetail: {
+        netPay: payroll.totalNetPay,
+        grossPay: payroll.totalGrossPay,
+        employerCosts: payroll.totalEmployerCosts,
+        runs: payroll.runCount,
+      },
+      note: "Clasificacion automatica basada en tipo de gasto. Configure costBehavior en el plan de cuentas para mayor precision.",
+    };
+
+    // ── 5. MARGEN NETO ───────────────────────────────────────────
+    const totalAllExpenses =
+      estimatedFixedCosts + estimatedVariableCosts + unclassifiedCosts;
+    const netIncome = (os.totalAmount ?? 0) - totalAllExpenses;
+    const netMarginPercent =
+      os.totalAmount > 0 ? (netIncome / os.totalAmount) * 100 : 0;
+
+    const netMargin = {
+      totalRevenue: Number((os.totalAmount ?? 0).toFixed(2)),
+      totalExpenses: Number(totalAllExpenses.toFixed(2)),
+      operationalExpenses: Number(totalExpenses.toFixed(2)),
+      payrollExpenses: Number(
+        (payroll.totalNetPay + payroll.totalEmployerCosts).toFixed(2),
+      ),
+      netIncome: Number(netIncome.toFixed(2)),
+      netMarginPercent: Number(netMarginPercent.toFixed(2)),
+      status:
+        netMarginPercent >= 20
+          ? "good"
+          : netMarginPercent >= 10
+            ? "warning"
+            : "danger",
+    };
+
+    // ── 6. PUNTO DE EQUILIBRIO ───────────────────────────────────
+    const breakEvenRevenue =
+      contributionMarginPercent > 0
+        ? estimatedFixedCosts / (contributionMarginPercent / 100)
+        : 0;
+    const breakEvenUnits =
+      avgTicket.value > 0 ? Math.ceil(breakEvenRevenue / avgTicket.value) : 0;
+    const currentRevenue = os.totalAmount ?? 0;
+
+    const breakEven = {
+      breakEvenRevenue: Number(breakEvenRevenue.toFixed(2)),
+      breakEvenUnits,
+      fixedCosts: Number(estimatedFixedCosts.toFixed(2)),
+      contributionMarginPercent: Number(contributionMarginPercent.toFixed(2)),
+      currentRevenue: Number(currentRevenue.toFixed(2)),
+      surplusOrDeficit: Number((currentRevenue - breakEvenRevenue).toFixed(2)),
+      isAboveBreakEven: currentRevenue >= breakEvenRevenue,
+      coveragePercent:
+        breakEvenRevenue > 0
+          ? Number(((currentRevenue / breakEvenRevenue) * 100).toFixed(2))
+          : null,
+    };
+
+    // ── 7. ROTACION DE INVENTARIO ────────────────────────────────
+    const inventoryTurnover = {
+      avgTurnoverRate: Number((invMetrics.avgTurnoverRate ?? 0).toFixed(2)),
+      avgDaysOnHand: Number((invMetrics.avgDaysOnHand ?? 0).toFixed(1)),
+      totalStockValue: Number((invMetrics.totalStockValue ?? 0).toFixed(2)),
+      totalItems: invMetrics.totalItems ?? 0,
+      productCount: invMetrics.productCount ?? 0,
+      lowStockCount: invMetrics.lowStockCount ?? 0,
+      nearExpirationCount: invMetrics.nearExpirationCount ?? 0,
+      topProducts: (topRotationResult as any[]).map((p) => ({
+        productName: p.productName ?? "Sin nombre",
+        productSku: p.productSku,
+        turnoverRate: Number((p.turnoverRate ?? 0).toFixed(2)),
+        daysOnHand: Number((p.daysOnHand ?? 0).toFixed(1)),
+        averageDailySales: Number((p.averageDailySales ?? 0).toFixed(2)),
+        stockValue: Number((p.stockValue ?? 0).toFixed(2)),
+        totalQuantity: p.totalQuantity ?? 0,
+      })),
+    };
+
+    // ── 8. LIQUIDEZ ACTUAL ───────────────────────────────────────
+    const accountsReceivable = receivablesResult[0]?.totalReceivable ?? 0;
+    const inventoryValue = inventoryValueResult[0]?.totalValue ?? 0;
+    const cashCollected = confirmedPaymentsResult[0]?.totalCollected ?? 0;
+    const currentAssets = accountsReceivable + inventoryValue + cashCollected;
+    const currentLiabilities = pendingPayablesResult[0]?.totalPayable ?? 0;
+    const liquidityRatio =
+      currentLiabilities > 0 ? currentAssets / currentLiabilities : null;
+
+    const liquidity = {
+      currentAssets: Number(currentAssets.toFixed(2)),
+      currentLiabilities: Number(currentLiabilities.toFixed(2)),
+      liquidityRatio: liquidityRatio
+        ? Number(liquidityRatio.toFixed(2))
+        : null,
+      components: {
+        cashCollected: Number(cashCollected.toFixed(2)),
+        accountsReceivable: Number(accountsReceivable.toFixed(2)),
+        inventoryValue: Number(inventoryValue.toFixed(2)),
+        accountsPayable: Number(currentLiabilities.toFixed(2)),
+      },
+      status:
+        liquidityRatio === null
+          ? "no_data"
+          : liquidityRatio >= 1.5
+            ? "good"
+            : liquidityRatio >= 1.0
+              ? "warning"
+              : "danger",
+    };
+
+    // ── 9. EBITDA ────────────────────────────────────────────────
+    let totalMonthlyDepreciation = 0;
+    for (const asset of fixedAssetsResult) {
+      if (asset.depreciationMethod === "straight_line") {
+        const depreciable = asset.acquisitionCost - (asset.residualValue ?? 0);
+        totalMonthlyDepreciation += depreciable / asset.usefulLifeMonths;
+      } else if (asset.depreciationMethod === "declining_balance") {
+        const bookValue =
+          asset.acquisitionCost - (asset.accumulatedDepreciation ?? 0);
+        const rate = 2 / asset.usefulLifeMonths;
+        totalMonthlyDepreciation += bookValue * rate;
+      }
+    }
+
+    const periodDays = Math.max(
+      1,
+      Math.ceil((to.getTime() - from.getTime()) / 86400000),
+    );
+    const periodMonths = periodDays / 30;
+    const periodDepreciation = totalMonthlyDepreciation * periodMonths;
+    const operatingIncome = netIncome;
+    const ebitda = operatingIncome + periodDepreciation;
+    const ebitdaMargin =
+      os.totalAmount > 0 ? (ebitda / os.totalAmount) * 100 : 0;
+
+    const ebitdaKpi = {
+      ebitda: Number(ebitda.toFixed(2)),
+      ebitdaMargin: Number(ebitdaMargin.toFixed(2)),
+      operatingIncome: Number(operatingIncome.toFixed(2)),
+      periodDepreciation: Number(periodDepreciation.toFixed(2)),
+      monthlyDepreciation: Number(totalMonthlyDepreciation.toFixed(2)),
+      assetsCount: fixedAssetsResult.length,
+      totalAssetValue: Number(
+        fixedAssetsResult
+          .reduce(
+            (sum: number, a: any) => sum + (a.acquisitionCost ?? 0),
+            0,
+          )
+          .toFixed(2),
+      ),
+      hasFixedAssets: fixedAssetsResult.length > 0,
+    };
+
+    // ── 10. ROI ──────────────────────────────────────────────────
+    const totalInvested = (investmentsResult as any[]).reduce(
+      (sum: number, inv: any) => sum + (inv.investedAmount ?? 0),
+      0,
+    );
+    const totalActualReturn = (investmentsResult as any[]).reduce(
+      (sum: number, inv: any) => sum + (inv.actualReturn ?? 0),
+      0,
+    );
+    const roiPercent =
+      totalInvested > 0
+        ? ((totalActualReturn - totalInvested) / totalInvested) * 100
+        : null;
+
+    const roi = {
+      totalInvested: Number(totalInvested.toFixed(2)),
+      totalReturn: Number(totalActualReturn.toFixed(2)),
+      netGain: Number((totalActualReturn - totalInvested).toFixed(2)),
+      roiPercent: roiPercent ? Number(roiPercent.toFixed(2)) : null,
+      investmentCount: investmentsResult.length,
+      hasInvestments: investmentsResult.length > 0,
+      byCategory: this.groupInvestmentsByCategory(
+        investmentsResult as any[],
+      ),
+    };
+
+    // ── Period comparison (previous period) ──────────────────────
+    let comparison: Record<string, any> | null = null;
+
+    if (compare) {
+      const prev = this.shiftRange(from, to);
+      comparison = await this.computeKpiSummaryForRange(
+        tenantKey,
+        tenantObjectId,
+        prev.from,
+        prev.to,
+      );
+
+      const computeDelta = (
+        current: number | null,
+        previous: number | null,
+      ) => {
+        if (current == null || previous == null) return null;
+        const abs = current - previous;
+        const pct = previous !== 0 ? (abs / Math.abs(previous)) * 100 : null;
+        return {
+          current: Number(current.toFixed(2)),
+          previous: Number(previous.toFixed(2)),
+          absoluteChange: Number(abs.toFixed(2)),
+          percentChange: pct != null ? Number(pct.toFixed(2)) : null,
+          direction:
+            abs > 0.005 ? ("up" as const) : abs < -0.005 ? ("down" as const) : ("flat" as const),
+        };
+      };
+
+      comparison = {
+        period: {
+          from: prev.from.toISOString(),
+          to: prev.to.toISOString(),
+        },
+        deltas: {
+          avgTicket: computeDelta(avgTicket.value, comparison.avgTicket),
+          grossMarginPercent: computeDelta(
+            grossMargin.grossMarginPercent,
+            comparison.grossMarginPercent,
+          ),
+          netMarginPercent: computeDelta(
+            netMargin.netMarginPercent,
+            comparison.netMarginPercent,
+          ),
+          totalRevenue: computeDelta(
+            os.totalAmount ?? 0,
+            comparison.totalRevenue,
+          ),
+          totalExpenses: computeDelta(
+            totalAllExpenses,
+            comparison.totalExpenses,
+          ),
+          ebitda: computeDelta(ebitda, comparison.ebitda),
+          liquidityRatio: computeDelta(
+            liquidity.liquidityRatio,
+            comparison.liquidityRatio,
+          ),
+          netIncome: computeDelta(netIncome, comparison.netIncome),
+        },
+      };
+    }
+
+    // ── Build response ───────────────────────────────────────────
+    return {
+      period: {
+        from: from.toISOString(),
+        to: to.toISOString(),
+        days: periodDays,
+        label: period || "30d",
+      },
+      avgTicket,
+      grossMargin,
+      contributionMargin,
+      fixedVsVariable,
+      netMargin,
+      breakEven,
+      inventoryTurnover,
+      liquidity,
+      ebitda: ebitdaKpi,
+      roi,
+      ...(comparison ? { comparison } : {}),
+    };
+  }
+
+  async compareFinancialKpiRanges(
+    tenantId: string,
+    fromA: Date,
+    toA: Date,
+    fromB: Date,
+    toB: Date,
+  ) {
+    const { objectId: tenantObjectId, key: tenantKey } =
+      this.normalizeTenantIdentifiers(tenantId);
+
+    const [periodA, periodB] = await Promise.all([
+      this.computeKpiSummaryForRange(tenantKey, tenantObjectId, fromA, toA),
+      this.computeKpiSummaryForRange(tenantKey, tenantObjectId, fromB, toB),
+    ]);
+
+    const computeDelta = (
+      current: number | null,
+      previous: number | null,
+    ) => {
+      if (current == null || previous == null) return null;
+      const abs = current - previous;
+      const pct =
+        previous !== 0 ? (abs / Math.abs(previous)) * 100 : null;
+      return {
+        current: Number(current.toFixed(2)),
+        previous: Number(previous.toFixed(2)),
+        absoluteChange: Number(abs.toFixed(2)),
+        percentChange: pct != null ? Number(pct.toFixed(2)) : null,
+        direction:
+          abs > 0.005
+            ? ("up" as const)
+            : abs < -0.005
+              ? ("down" as const)
+              : ("flat" as const),
+      };
+    };
+
+    return {
+      periodA: { from: fromA.toISOString(), to: toA.toISOString() },
+      periodB: { from: fromB.toISOString(), to: toB.toISOString() },
+      summaryA: periodA,
+      summaryB: periodB,
+      deltas: {
+        avgTicket: computeDelta(periodA.avgTicket, periodB.avgTicket),
+        grossMarginPercent: computeDelta(
+          periodA.grossMarginPercent,
+          periodB.grossMarginPercent,
+        ),
+        netMarginPercent: computeDelta(
+          periodA.netMarginPercent,
+          periodB.netMarginPercent,
+        ),
+        totalRevenue: computeDelta(
+          periodA.totalRevenue,
+          periodB.totalRevenue,
+        ),
+        totalExpenses: computeDelta(
+          periodA.totalExpenses,
+          periodB.totalExpenses,
+        ),
+        ebitda: computeDelta(periodA.ebitda, periodB.ebitda),
+        liquidityRatio: computeDelta(
+          periodA.liquidityRatio,
+          periodB.liquidityRatio,
+        ),
+        netIncome: computeDelta(periodA.netIncome, periodB.netIncome),
+      },
+    };
+  }
+
+  private async computeKpiSummaryForRange(
+    tenantKey: string,
+    tenantObjectId: Types.ObjectId,
+    from: Date,
+    to: Date,
+  ): Promise<{
+    avgTicket: number;
+    grossMarginPercent: number;
+    netMarginPercent: number;
+    totalRevenue: number;
+    totalExpenses: number;
+    ebitda: number;
+    liquidityRatio: number | null;
+    netIncome: number;
+  }> {
+    const orderMatch = {
+      tenantId: tenantKey,
+      status: { $nin: ["draft", "cancelled", "refunded"] },
+      createdAt: { $gte: from, $lte: to },
+    };
+    const payableMatch = {
+      tenantId: tenantKey,
+      status: { $in: ["open", "partially_paid", "paid"] },
+      issueDate: { $gte: from, $lte: to },
+    };
+
+    const [rcResult, osResult, expResult, payrollRes, expByType, confirmedPay, invVal, pendPay] =
+      await Promise.all([
+        this.orderModel.aggregate([
+          { $match: orderMatch },
+          { $unwind: "$items" },
+          {
+            $group: {
+              _id: null,
+              totalRevenue: { $sum: { $ifNull: ["$items.finalPrice", "$items.totalPrice"] } },
+              totalDirectCost: {
+                $sum: {
+                  $multiply: [
+                    { $ifNull: ["$items.costPrice", 0] },
+                    { $ifNull: ["$items.quantity", 0] },
+                  ],
+                },
+              },
+              totalDiscounts: { $sum: { $ifNull: ["$items.discountAmount", 0] } },
+            },
+          },
+        ]),
+        this.orderModel.aggregate([
+          { $match: orderMatch },
+          {
+            $group: {
+              _id: null,
+              totalAmount: { $sum: "$totalAmount" },
+              orderCount: { $sum: 1 },
+              avgTicket: { $avg: "$totalAmount" },
+              totalOrderDiscounts: { $sum: { $ifNull: ["$discountAmount", 0] } },
+            },
+          },
+        ]),
+        this.payableModel.aggregate([
+          { $match: payableMatch },
+          { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+        ]),
+        this.payrollRunModel.aggregate([
+          {
+            $match: {
+              tenantId: tenantObjectId,
+              status: { $in: ["approved", "posted", "paid"] },
+              periodStart: { $gte: from },
+              periodEnd: { $lte: to },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              totalNetPay: { $sum: "$netPay" },
+              totalEmployerCosts: { $sum: "$employerCosts" },
+            },
+          },
+        ]),
+        this.payableModel.aggregate([
+          { $match: payableMatch },
+          { $group: { _id: "$type", total: { $sum: "$totalAmount" } } },
+        ]),
+        this.paymentModel.aggregate([
+          {
+            $match: {
+              tenantId: tenantKey,
+              status: "confirmed",
+              date: { $gte: from, $lte: to },
+            },
+          },
+          { $group: { _id: null, totalCollected: { $sum: "$amount" } } },
+        ]),
+        this.inventoryModel.aggregate([
+          { $match: { tenantId: tenantObjectId, isActive: true } },
+          {
+            $group: {
+              _id: null,
+              totalValue: {
+                $sum: {
+                  $multiply: [
+                    { $ifNull: ["$totalQuantity", 0] },
+                    { $ifNull: ["$averageCostPrice", 0] },
+                  ],
+                },
+              },
+            },
+          },
+        ]),
+        this.payableModel.aggregate([
+          {
+            $match: {
+              tenantId: tenantKey,
+              status: { $in: ["open", "partially_paid"] },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              totalPayable: {
+                $sum: {
+                  $subtract: [
+                    { $ifNull: ["$totalAmount", 0] },
+                    { $ifNull: ["$paidAmount", 0] },
+                  ],
+                },
+              },
+            },
+          },
+        ]),
+      ]);
+
+    const rc = rcResult[0] || { totalRevenue: 0, totalDirectCost: 0, totalDiscounts: 0 };
+    const os = osResult[0] || { totalAmount: 0, orderCount: 0, avgTicket: 0, totalOrderDiscounts: 0 };
+    const pr = payrollRes[0] || { totalNetPay: 0, totalEmployerCosts: 0 };
+
+    const totalRevenue = rc.totalRevenue ?? 0;
+    const totalDirectCost = rc.totalDirectCost ?? 0;
+    const grossProfit = totalRevenue - totalDirectCost;
+    const grossMarginPct = totalRevenue > 0 ? (grossProfit / totalRevenue) * 100 : 0;
+
+    const fixedCostTypes = ["payroll", "utility_bill", "service_payment"];
+    const variableCostTypes = ["purchase_order"];
+    let estFixed = pr.totalNetPay + pr.totalEmployerCosts;
+    let estVariable = 0;
+    let unclass = 0;
+    for (const item of expByType) {
+      const t = item._id as string;
+      const amt = (item.total ?? 0) as number;
+      if (fixedCostTypes.includes(t)) estFixed += amt;
+      else if (variableCostTypes.includes(t)) estVariable += amt;
+      else unclass += amt;
+    }
+
+    const totalAllExp = estFixed + estVariable + unclass;
+    const nIncome = (os.totalAmount ?? 0) - totalAllExp;
+    const netPct = os.totalAmount > 0 ? (nIncome / os.totalAmount) * 100 : 0;
+
+    const periodDays = Math.max(1, Math.ceil((to.getTime() - from.getTime()) / 86400000));
+    const fixedAssets = await this.fixedAssetModel
+      .find({ tenantId: tenantKey, status: "active" })
+      .lean();
+    let monthlyDep = 0;
+    for (const asset of fixedAssets) {
+      if (asset.depreciationMethod === "straight_line") {
+        monthlyDep += (asset.acquisitionCost - (asset.residualValue ?? 0)) / asset.usefulLifeMonths;
+      } else if (asset.depreciationMethod === "declining_balance") {
+        const bv = asset.acquisitionCost - (asset.accumulatedDepreciation ?? 0);
+        monthlyDep += bv * (2 / asset.usefulLifeMonths);
+      }
+    }
+    const ebitdaVal = nIncome + monthlyDep * (periodDays / 30);
+
+    const cashCol = confirmedPay[0]?.totalCollected ?? 0;
+    const invValue = invVal[0]?.totalValue ?? 0;
+    const curLiab = pendPay[0]?.totalPayable ?? 0;
+    const curAssets = cashCol + invValue;
+    const liqRatio = curLiab > 0 ? curAssets / curLiab : null;
+
+    return {
+      avgTicket: os.avgTicket ?? 0,
+      grossMarginPercent: grossMarginPct,
+      netMarginPercent: netPct,
+      totalRevenue: os.totalAmount ?? 0,
+      totalExpenses: totalAllExp,
+      ebitda: ebitdaVal,
+      liquidityRatio: liqRatio,
+      netIncome: nIncome,
+    };
+  }
+
+  private groupInvestmentsByCategory(
+    investments: Array<{
+      category: string;
+      investedAmount: number;
+      actualReturn: number;
+    }>,
+  ) {
+    const groups: Record<
+      string,
+      { invested: number; returned: number; count: number }
+    > = {};
+    for (const inv of investments) {
+      const cat = inv.category || "other";
+      if (!groups[cat]) {
+        groups[cat] = { invested: 0, returned: 0, count: 0 };
+      }
+      groups[cat].invested += inv.investedAmount ?? 0;
+      groups[cat].returned += inv.actualReturn ?? 0;
+      groups[cat].count += 1;
+    }
+    return Object.entries(groups).map(([category, data]) => ({
+      category,
+      ...data,
+      roi:
+        data.invested > 0
+          ? Number(
+              (((data.returned - data.invested) / data.invested) * 100).toFixed(
+                2,
+              ),
+            )
+          : null,
+    }));
   }
 
   private buildDayKey(value: Date | string): string {

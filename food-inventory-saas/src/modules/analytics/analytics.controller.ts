@@ -11,7 +11,10 @@ import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
 import { Permissions } from "../../decorators/permissions.decorator";
-import { AnalyticsPeriodQueryDto } from "../../dto/analytics.dto";
+import {
+  AnalyticsPeriodQueryDto,
+  KpiCompareQueryDto,
+} from "../../dto/analytics.dto";
 import { Public } from "../../decorators/public.decorator";
 
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
@@ -205,6 +208,39 @@ export class AnalyticsController {
     const data = await this.analyticsService.getMenuEngineering(
       req.user.tenantId,
       query.period,
+    );
+    return { success: true, data };
+  }
+
+  /**
+   * KPIs Financieros Consolidados
+   * Retorna los 10 KPIs financieros clave para el dueño del negocio:
+   * Ticket Promedio, Margen Bruto, Margen de Contribución, Costos Fijos/Variables,
+   * Margen Neto, Punto de Equilibrio, Rotación de Inventario, Liquidez, EBITDA, ROI
+   */
+  @Get("financial-kpis")
+  @Permissions("reports_read")
+  async getFinancialKpis(@Req() req, @Query() query: AnalyticsPeriodQueryDto) {
+    const data = await this.analyticsService.getFinancialKpis(
+      req.user.tenantId,
+      query.period,
+      query.compare === "true",
+    );
+    return { success: true, data };
+  }
+
+  @Get("financial-kpis/compare")
+  @Permissions("reports_read")
+  async compareFinancialKpis(
+    @Req() req,
+    @Query() query: KpiCompareQueryDto,
+  ) {
+    const data = await this.analyticsService.compareFinancialKpiRanges(
+      req.user.tenantId,
+      new Date(query.fromA),
+      new Date(query.toA),
+      new Date(query.fromB),
+      new Date(query.toB),
     );
     return { success: true, data };
   }

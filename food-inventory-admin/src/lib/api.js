@@ -2305,4 +2305,72 @@ export const api = {
   delete: (url, config = {}) => fetchApi(url, { ...config, method: 'DELETE' }),
 };
 
+// ============ FIXED ASSETS MODULE API ============
+
+export const fetchFixedAssets = () => {
+  return fetchApi('/fixed-assets');
+};
+
+export const fetchFixedAsset = (id) => {
+  return fetchApi(`/fixed-assets/${id}`);
+};
+
+export const fetchFixedAssetsSummary = () => {
+  return fetchApi('/fixed-assets/summary');
+};
+
+export const createFixedAsset = (data) => {
+  return fetchApi('/fixed-assets', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const updateFixedAsset = (id, data) => {
+  return fetchApi(`/fixed-assets/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteFixedAsset = (id) => {
+  return fetchApi(`/fixed-assets/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+// ============ INVESTMENTS MODULE API ============
+
+export const fetchInvestments = () => {
+  return fetchApi('/investments');
+};
+
+export const fetchInvestment = (id) => {
+  return fetchApi(`/investments/${id}`);
+};
+
+export const fetchInvestmentsSummary = () => {
+  return fetchApi('/investments/summary');
+};
+
+export const createInvestment = (data) => {
+  return fetchApi('/investments', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const updateInvestment = (id, data) => {
+  return fetchApi(`/investments/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteInvestment = (id) => {
+  return fetchApi(`/investments/${id}`, {
+    method: 'DELETE',
+  });
+};
+
 // ==================== IVA Declaration API ====================

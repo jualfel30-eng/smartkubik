@@ -13,7 +13,11 @@ import { Button } from '@/components/ui/button';
 import { ChartOfAccountForm } from './ChartOfAccountForm';
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import { PlusCircle } from 'lucide-react';
+
+const COST_BEHAVIOR_LABELS = { fixed: 'Fijo', variable: 'Variable', mixed: 'Mixto' };
+const LIQUIDITY_LABELS = { current: 'Circulante', non_current: 'No circulante' };
 
 const ChartOfAccountsView = () => {
   const [accounts, setAccounts] = useState([]);
@@ -87,6 +91,7 @@ const ChartOfAccountsView = () => {
                 <TableHead>Código</TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Tipo</TableHead>
+                <TableHead>Clasificación</TableHead>
                 <TableHead>Descripción</TableHead>
               </TableRow>
             </TableHeader>
@@ -97,12 +102,24 @@ const ChartOfAccountsView = () => {
                     <TableCell className="font-medium">{account.code}</TableCell>
                     <TableCell>{account.name}</TableCell>
                     <TableCell>{account.type}</TableCell>
+                    <TableCell>
+                      {account.costBehavior && (
+                        <Badge variant="outline" className="mr-1 text-[10px]">
+                          {COST_BEHAVIOR_LABELS[account.costBehavior] || account.costBehavior}
+                        </Badge>
+                      )}
+                      {account.liquidityClass && (
+                        <Badge variant="outline" className="text-[10px]">
+                          {LIQUIDITY_LABELS[account.liquidityClass] || account.liquidityClass}
+                        </Badge>
+                      )}
+                    </TableCell>
                     <TableCell>{account.description}</TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan="4" className="text-center">
+                  <TableCell colSpan="5" className="text-center">
                     No se encontraron cuentas.
                   </TableCell>
                 </TableRow>
