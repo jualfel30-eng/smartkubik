@@ -293,6 +293,7 @@ const PayrollRunsDashboard = () => {
   const [payMethod, setPayMethod] = useState({
     method: "transfer",
     currency: "USD",
+    reference: "",
     igtf: false,
     igtfRate: 0.03,
   });
@@ -911,6 +912,7 @@ const PayrollRunsDashboard = () => {
         method: payMethod.method,
         currency: payMethod.currency,
         bankAccountId: bankAccountId || undefined,
+        reference: payMethod.reference,
         applyIgtf: payMethod.igtf,
         igtfRate: payMethod.igtfRate,
         exchangeRate: payMethod.currency === "VES" ? bcvRate : undefined,
@@ -3669,7 +3671,7 @@ const PayrollRunsDashboard = () => {
       </Dialog>
 
       <Dialog open={payDialogOpen} onOpenChange={setPayDialogOpen}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Pagar nómina</DialogTitle>
             <DialogDescription>
@@ -3678,19 +3680,43 @@ const PayrollRunsDashboard = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2 md:grid-cols-2">
+            <div className="grid gap-2 md:grid-cols-3">
               <div>
                 <Label>Método</Label>
-                <Input
+                <Select
                   value={payMethod.method}
-                  onChange={(e) =>
+                  onValueChange={(value) =>
                     setPayMethod((prev) => ({
                       ...prev,
-                      method: e.target.value,
+                      method: value,
                     }))
                   }
                   disabled={paying}
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona método" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(selectedBankAccount?.acceptedPaymentMethods?.length
+                      ? selectedBankAccount.acceptedPaymentMethods
+                      : ["transfer", "pago-movil", "zelle", "cash", "other"]
+                    ).map((method) => (
+                      <SelectItem key={method} value={method}>
+                        {method === "transfer"
+                          ? "Transferencia"
+                          : method === "pago-movil"
+                            ? "Pago Móvil"
+                            : method === "zelle"
+                              ? "Zelle"
+                              : method === "cash"
+                                ? "Efectivo"
+                                : method === "other"
+                                  ? "Otro"
+                                  : method}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label>Moneda</Label>
@@ -3710,30 +3736,7 @@ const PayrollRunsDashboard = () => {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            <div className="grid gap-2 md:grid-cols-2">
-              <div className="col-span-1">
-                <Label>Cuenta bancaria</Label>
-                <Select
-                  value={bankAccountId}
-                  onValueChange={(value) => setBankAccountId(value)}
-                  disabled={paying}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona cuenta" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {bankAccounts.map((account) => (
-                      <SelectItem key={account._id} value={account._id}>
-                        {account.bankName || "Banco"} ·{" "}
-                        {account.accountNumber || account.alias || ""} ·{" "}
-                        {account.currency}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="col-span-1">
+              <div>
                 <Label>IGTF</Label>
                 <div className="flex items-center gap-2">
                   <Switch
@@ -3758,6 +3761,43 @@ const PayrollRunsDashboard = () => {
                   />
                   <span className="text-xs text-muted-foreground">tasa</span>
                 </div>
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <div>
+                <Label>Cuenta bancaria</Label>
+                <Select
+                  value={bankAccountId}
+                  onValueChange={(value) => setBankAccountId(value)}
+                  disabled={paying}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona cuenta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {bankAccounts.map((account) => (
+                      <SelectItem key={account._id} value={account._id}>
+                        {account.bankName || "Banco"} ·{" "}
+                        {account.accountNumber || account.alias || ""} ·{" "}
+                        {account.currency}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Referencia</Label>
+                <Input
+                  value={payMethod.reference}
+                  onChange={(e) =>
+                    setPayMethod((prev) => ({
+                      ...prev,
+                      reference: e.target.value,
+                    }))
+                  }
+                  disabled={paying}
+                  placeholder="N° de referencia"
+                />
               </div>
             </div>
             <div className="rounded-md border p-3 text-sm text-muted-foreground space-y-1">
