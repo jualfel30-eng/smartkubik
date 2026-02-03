@@ -982,7 +982,7 @@ function TenantLayout() {
           <div className="flex items-center justify-between border-b border-border bg-card px-4 py-3 md:hidden">
             <div className="flex items-center gap-2">
               <SidebarTrigger className="text-muted-foreground" />
-              <img src={logoSrc} alt="Smart Kubik" className="h-[22px] w-auto" />
+              <img src={logoSrc} alt="Smart Kubik" className="h-[18px] w-auto" />
             </div>
             <div className="flex items-center gap-2">
               <ShiftTimer />
