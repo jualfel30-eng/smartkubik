@@ -519,7 +519,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     // Map filterType to correct customerType filter
     if (filterType === 'individual') {
       // "Clientes" tab should show business AND individual (exclude suppliers/employees)
-      filters.customerType = { $in: ['business', 'individual'] };
+      filters.customerType = 'business,individual';
     } else if (filterType === 'supplier') {
       filters.customerType = 'supplier';
     } else if (filterType === 'employee') {

@@ -269,18 +269,7 @@ export class UpdateCustomerDto {
     ],
   })
   @IsOptional()
-  @IsEnum([
-    "individual",
-    "business",
-    "supplier",
-    "employee",
-    "admin",
-    "manager",
-    "Repartidor",
-    "Cajero",
-    "Mesonero",
-    "all",
-  ])
+  @IsString()
   customerType?: string;
 
   @ApiPropertyOptional({ description: "Estado del cliente" })
@@ -365,17 +354,7 @@ export class CustomerQueryDto {
     ],
   })
   @IsOptional()
-  @IsEnum([
-    "individual",
-    "business",
-    "supplier",
-    "employee",
-    "admin",
-    "manager",
-    "Repartidor",
-    "Cajero",
-    "Mesonero",
-  ])
+  @IsString()
   customerType?: string;
 
   @ApiPropertyOptional({ description: "Estado del cliente" })

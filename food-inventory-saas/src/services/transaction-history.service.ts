@@ -192,7 +192,7 @@ export class TransactionHistoryService {
     // Check if transaction already exists
     const existing = await this.supplierTransactionModel.findOne({
       purchaseOrderId: purchaseOrder._id,
-      tenantId: tenantId, // Keep as string
+      tenantId: new Types.ObjectId(tenantId),
     });
 
     if (existing) {
@@ -277,7 +277,7 @@ export class TransactionHistoryService {
       productCategories,
       productIds,
       notes: purchaseOrder.notes,
-      tenantId: tenantId, // Keep as string
+      tenantId: new Types.ObjectId(tenantId),
       metadata: {
         requestedBy: purchaseOrder.createdBy?.toString(),
         approvedBy: purchaseOrder.approvedBy?.toString(),
@@ -309,7 +309,7 @@ export class TransactionHistoryService {
   ): Promise<CustomerTransactionHistory[]> {
     const query: any = {
       customerId: new Types.ObjectId(customerId),
-      tenantId: tenantId, // Keep as string - it's stored as string in DB
+      tenantId: new Types.ObjectId(tenantId),
     };
 
     if (filters?.startDate || filters?.endDate) {
@@ -585,7 +585,7 @@ export class TransactionHistoryService {
       {
         $match: {
           customerId: new Types.ObjectId(customerId),
-          tenantId: tenantId, // Keep as string
+          tenantId: new Types.ObjectId(tenantId),
           isPaid: true, // Only count paid transactions
         },
       },
@@ -612,7 +612,7 @@ export class TransactionHistoryService {
       {
         $match: {
           customerId: new Types.ObjectId(customerId),
-          tenantId: tenantId, // Keep as string
+          tenantId: new Types.ObjectId(tenantId),
           isPaid: true, // Only count paid transactions
         },
       },
@@ -647,7 +647,7 @@ export class TransactionHistoryService {
       {
         $match: {
           customerId: new Types.ObjectId(customerId),
-          tenantId: tenantId, // Keep as string
+          tenantId: new Types.ObjectId(tenantId),
           isPaid: true, // Only count paid transactions
         },
       },
