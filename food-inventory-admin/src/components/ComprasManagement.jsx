@@ -4,7 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { fetchApi } from '@/lib/api';
-import { AlertTriangle, Clock, PlusCircle, Trash2, CalendarIcon, Package, XCircle, Plus } from 'lucide-react';
+import { AlertTriangle, Clock, PlusCircle, Trash2, CalendarIcon, Package, XCircle, Plus, Camera, Loader2, X } from 'lucide-react';
 import PurchaseHistory from './PurchaseHistory.jsx';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog.jsx';
 import { Input } from '@/components/ui/input.jsx';
@@ -18,12 +18,14 @@ import { toast } from 'sonner';
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
 import { SearchableSelect } from './orders/v2/custom/SearchableSelect';
 import { Checkbox } from '@/components/ui/checkbox.jsx';
+import { TagInput } from '@/components/ui/tag-input.jsx';
 
 const initialNewProductState = {
+  productType: 'simple',
   sku: '',
   name: '',
-  category: '',
-  subcategory: '',
+  category: [],
+  subcategory: [],
   brand: '',
   description: '',
   ingredients: '',
@@ -34,6 +36,14 @@ const initialNewProductState = {
   taxCategory: 'general',
   isSoldByWeight: false,
   unitOfMeasure: 'unidad',
+  hasMultipleSellingUnits: false,
+  sellingUnits: [],
+  inventoryConfig: {
+    minimumStock: 10,
+    maximumStock: 100,
+    reorderPoint: 20,
+    reorderQuantity: 50,
+  },
   variant: {
     name: 'Estándar',
     unit: 'unidad',
@@ -57,8 +67,16 @@ const initialNewProductState = {
     newSupplierContactPhone: '',
     rifPrefix: 'J',
   },
-  paymentMethods: [],
-  customPaymentMethod: '',
+  purchaseDate: new Date(),
+  paymentTerms: {
+    isCredit: false,
+    paymentDueDate: null,
+    paymentMethods: [],
+    customPaymentMethod: '',
+    expectedCurrency: 'USD',
+    requiresAdvancePayment: false,
+    advancePaymentPercentage: 0,
+  }
 };
 
 const initialPoState = {
@@ -105,6 +123,12 @@ export default function ComprasManagement() {
   const [supplierRifInput, setSupplierRifInput] = useState('');
   const [variantSelection, setVariantSelection] = useState(null);
   const [additionalVariants, setAdditionalVariants] = useState([]);
+
+  // Invoice scanning state
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanResult, setScanResult] = useState(null);
+  const invoiceFileRef = useRef(null);
+  const invoiceFileRef2 = useRef(null);
 
   const verticalConfig = useVerticalConfig();
   const placeholders = useMemo(() => verticalConfig?.placeholders || {}, [verticalConfig]);
@@ -291,9 +315,9 @@ export default function ComprasManagement() {
 
   const handleAddProduct = async () => {
     // Validate payment methods
-    const allPaymentMethods = [...newProduct.paymentMethods];
-    if (newProduct.customPaymentMethod.trim()) {
-      allPaymentMethods.push(newProduct.customPaymentMethod.trim());
+    const allPaymentMethods = [...newProduct.paymentTerms.paymentMethods];
+    if (newProduct.paymentTerms.customPaymentMethod.trim()) {
+      allPaymentMethods.push(newProduct.paymentTerms.customPaymentMethod.trim());
     }
 
     if (allPaymentMethods.length === 0) {
@@ -369,14 +393,31 @@ export default function ComprasManagement() {
     const inventoryConfig = {
       trackLots: showLotFields,
       trackExpiration: showExpirationFields && isPerishable,
-      minimumStock: 10,
-      maximumStock: 100,
-      reorderPoint: 20,
-      reorderQuantity: 50,
+      minimumStock: Number(newProduct.inventoryConfig?.minimumStock) || 10,
+      maximumStock: Number(newProduct.inventoryConfig?.maximumStock) || 100,
+      reorderPoint: Number(newProduct.inventoryConfig?.reorderPoint) || 20,
+      reorderQuantity: Number(newProduct.inventoryConfig?.reorderQuantity) || 50,
       fefoEnabled: showExpirationFields && isPerishable,
     };
 
+    // Sanitize selling units for payload
+    const sanitizedSellingUnits = newProduct.hasMultipleSellingUnits
+      ? (newProduct.sellingUnits || []).map(u => ({
+        name: u.name || '',
+        abbreviation: u.abbreviation || '',
+        conversionFactor: u.conversionFactor ?? 1,
+        isSoldByWeight: u.isSoldByWeight || false,
+        pricePerUnit: Number(u.pricePerUnit) || 0,
+        costPerUnit: Number(u.costPerUnit) || 0,
+        minimumQuantity: Number(u.minimumQuantity) || 0,
+        incrementStep: Number(u.incrementStep) || 0,
+        isDefault: u.isDefault || false,
+        isActive: u.isActive !== false,
+      }))
+      : [];
+
     const productPayload = {
+      productType: newProduct.productType || 'simple',
       sku: normalizedSku,
       name: newProduct.name,
       category: newProduct.category,
@@ -391,6 +432,8 @@ export default function ComprasManagement() {
       taxCategory: newProduct.taxCategory,
       isSoldByWeight: allowsWeight ? newProduct.isSoldByWeight : false,
       unitOfMeasure: newProduct.unitOfMeasure,
+      hasMultipleSellingUnits: newProduct.hasMultipleSellingUnits,
+      sellingUnits: sanitizedSellingUnits,
       pricingRules: {
         cashDiscount: 0,
         cardSurcharge: 0,
@@ -437,9 +480,17 @@ export default function ComprasManagement() {
       product: productPayload,
       supplier: supplierPayload,
       inventory: inventoryPayload,
-      purchaseDate: new Date().toISOString(),
+      purchaseDate: format(newProduct.purchaseDate, 'yyyy-MM-dd'), // Send only date part
       notes: 'Creación de producto con compra inicial.',
-      paymentMethods: allPaymentMethods,
+      paymentTerms: {
+        isCredit: newProduct.paymentTerms.isCredit,
+        paymentDueDate: newProduct.paymentTerms.paymentDueDate ? format(newProduct.paymentTerms.paymentDueDate, 'yyyy-MM-dd') : undefined,
+        paymentMethods: allPaymentMethods,
+        customPaymentMethod: newProduct.paymentTerms.customPaymentMethod,
+        expectedCurrency: newProduct.paymentTerms.expectedCurrency,
+        requiresAdvancePayment: newProduct.paymentTerms.requiresAdvancePayment,
+        advancePaymentPercentage: newProduct.paymentTerms.advancePaymentPercentage
+      }
     };
 
     try {
@@ -477,6 +528,150 @@ export default function ComprasManagement() {
       setSelectedImageIndex(selectedImageIndex - 1);
     }
     setNewProduct({ ...newProduct, variant: { ...newProduct.variant, images: updatedImages } });
+  };
+
+  // --- Invoice Scanning Handler ---
+  const handleScanInvoice = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsScanning(true);
+    setScanResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const result = await fetchApi('/purchases/scan-invoice', {
+        method: 'POST',
+        body: formData,
+        isFormData: true,
+      });
+
+      const data = result.data || result;
+      setScanResult(data);
+
+      // Pre-fill supplier data
+      if (data.supplier) {
+        const rifParts = (data.supplier.rif || '').split('-');
+        const taxType = rifParts[0] || 'J';
+        const rifNumber = rifParts.slice(1).join('').replace(/[^0-9]/g, '') || data.supplier.rif?.replace(/[^0-9]/g, '') || '';
+
+        setPo(prev => ({
+          ...prev,
+          supplierId: data.supplier.matchedSupplierId || '',
+          supplierName: data.supplier.name || prev.supplierName,
+          supplierRif: rifNumber,
+          taxType: taxType.toUpperCase(),
+          contactName: data.supplier.contactName || prev.contactName,
+          contactPhone: data.supplier.contactPhone || prev.contactPhone,
+          contactEmail: data.supplier.contactEmail || prev.contactEmail,
+          purchaseDate: data.invoiceDate ? new Date(data.invoiceDate) : prev.purchaseDate,
+          notes: data.notes || `Factura #${data.invoiceNumber || 'S/N'}`,
+          paymentTerms: {
+            ...prev.paymentTerms,
+            isCredit: data.paymentTerms?.isCredit || false,
+            paymentMethods: data.paymentTerms?.paymentMethods?.length > 0
+              ? data.paymentTerms.paymentMethods
+              : prev.paymentTerms.paymentMethods,
+            expectedCurrency: data.paymentTerms?.expectedCurrency || prev.paymentTerms.expectedCurrency,
+          },
+        }));
+
+        if (data.supplier.name && !data.supplier.matchedSupplierId) {
+          setSupplierNameInput(data.supplier.name);
+        }
+        if (rifNumber && !data.supplier.matchedSupplierId) {
+          setSupplierRifInput(rifNumber);
+        }
+
+        // Also update newProduct supplier for the "Compra de Producto Nuevo" dialog
+        if (isNewProductDialogOpen) {
+          setNewProduct(prev => ({
+            ...prev,
+            supplier: {
+              ...prev.supplier,
+              isNew: !data.supplier.matchedSupplierId,
+              supplierId: data.supplier.matchedSupplierId || null,
+              newSupplierName: data.supplier.name || '',
+              newSupplierRif: rifNumber,
+              rifPrefix: taxType.toUpperCase(),
+              newSupplierContactName: data.supplier.contactName || prev.supplier.newSupplierContactName,
+              newSupplierContactPhone: data.supplier.contactPhone || prev.supplier.newSupplierContactPhone,
+            },
+          }));
+        }
+      }
+
+      // Pre-fill items (matched products) — for "Añadir Inventario" dialog
+      if (data.items?.length > 0) {
+        const mappedItems = data.items.map(item => ({
+          productId: item.matchedProductId || '',
+          productName: item.productName,
+          productSku: item.productSku,
+          variantId: item.matchedVariantId || '',
+          variantName: '',
+          variantSku: '',
+          quantity: item.quantity,
+          costPrice: item.costPrice,
+          lotNumber: item.lotNumber || '',
+          expirationDate: item.expirationDate || '',
+          _confidence: item.confidence,
+          _matched: !!item.matchedProductId,
+        }));
+
+        setPo(prev => ({ ...prev, items: mappedItems }));
+
+        // For "Compra de Producto Nuevo" dialog, use first item to pre-fill product info
+        if (isNewProductDialogOpen && data.items.length > 0) {
+          const firstItem = data.items[0];
+          setNewProduct(prev => ({
+            ...prev,
+            name: firstItem.productName || prev.name,
+            inventory: {
+              ...prev.inventory,
+              quantity: firstItem.quantity || prev.inventory.quantity,
+              costPrice: firstItem.costPrice || prev.inventory.costPrice,
+            },
+            variant: {
+              ...prev.variant,
+              costPrice: firstItem.costPrice || prev.variant.costPrice,
+            },
+          }));
+        }
+      }
+
+      const confidencePct = Math.round((data.overallConfidence || 0) * 100);
+      if (confidencePct >= 80) {
+        toast.success(`Factura escaneada con ${confidencePct}% de confianza`, {
+          description: `${data.items?.length || 0} productos detectados. Revise los datos antes de confirmar.`,
+        });
+      } else if (confidencePct >= 50) {
+        toast.warning(`Factura escaneada con ${confidencePct}% de confianza`, {
+          description: 'Algunos campos requieren revisión manual. Los campos en amarillo tienen baja confianza.',
+        });
+      } else {
+        toast.warning(`Factura escaneada con baja confianza (${confidencePct}%)`, {
+          description: 'Revise cuidadosamente todos los campos. La imagen puede ser difícil de leer.',
+        });
+      }
+    } catch (err) {
+      toast.error('Error al escanear factura', { description: err.message });
+    } finally {
+      setIsScanning(false);
+      // Reset file inputs
+      if (invoiceFileRef.current) invoiceFileRef.current.value = '';
+      if (invoiceFileRef2.current) invoiceFileRef2.current.value = '';
+    }
+  };
+
+  const handleClearScan = () => {
+    setScanResult(null);
+    setPo(initialPoState);
+    if (isNewProductDialogOpen) {
+      setNewProduct(initialNewProductState);
+    }
+    toast.info('Escaneo descartado. Formulario restaurado.');
   };
 
   // --- Handlers for New Purchase Order Dialog ---
@@ -995,9 +1190,63 @@ export default function ComprasManagement() {
             <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white w-full md:w-auto"><PlusCircle className="mr-2 h-5 w-5" /> Añadir Inventario</Button>
           </DialogTrigger>
           <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
-            <DialogHeader><DialogTitle>Nueva Orden de Compra</DialogTitle><DialogDescription>Crea una nueva orden de compra para reabastecer tu inventario.</DialogDescription></DialogHeader>
+            <DialogHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <DialogTitle>Nueva Orden de Compra</DialogTitle>
+                  <DialogDescription>Crea una nueva orden de compra para reabastecer tu inventario.</DialogDescription>
+                </div>
+                <div className="flex-shrink-0 ml-4">
+                  <input
+                    type="file"
+                    ref={invoiceFileRef}
+                    accept="image/jpeg,image/jpg,image/png,image/webp,image/heic"
+                    className="hidden"
+                    onChange={handleScanInvoice}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => invoiceFileRef.current?.click()}
+                    disabled={isScanning}
+                    className="border-blue-300 text-blue-700 hover:bg-blue-50 gap-2"
+                  >
+                    {isScanning ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> Escaneando...</>
+                    ) : (
+                      <><Camera className="h-4 w-4" /> Escanear Factura</>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </DialogHeader>
 
             <div className="space-y-6 p-1 overflow-y-auto flex-1">
+              {scanResult && (
+                <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${scanResult.overallConfidence >= 0.8 ? 'bg-green-50 border border-green-200 text-green-800' :
+                  scanResult.overallConfidence >= 0.5 ? 'bg-yellow-50 border border-yellow-200 text-yellow-800' :
+                    'bg-red-50 border border-red-200 text-red-800'
+                  }`}>
+                  <span className="font-medium">
+                    {Math.round(scanResult.overallConfidence * 100)}% confianza
+                  </span>
+                  <span>—</span>
+                  <span className="flex-1">
+                    Proveedor: {scanResult.supplier?.matchedSupplierId ? 'Encontrado' : 'Nuevo'} |
+                    Productos: {scanResult.items?.filter(i => i.matchedProductId).length}/{scanResult.items?.length || 0} reconocidos
+                    {scanResult.invoiceNumber && ` | Factura #${scanResult.invoiceNumber}`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleClearScan}
+                    className="ml-auto p-1 rounded-full hover:bg-black/10 transition-colors"
+                    title="Descartar escaneo"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
               <div className="p-4 border rounded-lg space-y-4">
                 <h3 className="text-lg font-semibold">Proveedor</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1102,8 +1351,8 @@ export default function ComprasManagement() {
                       )}
                     </Label>
                     <div className={`grid grid-cols-2 md:grid-cols-3 gap-3 p-3 border rounded-lg ${po.paymentTerms.paymentMethods.length === 0 && !po.paymentTerms.customPaymentMethod
-                        ? 'border-red-300 bg-red-50 dark:bg-red-900/10 dark:border-red-800'
-                        : 'dark:border-slate-700 dark:bg-slate-900/50'
+                      ? 'border-red-300 bg-red-50 dark:bg-red-900/10 dark:border-red-800'
+                      : 'dark:border-slate-700 dark:bg-slate-900/50'
                       }`}>
                       {[
                         { value: 'efectivo', label: 'Efectivo' },
@@ -1251,12 +1500,63 @@ export default function ComprasManagement() {
           <DialogTrigger asChild>
             <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white w-full md:w-auto"><PlusCircle className="mr-2 h-5 w-5" /> Compra de Producto Nuevo</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-3xl h-[90vh] flex flex-col p-0">
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
             <DialogHeader className="px-6 pt-6">
-              <DialogTitle>Agregar Nuevo Producto con Inventario</DialogTitle>
-              <DialogDescription>Completa la información para crear un nuevo producto y su inventario inicial.</DialogDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <DialogTitle>Agregar Nuevo Producto con Inventario</DialogTitle>
+                  <DialogDescription>Completa la información para crear un nuevo producto y su inventario inicial.</DialogDescription>
+                </div>
+                <div className="flex-shrink-0 ml-4">
+                  <input
+                    type="file"
+                    ref={invoiceFileRef2}
+                    accept="image/jpeg,image/jpg,image/png,image/webp,image/heic"
+                    className="hidden"
+                    onChange={handleScanInvoice}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => invoiceFileRef2.current?.click()}
+                    disabled={isScanning}
+                    className="border-blue-300 text-blue-700 hover:bg-blue-50 gap-2"
+                  >
+                    {isScanning ? (
+                      <><Loader2 className="h-4 w-4 animate-spin" /> Escaneando...</>
+                    ) : (
+                      <><Camera className="h-4 w-4" /> Escanear Factura</>
+                    )}
+                  </Button>
+                </div>
+              </div>
             </DialogHeader>
             <div className="space-y-6 py-4 px-6 overflow-y-auto flex-grow">
+              {scanResult && (
+                <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${scanResult.overallConfidence >= 0.8 ? 'bg-green-50 border border-green-200 text-green-800' :
+                  scanResult.overallConfidence >= 0.5 ? 'bg-yellow-50 border border-yellow-200 text-yellow-800' :
+                    'bg-red-50 border border-red-200 text-red-800'
+                  }`}>
+                  <span className="font-medium">
+                    {Math.round(scanResult.overallConfidence * 100)}% confianza
+                  </span>
+                  <span>—</span>
+                  <span className="flex-1">
+                    Proveedor: {scanResult.supplier?.matchedSupplierId ? 'Encontrado' : 'Nuevo'} |
+                    Productos: {scanResult.items?.filter(i => i.matchedProductId).length}/{scanResult.items?.length || 0} reconocidos
+                    {scanResult.invoiceNumber && ` | Factura #${scanResult.invoiceNumber}`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleClearScan}
+                    className="ml-auto p-1 rounded-full hover:bg-black/10 transition-colors"
+                    title="Descartar escaneo"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8">
                 <div className="md:col-span-1 space-y-2">
                   <Label>Imágenes (máx. 3)</Label>
@@ -1469,21 +1769,23 @@ export default function ComprasManagement() {
 
               <div className="grid grid-cols-2 gap-x-6 gap-y-4 pt-6 border-t">
                 <div className="space-y-2">
-                  <Label htmlFor="category">Categoría</Label>
-                  <Input
+                  <Label htmlFor="category">Categorías</Label>
+                  <TagInput
                     id="category"
                     value={newProduct.category}
-                    onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
-                    placeholder={getPlaceholder('category', 'Ej: Bebidas')}
+                    onChange={(val) => setNewProduct({ ...newProduct, category: val })}
+                    placeholder="Escribe y presiona Enter o coma"
+                    helpText="Presiona Enter o coma (,) para agregar. Puedes agregar múltiples."
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="subcategory">Sub-categoría</Label>
-                  <Input
+                  <Label htmlFor="subcategory">Sub-categorías</Label>
+                  <TagInput
                     id="subcategory"
                     value={newProduct.subcategory}
-                    onChange={(e) => setNewProduct({ ...newProduct, subcategory: e.target.value })}
-                    placeholder={getPlaceholder('subcategory', 'Ej: Gaseosas')}
+                    onChange={(val) => setNewProduct({ ...newProduct, subcategory: val })}
+                    placeholder="Escribe y presiona Enter o coma"
+                    helpText="Presiona Enter o coma (,) para agregar."
                   />
                 </div>
 
@@ -1646,6 +1948,272 @@ export default function ComprasManagement() {
                 </div>
               </div>
 
+              {/* Unidades de Venta Múltiples */}
+              <div className="col-span-2 border-t pt-4 mt-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex-1">
+                    <h4 className="text-lg font-medium">Unidades de Venta Múltiples</h4>
+                    <p className="text-sm text-muted-foreground">Configura diferentes unidades (kg, g, lb, cajas, etc.)</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="hasMultipleSellingUnits"
+                      checked={newProduct.hasMultipleSellingUnits}
+                      onCheckedChange={(checked) => setNewProduct({ ...newProduct, hasMultipleSellingUnits: checked })}
+                    />
+                    <Label htmlFor="hasMultipleSellingUnits">Habilitar</Label>
+                  </div>
+                </div>
+
+                {newProduct.hasMultipleSellingUnits && (
+                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md">
+                    <p className="text-xs font-semibold text-blue-900 dark:text-blue-200 mb-1">IMPORTANTE - Configuración de Contenido:</p>
+                    <p className="text-xs text-blue-800 dark:text-blue-300 mb-2">
+                      El inventario SIEMPRE se guarda en <span className="font-bold">"{newProduct.unitOfMeasure}"</span> (la unidad principal).
+                      Aquí debes definir <span className="font-bold">cuántas unidades de venta</span> están contenidas en 1 unidad principal.
+                    </p>
+                    <div className="text-xs text-blue-800 dark:text-blue-300 space-y-1">
+                      <p className="font-semibold">Ejemplos:</p>
+                      <p>• Si la unidad base es "Saco" y vendes en "kg": Contenido = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">20</span> (1 Saco trae 20 kg)</p>
+                      <p>• Si la unidad base es "Caja" y vendes en "Unidad": Contenido = <span className="font-mono bg-white dark:bg-gray-800 px-1 rounded">24</span> (1 Caja trae 24 unidades)</p>
+                    </div>
+                  </div>
+                )}
+
+                {newProduct.hasMultipleSellingUnits && (
+                  <div className="space-y-4">
+                    {newProduct.sellingUnits.map((unit, index) => (
+                      <div key={index} className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                        <div className="flex items-center justify-between">
+                          <h5 className="font-medium">Unidad {index + 1}</h5>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const units = [...newProduct.sellingUnits];
+                              units.splice(index, 1);
+                              setNewProduct({ ...newProduct, sellingUnits: units });
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          <div className="space-y-2">
+                            <Label>Nombre</Label>
+                            <Input
+                              placeholder="Ej: Kilogramos"
+                              value={unit.name || ''}
+                              onChange={(e) => {
+                                const units = [...newProduct.sellingUnits];
+                                units[index] = { ...units[index], name: e.target.value };
+                                setNewProduct({ ...newProduct, sellingUnits: units });
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Abreviación</Label>
+                            <Input
+                              placeholder="Ej: kg"
+                              value={unit.abbreviation || ''}
+                              onChange={(e) => {
+                                const units = [...newProduct.sellingUnits];
+                                units[index] = { ...units[index], abbreviation: e.target.value };
+                                setNewProduct({ ...newProduct, sellingUnits: units });
+                              }}
+                            />
+                          </div>
+                          <div className="flex items-center space-x-2 pt-8">
+                            <Checkbox
+                              id={`np-su-weight-${index}`}
+                              checked={unit.isSoldByWeight || false}
+                              onCheckedChange={(checked) => {
+                                const units = [...newProduct.sellingUnits];
+                                units[index] = { ...units[index], isSoldByWeight: checked };
+                                setNewProduct({ ...newProduct, sellingUnits: units });
+                              }}
+                            />
+                            <Label htmlFor={`np-su-weight-${index}`}>Vendido por peso</Label>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="flex items-center gap-1">
+                              Contenido por {newProduct.unitOfMeasure}
+                              <span className="text-xs text-muted-foreground p-1">(¿Cuántos {unit.abbreviation || 'unidad'} tiene 1 {newProduct.unitOfMeasure}?)</span>
+                            </Label>
+                            <Input
+                              type="number"
+                              step="0.001"
+                              placeholder="Ej: 20"
+                              value={unit.conversionFactorInput ?? ''}
+                              onChange={(e) => {
+                                const rawValue = e.target.value;
+                                const parsed = parseFloat(rawValue);
+                                const calculatedFactor = parsed > 0 ? (1 / parsed) : null;
+                                const units = [...newProduct.sellingUnits];
+                                units[index] = { ...units[index], conversionFactorInput: rawValue, conversionFactor: calculatedFactor };
+                                setNewProduct({ ...newProduct, sellingUnits: units });
+                              }}
+                            />
+                            <p className="text-xs text-muted-foreground font-medium text-blue-600 dark:text-blue-400 mt-1">
+                              {unit.conversionFactorInput ? `1 ${newProduct.unitOfMeasure} contiene ${unit.conversionFactorInput} ${unit.abbreviation || 'unidad'}` : 'Define el contenido'}
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Precio/Unidad ($)</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="Ej: 15.00"
+                              value={unit.pricePerUnit ?? ''}
+                              onChange={(e) => {
+                                const units = [...newProduct.sellingUnits];
+                                units[index] = { ...units[index], pricePerUnit: e.target.value === '' ? '' : parseFloat(e.target.value) || 0 };
+                                setNewProduct({ ...newProduct, sellingUnits: units });
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Costo/Unidad ($)</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="Ej: 12.00"
+                              value={unit.costPerUnit ?? ''}
+                              onChange={(e) => {
+                                const units = [...newProduct.sellingUnits];
+                                units[index] = { ...units[index], costPerUnit: e.target.value === '' ? '' : parseFloat(e.target.value) || 0 };
+                                setNewProduct({ ...newProduct, sellingUnits: units });
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Cant. Mínima</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="Ej: 0.5"
+                              value={unit.minimumQuantity || ''}
+                              onChange={(e) => {
+                                const units = [...newProduct.sellingUnits];
+                                units[index] = { ...units[index], minimumQuantity: parseFloat(e.target.value) || 0 };
+                                setNewProduct({ ...newProduct, sellingUnits: units });
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Incremento</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="Ej: 0.5"
+                              value={unit.incrementStep || ''}
+                              onChange={(e) => {
+                                const units = [...newProduct.sellingUnits];
+                                units[index] = { ...units[index], incrementStep: parseFloat(e.target.value) || 0 };
+                                setNewProduct({ ...newProduct, sellingUnits: units });
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-2 flex items-end">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`np-default-${index}`}
+                                checked={unit.isDefault || false}
+                                onCheckedChange={(checked) => {
+                                  const units = newProduct.sellingUnits.map((u, i) => ({
+                                    ...u,
+                                    isDefault: i === index ? checked : false
+                                  }));
+                                  setNewProduct({ ...newProduct, sellingUnits: units });
+                                }}
+                              />
+                              <Label htmlFor={`np-default-${index}`}>Por defecto</Label>
+                            </div>
+                          </div>
+                          <div className="space-y-2 flex items-end">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`np-active-${index}`}
+                                checked={unit.isActive !== false}
+                                onCheckedChange={(checked) => {
+                                  const units = [...newProduct.sellingUnits];
+                                  units[index] = { ...units[index], isActive: checked };
+                                  setNewProduct({ ...newProduct, sellingUnits: units });
+                                }}
+                              />
+                              <Label htmlFor={`np-active-${index}`}>Activa</Label>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setNewProduct({
+                          ...newProduct,
+                          sellingUnits: [...newProduct.sellingUnits, {
+                            name: '',
+                            abbreviation: '',
+                            conversionFactor: 1,
+                            conversionFactorInput: '1',
+                            pricePerUnit: 0,
+                            costPerUnit: 0,
+                            isActive: true,
+                            isDefault: newProduct.sellingUnits.length === 0,
+                            minimumQuantity: 0,
+                            incrementStep: 0
+                          }]
+                        });
+                      }}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Agregar Unidad
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Configuración de Inventario */}
+              <div className="col-span-2 border-t pt-4 mt-4">
+                <h4 className="text-lg font-medium mb-4">Configuración de Inventario</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <Label>Stock Mínimo</Label>
+                    <Input
+                      type="number"
+                      value={newProduct.inventoryConfig.minimumStock}
+                      onChange={(e) => setNewProduct({ ...newProduct, inventoryConfig: { ...newProduct.inventoryConfig, minimumStock: parseInt(e.target.value) || 0 } })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Stock Máximo</Label>
+                    <Input
+                      type="number"
+                      value={newProduct.inventoryConfig.maximumStock}
+                      onChange={(e) => setNewProduct({ ...newProduct, inventoryConfig: { ...newProduct.inventoryConfig, maximumStock: parseInt(e.target.value) || 0 } })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Punto de Reorden</Label>
+                    <Input
+                      type="number"
+                      value={newProduct.inventoryConfig.reorderPoint}
+                      onChange={(e) => setNewProduct({ ...newProduct, inventoryConfig: { ...newProduct.inventoryConfig, reorderPoint: parseInt(e.target.value) || 0 } })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Cantidad de Reorden</Label>
+                    <Input
+                      type="number"
+                      value={newProduct.inventoryConfig.reorderQuantity}
+                      onChange={(e) => setNewProduct({ ...newProduct, inventoryConfig: { ...newProduct.inventoryConfig, reorderQuantity: parseInt(e.target.value) || 0 } })}
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="col-span-2 border-t pt-4 mt-4">
                 <h4 className="text-lg font-medium mb-4">Inventario Inicial</h4>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1778,46 +2346,160 @@ export default function ComprasManagement() {
               </div>
 
               <div className="col-span-2 border-t pt-4 mt-4">
-                <h4 className="text-lg font-medium mb-4">Métodos de Pago</h4>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 p-3 border rounded-lg">
-                    {[
-                      { value: 'efectivo', label: 'Efectivo' },
-                      { value: 'transferencia', label: 'Transferencia Bancaria' },
-                      { value: 'pago_movil', label: 'Pago Móvil' },
-                      { value: 'pos', label: 'Punto de Venta' },
-                      { value: 'zelle', label: 'Zelle' },
-                      { value: 'binance', label: 'Binance' },
-                      { value: 'paypal', label: 'PayPal' },
-                    ].map(method => (
-                      <div key={method.value} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`new-product-payment-${method.value}`}
-                          checked={newProduct.paymentMethods.includes(method.value)}
-                          onCheckedChange={(checked) => {
-                            setNewProduct(prev => ({
-                              ...prev,
-                              paymentMethods: checked
-                                ? [...prev.paymentMethods, method.value]
-                                : prev.paymentMethods.filter(m => m !== method.value)
-                            }));
-                          }}
-                        />
-                        <Label htmlFor={`new-product-payment-${method.value}`} className="text-sm font-normal cursor-pointer">{method.label}</Label>
-                      </div>
-                    ))}
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Método de Pago Personalizado (opcional)</Label>
+                    <Label>Fecha de Compra</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start text-left font-normal"><CalendarIcon className="mr-2 h-4 w-4" />{newProduct.purchaseDate ? format(newProduct.purchaseDate, "PPP") : <span>Selecciona una fecha</span>}</Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newProduct.purchaseDate} onSelect={(date) => setNewProduct({ ...newProduct, purchaseDate: date })} initialFocus /></PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-span-2 border-t pt-4 mt-4 p-4 border rounded-lg dark:border-slate-700 dark:bg-slate-800/50">
+                <h3 className="text-lg font-semibold dark:text-gray-100 mb-4">Términos de Pago</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="np-isCredit"
+                      checked={newProduct.paymentTerms.isCredit}
+                      onCheckedChange={(checked) => setNewProduct({
+                        ...newProduct,
+                        paymentTerms: { ...newProduct.paymentTerms, isCredit: checked, paymentDueDate: checked ? newProduct.paymentTerms.paymentDueDate : null }
+                      })}
+                    />
+                    <Label htmlFor="np-isCredit" className="dark:text-gray-200">¿Acepta crédito?</Label>
+                  </div>
+                  {newProduct.paymentTerms.isCredit && (
+                    <div className="space-y-2">
+                      <Label className="dark:text-gray-200">Fecha de Vencimiento del Pago</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-start text-left font-normal dark:bg-slate-900 dark:border-slate-700 dark:text-gray-100">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {newProduct.paymentTerms.paymentDueDate ? format(newProduct.paymentTerms.paymentDueDate, "PPP") : <span>Selecciona fecha de pago</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 dark:bg-slate-900 dark:border-slate-700">
+                          <Calendar
+                            mode="single"
+                            selected={newProduct.paymentTerms.paymentDueDate}
+                            onSelect={(date) => setNewProduct({
+                              ...newProduct,
+                              paymentTerms: { ...newProduct.paymentTerms, paymentDueDate: date }
+                            })}
+                            disabled={(date) => date < newProduct.purchaseDate}
+                            initialFocus
+                            className="dark:bg-slate-900 dark:text-gray-100"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label className="dark:text-gray-200">Moneda de Pago Esperada <span className="text-red-500">*</span></Label>
+                    <Select
+                      value={newProduct.paymentTerms.expectedCurrency}
+                      onValueChange={(value) => setNewProduct({
+                        ...newProduct,
+                        paymentTerms: { ...newProduct.paymentTerms, expectedCurrency: value }
+                      })}
+                    >
+                      <SelectTrigger className="dark:bg-slate-900 dark:border-slate-700 dark:text-gray-100">
+                        <SelectValue placeholder="Selecciona moneda" />
+                      </SelectTrigger>
+                      <SelectContent className="dark:bg-slate-900 dark:border-slate-700">
+                        <SelectItem value="USD" className="dark:text-gray-100 focus:dark:bg-slate-800">USD ($)</SelectItem>
+                        <SelectItem value="VES" className="dark:text-gray-100 focus:dark:bg-slate-800">Bolívares (Bs)</SelectItem>
+                        <SelectItem value="EUR" className="dark:text-gray-100 focus:dark:bg-slate-800">Euros (€)</SelectItem>
+                        <SelectItem value="USD_BCV" className="dark:text-gray-100 focus:dark:bg-slate-800">$ BCV (Tasa BCV)</SelectItem>
+                        <SelectItem value="EUR_BCV" className="dark:text-gray-100 focus:dark:bg-slate-800">€ BCV (Tasa BCV)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-2 space-y-2">
+                    <Label className="flex items-center gap-2 dark:text-gray-200">
+                      Métodos de Pago Aceptados <span className="text-red-500">*</span>
+                      {newProduct.paymentTerms.paymentMethods.length === 0 && !newProduct.paymentTerms.customPaymentMethod && (
+                        <span className="text-xs text-red-500 font-normal">(Selecciona al menos uno)</span>
+                      )}
+                    </Label>
+                    <div className={`grid grid-cols-2 md:grid-cols-3 gap-3 p-3 border rounded-lg ${newProduct.paymentTerms.paymentMethods.length === 0 && !newProduct.paymentTerms.customPaymentMethod
+                      ? 'border-red-300 bg-red-50 dark:bg-red-900/10 dark:border-red-800'
+                      : 'dark:border-slate-700 dark:bg-slate-900/50'
+                      }`}>
+                      {[
+                        { value: 'efectivo', label: 'Efectivo' },
+                        { value: 'transferencia', label: 'Transferencia Bancaria' },
+                        { value: 'pago_movil', label: 'Pago Móvil' },
+                        { value: 'pos', label: 'Punto de Venta' },
+                        { value: 'zelle', label: 'Zelle' },
+                        { value: 'binance', label: 'Binance' },
+                        { value: 'paypal', label: 'PayPal' },
+                      ].map(method => (
+                        <div key={method.value} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`np-payment-${method.value}`}
+                            checked={newProduct.paymentTerms.paymentMethods.includes(method.value)}
+                            onCheckedChange={(checked) => {
+                              setNewProduct({
+                                ...newProduct,
+                                paymentTerms: {
+                                  ...newProduct.paymentTerms,
+                                  paymentMethods: checked
+                                    ? [...newProduct.paymentTerms.paymentMethods, method.value]
+                                    : newProduct.paymentTerms.paymentMethods.filter(m => m !== method.value)
+                                }
+                              });
+                            }}
+                          />
+                          <Label htmlFor={`np-payment-${method.value}`} className="text-sm font-normal cursor-pointer dark:text-gray-300 hover:dark:text-gray-100">{method.label}</Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="col-span-2 space-y-2">
+                    <Label className="dark:text-gray-200">Método de Pago Personalizado (opcional)</Label>
                     <Input
-                      value={newProduct.customPaymentMethod}
-                      onChange={e => setNewProduct(prev => ({
-                        ...prev,
-                        customPaymentMethod: e.target.value
-                      }))}
+                      value={newProduct.paymentTerms.customPaymentMethod}
+                      onChange={e => setNewProduct({
+                        ...newProduct,
+                        paymentTerms: { ...newProduct.paymentTerms, customPaymentMethod: e.target.value }
+                      })}
                       placeholder="Ej: Cripto, Bitcoin, USDT, etc."
+                      className="dark:bg-slate-900 dark:border-slate-700 dark:text-gray-100 dark:placeholder-gray-500"
                     />
                   </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="np-requiresAdvancePayment"
+                      checked={newProduct.paymentTerms.requiresAdvancePayment}
+                      onCheckedChange={(checked) => setNewProduct({
+                        ...newProduct,
+                        paymentTerms: { ...newProduct.paymentTerms, requiresAdvancePayment: checked }
+                      })}
+                    />
+                    <Label htmlFor="np-requiresAdvancePayment" className="dark:text-gray-200">¿Requiere adelanto?</Label>
+                  </div>
+                  {newProduct.paymentTerms.requiresAdvancePayment && (
+                    <div className="space-y-2">
+                      <Label className="dark:text-gray-200">Porcentaje de Adelanto (%)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={newProduct.paymentTerms.advancePaymentPercentage}
+                        onChange={e => setNewProduct({
+                          ...newProduct,
+                          paymentTerms: { ...newProduct.paymentTerms, advancePaymentPercentage: Number(e.target.value) }
+                        })}
+                        className="dark:bg-slate-900 dark:border-slate-700 dark:text-gray-100"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 

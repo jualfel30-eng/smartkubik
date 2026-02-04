@@ -27,6 +27,7 @@ import { useSupplies } from '@/hooks/useSupplies';
 import { UnitTypeFields } from './UnitTypes';
 import { BarcodeScannerDialog } from '@/components/BarcodeScannerDialog.jsx';
 import { CONSUMABLE_TYPES, SUPPLY_CATEGORIES } from '@/types/consumables';
+import { TagInput } from '@/components/ui/tag-input.jsx';
 import {
   Plus,
   Search,
@@ -42,7 +43,9 @@ import {
   Wrench,
   Scan,
   ArrowRightLeft,
-  Factory
+  Factory,
+  Camera,
+  Loader2
 } from 'lucide-react';
 
 const UNASSIGNED_SELECT_VALUE = '__UNASSIGNED__';
@@ -129,58 +132,7 @@ const compressAndConvertImage = (file) => {
 };
 
 // Tag Input Component for categories/subcategories
-const TagInput = ({ value = [], onChange, placeholder, id, helpText }) => {
-  const [inputValue, setInputValue] = useState('');
-
-  const handleKeyDown = (e) => {
-    if (e.key === ',' || e.key === 'Enter') {
-      e.preventDefault();
-      const tag = inputValue.trim();
-      if (tag && !value.includes(tag)) {
-        onChange([...value, tag]);
-        setInputValue('');
-      }
-    } else if (e.key === 'Backspace' && !inputValue && value.length > 0) {
-      // Remove last tag when backspace is pressed on empty input
-      onChange(value.slice(0, -1));
-    }
-  };
-
-  const removeTag = (tagToRemove) => {
-    onChange(value.filter(tag => tag !== tagToRemove));
-  };
-
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[42px] bg-background">
-        {value.map((tag, index) => (
-          <Badge key={index} variant="secondary" className="flex items-center gap-1 px-2 py-1">
-            {tag}
-            <button
-              type="button"
-              onClick={() => removeTag(tag)}
-              className="hover:bg-muted rounded-full p-0.5"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </Badge>
-        ))}
-        <input
-          id={id}
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={value.length === 0 ? placeholder : ''}
-          className="flex-1 min-w-[120px] outline-none bg-transparent text-sm"
-        />
-      </div>
-      {helpText && (
-        <p className="text-xs text-muted-foreground">{helpText}</p>
-      )}
-    </div>
-  );
-};
+// TagInput imported from '@/components/ui/tag-input.jsx'
 
 const createVariantTemplate = (options = {}) => {
   const { name = '', unit = 'unidad' } = options;
@@ -446,6 +398,9 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
   const [additionalVariants, setAdditionalVariants] = useState([]);
   const [isBarcodeDialogOpen, setIsBarcodeDialogOpen] = useState(false);
   const [barcodeCaptureTarget, setBarcodeCaptureTarget] = useState(null);
+  const [isLabelScanning, setIsLabelScanning] = useState(false);
+  const [labelScanResult, setLabelScanResult] = useState(null);
+  const labelFileRef = useRef(null);
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -1084,6 +1039,74 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
     });
 
     return Object.keys(result).length > 0 ? result : undefined;
+  };
+
+  const handleScanLabel = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    if (files.length > 3) {
+      toast.error('Máximo 3 imágenes permitidas');
+      if (labelFileRef.current) labelFileRef.current.value = '';
+      return;
+    }
+
+    setIsLabelScanning(true);
+    setLabelScanResult(null);
+
+    try {
+      const formData = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        formData.append('images', files[i]);
+      }
+
+      const response = await fetchApi('/products/scan-label', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.success && response.data) {
+        const d = response.data;
+
+        setNewProduct(prev => ({
+          ...prev,
+          name: d.name || prev.name,
+          brand: d.brand || prev.brand,
+          description: d.description || prev.description,
+          ingredients: d.ingredients || prev.ingredients,
+          origin: d.origin || prev.origin,
+          isPerishable: d.isPerishable ?? prev.isPerishable,
+          shelfLifeDays: d.shelfLifeDays || prev.shelfLifeDays,
+          storageTemperature: d.storageTemperature || prev.storageTemperature,
+          unitOfMeasure: d.unitOfMeasure || prev.unitOfMeasure,
+          category: d.matchedCategory ? [d.matchedCategory] : (d.category ? [d.category] : prev.category),
+          subcategory: d.matchedSubcategory ? [d.matchedSubcategory] : (d.subcategory ? [d.subcategory] : prev.subcategory),
+        }));
+
+        setLabelScanResult({
+          confidence: d.overallConfidence,
+          categoryMatched: !!d.matchedCategory,
+          suggestedCategory: d.category,
+          allergens: d.allergens || [],
+          attributes: d.attributes || {},
+        });
+
+        const pct = Math.round(d.overallConfidence * 100);
+        toast.success(`Etiqueta escaneada con ${pct}% de confianza`);
+      } else {
+        toast.error('No se pudo escanear la etiqueta');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Error al escanear la etiqueta');
+    } finally {
+      setIsLabelScanning(false);
+      if (labelFileRef.current) labelFileRef.current.value = '';
+    }
+  };
+
+  const handleClearLabelScan = () => {
+    setLabelScanResult(null);
+    setNewProduct(initialNewProductState);
+    toast.info('Escaneo descartado. Formulario restaurado.');
   };
 
   const handleAddProduct = async () => {
@@ -2024,8 +2047,64 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
           </DialogTrigger>
           <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
             <DialogHeader className="px-6 pt-6">
-              <DialogTitle>Agregar Nuevo Producto</DialogTitle>
-              <DialogDescription>Completa la información para crear un nuevo producto en el catálogo.</DialogDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <DialogTitle>Agregar Nuevo Producto</DialogTitle>
+                  <DialogDescription>Completa la información para crear un nuevo producto en el catálogo.</DialogDescription>
+                </div>
+                <div className="flex-shrink-0">
+                  <input
+                    type="file"
+                    ref={labelFileRef}
+                    accept="image/jpeg,image/png,image/webp,image/heic"
+                    multiple
+                    className="hidden"
+                    onChange={handleScanLabel}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isLabelScanning}
+                    onClick={() => labelFileRef.current?.click()}
+                  >
+                    {isLabelScanning ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Escaneando...</>
+                    ) : (
+                      <><Camera className="h-4 w-4 mr-2" /> Escanear Etiqueta</>
+                    )}
+                  </Button>
+                </div>
+              </div>
+              {labelScanResult && (
+                <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md text-sm">
+                  <div className="flex items-center gap-2 font-medium text-blue-800 dark:text-blue-200">
+                    <CheckCircle className="h-4 w-4" />
+                    <span className="flex-1">Etiqueta escaneada — {Math.round(labelScanResult.confidence * 100)}% confianza</span>
+                    <button
+                      type="button"
+                      onClick={handleClearLabelScan}
+                      className="p-1 rounded-full hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+                      title="Descartar escaneo"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="mt-1 text-blue-600 dark:text-blue-300 space-y-0.5">
+                    {labelScanResult.categoryMatched ? (
+                      <p>✓ Categoría encontrada en tu catálogo</p>
+                    ) : labelScanResult.suggestedCategory ? (
+                      <p>⚠ Categoría sugerida: "{labelScanResult.suggestedCategory}" (nueva)</p>
+                    ) : null}
+                    {labelScanResult.allergens.length > 0 && (
+                      <p>⚠ Alérgenos detectados: {labelScanResult.allergens.join(', ')}</p>
+                    )}
+                    {Object.keys(labelScanResult.attributes).length > 0 && (
+                      <p>ℹ {Object.keys(labelScanResult.attributes).length} dato(s) adicional(es) extraído(s)</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </DialogHeader>
 
             {/* Product Type Selector */}
