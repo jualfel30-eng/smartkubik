@@ -36,3 +36,4 @@ Disallow: /api/
 # Sitemap location
 Sitemap: https://smartkubik.com/sitemap.xml
 Sitemap: https://smartkubik.com/blog/sitemap.xml
+Sitemap: https://smartkubik.com/sitemap-blog.xml
