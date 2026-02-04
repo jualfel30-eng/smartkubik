@@ -24,6 +24,9 @@ import { EventsService } from "../events/events.service"; // Import EventsServic
 import { TransactionHistoryService } from "../../services/transaction-history.service"; // Import TransactionHistoryService
 import { InventoryMovementsService } from "../inventory/inventory-movements.service";
 import { MovementType } from "../../dto/inventory-movement.dto";
+import { SuppliersService } from "../suppliers/suppliers.service";
+import { OpenaiService } from "../openai/openai.service";
+import * as sharp from "sharp";
 
 @Injectable()
 export class PurchasesService {
@@ -40,6 +43,8 @@ export class PurchasesService {
     private readonly eventsService: EventsService, // Inject EventsService
     private readonly transactionHistoryService: TransactionHistoryService, // Inject TransactionHistoryService
     private readonly inventoryMovementsService: InventoryMovementsService,
+    private readonly suppliersService: SuppliersService,
+    private readonly openaiService: OpenaiService,
   ) { }
 
   async create(
@@ -183,6 +188,23 @@ export class PurchasesService {
     }
 
     this.logger.log(`Creating new purchase order: ${poNumber}`);
+
+    // --- Sync supplier profile from purchase data (GAPs 1, 3, 4, 5) ---
+    this.suppliersService.syncFromPurchaseOrder(
+      supplierId!,
+      {
+        totalAmount,
+        paymentTerms: dto.paymentTerms,
+        newSupplierContactName: dto.newSupplierContactName,
+        newSupplierContactPhone: dto.newSupplierContactPhone,
+        newSupplierContactEmail: dto.newSupplierContactEmail,
+        isReceiving: false,
+      },
+      user,
+    ).catch(err => {
+      this.logger.error(`Failed to sync supplier from PO creation: ${err.message}`);
+    });
+
     return savedPurchaseOrder;
   }
 
@@ -200,10 +222,27 @@ export class PurchasesService {
       filter.status = query.status;
     }
 
-    return this.poModel
-      .find(filter)
-      .sort({ purchaseDate: -1 })
-      .exec();
+    const page = Math.max(Number(query?.page) || 1, 1);
+    const limit = Math.max(Number(query?.limit) || 25, 1);
+    const skip = (page - 1) * limit;
+
+    const [purchases, total] = await Promise.all([
+      this.poModel
+        .find(filter)
+        .sort({ purchaseDate: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.poModel.countDocuments(filter),
+    ]);
+
+    return {
+      purchases,
+      total,
+      totalPages: Math.ceil(total / limit),
+      page,
+      limit,
+    };
   }
 
   async receivePurchaseOrder(
@@ -284,6 +323,24 @@ export class PurchasesService {
           `No se pudo registrar movimiento IN: inventario no encontrado para SKU ${item.productSku}`,
         );
       }
+    }
+
+    // --- GAP 2: Link each purchased product to the supplier in Product.suppliers[] ---
+    for (const item of purchaseOrder.items) {
+      this.suppliersService.linkProductToSupplier(
+        item.productId.toString(),
+        purchaseOrder.supplierId.toString(),
+        user.tenantId,
+        {
+          supplierName: purchaseOrder.supplierName,
+          costPrice: item.costPrice,
+          productSku: item.variantSku || item.productSku,
+        },
+      ).catch(err => {
+        this.logger.error(
+          `Failed to link product ${item.productSku} to supplier: ${err.message}`,
+        );
+      });
     }
 
     purchaseOrder.status = "received";
@@ -786,6 +843,399 @@ export class PurchasesService {
     const seconds = now.getSeconds().toString().padStart(2, "0");
     const randomPart = Math.random().toString().slice(2, 8); // 6 random digits
     return `OC-${year}${month}${day}-${hours}${minutes}${seconds}-${randomPart}`;
+  }
+
+  /**
+   * Scan an invoice/delivery note image using AI (GPT-4o-mini Vision).
+   * Extracts structured purchase data and attempts to match products/suppliers.
+   *
+   * Returns a pre-filled PO DTO that the frontend can use to populate the form.
+   */
+  async scanInvoiceImage(
+    imageBase64: string,
+    mimeType: string,
+    tenantId: string,
+  ): Promise<{
+    supplier: {
+      name: string;
+      rif: string;
+      contactName: string;
+      contactPhone: string;
+      contactEmail: string;
+      matchedSupplierId: string | null;
+      confidence: number;
+    };
+    items: Array<{
+      productName: string;
+      productSku: string;
+      quantity: number;
+      costPrice: number;
+      lotNumber: string;
+      expirationDate: string;
+      matchedProductId: string | null;
+      matchedVariantId: string | null;
+      confidence: number;
+    }>;
+    invoiceNumber: string;
+    invoiceDate: string;
+    totalAmount: number;
+    paymentTerms: {
+      isCredit: boolean;
+      paymentMethods: string[];
+      expectedCurrency: string;
+    };
+    notes: string;
+    overallConfidence: number;
+  }> {
+    const { Types } = require("mongoose");
+
+    // 1. Call GPT-4o-mini Vision to extract data from the invoice image
+    const extractionPrompt = `Eres un experto en lectura de facturas, notas de entrega y documentos comerciales de América Latina (especialmente Venezuela).
+
+Analiza esta imagen de factura/nota de entrega y extrae TODA la información que puedas en formato JSON estricto.
+
+IMPORTANTE:
+- Si un campo no es legible o no existe, usa null
+- Los precios deben ser numéricos (sin símbolos de moneda)
+- El RIF venezolano tiene formato: J-12345678-9 o V-12345678-9 (letra-números-dígito verificador)
+- Busca datos del PROVEEDOR (quien emite la factura), no del cliente
+- Identifica cada producto/item con nombre, cantidad, precio unitario
+- Detecta si es a crédito o contado
+- Detecta la moneda (USD, VES, EUR)
+
+Responde SOLO con JSON válido, sin markdown ni texto adicional:
+{
+  "supplier": {
+    "companyName": "string o null",
+    "rif": "string o null",
+    "contactName": "string o null",
+    "contactPhone": "string o null",
+    "contactEmail": "string o null",
+    "address": "string o null"
+  },
+  "invoice": {
+    "number": "string o null",
+    "date": "YYYY-MM-DD o null",
+    "dueDate": "YYYY-MM-DD o null"
+  },
+  "items": [
+    {
+      "description": "nombre del producto",
+      "sku": "código o null",
+      "quantity": 0,
+      "unitPrice": 0,
+      "totalPrice": 0,
+      "lotNumber": "string o null",
+      "expirationDate": "YYYY-MM-DD o null"
+    }
+  ],
+  "totals": {
+    "subtotal": 0,
+    "tax": 0,
+    "total": 0,
+    "currency": "USD | VES | EUR"
+  },
+  "payment": {
+    "isCredit": false,
+    "creditDays": 0,
+    "methods": [],
+    "notes": "string o null"
+  },
+  "notes": "cualquier nota adicional relevante"
+}`;
+
+    let extractedData: any;
+
+    // Compress and resize image to reduce memory usage and API cost
+    let optimizedBase64: string;
+    let optimizedMimeType: string;
+    try {
+      const inputBuffer = Buffer.from(imageBase64, "base64");
+      const optimizedBuffer = await sharp(inputBuffer)
+        .resize(1600, 2200, { fit: "inside", withoutEnlargement: true }) // Max 1600x2200px (enough for invoices)
+        .jpeg({ quality: 75 }) // Convert to JPEG at 75% quality
+        .toBuffer();
+      optimizedBase64 = optimizedBuffer.toString("base64");
+      optimizedMimeType = "image/jpeg";
+      this.logger.log(
+        `Invoice scan: Image optimized from ${(inputBuffer.length / 1024).toFixed(0)}KB to ${(optimizedBuffer.length / 1024).toFixed(0)}KB`,
+      );
+    } catch (compressError) {
+      this.logger.warn(`Invoice scan: Image compression failed, using original: ${compressError.message}`);
+      optimizedBase64 = imageBase64;
+      optimizedMimeType = mimeType;
+    }
+
+    try {
+      const response = await this.openaiService.createChatCompletion({
+        messages: [
+          { role: "system", content: extractionPrompt },
+          {
+            role: "user",
+            content: [
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:${optimizedMimeType};base64,${optimizedBase64}`,
+                  detail: "low",
+                },
+              },
+            ] as any,
+          },
+        ],
+        model: "gpt-4o-mini",
+        temperature: 0.1,
+        maxTokens: 2000,
+      });
+
+      const rawContent = response.choices?.[0]?.message?.content || "{}";
+      // Clean potential markdown wrapping
+      const cleaned = rawContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      extractedData = JSON.parse(cleaned);
+    } catch (parseError) {
+      this.logger.error(`Invoice scan: Failed to parse AI response: ${parseError.message}`);
+      throw new BadRequestException(
+        "No se pudo interpretar la imagen. Asegúrese de que sea una factura o nota de entrega legible.",
+      );
+    }
+
+    // 2. Match extracted supplier against existing suppliers
+    let matchedSupplierId: string | null = null;
+    let supplierConfidence = 0;
+
+    if (extractedData.supplier?.rif) {
+      // Try exact RIF match via the Supplier model first, then Customer
+      try {
+        const supplierByRif = await this.suppliersService.findAll(tenantId, extractedData.supplier.rif);
+        if (Array.isArray(supplierByRif) && supplierByRif.length > 0) {
+          matchedSupplierId = supplierByRif[0]._id.toString();
+          supplierConfidence = 0.95;
+        }
+      } catch {
+        // Ignore search errors
+      }
+    }
+
+    if (!matchedSupplierId && extractedData.supplier?.companyName) {
+      // Try fuzzy name match via suppliers
+      try {
+        const suppliersByName = await this.suppliersService.findAll(tenantId, extractedData.supplier.companyName);
+        if (Array.isArray(suppliersByName) && suppliersByName.length > 0) {
+          matchedSupplierId = suppliersByName[0]._id.toString();
+          supplierConfidence = 0.7;
+        }
+      } catch {
+        // Ignore search errors
+      }
+    }
+
+    // 3. Match extracted items against existing products
+    const tenantObjectId = new Types.ObjectId(tenantId);
+    const matchedItems: Array<{
+      productName: string;
+      productSku: string;
+      quantity: number;
+      costPrice: number;
+      lotNumber: string;
+      expirationDate: string;
+      matchedProductId: string | null;
+      matchedVariantId: string | null;
+      confidence: number;
+    }> = [];
+
+    for (const item of extractedData.items || []) {
+      let matchedProductId: string | null = null;
+      let matchedVariantId: string | null = null;
+      let itemConfidence = 0;
+
+      // Try SKU match first
+      if (item.sku) {
+        const productBySku = await this.productModel
+          .findOne({
+            tenantId: tenantObjectId,
+            $or: [
+              { sku: item.sku },
+              { "variants.sku": item.sku },
+            ],
+          })
+          .lean();
+
+        if (productBySku) {
+          matchedProductId = productBySku._id.toString();
+          itemConfidence = 0.95;
+
+          // Check if it matches a variant
+          const matchedVariant = (productBySku as any).variants?.find(
+            (v: any) => v.sku === item.sku,
+          );
+          if (matchedVariant) {
+            matchedVariantId = matchedVariant._id.toString();
+          }
+        }
+      }
+
+      // Try name match if SKU didn't work
+      if (!matchedProductId && item.description) {
+        const productByName = await this.productModel
+          .findOne({
+            tenantId: tenantObjectId,
+            name: { $regex: this.escapeRegex(item.description), $options: "i" },
+          })
+          .lean();
+
+        if (productByName) {
+          matchedProductId = productByName._id.toString();
+          itemConfidence = 0.7;
+        }
+      }
+
+      matchedItems.push({
+        productName: item.description || "",
+        productSku: item.sku || "",
+        quantity: Number(item.quantity) || 0,
+        costPrice: Number(item.unitPrice) || 0,
+        lotNumber: item.lotNumber || "",
+        expirationDate: item.expirationDate || "",
+        matchedProductId,
+        matchedVariantId,
+        confidence: itemConfidence,
+      });
+    }
+
+    // 4. Calculate overall confidence based on extraction quality + matching bonus
+    // Base: how much data the AI actually extracted (0-0.7)
+    let extractionScore = 0;
+    if (extractedData.supplier?.companyName) extractionScore += 0.15;
+    if (extractedData.supplier?.rif) extractionScore += 0.1;
+    if (extractedData.invoice?.number) extractionScore += 0.1;
+    if ((extractedData.items || []).length > 0) extractionScore += 0.2;
+    if (extractedData.totals?.total) extractionScore += 0.1;
+    if (extractedData.invoice?.date) extractionScore += 0.05;
+
+    // Bonus: matching against existing data (0-0.3)
+    const matchBonus = (supplierConfidence > 0 ? 0.15 : 0) +
+      (matchedItems.filter(i => i.matchedProductId).length > 0
+        ? 0.15 * (matchedItems.filter(i => i.matchedProductId).length / Math.max(matchedItems.length, 1))
+        : 0);
+
+    const overallConfidence = Math.min(extractionScore + matchBonus, 1);
+
+    // Determine currency mapping
+    const currencyMap: Record<string, string> = {
+      USD: "USD",
+      VES: "VES",
+      BS: "VES",
+      EUR: "EUR",
+      BOLIVARES: "VES",
+      DOLARES: "USD",
+    };
+    const rawCurrency = (extractedData.totals?.currency || "USD").toUpperCase();
+    const expectedCurrency = currencyMap[rawCurrency] || "USD";
+
+    return {
+      supplier: {
+        name: extractedData.supplier?.companyName || "",
+        rif: extractedData.supplier?.rif || "",
+        contactName: extractedData.supplier?.contactName || "",
+        contactPhone: extractedData.supplier?.contactPhone || "",
+        contactEmail: extractedData.supplier?.contactEmail || "",
+        matchedSupplierId,
+        confidence: supplierConfidence,
+      },
+      items: matchedItems,
+      invoiceNumber: extractedData.invoice?.number || "",
+      invoiceDate: extractedData.invoice?.date || "",
+      totalAmount: Number(extractedData.totals?.total) || 0,
+      paymentTerms: {
+        isCredit: extractedData.payment?.isCredit || false,
+        paymentMethods: extractedData.payment?.methods || [],
+        expectedCurrency,
+      },
+      notes: extractedData.notes || "",
+      overallConfidence,
+    };
+  }
+
+  private escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  /**
+   * Reconcile all received POs: detect and repair missing supplier syncs.
+   * Checks that each received PO has:
+   * 1. A proper Supplier entity (not just Customer)
+   * 2. Products linked to the supplier in Product.suppliers[]
+   * 3. Supplier metrics updated
+   *
+   * Returns a report of what was found and fixed.
+   */
+  async reconcilePurchaseOrders(tenantId: string, user: any): Promise<{
+    totalPOs: number;
+    suppliersCreated: number;
+    productsLinked: number;
+    metricsUpdated: number;
+    errors: string[];
+  }> {
+    const { Types } = require("mongoose");
+    const tenantObjectId = new Types.ObjectId(tenantId);
+
+    const receivedPOs = await this.poModel
+      .find({ tenantId: tenantObjectId, status: 'received' })
+      .sort({ purchaseDate: 1 })
+      .lean();
+
+    const report = {
+      totalPOs: receivedPOs.length,
+      suppliersCreated: 0,
+      productsLinked: 0,
+      metricsUpdated: 0,
+      errors: [] as string[],
+    };
+
+    this.logger.log(`Reconciliation: Processing ${receivedPOs.length} received POs for tenant ${tenantId}`);
+
+    for (const po of receivedPOs) {
+      try {
+        // 1. Ensure Supplier profile exists
+        await this.suppliersService.syncFromPurchaseOrder(
+          po.supplierId.toString(),
+          {
+            totalAmount: po.totalAmount,
+            paymentTerms: po.paymentTerms,
+            isReceiving: true,
+          },
+          user,
+        );
+        report.metricsUpdated++;
+
+        // 2. Link products to supplier
+        for (const item of po.items) {
+          try {
+            await this.suppliersService.linkProductToSupplier(
+              item.productId.toString(),
+              po.supplierId.toString(),
+              tenantId,
+              {
+                supplierName: po.supplierName,
+                costPrice: item.costPrice,
+                productSku: item.variantSku || item.productSku,
+              },
+            );
+            report.productsLinked++;
+          } catch (linkErr) {
+            report.errors.push(`PO ${po.poNumber} - Product ${item.productSku}: ${linkErr.message}`);
+          }
+        }
+      } catch (syncErr) {
+        report.errors.push(`PO ${po.poNumber} - Supplier sync: ${syncErr.message}`);
+      }
+    }
+
+    this.logger.log(
+      `Reconciliation complete: ${report.metricsUpdated} suppliers synced, ${report.productsLinked} products linked, ${report.errors.length} errors`,
+    );
+
+    return report;
   }
 
   /**

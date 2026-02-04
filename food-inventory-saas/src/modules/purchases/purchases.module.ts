@@ -18,6 +18,8 @@ import { AccountingModule } from "../accounting/accounting.module";
 import { PayablesModule } from "../payables/payables.module"; // Import PayablesModule
 import { EventsModule } from "../events/events.module"; // Import EventsModule
 import { TransactionHistoryModule } from "../transaction-history/transaction-history.module"; // Import TransactionHistoryModule
+import { SuppliersModule } from "../suppliers/suppliers.module";
+import { OpenaiModule } from "../openai/openai.module";
 
 @Module({
   imports: [
@@ -35,6 +37,8 @@ import { TransactionHistoryModule } from "../transaction-history/transaction-his
     forwardRef(() => PayablesModule), // Add PayablesModule here
     forwardRef(() => EventsModule), // Add EventsModule here
     forwardRef(() => TransactionHistoryModule), // Add TransactionHistoryModule here
+    forwardRef(() => SuppliersModule),
+    forwardRef(() => OpenaiModule),
   ],
   controllers: [PurchasesController],
   providers: [PurchasesService, AutoGeneratePOsJob],

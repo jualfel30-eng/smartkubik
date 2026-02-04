@@ -13,7 +13,6 @@ import { Product, ProductDocument, ProductType } from "../../schemas/product.sch
 import { Inventory, InventoryDocument, InventoryMovement, InventoryMovementDocument } from "../../schemas/inventory.schema";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import { CustomersService } from "../customers/customers.service";
-import { InventoryService } from "../inventory/inventory.service";
 import { PurchasesService } from "../purchases/purchases.service";
 import { SuppliersService } from "../suppliers/suppliers.service";
 import {
@@ -24,6 +23,8 @@ import {
 import { CreateProductWithPurchaseDto } from "../../dto/composite.dto";
 import { CreateCustomerDto } from "../../dto/customer.dto";
 import { BulkCreateProductsDto } from "./dto/bulk-create-products.dto";
+import { OpenaiService } from "../openai/openai.service";
+import * as sharp from "sharp";
 
 @Injectable()
 export class ProductsService {
@@ -37,9 +38,9 @@ export class ProductsService {
     private inventoryMovementModel: Model<InventoryMovementDocument>,
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     private readonly customersService: CustomersService,
-    private readonly inventoryService: InventoryService,
     private readonly purchasesService: PurchasesService,
-    @Inject(forwardRef(() => SuppliersService)) private readonly suppliersService: SuppliersService, // Added injection
+    @Inject(forwardRef(() => SuppliersService)) private readonly suppliersService: SuppliersService,
+    private readonly openaiService: OpenaiService,
     @InjectConnection() private readonly connection: Connection,
   ) { }
 
@@ -199,33 +200,27 @@ export class ProductsService {
         },
       });
 
-      // 3. Inventory
-      const inventoryDto: any = {
-        productId: savedProduct._id,
-        productSku: savedProduct.sku,
-        productName: savedProduct.name,
-        totalQuantity: dto.inventory.quantity,
-        averageCostPrice: dto.inventory.costPrice,
-        lots: [],
-      };
+      // 3. Purchase Order — created and auto-received so the full receive
+      //    flow runs: inventory, movements, supplier linking,
+      //    payables, and transaction history.
 
-      if (savedProduct.isPerishable) {
-        if (!dto.inventory.lotNumber || !dto.inventory.expirationDate) {
-          throw new BadRequestException(
-            "Lot number and expiration date are required for perishable products.",
-          );
-        }
-        inventoryDto.lots.push({
-          lotNumber: dto.inventory.lotNumber,
-          quantity: dto.inventory.quantity,
-          expirationDate: new Date(dto.inventory.expirationDate),
-          costPrice: dto.inventory.costPrice,
-          receivedDate: new Date(dto.purchaseDate),
-        });
+      // Calculate credit days if payment due date is set
+      let creditDays = 0;
+      if (dto.paymentTerms.isCredit && dto.paymentTerms.paymentDueDate) {
+        const purchaseDate = new Date(dto.purchaseDate);
+        const dueDate = new Date(dto.paymentTerms.paymentDueDate);
+        creditDays = Math.ceil((dueDate.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24));
+        // Ensure not negative
+        creditDays = creditDays > 0 ? creditDays : 0;
       }
-      await this.inventoryService.create(inventoryDto, user);
 
-      // 4. Purchase Order
+      // Calculate amounts for advance payment logic
+      const totalAmount = dto.inventory.quantity * dto.inventory.costPrice;
+      const advancePaymentAmount = dto.paymentTerms.requiresAdvancePayment
+        ? (totalAmount * (dto.paymentTerms.advancePaymentPercentage / 100))
+        : 0;
+      const remainingBalance = totalAmount - advancePaymentAmount;
+
       const purchaseDto: any = {
         supplierId: supplierId,
         purchaseDate: dto.purchaseDate,
@@ -236,16 +231,29 @@ export class ProductsService {
             productSku: savedProduct.sku,
             quantity: dto.inventory.quantity,
             costPrice: dto.inventory.costPrice,
+            lotNumber: dto.inventory.lotNumber,
+            expirationDate: dto.inventory.expirationDate,
           },
         ],
         notes: dto.notes,
         paymentTerms: {
-          isCredit: false,
-          creditDays: 0,
-          paymentMethods: dto.paymentMethods || [],
+          isCredit: dto.paymentTerms.isCredit,
+          creditDays: creditDays,
+          paymentMethods: dto.paymentTerms.paymentMethods,
+          customPaymentMethod: dto.paymentTerms.customPaymentMethod,
+          expectedCurrency: dto.paymentTerms.expectedCurrency,
+          paymentDueDate: dto.paymentTerms.paymentDueDate,
+          requiresAdvancePayment: dto.paymentTerms.requiresAdvancePayment,
+          advancePaymentPercentage: dto.paymentTerms.advancePaymentPercentage,
+          advancePaymentAmount,
+          remainingBalance,
         },
       };
-      await this.purchasesService.create(purchaseDto, user);
+      const savedPO = await this.purchasesService.create(purchaseDto, user);
+      await this.purchasesService.receivePurchaseOrder(
+        savedPO._id.toString(),
+        user,
+      );
 
       return savedProduct;
     } catch (error) {
@@ -902,5 +910,188 @@ export class ProductsService {
     }
 
     return totalSize / (1024 * 1024); // Convert to MB
+  }
+
+  /**
+   * Scan product label images (up to 3) using AI to extract product information.
+   * Compresses images before sending to reduce memory and API cost.
+   */
+  async scanProductLabel(
+    images: Array<{ buffer: Buffer; mimetype: string }>,
+    tenantId: string,
+  ): Promise<{
+    name: string;
+    brand: string;
+    description: string;
+    ingredients: string;
+    origin: string;
+    isPerishable: boolean;
+    shelfLifeDays: number | null;
+    storageTemperature: string;
+    category: string;
+    subcategory: string;
+    unitOfMeasure: string;
+    allergens: string[];
+    attributes: Record<string, string>;
+    matchedCategory: string | null;
+    matchedSubcategory: string | null;
+    overallConfidence: number;
+  }> {
+    // 1. Compress all images
+    const imageContents: Array<{ type: "image_url"; image_url: { url: string; detail: string } }> = [];
+
+    for (const img of images) {
+      let optimizedBase64: string;
+      let optimizedMime: string;
+      try {
+        const optimized = await sharp(img.buffer)
+          .resize(1600, 2200, { fit: "inside", withoutEnlargement: true })
+          .jpeg({ quality: 75 })
+          .toBuffer();
+        optimizedBase64 = optimized.toString("base64");
+        optimizedMime = "image/jpeg";
+        this.logger.log(
+          `Label scan: Image optimized from ${(img.buffer.length / 1024).toFixed(0)}KB to ${(optimized.length / 1024).toFixed(0)}KB`,
+        );
+      } catch {
+        optimizedBase64 = img.buffer.toString("base64");
+        optimizedMime = img.mimetype;
+      }
+
+      imageContents.push({
+        type: "image_url",
+        image_url: {
+          url: `data:${optimizedMime};base64,${optimizedBase64}`,
+          detail: "low",
+        },
+      });
+    }
+
+    // 2. Build extraction prompt
+    const extractionPrompt = `Eres un experto en productos alimenticios y de consumo. Analiza las imágenes de la etiqueta de un producto y extrae toda la información posible.
+
+Si hay múltiples imágenes, son diferentes caras del mismo producto (frente, reverso, laterales). Combina la información de todas.
+
+Responde ÚNICAMENTE con un JSON válido con esta estructura exacta:
+{
+  "name": "nombre del producto tal cual aparece en la etiqueta",
+  "brand": "marca del producto",
+  "description": "descripción breve del producto basada en lo que se ve",
+  "ingredients": "lista completa de ingredientes tal cual aparece en la etiqueta, como texto corrido",
+  "origin": "país de origen si aparece, o cadena vacía",
+  "isPerishable": true,
+  "shelfLifeDays": null,
+  "storageTemperature": "ambiente | refrigerado | congelado",
+  "suggestedCategory": "categoría general del producto (ej: Lácteos, Bebidas, Snacks, Carnes, Limpieza, etc.)",
+  "suggestedSubcategory": "subcategoría más específica (ej: Quesos, Yogurt, Jugos, etc.)",
+  "unitOfMeasure": "unidad | kg | litro | gramo | ml",
+  "allergens": ["lista de alérgenos si aparecen en la etiqueta"],
+  "attributes": {
+    "contenido_neto": "peso o volumen neto si aparece",
+    "modo_de_empleo": "instrucciones de uso si aparecen",
+    "registro_sanitario": "número de registro sanitario si aparece",
+    "codigo_barras": "código de barras si es visible",
+    "informacion_nutricional": "resumen breve de info nutricional si aparece",
+    "otras_notas": "cualquier otra información relevante de la etiqueta"
+  },
+  "confidence": 0.85
+}
+
+Reglas:
+- isPerishable: true si el producto requiere refrigeración, tiene fecha de vencimiento corta, o es un alimento fresco. false si es un producto de larga duración o no alimenticio.
+- shelfLifeDays: número de días de vida útil si se puede inferir, null si no.
+- storageTemperature: inferir de las instrucciones ("mantener refrigerado" = "refrigerado", "conservar en lugar fresco" = "ambiente").
+- ingredients: copiar textualmente de la etiqueta. Si no hay lista de ingredientes, dejar cadena vacía.
+- allergens: extraer de la sección "Contiene:" o ingredientes destacados.
+- attributes: solo incluir claves que tengan valor real extraído de la etiqueta. Omitir las que estén vacías.
+- unitOfMeasure: inferir del tipo de producto (líquidos = litro/ml, sólidos = kg/gramo/unidad).
+- confidence: tu nivel de confianza general de 0 a 1.`;
+
+    let extractedData: any;
+
+    try {
+      const response = await this.openaiService.createChatCompletion({
+        messages: [
+          { role: "system", content: extractionPrompt },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: `Analiza esta(s) ${images.length} imagen(es) de la etiqueta del producto:` },
+              ...imageContents,
+            ] as any,
+          },
+        ],
+        model: "gpt-4o-mini",
+        temperature: 0.1,
+        maxTokens: 2000,
+      });
+
+      const rawContent = response.choices?.[0]?.message?.content || "{}";
+      const cleaned = rawContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      extractedData = JSON.parse(cleaned);
+    } catch (parseError) {
+      this.logger.error(`Label scan: Failed to parse AI response: ${parseError.message}`);
+      throw new BadRequestException(
+        "No se pudo interpretar la imagen. Asegúrese de que sea una etiqueta de producto legible.",
+      );
+    }
+
+    // 3. Match category against existing tenant categories
+    let matchedCategory: string | null = null;
+    let matchedSubcategory: string | null = null;
+
+    if (extractedData.suggestedCategory) {
+      try {
+        const existingCategories = await this.getCategories(tenantId, { onlyActive: true });
+        const suggested = (extractedData.suggestedCategory as string).toLowerCase().trim();
+
+        // Exact or partial match
+        matchedCategory = existingCategories.find(
+          (c) => c.toLowerCase() === suggested || c.toLowerCase().includes(suggested) || suggested.includes(c.toLowerCase()),
+        ) || null;
+
+        // If category matched, try subcategory
+        if (matchedCategory && extractedData.suggestedSubcategory) {
+          const existingSubs = await this.getSubcategories(tenantId, matchedCategory);
+          const suggestedSub = (extractedData.suggestedSubcategory as string).toLowerCase().trim();
+          matchedSubcategory = existingSubs.find(
+            (s) => s.toLowerCase() === suggestedSub || s.toLowerCase().includes(suggestedSub) || suggestedSub.includes(s.toLowerCase()),
+          ) || null;
+        }
+      } catch {
+        // Ignore category matching errors
+      }
+    }
+
+    // 4. Clean up attributes — remove empty values
+    const cleanAttributes: Record<string, string> = {};
+    if (extractedData.attributes && typeof extractedData.attributes === "object") {
+      for (const [key, value] of Object.entries(extractedData.attributes)) {
+        if (value && typeof value === "string" && value.trim()) {
+          cleanAttributes[key] = value.trim();
+        }
+      }
+    }
+
+    const aiConfidence = Number(extractedData.confidence) || 0.5;
+
+    return {
+      name: extractedData.name || "",
+      brand: extractedData.brand || "",
+      description: extractedData.description || "",
+      ingredients: extractedData.ingredients || "",
+      origin: extractedData.origin || "",
+      isPerishable: Boolean(extractedData.isPerishable),
+      shelfLifeDays: extractedData.shelfLifeDays != null ? Number(extractedData.shelfLifeDays) : null,
+      storageTemperature: extractedData.storageTemperature || "",
+      category: extractedData.suggestedCategory || "",
+      subcategory: extractedData.suggestedSubcategory || "",
+      unitOfMeasure: extractedData.unitOfMeasure || "unidad",
+      allergens: Array.isArray(extractedData.allergens) ? extractedData.allergens : [],
+      attributes: cleanAttributes,
+      matchedCategory,
+      matchedSubcategory,
+      overallConfidence: aiConfidence,
+    };
   }
 }

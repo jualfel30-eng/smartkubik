@@ -348,36 +348,6 @@ let sharedSecondaryRedisConnection: Redis | null = null;
               },
             };
 
-            if (sharedSecondaryRedisConnection) {
-              return {
-                connection: sharedSecondaryRedisConnection,
-                prefix,
-                defaultJobOptions,
-              };
-            }
-
-            const secondaryUrl = configService
-              .get<string>("REDIS_URL_SECONDARY")
-              ?.trim();
-
-            if (!secondaryUrl) {
-              console.log(
-                "--- No REDIS_URL_SECONDARY found, falling back to PRIMARY for 'secondary' scope ---",
-              );
-              if (sharedRedisConnection) {
-                return { connection: sharedRedisConnection, prefix, defaultJobOptions };
-              }
-              return {
-                connection: new Redis(
-                  configService.get<string>("REDIS_URL") ||
-                  "redis://127.0.0.1:6379",
-                  { maxRetriesPerRequest: null, enableReadyCheck: false },
-                ),
-                prefix,
-                defaultJobOptions,
-              };
-            }
-
             const buildConnectionConfig = (url: string) => {
               let normalized = url.trim();
               if (!normalized.includes("://")) {
@@ -423,6 +393,33 @@ let sharedSecondaryRedisConnection: Redis | null = null;
               }
               return config;
             };
+
+            if (sharedSecondaryRedisConnection) {
+              return {
+                connection: sharedSecondaryRedisConnection,
+                prefix,
+                defaultJobOptions,
+              };
+            }
+
+            const secondaryUrl = configService
+              .get<string>("REDIS_URL_SECONDARY")
+              ?.trim();
+
+            if (!secondaryUrl) {
+              console.log(
+                "--- No REDIS_URL_SECONDARY found, falling back to PRIMARY for 'secondary' scope ---",
+              );
+              if (sharedRedisConnection) {
+                return { connection: sharedRedisConnection, prefix, defaultJobOptions };
+              }
+              const primaryUrl = configService.get<string>("REDIS_URL") || "redis://127.0.0.1:6379";
+              return {
+                connection: new Redis(buildConnectionConfig(primaryUrl)),
+                prefix,
+                defaultJobOptions,
+              };
+            }
 
             console.log(
               "--- Initializing Shared Redis Connection (SECONDARY) ---",

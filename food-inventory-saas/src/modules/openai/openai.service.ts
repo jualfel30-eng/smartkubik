@@ -1,7 +1,12 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
 import OpenAI from "openai";
 import { OpenAIEmbeddings } from "@langchain/openai";
-import { SuperAdminService } from "../super-admin/super-admin.service";
+import {
+  GlobalSetting,
+  GlobalSettingDocument,
+} from "../../schemas/global-settings.schema";
 import {
   ChatCompletionMessageParam,
   ChatCompletionTool,
@@ -17,11 +22,17 @@ export class OpenaiService {
   private chatModelCache: string | null = null;
   private chatModelFetchedAt = 0;
 
-  constructor(private readonly superAdminService: SuperAdminService) {}
+  constructor(
+    @InjectModel(GlobalSetting.name)
+    private readonly globalSettingModel: Model<GlobalSettingDocument>,
+  ) {}
+
+  private async getSetting(key: string): Promise<{ value: string } | null> {
+    return this.globalSettingModel.findOne({ key }).lean().exec();
+  }
 
   private async initialize(requestedDimensions?: number) {
-    const apiKeySetting =
-      await this.superAdminService.getSetting("OPENAI_API_KEY");
+    const apiKeySetting = await this.getSetting("OPENAI_API_KEY");
     const apiKey = apiKeySetting?.value;
 
     if (!apiKey) {
@@ -31,12 +42,8 @@ export class OpenaiService {
       throw new Error("OPENAI_API_KEY is not configured.");
     }
 
-    const embeddingModelSetting = await this.superAdminService.getSetting(
-      "OPENAI_EMBEDDING_MODEL",
-    );
-    const dimensionSetting = await this.superAdminService.getSetting(
-      "OPENAI_EMBEDDING_DIMENSIONS",
-    );
+    const embeddingModelSetting = await this.getSetting("OPENAI_EMBEDDING_MODEL");
+    const dimensionSetting = await this.getSetting("OPENAI_EMBEDDING_DIMENSIONS");
 
     const resolvedModel = (
       embeddingModelSetting?.value || "text-embedding-3-small"
@@ -152,8 +159,7 @@ export class OpenaiService {
 
     const now = Date.now();
     if (!this.chatModelCache || now - this.chatModelFetchedAt > 5 * 60 * 1000) {
-      const setting =
-        await this.superAdminService.getSetting("OPENAI_CHAT_MODEL");
+      const setting = await this.getSetting("OPENAI_CHAT_MODEL");
       this.chatModelCache = setting?.value?.trim() || "gpt-4o";
       this.chatModelFetchedAt = now;
     }

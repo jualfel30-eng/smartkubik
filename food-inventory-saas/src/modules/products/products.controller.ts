@@ -10,7 +10,11 @@ import {
   UseGuards,
   Request,
   ForbiddenException,
+  UseInterceptors,
+  UploadedFiles,
+  BadRequestException,
 } from "@nestjs/common";
+import { FilesInterceptor } from "@nestjs/platform-express";
 import { ProductsService } from "./products.service";
 import {
   CreateProductDto,
@@ -173,5 +177,41 @@ export class ProductsController {
       category,
     );
     return { success: true, data: subcategories };
+  }
+
+  /**
+   * Scan product label images (up to 3) using AI to extract product data.
+   * Accepts multipart form data with 1-3 image files.
+   */
+  @Post("scan-label")
+  @Permissions("products_create")
+  @UseInterceptors(
+    FilesInterceptor("images", 3, {
+      limits: { fileSize: 5 * 1024 * 1024 },
+      fileFilter: (_req, file, cb) => {
+        if (!file.mimetype.match(/^image\/(jpeg|jpg|png|webp|heic)$/)) {
+          cb(new BadRequestException("Solo se permiten imágenes (JPEG, PNG, WebP, HEIC)"), false);
+        } else {
+          cb(null, true);
+        }
+      },
+    }),
+  )
+  async scanLabel(
+    @UploadedFiles() files: Express.Multer.File[],
+    @Request() req,
+  ) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException("Debe cargar al menos una imagen de la etiqueta del producto.");
+    }
+
+    const images = files.map((f) => ({ buffer: f.buffer, mimetype: f.mimetype }));
+    const result = await this.productsService.scanProductLabel(images, req.user.tenantId);
+
+    return {
+      success: true,
+      data: result,
+      message: `Etiqueta escaneada con ${Math.round(result.overallConfidence * 100)}% de confianza`,
+    };
   }
 }

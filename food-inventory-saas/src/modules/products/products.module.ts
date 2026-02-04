@@ -21,6 +21,7 @@ import { SuppliersModule } from "../suppliers/suppliers.module"; // Added
 import { InventoryModule } from "../inventory/inventory.module";
 import { PurchasesModule } from "../purchases/purchases.module";
 import { RolesModule } from "../roles/roles.module";
+import { OpenaiModule } from "../openai/openai.module";
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { RolesModule } from "../roles/roles.module";
     forwardRef(() => InventoryModule),
     forwardRef(() => PurchasesModule),
     forwardRef(() => SuppliersModule),
+    forwardRef(() => OpenaiModule),
   ],
   controllers: [ProductsController, ProductsPublicController],
   providers: [ProductsService],
