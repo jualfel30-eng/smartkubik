@@ -281,6 +281,32 @@ export default function ComprasManagement() {
     });
   }, []);
 
+  // RIF Formatting Helpers
+  const formatRifInput = useCallback((value, taxType) => {
+    const cleaned = value.replace(/[^0-9]/g, '');
+
+    if (taxType === 'J') {
+      // Format: 12345678-9 (always 8+1)
+      if (cleaned.length > 8) {
+        return `${cleaned.slice(0, 8)}-${cleaned.slice(8, 9)}`;
+      }
+      return cleaned;
+    }
+
+    if (taxType === 'R') {
+      // Format: 1234567-8 or 12345678-9 (variable 7-8 + 1)
+      if (cleaned.length > 7) {
+        const mainPart = cleaned.slice(0, -1);
+        const checkDigit = cleaned.slice(-1);
+        return `${mainPart}-${checkDigit}`;
+      }
+      return cleaned;
+    }
+
+    // V, E, G: No special formatting
+    return cleaned;
+  }, []);
+
   const handleSupplierSelectionForNewProduct = (selectedOption) => {
     if (!selectedOption) {
       setNewProduct(prev => ({ ...prev, supplier: initialNewProductState.supplier }));
@@ -542,11 +568,18 @@ export default function ComprasManagement() {
       const formData = new FormData();
       formData.append('image', file);
 
-      const result = await fetchApi('/purchases/scan-invoice', {
+      // Add timeout (35 seconds to account for network + processing)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('TIMEOUT')), 35000);
+      });
+
+      const apiPromise = fetchApi('/purchases/scan-invoice', {
         method: 'POST',
         body: formData,
         isFormData: true,
       });
+
+      const result = await Promise.race([apiPromise, timeoutPromise]);
 
       const data = result.data || result;
       setScanResult(data);
@@ -656,7 +689,13 @@ export default function ComprasManagement() {
         });
       }
     } catch (err) {
-      toast.error('Error al escanear factura', { description: err.message });
+      if (err.message === 'TIMEOUT') {
+        toast.error('El escaneo está tomando demasiado tiempo', {
+          description: 'Por favor, intente con una imagen más clara o de menor tamaño.'
+        });
+      } else {
+        toast.error('Error al escanear factura', { description: err.message });
+      }
     } finally {
       setIsScanning(false);
       // Reset file inputs
@@ -1251,16 +1290,39 @@ export default function ComprasManagement() {
                 <h3 className="text-lg font-semibold">Proveedor</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>RIF del Proveedor</Label>
-                    <SearchableSelect
-                      isCreatable
-                      options={supplierRifOptions}
-                      onSelection={handleRifSelection}
-                      onInputChange={handleSupplierRifInputChange}
-                      inputValue={supplierRifInput}
-                      value={po.supplierRif ? { value: po.supplierId || po.supplierRif, label: `${po.taxType}-${po.supplierRif}` } : null}
-                      placeholder="Escriba o seleccione un RIF..."
-                    />
+                    <Label>RIF / C.I. del Proveedor</Label>
+                    <div className="flex items-center border border-input rounded-md">
+                      <Select
+                        value={po.taxType}
+                        onValueChange={(value) => handleFieldChange('taxType', value)}
+                      >
+                        <SelectTrigger className="w-[70px] !h-10 !min-h-10 !py-2 rounded-l-md rounded-r-none !border-0 !border-r !border-input focus:z-10">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="V">V</SelectItem>
+                          <SelectItem value="E">E</SelectItem>
+                          <SelectItem value="J">J</SelectItem>
+                          <SelectItem value="G">G</SelectItem>
+                          <SelectItem value="R">R</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <div className="flex-grow">
+                        <SearchableSelect
+                          isCreatable
+                          options={supplierRifOptions}
+                          onSelection={handleRifSelection}
+                          onInputChange={(value) => {
+                            const formatted = formatRifInput(value, po.taxType);
+                            handleSupplierRifInputChange(formatted);
+                          }}
+                          inputValue={supplierRifInput}
+                          value={po.supplierRif ? { value: po.supplierId || po.supplierRif, label: po.supplierRif } : null}
+                          placeholder="Escriba para buscar RIF..."
+                          customControlClass="flex h-10 w-full rounded-l-none rounded-r-md !border-0 bg-input-background px-3 py-2 text-sm ring-offset-background"
+                        />
+                      </div>
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label>Nombre o Razón Social</Label>
@@ -2308,21 +2370,35 @@ export default function ComprasManagement() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>RIF</Label>
-                    <div className="flex space-x-2">
+                    <Label>RIF / C.I.</Label>
+                    <div className="flex items-center border border-input rounded-md">
                       <Select
                         value={newProduct.supplier.rifPrefix}
                         onValueChange={(val) => setNewProduct({ ...newProduct, supplier: { ...newProduct.supplier, rifPrefix: val } })}
                         disabled={!newProduct.supplier.isNew}
                       >
-                        <SelectTrigger className="w-[80px]"><SelectValue /></SelectTrigger>
-                        <SelectContent>{['J', 'V', 'E', 'G', 'P', 'N'].map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
+                        <SelectTrigger className="w-[70px] !h-10 !min-h-10 !py-2 rounded-l-md rounded-r-none !border-0 !border-r !border-input focus:z-10">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="V">V</SelectItem>
+                          <SelectItem value="E">E</SelectItem>
+                          <SelectItem value="J">J</SelectItem>
+                          <SelectItem value="G">G</SelectItem>
+                          <SelectItem value="R">R</SelectItem>
+                          <SelectItem value="P">P</SelectItem>
+                          <SelectItem value="N">N</SelectItem>
+                        </SelectContent>
                       </Select>
                       <Input
                         value={newProduct.supplier.newSupplierRif}
-                        onChange={(e) => setNewProduct({ ...newProduct, supplier: { ...newProduct.supplier, newSupplierRif: e.target.value } })}
+                        onChange={(e) => {
+                          const formatted = formatRifInput(e.target.value, newProduct.supplier.rifPrefix);
+                          setNewProduct({ ...newProduct, supplier: { ...newProduct.supplier, newSupplierRif: formatted } });
+                        }}
                         placeholder="12345678-9"
                         disabled={!newProduct.supplier.isNew}
+                        className="flex-1 rounded-l-none !border-0"
                       />
                     </div>
                   </div>
