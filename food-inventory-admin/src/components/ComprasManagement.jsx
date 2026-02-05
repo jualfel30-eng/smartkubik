@@ -55,6 +55,7 @@ const initialNewProductState = {
   inventory: {
     quantity: 1,
     costPrice: 0,
+    discount: 0,
     lotNumber: '',
     expirationDate: ''
   },
@@ -477,6 +478,7 @@ export default function ComprasManagement() {
     const inventoryPayload = {
       quantity: Number(newProduct.inventory.quantity) || 0,
       costPrice: baseCost,
+      discount: Number(newProduct.inventory.discount) || 0,
     };
     if (showLotFields && newProduct.inventory.lotNumber) {
       inventoryPayload.lotNumber = newProduct.inventory.lotNumber;
@@ -1509,6 +1511,8 @@ export default function ComprasManagement() {
                       <TableHead>Producto / Variante</TableHead>
                       <TableHead>Cantidad</TableHead>
                       <TableHead>Costo Unit.</TableHead>
+                      <TableHead>Desc. %</TableHead>
+                      <TableHead>Precio Final</TableHead>
                       <TableHead>Nro. Lote</TableHead>
                       <TableHead>Vencimiento</TableHead>
                       <TableHead>Total</TableHead>
@@ -1528,9 +1532,27 @@ export default function ComprasManagement() {
                         </TableCell>
                         <TableCell><Input type="number" value={item.quantity} onChange={e => updateItemField(index, 'quantity', e.target.value)} className="w-24" /></TableCell>
                         <TableCell><Input type="number" value={item.costPrice} onChange={e => updateItemField(index, 'costPrice', e.target.value)} className="w-32" /></TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={item.discount || ''}
+                            onChange={e => updateItemField(index, 'discount', e.target.value)}
+                            placeholder="0"
+                            className="w-20"
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          ${(Number(item.costPrice) * (1 - (Number(item.discount) || 0) / 100)).toFixed(2)}
+                          {item.discount > 0 && (
+                            <span className="text-xs text-green-600 block">-{item.discount}%</span>
+                          )}
+                        </TableCell>
                         <TableCell>{item.isPerishable && <Input placeholder="Nro. Lote" className="w-32" value={item.lotNumber} onChange={e => updateItemField(index, 'lotNumber', e.target.value)} />}</TableCell>
                         <TableCell>{item.isPerishable && <Input type="date" className="w-40" value={item.expirationDate} onChange={e => updateItemField(index, 'expirationDate', e.target.value)} />}</TableCell>
-                        <TableCell>${(Number(item.quantity) * Number(item.costPrice)).toFixed(2)}</TableCell>
+                        <TableCell className="font-semibold">${(Number(item.quantity) * Number(item.costPrice) * (1 - (Number(item.discount) || 0) / 100)).toFixed(2)}</TableCell>
                         <TableCell><Button variant="ghost" size="icon" onClick={() => handleRemoveItemFromPo(index)}><Trash2 className="h-4 w-4" /></Button></TableCell>
                       </TableRow>
                     ))}
@@ -2306,6 +2328,32 @@ export default function ComprasManagement() {
                         }
                       }}
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="invDiscount">Descuento (%)</Label>
+                    <Input
+                      id="invDiscount"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={newProduct.inventory.discount || ''}
+                      onChange={(e) => {
+                        setNewProduct({ ...newProduct, inventory: { ...newProduct.inventory, discount: e.target.value } });
+                      }}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Precio Final ($)</Label>
+                    <div className="h-10 px-3 py-2 border rounded-md bg-muted flex items-center justify-between">
+                      <span className="font-medium">
+                        ${(Number(newProduct.inventory.costPrice) * (1 - (Number(newProduct.inventory.discount) || 0) / 100)).toFixed(2)}
+                      </span>
+                      {newProduct.inventory.discount > 0 && (
+                        <span className="text-xs text-green-600 font-semibold">-{newProduct.inventory.discount}%</span>
+                      )}
+                    </div>
                   </div>
                   {showLotFields && newProduct.isPerishable && (
                     <>
