@@ -67,8 +67,8 @@ export class CreateSupplierDto {
   @IsString()
   @SanitizeString()
   @Matches(
-    /^[VEJGR]-?\d{7,9}(-\d)?$/,
-    { message: 'RIF debe tener formato válido: V/E/J/G/R seguido de 7-9 dígitos (J y R requieren guión antes del último dígito)' }
+    /^[VEJGPN]-?\d{7,9}(-\d)?$/,
+    { message: 'RIF debe tener formato válido: V/E (cédula o RIF), J (RIF jurídico), G, P, N' }
   )
   rif: string;
 

@@ -243,9 +243,9 @@ export class CreateOrderDto {
   @SanitizeString()
   customerRif?: string;
 
-  @ApiPropertyOptional({ description: "Tipo de documento fiscal (V, E, J, G)" })
+  @ApiPropertyOptional({ description: "Tipo de documento fiscal (V, E, J, G, P, N)" })
   @IsOptional()
-  @IsEnum(["V", "E", "J", "G"])
+  @IsEnum(["V", "E", "J", "G", "P", "N"])
   taxType?: string;
 
   @ApiPropertyOptional({ description: "Cliente es Contribuyente Especial (retiene IVA)" })
@@ -469,9 +469,9 @@ export class UpdateOrderDto {
   @SanitizeString()
   customerRif?: string;
 
-  @ApiPropertyOptional({ description: "Tipo de documento fiscal (V, E, J, G)" })
+  @ApiPropertyOptional({ description: "Tipo de documento fiscal (V, E, J, G, P, N)" })
   @IsOptional()
-  @IsEnum(["V", "E", "J", "G"])
+  @IsEnum(["V", "E", "J", "G", "P", "N"])
   taxType?: string;
 
   @ApiPropertyOptional({ description: "Cliente es Contribuyente Especial (retiene IVA)" })

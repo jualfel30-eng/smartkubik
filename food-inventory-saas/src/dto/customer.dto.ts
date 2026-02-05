@@ -53,9 +53,9 @@ export class CustomerTaxInfoDto {
 
   @ApiProperty({
     description: "Tipo de Identificación",
-    enum: ["V", "E", "J", "G"],
+    enum: ["V", "E", "J", "G", "P", "N"],
   })
-  @IsEnum(["V", "E", "J", "G"])
+  @IsEnum(["V", "E", "J", "G", "P", "N"])
   taxType: string;
 
   @ApiPropertyOptional({ description: "Nombre fiscal o razón social" })
