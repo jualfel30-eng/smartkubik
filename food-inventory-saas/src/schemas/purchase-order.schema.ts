@@ -47,8 +47,11 @@ export class PurchaseOrderItem {
   @Prop({ type: Number, required: true })
   costPrice: number;
 
+  @Prop({ type: Number, default: 0, min: 0, max: 100 })
+  discount?: number; // Percentage discount (0-100)
+
   @Prop({ type: Number, required: true })
-  totalCost: number;
+  totalCost: number; // Calculated: quantity × costPrice × (1 - discount/100)
 
   @Prop({ type: String })
   lotNumber?: string;

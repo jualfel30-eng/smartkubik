@@ -54,6 +54,12 @@ class PurchaseOrderItemDto {
   costPrice: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  discount?: number; // Percentage discount (0-100)
+
+  @IsOptional()
   @IsString()
   @SanitizeString()
   lotNumber?: string;

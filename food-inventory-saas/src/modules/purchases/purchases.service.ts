@@ -111,7 +111,9 @@ export class PurchasesService {
     const { Types } = require("mongoose");
     let totalAmount = 0;
     const poItems = dto.items.map((item) => {
-      const totalCost = item.costPrice * item.quantity;
+      // Calculate discount multiplier (1 - discount/100)
+      const discountMultiplier = 1 - (item.discount || 0) / 100;
+      const totalCost = item.costPrice * item.quantity * discountMultiplier;
       totalAmount += totalCost;
 
       const resolvedVariantId =
@@ -123,6 +125,7 @@ export class PurchasesService {
         ...item,
         ...(resolvedVariantId ? { variantId: resolvedVariantId } : {}),
         variantSku: item.variantSku || item.productSku,
+        discount: item.discount || 0, // Ensure discount is always a number
         totalCost,
       };
     });
