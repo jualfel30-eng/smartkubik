@@ -53,7 +53,7 @@ const businessVerticals = [
 export default function OrganizationSelector() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, memberships, selectTenant, logout, activeMembershipId, tenant, getLastLocation, token } = useAuth();
+  const { user, memberships, selectTenant, logout, activeMembershipId, tenant, getLastLocation, token, refreshSession } = useAuth();
   const { theme } = useTheme();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [creationType, setCreationType] = useState('new-business'); // 'new-business' or 'new-location'
@@ -196,10 +196,29 @@ export default function OrganizationSelector() {
       };
 
       // Si es nueva sede y se debe clonar
-      if (creationType === 'new-location' && selectedParentOrg && shouldCloneData) {
+      if (creationType === 'new-location' && selectedParentOrg) {
         payload.parentOrganizationId = selectedParentOrg;
-        payload.cloneData = true;
+
+        if (shouldCloneData) {
+          payload.cloneData = true;
+        }
+
+        // Find parent org to inherit vertical/businessType
+        const parentOrg = uniqueOrganizations.find(org => org.tenantId === selectedParentOrg);
+        if (parentOrg) {
+          payload.vertical = parentOrg.vertical;
+          payload.businessType = parentOrg.businessType;
+        }
+
+        console.log('Creating Sede - Payload Check:', {
+          parentOrg,
+          vertical: payload.vertical,
+          businessType: payload.businessType,
+          selectedParentOrg
+        });
       }
+
+      console.log('Final Request Payload:', payload);
 
       const response = await fetch(`${import.meta.env.VITE_API_URL}/organizations`, {
         method: 'POST',
@@ -219,7 +238,8 @@ export default function OrganizationSelector() {
       toast.success('Organización creada exitosamente');
 
       // Recargar memberships y seleccionar la nueva organización
-      window.location.reload();
+      // Recargar memberships y seleccionar la nueva organización
+      await refreshSession();
     } catch (error) {
       console.error('Error creating organization:', error);
       toast.error(error.message || 'Error al crear la organización');
@@ -252,11 +272,40 @@ export default function OrganizationSelector() {
 
   // Obtener organizaciones únicas (para el select de organización padre)
   const uniqueOrganizations = memberships.reduce((acc, membership) => {
-    const existingOrg = acc.find(org => org.tenantId === membership.tenantId);
+    // Robustly extract tenant ID checking all possible locations
+    let tenantId = membership.tenantId;
+
+    if (membership.tenant) {
+      if (typeof membership.tenant === 'string') {
+        tenantId = membership.tenant;
+      } else {
+        // Check for _id, id, or fallback to existing tenantId
+        tenantId = membership.tenant._id || membership.tenant.id || tenantId;
+      }
+    }
+
+    // Skip if no ID found
+    if (!tenantId) return acc;
+
+    // Enhance data with current tenant context if IDs match (fallback for incomplete membership data)
+    let vertical = membership.tenant?.vertical;
+    let businessType = membership.tenant?.businessType;
+    let name = membership.tenant?.name;
+
+    // Check against active tenant to backfill missing data
+    if (tenant && (tenant.id === tenantId || tenant._id === tenantId)) {
+      vertical = vertical || tenant.vertical;
+      businessType = businessType || tenant.businessType;
+      name = name || tenant.name;
+    }
+
+    const existingOrg = acc.find(org => org.tenantId === tenantId);
     if (!existingOrg) {
       acc.push({
-        tenantId: membership.tenantId,
-        name: membership.tenant?.name || 'Sin nombre',
+        tenantId: tenantId,
+        name: name || 'Sin nombre',
+        vertical: vertical || '',
+        businessType: businessType || '',
       });
     }
     return acc;
@@ -326,7 +375,7 @@ export default function OrganizationSelector() {
                           <Building className="h-6 w-6 text-primary" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <CardTitle className="text-lg truncate">
+                          <CardTitle className="text-lg line-clamp-2 break-words leading-tight">
                             {membership.tenant?.name || 'Sin nombre'}
                           </CardTitle>
                           <CardDescription className="text-xs mt-1">
