@@ -967,7 +967,12 @@ Responde SOLO con JSON válido, sin markdown ni texto adicional:
     }
 
     try {
-      const response = await this.openaiService.createChatCompletion({
+      // Add timeout to prevent hanging (30 seconds)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('TIMEOUT')), 30000);
+      });
+
+      const apiPromise = this.openaiService.createChatCompletion({
         messages: [
           { role: "system", content: extractionPrompt },
           {
@@ -988,12 +993,31 @@ Responde SOLO con JSON válido, sin markdown ni texto adicional:
         maxTokens: 2000,
       });
 
+      const response = await Promise.race([apiPromise, timeoutPromise]) as any;
+
+      if (!response || !response.choices || response.choices.length === 0) {
+        throw new Error('NO_RESPONSE');
+      }
+
       const rawContent = response.choices?.[0]?.message?.content || "{}";
       // Clean potential markdown wrapping
       const cleaned = rawContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       extractedData = JSON.parse(cleaned);
     } catch (parseError) {
-      this.logger.error(`Invoice scan: Failed to parse AI response: ${parseError.message}`);
+      this.logger.error(`Invoice scan: Failed to process image: ${parseError.message}`);
+
+      if (parseError.message === 'TIMEOUT') {
+        throw new BadRequestException(
+          "El escaneo de la factura está tomando demasiado tiempo. Por favor, intente con una imagen más clara o de menor tamaño.",
+        );
+      }
+
+      if (parseError.message === 'NO_RESPONSE') {
+        throw new BadRequestException(
+          "No se recibió respuesta del servicio de escaneo. Por favor, intente nuevamente.",
+        );
+      }
+
       throw new BadRequestException(
         "No se pudo interpretar la imagen. Asegúrese de que sea una factura o nota de entrega legible.",
       );

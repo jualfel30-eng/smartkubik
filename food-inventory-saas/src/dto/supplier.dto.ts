@@ -8,6 +8,7 @@ import {
   ValidateNested,
   Min,
   Max,
+  Matches,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { SanitizeString } from "../decorators/sanitize.decorator";
@@ -65,6 +66,10 @@ export class CreateSupplierDto {
 
   @IsString()
   @SanitizeString()
+  @Matches(
+    /^[VEJGR]-?\d{7,9}(-\d)?$/,
+    { message: 'RIF debe tener formato válido: V/E/J/G/R seguido de 7-9 dígitos (J y R requieren guión antes del último dígito)' }
+  )
   rif: string;
 
   @IsString()

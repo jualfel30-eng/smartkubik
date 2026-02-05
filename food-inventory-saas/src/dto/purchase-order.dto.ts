@@ -14,6 +14,7 @@ import {
   ArrayMinSize,
   IsNotEmpty,
   IsEnum,
+  Matches,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { SanitizeString, SanitizeText } from "../decorators/sanitize.decorator";
@@ -126,6 +127,10 @@ export class CreatePurchaseOrderDto {
   @ValidateIf((o) => !o.supplierId)
   @IsString()
   @SanitizeString()
+  @Matches(
+    /^[VEJGR]-?\d{7,9}(-\d)?$/,
+    { message: 'RIF debe tener formato válido: V/E/J/G/R seguido de 7-9 dígitos (J y R requieren guión antes del último dígito)' }
+  )
   newSupplierRif?: string;
 
   @ValidateIf((o) => !o.supplierId)
