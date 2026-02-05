@@ -286,24 +286,23 @@ export default function ComprasManagement() {
     const cleaned = value.replace(/[^0-9]/g, '');
 
     if (taxType === 'J') {
-      // Format: 12345678-9 (always 8+1)
+      // Jurídico: always 12345678-9 (8+1)
       if (cleaned.length > 8) {
         return `${cleaned.slice(0, 8)}-${cleaned.slice(8, 9)}`;
       }
       return cleaned;
     }
 
-    if (taxType === 'R') {
-      // Format: 1234567-8 or 12345678-9 (variable 7-8 + 1)
-      if (cleaned.length > 7) {
-        const mainPart = cleaned.slice(0, -1);
-        const checkDigit = cleaned.slice(-1);
-        return `${mainPart}-${checkDigit}`;
+    if (taxType === 'V' || taxType === 'E') {
+      // Natural/Extranjero: can be cédula (12345678) OR RIF (12345678-9)
+      // If 9+ digits, assume RIF and format automatically
+      if (cleaned.length > 8) {
+        return `${cleaned.slice(0, 8)}-${cleaned.slice(8, 9)}`;
       }
       return cleaned;
     }
 
-    // V, E, G: No special formatting
+    // P, N, G: No special formatting
     return cleaned;
   }, []);
 
@@ -1304,7 +1303,8 @@ export default function ComprasManagement() {
                           <SelectItem value="E">E</SelectItem>
                           <SelectItem value="J">J</SelectItem>
                           <SelectItem value="G">G</SelectItem>
-                          <SelectItem value="R">R</SelectItem>
+                          <SelectItem value="P">P</SelectItem>
+                          <SelectItem value="N">N</SelectItem>
                         </SelectContent>
                       </Select>
                       <div className="flex-grow">
@@ -2385,7 +2385,6 @@ export default function ComprasManagement() {
                           <SelectItem value="E">E</SelectItem>
                           <SelectItem value="J">J</SelectItem>
                           <SelectItem value="G">G</SelectItem>
-                          <SelectItem value="R">R</SelectItem>
                           <SelectItem value="P">P</SelectItem>
                           <SelectItem value="N">N</SelectItem>
                         </SelectContent>

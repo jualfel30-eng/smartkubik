@@ -237,11 +237,11 @@ function AppointmentsManagement() {
     }
     const contacts = Array.isArray(record.contacts)
       ? record.contacts.map((contact) => ({
-          ...contact,
-          type: contact?.type,
-          value: contact?.value,
-          isPrimary: Boolean(contact?.isPrimary),
-        }))
+        ...contact,
+        type: contact?.type,
+        value: contact?.value,
+        isPrimary: Boolean(contact?.isPrimary),
+      }))
       : [];
 
     return {
@@ -886,24 +886,24 @@ function AppointmentsManagement() {
     ],
   );
 
-const getBankAccountLabel = useCallback(
-  (accountId) => {
-    if (!accountId) return 'Sin cuenta asignada';
-    const stringId = typeof accountId === 'string' ? accountId : accountId?._id || accountId?.toString?.();
-    const account = bankAccounts.find(
-      (item) => item._id === stringId || item._id?.toString?.() === stringId,
-    );
-    if (!account) return stringId || 'Sin cuenta asignada';
+  const getBankAccountLabel = useCallback(
+    (accountId) => {
+      if (!accountId) return 'Sin cuenta asignada';
+      const stringId = typeof accountId === 'string' ? accountId : accountId?._id || accountId?.toString?.();
+      const account = bankAccounts.find(
+        (item) => item._id === stringId || item._id?.toString?.() === stringId,
+      );
+      if (!account) return stringId || 'Sin cuenta asignada';
 
-    const suffix = account.accountNumber
-      ? ` · ****${account.accountNumber.slice(-4)}`
-      : '';
-    return `${account.bankName}${suffix}`;
-  },
-  [bankAccounts],
-);
-const normalizeBankAccountSelection = (value) =>
-  value && value !== UNASSIGNED_BANK_ACCOUNT ? value : undefined;
+      const suffix = account.accountNumber
+        ? ` · ****${account.accountNumber.slice(-4)}`
+        : '';
+      return `${account.bankName}${suffix}`;
+    },
+    [bankAccounts],
+  );
+  const normalizeBankAccountSelection = (value) =>
+    value && value !== UNASSIGNED_BANK_ACCOUNT ? value : undefined;
 
   const openGroupDialog = () => {
     const today = new Date();
@@ -1929,6 +1929,8 @@ const normalizeBankAccountSelection = (value) =>
                       <SelectItem value="E">E</SelectItem>
                       <SelectItem value="J">J</SelectItem>
                       <SelectItem value="G">G</SelectItem>
+                      <SelectItem value="P">P</SelectItem>
+                      <SelectItem value="N">N</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -2831,8 +2833,8 @@ const normalizeBankAccountSelection = (value) =>
               {depositActionSubmitting
                 ? 'Guardando...'
                 : depositActionForm.status === 'rejected'
-                    ? 'Registrar rechazo'
-                    : 'Confirmar depósito'}
+                  ? 'Registrar rechazo'
+                  : 'Confirmar depósito'}
             </Button>
           </div>
 

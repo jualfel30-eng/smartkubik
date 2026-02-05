@@ -2372,6 +2372,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                         <SelectItem value="E">E</SelectItem>
                         <SelectItem value="J">J</SelectItem>
                         <SelectItem value="G">G</SelectItem>
+                        <SelectItem value="P">P</SelectItem>
+                        <SelectItem value="N">N</SelectItem>
                       </SelectContent>
                     </Select>
                     <div className="flex-1 min-w-0">
@@ -2594,6 +2596,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                         <SelectItem value="E">E</SelectItem>
                         <SelectItem value="J">J</SelectItem>
                         <SelectItem value="G">G</SelectItem>
+                        <SelectItem value="P">P</SelectItem>
+                        <SelectItem value="N">N</SelectItem>
                       </SelectContent>
                     </Select>
                     <div className="flex-grow">

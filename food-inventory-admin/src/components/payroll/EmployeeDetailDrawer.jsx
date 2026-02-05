@@ -1662,6 +1662,8 @@ export function EmployeeDetailDrawer({
                               <SelectItem value="E">E</SelectItem>
                               <SelectItem value="J">J</SelectItem>
                               <SelectItem value="G">G</SelectItem>
+                              <SelectItem value="P">P</SelectItem>
+                              <SelectItem value="N">N</SelectItem>
                             </SelectContent>
                           </Select>
                           <Input
