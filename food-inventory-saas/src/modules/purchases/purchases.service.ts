@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model, ClientSession } from "mongoose";
+import { Model, ClientSession, Types } from "mongoose";
 import {
   PurchaseOrder,
   PurchaseOrderDocument,
@@ -211,15 +211,61 @@ export class PurchasesService {
     return savedPurchaseOrder;
   }
 
-  async findAll(tenantId: string, query?: any) {
-    // Convert tenantId to ObjectId to handle both string and ObjectId types in database
+  async findAll(tenantId: string, query: any) {
     const { Types } = require("mongoose");
-    const tenantObjectId = new Types.ObjectId(tenantId);
-    const filter: any = { tenantId: tenantObjectId };
+    console.log(`DEBUG: findAll called. TenantId: ${tenantId}, Query:`, query);
 
+    // Fix: Handle mixed BSON types for tenantId (String vs ObjectId)
+    const tenantObjectId = new Types.ObjectId(tenantId);
+    const filter: any = {
+      tenantId: { $in: [tenantObjectId, tenantId] }
+    };
+
+    // Smart Query: If supplierId provided, verify if it links to a Customer ID
     if (query?.supplierId) {
-      filter.supplierId = new Types.ObjectId(query.supplierId);
+      console.log(`DEBUG: Processing supplierId: ${query.supplierId}`);
+      const searchIds = [query.supplierId];
+
+      try {
+        // Try to resolve implicit link
+        const supplier = await this.suppliersService.findOne(query.supplierId, tenantId);
+        if (supplier) {
+          console.log(`DEBUG: Found supplier: ${supplier.name} (${supplier._id})`);
+          // Check for linked customer ID
+          if (supplier.customerId) {
+            const cId = typeof supplier.customerId === 'object' ? supplier.customerId._id : supplier.customerId;
+            if (cId) {
+              searchIds.push(cId.toString());
+              console.log(`DEBUG: Added Linked CustomerID: ${cId}`);
+            }
+          }
+          // Check for customer property (populated)
+          if (supplier.customer && supplier.customer._id) {
+            searchIds.push(supplier.customer._id.toString());
+            console.log(`DEBUG: Added Populated CustomerID: ${supplier.customer._id}`);
+          }
+        } else {
+          console.log("DEBUG: Supplier not found via findOne");
+        }
+      } catch (err) {
+        console.error("DEBUG: Error resolving supplier:", err);
+      }
+
+      // De-duplicate and filter valid ObjectIds
+      const uniqueIds = [...new Set(searchIds)].filter(id => Types.ObjectId.isValid(id)).map(id => new Types.ObjectId(id));
+
+      // Fix: Handle mixed BSON types for supplierId (String vs ObjectId)
+      const stringIds = uniqueIds.map(id => id.toString());
+      const allIds = [...uniqueIds, ...stringIds];
+
+      console.log(`DEBUG: Final Search IDs (Hybrid):`, allIds);
+
+      if (allIds.length > 0) {
+        filter.supplierId = { $in: allIds };
+      }
     }
+
+    console.log("DEBUG: Final Mongo Filter:", JSON.stringify(filter));
     // Also support status filtering if needed for future
     if (query?.status) {
       filter.status = query.status;

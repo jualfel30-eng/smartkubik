@@ -491,6 +491,7 @@ export class SuppliersService {
         isPrimary: c.isPrimary
       })),
       address: customer.addresses?.find(a => a.isDefault) || customer.addresses?.[0],
+      metrics: customer.metrics, // Fix: Include metrics for virtual suppliers
       paymentSettings: { // Defaults
         defaultCreditDays: 0,
         acceptsCredit: false
@@ -538,6 +539,7 @@ export class SuppliersService {
           isPrimary: c.isPrimary
         })),
         address: customer.addresses?.find(a => a.isDefault) || customer.addresses?.[0],
+        metrics: customer.metrics,
         paymentSettings: {}
       };
     }
@@ -577,7 +579,8 @@ export class SuppliersService {
           phone: c.type === 'phone' ? c.value : undefined,
           isPrimary: c.isPrimary
         })) || plainSupplier.contacts,
-        customer: plainCustomer // Include full customer object for reference
+        customer: plainCustomer, // Include full customer object for reference
+        metrics: plainCustomer.metrics || plainSupplier.metrics // fallback
       };
     }
 

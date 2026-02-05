@@ -149,6 +149,8 @@ export class Supplier {
     qualityIssueRate: number;
     returnRate: number;
     paymentDelayDays: number;
+    averageRating?: number; // Average supplier rating (1-5)
+    totalRatings?: number; // Total number of rated orders
   };
 
   @Prop({ type: String, required: true, default: "active" })
