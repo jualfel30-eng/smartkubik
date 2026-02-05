@@ -3,7 +3,26 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.j
 import { Button } from '@/components/ui/button.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
-import { Plus, Search, Edit, Trash2, Phone, Mail, FileText } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Phone, Mail, FileText, Star } from 'lucide-react';
+// ... (existing imports)
+
+// Helper to render stars
+const renderStars = (rating) => {
+    return (
+        <div className="flex">
+            {[1, 2, 3, 4, 5].map((star) => (
+                <Star
+                    key={star}
+                    className={`w-3 h-3 ${rating >= star ? 'text-yellow-500 fill-yellow-500' :
+                        rating >= star - 0.5 ? 'text-yellow-500 fill-yellow-500 opacity-50' : // Simple half-star approx
+                            'text-muted-foreground opacity-30'
+                        }`}
+                />
+            ))}
+        </div>
+    );
+};
+
 import { fetchApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -85,17 +104,18 @@ export default function SuppliersManagement() {
                                 <TableHead>Contacto Principal</TableHead>
                                 <TableHead>Ubicación</TableHead>
                                 <TableHead>Estado</TableHead>
+                                <TableHead>Calificación</TableHead>
                                 <TableHead className="text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-8">Cargando proveedores...</TableCell>
+                                    <TableCell colSpan={7} className="text-center py-8">Cargando proveedores...</TableCell>
                                 </TableRow>
                             ) : suppliers.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-8">No se encontraron proveedores.</TableCell>
+                                    <TableCell colSpan={7} className="text-center py-8">No se encontraron proveedores.</TableCell>
                                 </TableRow>
                             ) : (
                                 suppliers.map((supplier) => (
@@ -138,6 +158,21 @@ export default function SuppliersManagement() {
                                             <Badge variant={supplier.status === 'active' ? 'default' : 'secondary'}>
                                                 {supplier.status === 'active' ? 'Activo' : supplier.status}
                                             </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            {supplier.metrics?.averageRating ? (
+                                                <div className="flex flex-col items-start gap-0.5">
+                                                    <div className="flex items-center gap-1">
+                                                        {renderStars(supplier.metrics.averageRating)}
+                                                        <span className="text-sm font-semibold">{supplier.metrics.averageRating}</span>
+                                                    </div>
+                                                    <span className="text-[10px] text-muted-foreground font-medium">
+                                                        {supplier.metrics.totalRatings} reseñas
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <span className="text-muted-foreground text-sm">-</span>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <Button variant="ghost" size="icon" onClick={() => handleEdit(supplier)}>
