@@ -4,7 +4,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { fetchApi } from '@/lib/api';
-import { AlertTriangle, Clock, PlusCircle, Trash2, CalendarIcon, Package, XCircle, Plus, Camera, Loader2, X } from 'lucide-react';
+import { AlertTriangle, Clock, PlusCircle, Trash2, CalendarIcon, Package, XCircle, Plus, Camera, Loader2, X, Star } from 'lucide-react';
+import { compressImage } from '@/lib/imageCompression';
 import PurchaseHistory from './PurchaseHistory.jsx';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog.jsx';
 import { Input } from '@/components/ui/input.jsx';
@@ -559,19 +560,24 @@ export default function ComprasManagement() {
 
   // --- Invoice Scanning Handler ---
   const handleScanInvoice = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const rawFile = e.target.files?.[0];
+    if (!rawFile) return;
 
     setIsScanning(true);
     setScanResult(null);
 
     try {
+      // Compress image before upload using our utility
+      // Max 1600px width/height, 0.8 quality (approx 200-400KB usually)
+      toast.info('Optimizando imagen...', { duration: 2000 });
+      const file = await compressImage(rawFile, 1600, 0.8);
+
       const formData = new FormData();
       formData.append('image', file);
 
-      // Add timeout (35 seconds to account for network + processing)
+      // Add timeout (90 seconds to account for network + processing)
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('TIMEOUT')), 35000);
+        setTimeout(() => reject(new Error('TIMEOUT')), 90000);
       });
 
       const apiPromise = fetchApi('/purchases/scan-invoice', {
