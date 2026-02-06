@@ -1016,9 +1016,9 @@ Responde SOLO con JSON válido, sin markdown ni texto adicional:
     }
 
     try {
-      // Add timeout to prevent hanging (30 seconds)
+      // Add timeout to prevent hanging (60 seconds)
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('TIMEOUT')), 30000);
+        setTimeout(() => reject(new Error('TIMEOUT')), 60000);
       });
 
       const apiPromise = this.openaiService.createChatCompletion({
