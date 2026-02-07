@@ -45,92 +45,119 @@ export const ShelfLabelSheet = ({ items, config }) => {
 
     const isRectangular = labelSize === 'rectangular';
 
+    // Calculate items per page based on grid capacity
+    const itemsPerPage = gridConfig.rows * gridConfig.cols;
+
+    // Split items into separate pages
+    const pages = [];
+    for (let i = 0; i < items.length; i += itemsPerPage) {
+        pages.push(items.slice(i, i + itemsPerPage));
+    }
+
     return (
-        <div className="w-full h-full bg-white text-black p-8 print:p-0">
+        <div className="w-full bg-white text-black">
             <style>{`
         @media print {
           @page { size: letter; margin: 0.5cm; }
           body { -webkit-print-color-adjust: exact; }
           .no-print { display: none !important; }
         }
+        .label-page {
+            page-break-after: always;
+            break-after: page;
+            min-height: 27.9cm; /* Explicit Letter height for preview consistency */
+            padding: 2rem; /* Matches original p-8 */
+        }
+        @media print {
+            .label-page {
+                padding: 0;
+                min-height: auto; /* Let printer handle height */
+                height: auto;
+            }
+        }
       `}</style>
 
-            <div className={`grid ${gridConfig.className} w-full`} style={{ pageBreakAfter: 'always' }}>
-                {items.map((item, index) => {
-                    const price = currency === 'VES'
-                        ? (item.price * exchangeRate)
-                        : item.price;
+            {pages.map((pageItems, pageIndex) => (
+                <div
+                    key={pageIndex}
+                    className={`label-page grid ${gridConfig.className} w-full content-start`}
+                >
+                    {pageItems.map((item, index) => {
+                        const price = currency === 'VES'
+                            ? (item.price * exchangeRate)
+                            : item.price;
 
-                    const currencySymbol = currency === 'VES' ? 'Bs.' : 'REF';
+                        const currencySymbol = currency === 'VES' ? 'Bs.' : 'REF';
 
-                    return (
-                        <div
-                            key={index}
-                            className={`border border-gray-300 rounded p-3 flex gap-3 ${gridConfig.labelHeight} overflow-hidden`}
-                        >
-                            {/* Columna 1: Logo (30% del ancho) */}
-                            <div className="w-[30%] flex items-center justify-center">
-                                {config.showLogo && config.storeLogo ? (
-                                    <img
-                                        src={config.storeLogo}
-                                        alt={config.storeName}
-                                        className="w-full h-auto object-contain"
-                                    />
-                                ) : (
-                                    <div className="text-[10px] uppercase font-bold tracking-wider text-center opacity-60">
-                                        {config.storeName || 'TIENDA'}
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Columna 2: Contenido (70% del ancho) */}
-                            <div className="w-[70%] flex flex-col justify-between">
-                                {/* Sección superior: Nombre, Marca y SKU */}
-                                <div className="flex flex-col gap-1">
-                                    {/* Nombre del producto - alineado a la izquierda */}
-                                    <div className="font-bold leading-tight line-clamp-2 text-left text-sm">
-                                        {item.productName}
-                                    </div>
-
-                                    {/* Marca - alineado a la izquierda */}
-                                    {config.showBrand && item.brand && (
-                                        <div className="text-xs text-gray-500 uppercase text-left">
-                                            {item.brand}
-                                        </div>
-                                    )}
-
-                                    {/* SKU - debajo de la marca */}
-                                    {showSKU && item.sku && (
-                                        <div className="text-[9px] text-gray-400 text-left">
-                                            SKU: {item.sku}
+                        return (
+                            <div
+                                key={index}
+                                className={`border border-gray-300 rounded p-3 flex gap-3 ${gridConfig.labelHeight} overflow-hidden bg-white`}
+                            >
+                                {/* Columna 1: Logo (30% del ancho) */}
+                                <div className="w-[30%] flex items-center justify-center">
+                                    {config.showLogo && config.storeLogo ? (
+                                        <img
+                                            src={config.storeLogo}
+                                            alt={config.storeName}
+                                            className="w-full h-auto object-contain max-h-full"
+                                        />
+                                    ) : (
+                                        <div className="text-[10px] uppercase font-bold tracking-wider text-center opacity-60">
+                                            {config.storeName || 'TIENDA'}
                                         </div>
                                     )}
                                 </div>
 
-                                {/* Sección inferior: Precio y fecha */}
-                                <div className="flex flex-col gap-1">
-                                    {/* Precio - alineado a la derecha y en grande */}
-                                    {showPrice && (
-                                        <div className="flex flex-col items-end text-right">
-                                            <div className="font-extrabold text-3xl leading-none tracking-tight">
-                                                {price.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {/* Columna 2: Contenido (70% del ancho) */}
+                                <div className="w-[70%] flex flex-col justify-between h-full">
+                                    {/* Sección superior: Nombre, Marca y SKU */}
+                                    <div className="flex flex-col gap-1">
+                                        {/* Nombre del producto - alineado a la izquierda */}
+                                        <div className="font-bold leading-tight line-clamp-3 text-left text-sm" title={item.productName}>
+                                            {item.productName}
+                                        </div>
+
+                                        {/* Marca - alineado a la izquierda */}
+                                        {config.showBrand && item.brand && (
+                                            <div className="text-xs text-gray-500 uppercase text-left truncate">
+                                                {item.brand}
                                             </div>
-                                            <span className="text-xs font-bold text-gray-500 uppercase">{currencySymbol}</span>
-                                        </div>
-                                    )}
+                                        )}
 
-                                    {/* Fecha - alineado a la derecha */}
-                                    {showDate && (
-                                        <div className="text-[9px] text-gray-400 text-right">
-                                            {new Date().toLocaleDateString()}
-                                        </div>
-                                    )}
+                                        {/* SKU - debajo de la marca */}
+                                        {showSKU && item.sku && (
+                                            <div className="text-[9px] text-gray-400 text-left truncate">
+                                                SKU: {item.sku}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Sección inferior: Precio y fecha */}
+                                    <div className="flex flex-col gap-1 mt-auto">
+                                        {/* Precio - alineado a la derecha y en grande */}
+                                        {showPrice && (
+                                            <div className="flex flex-col items-end text-right">
+                                                <div className="font-extrabold text-3xl leading-none tracking-tight">
+                                                    {price.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                </div>
+                                                <span className="text-xs font-bold text-gray-500 uppercase">{currencySymbol}</span>
+                                            </div>
+                                        )}
+
+                                        {/* Fecha - alineado a la derecha */}
+                                        {showDate && (
+                                            <div className="text-[9px] text-gray-400 text-right">
+                                                {new Date().toLocaleDateString()}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    );
-                })}
-            </div>
+                        );
+                    })}
+                </div>
+            ))}
         </div>
     );
 };
