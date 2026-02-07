@@ -1391,7 +1391,8 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       alert(`Error al actualizar el producto: ${err.message}`);
 
       // Optionally reload to ensure consistency
-      loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory, productTypeFilter);
+      // Optionally reload to ensure consistency
+      loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory, defaultProductType);
     }
   };
 
@@ -1831,7 +1832,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
 
       setIsPreviewDialogOpen(false);
       alert(`${payload.products.length} productos importados exitosamente.`);
-      loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory, productTypeFilter); // Recargar la lista de productos
+      loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory, defaultProductType); // Recargar la lista de productos
 
     } catch (error) {
       console.error("Export failed", error);
