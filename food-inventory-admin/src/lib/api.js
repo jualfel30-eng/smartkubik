@@ -37,9 +37,16 @@ export const fetchApi = async (url, options = {}) => {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const baseUrl = getApiBaseUrl();
+  let baseUrl = getApiBaseUrl();
+  // Remove trailing slash if present
+  if (baseUrl.endsWith('/')) {
+    baseUrl = baseUrl.slice(0, -1);
+  }
 
-  const response = await fetch(`${baseUrl}/api/v1${url}`, {
+  // Check if baseUrl already includes /api/v1
+  const apiPath = baseUrl.endsWith('/api/v1') ? '' : '/api/v1';
+
+  const response = await fetch(`${baseUrl}${apiPath}${url}`, {
     ...options,
     headers,
   });
