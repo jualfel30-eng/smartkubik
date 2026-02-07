@@ -1423,7 +1423,9 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       updatedProduct.variants[variantIndex][field] = Number(value);
     } else {
       // Updating root field or simple product logic
-      if (field === 'category') {
+      if (field === 'name' || field === 'sku') {
+        updatedProduct[field] = value;
+      } else if (field === 'category') {
         // Handle category array (split by comma for tag-like behavior)
         if (typeof value === 'string') {
           const splitCategories = value.split(',').map(c => {
@@ -1461,9 +1463,10 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
     // Construct payload - essential to send variants array if variants changed
     const payload = {
       category: updatedProduct.category,
-      variants: updatedProduct.variants // This sends ALL variants
+      variants: updatedProduct.variants, // This sends ALL variants
+      name: updatedProduct.name,
+      sku: updatedProduct.sku
     };
-
     toast.success('Actualizado', {
       action: {
         label: 'Deshacer',
@@ -3767,13 +3770,25 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
               <TableBody>
                 {filteredProducts.map(product => (
                   <TableRow key={product._id}>
-                    {visibleColumns.sku && <TableCell className="font-mono">{product.sku}</TableCell>}
+                    {visibleColumns.sku && (
+                      <TableCell>
+                        <InlineEditableCell
+                          value={product.sku}
+                          type="text"
+                          onSave={(val) => handleInlineUpdate(product._id, 'sku', val)}
+                          className="font-mono text-sm"
+                        />
+                      </TableCell>
+                    )}
                     {visibleColumns.name && (
                       <TableCell>
                         <div className="flex flex-col gap-1 w-[200px]">
-                          <span className="font-medium text-slate-800 dark:text-slate-100 truncate" title={product.name}>
-                            {product.name}
-                          </span>
+                          <InlineEditableCell
+                            value={product.name}
+                            type="text"
+                            onSave={(val) => handleInlineUpdate(product._id, 'name', val)}
+                            className="font-medium text-slate-800 dark:text-slate-100 truncate"
+                          />
                           <span className="text-[10px] text-slate-400 font-mono sm:hidden">{product.brand}</span>
                         </div>
                       </TableCell>
