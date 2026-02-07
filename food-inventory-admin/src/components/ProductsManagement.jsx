@@ -28,6 +28,7 @@ import { UnitTypeFields } from './UnitTypes';
 import { BarcodeScannerDialog } from '@/components/BarcodeScannerDialog.jsx';
 import { CONSUMABLE_TYPES, SUPPLY_CATEGORIES } from '@/types/consumables';
 import { TagInput } from '@/components/ui/tag-input.jsx';
+import { ShelfLabelWizard } from './inventory/ShelfLabelWizard';
 import {
   Plus,
   Search,
@@ -45,7 +46,8 @@ import {
   ArrowRightLeft,
   Factory,
   Camera,
-  Loader2
+  Loader2,
+  Printer
 } from 'lucide-react';
 
 const UNASSIGNED_SELECT_VALUE = '__UNASSIGNED__';
@@ -401,6 +403,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
   const [isLabelScanning, setIsLabelScanning] = useState(false);
   const [labelScanResult, setLabelScanResult] = useState(null);
   const labelFileRef = useRef(null);
+  const [isLabelWizardOpen, setIsLabelWizardOpen] = useState(false);
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -2042,6 +2045,9 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
           accept=".xlsx, .xls"
           onChange={handleBulkUpload}
         />
+        <Button variant="secondary" onClick={() => setIsLabelWizardOpen(true)}>
+          <Printer className="h-4 w-4 mr-2" /> Imprimir Etiquetas
+        </Button>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button id="add-product-button" size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white"><Plus className="h-5 w-5 mr-2" /> Agregar Producto</Button>
@@ -5119,6 +5125,10 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         onExport={handleConfirmExport}
         columns={getExportColumns()}
         title={exportFormat === 'xlsx' ? "Exportar a Excel" : "Exportar a CSV"}
+      />
+      <ShelfLabelWizard
+        isOpen={isLabelWizardOpen}
+        onClose={() => setIsLabelWizardOpen(false)}
       />
     </div >
   );

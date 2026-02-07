@@ -36,6 +36,7 @@ export const ShelfLabelWizard = ({ isOpen, onClose }) => {
     const [selectedItems, setSelectedItems] = useState([]); // Array of full item objects
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(25);
 
     // Filter State
     const [categories, setCategories] = useState([]);
@@ -150,7 +151,7 @@ export const ShelfLabelWizard = ({ isOpen, onClose }) => {
         try {
             const queryParams = new URLSearchParams({
                 page: currentPage,
-                limit: 20,
+                limit: itemsPerPage,
                 search: search,
                 isActive: 'true' // Only active products
             });
@@ -203,7 +204,7 @@ export const ShelfLabelWizard = ({ isOpen, onClose }) => {
             if (isOpen) loadProducts(page, searchTerm);
         }, 500);
         return () => clearTimeout(timer);
-    }, [searchTerm, page, filters, isOpen]); // Reload when page, search, filters or open state changes
+    }, [searchTerm, page, itemsPerPage, filters, isOpen]); // Reload when page, search, itemsPerPage, filters or open state changes
 
 
     // Handlers
@@ -437,14 +438,70 @@ export const ShelfLabelWizard = ({ isOpen, onClose }) => {
                                 </div>
                             )}
 
-                            {selectedItems.length > 0 && (
-                                <div className="bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 px-4 py-2 rounded text-sm font-medium flex justify-between items-center">
-                                    <span>{selectedItems.length} productos seleccionados</span>
-                                    <Button size="sm" onClick={nextStep}>
-                                        Continuar <ChevronRight className="ml-1 h-4 w-4" />
-                                    </Button>
+                            {/* Pagination and Summary Toolbar */}
+                            <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-gray-50 dark:bg-muted/50 p-2 rounded-md border text-sm">
+                                <div className="flex items-center gap-4">
+                                    {selectedItems.length > 0 ? (
+                                        <div className="font-medium text-blue-700 dark:text-blue-300">
+                                            {selectedItems.length} seleccionados
+                                        </div>
+                                    ) : (
+                                        <div className="text-muted-foreground">Ningún producto seleccionado</div>
+                                    )}
+
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-muted-foreground hidden sm:inline">Mostrar:</span>
+                                        <Select
+                                            value={String(itemsPerPage)}
+                                            onValueChange={(v) => {
+                                                setItemsPerPage(Number(v));
+                                                setPage(1); // Reset to page 1 on limit change
+                                            }}
+                                        >
+                                            <SelectTrigger className="h-8 w-[70px]">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="25">25</SelectItem>
+                                                <SelectItem value="50">50</SelectItem>
+                                                <SelectItem value="100">100</SelectItem>
+                                                <SelectItem value="200">200</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
                                 </div>
-                            )}
+
+                                <div className="flex items-center gap-2">
+                                    <span className="text-muted-foreground hidden sm:inline">
+                                        Pág {page} de {totalPages}
+                                    </span>
+                                    <div className="flex items-center border rounded-md bg-background">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 rounded-r-none"
+                                            disabled={page === 1}
+                                            onClick={() => setPage(p => p - 1)}
+                                        >
+                                            <ChevronLeft className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 rounded-l-none border-l"
+                                            disabled={page === totalPages}
+                                            onClick={() => setPage(p => p + 1)}
+                                        >
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                    {selectedItems.length > 0 && (
+                                        <Button size="sm" onClick={nextStep} className="ml-2 h-8">
+                                            Siguiente
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                 {isLoading ? (
