@@ -6,6 +6,11 @@ export const getApiBaseUrl = () => {
   if (typeof window === 'undefined') {
     return 'https://api.smartkubik.com';
   }
+
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+
   const devHostnames = ['localhost', '127.0.0.1'];
   return devHostnames.includes(window.location.hostname)
     ? 'http://localhost:3000'
