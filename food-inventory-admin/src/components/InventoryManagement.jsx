@@ -216,6 +216,11 @@ function InventoryManagement() {
     return true;
   }, [selectedProduct]);
 
+  // Determine the step for quantity inputs based on product configuration
+  const quantityStep = useMemo(() => {
+    return selectedProduct?.isSoldByWeight ? 0.001 : 1;
+  }, [selectedProduct]);
+
   const handleLotChange = (index, field, value) => {
     const updatedLots = [...newInventoryItem.lots];
     updatedLots[index][field] = value;
@@ -1334,6 +1339,7 @@ function InventoryManagement() {
                           <div className="sm:col-span-2 grid grid-cols-2 gap-2">
                             <NumberInput
                               min={0}
+                              step={quantityStep}
                               value={variant.quantity ?? ''}
                               onValueChange={(val) => handleVariantQuantityChange(index, val)}
                               placeholder="Cant."
@@ -1375,6 +1381,7 @@ function InventoryManagement() {
                         })
                       }
                       min={0}
+                      step={quantityStep}
                       placeholder="Cantidad inicial"
                     />
                   </div>
@@ -1454,6 +1461,7 @@ function InventoryManagement() {
                           value={lot.quantity ?? ''}
                           onValueChange={(val) => handleLotChange(index, 'quantity', val)}
                           min={0}
+                          step={quantityStep}
                         />
                         <Input
                           type="date"
