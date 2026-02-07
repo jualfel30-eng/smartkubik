@@ -31,6 +31,21 @@ const SmartKubikLanding = () => {
     // Industry Active Feature States
     const [activeRestaurantFeature, setActiveRestaurantFeature] = useState(null); // Default: None (Show generic bg + card)
 
+    // Pricing Configuration
+    const [billingCycle, setBillingCycle] = useState('annual'); // 'annual' | 'monthly'
+
+    const PRICING_TIERS = {
+        starter: { annual: 49, monthlyMarkup: 1.15 }, // +15%
+        pro: { annual: 99, monthlyMarkup: 1.25 },     // +25%
+        enterprise: { annual: 149, monthlyMarkup: 1.20 } // +20%
+    };
+
+    const getPrice = (tier) => {
+        const config = PRICING_TIERS[tier];
+        if (billingCycle === 'annual') return config.annual;
+        return Math.round(config.annual * config.monthlyMarkup);
+    };
+
     // Configuration for Contact Details
     const CONTACT_CONFIG = {
         whatsapp: "584244263922", // Format: CountryCode + Number
@@ -675,12 +690,12 @@ const SmartKubikLanding = () => {
 
             if (userCount) userCount.textContent = users;
 
-            // SmartKubik Cost (Flat Fee Tiers)
-            let skCost = 29;
+            // SmartKubik Cost (Flat Fee Tiers - Using Annual Base Price)
+            let skCost = 49;
             if (users > 5 && users <= 20) {
-                skCost = 59;
-            } else if (users > 20) {
                 skCost = 99;
+            } else if (users > 20) {
+                skCost = 149;
             }
 
             // Fragmented Stack Cost
@@ -3273,12 +3288,40 @@ const SmartKubikLanding = () => {
                             </p>
                         </div>
 
+                        {/* Pricing Toggle */}
+                        <div className="flex justify-center mb-12">
+                            <div className="bg-white/5 backdrop-blur-sm border border-white/10 p-1 rounded-xl inline-flex relative">
+                                <button
+                                    onClick={() => setBillingCycle('annual')}
+                                    className={`px-6 py-2 rounded-lg text-sm font-medium transition-all duration-300 relative z-10 ${billingCycle === 'annual' ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25' : 'text-gray-400 hover:text-white'}`}>
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Anual (Mejor Precio)</span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Annual (Best Price)</span>
+                                </button>
+                                <button
+                                    onClick={() => setBillingCycle('monthly')}
+                                    className={`px-6 py-2 rounded-lg text-sm font-medium transition-all duration-300 relative z-10 ${billingCycle === 'monthly' ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25' : 'text-gray-400 hover:text-white'}`}>
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Mensual</span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Monthly</span>
+                                </button>
+                            </div>
+                        </div>
+
                         <div className="grid md:grid-cols-3 gap-8 items-center max-w-[90%] mx-auto">
                             {/*  Starter  */}
                             <div className="glass-card p-8 rounded-3xl border border-white/10 hover:border-white/20 transition-all">
                                 <h3 className="text-2xl font-bold text-white mb-2">Starter</h3>
-                                <div className="text-4xl font-bold font-mono text-white mb-6">$29<span
-                                    className="text-lg font-normal text-gray-400">/mes</span></div>
+                                <div className="text-4xl font-bold font-mono text-white mb-6">
+                                    ${getPrice('starter')}
+                                    <span className="text-lg font-normal text-gray-400">/mes</span>
+                                </div>
+                                <div className="h-6 mb-2">
+                                    {billingCycle === 'annual' && (
+                                        <span className="text-xs text-emerald-400 font-medium bg-emerald-400/10 px-2 py-1 rounded">
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ahorras 15% vs Mensual</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Save 15% vs Monthly</span>
+                                        </span>
+                                    )}
+                                </div>
                                 <p className={`text-gray-400 text-sm mb-6 lang-es ${language === "es" ? "" : "hidden"}`}>Para pequeños negocios que quieren orden.</p>
                                 <p className={`text-gray-400 text-sm mb-6 lang-en ${language === "en" ? "" : "hidden"}`}>For small businesses that want order.</p>
                                 <Link to="/register"
@@ -3308,8 +3351,18 @@ const SmartKubikLanding = () => {
                                     className={`absolute top-0 left-1/2 -translate-x-1/2 bg-gradient-to-r from-cyan-500 to-emerald-500 text-white text-xs font-bold px-4 py-1 rounded-b-lg lang-en ${language === "en" ? "" : "hidden"}`}>
                                     MOST POPULAR</div>
                                 <h3 className="text-2xl font-bold text-white mb-2">Professional</h3>
-                                <div className="text-4xl font-bold font-mono text-white mb-6">$59<span
-                                    className="text-lg font-normal text-gray-400">/mes</span></div>
+                                <div className="text-4xl font-bold font-mono text-white mb-6">
+                                    ${getPrice('pro')}
+                                    <span className="text-lg font-normal text-gray-400">/mes</span>
+                                </div>
+                                <div className="h-6 mb-2">
+                                    {billingCycle === 'annual' && (
+                                        <span className="text-xs text-emerald-400 font-medium bg-emerald-400/10 px-2 py-1 rounded">
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ahorras 25% vs Mensual</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Save 25% vs Monthly</span>
+                                        </span>
+                                    )}
+                                </div>
                                 <p className={`text-gray-400 text-sm mb-6 lang-es ${language === "es" ? "" : "hidden"}`}>Para empresas que crecen rápido.</p>
                                 <p className={`text-gray-400 text-sm mb-6 lang-en ${language === "en" ? "" : "hidden"}`}>For fast-growing companies.</p>
                                 <Link to="/register"
@@ -3332,8 +3385,18 @@ const SmartKubikLanding = () => {
                             {/*  Enterprise  */}
                             <div className="glass-card p-8 rounded-3xl border border-white/10 hover:border-white/20 transition-all">
                                 <h3 className="text-2xl font-bold text-white mb-2">Enterprise</h3>
-                                <div className="text-4xl font-bold font-mono text-white mb-6">$99<span
-                                    className="text-lg font-normal text-gray-400">/mes</span></div>
+                                <div className="text-4xl font-bold font-mono text-white mb-6">
+                                    ${getPrice('enterprise')}
+                                    <span className="text-lg font-normal text-gray-400">/mes</span>
+                                </div>
+                                <div className="h-6 mb-2">
+                                    {billingCycle === 'annual' && (
+                                        <span className="text-xs text-emerald-400 font-medium bg-emerald-400/10 px-2 py-1 rounded">
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ahorras 20% vs Mensual</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Save 20% vs Monthly</span>
+                                        </span>
+                                    )}
+                                </div>
                                 <p className={`text-gray-400 text-sm mb-6 lang-es ${language === "es" ? "" : "hidden"}`}>Para grandes operaciones y franquicias.</p>
                                 <p className={`text-gray-400 text-sm mb-6 lang-en ${language === "en" ? "" : "hidden"}`}>For large operations and franchises.</p>
                                 <Link to="/register"
@@ -3422,7 +3485,7 @@ const SmartKubikLanding = () => {
                                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Tu costo mensual</span>
                                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Your monthly cost</span>
                                     </div>
-                                    <div className="text-5xl font-bold font-mono text-cyan-400" id="monthlyCost">$59</div>
+                                    <div className="text-5xl font-bold font-mono text-cyan-400" id="monthlyCost">$99</div>
                                     <div className="text-xs text-gray-500 mt-1">
                                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>/mes</span>
                                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>/month</span>
@@ -3434,7 +3497,7 @@ const SmartKubikLanding = () => {
                                         <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Vs. fragmented alternatives</span>
                                     </div>
                                     <div className="text-5xl font-bold font-mono text-gray-600 line-through" id="competitorCost">
-                                        ~$1,200
+                                        ~$900
                                     </div>
                                     <div className="text-xs text-gray-500 mt-1">
                                         <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>/mes</span>
@@ -3449,9 +3512,9 @@ const SmartKubikLanding = () => {
                                     <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ahorras</span>
                                     <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>You save</span>
                                 </div>
-                                <div className="text-4xl font-bold text-emerald-400 mb-1" id="savings">$1,141</div>
+                                <div className="text-4xl font-bold text-emerald-400 mb-1" id="savings">$801</div>
                                 <div className="text-lg text-gray-400">
-                                    = <span className="font-bold text-emerald-400" id="annualSavings">$13,692</span>
+                                    = <span className="font-bold text-emerald-400" id="annualSavings">$9,612</span>
                                     <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>/año 🎉</span>
                                     <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>/year 🎉</span>
                                 </div>
