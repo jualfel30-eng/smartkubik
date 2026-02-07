@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { ChartCard, ChartEmptyState, ChartSkeleton } from './BaseChart.jsx';
 import { chartPalette, defaultTooltipProps } from './chart-theme.js';
+import { ExpenseIncomeBreakdown } from './ExpenseIncomeBreakdown.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
@@ -1030,6 +1031,9 @@ export function FinancialKpisDashboard() {
           </ChartCard>
         )}
       </div>
+
+      {/* Row 5: Expense/Income Drill-Down */}
+      <ExpenseIncomeBreakdown />
     </div>
   );
 }

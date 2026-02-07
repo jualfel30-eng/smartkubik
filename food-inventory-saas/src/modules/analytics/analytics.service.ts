@@ -2749,6 +2749,656 @@ export class AnalyticsService {
     };
   }
 
+  // ── Expense/Income Group Drill-Down ────────────────────────
+  async getExpenseIncomeBreakdown(
+    tenantId: string,
+    period?: string,
+    granularity = "month",
+    compare = false,
+  ) {
+    const { objectId: tenantObjectId, key: tenantKey } =
+      this.normalizeTenantIdentifiers(tenantId);
+    const { from, to } = this.buildDateRange(period);
+
+    const dateFormat = this.getGranularityFormat(granularity);
+
+    const orderMatch = {
+      tenantId: tenantKey,
+      status: { $nin: ["draft", "cancelled", "refunded"] },
+      createdAt: { $gte: from, $lte: to },
+    };
+
+    const payableMatch = {
+      tenantId: tenantKey,
+      status: { $in: ["open", "partially_paid", "paid"] },
+      issueDate: { $gte: from, $lte: to },
+    };
+
+    // ── Run all aggregations in parallel ─────────────────────
+    const [
+      expensesByType,
+      expensesTrend,
+      expensesDrillDown,
+      incomeByCategory,
+      incomeTrend,
+      incomeDrillDown,
+      payrollTotals,
+      payrollTrend,
+    ] = await Promise.all([
+      // 1. Expenses grouped by payable type
+      this.payableModel.aggregate([
+        { $match: payableMatch },
+        {
+          $group: {
+            _id: "$type",
+            total: { $sum: "$totalAmount" },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { total: -1 } },
+      ]),
+
+      // 2. Expenses temporal trend by type + granularity
+      this.payableModel.aggregate([
+        { $match: payableMatch },
+        {
+          $group: {
+            _id: {
+              type: "$type",
+              period: {
+                $dateToString: {
+                  format: dateFormat,
+                  date: "$issueDate",
+                  timezone: "UTC",
+                },
+              },
+            },
+            total: { $sum: "$totalAmount" },
+          },
+        },
+        { $sort: { "_id.period": 1 } },
+      ]),
+
+      // 3. Expenses drill-down: within each type, group by payeeName
+      this.payableModel.aggregate([
+        { $match: payableMatch },
+        {
+          $group: {
+            _id: { type: "$type", payeeName: "$payeeName" },
+            total: { $sum: "$totalAmount" },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { total: -1 } },
+      ]),
+
+      // 4. Income grouped by product category
+      this.orderModel.aggregate([
+        { $match: orderMatch },
+        { $unwind: "$items" },
+        {
+          $lookup: {
+            from: "products",
+            let: { pid: "$items.productId" },
+            pipeline: [
+              { $match: { $expr: { $eq: ["$_id", "$$pid"] } } },
+              { $project: { category: 1 } },
+            ],
+            as: "productInfo",
+          },
+        },
+        {
+          $addFields: {
+            categoryName: {
+              $let: {
+                vars: {
+                  rawCat: {
+                    $arrayElemAt: ["$productInfo.category", 0],
+                  },
+                },
+                in: {
+                  $cond: {
+                    if: { $isArray: "$$rawCat" },
+                    then: {
+                      $ifNull: [
+                        { $arrayElemAt: ["$$rawCat", 0] },
+                        "Sin Categoria",
+                      ],
+                    },
+                    else: {
+                      $ifNull: ["$$rawCat", "Sin Categoria"],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: "$categoryName",
+            total: {
+              $sum: {
+                $ifNull: ["$items.finalPrice", "$items.totalPrice"],
+              },
+            },
+            count: { $sum: { $ifNull: ["$items.quantity", 1] } },
+          },
+        },
+        { $sort: { total: -1 } },
+      ]),
+
+      // 5. Income temporal trend by category
+      this.orderModel.aggregate([
+        { $match: orderMatch },
+        { $unwind: "$items" },
+        {
+          $lookup: {
+            from: "products",
+            let: { pid: "$items.productId" },
+            pipeline: [
+              { $match: { $expr: { $eq: ["$_id", "$$pid"] } } },
+              { $project: { category: 1 } },
+            ],
+            as: "productInfo",
+          },
+        },
+        {
+          $addFields: {
+            categoryName: {
+              $let: {
+                vars: {
+                  rawCat: {
+                    $arrayElemAt: ["$productInfo.category", 0],
+                  },
+                },
+                in: {
+                  $cond: {
+                    if: { $isArray: "$$rawCat" },
+                    then: {
+                      $ifNull: [
+                        { $arrayElemAt: ["$$rawCat", 0] },
+                        "Sin Categoria",
+                      ],
+                    },
+                    else: {
+                      $ifNull: ["$$rawCat", "Sin Categoria"],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              category: "$categoryName",
+              period: {
+                $dateToString: {
+                  format: dateFormat,
+                  date: "$createdAt",
+                  timezone: "UTC",
+                },
+              },
+            },
+            total: {
+              $sum: {
+                $ifNull: ["$items.finalPrice", "$items.totalPrice"],
+              },
+            },
+          },
+        },
+        { $sort: { "_id.period": 1 } },
+      ]),
+
+      // 6. Income drill-down: within each category, group by productName
+      this.orderModel.aggregate([
+        { $match: orderMatch },
+        { $unwind: "$items" },
+        {
+          $lookup: {
+            from: "products",
+            let: { pid: "$items.productId" },
+            pipeline: [
+              { $match: { $expr: { $eq: ["$_id", "$$pid"] } } },
+              { $project: { category: 1 } },
+            ],
+            as: "productInfo",
+          },
+        },
+        {
+          $addFields: {
+            categoryName: {
+              $let: {
+                vars: {
+                  rawCat: {
+                    $arrayElemAt: ["$productInfo.category", 0],
+                  },
+                },
+                in: {
+                  $cond: {
+                    if: { $isArray: "$$rawCat" },
+                    then: {
+                      $ifNull: [
+                        { $arrayElemAt: ["$$rawCat", 0] },
+                        "Sin Categoria",
+                      ],
+                    },
+                    else: {
+                      $ifNull: ["$$rawCat", "Sin Categoria"],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              category: "$categoryName",
+              productName: "$items.productName",
+            },
+            total: {
+              $sum: {
+                $ifNull: ["$items.finalPrice", "$items.totalPrice"],
+              },
+            },
+            count: { $sum: { $ifNull: ["$items.quantity", 1] } },
+          },
+        },
+        { $sort: { total: -1 } },
+      ]),
+
+      // 7. Payroll totals
+      this.payrollRunModel.aggregate([
+        {
+          $match: {
+            tenantId: tenantObjectId,
+            status: { $in: ["approved", "posted", "paid"] },
+            periodStart: { $gte: from },
+            periodEnd: { $lte: to },
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            totalNetPay: { $sum: "$netPay" },
+            totalEmployerCosts: { $sum: "$employerCosts" },
+            runCount: { $sum: 1 },
+          },
+        },
+      ]),
+
+      // 8. Payroll trend by granularity
+      this.payrollRunModel.aggregate([
+        {
+          $match: {
+            tenantId: tenantObjectId,
+            status: { $in: ["approved", "posted", "paid"] },
+            periodStart: { $gte: from },
+            periodEnd: { $lte: to },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              $dateToString: {
+                format: dateFormat,
+                date: "$periodStart",
+                timezone: "UTC",
+              },
+            },
+            total: { $sum: { $add: ["$netPay", "$employerCosts"] } },
+          },
+        },
+        { $sort: { _id: 1 } },
+      ]),
+    ]);
+
+    // ── Shape expense groups ─────────────────────────────────
+    const EXPENSE_TYPE_LABELS: Record<string, string> = {
+      purchase_order: "Ordenes de Compra (COGS)",
+      payroll: "Nomina",
+      service_payment: "Servicios",
+      utility_bill: "Servicios Publicos",
+      other: "Otros Gastos",
+    };
+
+    const expTrendMap = new Map<
+      string,
+      Array<{ period: string; total: number }>
+    >();
+    for (const row of expensesTrend) {
+      const key = row._id.type;
+      if (!expTrendMap.has(key)) expTrendMap.set(key, []);
+      expTrendMap.get(key)!.push({ period: row._id.period, total: row.total });
+    }
+
+    const expDrillMap = new Map<
+      string,
+      Array<{ name: string; total: number; count: number }>
+    >();
+    for (const row of expensesDrillDown) {
+      const key = row._id.type;
+      if (!expDrillMap.has(key)) expDrillMap.set(key, []);
+      expDrillMap.get(key)!.push({
+        name: row._id.payeeName,
+        total: row.total,
+        count: row.count,
+      });
+    }
+
+    // Merge payroll from PayrollRun into expense groups
+    const payrollData = payrollTotals[0];
+    const payrollTotal = payrollData
+      ? (payrollData.totalNetPay ?? 0) + (payrollData.totalEmployerCosts ?? 0)
+      : 0;
+
+    const payrollFromPayable = expensesByType.find(
+      (e: any) => e._id === "payroll",
+    );
+
+    if (payrollTotal > 0) {
+      if (payrollFromPayable) {
+        payrollFromPayable.total += payrollTotal;
+      } else {
+        expensesByType.push({
+          _id: "payroll",
+          total: payrollTotal,
+          count: payrollData?.runCount ?? 0,
+        });
+      }
+
+      if (!expTrendMap.has("payroll")) expTrendMap.set("payroll", []);
+      for (const row of payrollTrend) {
+        const existing = expTrendMap
+          .get("payroll")!
+          .find((t) => t.period === row._id);
+        if (existing) {
+          existing.total += row.total;
+        } else {
+          expTrendMap.get("payroll")!.push({ period: row._id, total: row.total });
+        }
+      }
+    }
+
+    const totalExpenses = expensesByType.reduce(
+      (sum: number, e: any) => sum + (e.total ?? 0),
+      0,
+    );
+
+    const expenseGroups = expensesByType
+      .sort((a: any, b: any) => b.total - a.total)
+      .map((e: any) => {
+        const key = e._id as string;
+        let trend = expTrendMap.get(key) ?? [];
+        if (granularity === "quarter") {
+          trend = this.collapseTrendToQuarters(trend);
+        }
+        const drillItems = (expDrillMap.get(key) ?? []).slice(0, 20);
+        const groupTotal = e.total ?? 0;
+
+        return {
+          key,
+          label: EXPENSE_TYPE_LABELS[key] ?? key,
+          total: Number(groupTotal.toFixed(2)),
+          count: e.count ?? 0,
+          percentage:
+            totalExpenses > 0
+              ? Number(((groupTotal / totalExpenses) * 100).toFixed(2))
+              : 0,
+          trend: trend.sort((a, b) => a.period.localeCompare(b.period)),
+          drillDown: drillItems.map((d) => ({
+            name: d.name,
+            total: Number(d.total.toFixed(2)),
+            count: d.count,
+            percentage:
+              groupTotal > 0
+                ? Number(((d.total / groupTotal) * 100).toFixed(2))
+                : 0,
+          })),
+          delta: null as any,
+        };
+      });
+
+    // ── Shape income groups ──────────────────────────────────
+    const incTrendMap = new Map<
+      string,
+      Array<{ period: string; total: number }>
+    >();
+    for (const row of incomeTrend) {
+      const key = row._id.category;
+      if (!incTrendMap.has(key)) incTrendMap.set(key, []);
+      incTrendMap.get(key)!.push({ period: row._id.period, total: row.total });
+    }
+
+    const incDrillMap = new Map<
+      string,
+      Array<{ name: string; total: number; count: number }>
+    >();
+    for (const row of incomeDrillDown) {
+      const key = row._id.category;
+      if (!incDrillMap.has(key)) incDrillMap.set(key, []);
+      incDrillMap.get(key)!.push({
+        name: row._id.productName,
+        total: row.total,
+        count: row.count,
+      });
+    }
+
+    const totalIncome = incomeByCategory.reduce(
+      (sum: number, c: any) => sum + (c.total ?? 0),
+      0,
+    );
+
+    const incomeGroups = incomeByCategory
+      .sort((a: any, b: any) => b.total - a.total)
+      .map((c: any) => {
+        const key = c._id as string;
+        let trend = incTrendMap.get(key) ?? [];
+        if (granularity === "quarter") {
+          trend = this.collapseTrendToQuarters(trend);
+        }
+        const drillItems = (incDrillMap.get(key) ?? []).slice(0, 20);
+        const groupTotal = c.total ?? 0;
+
+        return {
+          key,
+          label: key,
+          total: Number(groupTotal.toFixed(2)),
+          count: c.count ?? 0,
+          percentage:
+            totalIncome > 0
+              ? Number(((groupTotal / totalIncome) * 100).toFixed(2))
+              : 0,
+          trend: trend.sort((a, b) => a.period.localeCompare(b.period)),
+          drillDown: drillItems.map((d) => ({
+            name: d.name,
+            total: Number(d.total.toFixed(2)),
+            count: d.count,
+            percentage:
+              groupTotal > 0
+                ? Number(((d.total / groupTotal) * 100).toFixed(2))
+                : 0,
+          })),
+          delta: null as any,
+        };
+      });
+
+    // ── Comparison with previous period ──────────────────────
+    let comparison: any = null;
+
+    if (compare) {
+      const prev = this.shiftRange(from, to);
+      const prevPayableMatch = {
+        tenantId: tenantKey,
+        status: { $in: ["open", "partially_paid", "paid"] },
+        issueDate: { $gte: prev.from, $lte: prev.to },
+      };
+      const prevOrderMatch = {
+        tenantId: tenantKey,
+        status: { $nin: ["draft", "cancelled", "refunded"] },
+        createdAt: { $gte: prev.from, $lte: prev.to },
+      };
+
+      const [prevExpByType, prevIncByCategory, prevPayroll] =
+        await Promise.all([
+          this.payableModel.aggregate([
+            { $match: prevPayableMatch },
+            { $group: { _id: "$type", total: { $sum: "$totalAmount" } } },
+          ]),
+          this.orderModel.aggregate([
+            { $match: prevOrderMatch },
+            { $unwind: "$items" },
+            {
+              $lookup: {
+                from: "products",
+                let: { pid: "$items.productId" },
+                pipeline: [
+                  { $match: { $expr: { $eq: ["$_id", "$$pid"] } } },
+                  { $project: { category: 1 } },
+                ],
+                as: "productInfo",
+              },
+            },
+            {
+              $addFields: {
+                categoryName: {
+                  $ifNull: [
+                    {
+                      $arrayElemAt: [
+                        { $arrayElemAt: ["$productInfo.category", 0] },
+                        0,
+                      ],
+                    },
+                    "Sin Categoria",
+                  ],
+                },
+              },
+            },
+            {
+              $group: {
+                _id: "$categoryName",
+                total: {
+                  $sum: {
+                    $ifNull: ["$items.finalPrice", "$items.totalPrice"],
+                  },
+                },
+              },
+            },
+          ]),
+          this.payrollRunModel.aggregate([
+            {
+              $match: {
+                tenantId: tenantObjectId,
+                status: { $in: ["approved", "posted", "paid"] },
+                periodStart: { $gte: prev.from },
+                periodEnd: { $lte: prev.to },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                total: { $sum: { $add: ["$netPay", "$employerCosts"] } },
+              },
+            },
+          ]),
+        ]);
+
+      const prevExpMap = new Map<string, number>();
+      for (const e of prevExpByType) prevExpMap.set(e._id, e.total);
+      if (prevPayroll[0]?.total) {
+        const existing = prevExpMap.get("payroll") ?? 0;
+        prevExpMap.set("payroll", existing + prevPayroll[0].total);
+      }
+
+      const prevExpTotal = Array.from(prevExpMap.values()).reduce(
+        (s, v) => s + v,
+        0,
+      );
+
+      const prevIncMap = new Map<string, number>();
+      for (const c of prevIncByCategory) prevIncMap.set(c._id, c.total);
+      const prevIncTotal = Array.from(prevIncMap.values()).reduce(
+        (s, v) => s + v,
+        0,
+      );
+
+      for (const group of expenseGroups) {
+        const prevVal = prevExpMap.get(group.key) ?? 0;
+        const abs = group.total - prevVal;
+        const pct =
+          prevVal !== 0 ? (abs / Math.abs(prevVal)) * 100 : null;
+        group.delta = {
+          previous: Number(prevVal.toFixed(2)),
+          absoluteChange: Number(abs.toFixed(2)),
+          percentChange: pct != null ? Number(pct.toFixed(2)) : null,
+          direction:
+            abs > 0.005 ? ("up" as const) : abs < -0.005 ? ("down" as const) : ("flat" as const),
+        };
+      }
+
+      for (const group of incomeGroups) {
+        const prevVal = prevIncMap.get(group.key) ?? 0;
+        const abs = group.total - prevVal;
+        const pct =
+          prevVal !== 0 ? (abs / Math.abs(prevVal)) * 100 : null;
+        group.delta = {
+          previous: Number(prevVal.toFixed(2)),
+          absoluteChange: Number(abs.toFixed(2)),
+          percentChange: pct != null ? Number(pct.toFixed(2)) : null,
+          direction:
+            abs > 0.005 ? ("up" as const) : abs < -0.005 ? ("down" as const) : ("flat" as const),
+        };
+      }
+
+      comparison = {
+        period: { from: prev.from.toISOString(), to: prev.to.toISOString() },
+        expenses: {
+          total: Number(prevExpTotal.toFixed(2)),
+          groups: Array.from(prevExpMap.entries()).map(([key, total]) => ({
+            key,
+            total: Number(total.toFixed(2)),
+          })),
+        },
+        income: {
+          total: Number(prevIncTotal.toFixed(2)),
+          groups: Array.from(prevIncMap.entries()).map(([key, total]) => ({
+            key,
+            total: Number(total.toFixed(2)),
+          })),
+        },
+      };
+    }
+
+    // ── Build response ───────────────────────────────────────
+    const periodDays = Math.max(
+      1,
+      Math.ceil((to.getTime() - from.getTime()) / 86400000),
+    );
+
+    return {
+      period: {
+        from: from.toISOString(),
+        to: to.toISOString(),
+        days: periodDays,
+        label: period || "30d",
+        granularity,
+      },
+      expenses: {
+        total: Number(totalExpenses.toFixed(2)),
+        groups: expenseGroups,
+      },
+      income: {
+        total: Number(totalIncome.toFixed(2)),
+        groups: incomeGroups,
+      },
+      ...(comparison ? { comparison } : {}),
+    };
+  }
+
   private groupInvestmentsByCategory(
     investments: Array<{
       category: string;
@@ -2918,6 +3568,36 @@ export class AnalyticsService {
     if (!flags[feature]) {
       throw new ForbiddenException(message);
     }
+  }
+
+  private getGranularityFormat(granularity: string): string {
+    switch (granularity) {
+      case "year":
+        return "%Y";
+      case "quarter":
+      case "month":
+      default:
+        return "%Y-%m";
+    }
+  }
+
+  private monthToQuarter(monthStr: string): string {
+    const [year, month] = monthStr.split("-");
+    const q = Math.ceil(parseInt(month, 10) / 3);
+    return `${year}-Q${q}`;
+  }
+
+  private collapseTrendToQuarters(
+    trend: Array<{ period: string; total: number }>,
+  ): Array<{ period: string; total: number }> {
+    const map = new Map<string, number>();
+    for (const t of trend) {
+      const qKey = this.monthToQuarter(t.period);
+      map.set(qKey, (map.get(qKey) ?? 0) + t.total);
+    }
+    return Array.from(map.entries())
+      .map(([period, total]) => ({ period, total }))
+      .sort((a, b) => a.period.localeCompare(b.period));
   }
 
   private buildDateRange(period?: string): DateRange {

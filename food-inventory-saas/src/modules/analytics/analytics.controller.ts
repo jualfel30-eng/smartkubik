@@ -14,6 +14,7 @@ import { Permissions } from "../../decorators/permissions.decorator";
 import {
   AnalyticsPeriodQueryDto,
   KpiCompareQueryDto,
+  ExpenseIncomeBreakdownQueryDto,
 } from "../../dto/analytics.dto";
 import { Public } from "../../decorators/public.decorator";
 
@@ -259,6 +260,21 @@ export class AnalyticsController {
     const data = await this.analyticsService.getHospitalityOperations(
       req.user.tenantId,
       query,
+    );
+    return { success: true, data };
+  }
+
+  @Get("expense-income-breakdown")
+  @Permissions("reports_read")
+  async getExpenseIncomeBreakdown(
+    @Req() req,
+    @Query() query: ExpenseIncomeBreakdownQueryDto,
+  ) {
+    const data = await this.analyticsService.getExpenseIncomeBreakdown(
+      req.user.tenantId,
+      query.period,
+      query.granularity || "month",
+      query.compare === "true",
     );
     return { success: true, data };
   }
