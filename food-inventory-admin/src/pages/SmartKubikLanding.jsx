@@ -20,6 +20,75 @@ import ErpBillSplitting from '@/assets/industries/erp_billsplitting.png';
 import ErpTips from '@/assets/industries/erp_tips.png';
 import ErpMenu from '@/assets/industries/erp_menu.png';
 
+const FoundersBanner = () => (
+    <div style={{
+        position: 'relative',
+        top: '-80px',
+        marginBottom: '-60px',
+        zIndex: 100,
+        maxWidth: '900px',
+        marginLeft: 'auto',
+        marginRight: 'auto',
+        padding: '0 20px'
+    }}>
+        <div style={{
+            background: 'linear-gradient(135deg, #00D9C0 0%, #0BA89F 50%, #067A73 100%)',
+            borderRadius: '16px',
+            padding: '24px 32px',
+            boxShadow: '0 20px 60px rgba(0, 217, 192, 0.4)',
+            border: '2px solid rgba(255, 255, 255, 0.2)',
+            backdropFilter: 'blur(10px)',
+            textAlign: 'center'
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '12px' }}>
+                <span style={{ fontSize: '28px' }}>🏆</span>
+                <h3 style={{ color: 'white', fontSize: '24px', fontWeight: 800, margin: '0' }}>
+                    PROGRAMA FUNDADORES
+                </h3>
+            </div>
+
+            <p style={{ color: 'rgba(255,255,255,0.95)', fontSize: '16px', margin: '12px 0' }}>
+                Sé uno de los primeros <strong>90 clientes</strong> y obtén hasta
+                <span style={{ background: '#FFF700', color: '#0BA89F', padding: '4px 12px', borderRadius: '6px', fontWeight: 800, fontSize: '20px', marginLeft: '8px' }}>55% OFF</span>
+                <span style={{ marginLeft: '8px' }}>de por vida</span>
+            </p>
+
+            <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginTop: '20px', flexWrap: 'wrap' }}>
+                <a href="/fundadores"
+                    style={{
+                        background: 'white',
+                        color: '#0BA89F',
+                        padding: '14px 32px',
+                        borderRadius: '10px',
+                        textDecoration: 'none',
+                        fontWeight: 700,
+                        fontSize: '16px',
+                        boxShadow: '0 8px 20px rgba(0,0,0,0.3)',
+                        transition: 'all 0.3s',
+                        display: 'inline-block'
+                    }}
+                    onMouseOver={(e) => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 12px 28px rgba(0,0,0,0.4)'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(0,0,0,0.3)'; }}
+                >
+                    Únete como Fundador →
+                </a>
+
+                <div style={{
+                    background: 'rgba(255,255,255,0.2)',
+                    color: 'white',
+                    padding: '14px 24px',
+                    borderRadius: '10px',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    border: '1px solid rgba(255,255,255,0.3)'
+                }}>
+                    ⏰ Solo quedan <strong style={{ fontSize: '18px' }}>78 cupos</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+);
+
 const SmartKubikLanding = () => {
     const [language, setLanguage] = useState('es');
     const [isDashboardHovered, setIsDashboardHovered] = useState(false);
@@ -125,6 +194,10 @@ const SmartKubikLanding = () => {
           }
 
           /* Animations */
+          @keyframes landing-page-slideDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+          }
           @keyframes float {
             0%, 100% { transform: translateY(0px); }
             50% { transform: translateY(-20px); }
