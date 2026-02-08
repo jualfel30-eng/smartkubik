@@ -146,7 +146,9 @@ const RecurringEntries = lazy(() => import('@/components/accounting/RecurringEnt
 const ReportsPage = lazy(() => import('./pages/ReportsPage.jsx'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const SuperAdminLayout = lazy(() => import('./layouts/SuperAdminLayout'));
+const FoundersPage = lazy(() => import('./pages/FoundersPage'));
 const SmartKubikLanding = lazy(() => import('./pages/SmartKubikLanding'));
+const FoundersPage = lazy(() => import('./pages/FoundersPage'));
 const SmartKubikLandingV2 = lazy(() => import('./pages/SmartKubikLandingV2'));
 const WebVentasSectionDemo = lazy(() => import('./pages/WebVentasSectionDemo'));
 const BlogIndex = lazy(() => import('./pages/BlogIndex.jsx'));
@@ -1221,6 +1223,7 @@ function AppContent() {
 
         <Routes>
           <Route path="/v2" element={<SmartKubikLandingV2 />} />
+          <Route path="/fundadores" element={<FoundersPage />} />
           <Route path="/demo-web-ventas" element={<WebVentasSectionDemo />} />
           <Route path="/" element={<SmartKubikLanding />} />
           <Route path="/blog" element={<BlogIndex />} />

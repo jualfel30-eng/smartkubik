@@ -1261,6 +1261,7 @@ const SmartKubikLanding = () => {
 
                     </div>
                 </section>
+                <FoundersBanner />
 
                 {/*  SECTION 3: SCROLL STACK (Vanilla JS Implementation)  */}
                 {/* Fixed height to prevent mobile jumps - Lock to svh (Small Viewport Height) */}
