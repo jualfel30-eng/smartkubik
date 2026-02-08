@@ -148,7 +148,6 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const SuperAdminLayout = lazy(() => import('./layouts/SuperAdminLayout'));
 const FoundersPage = lazy(() => import('./pages/FoundersPage'));
 const SmartKubikLanding = lazy(() => import('./pages/SmartKubikLanding'));
-const FoundersPage = lazy(() => import('./pages/FoundersPage'));
 const SmartKubikLandingV2 = lazy(() => import('./pages/SmartKubikLandingV2'));
 const WebVentasSectionDemo = lazy(() => import('./pages/WebVentasSectionDemo'));
 const BlogIndex = lazy(() => import('./pages/BlogIndex.jsx'));
