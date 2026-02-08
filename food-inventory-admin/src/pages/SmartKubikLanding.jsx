@@ -22,8 +22,8 @@ import ErpMenu from '@/assets/industries/erp_menu.png';
 
 const FoundersBanner = () => (
     <div style={{
-        position: 'sticky',
-        top: '20px',
+        position: 'relative',
+        top: '-80px',
         marginBottom: '-60px',
         zIndex: 100,
         maxWidth: '900px',
@@ -822,7 +822,6 @@ const SmartKubikLanding = () => {
 
     return (
         <div id="landing-page-root">
-            <FoundersBanner />
             <div className="v4-landing-page">
                 {/* Background Effects */}
                 <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
@@ -1262,6 +1261,7 @@ const SmartKubikLanding = () => {
 
                     </div>
                 </section>
+                <FoundersBanner />
 
                 {/*  SECTION 3: SCROLL STACK (Vanilla JS Implementation)  */}
                 {/* Fixed height to prevent mobile jumps - Lock to svh (Small Viewport Height) */}
