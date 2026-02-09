@@ -263,6 +263,12 @@ function TenantLayout() {
     setResolvedTheme(theme);
   }, [theme]);
 
+  // Scope App.css typography overrides to dashboard only
+  useEffect(() => {
+    document.body.classList.add('erp-active');
+    return () => document.body.classList.remove('erp-active');
+  }, []);
+
   const handleLogout = () => {
     logout();
     navigate('/login');

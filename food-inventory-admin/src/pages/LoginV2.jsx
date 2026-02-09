@@ -112,6 +112,9 @@ function LoginV2() {
           .pointer-events-auto * {
             pointer-events: auto;
           }
+          [data-login-hero] {
+            font-size: 80px !important;
+          }
         `}</style>
 
         {/* Logo - Top Left */}
@@ -123,7 +126,7 @@ function LoginV2() {
         {/* Hero Section - Left Side */}
         <div className="flex-1 flex items-center justify-center p-12 mt-24 lg:w-1/2">
           <div className="max-w-2xl text-center lg:text-left">
-            <h1 className="hero-title-forced font-display font-extrabold text-gray-900 dark:text-white mb-8 leading-tight tracking-tight transition-colors" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif', textShadow: '0 2px 10px rgba(0,0,0,0.1), 0 4px 20px rgba(0,0,0,0.1)' }}>
+            <h1 data-login-hero className="font-display font-extrabold text-gray-900 dark:text-white mb-8 leading-tight tracking-tight transition-colors" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif', textShadow: '0 2px 10px rgba(0,0,0,0.1), 0 4px 20px rgba(0,0,0,0.1)' }}>
               Todo tu negocio, un solo lugar
             </h1>
             <p className="font-inter text-lg md:text-xl lg:text-2xl font-light text-gray-700 dark:text-gray-200 mb-10 leading-relaxed transition-colors">

@@ -93,19 +93,19 @@
     /* 24px for 4K */
   }
 
-  body:not(.landing-page-active) h1 {
+  body.erp-active h1 {
     font-size: 1.25rem !important;
   }
 
-  body:not(.landing-page-active) h2 {
+  body.erp-active h2 {
     font-size: 1.111rem !important;
   }
 
-  body:not(.landing-page-active) h3 {
+  body.erp-active h3 {
     font-size: 1.6rem !important;
   }
 
-  body:not(.landing-page-active) h4 {
+  body.erp-active h4 {
     font-size: 1.3rem !important;
   }
 
@@ -131,26 +131,26 @@
     /* 20px for 2K */
   }
 
-  body:not(.landing-page-active) h1,
-  body:not(.landing-page-active) h1.text-3xl,
-  body:not(.landing-page-active) h1.text-2xl,
-  body:not(.landing-page-active) h1.text-4xl,
-  body:not(.landing-page-active) h1.text-5xl {
+  body.erp-active h1,
+  body.erp-active h1.text-3xl,
+  body.erp-active h1.text-2xl,
+  body.erp-active h1.text-4xl,
+  body.erp-active h1.text-5xl {
     font-size: 1.5rem !important;
   }
 
-  body:not(.landing-page-active) h2,
-  body:not(.landing-page-active) h2.text-3xl,
-  body:not(.landing-page-active) h2.text-4xl,
-  body:not(.landing-page-active) h2.text-5xl {
+  body.erp-active h2,
+  body.erp-active h2.text-3xl,
+  body.erp-active h2.text-4xl,
+  body.erp-active h2.text-5xl {
     font-size: 1.25rem !important;
   }
 
-  body:not(.landing-page-active) h3 {
+  body.erp-active h3 {
     font-size: 1.5rem !important;
   }
 
-  body:not(.landing-page-active) h4 {
+  body.erp-active h4 {
     font-size: 1.2rem !important;
   }
 
@@ -176,25 +176,25 @@
     /* 16px for FHD */
   }
 
-  body:not(.landing-page-active) h1,
-  body:not(.landing-page-active) h1.text-3xl,
-  body:not(.landing-page-active) h1.text-2xl,
-  body:not(.landing-page-active) h1.text-4xl,
-  body:not(.landing-page-active) h1.text-5xl {
+  body.erp-active h1,
+  body.erp-active h1.text-3xl,
+  body.erp-active h1.text-2xl,
+  body.erp-active h1.text-4xl,
+  body.erp-active h1.text-5xl {
     font-size: 1.75rem !important;
   }
 
-  body:not(.landing-page-active) h2,
-  body:not(.landing-page-active) h2.text-3xl,
-  body:not(.landing-page-active) h2.text-4xl {
+  body.erp-active h2,
+  body.erp-active h2.text-3xl,
+  body.erp-active h2.text-4xl {
     font-size: 1.428rem !important;
   }
 
-  body:not(.landing-page-active) h3 {
+  body.erp-active h3 {
     font-size: 1.35rem !important;
   }
 
-  body:not(.landing-page-active) h4 {
+  body.erp-active h4 {
     font-size: 1.1rem !important;
   }
 
@@ -221,20 +221,20 @@
     /* 12px for Laptop */
   }
 
-  body:not(.landing-page-active) h1 {
+  body.erp-active h1 {
     font-size: 0.75rem !important;
   }
 
-  body:not(.landing-page-active) h2 {
+  body.erp-active h2 {
     font-size: 1.818rem !important;
   }
 
-  body:not(.landing-page-active) h3 {
+  body.erp-active h3 {
     font-size: 1.1rem !important;
   }
 
   /* 12.1px */
-  body:not(.landing-page-active) h4 {
+  body.erp-active h4 {
     font-size: 1rem !important;
   }
 
@@ -271,20 +271,20 @@
     /* 12px for Small Screens */
   }
 
-  body:not(.landing-page-active) h1 {
+  body.erp-active h1 {
     font-size: 0.7rem !important;
   }
 
-  body:not(.landing-page-active) h2 {
+  body.erp-active h2 {
     font-size: 2rem !important;
   }
 
-  body:not(.landing-page-active) h3 {
+  body.erp-active h3 {
     font-size: 1.1rem !important;
   }
 
   /* 11px */
-  body:not(.landing-page-active) h4 {
+  body.erp-active h4 {
     font-size: 1rem !important;
   }
 
@@ -368,7 +368,7 @@
   }
 
   /* ERP styles - default dark mode, respects theme toggle */
-  body:not(.landing-page-active) {
+  body.erp-active {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
   }
