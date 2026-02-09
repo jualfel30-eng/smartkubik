@@ -13,6 +13,14 @@ export class AnalyticsPeriodQueryDto {
   @IsOptional()
   @IsBooleanString()
   compare?: string;
+
+  @IsOptional()
+  @IsDateString()
+  fromDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  toDate?: string;
 }
 
 export class ExpenseIncomeBreakdownQueryDto {
@@ -27,6 +35,18 @@ export class ExpenseIncomeBreakdownQueryDto {
   @IsOptional()
   @IsBooleanString()
   compare?: string;
+
+  @IsOptional()
+  @Matches(/^(type|account)$/)
+  groupBy?: string;
+
+  @IsOptional()
+  @IsDateString()
+  fromDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  toDate?: string;
 }
 
 export class KpiCompareQueryDto {

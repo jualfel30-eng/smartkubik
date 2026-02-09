@@ -222,10 +222,14 @@ export class AnalyticsController {
   @Get("financial-kpis")
   @Permissions("reports_read")
   async getFinancialKpis(@Req() req, @Query() query: AnalyticsPeriodQueryDto) {
+    const fromDate = query.fromDate ? new Date(query.fromDate) : undefined;
+    const toDate = query.toDate ? new Date(query.toDate) : undefined;
     const data = await this.analyticsService.getFinancialKpis(
       req.user.tenantId,
       query.period,
       query.compare === "true",
+      fromDate,
+      toDate,
     );
     return { success: true, data };
   }
@@ -270,11 +274,16 @@ export class AnalyticsController {
     @Req() req,
     @Query() query: ExpenseIncomeBreakdownQueryDto,
   ) {
+    const fromDate = query.fromDate ? new Date(query.fromDate) : undefined;
+    const toDate = query.toDate ? new Date(query.toDate) : undefined;
     const data = await this.analyticsService.getExpenseIncomeBreakdown(
       req.user.tenantId,
       query.period,
       query.granularity || "month",
       query.compare === "true",
+      query.groupBy || "type",
+      fromDate,
+      toDate,
     );
     return { success: true, data };
   }

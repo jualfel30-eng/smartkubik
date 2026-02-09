@@ -1731,10 +1731,28 @@ export class AnalyticsService {
     tenantId: string,
     period?: string,
     compare = false,
+    fromDate?: Date,
+    toDate?: Date,
   ) {
     const { objectId: tenantObjectId, key: tenantKey } =
       this.normalizeTenantIdentifiers(tenantId);
-    const { from, to, groupBy } = this.buildDateRange(period);
+
+    let from: Date;
+    let to: Date;
+    let groupBy: "day" | "month";
+    if (fromDate && toDate) {
+      from = fromDate;
+      to = toDate;
+      const diffDays = Math.ceil(
+        (to.getTime() - from.getTime()) / 86400000,
+      );
+      groupBy = diffDays > 90 ? "month" : "day";
+    } else {
+      const range = this.buildDateRange(period);
+      from = range.from;
+      to = range.to;
+      groupBy = range.groupBy;
+    }
     const format = groupBy === "day" ? "%Y-%m-%d" : "%Y-%m";
 
     // ── Shared base queries ──────────────────────────────────────
@@ -2755,10 +2773,23 @@ export class AnalyticsService {
     period?: string,
     granularity = "month",
     compare = false,
+    groupBy = "type",
+    fromDate?: Date,
+    toDate?: Date,
   ) {
     const { objectId: tenantObjectId, key: tenantKey } =
       this.normalizeTenantIdentifiers(tenantId);
-    const { from, to } = this.buildDateRange(period);
+
+    let from: Date;
+    let to: Date;
+    if (fromDate && toDate) {
+      from = fromDate;
+      to = toDate;
+    } else {
+      const range = this.buildDateRange(period);
+      from = range.from;
+      to = range.to;
+    }
 
     const dateFormat = this.getGranularityFormat(granularity);
 
@@ -2774,9 +2805,15 @@ export class AnalyticsService {
       issueDate: { $gte: from, $lte: to },
     };
 
+    // ── Expense aggregation pipelines (differ by groupBy) ────
+    const expenseAggregations =
+      groupBy === "account"
+        ? this.buildAccountExpenseAggregations(payableMatch, dateFormat)
+        : this.buildTypeExpenseAggregations(payableMatch, dateFormat);
+
     // ── Run all aggregations in parallel ─────────────────────
     const [
-      expensesByType,
+      expensesByGroup,
       expensesTrend,
       expensesDrillDown,
       incomeByCategory,
@@ -2785,52 +2822,9 @@ export class AnalyticsService {
       payrollTotals,
       payrollTrend,
     ] = await Promise.all([
-      // 1. Expenses grouped by payable type
-      this.payableModel.aggregate([
-        { $match: payableMatch },
-        {
-          $group: {
-            _id: "$type",
-            total: { $sum: "$totalAmount" },
-            count: { $sum: 1 },
-          },
-        },
-        { $sort: { total: -1 } },
-      ]),
-
-      // 2. Expenses temporal trend by type + granularity
-      this.payableModel.aggregate([
-        { $match: payableMatch },
-        {
-          $group: {
-            _id: {
-              type: "$type",
-              period: {
-                $dateToString: {
-                  format: dateFormat,
-                  date: "$issueDate",
-                  timezone: "UTC",
-                },
-              },
-            },
-            total: { $sum: "$totalAmount" },
-          },
-        },
-        { $sort: { "_id.period": 1 } },
-      ]),
-
-      // 3. Expenses drill-down: within each type, group by payeeName
-      this.payableModel.aggregate([
-        { $match: payableMatch },
-        {
-          $group: {
-            _id: { type: "$type", payeeName: "$payeeName" },
-            total: { $sum: "$totalAmount" },
-            count: { $sum: 1 },
-          },
-        },
-        { $sort: { total: -1 } },
-      ]),
+      expenseAggregations.byGroup,
+      expenseAggregations.trend,
+      expenseAggregations.drillDown,
 
       // 4. Income grouped by product category
       this.orderModel.aggregate([
@@ -3090,46 +3084,50 @@ export class AnalyticsService {
       });
     }
 
-    // Merge payroll from PayrollRun into expense groups
-    const payrollData = payrollTotals[0];
-    const payrollTotal = payrollData
-      ? (payrollData.totalNetPay ?? 0) + (payrollData.totalEmployerCosts ?? 0)
-      : 0;
+    // Merge payroll from PayrollRun into expense groups (only for type grouping)
+    if (groupBy === "type") {
+      const payrollData = payrollTotals[0];
+      const payrollTotal = payrollData
+        ? (payrollData.totalNetPay ?? 0) + (payrollData.totalEmployerCosts ?? 0)
+        : 0;
 
-    const payrollFromPayable = expensesByType.find(
-      (e: any) => e._id === "payroll",
-    );
+      const payrollFromPayable = expensesByGroup.find(
+        (e: any) => e._id === "payroll",
+      );
 
-    if (payrollTotal > 0) {
-      if (payrollFromPayable) {
-        payrollFromPayable.total += payrollTotal;
-      } else {
-        expensesByType.push({
-          _id: "payroll",
-          total: payrollTotal,
-          count: payrollData?.runCount ?? 0,
-        });
-      }
-
-      if (!expTrendMap.has("payroll")) expTrendMap.set("payroll", []);
-      for (const row of payrollTrend) {
-        const existing = expTrendMap
-          .get("payroll")!
-          .find((t) => t.period === row._id);
-        if (existing) {
-          existing.total += row.total;
+      if (payrollTotal > 0) {
+        if (payrollFromPayable) {
+          payrollFromPayable.total += payrollTotal;
         } else {
-          expTrendMap.get("payroll")!.push({ period: row._id, total: row.total });
+          expensesByGroup.push({
+            _id: "payroll",
+            total: payrollTotal,
+            count: payrollData?.runCount ?? 0,
+          });
+        }
+
+        if (!expTrendMap.has("payroll")) expTrendMap.set("payroll", []);
+        for (const row of payrollTrend) {
+          const existing = expTrendMap
+            .get("payroll")!
+            .find((t) => t.period === row._id);
+          if (existing) {
+            existing.total += row.total;
+          } else {
+            expTrendMap
+              .get("payroll")!
+              .push({ period: row._id, total: row.total });
+          }
         }
       }
     }
 
-    const totalExpenses = expensesByType.reduce(
+    const totalExpenses = expensesByGroup.reduce(
       (sum: number, e: any) => sum + (e.total ?? 0),
       0,
     );
 
-    const expenseGroups = expensesByType
+    const expenseGroups = expensesByGroup
       .sort((a: any, b: any) => b.total - a.total)
       .map((e: any) => {
         const key = e._id as string;
@@ -3140,9 +3138,14 @@ export class AnalyticsService {
         const drillItems = (expDrillMap.get(key) ?? []).slice(0, 20);
         const groupTotal = e.total ?? 0;
 
+        const label =
+          groupBy === "account"
+            ? (e.code ? `${e.code} - ` : "") + key
+            : EXPENSE_TYPE_LABELS[key] ?? key;
+
         return {
           key,
-          label: EXPENSE_TYPE_LABELS[key] ?? key,
+          label,
           total: Number(groupTotal.toFixed(2)),
           count: e.count ?? 0,
           percentage:
@@ -3243,12 +3246,44 @@ export class AnalyticsService {
         createdAt: { $gte: prev.from, $lte: prev.to },
       };
 
-      const [prevExpByType, prevIncByCategory, prevPayroll] =
+      const prevExpAgg =
+        groupBy === "account"
+          ? this.payableModel.aggregate([
+              { $match: prevPayableMatch },
+              { $unwind: "$lines" },
+              {
+                $lookup: {
+                  from: "chartofaccounts",
+                  localField: "lines.accountId",
+                  foreignField: "_id",
+                  as: "accountInfo",
+                },
+              },
+              {
+                $group: {
+                  _id: {
+                    $ifNull: [
+                      { $arrayElemAt: ["$accountInfo.name", 0] },
+                      "Sin Cuenta",
+                    ],
+                  },
+                  total: { $sum: "$lines.amount" },
+                },
+              },
+            ])
+          : this.payableModel.aggregate([
+              { $match: prevPayableMatch },
+              {
+                $group: {
+                  _id: "$type",
+                  total: { $sum: "$totalAmount" },
+                },
+              },
+            ]);
+
+      const [prevExpByGroup, prevIncByCategory, prevPayroll] =
         await Promise.all([
-          this.payableModel.aggregate([
-            { $match: prevPayableMatch },
-            { $group: { _id: "$type", total: { $sum: "$totalAmount" } } },
-          ]),
+          prevExpAgg,
           this.orderModel.aggregate([
             { $match: prevOrderMatch },
             { $unwind: "$items" },
@@ -3266,15 +3301,27 @@ export class AnalyticsService {
             {
               $addFields: {
                 categoryName: {
-                  $ifNull: [
-                    {
-                      $arrayElemAt: [
-                        { $arrayElemAt: ["$productInfo.category", 0] },
-                        0,
-                      ],
+                  $let: {
+                    vars: {
+                      rawCat: {
+                        $arrayElemAt: ["$productInfo.category", 0],
+                      },
                     },
-                    "Sin Categoria",
-                  ],
+                    in: {
+                      $cond: {
+                        if: { $isArray: "$$rawCat" },
+                        then: {
+                          $ifNull: [
+                            { $arrayElemAt: ["$$rawCat", 0] },
+                            "Sin Categoria",
+                          ],
+                        },
+                        else: {
+                          $ifNull: ["$$rawCat", "Sin Categoria"],
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -3308,8 +3355,8 @@ export class AnalyticsService {
         ]);
 
       const prevExpMap = new Map<string, number>();
-      for (const e of prevExpByType) prevExpMap.set(e._id, e.total);
-      if (prevPayroll[0]?.total) {
+      for (const e of prevExpByGroup) prevExpMap.set(e._id, e.total);
+      if (groupBy === "type" && prevPayroll[0]?.total) {
         const existing = prevExpMap.get("payroll") ?? 0;
         prevExpMap.set("payroll", existing + prevPayroll[0].total);
       }
@@ -3386,6 +3433,7 @@ export class AnalyticsService {
         days: periodDays,
         label: period || "30d",
         granularity,
+        groupBy,
       },
       expenses: {
         total: Number(totalExpenses.toFixed(2)),
@@ -3568,6 +3616,134 @@ export class AnalyticsService {
     if (!flags[feature]) {
       throw new ForbiddenException(message);
     }
+  }
+
+  private buildTypeExpenseAggregations(
+    payableMatch: any,
+    dateFormat: string,
+  ) {
+    return {
+      byGroup: this.payableModel.aggregate([
+        { $match: payableMatch },
+        {
+          $group: {
+            _id: "$type",
+            total: { $sum: "$totalAmount" },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { total: -1 } },
+      ]),
+      trend: this.payableModel.aggregate([
+        { $match: payableMatch },
+        {
+          $group: {
+            _id: {
+              type: "$type",
+              period: {
+                $dateToString: {
+                  format: dateFormat,
+                  date: "$issueDate",
+                  timezone: "UTC",
+                },
+              },
+            },
+            total: { $sum: "$totalAmount" },
+          },
+        },
+        { $sort: { "_id.period": 1 } },
+      ]),
+      drillDown: this.payableModel.aggregate([
+        { $match: payableMatch },
+        {
+          $group: {
+            _id: { type: "$type", payeeName: "$payeeName" },
+            total: { $sum: "$totalAmount" },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { total: -1 } },
+      ]),
+    };
+  }
+
+  private buildAccountExpenseAggregations(
+    payableMatch: any,
+    dateFormat: string,
+  ) {
+    const basePipeline: any[] = [
+      { $match: payableMatch },
+      { $unwind: "$lines" },
+      {
+        $lookup: {
+          from: "chartofaccounts",
+          localField: "lines.accountId",
+          foreignField: "_id",
+          as: "accountInfo",
+        },
+      },
+      {
+        $addFields: {
+          accountName: {
+            $ifNull: [
+              { $arrayElemAt: ["$accountInfo.name", 0] },
+              "Sin Cuenta",
+            ],
+          },
+          accountCode: {
+            $ifNull: [
+              { $arrayElemAt: ["$accountInfo.code", 0] },
+              "",
+            ],
+          },
+        },
+      },
+    ];
+
+    return {
+      byGroup: this.payableModel.aggregate([
+        ...basePipeline,
+        {
+          $group: {
+            _id: "$accountName",
+            total: { $sum: "$lines.amount" },
+            count: { $sum: 1 },
+            code: { $first: "$accountCode" },
+          },
+        },
+        { $sort: { total: -1 } },
+      ]),
+      trend: this.payableModel.aggregate([
+        ...basePipeline,
+        {
+          $group: {
+            _id: {
+              type: "$accountName",
+              period: {
+                $dateToString: {
+                  format: dateFormat,
+                  date: "$issueDate",
+                  timezone: "UTC",
+                },
+              },
+            },
+            total: { $sum: "$lines.amount" },
+          },
+        },
+        { $sort: { "_id.period": 1 } },
+      ]),
+      drillDown: this.payableModel.aggregate([
+        ...basePipeline,
+        {
+          $group: {
+            _id: { type: "$accountName", payeeName: "$payeeName" },
+            total: { $sum: "$lines.amount" },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { total: -1 } },
+      ]),
+    };
   }
 
   private getGranularityFormat(granularity: string): string {

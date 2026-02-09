@@ -16,7 +16,12 @@ const EMPTY_STATE = {
   comparison: null,
 };
 
-export function useFinancialKpis(period = '30d', compare = false) {
+export function useFinancialKpis(
+  period = '30d',
+  compare = false,
+  fromDate = null,
+  toDate = null,
+) {
   const [data, setData] = useState(EMPTY_STATE);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -28,7 +33,13 @@ export function useFinancialKpis(period = '30d', compare = false) {
       setLoading(true);
       setError(null);
       try {
-        const params = new URLSearchParams({ period });
+        const params = new URLSearchParams();
+        if (fromDate && toDate) {
+          params.set('fromDate', fromDate);
+          params.set('toDate', toDate);
+        } else {
+          params.set('period', period);
+        }
         if (compare) params.set('compare', 'true');
         const res = await fetchApi(`/analytics/financial-kpis?${params}`);
         if (active && res?.data) {
@@ -46,7 +57,7 @@ export function useFinancialKpis(period = '30d', compare = false) {
 
     load();
     return () => { active = false; };
-  }, [period, compare]);
+  }, [period, compare, fromDate, toDate]);
 
   useEffect(() => {
     const cleanup = reload();

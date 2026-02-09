@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import { ChartCard, ChartEmptyState, ChartSkeleton } from './BaseChart.jsx';
 import { chartPalette, defaultTooltipProps } from './chart-theme.js';
+import { MultiMonthPicker, CustomRangeIndicator } from './MultiMonthPicker.jsx';
 import { Card, CardContent } from '@/components/ui/card.jsx';
 import {
   Select,
@@ -36,8 +37,10 @@ import {
   XCircle,
   Info,
   GitCompareArrows,
+  CalendarRange,
 } from 'lucide-react';
 
+// ─── Constants ───────────────────────────────────────────────
 const PERIOD_OPTIONS = [
   { value: '7d', label: '7 dias' },
   { value: '14d', label: '14 dias' },
@@ -54,6 +57,7 @@ const GRANULARITY_OPTIONS = [
   { value: 'year', label: 'Anual' },
 ];
 
+// ─── Formatters ──────────────────────────────────────────────
 const fmt = (v, decimals = 2) => {
   if (v == null || isNaN(v)) return '--';
   return new Intl.NumberFormat('es-VE', {
@@ -72,6 +76,7 @@ const fmtPct = (v) => {
   return `${fmt(v)}%`;
 };
 
+// ─── Delta badges ────────────────────────────────────────────
 function DeltaBadge({ delta }) {
   if (!delta || delta.percentChange == null) return null;
 
@@ -116,6 +121,7 @@ function DeltaBadgeInverse({ delta }) {
   );
 }
 
+// ─── Chart sub-components ────────────────────────────────────
 function GroupHorizontalBar({ groups, palette }) {
   if (!groups?.length) return null;
 
@@ -152,9 +158,9 @@ function GroupHorizontalBar({ groups, palette }) {
         <YAxis
           type="category"
           dataKey="name"
-          width={160}
+          width={180}
           stroke="#94a3b8"
-          tick={{ fontSize: 12 }}
+          tick={{ fontSize: 11 }}
         />
         <Tooltip
           {...defaultTooltipProps}
@@ -332,15 +338,161 @@ function GroupAccordion({ groups, palette, isExpense }) {
   );
 }
 
+// ─── Controls bar ────────────────────────────────────────────
+function BreakdownControls({
+  period,
+  setPeriod,
+  granularity,
+  setGranularity,
+  compare,
+  setCompare,
+  groupBy,
+  setGroupBy,
+  showDatePanel,
+  setShowDatePanel,
+  customRange,
+  dataPeriod,
+}) {
+  const periodLabel = customRange
+    ? `${new Date(customRange.from).toLocaleDateString('es-VE', { month: 'short', year: 'numeric' })} - ${new Date(customRange.to).toLocaleDateString('es-VE', { month: 'short', year: 'numeric' })}`
+    : null;
+
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h3 className="text-lg font-semibold">
+          Desglose de Gastos e Ingresos
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Analisis drill-down por {groupBy === 'account' ? 'cuenta contable' : 'tipo'}
+          {dataPeriod && (
+            <span className="ml-1">
+              ({new Date(dataPeriod.from).toLocaleDateString('es-VE')} -{' '}
+              {new Date(dataPeriod.to).toLocaleDateString('es-VE')})
+            </span>
+          )}
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {/* GroupBy toggle */}
+        <div className="flex rounded-md border border-border overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setGroupBy('type')}
+            className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+              groupBy === 'type'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-background text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            Por Tipo
+          </button>
+          <button
+            type="button"
+            onClick={() => setGroupBy('account')}
+            className={`px-2.5 py-1 text-xs font-medium transition-colors border-l border-border ${
+              groupBy === 'account'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-background text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            Por Cuenta
+          </button>
+        </div>
+
+        {/* Compare button */}
+        <button
+          type="button"
+          onClick={() => setCompare((v) => !v)}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+            compare
+              ? 'bg-primary text-primary-foreground border-primary'
+              : 'bg-background text-muted-foreground border-border hover:bg-muted'
+          }`}
+          title="Comparar vs periodo anterior"
+        >
+          <GitCompareArrows className="h-3.5 w-3.5" />
+          vs Anterior
+        </button>
+
+        {/* Granularity */}
+        <Select value={granularity} onValueChange={setGranularity}>
+          <SelectTrigger className="w-[120px] h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {GRANULARITY_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Date range picker toggle */}
+        <button
+          type="button"
+          onClick={() => setShowDatePanel((v) => !v)}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+            showDatePanel || customRange
+              ? 'bg-primary text-primary-foreground border-primary'
+              : 'bg-background text-muted-foreground border-border hover:bg-muted'
+          }`}
+          title="Seleccionar mes/trimestre/ano"
+        >
+          <CalendarRange className="h-3.5 w-3.5" />
+          {periodLabel || 'Periodo'}
+        </button>
+
+        {/* Quick period selector (only shown when no custom range) */}
+        {!customRange && (
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger className="w-[110px] h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PERIOD_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ──────────────────────────────────────────
 export function ExpenseIncomeBreakdown() {
   const [period, setPeriod] = useState('90d');
   const [granularity, setGranularity] = useState('month');
   const [compare, setCompare] = useState(false);
+  const [groupBy, setGroupBy] = useState('type');
+  const [showDatePanel, setShowDatePanel] = useState(false);
+  const [customRange, setCustomRange] = useState(null);
+
+  const fromDate = customRange?.from ?? null;
+  const toDate = customRange?.to ?? null;
+
   const { data, loading, error } = useExpenseIncomeBreakdown(
     period,
     granularity,
     compare,
+    groupBy,
+    fromDate,
+    toDate,
   );
+
+  const handleDateApply = (from, to) => {
+    setCustomRange({ from, to });
+    setShowDatePanel(false);
+  };
+
+  const handleClearCustomRange = () => {
+    setCustomRange(null);
+  };
 
   if (loading) {
     return (
@@ -380,8 +532,19 @@ export function ExpenseIncomeBreakdown() {
           setGranularity={setGranularity}
           compare={compare}
           setCompare={setCompare}
+          groupBy={groupBy}
+          setGroupBy={setGroupBy}
+          showDatePanel={showDatePanel}
+          setShowDatePanel={setShowDatePanel}
+          customRange={customRange}
           dataPeriod={data?.period}
         />
+        {showDatePanel && (
+          <MultiMonthPicker
+            onApply={handleDateApply}
+            onClose={() => setShowDatePanel(false)}
+          />
+        )}
         <Card>
           <CardContent className="p-6 text-center text-muted-foreground">
             <Info className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -400,13 +563,37 @@ export function ExpenseIncomeBreakdown() {
     <div className="space-y-4">
       <BreakdownControls
         period={period}
-        setPeriod={setPeriod}
+        setPeriod={(v) => {
+          setPeriod(v);
+          setCustomRange(null);
+        }}
         granularity={granularity}
         setGranularity={setGranularity}
         compare={compare}
         setCompare={setCompare}
+        groupBy={groupBy}
+        setGroupBy={setGroupBy}
+        showDatePanel={showDatePanel}
+        setShowDatePanel={setShowDatePanel}
+        customRange={customRange}
         dataPeriod={data?.period}
       />
+
+      {/* Date range panel */}
+      {showDatePanel && (
+        <MultiMonthPicker
+          onApply={handleDateApply}
+          onClose={() => setShowDatePanel(false)}
+        />
+      )}
+
+      {/* Custom range indicator */}
+      {customRange && !showDatePanel && (
+        <CustomRangeIndicator
+          customRange={customRange}
+          onClear={handleClearCustomRange}
+        />
+      )}
 
       {/* Summary totals */}
       <div className="grid grid-cols-3 gap-3">
@@ -478,7 +665,11 @@ export function ExpenseIncomeBreakdown() {
           {expenses?.groups?.length > 0 ? (
             <>
               <ChartCard
-                title="Gastos por Grupo"
+                title={
+                  groupBy === 'account'
+                    ? 'Gastos por Cuenta Contable'
+                    : 'Gastos por Grupo'
+                }
                 description="Haz clic en un grupo abajo para ver el desglose detallado"
               >
                 <GroupHorizontalBar
@@ -520,74 +711,6 @@ export function ExpenseIncomeBreakdown() {
           )}
         </TabsContent>
       </Tabs>
-    </div>
-  );
-}
-
-function BreakdownControls({
-  period,
-  setPeriod,
-  granularity,
-  setGranularity,
-  compare,
-  setCompare,
-  dataPeriod,
-}) {
-  return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h3 className="text-lg font-semibold">
-          Desglose de Gastos e Ingresos
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          Analisis drill-down por grupo con tendencia temporal
-          {dataPeriod && (
-            <span className="ml-1">
-              ({new Date(dataPeriod.from).toLocaleDateString('es-VE')} -{' '}
-              {new Date(dataPeriod.to).toLocaleDateString('es-VE')})
-            </span>
-          )}
-        </p>
-      </div>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setCompare((v) => !v)}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
-            compare
-              ? 'bg-primary text-primary-foreground border-primary'
-              : 'bg-background text-muted-foreground border-border hover:bg-muted'
-          }`}
-          title="Comparar vs periodo anterior"
-        >
-          <GitCompareArrows className="h-3.5 w-3.5" />
-          vs Anterior
-        </button>
-        <Select value={granularity} onValueChange={setGranularity}>
-          <SelectTrigger className="w-[120px] h-8 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {GRANULARITY_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={period} onValueChange={setPeriod}>
-          <SelectTrigger className="w-[120px] h-8 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {PERIOD_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
     </div>
   );
 }

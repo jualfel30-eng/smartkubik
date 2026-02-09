@@ -17,6 +17,7 @@ import {
 import { ChartCard, ChartEmptyState, ChartSkeleton } from './BaseChart.jsx';
 import { chartPalette, defaultTooltipProps } from './chart-theme.js';
 import { ExpenseIncomeBreakdown } from './ExpenseIncomeBreakdown.jsx';
+import { MultiMonthPicker, CustomRangeIndicator } from './MultiMonthPicker.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
@@ -747,7 +748,12 @@ export function FinancialKpisDashboard() {
   const [period, setPeriod] = useState('30d');
   const [compare, setCompare] = useState(false);
   const [showComparePanel, setShowComparePanel] = useState(false);
-  const { data, loading, error } = useFinancialKpis(period, compare);
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [customRange, setCustomRange] = useState(null);
+
+  const kpiFromDate = customRange?.from ?? null;
+  const kpiToDate = customRange?.to ?? null;
+  const { data, loading, error } = useFinancialKpis(period, compare, kpiFromDate, kpiToDate);
   const {
     data: compareData,
     loading: compareLoading,
@@ -770,6 +776,15 @@ export function FinancialKpisDashboard() {
 
   const handleRunComparison = (fromA, toA, fromB, toB) => {
     runComparison(fromA, toA, fromB, toB);
+  };
+
+  const handleMonthPickerApply = (from, to) => {
+    setCustomRange({ from, to });
+    setShowMonthPicker(false);
+  };
+
+  const handleClearCustomRange = () => {
+    setCustomRange(null);
   };
 
   if (loading) {
@@ -807,12 +822,21 @@ export function FinancialKpisDashboard() {
       <div className="space-y-4">
         <PeriodControls
           period={period}
-          setPeriod={setPeriod}
+          setPeriod={(v) => { setPeriod(v); setCustomRange(null); }}
           compare={compare}
           setCompare={setCompare}
           onOpenComparePanel={handleOpenCompare}
           dataPeriod={data?.period}
+          showMonthPicker={showMonthPicker}
+          onToggleMonthPicker={() => setShowMonthPicker((v) => !v)}
+          customRange={customRange}
         />
+        {showMonthPicker && (
+          <MultiMonthPicker onApply={handleMonthPickerApply} onClose={() => setShowMonthPicker(false)} />
+        )}
+        {customRange && !showMonthPicker && (
+          <CustomRangeIndicator customRange={customRange} onClear={handleClearCustomRange} />
+        )}
         {showComparePanel && (
           <ComparisonPanel onCompare={handleRunComparison} loading={compareLoading} onClose={handleCloseCompare} />
         )}
@@ -832,13 +856,24 @@ export function FinancialKpisDashboard() {
     <div className="space-y-4">
       <PeriodControls
         period={period}
-        setPeriod={setPeriod}
+        setPeriod={(v) => { setPeriod(v); setCustomRange(null); }}
         compare={compare}
         setCompare={setCompare}
         onOpenComparePanel={handleOpenCompare}
         dataPeriod={data.period}
         onExportCsv={() => exportKpisCsv(data)}
+        showMonthPicker={showMonthPicker}
+        onToggleMonthPicker={() => setShowMonthPicker((v) => !v)}
+        customRange={customRange}
       />
+
+      {/* Month picker panel */}
+      {showMonthPicker && (
+        <MultiMonthPicker onApply={handleMonthPickerApply} onClose={() => setShowMonthPicker(false)} />
+      )}
+      {customRange && !showMonthPicker && (
+        <CustomRangeIndicator customRange={customRange} onClear={handleClearCustomRange} />
+      )}
 
       {/* Comparison panel */}
       {showComparePanel && (
@@ -1038,7 +1073,7 @@ export function FinancialKpisDashboard() {
   );
 }
 
-function PeriodControls({ period, setPeriod, compare, setCompare, onOpenComparePanel, dataPeriod, onExportCsv }) {
+function PeriodControls({ period, setPeriod, compare, setCompare, onOpenComparePanel, dataPeriod, onExportCsv, showMonthPicker, onToggleMonthPicker, customRange }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -1052,7 +1087,7 @@ function PeriodControls({ period, setPeriod, compare, setCompare, onOpenCompareP
           )}
         </p>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={() => setCompare((v) => !v)}
@@ -1075,6 +1110,19 @@ function PeriodControls({ period, setPeriod, compare, setCompare, onOpenCompareP
           <CalendarRange className="h-3.5 w-3.5" />
           Comparar
         </button>
+        <button
+          type="button"
+          onClick={onToggleMonthPicker}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+            showMonthPicker || customRange
+              ? 'bg-primary text-primary-foreground border-primary'
+              : 'bg-background text-muted-foreground border-border hover:bg-muted'
+          }`}
+          title="Seleccionar meses"
+        >
+          <CalendarRange className="h-3.5 w-3.5" />
+          Meses
+        </button>
         {onExportCsv && (
           <button
             type="button"
@@ -1086,18 +1134,20 @@ function PeriodControls({ period, setPeriod, compare, setCompare, onOpenCompareP
             CSV
           </button>
         )}
-        <Select value={period} onValueChange={setPeriod}>
-          <SelectTrigger className="w-[140px] h-8 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {PERIOD_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {!customRange && (
+          <Select value={period} onValueChange={setPeriod}>
+            <SelectTrigger className="w-[140px] h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PERIOD_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
     </div>
   );

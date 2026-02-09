@@ -93,19 +93,19 @@
     /* 24px for 4K */
   }
 
-  h1 {
+  body:not(.landing-page-active) h1 {
     font-size: 1.25rem !important;
   }
 
-  h2 {
+  body:not(.landing-page-active) h2 {
     font-size: 1.111rem !important;
   }
 
-  h3 {
+  body:not(.landing-page-active) h3 {
     font-size: 1.6rem !important;
   }
 
-  h4 {
+  body:not(.landing-page-active) h4 {
     font-size: 1.3rem !important;
   }
 
@@ -131,26 +131,26 @@
     /* 20px for 2K */
   }
 
-  h1,
-  h1.text-3xl,
-  h1.text-2xl,
-  h1.text-4xl,
-  h1.text-5xl {
+  body:not(.landing-page-active) h1,
+  body:not(.landing-page-active) h1.text-3xl,
+  body:not(.landing-page-active) h1.text-2xl,
+  body:not(.landing-page-active) h1.text-4xl,
+  body:not(.landing-page-active) h1.text-5xl {
     font-size: 1.5rem !important;
   }
 
-  h2,
-  h2.text-3xl,
-  h2.text-4xl,
-  h2.text-5xl {
+  body:not(.landing-page-active) h2,
+  body:not(.landing-page-active) h2.text-3xl,
+  body:not(.landing-page-active) h2.text-4xl,
+  body:not(.landing-page-active) h2.text-5xl {
     font-size: 1.25rem !important;
   }
 
-  h3 {
+  body:not(.landing-page-active) h3 {
     font-size: 1.5rem !important;
   }
 
-  h4 {
+  body:not(.landing-page-active) h4 {
     font-size: 1.2rem !important;
   }
 
@@ -176,25 +176,25 @@
     /* 16px for FHD */
   }
 
-  h1,
-  h1.text-3xl,
-  h1.text-2xl,
-  h1.text-4xl,
-  h1.text-5xl {
+  body:not(.landing-page-active) h1,
+  body:not(.landing-page-active) h1.text-3xl,
+  body:not(.landing-page-active) h1.text-2xl,
+  body:not(.landing-page-active) h1.text-4xl,
+  body:not(.landing-page-active) h1.text-5xl {
     font-size: 1.75rem !important;
   }
 
-  h2,
-  h2.text-3xl,
-  h2.text-4xl {
+  body:not(.landing-page-active) h2,
+  body:not(.landing-page-active) h2.text-3xl,
+  body:not(.landing-page-active) h2.text-4xl {
     font-size: 1.428rem !important;
   }
 
-  h3 {
+  body:not(.landing-page-active) h3 {
     font-size: 1.35rem !important;
   }
 
-  h4 {
+  body:not(.landing-page-active) h4 {
     font-size: 1.1rem !important;
   }
 
@@ -221,20 +221,20 @@
     /* 12px for Laptop */
   }
 
-  h1 {
+  body:not(.landing-page-active) h1 {
     font-size: 0.75rem !important;
   }
 
-  h2 {
+  body:not(.landing-page-active) h2 {
     font-size: 1.818rem !important;
   }
 
-  h3 {
+  body:not(.landing-page-active) h3 {
     font-size: 1.1rem !important;
   }
 
   /* 12.1px */
-  h4 {
+  body:not(.landing-page-active) h4 {
     font-size: 1rem !important;
   }
 
@@ -271,20 +271,20 @@
     /* 12px for Small Screens */
   }
 
-  h1 {
+  body:not(.landing-page-active) h1 {
     font-size: 0.7rem !important;
   }
 
-  h2 {
+  body:not(.landing-page-active) h2 {
     font-size: 2rem !important;
   }
 
-  h3 {
+  body:not(.landing-page-active) h3 {
     font-size: 1.1rem !important;
   }
 
   /* 11px */
-  h4 {
+  body:not(.landing-page-active) h4 {
     font-size: 1rem !important;
   }
 

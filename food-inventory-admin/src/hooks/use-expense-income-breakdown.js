@@ -12,6 +12,9 @@ export function useExpenseIncomeBreakdown(
   period = '90d',
   granularity = 'month',
   compare = false,
+  groupBy = 'type',
+  fromDate = null,
+  toDate = null,
 ) {
   const [data, setData] = useState(EMPTY_STATE);
   const [loading, setLoading] = useState(true);
@@ -24,7 +27,13 @@ export function useExpenseIncomeBreakdown(
       setLoading(true);
       setError(null);
       try {
-        const params = new URLSearchParams({ period, granularity });
+        const params = new URLSearchParams({ granularity, groupBy });
+        if (fromDate && toDate) {
+          params.set('fromDate', fromDate);
+          params.set('toDate', toDate);
+        } else {
+          params.set('period', period);
+        }
         if (compare) params.set('compare', 'true');
         const res = await fetchApi(
           `/analytics/expense-income-breakdown?${params}`,
@@ -48,7 +57,7 @@ export function useExpenseIncomeBreakdown(
     return () => {
       active = false;
     };
-  }, [period, granularity, compare]);
+  }, [period, granularity, compare, groupBy, fromDate, toDate]);
 
   useEffect(() => {
     const cleanup = reload();
