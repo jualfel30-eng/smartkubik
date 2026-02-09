@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { Meteors } from "../components/ui/meteors";
 import SmartKubikLogoDark from '@/assets/logo-smartkubik.png';
 import LightRaysCanvas from '../components/LightRaysCanvas';
 import SalesContactModal from '../components/SalesContactModal';
@@ -3659,197 +3660,62 @@ const SmartKubikLanding = () => {
                                 <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Up to 25% annual discount</span>
                             </div>
                         </div>
-                    </div>
-                </section>
 
+                        <div className="mt-12 text-center relative overflow-hidden rounded-3xl p-6 md:p-9 bg-gray-900 border border-emerald-500/20">
+                            {/* Meteors background effect */}
+                            <Meteors number={60} />
 
-                {/* FOUNDERS OFFER BANNER */}
-                <section style={{
-                    background: 'linear-gradient(135deg, #001F3F 0%, #003D5C 100%)',
-                    padding: '60px 20px',
-                    position: 'relative',
-                    overflow: 'hidden'
-                }}>
-                    {/* Animated background effect */}
-                    <div style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        background: 'radial-gradient(circle at 20% 50%, rgba(0, 217, 192, 0.15) 0%, transparent 50%), radial-gradient(circle at 80% 50%, rgba(11, 168, 159, 0.15) 0%, transparent 50%)',
-                        animation: 'pulse 4s ease-in-out infinite'
-                    }}></div>
-
-                    <style>{`
-                        @keyframes pulse {
-                            0%, 100% { opacity: 1; }
-                            50% { opacity: 0.6; }
-                        }
-                    `}</style>
-
-                    <div style={{ maxWidth: '1000px', margin: '0 auto', position: 'relative', zIndex: 10, textAlign: 'center' }}>
-                        <div style={{ display: 'inline-block', background: 'rgba(0, 217, 192, 0.2)', border: '2px solid #00D9C0', borderRadius: '50px', padding: '8px 20px', marginBottom: '24px' }}>
-                            <span style={{ color: '#00D9C0', fontWeight: 700, fontSize: '14px', letterSpacing: '1px' }}>
-                                🚀 OFERTA DE LANZAMIENTO
-                            </span>
-                        </div>
-
-                        <h2 style={{ color: 'white', fontSize: '42px', fontWeight: 800, margin: '0 0 16px 0', lineHeight: 1.2 }}>
-                            Programa <span style={{ color: '#00D9C0' }}>Fundadores</span>
-                        </h2>
-
-                        <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: '20px', margin: '0 0 32px 0', maxWidth: '700px', marginLeft: 'auto', marginRight: 'auto' }}>
-                            Únete a los primeros <strong>90 clientes</strong> y asegura tu precio con hasta
-                            <span style={{ color: '#FFF700', fontWeight: 800, fontSize: '24px' }}> 51% de descuento de por vida</span>
-                        </p>
-
-                        <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', marginBottom: '32px' }}>
-                            <div style={{ background: 'rgba(0, 217, 192, 0.1)', border: '2px solid #00D9C0', borderRadius: '12px', padding: '20px 32px' }}>
-                                <div style={{ color: '#00D9C0', fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>TIER BÁSICO</div>
-                                <div style={{ color: 'white', fontSize: '28px', fontWeight: 800 }}>35% OFF</div>
-                                <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '14px', marginTop: '4px' }}>$31.85/mes</div>
-                            </div>
-
-                            <div style={{ background: 'linear-gradient(135deg, #00D9C0, #0BA89F)', borderRadius: '12px', padding: '20px 32px', boxShadow: '0 12px 40px rgba(0, 217, 192, 0.4)', position: 'relative' }}>
-                                <div style={{ position: 'absolute', top: '-12px', right: '-12px', background: '#FFF700', color: '#0BA89F', fontSize: '12px', fontWeight: 800, padding: '4px 12px', borderRadius: '20px' }}>
-                                    MÁS POPULAR
+                            <div className="relative z-10">
+                                <div className="inline-block bg-emerald-500/10 border border-emerald-500 rounded-full px-4 py-1.5 mb-6">
+                                    <span className="text-emerald-400 font-bold text-sm tracking-widest">
+                                        🚀 <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>OFERTA DE LANZAMIENTO</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>LAUNCH OFFER</span>
+                                    </span>
                                 </div>
-                                <div style={{ color: 'white', fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>TIER PROFESIONAL</div>
-                                <div style={{ color: 'white', fontSize: '28px', fontWeight: 800 }}>51% OFF</div>
-                                <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: '14px', marginTop: '4px' }}>$48.51/mes anual</div>
-                            </div>
 
-                            <div style={{ background: 'rgba(0, 217, 192, 0.1)', border: '2px solid #00D9C0', borderRadius: '12px', padding: '20px 32px' }}>
-                                <div style={{ color: '#00D9C0', fontSize: '14px', fontWeight: 600, marginBottom: '8px' }}>TIER ENTERPRISE</div>
-                                <div style={{ color: 'white', fontSize: '28px', fontWeight: 800 }}>50% OFF</div>
-                                <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '14px', marginTop: '4px' }}>$74.50/mes anual</div>
-                            </div>
-                        </div>
-
-                        <Link to="/fundadores" style={{
-                            display: 'inline-block',
-                            background: '#00D9C0',
-                            color: '#001F3F',
-                            padding: '18px 48px',
-                            borderRadius: '12px',
-                            textDecoration: 'none',
-                            fontWeight: 800,
-                            fontSize: '18px',
-                            boxShadow: '0 12px 40px rgba(0, 217, 192, 0.4)',
-                            transition: 'all 0.3s'
-                        }}
-                            onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 16px 50px rgba(0, 217, 192, 0.6)'; }}
-                            onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(0, 217, 192, 0.4)'; }}
-                        >
-                            Ver Oferta Completa de Fundadores →
-                        </Link>
-
-                        <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', marginTop: '20px' }}>
-                            ⏰ Solo <strong style={{ color: '#FFF700' }}>78 cupos disponibles</strong> | Precio bloqueado de por vida
-                        </p>
-                    </div>
-                </section>
-
-                {/*  SECTION 13: URGENCY  */}
-                < section className="py-24 relative overflow-hidden bg-gradient-to-br from-navy-900 via-[#0a0f1c] to-red-900/10" >
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 w-full relative z-10">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-                            {/*  Left Column: Problem  */}
-                            <div>
-                                <h2 className="text-3xl md:text-5xl font-display font-bold mb-8 text-left">
-                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Cada Día que Pasa, <br />Tu Negocio Pierde Dinero.</span>
-                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Every Day That Passes, <br />Your Business Loses Money.</span>
+                                <h2 className="text-4xl md:text-6xl font-display font-bold text-white mb-6 leading-tight">
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>Únete al programa <br /><span className="text-emerald-400">Clientes Fundadores</span></span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>Join the <br /><span className="text-emerald-400">Founding Clients</span> program</span>
                                 </h2>
-
-                                <div className="space-y-4">
-                                    <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-2xl flex items-center gap-4">
-                                        <div className="text-3xl">⏰</div>
-                                        <div className="text-left">
-                                            <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>3 horas/día</div>
-                                            <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>3 hours/day</div>
-                                            <div className={`text-sm text-gray-400 lang-es ${language === "es" ? "" : "hidden"}`}>perdidas en WhatsApp</div>
-                                            <div className={`text-sm text-gray-400 lang-en ${language === "en" ? "" : "hidden"}`}>lost on WhatsApp</div>
-                                        </div>
-                                    </div>
-                                    <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-2xl flex items-center gap-4">
-                                        <div className="text-3xl">💸</div>
-                                        <div className="text-left">
-                                            <div className="font-bold text-white">$500+/mes</div>
-                                            <div className={`text-sm text-gray-400 lang-es ${language === "es" ? "" : "hidden"}`}>en apps innecesarias</div>
-                                            <div className={`text-sm text-gray-400 lang-en ${language === "en" ? "" : "hidden"}`}>on unnecessary apps</div>
-                                        </div>
-                                    </div>
-                                    <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-2xl flex items-center gap-4">
-                                        <div className="text-3xl">📉</div>
-                                        <div className="text-left">
-                                            <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>20% ventas</div>
-                                            <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>20% sales</div>
-                                            <div className={`text-sm text-gray-400 lang-es ${language === "es" ? "" : "hidden"}`}>perdidas por desorden</div>
-                                            <div className={`text-sm text-gray-400 lang-en ${language === "en" ? "" : "hidden"}`}>lost due to disorganization</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/*  Right Column: Solution & Offer  */}
-                            <div>
-                                <p id="section13-subtitle" className="text-xl text-gray-300 mb-8 text-left">
-                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>No es que no puedas seguir como estás. Puedes. Pero cada mes que pasa
-                                        sin
-                                        un sistema integrado es dinero perdido y estrés acumulado.</span>
-                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>It's not that you can't go on like this. You can. But every
-                                        month
-                                        that passes without an integrated system is money lost and accumulated stress.</span>
-                                    <br /><br />
-                                    <span className={`text-white font-bold lang-es ${language === "es" ? "" : "hidden"}`}>La pregunta no es SI necesitas SmartKubik. Es
-                                        cuánto
-                                        más vas a esperar.</span>
-                                    <span className={`text-white font-bold lang-en ${language === "en" ? "" : "hidden"}`}>The question isn't IF you need SmartKubik.
-                                        It's how much longer you will wait.</span>
+                                <p className="max-w-4xl mx-auto mb-10 leading-relaxed">
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>
+                                        <span className="text-[22px] text-gray-300">Únete a los primeros 90 clientes y asegura tu precio,</span><br />
+                                        <span className="text-[22px] text-[#FFF700] font-bold">hasta 51% de descuento de por vida</span>
+                                    </span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>
+                                        <span className="text-[22px] text-gray-300">Join the first 90 customers and secure your price,</span><br />
+                                        <span className="text-[22px] text-[#FFF700] font-bold">up to 51% off for life</span>
+                                    </span>
                                 </p>
 
-                                <div className="glass-card p-8 rounded-3xl border border-cyan-500/30 w-full">
-                                    <div className="text-left mb-6">
-                                        <span
-                                            className="bg-cyan-500 text-white text-xs font-bold px-2 py-1 rounded uppercase mb-2 inline-block">
-                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Oferta Especial</span>
-                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Special Offer</span>
-                                        </span>
-                                        <h3 className="text-2xl font-bold text-white">
-                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Empieza hoy y recibe:</span>
-                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Start today and receive:</span>
-                                        </h3>
-                                    </div>
-                                    <ul className="text-left space-y-3 mb-8 text-gray-300">
-                                        <li className="flex gap-2"><span className="text-emerald-400">✅</span> <span
-                                            className={`lang-es ${language === "es" ? "" : "hidden"} `}>Setup
-                                            guiado gratis (valor $200)</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Free guided setup
-                                                ($200
-                                                value)</span>
-                                        </li>
-                                        <li className="flex gap-2"><span className="text-emerald-400">✅</span> <span
-                                            className={`lang-es ${language === "es" ? "" : "hidden"} `}>Migración
-                                            de datos incluida</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Data migration
-                                                included</span>
-                                        </li>
-                                        <li className="flex gap-2"><span className="text-emerald-400">✅</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>14
-                                            días
-                                            sin
-                                            tarjeta de crédito</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>14 days without credit
-                                                card</span>
-                                        </li>
-                                    </ul>
-                                    <Link to="/register"
-                                        className="btn-primary w-full py-4 rounded-xl text-white font-bold text-lg block text-center shadow-lg hover:shadow-cyan-500/50 transition-all">
-                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Empezar Mi Prueba Gratis →</span>
-                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Start My Free Trial →</span>
-                                    </Link>
-                                </div>
+                                <Link to="/fundadores" style={{
+                                    display: 'inline-block',
+                                    background: '#00D9C0',
+                                    color: '#001F3F',
+                                    padding: '18px 48px',
+                                    borderRadius: '12px',
+                                    textDecoration: 'none',
+                                    fontWeight: 800,
+                                    fontSize: '18px',
+                                    boxShadow: '0 12px 40px rgba(0, 217, 192, 0.4)',
+                                    transition: 'all 0.3s'
+                                }}
+                                    onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 16px 50px rgba(0, 217, 192, 0.6)'; }}
+                                    onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(0, 217, 192, 0.4)'; }}
+                                >
+                                    Ver Oferta Completa de Fundadores →
+                                </Link>
+
+
                             </div>
                         </div>
                     </div>
-                </section >
+                </section>
+
+
+
+
+
 
                 {/*  SECTION 14: FAQ  */}
                 < section className="py-24 px-4 bg-[#050810] relative overflow-hidden" >

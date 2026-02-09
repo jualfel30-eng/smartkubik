@@ -37,3 +37,23 @@
     font-size: 72px !important;
   }
 }
+
+@keyframes meteor-custom {
+  0% {
+    transform: rotate(110deg) translateX(0);
+    opacity: 1;
+  }
+
+  70% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: rotate(110deg) translateX(-2000px);
+    opacity: 0;
+  }
+}
+
+.animate-meteor-custom {
+  animation: meteor-custom 5s linear infinite;
+}
