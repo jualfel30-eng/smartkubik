@@ -48,6 +48,7 @@ import { InventoryAttributeTable } from '@/components/tables/InventoryAttributeT
 import { SalesAttributeTable } from '@/components/tables/SalesAttributeTable.jsx';
 import { RubikLoader } from './RubikLoader';
 import { FinancialKpisDashboard } from '@/components/charts/FinancialKpisDashboard.jsx';
+import { CustomAnalytics } from '@/components/charts/CustomAnalytics.jsx';
 
 const statusMap = {
   draft: { label: 'Borrador', colorClassName: 'bg-gray-200 text-gray-800' },
@@ -116,7 +117,7 @@ function DashboardView() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center">
-        <h2 className="text-3xl font-bold text-foreground">Panel de Control</h2>
+        <div className="text-lg font-semibold text-foreground">Panel de Control</div>
         <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4 mt-4 md:mt-0">
           <Button onClick={() => navigate('/purchases')}>
             <Truck className="mr-2 h-5 w-5" />
@@ -235,6 +236,11 @@ function DashboardView() {
 
       {/* KPIs Financieros - Vista ejecutiva para dueños de negocio */}
       <FinancialKpisDashboard />
+
+      {/* Análisis Personalizado - Power BI style (Phase 2) */}
+      <div className="mt-8">
+        <CustomAnalytics />
+      </div>
 
       {flags.DASHBOARD_CHARTS ? (
         <div className="space-y-6">

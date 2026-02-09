@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   BarChart,
   Bar,
@@ -13,7 +13,6 @@ import {
 } from 'recharts';
 import { ChartCard, ChartEmptyState, ChartSkeleton } from './BaseChart.jsx';
 import { chartPalette, defaultTooltipProps } from './chart-theme.js';
-import { MultiMonthPicker, CustomRangeIndicator } from './MultiMonthPicker.jsx';
 import { Card, CardContent } from '@/components/ui/card.jsx';
 import {
   Select,
@@ -30,27 +29,16 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion.jsx';
 import { useExpenseIncomeBreakdown } from '@/hooks/use-expense-income-breakdown';
+import { PeriodSelector, buildPeriods } from './PeriodSelector.jsx';
 import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
   XCircle,
   Info,
-  GitCompareArrows,
-  CalendarRange,
 } from 'lucide-react';
 
 // ─── Constants ───────────────────────────────────────────────
-const PERIOD_OPTIONS = [
-  { value: '7d', label: '7 dias' },
-  { value: '14d', label: '14 dias' },
-  { value: '30d', label: '30 dias' },
-  { value: '60d', label: '60 dias' },
-  { value: '90d', label: '90 dias' },
-  { value: '180d', label: '180 dias' },
-  { value: '365d', label: '1 ano' },
-];
-
 const GRANULARITY_OPTIONS = [
   { value: 'month', label: 'Mensual' },
   { value: 'quarter', label: 'Trimestral' },
@@ -119,6 +107,20 @@ function DeltaBadgeInverse({ delta }) {
       {Math.abs(delta.percentChange).toFixed(1)}%
     </span>
   );
+}
+
+// ─── Helpers ─────────────────────────────────────────────────
+function computeDelta(current, previous) {
+  if (current == null || previous == null) return null;
+  const change = current - previous;
+  const pct = previous !== 0 ? (change / Math.abs(previous)) * 100 : 0;
+  return {
+    current,
+    previous,
+    absoluteChange: change,
+    percentChange: Math.round(pct * 10) / 10,
+    direction: change > 0 ? 'up' : change < 0 ? 'down' : 'flat',
+  };
 }
 
 // ─── Chart sub-components ────────────────────────────────────
@@ -265,98 +267,176 @@ function DrillDownTable({ items }) {
   );
 }
 
-function GroupAccordion({ groups, palette, isExpense }) {
+function GroupAccordion({ groups, palette, isExpense, deltas }) {
   if (!groups?.length) return null;
 
   return (
     <Accordion type="multiple" className="space-y-2">
-      {groups.map((group, i) => (
-        <AccordionItem
-          key={group.key}
-          value={group.key}
-          className="border rounded-lg px-4"
-        >
-          <AccordionTrigger className="hover:no-underline py-3">
-            <div className="flex items-center justify-between w-full pr-4">
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-3 h-3 rounded-sm flex-shrink-0"
-                  style={{
-                    backgroundColor: palette[i % palette.length],
-                  }}
-                />
-                <span className="font-medium text-sm text-left">
-                  {group.label}
-                </span>
+      {groups.map((group, i) => {
+        const delta = deltas?.[group.key] ?? group.delta;
+        return (
+          <AccordionItem
+            key={group.key}
+            value={group.key}
+            className="border rounded-lg px-4"
+          >
+            <AccordionTrigger className="hover:no-underline py-3">
+              <div className="flex items-center justify-between w-full pr-4">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-3 h-3 rounded-sm flex-shrink-0"
+                    style={{
+                      backgroundColor: palette[i % palette.length],
+                    }}
+                  />
+                  <span className="font-medium text-sm text-left">
+                    {group.label}
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="text-muted-foreground text-xs">
+                    {fmtPct(group.percentage)}
+                  </span>
+                  <span className="font-semibold">{fmtUsd(group.total)}</span>
+                  {delta &&
+                    (isExpense ? (
+                      <DeltaBadgeInverse delta={delta} />
+                    ) : (
+                      <DeltaBadge delta={delta} />
+                    ))}
+                </div>
               </div>
-              <div className="flex items-center gap-4 text-sm">
-                <span className="text-muted-foreground text-xs">
-                  {fmtPct(group.percentage)}
-                </span>
-                <span className="font-semibold">{fmtUsd(group.total)}</span>
-                {group.delta &&
-                  (isExpense ? (
-                    <DeltaBadgeInverse delta={group.delta} />
-                  ) : (
-                    <DeltaBadge delta={group.delta} />
-                  ))}
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                    Tendencia Temporal
+                  </p>
+                  <GroupTrendChart
+                    trend={group.trend}
+                    label={group.label}
+                    color={palette[i % palette.length]}
+                  />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                    Desglose ({group.drillDown?.length ?? 0} items)
+                  </p>
+                  <DrillDownTable items={group.drillDown} />
+                </div>
               </div>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4">
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-2">
-                  Tendencia Temporal
-                </p>
-                <GroupTrendChart
-                  trend={group.trend}
-                  label={group.label}
-                  color={palette[i % palette.length]}
-                />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-2">
-                  Desglose ({group.drillDown?.length ?? 0} items)
-                </p>
-                <DrillDownTable items={group.drillDown} />
-              </div>
-            </div>
-            {group.delta && (
-              <div className="border-t pt-2 pb-1 flex items-center gap-4 text-xs text-muted-foreground">
-                <span>Periodo anterior: {fmtUsd(group.delta.previous)}</span>
-                <span>
-                  Cambio: {group.delta.absoluteChange > 0 ? '+' : ''}
-                  {fmtUsd(group.delta.absoluteChange)}
-                </span>
-              </div>
-            )}
-          </AccordionContent>
-        </AccordionItem>
-      ))}
+              {delta && (
+                <div className="border-t pt-2 pb-1 flex items-center gap-4 text-xs text-muted-foreground">
+                  <span>Periodo anterior: {fmtUsd(delta.previous)}</span>
+                  <span>
+                    Cambio: {delta.absoluteChange > 0 ? '+' : ''}
+                    {fmtUsd(delta.absoluteChange)}
+                  </span>
+                </div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+        );
+      })}
     </Accordion>
+  );
+}
+
+// ─── Multi-year comparison for breakdown ─────────────────────
+function BreakdownComparison({ results }) {
+  if (results.length < 2) return null;
+
+  const validResults = results.filter((r) => r.data);
+  if (validResults.length < 2) return null;
+
+  return (
+    <ChartCard
+      title="Comparacion Multi-Periodo"
+      description={`${validResults.length} periodos seleccionados`}
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b text-xs text-muted-foreground">
+              <th className="pb-2 text-left font-medium">Indicador</th>
+              {validResults.map((r) => (
+                <th key={r.year} className="pb-2 text-right font-medium">
+                  {r.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-border/30">
+              <td className="py-2 font-medium">Total Gastos</td>
+              {validResults.map((r) => (
+                <td key={r.year} className="py-2 text-right font-mono text-red-600 dark:text-red-400">
+                  {fmtUsd(r.data?.expenses?.total)}
+                </td>
+              ))}
+            </tr>
+            <tr className="border-b border-border/30">
+              <td className="py-2 font-medium">Total Ingresos</td>
+              {validResults.map((r) => (
+                <td key={r.year} className="py-2 text-right font-mono text-green-600 dark:text-green-400">
+                  {fmtUsd(r.data?.income?.total)}
+                </td>
+              ))}
+            </tr>
+            <tr className="border-b border-border/30">
+              <td className="py-2 font-medium">Resultado Neto</td>
+              {validResults.map((r) => {
+                const net = (r.data?.income?.total ?? 0) - (r.data?.expenses?.total ?? 0);
+                return (
+                  <td
+                    key={r.year}
+                    className={`py-2 text-right font-mono font-semibold ${
+                      net >= 0
+                        ? 'text-green-600 dark:text-green-400'
+                        : 'text-red-600 dark:text-red-400'
+                    }`}
+                  >
+                    {fmtUsd(net)}
+                  </td>
+                );
+              })}
+            </tr>
+            <tr className="border-b border-border/30">
+              <td className="py-2 font-medium">Grupos Gasto</td>
+              {validResults.map((r) => (
+                <td key={r.year} className="py-2 text-right font-mono">
+                  {r.data?.expenses?.groups?.length ?? 0}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td className="py-2 font-medium">Categorias Ingreso</td>
+              {validResults.map((r) => (
+                <td key={r.year} className="py-2 text-right font-mono">
+                  {r.data?.income?.groups?.length ?? 0}
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </ChartCard>
   );
 }
 
 // ─── Controls bar ────────────────────────────────────────────
 function BreakdownControls({
-  period,
-  setPeriod,
   granularity,
   setGranularity,
-  compare,
-  setCompare,
   groupBy,
   setGroupBy,
-  showDatePanel,
-  setShowDatePanel,
-  customRange,
   dataPeriod,
+  selectedYears,
+  selectedMonths,
+  onYearsChange,
+  onMonthsChange
 }) {
-  const periodLabel = customRange
-    ? `${new Date(customRange.from).toLocaleDateString('es-VE', { month: 'short', year: 'numeric' })} - ${new Date(customRange.to).toLocaleDateString('es-VE', { month: 'short', year: 'numeric' })}`
-    : null;
-
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
@@ -374,6 +454,13 @@ function BreakdownControls({
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
+        {/* Period Selector */}
+        <PeriodSelector
+          selectedYears={selectedYears}
+          selectedMonths={selectedMonths}
+          onYearsChange={onYearsChange}
+          onMonthsChange={onMonthsChange}
+        />
         {/* GroupBy toggle */}
         <div className="flex rounded-md border border-border overflow-hidden">
           <button
@@ -400,21 +487,6 @@ function BreakdownControls({
           </button>
         </div>
 
-        {/* Compare button */}
-        <button
-          type="button"
-          onClick={() => setCompare((v) => !v)}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
-            compare
-              ? 'bg-primary text-primary-foreground border-primary'
-              : 'bg-background text-muted-foreground border-border hover:bg-muted'
-          }`}
-          title="Comparar vs periodo anterior"
-        >
-          <GitCompareArrows className="h-3.5 w-3.5" />
-          vs Anterior
-        </button>
-
         {/* Granularity */}
         <Select value={granularity} onValueChange={setGranularity}>
           <SelectTrigger className="w-[120px] h-8 text-xs">
@@ -428,37 +500,6 @@ function BreakdownControls({
             ))}
           </SelectContent>
         </Select>
-
-        {/* Date range picker toggle */}
-        <button
-          type="button"
-          onClick={() => setShowDatePanel((v) => !v)}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
-            showDatePanel || customRange
-              ? 'bg-primary text-primary-foreground border-primary'
-              : 'bg-background text-muted-foreground border-border hover:bg-muted'
-          }`}
-          title="Seleccionar mes/trimestre/ano"
-        >
-          <CalendarRange className="h-3.5 w-3.5" />
-          {periodLabel || 'Periodo'}
-        </button>
-
-        {/* Quick period selector (only shown when no custom range) */}
-        {!customRange && (
-          <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-[110px] h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PERIOD_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
       </div>
     </div>
   );
@@ -466,33 +507,59 @@ function BreakdownControls({
 
 // ─── Main component ──────────────────────────────────────────
 export function ExpenseIncomeBreakdown() {
-  const [period, setPeriod] = useState('90d');
+  const now = new Date();
+
+  // Estado para el selector de período (independiente de KPIs)
+  const [selectedYears, setSelectedYears] = useState(() => new Set([now.getFullYear()]));
+  const [selectedMonths, setSelectedMonths] = useState(() => new Set([now.getMonth()]));
+
   const [granularity, setGranularity] = useState('month');
-  const [compare, setCompare] = useState(false);
   const [groupBy, setGroupBy] = useState('type');
-  const [showDatePanel, setShowDatePanel] = useState(false);
-  const [customRange, setCustomRange] = useState(null);
 
-  const fromDate = customRange?.from ?? null;
-  const toDate = customRange?.to ?? null;
-
-  const { data, loading, error } = useExpenseIncomeBreakdown(
-    period,
-    granularity,
-    compare,
-    groupBy,
-    fromDate,
-    toDate,
+  // Construir períodos desde años y meses seleccionados
+  const periods = useMemo(
+    () => buildPeriods([...selectedYears], [...selectedMonths]),
+    [selectedYears, selectedMonths]
   );
 
-  const handleDateApply = (from, to) => {
-    setCustomRange({ from, to });
-    setShowDatePanel(false);
-  };
+  const { results, primary, loading, error } = useExpenseIncomeBreakdown(
+    periods,
+    granularity,
+    groupBy,
+  );
 
-  const handleClearCustomRange = () => {
-    setCustomRange(null);
-  };
+  const isComparing = results.filter((r) => r.data).length > 1;
+
+  // Compute deltas between most recent and second most recent period
+  const expenseDeltas = useMemo(() => {
+    if (results.length < 2) return {};
+    const a = results[0]?.data?.expenses;
+    const b = results[1]?.data?.expenses;
+    if (!a?.groups || !b?.groups) return {};
+    const map = {};
+    for (const g of a.groups) {
+      const prev = b.groups.find((x) => x.key === g.key);
+      if (prev) {
+        map[g.key] = computeDelta(g.total, prev.total);
+      }
+    }
+    return map;
+  }, [results]);
+
+  const incomeDeltas = useMemo(() => {
+    if (results.length < 2) return {};
+    const a = results[0]?.data?.income;
+    const b = results[1]?.data?.income;
+    if (!a?.groups || !b?.groups) return {};
+    const map = {};
+    for (const g of a.groups) {
+      const prev = b.groups.find((x) => x.key === g.key);
+      if (prev) {
+        map[g.key] = computeDelta(g.total, prev.total);
+      }
+    }
+    return map;
+  }, [results]);
 
   if (loading) {
     return (
@@ -519,32 +586,23 @@ export function ExpenseIncomeBreakdown() {
     );
   }
 
-  const expenses = data?.expenses;
-  const income = data?.income;
+  const expenses = primary?.expenses;
+  const income = primary?.income;
 
   if (!expenses?.groups?.length && !income?.groups?.length) {
     return (
       <div className="space-y-4">
         <BreakdownControls
-          period={period}
-          setPeriod={setPeriod}
           granularity={granularity}
           setGranularity={setGranularity}
-          compare={compare}
-          setCompare={setCompare}
           groupBy={groupBy}
           setGroupBy={setGroupBy}
-          showDatePanel={showDatePanel}
-          setShowDatePanel={setShowDatePanel}
-          customRange={customRange}
-          dataPeriod={data?.period}
+          dataPeriod={primary?.period}
+          selectedYears={selectedYears}
+          selectedMonths={selectedMonths}
+          onYearsChange={setSelectedYears}
+          onMonthsChange={setSelectedMonths}
         />
-        {showDatePanel && (
-          <MultiMonthPicker
-            onApply={handleDateApply}
-            onClose={() => setShowDatePanel(false)}
-          />
-        )}
         <Card>
           <CardContent className="p-6 text-center text-muted-foreground">
             <Info className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -562,38 +620,15 @@ export function ExpenseIncomeBreakdown() {
   return (
     <div className="space-y-4">
       <BreakdownControls
-        period={period}
-        setPeriod={(v) => {
-          setPeriod(v);
-          setCustomRange(null);
-        }}
         granularity={granularity}
         setGranularity={setGranularity}
-        compare={compare}
-        setCompare={setCompare}
         groupBy={groupBy}
         setGroupBy={setGroupBy}
-        showDatePanel={showDatePanel}
-        setShowDatePanel={setShowDatePanel}
-        customRange={customRange}
-        dataPeriod={data?.period}
+        dataPeriod={primary?.period}
       />
 
-      {/* Date range panel */}
-      {showDatePanel && (
-        <MultiMonthPicker
-          onApply={handleDateApply}
-          onClose={() => setShowDatePanel(false)}
-        />
-      )}
-
-      {/* Custom range indicator */}
-      {customRange && !showDatePanel && (
-        <CustomRangeIndicator
-          customRange={customRange}
-          onClear={handleClearCustomRange}
-        />
-      )}
+      {/* Multi-year comparison table */}
+      {isComparing && <BreakdownComparison results={results} />}
 
       {/* Summary totals */}
       <div className="grid grid-cols-3 gap-3">
@@ -681,6 +716,7 @@ export function ExpenseIncomeBreakdown() {
                 groups={expenses.groups}
                 palette={chartPalette}
                 isExpense
+                deltas={isComparing ? expenseDeltas : null}
               />
             </>
           ) : (
@@ -704,6 +740,7 @@ export function ExpenseIncomeBreakdown() {
                 groups={income.groups}
                 palette={chartPalette}
                 isExpense={false}
+                deltas={isComparing ? incomeDeltas : null}
               />
             </>
           ) : (

@@ -95,7 +95,7 @@ const SmartKubikLanding = () => {
     const [billingCycle, setBillingCycle] = useState('annual'); // 'annual' | 'monthly'
 
     const PRICING_TIERS = {
-        starter: { annual: 49, monthlyMarkup: 1.15 }, // +15%
+        starter: { annual: 49, monthlyMarkup: 1.20 }, // +20%
         pro: { annual: 99, monthlyMarkup: 1.25 },     // +25%
         enterprise: { annual: 149, monthlyMarkup: 1.20 } // +20%
     };

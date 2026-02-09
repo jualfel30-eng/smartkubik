@@ -1,52 +1,72 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { fetchApi } from '@/lib/api';
 
-const EMPTY_STATE = {
-  period: null,
-  expenses: null,
-  income: null,
-  comparison: null,
-};
-
+/**
+ * Fetches expense/income breakdown for one or more periods in parallel.
+ *
+ * @param {Array<{year, from, to, label}>} periods
+ * @param {string} granularity - 'month' | 'quarter' | 'year'
+ * @param {string} groupBy - 'type' | 'account'
+ * @returns {{ results, primary, loading, error, reload }}
+ */
 export function useExpenseIncomeBreakdown(
-  period = '90d',
+  periods = [],
   granularity = 'month',
-  compare = false,
   groupBy = 'type',
-  fromDate = null,
-  toDate = null,
 ) {
-  const [data, setData] = useState(EMPTY_STATE);
+  const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const periodsRef = useRef(periods);
+  periodsRef.current = periods;
+
+  const periodsKey = JSON.stringify(periods.map((p) => `${p.from}|${p.to}`));
+
   const reload = useCallback(() => {
     let active = true;
+    const currentPeriods = periodsRef.current;
 
     async function load() {
+      if (!currentPeriods.length) {
+        setResults([]);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
+
       try {
-        const params = new URLSearchParams({ granularity, groupBy });
-        if (fromDate && toDate) {
-          params.set('fromDate', fromDate);
-          params.set('toDate', toDate);
-        } else {
-          params.set('period', period);
-        }
-        if (compare) params.set('compare', 'true');
-        const res = await fetchApi(
-          `/analytics/expense-income-breakdown?${params}`,
+        const settled = await Promise.all(
+          currentPeriods.map(async (p) => {
+            try {
+              const params = new URLSearchParams({
+                granularity,
+                groupBy,
+                fromDate: p.from,
+                toDate: p.to,
+              });
+              const res = await fetchApi(
+                `/analytics/expense-income-breakdown?${params}`,
+              );
+              return { year: p.year, label: p.label, data: res?.data ?? null, error: null };
+            } catch (err) {
+              return { year: p.year, label: p.label, data: null, error: err?.message };
+            }
+          }),
         );
-        if (active && res?.data) {
-          setData(res.data);
+
+        if (active) {
+          setResults(settled);
+          if (settled.every((r) => r.error)) {
+            setError(settled[0].error);
+          }
         }
       } catch (err) {
         if (active) {
-          setError(
-            err?.message ?? 'Error al cargar el desglose de gastos e ingresos',
-          );
-          setData(EMPTY_STATE);
+          setError(err?.message ?? 'Error al cargar el desglose de gastos e ingresos');
+          setResults([]);
         }
       } finally {
         if (active) setLoading(false);
@@ -54,15 +74,15 @@ export function useExpenseIncomeBreakdown(
     }
 
     load();
-    return () => {
-      active = false;
-    };
-  }, [period, granularity, compare, groupBy, fromDate, toDate]);
+    return () => { active = false; };
+  }, [periodsKey, granularity, groupBy]);
 
   useEffect(() => {
     const cleanup = reload();
     return cleanup;
   }, [reload]);
 
-  return { data, loading, error, reload };
+  const primary = results[0]?.data ?? null;
+
+  return { results, primary, loading, error, reload };
 }

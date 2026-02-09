@@ -289,7 +289,7 @@ const FoundersPage = () => {
                             <motion.h1 variants={itemVariants} className="font-display font-black mb-6 leading-none relative z-10" style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}>
                                 <span className="block text-white font-bold tracking-tighter text-5xl md:text-6xl lg:text-7xl mb-2 drop-shadow-xl">Programa</span>
                                 <span className="block text-5xl md:text-6xl lg:text-7xl tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-cyan-400 via-emerald-400 to-cyan-200 drop-shadow-[0_0_30px_rgba(6,182,212,0.5)] pb-4">
-                                    Fundadores
+                                    Clientes Fundadores
                                 </span>
                             </motion.h1>
 
