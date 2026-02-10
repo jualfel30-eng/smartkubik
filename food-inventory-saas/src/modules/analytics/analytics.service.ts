@@ -54,6 +54,10 @@ import {
   InvestmentDocument,
 } from "../../schemas/investment.schema";
 import { Payment, PaymentDocument } from "../../schemas/payment.schema";
+import {
+  SavedAnalyticsView,
+  SavedAnalyticsViewDocument,
+} from "../../schemas/saved-analytics-view.schema";
 import { MenuEngineeringService } from "../menu-engineering/menu-engineering.service";
 
 const SUPPORTED_PERIODS = new Set([
@@ -113,6 +117,8 @@ export class AnalyticsService {
     private readonly investmentModel: Model<InvestmentDocument>,
     @InjectModel(Payment.name)
     private readonly paymentModel: Model<PaymentDocument>,
+    @InjectModel(SavedAnalyticsView.name)
+    private readonly savedViewsModel: Model<SavedAnalyticsViewDocument>,
     private readonly featureFlagsService: FeatureFlagsService,
     private readonly menuEngineeringService: MenuEngineeringService,
   ) { }
@@ -3800,6 +3806,828 @@ export class AnalyticsService {
     const previousTo = new Date(from.getTime() - 1);
     const previousFrom = new Date(previousTo.getTime() - diff);
     return { from: previousFrom, to: previousTo };
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // CUSTOM METRICS BUILDER (Phase 2)
+  // ────────────────────────────────────────────────────────────────
+
+  /**
+   * Get custom metrics based on selected metric IDs.
+   * Allows dynamic selection of metrics for Power BI-style analytics.
+   */
+  async getCustomMetrics(
+    tenantId: string,
+    metricIds: string[],
+    fromDate?: Date,
+    toDate?: Date,
+  ) {
+    const { objectId: tenantObjectId, key: tenantKey } =
+      this.normalizeTenantIdentifiers(tenantId);
+
+    // Determine date range
+    let from: Date;
+    let to: Date;
+    if (fromDate && toDate) {
+      from = fromDate;
+      to = toDate;
+    } else {
+      const range = this.buildDateRange("30d");
+      from = range.from;
+      to = range.to;
+    }
+
+    // Metric definitions mapping
+    const METRIC_DEFINITIONS: Record<
+      string,
+      (tenantKey: string, from: Date, to: Date) => Promise<any>
+    > = {
+      revenue_by_channel: (tk, f, t) =>
+        this.buildRevenueByChannel(tk, f, t),
+      revenue_by_payment: (tk, f, t) =>
+        this.buildRevenueByPayment(tk, f, t),
+      revenue_by_category: (tk, f, t) =>
+        this.buildRevenueByCategory(tk, f, t),
+      payroll_detailed: (tk, f, t) => this.buildPayrollDetailed(tk, f, t),
+      expenses_operational: (tk, f, t) =>
+        this.buildExpensesOperational(tk, f, t),
+      taxes_detailed: (tk, f, t) => this.buildTaxesDetailed(tk, f, t),
+      margin_by_product: (tk, f, t) => this.buildMarginByProduct(tk, f, t),
+      margin_by_category: (tk, f, t) =>
+        this.buildMarginByCategory(tk, f, t),
+      top_products: (tk, f, t) => this.buildTopProducts(tk, f, t),
+      inventory_value: (tk, f, t) => this.buildInventoryValue(tk, f, t),
+    };
+
+    // Execute selected metrics in parallel
+    const results = await Promise.all(
+      metricIds.map(async (metricId) => {
+        try {
+          const builder = METRIC_DEFINITIONS[metricId];
+          if (!builder) {
+            return {
+              id: metricId,
+              label: metricId,
+              error: "Metric not found",
+              data: null,
+            };
+          }
+
+          const data = await builder(tenantKey, from, to);
+          const metricInfo = this.getMetricInfo(metricId);
+
+          return {
+            id: metricId,
+            label: metricInfo.label,
+            chartType: metricInfo.chartType,
+            data,
+          };
+        } catch (err) {
+          this.logger.error(
+            `Error calculating metric ${metricId}: ${err.message}`,
+          );
+          return {
+            id: metricId,
+            label: metricId,
+            error: err.message,
+            data: null,
+          };
+        }
+      }),
+    );
+
+    return {
+      metrics: results,
+      period: {
+        from: from.toISOString(),
+        to: to.toISOString(),
+        days: Math.ceil((to.getTime() - from.getTime()) / 86400000),
+      },
+    };
+  }
+
+  // ── Metric Info (labels & chart types) ──────────────────────────
+  private getMetricInfo(metricId: string): {
+    label: string;
+    chartType: "bar" | "line" | "pie" | "table";
+  } {
+    const INFO_MAP: Record<
+      string,
+      { label: string; chartType: "bar" | "line" | "pie" | "table" }
+    > = {
+      revenue_by_channel: {
+        label: "Ingresos por Canal de Venta",
+        chartType: "bar",
+      },
+      revenue_by_payment: {
+        label: "Ingresos por Forma de Pago",
+        chartType: "pie",
+      },
+      revenue_by_category: {
+        label: "Ingresos por Categoría",
+        chartType: "bar",
+      },
+      payroll_detailed: {
+        label: "Nómina Detallada",
+        chartType: "table",
+      },
+      expenses_operational: {
+        label: "Gastos Operativos",
+        chartType: "bar",
+      },
+      taxes_detailed: {
+        label: "Impuestos y Retenciones",
+        chartType: "table",
+      },
+      margin_by_product: {
+        label: "Margen por Producto",
+        chartType: "table",
+      },
+      margin_by_category: {
+        label: "Margen por Categoría",
+        chartType: "bar",
+      },
+      top_products: {
+        label: "Productos Más Vendidos",
+        chartType: "bar",
+      },
+      inventory_value: {
+        label: "Valor de Inventario",
+        chartType: "table",
+      },
+    };
+
+    return (
+      INFO_MAP[metricId] || { label: metricId, chartType: "table" }
+    );
+  }
+
+  // ── Metric Builders ──────────────────────────────────────────────
+
+  private async buildRevenueByChannel(
+    tenantKey: string,
+    from: Date,
+    to: Date,
+  ) {
+    const result = await this.orderModel.aggregate([
+      {
+        $match: {
+          tenantId: tenantKey,
+          status: { $nin: ["draft", "cancelled", "refunded"] },
+          createdAt: { $gte: from, $lte: to },
+        },
+      },
+      {
+        $group: {
+          _id: { $ifNull: ["$channel", "default"] },
+          total: { $sum: "$totalAmount" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { total: -1 } },
+    ]);
+
+    return {
+      labels: result.map((r) => r._id || "Sin Canal"),
+      values: result.map((r) => r.total || 0),
+      counts: result.map((r) => r.count || 0),
+    };
+  }
+
+  private async buildRevenueByPayment(
+    tenantKey: string,
+    from: Date,
+    to: Date,
+  ) {
+    const result = await this.orderModel.aggregate([
+      {
+        $match: {
+          tenantId: tenantKey,
+          status: { $nin: ["draft", "cancelled", "refunded"] },
+          createdAt: { $gte: from, $lte: to },
+        },
+      },
+      { $unwind: { path: "$paymentRecords", preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: { $ifNull: ["$paymentRecords.method", "no_payment"] },
+          total: { $sum: { $ifNull: ["$paymentRecords.amount", 0] } },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { total: -1 } },
+    ]);
+
+    const methodLabels: Record<string, string> = {
+      cash: "Efectivo",
+      card: "Tarjeta",
+      transfer: "Transferencia",
+      zelle: "Zelle",
+      mobile_payment: "Pago Móvil",
+      no_payment: "Sin Pago",
+    };
+
+    return {
+      labels: result.map((r) => methodLabels[r._id] || r._id || "Sin Método"),
+      values: result.map((r) => r.total || 0),
+      counts: result.map((r) => r.count || 0),
+    };
+  }
+
+  private async buildRevenueByCategory(
+    tenantKey: string,
+    from: Date,
+    to: Date,
+  ) {
+    const tenantObjectId = new Types.ObjectId(tenantKey);
+    const result = await this.orderModel.aggregate([
+      {
+        $match: {
+          tenantId: tenantKey,
+          status: { $nin: ["draft", "cancelled", "refunded"] },
+          createdAt: { $gte: from, $lte: to },
+        },
+      },
+      { $unwind: "$items" },
+      {
+        $lookup: {
+          from: "products",
+          let: { prodId: "$items.productId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$_id", "$$prodId"] },
+                    { $eq: ["$tenantId", tenantObjectId] },
+                  ],
+                },
+              },
+            },
+            { $project: { category: 1 } },
+          ],
+          as: "productInfo",
+        },
+      },
+      { $unwind: { path: "$productInfo", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          _categoryResolved: {
+            $cond: {
+              if: { $isArray: "$productInfo.category" },
+              then: { $arrayElemAt: ["$productInfo.category", 0] },
+              else: "$productInfo.category",
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: { $ifNull: ["$_categoryResolved", "Sin Categoría"] },
+          total: {
+            $sum: { $ifNull: ["$items.finalPrice", "$items.totalPrice"] },
+          },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { total: -1 } },
+    ]);
+
+    return {
+      labels: result.map((r) => r._id || "Sin Categoría"),
+      values: result.map((r) => r.total || 0),
+      counts: result.map((r) => r.count || 0),
+    };
+  }
+
+  private async buildPayrollDetailed(
+    tenantKey: string,
+    from: Date,
+    to: Date,
+  ) {
+    const tenantObjectId = new Types.ObjectId(tenantKey);
+    const result = await this.payrollRunModel.aggregate([
+      {
+        $match: {
+          tenantId: tenantObjectId,
+          status: { $in: ["paid", "posted", "approved"] },
+          periodEnd: { $gte: from, $lte: to },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalGrossPay: { $sum: "$grossPay" },
+          totalDeductions: { $sum: "$deductions" },
+          totalNetPay: { $sum: "$netPay" },
+          runCount: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const data = result[0] || {
+      totalGrossPay: 0,
+      totalDeductions: 0,
+      totalNetPay: 0,
+      runCount: 0,
+    };
+
+    return {
+      rows: [
+        { label: "Sueldo Bruto", value: data.totalGrossPay },
+        { label: "Deducciones", value: data.totalDeductions },
+        { label: "Pago Neto", value: data.totalNetPay },
+      ],
+      summary: {
+        totalGross: data.totalGrossPay,
+        totalNet: data.totalNetPay,
+        runs: data.runCount,
+      },
+    };
+  }
+
+  private async buildExpensesOperational(
+    tenantKey: string,
+    from: Date,
+    to: Date,
+  ) {
+    const result = await this.payableModel.aggregate([
+      {
+        $match: {
+          tenantId: tenantKey,
+          status: { $in: ["open", "partially_paid", "paid"] },
+          issueDate: { $gte: from, $lte: to },
+          type: { $in: ["service_payment", "utility_bill", "other"] },
+        },
+      },
+      {
+        $group: {
+          _id: "$type",
+          total: { $sum: "$totalAmount" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { total: -1 } },
+    ]);
+
+    const typeLabels: Record<string, string> = {
+      service_payment: "Servicios",
+      utility_bill: "Servicios Públicos",
+      other: "Otros Gastos",
+    };
+
+    return {
+      labels: result.map((r) => typeLabels[r._id] || r._id),
+      values: result.map((r) => r.total || 0),
+      counts: result.map((r) => r.count || 0),
+    };
+  }
+
+  private async buildTaxesDetailed(
+    tenantKey: string,
+    from: Date,
+    to: Date,
+  ) {
+    const result = await this.orderModel.aggregate([
+      {
+        $match: {
+          tenantId: tenantKey,
+          status: { $nin: ["draft", "cancelled", "refunded"] },
+          createdAt: { $gte: from, $lte: to },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalIva: { $sum: { $ifNull: ["$ivaTotal", 0] } },
+          totalIgtf: { $sum: { $ifNull: ["$igtfTotal", 0] } },
+          orderCount: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const data = result[0] || { totalIva: 0, totalIgtf: 0, orderCount: 0 };
+    const totalTax = data.totalIva + data.totalIgtf;
+
+    return {
+      rows: [
+        { label: "IVA Recaudado", value: data.totalIva },
+        { label: "IGTF Recaudado", value: data.totalIgtf },
+        { label: "Total Impuestos", value: totalTax },
+        { label: "Órdenes Procesadas", value: `${data.orderCount} órdenes` },
+      ],
+      summary: {
+        totalIva: data.totalIva,
+        totalIgtf: data.totalIgtf,
+        totalTax,
+        orders: data.orderCount,
+      },
+    };
+  }
+
+  private async buildMarginByProduct(
+    tenantKey: string,
+    from: Date,
+    to: Date,
+  ) {
+    const result = await this.orderModel.aggregate([
+      {
+        $match: {
+          tenantId: tenantKey,
+          status: { $nin: ["draft", "cancelled", "refunded"] },
+          createdAt: { $gte: from, $lte: to },
+        },
+      },
+      { $unwind: "$items" },
+      {
+        $group: {
+          _id: "$items.productName",
+          revenue: {
+            $sum: { $ifNull: ["$items.finalPrice", "$items.totalPrice"] },
+          },
+          cost: {
+            $sum: {
+              $multiply: [
+                { $ifNull: ["$items.costPrice", 0] },
+                { $ifNull: ["$items.quantity", 0] },
+              ],
+            },
+          },
+          quantity: { $sum: "$items.quantity" },
+        },
+      },
+      {
+        $project: {
+          product: "$_id",
+          revenue: 1,
+          cost: 1,
+          margin: { $subtract: ["$revenue", "$cost"] },
+          marginPercent: {
+            $cond: {
+              if: { $gt: ["$revenue", 0] },
+              then: {
+                $multiply: [
+                  { $divide: [{ $subtract: ["$revenue", "$cost"] }, "$revenue"] },
+                  100,
+                ],
+              },
+              else: 0,
+            },
+          },
+          quantity: 1,
+        },
+      },
+      { $sort: { margin: -1 } },
+      { $limit: 20 },
+    ]);
+
+    return {
+      rows: result.map((r) => ({
+        product: r.product || "Sin Nombre",
+        revenue: r.revenue || 0,
+        cost: r.cost || 0,
+        margin: r.margin || 0,
+        marginPercent: r.marginPercent || 0,
+        quantity: r.quantity || 0,
+      })),
+    };
+  }
+
+  private async buildMarginByCategory(
+    tenantKey: string,
+    from: Date,
+    to: Date,
+  ) {
+    const tenantObjectId = new Types.ObjectId(tenantKey);
+    const result = await this.orderModel.aggregate([
+      {
+        $match: {
+          tenantId: tenantKey,
+          status: { $nin: ["draft", "cancelled", "refunded"] },
+          createdAt: { $gte: from, $lte: to },
+        },
+      },
+      { $unwind: "$items" },
+      {
+        $lookup: {
+          from: "products",
+          let: { prodId: "$items.productId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$_id", "$$prodId"] },
+                    { $eq: ["$tenantId", tenantObjectId] },
+                  ],
+                },
+              },
+            },
+            { $project: { category: 1 } },
+          ],
+          as: "productInfo",
+        },
+      },
+      { $unwind: { path: "$productInfo", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          _categoryResolved: {
+            $cond: {
+              if: { $isArray: "$productInfo.category" },
+              then: { $arrayElemAt: ["$productInfo.category", 0] },
+              else: "$productInfo.category",
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: { $ifNull: ["$_categoryResolved", "Sin Categoría"] },
+          revenue: {
+            $sum: { $ifNull: ["$items.finalPrice", "$items.totalPrice"] },
+          },
+          cost: {
+            $sum: {
+              $multiply: [
+                { $ifNull: ["$items.costPrice", 0] },
+                { $ifNull: ["$items.quantity", 0] },
+              ],
+            },
+          },
+        },
+      },
+      {
+        $project: {
+          category: "$_id",
+          revenue: 1,
+          cost: 1,
+          margin: { $subtract: ["$revenue", "$cost"] },
+          marginPercent: {
+            $cond: {
+              if: { $gt: ["$revenue", 0] },
+              then: {
+                $multiply: [
+                  { $divide: [{ $subtract: ["$revenue", "$cost"] }, "$revenue"] },
+                  100,
+                ],
+              },
+              else: 0,
+            },
+          },
+        },
+      },
+      { $sort: { margin: -1 } },
+    ]);
+
+    return {
+      labels: result.map((r) => r.category || "Sin Categoría"),
+      values: result.map((r) => r.margin || 0),
+      marginPercents: result.map((r) => r.marginPercent || 0),
+    };
+  }
+
+  private async buildTopProducts(tenantKey: string, from: Date, to: Date) {
+    const result = await this.orderModel.aggregate([
+      {
+        $match: {
+          tenantId: tenantKey,
+          status: { $nin: ["draft", "cancelled", "refunded"] },
+          createdAt: { $gte: from, $lte: to },
+        },
+      },
+      { $unwind: "$items" },
+      {
+        $group: {
+          _id: "$items.productName",
+          revenue: {
+            $sum: { $ifNull: ["$items.finalPrice", "$items.totalPrice"] },
+          },
+          quantity: { $sum: "$items.quantity" },
+        },
+      },
+      { $sort: { revenue: -1 } },
+      { $limit: 10 },
+    ]);
+
+    return {
+      labels: result.map((r) => r._id || "Sin Nombre"),
+      values: result.map((r) => r.revenue || 0),
+      quantities: result.map((r) => r.quantity || 0),
+    };
+  }
+
+  private async buildInventoryValue(
+    tenantKey: string,
+    _from: Date,
+    _to: Date,
+  ) {
+    const tenantObjectId = new Types.ObjectId(tenantKey);
+    const result = await this.inventoryModel.aggregate([
+      {
+        $match: {
+          tenantId: tenantObjectId,
+        },
+      },
+      {
+        $lookup: {
+          from: "products",
+          let: { prodId: "$productId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$_id", "$$prodId"] },
+                    { $eq: ["$tenantId", tenantObjectId] },
+                  ],
+                },
+              },
+            },
+            { $project: { name: 1 } },
+          ],
+          as: "productInfo",
+        },
+      },
+      { $unwind: { path: "$productInfo", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          product: "$productInfo.name",
+          quantity: "$totalQuantity",
+          costPrice: { $ifNull: ["$averageCostPrice", { $ifNull: ["$lastCostPrice", 0] }] },
+          value: {
+            $multiply: [
+              { $ifNull: ["$totalQuantity", 0] },
+              { $ifNull: ["$averageCostPrice", { $ifNull: ["$lastCostPrice", 0] }] },
+            ],
+          },
+        },
+      },
+      { $sort: { value: -1 } },
+      { $limit: 20 },
+    ]);
+
+    return {
+      rows: result.map((r) => ({
+        product: r.product || "Sin Nombre",
+        quantity: r.quantity || 0,
+        costPrice: r.costPrice || 0,
+        value: r.value || 0,
+      })),
+      totalValue: result.reduce((sum, r) => sum + (r.value || 0), 0),
+    };
+  }
+
+  // ────────────────────────────────────────────────────────────────
+  // SAVED ANALYTICS VIEWS (Phase 3)
+  // ────────────────────────────────────────────────────────────────
+
+  /**
+   * Get all saved views for a tenant (user-created + templates)
+   */
+  async getSavedViews(tenantId: string) {
+    const { objectId: tenantObjectId } =
+      this.normalizeTenantIdentifiers(tenantId);
+
+    const views = await this.savedViewsModel
+      .find({ tenantId: tenantObjectId })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return views;
+  }
+
+  /**
+   * Get templates for the tenant's vertical
+   */
+  async getTemplates(tenantId: string) {
+    const { objectId: tenantObjectId } =
+      this.normalizeTenantIdentifiers(tenantId);
+
+    // Get tenant's vertical
+    const tenant = await this.tenantModel
+      .findById(tenantObjectId)
+      .select("vertical")
+      .lean();
+
+    if (!tenant) {
+      throw new BadRequestException("Tenant not found");
+    }
+
+    // Get templates for this vertical + generic templates
+    const templates = await this.savedViewsModel
+      .find({
+        isTemplate: true,
+        $or: [
+          { vertical: tenant.vertical },
+          { vertical: { $exists: false } }, // Generic templates
+        ],
+      })
+      .lean();
+
+    return templates;
+  }
+
+  /**
+   * Get a specific saved view by ID
+   */
+  async getSavedView(tenantId: string, viewId: string) {
+    const { objectId: tenantObjectId } =
+      this.normalizeTenantIdentifiers(tenantId);
+
+    const view = await this.savedViewsModel
+      .findOne({
+        _id: new Types.ObjectId(viewId),
+        tenantId: tenantObjectId,
+      })
+      .lean();
+
+    if (!view) {
+      throw new BadRequestException("Saved view not found");
+    }
+
+    return view;
+  }
+
+  /**
+   * Create a new saved view
+   */
+  async createSavedView(
+    tenantId: string,
+    userId: string,
+    data: {
+      name: string;
+      description?: string;
+      metricIds: string[];
+      periodConfig?: { years: number[]; months: number[] };
+    },
+  ) {
+    const { objectId: tenantObjectId } =
+      this.normalizeTenantIdentifiers(tenantId);
+
+    const view = await this.savedViewsModel.create({
+      tenantId: tenantObjectId,
+      createdBy: new Types.ObjectId(userId),
+      ...data,
+    });
+
+    return view;
+  }
+
+  /**
+   * Update a saved view
+   */
+  async updateSavedView(
+    tenantId: string,
+    viewId: string,
+    data: {
+      name?: string;
+      description?: string;
+      metricIds?: string[];
+      periodConfig?: { years: number[]; months: number[] };
+    },
+  ) {
+    const { objectId: tenantObjectId } =
+      this.normalizeTenantIdentifiers(tenantId);
+
+    const view = await this.savedViewsModel.findOneAndUpdate(
+      {
+        _id: new Types.ObjectId(viewId),
+        tenantId: tenantObjectId,
+        isTemplate: false, // Can't update templates
+      },
+      { $set: data },
+      { new: true },
+    );
+
+    if (!view) {
+      throw new BadRequestException(
+        "Saved view not found or cannot be updated",
+      );
+    }
+
+    return view;
+  }
+
+  /**
+   * Delete a saved view
+   */
+  async deleteSavedView(tenantId: string, viewId: string) {
+    const { objectId: tenantObjectId } =
+      this.normalizeTenantIdentifiers(tenantId);
+
+    const result = await this.savedViewsModel.deleteOne({
+      _id: new Types.ObjectId(viewId),
+      tenantId: tenantObjectId,
+      isTemplate: false, // Can't delete templates
+    });
+
+    if (result.deletedCount === 0) {
+      throw new BadRequestException(
+        "Saved view not found or cannot be deleted",
+      );
+    }
+
+    return { success: true, message: "Saved view deleted successfully" };
   }
 
   private normalizeTenantIdentifiers(id: string | Types.ObjectId): {

@@ -3,7 +3,23 @@ import {
   Matches,
   IsBooleanString,
   IsDateString,
+  IsArray,
+  IsString,
 } from "class-validator";
+
+export class CustomMetricsQueryDto {
+  // Can be string or array when coming from query params
+  @IsOptional()
+  metrics?: string | string[];
+
+  @IsOptional()
+  @IsDateString()
+  fromDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  toDate?: string;
+}
 
 export class AnalyticsPeriodQueryDto {
   @IsOptional()
@@ -61,4 +77,44 @@ export class KpiCompareQueryDto {
 
   @IsDateString()
   toB: string;
+}
+
+export class CreateSavedViewDto {
+  @IsString()
+  name: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  metricIds: string[];
+
+  @IsOptional()
+  periodConfig?: {
+    years: number[];
+    months: number[];
+  };
+}
+
+export class UpdateSavedViewDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  metricIds?: string[];
+
+  @IsOptional()
+  periodConfig?: {
+    years: number[];
+    months: number[];
+  };
 }

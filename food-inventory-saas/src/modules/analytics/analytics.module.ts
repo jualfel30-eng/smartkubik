@@ -47,6 +47,10 @@ import {
   InvestmentSchema,
 } from "../../schemas/investment.schema";
 import { Payment, PaymentSchema } from "../../schemas/payment.schema";
+import {
+  SavedAnalyticsView,
+  SavedAnalyticsViewSchema,
+} from "../../schemas/saved-analytics-view.schema";
 import { MenuEngineeringModule } from "../menu-engineering/menu-engineering.module";
 
 @Module({
@@ -73,6 +77,7 @@ import { MenuEngineeringModule } from "../menu-engineering/menu-engineering.modu
       { name: FixedAsset.name, schema: FixedAssetSchema },
       { name: Investment.name, schema: InvestmentSchema },
       { name: Payment.name, schema: PaymentSchema },
+      { name: SavedAnalyticsView.name, schema: SavedAnalyticsViewSchema },
     ]),
   ],
   controllers: [AnalyticsController],

@@ -1,7 +1,12 @@
 import {
   Controller,
   Get,
+  Post,
+  Patch,
+  Delete,
   Query,
+  Param,
+  Body,
   UseGuards,
   Req,
   Headers,
@@ -15,6 +20,9 @@ import {
   AnalyticsPeriodQueryDto,
   KpiCompareQueryDto,
   ExpenseIncomeBreakdownQueryDto,
+  CustomMetricsQueryDto,
+  CreateSavedViewDto,
+  UpdateSavedViewDto,
 } from "../../dto/analytics.dto";
 import { Public } from "../../decorators/public.decorator";
 
@@ -232,6 +240,114 @@ export class AnalyticsController {
       toDate,
     );
     return { success: true, data };
+  }
+
+  /**
+   * Get custom metrics based on user selection (Phase 2)
+   * Power BI-style dynamic metric builder
+   */
+  @Get("custom-metrics")
+  @Permissions("reports_read")
+  async getCustomMetrics(@Req() req, @Query() query: CustomMetricsQueryDto) {
+    // Normalize metrics to array and filter out undefined/null values
+    let metricIds: string[] = [];
+    if (query.metrics) {
+      metricIds = Array.isArray(query.metrics)
+        ? query.metrics.filter(id => id && id !== 'undefined' && id !== 'null')
+        : [query.metrics].filter(id => id && id !== 'undefined' && id !== 'null');
+    }
+
+    const fromDate = query.fromDate ? new Date(query.fromDate) : undefined;
+    const toDate = query.toDate ? new Date(query.toDate) : undefined;
+
+    const data = await this.analyticsService.getCustomMetrics(
+      req.user.tenantId,
+      metricIds,
+      fromDate,
+      toDate,
+    );
+
+    return { success: true, data };
+  }
+
+  /**
+   * Get all saved analytics views for the tenant (Phase 3)
+   */
+  @Get("saved-views")
+  @Permissions("reports_read")
+  async getSavedViews(@Req() req) {
+    const views = await this.analyticsService.getSavedViews(req.user.tenantId);
+    return { success: true, data: views };
+  }
+
+  /**
+   * Get analytics templates for the tenant's vertical (Phase 3)
+   */
+  @Get("saved-views/templates")
+  @Permissions("reports_read")
+  async getTemplates(@Req() req) {
+    const templates = await this.analyticsService.getTemplates(
+      req.user.tenantId,
+    );
+    return { success: true, data: templates };
+  }
+
+  /**
+   * Get a specific saved view by ID (Phase 3)
+   */
+  @Get("saved-views/:id")
+  @Permissions("reports_read")
+  async getSavedView(@Req() req, @Param("id") id: string) {
+    const view = await this.analyticsService.getSavedView(
+      req.user.tenantId,
+      id,
+    );
+    return { success: true, data: view };
+  }
+
+  /**
+   * Create a new saved analytics view (Phase 3)
+   */
+  @Post("saved-views")
+  @Permissions("reports_read")
+  async createSavedView(@Req() req, @Body() body: CreateSavedViewDto) {
+    const view = await this.analyticsService.createSavedView(
+      req.user.tenantId,
+      req.user.userId,
+      body,
+    );
+    return { success: true, data: view };
+  }
+
+  /**
+   * Update a saved analytics view (Phase 3)
+   */
+  @Patch("saved-views/:id")
+  @Permissions("reports_read")
+  async updateSavedView(
+    @Req() req,
+    @Param("id") id: string,
+    @Body() body: UpdateSavedViewDto,
+  ) {
+    const view = await this.analyticsService.updateSavedView(
+      req.user.tenantId,
+      id,
+      body,
+    );
+    return { success: true, data: view };
+  }
+
+  /**
+   * Delete a saved analytics view (Phase 3)
+   */
+  @Delete("saved-views/:id")
+  @Permissions("reports_read")
+  async deleteSavedView(@Req() req, @Param("id") id: string) {
+    const result = await this.analyticsService.deleteSavedView(
+      req.user.tenantId,
+      id,
+    );
+    return result;
   }
 
   @Get("financial-kpis/compare")
