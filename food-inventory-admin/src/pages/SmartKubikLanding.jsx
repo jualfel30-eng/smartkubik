@@ -37,45 +37,87 @@ const StickyFoundersBanner = () => (
             top: 0,
             zIndex: 9999,
             background: 'linear-gradient(135deg, #00D9C0 0%, #0BA89F 100%)',
-            padding: '8px 16px',
+            padding: '4px 12px',
             textAlign: 'center',
             boxShadow: '0 4px 12px rgba(0, 217, 192, 0.3)',
             animation: 'slideDown 0.5s ease-out'
         }}>
-            <div style={{
+            <div className="founders-banner-content" style={{
                 maxWidth: '1200px',
                 margin: '0 auto',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '16px',
+                gap: '12px',
                 flexWrap: 'wrap'
             }}>
-                <span style={{ fontSize: '18px' }}>🏆</span>
-                <span style={{ color: 'white', fontWeight: 600, fontSize: '14px' }}>
-                    PROGRAMA CLIENTES FUNDADORES ABIERTO
+                {/* Title and Cupos */}
+                <span style={{
+                    color: 'white',
+                    fontSize: '13px'
+                }}>
+                    <span style={{ fontWeight: 600 }}>🏆 PROGRAMA CLIENTES FUNDADORES</span>
+                    {' | '}
+                    <span style={{ fontWeight: 400 }}>Solo 90 cupos</span>
+                    {' | '}
                 </span>
-                <span style={{ color: 'rgba(255,255,255,0.95)', fontSize: '13px' }}>
-                    Solo 90 cupos | Hasta <strong style={{ fontSize: '15px', color: '#FFF700' }}>51% OFF</strong> de por vida
-                </span>
-                <a href="/fundadores"
-                    style={{
-                        background: 'white',
-                        color: '#0BA89F',
-                        padding: '6px 16px',
-                        borderRadius: '8px',
-                        textDecoration: 'none',
-                        fontWeight: 700,
-                        fontSize: '14px',
-                        transition: 'transform 0.2s, box-shadow 0.2s',
-                        boxShadow: '0 4px 8px rgba(0,0,0,0.2)'
-                    }}
-                    onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 12px rgba(0,0,0,0.3)'; }}
-                    onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)'; }}
-                >
-                    Ver Oferta Exclusiva →
-                </a>
+
+                {/* Discount + CTA (grouped for mobile) */}
+                <div className="banner-cta-group" style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    flexWrap: 'wrap',
+                    justifyContent: 'center'
+                }}>
+                    {/* Discount */}
+                    <span style={{ color: 'rgba(255,255,255,0.95)', fontSize: '12px' }}>
+                        Hasta <strong style={{ fontSize: '14px', color: '#FFF700' }}>51% OFF</strong> de por vida
+                    </span>
+
+                    {/* CTA Button */}
+                    <a href="/fundadores"
+                        style={{
+                            background: 'white',
+                            color: '#0BA89F',
+                            padding: '4px 14px',
+                            borderRadius: '8px',
+                            textDecoration: 'none',
+                            fontWeight: 700,
+                            fontSize: '12px',
+                            transition: 'transform 0.2s, box-shadow 0.2s',
+                            boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+                            whiteSpace: 'nowrap'
+                        }}
+                        onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 12px rgba(0,0,0,0.3)'; }}
+                        onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)'; }}
+                    >
+                        Ver Oferta →
+                    </a>
+                </div>
             </div>
+
+            <style>{`
+                /* Desktop: Single line */
+                @media (min-width: 768px) {
+                    .founders-banner-content {
+                        flex-direction: row !important;
+                        gap: 16px !important;
+                    }
+                }
+                
+                /* Mobile: Two lines */
+                @media (max-width: 767px) {
+                    .founders-banner-content {
+                        flex-direction: column !important;
+                        gap: 6px !important;
+                    }
+                    .banner-cta-group {
+                        width: 100%;
+                        justify-content: center !important;
+                    }
+                }
+            `}</style>
         </div>
     </>
 );
