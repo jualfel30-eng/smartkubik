@@ -286,6 +286,14 @@ const sanitizeSellingUnitsForPayload = (units = []) =>
       };
     });
 
+const SHELF_LIFE_MULTIPLIERS = { days: 1, months: 30, years: 365 };
+const shelfLifeValueToDays = (value, unit) => Math.round((Number(value) || 0) * (SHELF_LIFE_MULTIPLIERS[unit] || 1));
+const shelfLifeDaysToValue = (days, unit) => {
+  const d = Number(days) || 0;
+  const m = SHELF_LIFE_MULTIPLIERS[unit] || 1;
+  return m === 1 ? d : Math.round((d / m) * 100) / 100;
+};
+
 const initialNewProductState = {
   productType: 'simple', // 'simple', 'consumable', 'supply'
   sku: '',
@@ -299,6 +307,8 @@ const initialNewProductState = {
   isPerishable: false,
   sendToKitchen: true, // Default to true for restaurant products
   shelfLifeDays: 0,
+  shelfLifeUnit: 'days',
+  shelfLifeValue: 0,
   storageTemperature: 'ambiente',
   ivaApplicable: true,
   taxCategory: 'general',
@@ -1079,6 +1089,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
           origin: d.origin || prev.origin,
           isPerishable: d.isPerishable ?? prev.isPerishable,
           shelfLifeDays: d.shelfLifeDays || prev.shelfLifeDays,
+          shelfLifeValue: d.shelfLifeDays || prev.shelfLifeValue,
           storageTemperature: d.storageTemperature || prev.storageTemperature,
           unitOfMeasure: d.unitOfMeasure || prev.unitOfMeasure,
           category: d.matchedCategory ? [d.matchedCategory] : (d.category ? [d.category] : prev.category),
@@ -1192,8 +1203,10 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       }),
     };
 
+    delete payload.shelfLifeValue;
     if (!payload.isPerishable) {
       delete payload.shelfLifeDays;
+      delete payload.shelfLifeUnit;
       delete payload.storageTemperature;
     }
 
@@ -1341,6 +1354,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       ivaApplicable: editingProduct.ivaApplicable,
       isPerishable: editingProduct.isPerishable,
       shelfLifeDays: editingProduct.shelfLifeDays,
+      shelfLifeUnit: editingProduct.isPerishable ? (editingProduct.shelfLifeUnit || 'days') : undefined,
       storageTemperature: editingProduct.isPerishable ? (editingProduct.storageTemperature || 'ambiente') : undefined,
       pricingRules: {
         ...(editingProduct.pricingRules || {}),
@@ -1633,6 +1647,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       "ingredients",
       "isPerishable",
       "shelfLifeDays",
+      "shelfLifeUnit",
       "storageTemperature",
       "ivaApplicable",
       "taxCategory",
@@ -1685,6 +1700,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
           ingredients: "Arroz",
           isPerishable: false,
           shelfLifeDays: 365,
+          shelfLifeUnit: "years",
           storageTemperature: "ambiente",
           ivaApplicable: true,
           taxCategory: "general",
@@ -1714,6 +1730,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         ingredients: "Leche de vaca",
         isPerishable: true,
         shelfLifeDays: 15,
+        shelfLifeUnit: "days",
         storageTemperature: "refrigerado",
         ivaApplicable: true,
         taxCategory: "general",
@@ -2458,15 +2475,39 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 {!isNonFoodRetailVertical && newProduct.isPerishable && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="shelfLifeDays">Vida Útil (días)</Label>
-                      <NumberInput
-                        id="shelfLifeDays"
-                        value={newProduct.shelfLifeDays ?? ''}
-                        onValueChange={(val) => setNewProduct({ ...newProduct, shelfLifeDays: val })}
-                        step={1}
-                        min={0}
-                        placeholder="Días de vida útil"
-                      />
+                      <Label htmlFor="shelfLifeValue">Vida Útil</Label>
+                      <div className="flex gap-2">
+                        <NumberInput
+                          id="shelfLifeValue"
+                          className="flex-1"
+                          value={newProduct.shelfLifeValue ?? ''}
+                          onValueChange={(val) => setNewProduct({
+                            ...newProduct,
+                            shelfLifeValue: val,
+                            shelfLifeDays: shelfLifeValueToDays(val, newProduct.shelfLifeUnit),
+                          })}
+                          step={1}
+                          min={0}
+                          placeholder="Cantidad"
+                        />
+                        <Select
+                          value={newProduct.shelfLifeUnit || 'days'}
+                          onValueChange={(unit) => setNewProduct({
+                            ...newProduct,
+                            shelfLifeUnit: unit,
+                            shelfLifeDays: shelfLifeValueToDays(newProduct.shelfLifeValue, unit),
+                          })}
+                        >
+                          <SelectTrigger className="w-[120px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="days">Días</SelectItem>
+                            <SelectItem value="months">Meses</SelectItem>
+                            <SelectItem value="years">Años</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="storageTemperature">Temperatura de Almacenamiento</Label>
@@ -3941,6 +3982,9 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                             });
                             productToEdit.category = normalizeStringList(productToEdit.category);
                             productToEdit.subcategory = normalizeStringList(productToEdit.subcategory);
+                            const unit = productToEdit.shelfLifeUnit || 'days';
+                            productToEdit.shelfLifeUnit = unit;
+                            productToEdit.shelfLifeValue = shelfLifeDaysToValue(productToEdit.shelfLifeDays, unit);
                             setEditingProduct(productToEdit);
                             setIsEditDialogOpen(true);
                           }}><Edit className="h-4 w-4" /></Button>
@@ -4184,18 +4228,40 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 {!isNonFoodRetailVertical && editingProduct.isPerishable && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="edit-shelfLifeDays">Vida Útil (días)</Label>
-                      <Input
-                        id="edit-shelfLifeDays"
-                        type="number"
-                        value={editingProduct.shelfLifeDays || 0}
-                        onChange={(e) =>
-                          setEditingProduct({
+                      <Label htmlFor="edit-shelfLifeValue">Vida Útil</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="edit-shelfLifeValue"
+                          type="number"
+                          className="flex-1"
+                          value={editingProduct.shelfLifeValue ?? 0}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            setEditingProduct({
+                              ...editingProduct,
+                              shelfLifeValue: val,
+                              shelfLifeDays: shelfLifeValueToDays(val, editingProduct.shelfLifeUnit || 'days'),
+                            });
+                          }}
+                        />
+                        <Select
+                          value={editingProduct.shelfLifeUnit || 'days'}
+                          onValueChange={(unit) => setEditingProduct({
                             ...editingProduct,
-                            shelfLifeDays: parseInt(e.target.value) || 0
-                          })
-                        }
-                      />
+                            shelfLifeUnit: unit,
+                            shelfLifeDays: shelfLifeValueToDays(editingProduct.shelfLifeValue, unit),
+                          })}
+                        >
+                          <SelectTrigger className="w-[120px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="days">Días</SelectItem>
+                            <SelectItem value="months">Meses</SelectItem>
+                            <SelectItem value="years">Años</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="edit-storageTemperature">Temperatura de Almacenamiento</Label>

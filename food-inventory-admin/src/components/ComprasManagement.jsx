@@ -32,6 +32,8 @@ const initialNewProductState = {
   ingredients: '',
   isPerishable: false,
   shelfLifeDays: 0,
+  shelfLifeUnit: 'days',
+  shelfLifeValue: 0,
   storageTemperature: 'ambiente',
   ivaApplicable: true,
   taxCategory: 'general',
@@ -454,6 +456,7 @@ export default function ComprasManagement() {
       ingredients: newProduct.ingredients,
       isPerishable,
       shelfLifeDays: isPerishable ? Number(newProduct.shelfLifeDays) || 0 : undefined,
+      shelfLifeUnit: isPerishable ? (newProduct.shelfLifeUnit || 'days') : undefined,
       storageTemperature: isPerishable ? newProduct.storageTemperature : undefined,
       ivaApplicable: newProduct.ivaApplicable,
       taxCategory: newProduct.taxCategory,
@@ -471,8 +474,10 @@ export default function ComprasManagement() {
       variants: variantsPayload,
     };
 
+    delete productPayload.shelfLifeValue;
     if (!isPerishable) {
       delete productPayload.shelfLifeDays;
+      delete productPayload.shelfLifeUnit;
       delete productPayload.storageTemperature;
     }
 
@@ -1952,8 +1957,45 @@ export default function ComprasManagement() {
                 {!isNonFoodRetailVertical && newProduct.isPerishable && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="shelfLifeDays">Vida Útil (días)</Label>
-                      <Input id="shelfLifeDays" type="number" value={newProduct.shelfLifeDays} onChange={(e) => setNewProduct({ ...newProduct, shelfLifeDays: parseInt(e.target.value) || 0 })} />
+                      <Label htmlFor="shelfLifeValue">Vida Útil</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="shelfLifeValue"
+                          type="number"
+                          className="flex-1"
+                          value={newProduct.shelfLifeValue ?? 0}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            const unit = newProduct.shelfLifeUnit || 'days';
+                            const multiplier = { days: 1, months: 30, years: 365 }[unit] || 1;
+                            setNewProduct({
+                              ...newProduct,
+                              shelfLifeValue: val,
+                              shelfLifeDays: Math.round(val * multiplier),
+                            });
+                          }}
+                        />
+                        <Select
+                          value={newProduct.shelfLifeUnit || 'days'}
+                          onValueChange={(unit) => {
+                            const multiplier = { days: 1, months: 30, years: 365 }[unit] || 1;
+                            setNewProduct({
+                              ...newProduct,
+                              shelfLifeUnit: unit,
+                              shelfLifeDays: Math.round((newProduct.shelfLifeValue || 0) * multiplier),
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="w-[120px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="days">Días</SelectItem>
+                            <SelectItem value="months">Meses</SelectItem>
+                            <SelectItem value="years">Años</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="storageTemperature">Temperatura de Almacenamiento</Label>
