@@ -36,7 +36,8 @@ import {
   ChevronsRight,
   MapPin,
   ArrowRightLeft,
-  Printer
+  Printer,
+  Loader2
 } from 'lucide-react';
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
@@ -1230,8 +1231,8 @@ function InventoryManagement() {
     }
   };
 
-  if (loading) return <div>Cargando inventario...</div>;
-  if (error) return <div className="text-red-600">Error: {error}</div>;
+  if (loading && inventoryData.length === 0 && !searchTerm && filterCategory === 'all') return <div>Cargando inventario...</div>;
+  if (error && inventoryData.length === 0) return <div className="text-red-600">Error: {error}</div>;
 
   return (
     <div className="space-y-6">
@@ -1536,7 +1537,8 @@ function InventoryManagement() {
               </SelectContent>
             </Select>
           </div>
-          <div className="rounded-md border">
+          <div className="rounded-md border relative">
+            {loading && <div className="absolute inset-0 bg-background/60 z-10 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}
             <Table>
               <TableHeader>
                 <TableRow>

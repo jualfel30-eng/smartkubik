@@ -1996,8 +1996,8 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
     }
   };
 
-  if (loading) return <div>Cargando productos...</div>;
-  if (error) return <div className="text-red-600">Error: {error}</div>;
+  if (loading && products.length === 0 && !searchTerm && filterCategory === 'all') return <div>Cargando productos...</div>;
+  if (error && products.length === 0) return <div className="text-red-600">Error: {error}</div>;
 
   return (
     <div className="space-y-6">
@@ -3793,7 +3793,8 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
               </SelectContent>
             </Select>
           </div>
-          <div className="rounded-md border">
+          <div className="rounded-md border relative">
+            {loading && <div className="absolute inset-0 bg-background/60 z-10 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}
             <Table>
               <TableHeader>
                 <TableRow>

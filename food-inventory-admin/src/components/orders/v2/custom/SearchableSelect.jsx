@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Select from 'react-select';
 import CreatableSelect from 'react-select/creatable';
 import { useDebounce } from '@/hooks/use-debounce';
@@ -26,6 +26,8 @@ export function SearchableSelect({
   const [asyncLoading, setAsyncLoading] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const debouncedSearch = useDebounce(searchInput, debounceMs);
+  const selectRef = useRef(null);
+  const hadFocusBeforeLoad = useRef(false);
 
   // Effect para cargar opciones remotas
   useEffect(() => {
@@ -37,6 +39,8 @@ export function SearchableSelect({
         return;
       }
 
+      // Remember if input was focused before loading
+      hadFocusBeforeLoad.current = selectRef.current?.inputRef === document.activeElement;
       setAsyncLoading(true);
       try {
         const results = await loadOptions(debouncedSearch);
@@ -46,6 +50,12 @@ export function SearchableSelect({
         setAsyncOptions([]);
       } finally {
         setAsyncLoading(false);
+        // Restore focus if input was focused before loading
+        if (hadFocusBeforeLoad.current) {
+          requestAnimationFrame(() => {
+            selectRef.current?.focus();
+          });
+        }
       }
     };
 
@@ -67,7 +77,13 @@ export function SearchableSelect({
 
   const handleInputChange = (newValue, actionMeta) => {
     if (asyncSearch) {
-      setSearchInput(newValue);
+      // Only update search on actual typing or explicit selection/clear
+      // Prevents focus loss from 'menu-close' and 'input-blur' actions clearing the input
+      if (actionMeta.action === 'input-change') {
+        setSearchInput(newValue);
+      } else if (actionMeta.action === 'set-value' || actionMeta.action === 'select-option') {
+        setSearchInput('');
+      }
     }
 
     // Llamar callback original si existe
@@ -111,6 +127,7 @@ export function SearchableSelect({
 
   return (
     <SelectComponent
+      ref={selectRef}
       options={finalOptions}
       onChange={handleChange}
       onInputChange={handleInputChange}
