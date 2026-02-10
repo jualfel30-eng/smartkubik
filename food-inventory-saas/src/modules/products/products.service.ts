@@ -369,6 +369,7 @@ export class ProductsService {
           ingredients: productDto.ingredients,
           isPerishable: productDto.isPerishable,
           shelfLifeDays: productDto.shelfLifeDays,
+          shelfLifeUnit: productDto.shelfLifeUnit || 'days',
           storageTemperature: productDto.storageTemperature,
           ivaApplicable: productDto.ivaApplicable,
           taxCategory: productDto.taxCategory || "general",
@@ -551,7 +552,7 @@ export class ProductsService {
       "sku name brand origin description ingredients category subcategory productType isActive hasActivePromotion promotion " +
       "unitOfMeasure isSoldByWeight hasMultipleSellingUnits sellingUnits " +
       "price salePrice image imageUrl images attributes inventoryConfig " +
-      "ivaApplicable igtfExempt taxCategory isPerishable shelfLifeDays storageTemperature sendToKitchen " +
+      "ivaApplicable igtfExempt taxCategory isPerishable shelfLifeDays shelfLifeUnit storageTemperature sendToKitchen " +
       "variants.name variants.sku variants.isActive variants.barcode variants.basePrice variants.costPrice variants.price variants.unit variants.unitSize variants.images variants.attributes";
 
     // Build projection to include text score when doing text search

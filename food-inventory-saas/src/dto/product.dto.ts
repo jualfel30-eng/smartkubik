@@ -334,6 +334,14 @@ export class CreateProductDto {
   shelfLifeDays?: number;
 
   @ApiPropertyOptional({
+    description: "Unidad de vida útil",
+    enum: ["days", "months", "years"],
+  })
+  @IsOptional()
+  @IsEnum(["days", "months", "years"])
+  shelfLifeUnit?: string;
+
+  @ApiPropertyOptional({
     description: "Temperatura de almacenamiento",
     enum: ["ambiente", "refrigerado", "congelado"],
   })
@@ -488,6 +496,14 @@ export class UpdateProductDto {
   @IsNumber()
   @Min(1)
   shelfLifeDays?: number;
+
+  @ApiPropertyOptional({
+    description: "Unidad de vida útil",
+    enum: ["days", "months", "years"],
+  })
+  @IsOptional()
+  @IsEnum(["days", "months", "years"])
+  shelfLifeUnit?: string;
 
   @ApiPropertyOptional({ description: "Temperatura de almacenamiento" })
   @IsOptional()

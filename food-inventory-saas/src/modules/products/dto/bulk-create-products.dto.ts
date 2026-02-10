@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsNumber,
   IsOptional,
+  IsEnum,
   ValidateNested,
   IsObject,
 } from "class-validator";
@@ -51,6 +52,11 @@ export class BulkProductDto {
   @IsNumber()
   @IsOptional()
   shelfLifeDays?: number;
+
+  @IsString()
+  @IsOptional()
+  @IsEnum(["days", "months", "years"])
+  shelfLifeUnit?: string;
 
   @IsString()
   @IsOptional()

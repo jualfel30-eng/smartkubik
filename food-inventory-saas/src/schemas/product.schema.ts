@@ -204,6 +204,9 @@ export class Product {
   @Prop({ type: Number })
   shelfLifeDays?: number;
 
+  @Prop({ type: String, enum: ['days', 'months', 'years'], default: 'days' })
+  shelfLifeUnit?: string;
+
   @Prop({ type: String })
   storageTemperature?: string;
 

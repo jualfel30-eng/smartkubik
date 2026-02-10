@@ -54,6 +54,7 @@ class RichProductDataDto {
   @IsOptional() @IsString() productType?: string;
   @IsBoolean() isPerishable: boolean;
   @IsOptional() @IsNumber() shelfLifeDays?: number;
+  @IsOptional() @IsEnum(["days", "months", "years"]) shelfLifeUnit?: string;
   @IsOptional()
   @IsEnum(["ambiente", "refrigerado", "congelado"])
   storageTemperature?: string;
