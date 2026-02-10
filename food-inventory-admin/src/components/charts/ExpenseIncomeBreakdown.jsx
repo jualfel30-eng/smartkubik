@@ -625,6 +625,10 @@ export function ExpenseIncomeBreakdown() {
         groupBy={groupBy}
         setGroupBy={setGroupBy}
         dataPeriod={primary?.period}
+        selectedYears={selectedYears}
+        selectedMonths={selectedMonths}
+        onYearsChange={setSelectedYears}
+        onMonthsChange={setSelectedMonths}
       />
 
       {/* Multi-year comparison table */}

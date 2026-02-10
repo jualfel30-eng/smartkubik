@@ -84,7 +84,7 @@ function PieChartMetric({ data }) {
           outerRadius={100}
           paddingAngle={3}
           dataKey="value"
-          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+          label={({ name, value, percent }) => `${name}: $${fmt(value)} (${(percent * 100).toFixed(0)}%)`}
         >
           {chartData.map((entry, idx) => (
             <Cell key={idx} fill={chartPalette[idx % chartPalette.length]} />

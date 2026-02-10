@@ -28,8 +28,13 @@ export function useCustomMetrics(metricIds = [], periods = []) {
     const currentPeriods = periodsRef.current;
 
     async function load() {
+      // Filter out invalid metric IDs
+      const validMetricIds = currentMetricIds.filter(
+        id => id && typeof id === 'string' && id !== 'undefined' && id !== 'null'
+      );
+
       // Don't fetch if no metrics selected
-      if (!currentMetricIds.length) {
+      if (!validMetricIds.length) {
         setData(null);
         setLoading(false);
         return;
@@ -50,7 +55,7 @@ export function useCustomMetrics(metricIds = [], periods = []) {
         const period = currentPeriods[0];
 
         const params = new URLSearchParams();
-        currentMetricIds.forEach(id => params.append('metrics', id));
+        validMetricIds.forEach(id => params.append('metrics', id));
         if (period.from) params.append('fromDate', period.from);
         if (period.to) params.append('toDate', period.to);
 
