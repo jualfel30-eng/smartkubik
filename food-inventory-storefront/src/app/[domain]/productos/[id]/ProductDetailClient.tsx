@@ -185,6 +185,7 @@ export function ProductDetailClient({
                   alt={product.name}
                   width={600}
                   height={600}
+                  unoptimized
                   className="object-cover w-full h-full"
                   priority
                 />

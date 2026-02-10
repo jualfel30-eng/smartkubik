@@ -182,6 +182,7 @@ export default function ModernEcommerce({ config, featuredProducts = [], categor
                         src={getImageUrl((product as any).image || (product as any).imageUrl)}
                         alt={product.name}
                         fill
+                        unoptimized
                         className="object-cover"
                       />
                     </div>

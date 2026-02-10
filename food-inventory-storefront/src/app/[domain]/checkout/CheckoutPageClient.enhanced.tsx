@@ -630,6 +630,7 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                             alt={item.product.name}
                             width={64}
                             height={64}
+                            unoptimized
                             className="object-cover w-full h-full"
                           />
                         </div>

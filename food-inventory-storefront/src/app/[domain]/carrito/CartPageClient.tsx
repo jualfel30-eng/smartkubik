@@ -125,6 +125,7 @@ export function CartPageClient({ config }: CartPageClientProps) {
                             alt={item.product.name}
                             width={96}
                             height={96}
+                            unoptimized
                             className="object-cover w-full h-full"
                           />
                         </div>
