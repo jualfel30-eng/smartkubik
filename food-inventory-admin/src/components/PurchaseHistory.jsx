@@ -70,7 +70,10 @@ export default function PurchaseHistory() {
       await fetchApi('/ratings', { method: 'POST', body: JSON.stringify(ratingData) });
       toast.success('Calificación Enviada', { description: 'La calificación ha sido guardada.' });
 
-      await fetchApi(`/purchases/${ratingData.purchaseOrderId}/receive`, { method: 'PATCH' });
+      await fetchApi(`/purchases/${ratingData.purchaseOrderId}/receive`, {
+        method: 'PATCH',
+        body: JSON.stringify({ receivedBy: ratingData.receivedBy })
+      });
       toast.success('Orden Recibida', { description: 'El inventario ha sido actualizado correctamente.' });
 
       setIsRatingModalOpen(false);
@@ -140,8 +143,8 @@ export default function PurchaseHistory() {
                     <TableCell>${po.totalAmount.toFixed(2)}</TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Select 
-                          onValueChange={(newStatus) => handleStatusChange(po, newStatus)} 
+                        <Select
+                          onValueChange={(newStatus) => handleStatusChange(po, newStatus)}
                           value={po.status}
                           disabled={po.status !== 'pending'}
                         >
@@ -150,7 +153,7 @@ export default function PurchaseHistory() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="pending">Pendiente</SelectItem>
-                            <SelectItem value="received"><div className="flex items-center"><Truck className="mr-2 h-4 w-4"/>Recibido</div></SelectItem>
+                            <SelectItem value="received"><div className="flex items-center"><Truck className="mr-2 h-4 w-4" />Recibido</div></SelectItem>
                             <SelectItem value="cancelled">Cancelar</SelectItem>
                           </SelectContent>
                         </Select>
@@ -235,30 +238,30 @@ export default function PurchaseHistory() {
             </DialogDescription>
           </DialogHeader>
           {selectedPurchaseOrder && (
-             <div className="space-y-4 p-4 max-h-[60vh] overflow-y-auto">
-                <div className="grid grid-cols-2 gap-4">
-                    <div><p className="font-semibold">Fecha de Compra:</p><p>{new Date(selectedPurchaseOrder.purchaseDate).toLocaleDateString()}</p></div>
-                    <div><p className="font-semibold">Estado:</p><p><Badge variant={getStatusVariant(selectedPurchaseOrder.status)}>{selectedPurchaseOrder.status}</Badge></p></div>
-                </div>
-                <h4 className="font-semibold mt-4">Items de la Orden</h4>
-                <Table>
-                    <TableHeader><TableRow><TableHead>Producto</TableHead><TableHead>Cantidad</TableHead><TableHead>Costo Unit.</TableHead><TableHead>Costo Total</TableHead></TableRow></TableHeader>
-                    <TableBody>
-                        {selectedPurchaseOrder.items.map(item => (
-                            <TableRow key={item.productId}>
-                                <TableCell>{item.productName} ({item.productSku})</TableCell>
-                                <TableCell>{item.quantity}</TableCell>
-                                <TableCell>${item.costPrice.toFixed(2)}</TableCell>
-                                <TableCell>${item.totalCost.toFixed(2)}</TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-                <div className="text-right font-bold text-lg">
-                    Monto Total: ${selectedPurchaseOrder.totalAmount.toFixed(2)}
-                </div>
-                {selectedPurchaseOrder.notes && <div><p className="font-semibold">Notas:</p><p className="p-2 bg-muted rounded">{selectedPurchaseOrder.notes}</p></div>}
-             </div>
+            <div className="space-y-4 p-4 max-h-[60vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4">
+                <div><p className="font-semibold">Fecha de Compra:</p><p>{new Date(selectedPurchaseOrder.purchaseDate).toLocaleDateString()}</p></div>
+                <div><p className="font-semibold">Estado:</p><p><Badge variant={getStatusVariant(selectedPurchaseOrder.status)}>{selectedPurchaseOrder.status}</Badge></p></div>
+              </div>
+              <h4 className="font-semibold mt-4">Items de la Orden</h4>
+              <Table>
+                <TableHeader><TableRow><TableHead>Producto</TableHead><TableHead>Cantidad</TableHead><TableHead>Costo Unit.</TableHead><TableHead>Costo Total</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {selectedPurchaseOrder.items.map(item => (
+                    <TableRow key={item.productId}>
+                      <TableCell>{item.productName} ({item.productSku})</TableCell>
+                      <TableCell>{item.quantity}</TableCell>
+                      <TableCell>${item.costPrice.toFixed(2)}</TableCell>
+                      <TableCell>${item.totalCost.toFixed(2)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <div className="text-right font-bold text-lg">
+                Monto Total: ${selectedPurchaseOrder.totalAmount.toFixed(2)}
+              </div>
+              {selectedPurchaseOrder.notes && <div><p className="font-semibold">Notas:</p><p className="p-2 bg-muted rounded">{selectedPurchaseOrder.notes}</p></div>}
+            </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDetailDialogOpen(false)}>Cerrar</Button>
@@ -267,11 +270,11 @@ export default function PurchaseHistory() {
       </Dialog>
 
       {poForRating && (
-        <RatingModal 
-          isOpen={isRatingModalOpen} 
-          onClose={() => setIsRatingModalOpen(false)} 
-          onSubmit={handleRatingSubmit} 
-          purchaseOrder={poForRating} 
+        <RatingModal
+          isOpen={isRatingModalOpen}
+          onClose={() => setIsRatingModalOpen(false)}
+          onSubmit={handleRatingSubmit}
+          purchaseOrder={poForRating}
         />
       )}
     </>

@@ -67,6 +67,8 @@ function InventoryManagement() {
     lots: [],
     warehouseId: '',
     binLocationId: '',
+    receivedBy: '',
+    notes: '',
   });
 
   // Estados para exportación
@@ -345,20 +347,33 @@ function InventoryManagement() {
       filtered = filtered.filter(item => item.productId?.category === filterCategory);
     }
 
-    // Filtro por texto (nombre, SKU, variant SKU)
+    // Filtro por texto - FLEXIBLE WORD-BASED SEARCH
+    // Busca por CUALQUIER palabra en CUALQUIER orden
     if (search) {
+      // Split search into individual words
+      const searchWords = search.split(/\s+/).filter(w => w.length > 0);
+
       filtered = filtered.filter((item) => {
-        const candidates = [
+        // Combine all searchable fields into one string
+        const searchableText = [
           item.productName,
           item.productSku,
           item.variantSku,
           item.productId?.name,
           item.productId?.sku,
+          item.productId?.brand,
+          // Include category (handle both array and string)
+          ...(Array.isArray(item.productId?.category)
+            ? item.productId.category
+            : [item.productId?.category]),
         ]
           .filter(Boolean)
-          .map((value) => String(value).toLowerCase());
+          .map((value) => String(value).toLowerCase())
+          .join(' ');
 
-        return candidates.some((value) => value.includes(search));
+        // Check if ALL search words are found in the combined text
+        // This allows searching "aceite al reef" or "reef aceite" - order doesn't matter
+        return searchWords.every((word) => searchableText.includes(word));
       });
     }
 
@@ -605,6 +620,8 @@ function InventoryManagement() {
             variantSku: entry.variantSku,
             totalQuantity: entry.quantity,
             averageCostPrice: Number(entry.cost) || baseCost,
+            receivedBy: newInventoryItem.receivedBy,
+            notes: newInventoryItem.notes,
           };
 
           console.log('📤 [handleAddItem] Enviando payload:', payload);
@@ -623,6 +640,8 @@ function InventoryManagement() {
           totalQuantity: 0,
           averageCostPrice: 0,
           lots: [],
+          receivedBy: '',
+          notes: '',
         });
         setVariantQuantities([]);
         setProductSearchInput('');
@@ -647,6 +666,8 @@ function InventoryManagement() {
       productName: selectedProductRef.name,
       totalQuantity: Number(newInventoryItem.totalQuantity),
       averageCostPrice: baseCost,
+      receivedBy: newInventoryItem.receivedBy,
+      notes: newInventoryItem.notes,
       lots: newInventoryItem.lots.map((lot) => ({
         lotNumber: lot.lotNumber,
         quantity: Number(lot.quantity),
@@ -679,7 +700,7 @@ function InventoryManagement() {
 
       document.dispatchEvent(new CustomEvent('inventory-form-success'));
       setIsAddDialogOpen(false);
-      setNewInventoryItem({ productId: '', totalQuantity: 0, averageCostPrice: 0, lots: [] });
+      setNewInventoryItem({ productId: '', totalQuantity: 0, averageCostPrice: 0, lots: [], receivedBy: '', notes: '' });
       setVariantQuantities([]);
       setProductSearchInput('');
 
@@ -1480,6 +1501,30 @@ function InventoryManagement() {
                     </Button>
                   </div>
                 ) : null}
+                {/* Reception Information */}
+                <div className="space-y-4 border-t pt-4 mt-4">
+                  <h4 className="font-medium">Información de Recepción</h4>
+                  <div className="grid grid-cols-1 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="receivedBy">Recibido por</Label>
+                      <Input
+                        id="receivedBy"
+                        placeholder="Nombre de quien recibe"
+                        value={newInventoryItem.receivedBy}
+                        onChange={(e) => setNewInventoryItem({ ...newInventoryItem, receivedBy: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="notes">Notas</Label>
+                      <Input
+                        id="notes"
+                        placeholder="Observaciones sobre la recepción"
+                        value={newInventoryItem.notes}
+                        onChange={(e) => setNewInventoryItem({ ...newInventoryItem, notes: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
