@@ -296,6 +296,7 @@ export class PurchasesService {
 
   async receivePurchaseOrder(
     id: string,
+    dto: { receivedBy?: string },
     user: any,
     session?: ClientSession,
   ): Promise<PurchaseOrderDocument> {
@@ -393,11 +394,17 @@ export class PurchasesService {
     }
 
     purchaseOrder.status = "received";
+    purchaseOrder.receivedDate = new Date();
+    if (dto.receivedBy) {
+      purchaseOrder.receivedBy = dto.receivedBy;
+    }
     purchaseOrder.history.push({
       status: "received",
       changedAt: new Date(),
       changedBy: user.id,
-      notes: "Orden de compra recibida y stock actualizado.",
+      notes: dto.receivedBy
+        ? `Orden de compra recibida por ${dto.receivedBy} y stock actualizado.`
+        : "Orden de compra recibida y stock actualizado.",
     });
 
     const savedPurchaseOrder = await purchaseOrder.save({ session });

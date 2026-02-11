@@ -171,3 +171,10 @@ export class CreatePurchaseOrderDto {
   @Type(() => PaymentTermsDto)
   paymentTerms: PaymentTermsDto;
 }
+
+export class ReceivePurchaseOrderDto {
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  receivedBy?: string;
+}

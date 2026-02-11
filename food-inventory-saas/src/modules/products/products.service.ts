@@ -252,6 +252,7 @@ export class ProductsService {
       const savedPO = await this.purchasesService.create(purchaseDto, user);
       await this.purchasesService.receivePurchaseOrder(
         savedPO._id.toString(),
+        {}, // Empty DTO - no receivedBy for auto-received orders
         user,
       );
 
@@ -356,7 +357,11 @@ export class ProductsService {
     session.startTransaction();
     try {
       const createdProducts: any[] = [];
+      let productIndex = 0;
       for (const productDto of bulkCreateProductsDto.products) {
+        productIndex++;
+        this.logger.log(`Processing product ${productIndex}/${bulkCreateProductsDto.products.length}: SKU ${productDto.sku}`);
+
         const createProductDto: CreateProductDto = {
           sku: productDto.sku,
           name: productDto.name,
@@ -398,6 +403,7 @@ export class ProductsService {
               unitSize: productDto.variantUnitSize,
               basePrice: productDto.variantBasePrice,
               costPrice: productDto.variantCostPrice,
+              wholesalePrice: productDto.variantWholesalePrice,
               images: [
                 productDto.image1,
                 productDto.image2,
@@ -408,8 +414,17 @@ export class ProductsService {
           ],
         };
 
-        const createdProduct = await this.create(createProductDto, user);
-        createdProducts.push(createdProduct);
+        try {
+          const createdProduct = await this.create(createProductDto, user);
+          createdProducts.push(createdProduct);
+          this.logger.log(`✅ Successfully created product ${productIndex}: ${productDto.sku}`);
+        } catch (productError) {
+          this.logger.error(
+            `❌ Error creating product ${productIndex} (SKU: ${productDto.sku}): ${productError.message}`,
+            productError.stack,
+          );
+          throw new Error(`Error en producto ${productIndex} (SKU: ${productDto.sku}): ${productError.message}`);
+        }
       }
 
       await session.commitTransaction();
@@ -423,7 +438,7 @@ export class ProductsService {
         `Error durante la creación masiva de productos: ${error.message}`,
         error.stack,
       );
-      throw new Error("Error al crear productos masivamente.");
+      throw new Error(error.message || "Error al crear productos masivamente.");
     } finally {
       session.endSession();
     }
@@ -551,9 +566,9 @@ export class ProductsService {
     const listingFields =
       "sku name brand origin description ingredients category subcategory productType isActive hasActivePromotion promotion " +
       "unitOfMeasure isSoldByWeight hasMultipleSellingUnits sellingUnits " +
-      "price salePrice image imageUrl images attributes inventoryConfig " +
+      "price salePrice image imageUrl images attributes inventoryConfig pricingRules " +
       "ivaApplicable igtfExempt taxCategory isPerishable shelfLifeDays shelfLifeUnit storageTemperature sendToKitchen " +
-      "variants.name variants.sku variants.isActive variants.barcode variants.basePrice variants.costPrice variants.price variants.unit variants.unitSize variants.images variants.attributes";
+      "variants.name variants.sku variants.isActive variants.barcode variants.basePrice variants.costPrice variants.wholesalePrice variants.price variants.unit variants.unitSize variants.images variants.attributes";
 
     // Build projection to include text score when doing text search
     const projection = useTextSearch ? { score: { $meta: "textScore" } } : {};

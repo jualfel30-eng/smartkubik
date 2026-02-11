@@ -132,6 +132,9 @@ export class PurchaseOrder {
   @Prop({ type: Date })
   receivedDate?: Date;
 
+  @Prop({ type: String })
+  receivedBy?: string;
+
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;
 

@@ -245,6 +245,12 @@ export class InventoryMovement {
     averageCostPrice: number;
   };
 
+  @Prop({ type: String })
+  receivedBy?: string;
+
+  @Prop({ type: String })
+  notes?: string;
+
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;
 

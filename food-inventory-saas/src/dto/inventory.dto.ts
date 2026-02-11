@@ -181,6 +181,16 @@ export class CreateInventoryDto {
   @ValidateNested({ each: true })
   @Type(() => InventoryAttributeCombinationDto)
   attributeCombinations?: InventoryAttributeCombinationDto[];
+
+  @ApiPropertyOptional({ description: "Nombre de quien recibió el inventario" })
+  @IsOptional()
+  @IsString()
+  receivedBy?: string;
+
+  @ApiPropertyOptional({ description: "Notas sobre la recepción" })
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }
 
 export class InventoryMovementDto {
@@ -234,6 +244,16 @@ export class InventoryMovementDto {
   @IsOptional()
   @IsDateString()
   expirationDate?: string;
+
+  @ApiPropertyOptional({ description: "Nombre de quien recibió el inventario" })
+  @IsOptional()
+  @IsString()
+  receivedBy?: string;
+
+  @ApiPropertyOptional({ description: "Notas sobre el movimiento" })
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }
 
 export class ReserveInventoryDto {
