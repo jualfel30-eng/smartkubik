@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip.jsx';
 import { Combobox } from '@/components/ui/combobox.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
-import { Plus, Trash2, Percent, Scan, ShoppingCart, List, RotateCcw } from 'lucide-react';
+import { Plus, Trash2, Percent, Scan, ShoppingCart, List, RotateCcw, Tag } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { fetchApi } from '@/lib/api.js';
@@ -18,6 +18,7 @@ import { venezuelaData } from '@/lib/venezuela-data.js';
 import { SearchableSelect } from './custom/SearchableSelect';
 import { LocationPicker } from '@/components/ui/LocationPicker.jsx';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
+import { getCurrencyConfig } from '@/lib/currency-config';
 import { useOrderDraft } from '@/hooks/useOrderDraft';
 import ModifierSelector from '@/components/restaurant/ModifierSelector.jsx';
 import { OrderProcessingDrawer } from '../OrderProcessingDrawer';
@@ -29,6 +30,7 @@ import { BarcodeScannerDialog } from '@/components/BarcodeScannerDialog.jsx';
 import { RecipeCustomizerDialog } from './RecipeCustomizerDialog.jsx';
 import { ChefHat, ShieldCheck } from 'lucide-react';
 import { Switch } from '@/components/ui/switch.jsx';
+import { Badge } from '@/components/ui/badge.jsx';
 import ProductGridView from './ProductGridView';
 import ProductSearchView from './ProductSearchView';
 import ProductListView from './ProductListView';
@@ -221,7 +223,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
   const isDesktop = useMediaQuery("(min-width: 1024px)");
   const shouldRenderMobileLayout = isEmbedded || !isDesktop;
 
-  const { rate: bcvRate, loading: loadingRate, error: rateError } = useExchangeRate();
+  const { rate: bcvRate, loading: loadingRate, error: rateError, tenantCurrency } = useExchangeRate();
+  const cc = getCurrencyConfig(tenantCurrency);
   const { tenant, hasPermission } = useAuth();
   const { sessionId, registerId } = useCashRegister();
   const canApplyDiscounts = hasPermission('orders_apply_discounts');
@@ -936,11 +939,18 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
       initialQuantity,
       promotionInfo,
       originalVariantPrice,
+      wholesaleAvailable,
+      wholesalePrice,
+      wholesaleMinQuantity,
     } = config;
 
     const finalUnitPrice = baseUnitPrice + priceAdjustment;
 
     setNewOrder(prev => {
+      // Determine if wholesale should be auto-applied based on quantity
+      const shouldUseWholesale = wholesaleAvailable && initialQuantity >= wholesaleMinQuantity;
+      const effectivePrice = shouldUseWholesale ? wholesalePrice : baseUnitPrice;
+
       const newItem = {
         productId: product._id,
         name: product.name,
@@ -949,7 +959,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         variantSku: variant.sku,
         quantity: initialQuantity,
         unitPrice: baseUnitPrice,
-        finalPrice: finalUnitPrice,
+        finalPrice: effectivePrice + priceAdjustment,
         modifiers,
         specialInstructions,
         ivaApplicable: product.ivaApplicable,
@@ -963,6 +973,11 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         quantityEntryMode: product.isSoldByWeight ? 'quantity' : 'quantity',
         amountInput: '',
         baseVariantPrice: originalVariantPrice,
+        // Wholesale pricing fields
+        wholesaleAvailable: wholesaleAvailable || false,
+        wholesalePrice: wholesalePrice || null,
+        wholesaleMinQuantity: wholesaleMinQuantity || null,
+        useWholesalePrice: shouldUseWholesale,
       };
 
       const items = [...prev.items];
@@ -1038,6 +1053,11 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         }
       }
 
+      // Check if wholesale pricing is available
+      const wholesaleAvailable = product.pricingRules?.wholesaleEnabled === true && variant.wholesalePrice > 0;
+      const wholesalePrice = wholesaleAvailable ? variant.wholesalePrice : null;
+      const wholesaleMinQuantity = wholesaleAvailable ? (product.pricingRules?.wholesaleMinQuantity || 1) : null;
+
       const config = {
         product,
         variant,
@@ -1047,6 +1067,9 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         initialQuantity,
         promotionInfo,
         originalVariantPrice: variant.basePrice || 0,
+        wholesaleAvailable,
+        wholesalePrice,
+        wholesaleMinQuantity,
       };
 
       setPendingProductConfig(config);
@@ -1100,6 +1123,42 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
     setProductSearchInput('');
     handleModifierClose();
   };
+
+  // Toggle wholesale pricing for an item
+  const toggleWholesalePrice = useCallback((itemIndex) => {
+    setNewOrder(prev => {
+      const items = [...prev.items];
+      const item = items[itemIndex];
+
+      if (!item || !item.wholesaleAvailable) return prev;
+
+      // Check if quantity meets minimum requirement
+      const quantity = parseFloat(item.quantity) || 0;
+      const canUseWholesale = quantity >= item.wholesaleMinQuantity;
+
+      if (!canUseWholesale && !item.useWholesalePrice) {
+        // Trying to enable wholesale but quantity is too low
+        alert(`Se requiere una cantidad mínima de ${item.wholesaleMinQuantity} para aplicar precio mayorista.`);
+        return prev;
+      }
+
+      // Toggle wholesale
+      const newUseWholesale = !item.useWholesalePrice;
+      const basePrice = newUseWholesale ? item.wholesalePrice : item.unitPrice;
+
+      // Recalculate finalPrice considering modifiers
+      const modifierAdjustment = calculateModifierAdjustment(item);
+      const newFinalPrice = basePrice + modifierAdjustment;
+
+      items[itemIndex] = {
+        ...item,
+        useWholesalePrice: newUseWholesale,
+        finalPrice: newFinalPrice,
+      };
+
+      return { ...prev, items };
+    });
+  }, []);
 
   const findProductByBarcode = useCallback(
     (code) => {
@@ -1228,6 +1287,20 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         ...item,
         quantity: sanitizedValue,
       };
+
+      // Auto-apply wholesale pricing if quantity meets minimum
+      if (item.wholesaleAvailable) {
+        const quantityNumeric = parseFloat(sanitizedValue) || 0;
+        const shouldUseWholesale = quantityNumeric >= item.wholesaleMinQuantity;
+
+        if (shouldUseWholesale !== item.useWholesalePrice) {
+          // Wholesale status changed due to quantity
+          nextItem.useWholesalePrice = shouldUseWholesale;
+          const basePrice = shouldUseWholesale ? item.wholesalePrice : item.unitPrice;
+          const modifierAdjustment = calculateModifierAdjustment(item);
+          nextItem.finalPrice = basePrice + modifierAdjustment;
+        }
+      }
 
       if (item.isSoldByWeight && item.quantityEntryMode === 'amount') {
         const price = getItemFinalUnitPrice(nextItem);
@@ -1921,10 +1994,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">{item.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {quantity} x ${unitPrice.toFixed(2)}
+                  {quantity} x {cc.symbol}{unitPrice.toFixed(2)}
                 </p>
               </div>
-              <p className="font-semibold ml-2">${itemTotal.toFixed(2)}</p>
+              <p className="font-semibold ml-2">{cc.symbol}{itemTotal.toFixed(2)}</p>
             </div>
           );
         })}
@@ -2018,7 +2091,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                             <span>• {mod.name}{mod.quantity > 1 ? ` x${mod.quantity}` : ''}</span>
                             {adjustment !== 0 && (
                               <span>
-                                ({adjustment > 0 ? '+' : ''}${adjustment.toFixed(2)})
+                                ({adjustment > 0 ? '+' : ''}{cc.symbol}{adjustment.toFixed(2)})
                               </span>
                             )}
                           </div>
@@ -2029,6 +2102,25 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                   {item.specialInstructions && (
                     <div className="text-xs text-orange-600 dark:text-orange-300 italic mt-2">
                       ⚠ {item.specialInstructions}
+                    </div>
+                  )}
+
+                  {/* Wholesale Price Badge & Toggle */}
+                  {item.wholesaleAvailable && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <Badge
+                        variant={item.useWholesalePrice ? "default" : "secondary"}
+                        className="text-[10px] cursor-pointer hover:opacity-80"
+                        onClick={() => toggleWholesalePrice(index)}
+                      >
+                        <Tag className="h-3 w-3 mr-1" />
+                        {item.useWholesalePrice ? `Mayor: ${cc.symbol}${item.wholesalePrice}` : `Mayor disponible`}
+                      </Badge>
+                      {!item.useWholesalePrice && (
+                        <span className="text-[9px] text-muted-foreground">
+                          (min: {item.wholesaleMinQuantity})
+                        </span>
+                      )}
                     </div>
                   )}
                 </TableCell>
@@ -2046,7 +2138,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                           Peso
                         </ToggleGroupItem>
                         <ToggleGroupItem value="amount" aria-label="Ingresar por monto">
-                          $
+                          {cc.symbol}
                         </ToggleGroupItem>
                       </ToggleGroup>
                     )}
@@ -2061,7 +2153,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                             placeholder="Monto"
                             className="w-24 h-8 text-center"
                           />
-                          <span className="ml-2 text-xs text-muted-foreground">USD</span>
+                          <span className="ml-2 text-xs text-muted-foreground">{cc.label}</span>
                         </div>
                         <div className="text-xs text-muted-foreground">
                           ≈ {formatDecimalString(getItemQuantityValue(item))}{' '}
@@ -2117,10 +2209,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="text-sm line-through text-muted-foreground">
-                          ${item.promotionInfo.originalPrice.toFixed(2)}
+                          {cc.symbol}{item.promotionInfo.originalPrice.toFixed(2)}
                         </span>
                         <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                          ${getItemFinalUnitPrice(item).toFixed(2)}
+                          {cc.symbol}{getItemFinalUnitPrice(item).toFixed(2)}
                         </span>
                       </div>
                       <div className="text-xs text-green-600 dark:text-green-400">
@@ -2129,17 +2221,17 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                     </div>
                   ) : (
                     <>
-                      ${getItemFinalUnitPrice(item).toFixed(2)}
+                      {cc.symbol}{getItemFinalUnitPrice(item).toFixed(2)}
                       {item.modifiers && item.modifiers.length > 0 && (
                         <div className="text-xs text-muted-foreground">
-                          Base: ${(Number(item.unitPrice) || 0).toFixed(2)}
+                          Base: {cc.symbol}{(Number(item.unitPrice) || 0).toFixed(2)}
                         </div>
                       )}
                     </>
                   )}
                 </TableCell>
                 <TableCell>
-                  ${(getItemFinalUnitPrice(item) * getItemQuantityValue(item)).toFixed(2)}
+                  {cc.symbol}{(getItemFinalUnitPrice(item) * getItemQuantityValue(item)).toFixed(2)}
                   {!canApplyDiscounts && item.discountPercentage > 0 && (
                     <div className="text-xs text-green-600 dark:text-green-400 font-semibold mt-1">
                       Descuento: -{item.discountPercentage}%
@@ -2474,6 +2566,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                 isEmbedded={true}
                 onSendToKitchen={tenant?.vertical === 'FOOD_SERVICE' ? handleSendToKitchen : undefined}
                 isEditMode={isEditMode}
+                tenantCurrency={tenantCurrency}
               />
             </TabsContent>
           </Tabs>
@@ -2939,6 +3032,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
               // Only pass onSendToKitchen if it's a restaurant, enabling the 2-button layout
               onSendToKitchen={tenant?.vertical === 'FOOD_SERVICE' ? handleSendToKitchen : undefined}
               isEditMode={isEditMode}
+              tenantCurrency={tenantCurrency}
             />
           </div>
         </div>
@@ -2967,7 +3061,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                 <div className="space-y-2">
                   <Label>Precio Original</Label>
                   <div className="text-lg font-semibold">
-                    ${selectedItemForDiscount.unitPrice?.toFixed(2) || '0.00'}
+                    {cc.symbol}{selectedItemForDiscount.unitPrice?.toFixed(2) || '0.00'}
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -2999,10 +3093,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                   <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg">
                     <div className="text-sm text-muted-foreground">Nuevo Precio</div>
                     <div className="text-xl font-bold text-green-600 dark:text-green-400">
-                      ${((selectedItemForDiscount.unitPrice || 0) * (1 - itemDiscountPercentage / 100)).toFixed(2)}
+                      {cc.symbol}{((selectedItemForDiscount.unitPrice || 0) * (1 - itemDiscountPercentage / 100)).toFixed(2)}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      Ahorro: ${((selectedItemForDiscount.unitPrice || 0) * itemDiscountPercentage / 100).toFixed(2)}
+                      Ahorro: {cc.symbol}{((selectedItemForDiscount.unitPrice || 0) * itemDiscountPercentage / 100).toFixed(2)}
                     </div>
                   </div>
                 )}
@@ -3033,7 +3127,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
             <div className="space-y-2">
               <Label>Subtotal Actual</Label>
               <div className="text-lg font-semibold">
-                ${totals.subtotal.toFixed(2)}
+                {cc.symbol}{totals.subtotal.toFixed(2)}
               </div>
             </div>
             <div className="space-y-2">
@@ -3067,13 +3161,13 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Descuento:</span>
                   <span className="font-semibold text-green-600 dark:text-green-400">
-                    -${((totals.subtotal * generalDiscountPercentage) / 100).toFixed(2)}
+                    -{cc.symbol}{((totals.subtotal * generalDiscountPercentage) / 100).toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Nuevo Subtotal:</span>
                   <span className="text-xl font-bold text-green-600 dark:text-green-400">
-                    ${(totals.subtotal * (1 - generalDiscountPercentage / 100)).toFixed(2)}
+                    {cc.symbol}{(totals.subtotal * (1 - generalDiscountPercentage / 100)).toFixed(2)}
                   </span>
                 </div>
                 <div className="text-xs text-muted-foreground mt-2">

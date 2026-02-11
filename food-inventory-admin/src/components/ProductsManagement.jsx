@@ -145,6 +145,7 @@ const createVariantTemplate = (options = {}) => {
     unit,
     unitSize: 1,
     basePrice: 0,
+    wholesalePrice: 0,
     costPrice: 0,
     images: [],
     attributes: {},
@@ -363,6 +364,8 @@ const initialNewProductState = {
     maximumDiscount: 0.5,
     bulkDiscountEnabled: false,
     bulkDiscountRules: [],
+    wholesaleEnabled: false,
+    wholesaleMinQuantity: 1,
   },
   hasActivePromotion: false,
   promotion: {
@@ -402,6 +405,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
     category: true,
     price: true,
     cost: true,
+    wholesalePrice: false,
     variants: true,
     promotion: true,
     status: true,
@@ -869,7 +873,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         const parsed = parseFloat(value);
         nextValue = Number.isNaN(parsed) ? 0 : parsed;
       }
-      if (field === 'costPrice' || field === 'basePrice') {
+      if (field === 'costPrice' || field === 'basePrice' || field === 'wholesalePrice') {
         const parsed = parseFloat(value);
         nextValue = Number.isNaN(parsed) ? 0 : parsed;
       }
@@ -950,7 +954,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
           nextValue = Number.isNaN(parsed) ? '' : parsed;
         }
       }
-      if (field === 'basePrice' || field === 'costPrice') {
+      if (field === 'basePrice' || field === 'costPrice' || field === 'wholesalePrice') {
         if (value === '' || value === null || value === undefined) {
           nextValue = '';
         } else {
@@ -1152,6 +1156,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         unitSize: Number(variant.unitSize) || 1,
         costPrice: Number(variant.costPrice) || 0,
         basePrice: Number(variant.basePrice) || 0,
+        wholesalePrice: Number(variant.wholesalePrice) || undefined,
         images: Array.isArray(variant.images) ? variant.images : [],
       };
 
@@ -1188,6 +1193,8 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         bulkDiscountRules: newProduct.pricingRules?.bulkDiscountEnabled
           ? (newProduct.pricingRules?.bulkDiscountRules || [])
           : [],
+        wholesaleEnabled: newProduct.pricingRules?.wholesaleEnabled || false,
+        wholesaleMinQuantity: newProduct.pricingRules?.wholesaleMinQuantity || 1,
       },
       igtfExempt: false,
       hasMultipleSellingUnits: newProduct.hasMultipleSellingUnits,
@@ -1317,6 +1324,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         unitSize: Number(variant.unitSize) || 1,
         costPrice: Number(variant.costPrice) || 0,
         basePrice: Number(variant.basePrice) || 0,
+        wholesalePrice: Number(variant.wholesalePrice) || undefined,
         images: Array.isArray(variant.images) ? variant.images : [],
       };
       if (sanitizedAttributes !== undefined) {
@@ -1362,6 +1370,8 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         bulkDiscountRules: editingProduct.pricingRules?.bulkDiscountEnabled
           ? (editingProduct.pricingRules?.bulkDiscountRules || [])
           : [],
+        wholesaleEnabled: editingProduct.pricingRules?.wholesaleEnabled || false,
+        wholesaleMinQuantity: editingProduct.pricingRules?.wholesaleMinQuantity || 1,
       },
       hasActivePromotion: editingProduct.hasActivePromotion || false,
       ...(editingProduct.hasActivePromotion && editingProduct.promotion && {
@@ -1662,6 +1672,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       "variantUnitSize",
       "variantBasePrice",
       "variantCostPrice",
+      "variantWholesalePrice",
       "image1",
       "image2",
       "image3",
@@ -1715,6 +1726,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
           variantUnitSize: 1,
           variantBasePrice: 1.5,
           variantCostPrice: 0.8,
+          variantWholesalePrice: 1.35,
           image1: "https://example.com/arroz.jpg",
         },
       ),
@@ -1745,6 +1757,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         variantUnitSize: 1,
         variantBasePrice: 2.2,
         variantCostPrice: 1.5,
+        variantWholesalePrice: 2.0,
         image1: "https://example.com/leche.jpg",
       }),
     ];
@@ -1815,6 +1828,34 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       const variantAttributesPayload = {};
       const normalizedRow = { ...row };
 
+      // Helper function to convert string to boolean
+      const parseBoolean = (value) => {
+        if (typeof value === 'boolean') return value;
+        if (typeof value === 'string') {
+          const lower = value.toLowerCase().trim();
+          return lower === 'true' || lower === '1' || lower === 'yes' || lower === 'sí';
+        }
+        return Boolean(value);
+      };
+
+      // Helper function to convert string to array
+      const parseArray = (value) => {
+        if (Array.isArray(value)) return value;
+        if (!value || String(value).trim() === '') return [];
+        if (typeof value === 'string') {
+          // Split by comma and trim each element
+          return value.split(',').map(item => item.trim()).filter(item => item !== '');
+        }
+        return [String(value)];
+      };
+
+      // Helper function to parse number
+      const parseNumber = (value) => {
+        if (typeof value === 'number') return value;
+        const parsed = parseFloat(value);
+        return isNaN(parsed) ? undefined : parsed;
+      };
+
       Object.entries(row).forEach(([key, value]) => {
         if (key.startsWith('productAttr_')) {
           const attrKey = key.replace('productAttr_', '').trim();
@@ -1833,6 +1874,36 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         }
       });
 
+      // Transform category and subcategory to arrays
+      if (normalizedRow.category) {
+        normalizedRow.category = parseArray(normalizedRow.category);
+      }
+      if (normalizedRow.subcategory) {
+        normalizedRow.subcategory = parseArray(normalizedRow.subcategory);
+      }
+
+      // Transform boolean fields
+      if (normalizedRow.isSoldByWeight !== undefined) {
+        normalizedRow.isSoldByWeight = parseBoolean(normalizedRow.isSoldByWeight);
+      }
+      if (normalizedRow.isPerishable !== undefined) {
+        normalizedRow.isPerishable = parseBoolean(normalizedRow.isPerishable);
+      }
+      if (normalizedRow.ivaApplicable !== undefined) {
+        normalizedRow.ivaApplicable = parseBoolean(normalizedRow.ivaApplicable);
+      }
+
+      // Transform numeric fields
+      const numericFields = [
+        'variantUnitSize', 'variantBasePrice', 'variantCostPrice', 'variantWholesalePrice',
+        'shelfLifeDays', 'minimumStock', 'maximumStock', 'reorderPoint', 'reorderQuantity'
+      ];
+      numericFields.forEach(field => {
+        if (normalizedRow[field] !== undefined && normalizedRow[field] !== null && normalizedRow[field] !== '') {
+          normalizedRow[field] = parseNumber(normalizedRow[field]);
+        }
+      });
+
       if (Object.keys(productAttributesPayload).length > 0) {
         normalizedRow.productAttributes = productAttributesPayload;
       }
@@ -1847,6 +1918,9 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       products: normalizedProducts,
     };
 
+    // Debug: Log the payload being sent
+    console.log('📦 Sending bulk import payload:', JSON.stringify(payload, null, 2));
+
     try {
       await fetchApi('/products/bulk', {
         method: 'POST',
@@ -1858,7 +1932,10 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory, defaultProductType); // Recargar la lista de productos
 
     } catch (error) {
-      console.error("Export failed", error);
+      console.error("Bulk import failed:", error);
+      console.error("Error details:", error.message, error.stack);
+      // Show more detailed error to user
+      alert(`Error al importar productos: ${error.message || 'Error desconocido'}`);
       throw error; // Let dialog handle it
     }
   };
@@ -1882,6 +1959,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       { key: 'variantSku', label: 'Variante SKU', defaultChecked: true },
       { key: 'variantCost', label: 'Variante Costo', defaultChecked: true },
       { key: 'variantPrice', label: 'Variante Precio', defaultChecked: true },
+      { key: 'variantWholesalePrice', label: 'Variante P. Mayor', defaultChecked: false },
     ];
 
     const pAttrs = productAttributeColumns.map(({ descriptor }) => ({
@@ -1953,6 +2031,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
           if (selectedColumnKeys.includes('variantSku')) row['Variante SKU'] = v.sku || '';
           if (selectedColumnKeys.includes('variantCost')) row['Variante Costo'] = v.costPrice || 0;
           if (selectedColumnKeys.includes('variantPrice')) row['Variante Precio'] = v.basePrice || 0;
+          if (selectedColumnKeys.includes('variantWholesalePrice')) row['Variante P. Mayor'] = v.wholesalePrice || 0;
 
           // Attributes
           productAttributeColumns.forEach(({ descriptor }) => {
@@ -2043,6 +2122,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
             <DropdownMenuCheckboxItem checked={visibleColumns.category} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, category: checked }))}>Categoría</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={visibleColumns.price} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, price: checked }))}>Precio</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={visibleColumns.cost} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, cost: checked }))}>Costo</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.wholesalePrice} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, wholesalePrice: checked }))}>P. Mayor</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={visibleColumns.variants} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, variants: checked }))}>Variantes</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={visibleColumns.promotion} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, promotion: checked }))}>Promoción</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={visibleColumns.status} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, status: checked }))}>Estado</DropdownMenuCheckboxItem>
@@ -2697,6 +2777,60 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 </div>
               )}
 
+              {/* Precio Mayorista solo para mercancía */}
+              {newProduct.productType === 'simple' && showSalesFields && (
+                <div className="col-span-2 border-t pt-4 mt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-medium">Precio Mayorista</h4>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="wholesaleEnabled"
+                        checked={newProduct.pricingRules?.wholesaleEnabled || false}
+                        onCheckedChange={(checked) =>
+                          setNewProduct({
+                            ...newProduct,
+                            pricingRules: {
+                              ...newProduct.pricingRules,
+                              wholesaleEnabled: checked,
+                            }
+                          })
+                        }
+                      />
+                      <Label htmlFor="wholesaleEnabled">Activar Precio Mayorista</Label>
+                    </div>
+                  </div>
+
+                  {newProduct.pricingRules?.wholesaleEnabled && (
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        Define un precio fijo para ventas al mayor. El precio mayorista de cada variante se configura junto a su precio de venta.
+                      </p>
+                      <div className="max-w-xs space-y-2">
+                        <Label>Cantidad Mínima para Precio Mayorista</Label>
+                        <NumberInput
+                          value={newProduct.pricingRules?.wholesaleMinQuantity ?? 1}
+                          onValueChange={(val) =>
+                            setNewProduct({
+                              ...newProduct,
+                              pricingRules: {
+                                ...newProduct.pricingRules,
+                                wholesaleMinQuantity: val,
+                              }
+                            })
+                          }
+                          step={1}
+                          min={1}
+                          placeholder="Ej: 10"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          A partir de esta cantidad se aplica automáticamente el precio mayorista. El vendedor también puede aplicarlo manualmente.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Promociones solo para mercancía */}
               {newProduct.productType === 'simple' && showSalesFields && (
                 <div className="col-span-2 border-t pt-4 mt-4">
@@ -3296,6 +3430,22 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                       />
                     </div>
                   )}
+                  {/* Precio Mayorista solo si está habilitado */}
+                  {newProduct.productType === 'simple' && showSalesFields && newProduct.pricingRules?.wholesaleEnabled && (
+                    <div className="space-y-2">
+                      <Label htmlFor="variantWholesalePrice">Precio Mayorista ($)</Label>
+                      <NumberInput
+                        id="variantWholesalePrice"
+                        value={newProduct.variant.wholesalePrice ?? ''}
+                        onValueChange={(val) =>
+                          setNewProduct({ ...newProduct, variant: { ...newProduct.variant, wholesalePrice: val } })
+                        }
+                        step={0.01}
+                        min={0}
+                        placeholder="Precio mayorista"
+                      />
+                    </div>
+                  )}
                 </div>
                 {variantAttributes.length > 0 && (
                   <div className="border-t pt-4 mt-4">
@@ -3437,6 +3587,18 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                                 step={0.01}
                                 min={0}
                                 placeholder="Precio venta"
+                              />
+                            </div>
+                          )}
+                          {showSalesFields && newProduct.pricingRules?.wholesaleEnabled && (
+                            <div className="space-y-2">
+                              <Label>Precio mayorista ($)</Label>
+                              <NumberInput
+                                value={variant.wholesalePrice ?? ''}
+                                onValueChange={(val) => updateAdditionalVariantField(index, 'wholesalePrice', val)}
+                                step={0.01}
+                                min={0}
+                                placeholder="Precio mayorista"
                               />
                             </div>
                           )}
@@ -3803,6 +3965,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   {visibleColumns.category && <TableHead>Categoría</TableHead>}
                   {showSalesFields && visibleColumns.price && <TableHead className="text-right">Precio Venta</TableHead>}
                   {visibleColumns.cost && <TableHead className="text-right">Costo</TableHead>}
+                  {showSalesFields && visibleColumns.wholesalePrice && <TableHead className="text-right">P. Mayor</TableHead>}
                   {visibleColumns.variants && <TableHead>Variantes</TableHead>}
                   {showSalesFields && visibleColumns.promotion && <TableHead>Promoción</TableHead>}
                   {visibleColumns.status && <TableHead>Estado</TableHead>}
@@ -3891,6 +4054,28 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                         )}
                       </TableCell>
                     )}
+                    {showSalesFields && visibleColumns.wholesalePrice && (
+                      <TableCell className="text-right">
+                        {product.variants?.length > 1 ? (
+                          <ProductVariantsPopover
+                            variants={product.variants}
+                            onUpdateVariant={(idx, field, val) => handleInlineUpdate(product._id, field, val, idx)}
+                          >
+                            <div className="text-blue-600 dark:text-blue-400 cursor-pointer inline-flex items-center justify-end gap-1 group hover:bg-muted/50 p-1 rounded transition-colors">
+                              {product.variants[0]?.wholesalePrice ? `$${(product.variants[0].wholesalePrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '-'}
+                              <span className="text-[10px] text-blue-500 font-bold group-hover:underline decoration-blue-500">(+)</span>
+                            </div>
+                          </ProductVariantsPopover>
+                        ) : (
+                          <InlineEditableCell
+                            value={product.variants?.[0]?.wholesalePrice || 0}
+                            type="currency"
+                            onSave={(val) => handleInlineUpdate(product._id, 'wholesalePrice', val)}
+                            className="justify-end text-blue-600 dark:text-blue-400"
+                          />
+                        )}
+                      </TableCell>
+                    )}
                     {visibleColumns.variants && <TableCell>{product.variants.length}</TableCell>}
                     {showSalesFields && visibleColumns.promotion && (
                       <TableCell>
@@ -3949,6 +4134,22 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                             }
                             if (!productToEdit.sellingUnits) {
                               productToEdit.sellingUnits = [];
+                            }
+                            // Initialize pricingRules fields if missing (for legacy products)
+                            if (!productToEdit.pricingRules) {
+                              productToEdit.pricingRules = {};
+                            }
+                            if (productToEdit.pricingRules.wholesaleEnabled === undefined) {
+                              productToEdit.pricingRules.wholesaleEnabled = false;
+                            }
+                            if (productToEdit.pricingRules.wholesaleMinQuantity === undefined) {
+                              productToEdit.pricingRules.wholesaleMinQuantity = 1;
+                            }
+                            if (productToEdit.pricingRules.bulkDiscountEnabled === undefined) {
+                              productToEdit.pricingRules.bulkDiscountEnabled = false;
+                            }
+                            if (!productToEdit.pricingRules.bulkDiscountRules) {
+                              productToEdit.pricingRules.bulkDiscountRules = [];
                             }
                             // Fix: Map legacy attributes.storageCondition to native storageTemperature if missing
                             if (!productToEdit.storageTemperature && productToEdit.attributes?.storageCondition) {
@@ -4433,6 +4634,59 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                       >
                         + Agregar Regla de Descuento
                       </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Sección de Precio Mayorista en Edit */}
+                <div className="col-span-2 border-t pt-4 mt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-medium">Precio Mayorista</h4>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="edit-wholesaleEnabled"
+                        checked={editingProduct.pricingRules?.wholesaleEnabled || false}
+                        onCheckedChange={(checked) =>
+                          setEditingProduct({
+                            ...editingProduct,
+                            pricingRules: {
+                              ...editingProduct.pricingRules,
+                              wholesaleEnabled: checked,
+                            }
+                          })
+                        }
+                      />
+                      <Label htmlFor="edit-wholesaleEnabled">Activar Precio Mayorista</Label>
+                    </div>
+                  </div>
+
+                  {editingProduct.pricingRules?.wholesaleEnabled && (
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        Define un precio fijo para ventas al mayor. El precio mayorista de cada variante se configura en la sección de variantes.
+                      </p>
+                      <div className="max-w-xs space-y-2">
+                        <Label>Cantidad Mínima para Precio Mayorista</Label>
+                        <Input
+                          type="number"
+                          value={editingProduct.pricingRules?.wholesaleMinQuantity ?? 1}
+                          onChange={(e) =>
+                            setEditingProduct({
+                              ...editingProduct,
+                              pricingRules: {
+                                ...editingProduct.pricingRules,
+                                wholesaleMinQuantity: parseInt(e.target.value) || 1,
+                              }
+                            })
+                          }
+                          min={1}
+                          step={1}
+                          placeholder="Ej: 10"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          A partir de esta cantidad se aplica automáticamente el precio mayorista. El vendedor también puede aplicarlo manualmente.
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -5062,6 +5316,17 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                             placeholder="0.00"
                           />
                         </div>
+                        {editingProduct?.pricingRules?.wholesaleEnabled && (
+                          <div className="space-y-2">
+                            <Label>Precio mayorista ($)</Label>
+                            <Input
+                              type="number"
+                              value={variant.wholesalePrice ?? ''}
+                              onChange={(e) => handleEditVariantFieldChange(index, 'wholesalePrice', e.target.value)}
+                              placeholder="0.00"
+                            />
+                          </div>
+                        )}
                       </div>
 
                       {variantAttributes.length > 0 && (

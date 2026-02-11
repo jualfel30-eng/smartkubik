@@ -32,6 +32,9 @@ export class ProductVariant {
   @Prop({ type: Number, required: true })
   basePrice: number;
 
+  @Prop({ type: Number })
+  wholesalePrice?: number;
+
   @Prop({ type: Number, required: true })
   costPrice: number;
 
@@ -241,6 +244,8 @@ export class Product {
       minQuantity: number;
       discountPercentage: number;
     }>;
+    wholesaleEnabled?: boolean;
+    wholesaleMinQuantity?: number;
   };
 
   @Prop({ type: Object })

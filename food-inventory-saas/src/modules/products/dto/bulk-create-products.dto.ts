@@ -92,6 +92,10 @@ export class BulkProductDto {
   @IsNumber()
   variantCostPrice: number;
 
+  @IsNumber()
+  @IsOptional()
+  variantWholesalePrice?: number;
+
   @IsString()
   @IsOptional()
   image1?: string;

@@ -7,10 +7,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useCrmContext } from '@/context/CrmContext';
 import { X, Plus, Calculator } from 'lucide-react';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
+import { getCurrencyConfig, isVesMethod } from '@/lib/currency-config';
 
 export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
   const { paymentMethods, loading: contextLoading } = useCrmContext();
-  const { rate: bcvRate } = useExchangeRate();
+  const { rate: bcvRate, tenantCurrency } = useExchangeRate();
+  const cc = getCurrencyConfig(tenantCurrency);
   const [payments, setPayments] = useState([]);
 
   useEffect(() => {
@@ -131,7 +133,7 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
                   <div className="flex-1 space-y-1">
                     <Input
                       type="number"
-                      placeholder="Monto ($)"
+                      placeholder={`Monto (${cc.symbol})`}
                       value={line.amount}
                       onChange={(e) => handleUpdatePayment(line.id, 'amount', e.target.value)}
                       className={remaining < -0.01 ? "border-red-500 focus-visible:ring-red-500" : ""}
@@ -159,7 +161,7 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
                     {line.amountTendered && Number(line.amount) > 0 && (
                       <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md text-xs">
                         <p className="font-bold text-green-700 dark:text-green-300 flex items-center gap-2">
-                          Vuelto: {isVesMethod(line.method) ? 'Bs' : '$'} {
+                          Vuelto: {isVesMethod(line.method) ? 'Bs' : cc.symbol} {
                             (parseFloat(line.amountTendered) - Number(line.amount)).toFixed(2)
                           }
                         </p>
@@ -177,7 +179,7 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
                   >
                     <Calculator className="w-3 h-3 group-hover:text-blue-600" />
                     <span>
-                      Faltan: <span className="font-medium text-blue-600 group-hover:underline">${lineRemaining.toFixed(2)}</span>
+                      Faltan: <span className="font-medium text-blue-600 group-hover:underline">{cc.symbol}{lineRemaining.toFixed(2)}</span>
                       {bcvRate > 0 && (
                         <>
                           {' '}≈{' '}
@@ -198,16 +200,16 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
 
         <div className="p-6 bg-muted/30 border-t mt-auto space-y-4">
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between text-muted-foreground"><span>Total Orden:</span><span>${totalAmount.toFixed(2)}</span></div>
-            <div className="flex justify-between text-orange-600"><span>+ IGTF (3%):</span><span>${igtf.toFixed(2)}</span></div>
-            <div className="border-t pt-2 flex justify-between font-bold text-base"><span>Total a Pagar:</span><span>${totalRequired.toFixed(2)}</span></div>
+            <div className="flex justify-between text-muted-foreground"><span>Total Orden:</span><span>{cc.symbol}{totalAmount.toFixed(2)}</span></div>
+            <div className="flex justify-between text-orange-600"><span>+ IGTF (3%):</span><span>{cc.symbol}{igtf.toFixed(2)}</span></div>
+            <div className="border-t pt-2 flex justify-between font-bold text-base"><span>Total a Pagar:</span><span>{cc.symbol}{totalRequired.toFixed(2)}</span></div>
 
-            <div className="flex justify-between font-medium"><span>Pagado:</span><span>${totalPaid.toFixed(2)}</span></div>
+            <div className="flex justify-between font-medium"><span>Pagado:</span><span>{cc.symbol}{totalPaid.toFixed(2)}</span></div>
 
             <div className={`flex justify-between font-bold text-lg ${remaining < -0.01 ? 'text-red-500' : (remaining > 0.01 ? 'text-blue-600' : 'text-green-600')}`}>
               <span>Restante:</span>
               <div className="text-right">
-                <div>${remaining.toFixed(2)}</div>
+                <div>{cc.symbol}{remaining.toFixed(2)}</div>
                 {remaining !== 0 && bcvRate > 0 && (
                   <div className="text-sm font-normal text-muted-foreground">
                     ≈ Bs {(remaining * bcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

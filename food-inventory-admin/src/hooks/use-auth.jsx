@@ -35,6 +35,7 @@ function normalizeTenant(rawTenant) {
       key: rawTenant.verticalProfile?.key || 'food-service',
       overrides: rawTenant.verticalProfile?.overrides || {},
     },
+    currency: rawTenant.settings?.currency?.primary || 'USD',
     aiAssistant: {
       autoReplyEnabled: Boolean(aiAssistant.autoReplyEnabled),
       knowledgeBaseTenantId: aiAssistant.knowledgeBaseTenantId || '',

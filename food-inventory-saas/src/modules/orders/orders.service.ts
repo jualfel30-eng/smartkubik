@@ -96,10 +96,19 @@ export class OrdersService {
     if (!tenant) {
       throw new NotFoundException("Tenant not found");
     }
+    const tenantCurrency = tenant.settings?.currency?.primary || "USD";
+    const ccLabel = tenantCurrency === "EUR" ? "EUR" : "USD";
+
+    const foreignMethods = [
+      { id: "efectivo_usd", name: `Efectivo (${ccLabel})`, igtfApplicable: true },
+      { id: "transferencia_usd", name: `Transferencia (${ccLabel})`, igtfApplicable: true },
+      ...(tenantCurrency !== "EUR"
+        ? [{ id: "zelle_usd", name: "Zelle (USD)", igtfApplicable: true }]
+        : []),
+    ];
+
     const baseMethods = [
-      { id: "efectivo_usd", name: "Efectivo (USD)", igtfApplicable: true },
-      { id: "transferencia_usd", name: "Transferencia (USD)", igtfApplicable: true },
-      { id: "zelle_usd", name: "Zelle (USD)", igtfApplicable: true },
+      ...foreignMethods,
       { id: "efectivo_ves", name: "Efectivo (VES)", igtfApplicable: false },
       { id: "transferencia_ves", name: "Transferencia (VES)", igtfApplicable: false },
       { id: "pago_movil_ves", name: "Pago Móvil (VES)", igtfApplicable: false },
@@ -612,13 +621,14 @@ export class OrdersService {
       (createOrderDto.discountAmount || 0) -
       totalMarketingDiscount;
 
-    // Calcular totalAmountVes usando la tasa de cambio actual
+    // Calcular totalAmountVes usando la tasa de cambio actual (según moneda del tenant)
+    const tenantCurrency = tenant.settings?.currency?.primary || "USD";
     let totalAmountVes = 0;
     try {
-      const rateData = await this.exchangeRateService.getBCVRate();
+      const rateData = await this.exchangeRateService.getRateForCurrency(tenantCurrency);
       totalAmountVes = totalAmount * rateData.rate;
       this.logger.log(
-        `Calculated totalAmountVes: ${totalAmountVes} (rate: ${rateData.rate})`,
+        `Calculated totalAmountVes: ${totalAmountVes} (${tenantCurrency} rate: ${rateData.rate})`,
       );
     } catch (error) {
       this.logger.warn("Failed to get exchange rate, totalAmountVes will be 0");
@@ -836,7 +846,7 @@ export class OrdersService {
             amount: p.amount,
             method: p.method,
             date: p.date.toISOString(),
-            currency: p.method.includes("_usd") ? "USD" : "VES",
+            currency: p.method.includes("_usd") ? tenantCurrency : "VES",
             reference: p.reference,
           };
           return this.paymentsService.create(paymentDto, user);
@@ -1829,6 +1839,8 @@ export class OrdersService {
     if (!order) {
       throw new NotFoundException("Orden no encontrada");
     }
+    const tenantForCurrency = await this.tenantModel.findById(user.tenantId).select('settings.currency').lean() as any;
+    const tenantCurrency = tenantForCurrency?.settings?.currency?.primary || "USD";
     const existingOutMovements = await this.inventoryMovementsService.hasOutMovementsForOrder(
       order._id.toString(),
       user.tenantId,
@@ -1874,7 +1886,7 @@ export class OrdersService {
             amountVes: vesAmount,
             exchangeRate: rate,
             method: p.method,
-            currency: p.currency || "USD",
+            currency: p.currency || tenantCurrency,
             reference: p.reference || "",
             bankAccountId: p.bankAccountId,
             // Nuevos campos para tracking de vuelto / cash tender
@@ -1927,7 +1939,7 @@ export class OrdersService {
         amount: paymentDoc.amount,
         amountVes: paymentDoc.amountVes,
         exchangeRate: paymentDoc.exchangeRate,
-        currency: paymentDoc.currency || "USD",
+        currency: paymentDoc.currency || tenantCurrency,
         reference: paymentDoc.reference || "",
         date: paymentDoc.date,
         isConfirmed: paymentDoc.status === "confirmed",

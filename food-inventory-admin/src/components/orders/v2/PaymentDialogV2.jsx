@@ -13,8 +13,13 @@ import { Badge } from "@/components/ui/badge";
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
 import MixedChangeModal from './MixedChangeModal';
+import { useAuth } from '@/hooks/use-auth';
+import { getCurrencyConfig } from '@/lib/currency-config';
 
 export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exchangeRate, overrideTotalAmount, overrideTotalAmountVes, isDeliveryNote }) {
+  const { tenant } = useAuth();
+  const tenantCurrency = tenant?.currency || 'USD';
+  const cc = getCurrencyConfig(tenantCurrency);
   const { paymentMethods, paymentMethodsLoading } = useCrmContext();
   const { triggerRefresh } = useAccountingContext();
   const { isFoodService } = useVerticalConfig();
@@ -374,7 +379,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
         amount: amountUSD,
         amountVes: amountVes,
         exchangeRate: rateForCalc,
-        currency: isVes ? 'VES' : 'USD',
+        currency: isVes ? 'VES' : tenantCurrency,
         method: singlePayment.method,
         date: paymentDate,
         reference: singlePayment.reference,
@@ -427,7 +432,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
           amount: amountUSD,
           amountVes: amountVes,
           exchangeRate: rateForCalc,
-          currency: isVes ? 'VES' : 'USD',
+          currency: isVes ? 'VES' : tenantCurrency,
           method: p.method,
           date: paymentDate,
           reference: p.reference,
@@ -495,7 +500,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
             notes: tipMode === 'percentage' ? `Propina ${tipPercentage}%` : 'Propina personalizada'
           });
           toast.success('Propina registrada', {
-            description: `$${calculatedTipAmount.toFixed(2)} para el equipo`
+            description: `${cc.symbol}${calculatedTipAmount.toFixed(2)} para el equipo`
           });
         } catch (tipError) {
           console.error("Error registering tip:", tipError);
@@ -525,7 +530,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
           <DialogHeader className="p-6 pb-2">
             <DialogTitle>Registrar Pago</DialogTitle>
             <DialogDescription>
-              Orden: {order.orderNumber} | Balance Pendiente: ${remainingAmount.toFixed(2)} USD
+              Orden: {order.orderNumber} | Balance Pendiente: {cc.symbol}{remainingAmount.toFixed(2)} {cc.label}
               {remainingAmountVes > 0 && ` / Bs ${remainingAmountVes.toFixed(2)}`}
               {isDeliveryNote && ' (Nota de Entrega — sin IVA/IGTF)'}
             </DialogDescription>
@@ -591,17 +596,17 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                         <>
                           <div className="flex justify-between text-sm">
                             <span>Monto orden:</span>
-                            <span>${remainingAmount.toFixed(2)}</span>
+                            <span>{cc.symbol}{remainingAmount.toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between text-sm text-orange-600">
                             <span>IGTF (3%):</span>
-                            <span>${calculateIgtf(remainingAmount, singlePayment.method).toFixed(2)}</span>
+                            <span>{cc.symbol}{calculateIgtf(remainingAmount, singlePayment.method).toFixed(2)}</span>
                           </div>
                           <div className="pt-2 border-t">
                             <div className="flex justify-between">
                               <span className="font-semibold">Total a cobrar:</span>
                               <span className="text-lg font-bold">
-                                ${(remainingAmount + calculateIgtf(remainingAmount, singlePayment.method)).toFixed(2)}
+                                {cc.symbol}{(remainingAmount + calculateIgtf(remainingAmount, singlePayment.method)).toFixed(2)}
                               </span>
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
@@ -614,13 +619,13 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                           <p className="text-lg font-semibold">
                             {isVesMethod(singlePayment.method)
                               ? `Bs ${remainingAmountVes.toFixed(2)}`
-                              : `$${remainingAmount.toFixed(2)}`
+                              : `${cc.symbol}${remainingAmount.toFixed(2)}`
                             }
                           </p>
                           {singlePayment.method && (
                             <p className="text-sm text-muted-foreground mt-1">
                               {isVesMethod(singlePayment.method)
-                                ? `≈ $${remainingAmount.toFixed(2)} USD`
+                                ? `≈ ${cc.symbol}${remainingAmount.toFixed(2)} ${cc.label}`
                                 : `≈ Bs ${remainingAmountVes.toFixed(2)}`
                               }
                             </p>
@@ -653,7 +658,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                         <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
                           <p className="text-sm font-medium text-green-700 dark:text-green-300 flex items-center gap-2">
                             <HandCoins className="w-4 h-4" />
-                            Vuelto: {isVesMethod(singlePayment.method) ? 'Bs' : '$'} {
+                            Vuelto: {isVesMethod(singlePayment.method) ? 'Bs' : cc.symbol} {
                               (() => {
                                 // Calculate total amount including IGTF if applicable
                                 const baseAmount = isVesMethod(singlePayment.method) ? remainingAmountVes : remainingAmount;
@@ -703,7 +708,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                                   <div className="mt-2 p-2 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-md">
                                     <p className="text-xs font-medium text-purple-900 dark:text-purple-100">Vuelto Dividido:</p>
                                     <ul className="text-xs text-purple-700 dark:text-purple-300 mt-1 space-y-0.5">
-                                      <li>• USD: ${singlePayment.changeGivenBreakdown.usd.toFixed(2)} (Efectivo)</li>
+                                      <li>• {cc.label}: {cc.symbol}{singlePayment.changeGivenBreakdown.usd.toFixed(2)} (Efectivo)</li>
                                       <li>• VES: Bs {singlePayment.changeGivenBreakdown.ves.toFixed(2)} ({singlePayment.changeGivenBreakdown.vesMethod === 'efectivo_ves' ? 'Efectivo' : 'PagoMóvil'})</li>
                                     </ul>
                                     <Button
@@ -826,7 +831,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
 
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-2">
-                          <Label>{lineIsVes ? 'Monto en Bs' : 'Monto en $'}</Label>
+                          <Label>{lineIsVes ? 'Monto en Bs' : `Monto en ${cc.symbol}`}</Label>
                           <div className="flex gap-2">
                             <Input
                               type="number"
@@ -847,7 +852,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                                   const newVal = currentVal + (lineIsVes ? missingVES : missingUSD);
                                   handleUpdatePaymentLine(line.id, 'amount', newVal.toFixed(2));
                                 }}
-                                title={`Autocompletar faltante: $${missingUSD.toFixed(2)}`}
+                                title={`Autocompletar faltante: ${cc.symbol}${missingUSD.toFixed(2)}`}
                               >
                                 <Wand2 className="h-4 w-4" />
                               </Button>
@@ -866,7 +871,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                             >
                               <Calculator className="w-3 h-3 group-hover:text-blue-600" />
                               <span>
-                                Falta: <span className="font-medium text-blue-600 group-hover:underline">${missingUSD.toFixed(2)}</span>
+                                Falta: <span className="font-medium text-blue-600 group-hover:underline">{cc.symbol}{missingUSD.toFixed(2)}</span>
                                 {rate > 0 && (
                                   <>
                                     {' '}≈{' '}
@@ -879,7 +884,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
 
                           {lineIsVes && lineAmount > 0 && (
                             <p className="text-xs text-muted-foreground">
-                              Equivalente: ${lineAmountUsd.toFixed(2)} USD
+                              Equivalente: {cc.symbol}{lineAmountUsd.toFixed(2)} {cc.label}
                             </p>
                           )}
                           {!lineIsVes && lineAmount > 0 && (
@@ -889,7 +894,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                           )}
                           {!lineIsVes && lineAmount > 0 && lineIgtf > 0 && (
                             <p className="text-xs text-orange-600">
-                              IGTF (3%): +${lineIgtf.toFixed(2)}
+                              IGTF (3%): +{cc.symbol}{lineIgtf.toFixed(2)}
                             </p>
                           )}
                         </div>
@@ -911,7 +916,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                               <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
                                 <p className="text-sm font-medium text-green-700 dark:text-green-300 flex items-center gap-2">
                                   <HandCoins className="w-4 h-4" />
-                                  Vuelto: {lineIsVes ? 'Bs' : '$'} {
+                                  Vuelto: {lineIsVes ? 'Bs' : cc.symbol} {
                                     (() => {
                                       // Include IGTF in total if applicable
                                       const totalToPay = lineAmount + (lineIgtf || 0);
@@ -961,7 +966,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                   <Label className="text-base font-semibold">Propina</Label>
                   {calculatedTipAmount > 0 && (
                     <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
-                      ${calculatedTipAmount.toFixed(2)}
+                      {cc.symbol}{calculatedTipAmount.toFixed(2)}
                     </Badge>
                   )}
                 </div>
@@ -1032,7 +1037,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                   {tipMode === 'custom' && (
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="custom-tip">Monto de propina (USD)</Label>
+                        <Label htmlFor="custom-tip">Monto de propina ({cc.label})</Label>
                         <Input
                           id="custom-tip"
                           type="number"
@@ -1079,7 +1084,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                       <div className="p-3 bg-amber-100/50 dark:bg-amber-900/30 rounded-md">
                         <p className="text-sm text-muted-foreground">Propina calculada:</p>
                         <p className="text-lg font-bold text-amber-700 dark:text-amber-400">
-                          ${calculatedTipAmount.toFixed(2)} USD
+                          {cc.symbol}{calculatedTipAmount.toFixed(2)} {cc.label}
                         </p>
                         {exchangeRate > 0 && (
                           <p className="text-xs text-muted-foreground">
@@ -1125,23 +1130,23 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
               <div className="space-y-2">
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Subtotal Orden:</span>
-                  <span>${remainingAmount.toFixed(2)}</span>
+                  <span>{cc.symbol}{remainingAmount.toFixed(2)}</span>
                 </div>
                 {mixedPaymentTotals.igtf > 0 && (
                   <div className="flex justify-between text-sm text-orange-600">
                     <span>+ IGTF (3%):</span>
-                    <span>${mixedPaymentTotals.igtf.toFixed(2)}</span>
+                    <span>{cc.symbol}{mixedPaymentTotals.igtf.toFixed(2)}</span>
                   </div>
                 )}
 
                 <div className="flex justify-between text-base font-medium border-t pt-1">
                   <span>Total Requerido:</span>
-                  <span>${(remainingAmount + mixedPaymentTotals.igtf).toFixed(2)}</span>
+                  <span>{cc.symbol}{(remainingAmount + mixedPaymentTotals.igtf).toFixed(2)}</span>
                 </div>
 
                 <div className="flex justify-between font-bold text-lg bg-muted/50 p-2 rounded">
                   <span>Total Pagado:</span>
-                  <span>${mixedPaymentTotals.totalUSD.toFixed(2)}</span>
+                  <span>{cc.symbol}{mixedPaymentTotals.totalUSD.toFixed(2)}</span>
                 </div>
 
                 {Math.abs(mixedPaymentTotals.totalUSD - (remainingAmount + mixedPaymentTotals.igtf)) > 0.01 && (
@@ -1150,7 +1155,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                       {mixedPaymentTotals.totalUSD < (remainingAmount + mixedPaymentTotals.igtf) ? '⚠️ Falta por cubrir:' : '⚠️ Exceso de pago:'}
                     </span>
                     <span className="font-semibold">
-                      ${Math.abs(mixedPaymentTotals.totalUSD - (remainingAmount + mixedPaymentTotals.igtf)).toFixed(2)}
+                      {cc.symbol}{Math.abs(mixedPaymentTotals.totalUSD - (remainingAmount + mixedPaymentTotals.igtf)).toFixed(2)}
                     </span>
                   </div>
                 )}

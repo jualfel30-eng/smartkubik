@@ -1,6 +1,18 @@
 import { Injectable, Logger } from "@nestjs/common";
 import axios from "axios";
 
+interface CurrencyRate {
+  rate: number;
+  lastUpdate: Date;
+  source: string;
+}
+
+interface BCVRatesResponse {
+  usd: CurrencyRate;
+  eur: CurrencyRate;
+}
+
+// Backward-compatible single-rate response
 interface BCVRateResponse {
   rate: number;
   lastUpdate: Date;
@@ -10,19 +22,80 @@ interface BCVRateResponse {
 @Injectable()
 export class ExchangeRateService {
   private readonly logger = new Logger(ExchangeRateService.name);
-  private cachedRate: BCVRateResponse | null = null;
+  private cachedRates: BCVRatesResponse | null = null;
   private cacheExpiry: Date | null = null;
   private readonly CACHE_DURATION_MS = 3600000; // 1 hora
 
-  async getBCVRate(): Promise<BCVRateResponse> {
-    // Verificar si tenemos cache válido
-    if (this.cachedRate && this.cacheExpiry && new Date() < this.cacheExpiry) {
-      this.logger.log("Returning cached BCV rate");
-      return this.cachedRate;
+  private readonly FALLBACK_USD = 52.0;
+  private readonly FALLBACK_EUR = 56.0;
+
+  private readonly HTTP_HEADERS = {
+    "User-Agent":
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    Accept: "application/json",
+  };
+
+  /**
+   * Fetch both USD and EUR rates from BCV.
+   * Primary source: DolarAPI /v1/cotizaciones (returns both currencies).
+   * Fallback: individual USD APIs + stale cache for EUR.
+   */
+  async getBCVRates(): Promise<BCVRatesResponse> {
+    // Check cache
+    if (this.cachedRates && this.cacheExpiry && new Date() < this.cacheExpiry) {
+      this.logger.log("Returning cached BCV rates");
+      return this.cachedRates;
     }
 
-    // Intentar múltiples APIs en orden
-    const apis = [
+    // Try primary API: /v1/cotizaciones (returns both USD and EUR)
+    try {
+      this.logger.log("Fetching BCV rates from DolarAPI Cotizaciones...");
+      const response = await axios.get(
+        "https://ve.dolarapi.com/v1/cotizaciones",
+        { timeout: 5000, headers: this.HTTP_HEADERS },
+      );
+
+      const data = Array.isArray(response.data) ? response.data : [];
+      const usdEntry = data.find(
+        (d: any) => d.fuente === "oficial" || d.moneda === "USD",
+      );
+      const eurEntry = data.find(
+        (d: any) => d.fuente === "euro" || d.moneda === "EUR",
+      );
+
+      const usdRate = parseFloat(usdEntry?.promedio);
+      const eurRate = parseFloat(eurEntry?.promedio);
+
+      if (!isNaN(usdRate) && usdRate > 0 && !isNaN(eurRate) && eurRate > 0) {
+        const now = new Date();
+        this.cachedRates = {
+          usd: {
+            rate: usdRate,
+            lastUpdate: new Date(usdEntry.fechaActualizacion || now),
+            source: "BCV (via DolarAPI Cotizaciones)",
+          },
+          eur: {
+            rate: eurRate,
+            lastUpdate: new Date(eurEntry.fechaActualizacion || now),
+            source: "BCV (via DolarAPI Cotizaciones)",
+          },
+        };
+        this.cacheExpiry = new Date(Date.now() + this.CACHE_DURATION_MS);
+        this.logger.log(
+          `BCV rates updated: USD=${usdRate}, EUR=${eurRate} Bs.`,
+        );
+        return this.cachedRates;
+      }
+
+      this.logger.warn("Cotizaciones API returned invalid rates, trying fallback APIs...");
+    } catch (error) {
+      this.logger.warn(
+        `Error fetching from DolarAPI Cotizaciones: ${error.message}`,
+      );
+    }
+
+    // Fallback: try individual USD APIs (EUR will use stale cache or fallback)
+    const usdApis = [
       {
         name: "DolarAPI Venezuela",
         url: "https://ve.dolarapi.com/v1/dolares/oficial",
@@ -41,71 +114,99 @@ export class ExchangeRateService {
       },
     ];
 
-    for (const api of apis) {
+    for (const api of usdApis) {
       try {
-        this.logger.log(`Fetching BCV rate from ${api.name}...`);
+        this.logger.log(`Fetching USD rate from ${api.name}...`);
         const response = await axios.get(api.url, {
           timeout: 5000,
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            Accept: "application/json",
-          },
+          headers: this.HTTP_HEADERS,
         });
-
-        this.logger.debug(
-          `${api.name} Response:`,
-          JSON.stringify(response.data),
-        );
 
         const { rate, fecha } = api.parser(response.data);
 
         if (isNaN(rate) || rate <= 0) {
-          this.logger.warn(`Invalid rate from ${api.name}: ${rate}`);
+          this.logger.warn(`Invalid USD rate from ${api.name}: ${rate}`);
           continue;
         }
 
-        // Actualizar cache
-        this.cachedRate = {
-          rate,
-          lastUpdate: new Date(fecha || new Date()),
-          source: `BCV (via ${api.name})`,
+        const now = new Date();
+        const eurFallback = this.cachedRates?.eur || {
+          rate: this.FALLBACK_EUR,
+          lastUpdate: now,
+          source: "BCV (EUR fallback - cotizaciones unavailable)",
+        };
+
+        this.cachedRates = {
+          usd: {
+            rate,
+            lastUpdate: new Date(fecha || now),
+            source: `BCV (via ${api.name})`,
+          },
+          eur: eurFallback,
         };
         this.cacheExpiry = new Date(Date.now() + this.CACHE_DURATION_MS);
-
-        this.logger.log(
-          `BCV rate updated: ${rate} Bs. (${fecha}) from ${api.name}`,
-        );
-        return this.cachedRate;
+        this.logger.log(`USD rate updated: ${rate} Bs. from ${api.name}`);
+        return this.cachedRates;
       } catch (error) {
-        this.logger.warn(`Error fetching from ${api.name}: ${error.message}`);
-        // Continuar con la siguiente API
+        this.logger.warn(
+          `Error fetching from ${api.name}: ${error.message}`,
+        );
       }
     }
 
-    // Si todas las APIs fallaron, usar cache antiguo o fallback
-    if (this.cachedRate) {
-      this.logger.warn("All APIs failed. Using stale cached rate as fallback");
+    // All APIs failed: use stale cache
+    if (this.cachedRates) {
+      this.logger.warn(
+        "All APIs failed. Using stale cached rates as fallback",
+      );
       return {
-        ...this.cachedRate,
-        source: "BCV (cached - all APIs unavailable)",
+        usd: {
+          ...this.cachedRates.usd,
+          source: "BCV (cached - all APIs unavailable)",
+        },
+        eur: {
+          ...this.cachedRates.eur,
+          source: "BCV (cached - all APIs unavailable)",
+        },
       };
     }
 
-    // Como último recurso, usar una tasa por defecto (actualizar manualmente)
+    // Last resort: hardcoded fallback
     this.logger.warn(
-      "All APIs failed and no cache available. Using default fallback rate",
+      "All APIs failed and no cache available. Using default fallback rates",
     );
-    const fallbackRate = {
-      rate: 52.0, // Actualizar este valor manualmente cuando sea necesario
-      lastUpdate: new Date(),
-      source: "BCV (fallback rate - all APIs unavailable)",
+    const now = new Date();
+    this.cachedRates = {
+      usd: {
+        rate: this.FALLBACK_USD,
+        lastUpdate: now,
+        source: "BCV (fallback rate - all APIs unavailable)",
+      },
+      eur: {
+        rate: this.FALLBACK_EUR,
+        lastUpdate: now,
+        source: "BCV (fallback rate - all APIs unavailable)",
+      },
     };
-
-    // Guardar en cache por si acaso
-    this.cachedRate = fallbackRate;
     this.cacheExpiry = new Date(Date.now() + this.CACHE_DURATION_MS);
+    return this.cachedRates;
+  }
 
-    return fallbackRate;
+  /**
+   * Backward-compatible: returns only the USD rate.
+   * Used by services that don't need multi-currency.
+   */
+  async getBCVRate(): Promise<BCVRateResponse> {
+    const rates = await this.getBCVRates();
+    return rates.usd;
+  }
+
+  /**
+   * Returns the BCV rate for a specific currency (USD or EUR).
+   */
+  async getRateForCurrency(currency: string): Promise<CurrencyRate> {
+    const rates = await this.getBCVRates();
+    if (currency === "EUR") return rates.eur;
+    return rates.usd;
   }
 }

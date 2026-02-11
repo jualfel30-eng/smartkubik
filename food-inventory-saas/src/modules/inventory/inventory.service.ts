@@ -70,53 +70,105 @@ export class InventoryService {
     const existingInventory = await this.inventoryModel
       .findOne(inventoryFilter)
       .session(session ?? null);
-    if (existingInventory && existingInventory.isActive !== false) {
-      throw new Error("Ya existe inventario para este producto/variante");
-    }
+
+    // Allow adding inventory to existing products (removed restriction)
+    // Users can now add more inventory even if the product already has stock
 
     const processedLots =
-      createInventoryDto.lots?.map((lot) => ({
-        ...lot,
-        availableQuantity: lot.quantity,
-        reservedQuantity: 0,
-        createdBy: user.id,
-      })) || [];
+      (createInventoryDto.lots?.map((lot) => {
+        const { supplierId, ...lotRest } = lot;
+        return {
+          ...lotRest,
+          availableQuantity: lot.quantity,
+          reservedQuantity: 0,
+          createdBy: user.id,
+          status: 'active' as const,
+          ...(supplierId && { supplierId: new Types.ObjectId(supplierId) }),
+        };
+      }) || []) as any[];
 
-    const inventoryData = {
-      ...createInventoryDto,
-      productId: productObjectId,
-      ...(createInventoryDto.variantId && {
-        variantId: new Types.ObjectId(createInventoryDto.variantId),
-      }),
-      lots: processedLots,
-      availableQuantity: createInventoryDto.totalQuantity,
-      reservedQuantity: 0,
-      committedQuantity: 0,
-      lastCostPrice: createInventoryDto.averageCostPrice,
-      alerts: {
-        lowStock: false,
-        nearExpiration: false,
-        expired: false,
-        overstock: false,
-      },
-      metrics: {
-        turnoverRate: 0,
-        daysOnHand: 0,
-        averageDailySales: 0,
-        seasonalityFactor: 1,
-      },
-      createdBy: user.id,
-      tenantId: this.normalizeTenantValue(user.tenantId),
-    };
     let inventory = existingInventory;
+    let isNewInventory = false;
 
-    if (inventory && inventory.isActive === false) {
+    if (inventory && inventory.isActive !== false) {
+      // Inventory exists and is active - INCREMENT the quantities
+      inventory.totalQuantity += createInventoryDto.totalQuantity;
+      inventory.availableQuantity += createInventoryDto.totalQuantity;
+
+      // Add new lots to existing lots
+      if (processedLots.length > 0) {
+        inventory.lots = [...(inventory.lots || []), ...processedLots];
+      }
+
+      // Update average cost price (weighted average)
+      const oldTotalValue = (inventory.totalQuantity - createInventoryDto.totalQuantity) * inventory.averageCostPrice;
+      const newTotalValue = createInventoryDto.totalQuantity * createInventoryDto.averageCostPrice;
+      inventory.averageCostPrice = (oldTotalValue + newTotalValue) / inventory.totalQuantity;
+      inventory.lastCostPrice = createInventoryDto.averageCostPrice;
+      inventory.updatedBy = user.id;
+    } else if (inventory && inventory.isActive === false) {
+      // Inventory exists but is inactive - REACTIVATE it
+      const inventoryData = {
+        ...createInventoryDto,
+        productId: productObjectId,
+        ...(createInventoryDto.variantId && {
+          variantId: new Types.ObjectId(createInventoryDto.variantId),
+        }),
+        lots: processedLots,
+        availableQuantity: createInventoryDto.totalQuantity,
+        reservedQuantity: 0,
+        committedQuantity: 0,
+        lastCostPrice: createInventoryDto.averageCostPrice,
+        alerts: {
+          lowStock: false,
+          nearExpiration: false,
+          expired: false,
+          overstock: false,
+        },
+        metrics: {
+          turnoverRate: 0,
+          daysOnHand: 0,
+          averageDailySales: 0,
+          seasonalityFactor: 1,
+        },
+        createdBy: user.id,
+        tenantId: this.normalizeTenantValue(user.tenantId),
+      };
+
       inventory.set({
         ...inventoryData,
         isActive: true,
         updatedBy: user.id,
       });
     } else {
+      // No inventory exists - CREATE new
+      isNewInventory = true;
+      const inventoryData = {
+        ...createInventoryDto,
+        productId: productObjectId,
+        ...(createInventoryDto.variantId && {
+          variantId: new Types.ObjectId(createInventoryDto.variantId),
+        }),
+        lots: processedLots,
+        availableQuantity: createInventoryDto.totalQuantity,
+        reservedQuantity: 0,
+        committedQuantity: 0,
+        lastCostPrice: createInventoryDto.averageCostPrice,
+        alerts: {
+          lowStock: false,
+          nearExpiration: false,
+          expired: false,
+          overstock: false,
+        },
+        metrics: {
+          turnoverRate: 0,
+          daysOnHand: 0,
+          averageDailySales: 0,
+          seasonalityFactor: 1,
+        },
+        createdBy: user.id,
+        tenantId: this.normalizeTenantValue(user.tenantId),
+      };
       inventory = new this.inventoryModel(inventoryData);
     }
 
@@ -134,7 +186,9 @@ export class InventoryService {
           totalCost:
             createInventoryDto.totalQuantity *
             createInventoryDto.averageCostPrice,
-          reason: "Inventario inicial",
+          reason: isNewInventory ? "Inventario inicial" : "Reabastecimiento",
+          receivedBy: createInventoryDto.receivedBy,
+          notes: createInventoryDto.notes,
           balanceAfter: {
             totalQuantity: savedInventory.totalQuantity,
             availableQuantity: savedInventory.availableQuantity,

@@ -1,10 +1,12 @@
 import { useExchangeRate } from '../hooks/useExchangeRate';
+import { getCurrencyConfig } from '../lib/currency-config';
 import { Badge } from '@/components/ui/badge';
 import { DollarSign, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export function ExchangeRateDisplay({ variant = 'default', showRefresh = false }) {
-  const { rate, loading, error, lastUpdate, refetch } = useExchangeRate();
+  const { rate, loading, error, lastUpdate, tenantCurrency, refetch } = useExchangeRate();
+  const cc = getCurrencyConfig(tenantCurrency);
 
   if (loading && !rate) {
     return (
@@ -36,7 +38,7 @@ export function ExchangeRateDisplay({ variant = 'default', showRefresh = false }
     <div className="flex items-center gap-2">
       <Badge variant={variant} className="gap-1">
         <DollarSign className="h-3 w-3" />
-        <span className="font-semibold">1 USD = {rate?.toFixed(2)} Bs</span>
+        <span className="font-semibold">1 {cc.label} = {rate?.toFixed(2)} Bs</span>
       </Badge>
       {lastUpdate && (
         <span className="text-xs text-muted-foreground">

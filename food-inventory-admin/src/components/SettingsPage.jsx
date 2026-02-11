@@ -672,7 +672,17 @@ const SettingsPage = () => {
                   <CardTitle>Configuraciones Varias</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2"><Label>Moneda Principal</Label><Input name="settings.currency.primary" value={settings.settings.currency.primary} onChange={handleInputChange} /></div>
+                  <div className="space-y-2">
+                    <Label>Moneda Principal (Divisa)</Label>
+                    <Select value={settings.settings.currency.primary || 'USD'} onValueChange={(value) => setNestedValue('settings.currency.primary', value)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="USD">USD — Dólar Estadounidense ($)</SelectItem>
+                        <SelectItem value="EUR">EUR — Euro (€)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Define la moneda extranjera principal para precios y cobros (tasa BCV)</p>
+                  </div>
                   <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
                     <Label>Habilitar Inventario FEFO (First-Expires, First-Out)</Label>
                     <Switch name="settings.inventory.fefoEnabled" checked={settings.settings.inventory.fefoEnabled} onCheckedChange={(c) => handleSwitchChange('settings.inventory.fefoEnabled', c)} />

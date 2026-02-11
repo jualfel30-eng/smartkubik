@@ -55,6 +55,12 @@ export class CreateProductVariantDto {
   @Min(0)
   basePrice: number;
 
+  @ApiPropertyOptional({ description: "Precio mayorista en VES" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  wholesalePrice?: number;
+
   @ApiProperty({ description: "Precio de costo en VES" })
   @IsNumber()
   @Min(0)
@@ -108,10 +114,10 @@ export class CreateSellingUnitDto {
   @ApiProperty({
     description: "Factor de conversión a unidad base",
     example: 1000,
-    minimum: 0.001,
+    minimum: 0.000001,
   })
   @IsNumber()
-  @Min(0.001)
+  @Min(0.000001)
   conversionFactor: number;
 
   @ApiProperty({ description: "Precio por esta unidad" })
@@ -383,6 +389,8 @@ export class CreateProductDto {
     usdPrice?: number;
     minimumMargin: number;
     maximumDiscount: number;
+    wholesaleEnabled?: boolean;
+    wholesaleMinQuantity?: number;
   };
 
   @ApiProperty({ description: "Configuración de inventario" })
@@ -519,6 +527,8 @@ export class UpdateProductDto {
     usdPrice?: number;
     minimumMargin: number;
     maximumDiscount: number;
+    wholesaleEnabled?: boolean;
+    wholesaleMinQuantity?: number;
   };
 
   @ApiPropertyOptional({ description: "Configuración de inventario" })
