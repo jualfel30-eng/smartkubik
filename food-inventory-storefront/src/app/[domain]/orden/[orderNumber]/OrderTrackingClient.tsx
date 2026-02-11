@@ -1,8 +1,7 @@
 'use client';
 
 import { StorefrontConfig, Order } from '@/types';
-import { Header } from '@/templates/ModernEcommerce/components/Header';
-import { Footer } from '@/templates/ModernEcommerce/components/Footer';
+import { getTemplateComponents } from '@/lib/getTemplateComponents';
 import { formatPrice } from '@/lib/utils';
 import {
   CheckCircle2,
@@ -32,6 +31,7 @@ interface StatusStep {
 }
 
 export function OrderTrackingClient({ config, order }: OrderTrackingClientProps) {
+  const { Header, Footer } = getTemplateComponents(config.templateType);
   // Build status timeline based on order status
   const getStatusSteps = (): StatusStep[] => {
     const steps: StatusStep[] = [

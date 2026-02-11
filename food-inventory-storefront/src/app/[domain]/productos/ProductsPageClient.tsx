@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { StorefrontConfig, ProductsResponse } from '@/types';
-import { Header } from '@/templates/ModernEcommerce/components/Header';
-import { Footer } from '@/templates/ModernEcommerce/components/Footer';
+import { getTemplateComponents } from '@/lib/getTemplateComponents';
 import { ProductsGrid } from '@/templates/ModernEcommerce/components/ProductsGrid';
 import { Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -25,6 +24,7 @@ export function ProductsPageClient({
   currentCategory,
   currentSearch,
 }: ProductsPageClientProps) {
+  const { Header, Footer } = getTemplateComponents(config.templateType);
   const router = useRouter();
   const [searchInput, setSearchInput] = useState(currentSearch || '');
   const [selectedCategory, setSelectedCategory] = useState(currentCategory || '');

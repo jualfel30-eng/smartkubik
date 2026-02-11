@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { StorefrontConfig, CartItem, OrderData } from '@/types';
-import { Header } from '@/templates/ModernEcommerce/components/Header';
-import { Footer } from '@/templates/ModernEcommerce/components/Footer';
+import { getTemplateComponents } from '@/lib/getTemplateComponents';
 import { formatPrice, getImageUrl } from '@/lib/utils';
 import { createOrder, getPaymentMethods, calculateDeliveryCost } from '@/lib/api';
 import { CheckCircle, Loader, User, MapPin, CreditCard, Truck } from 'lucide-react';
@@ -25,6 +24,7 @@ interface PaymentMethod {
 }
 
 export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) {
+  const { Header, Footer } = getTemplateComponents(config.templateType);
   const router = useRouter();
   const { customer, isAuthenticated } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);

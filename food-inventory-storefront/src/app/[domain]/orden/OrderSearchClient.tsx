@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { StorefrontConfig } from '@/types';
-import { Header } from '@/templates/ModernEcommerce/components/Header';
-import { Footer } from '@/templates/ModernEcommerce/components/Footer';
+import { getTemplateComponents } from '@/lib/getTemplateComponents';
 import { Search, Package } from 'lucide-react';
 
 interface OrderSearchClientProps {
@@ -12,6 +11,7 @@ interface OrderSearchClientProps {
 }
 
 export function OrderSearchClient({ config }: OrderSearchClientProps) {
+  const { Header, Footer } = getTemplateComponents(config.templateType);
   const router = useRouter();
   const [orderNumber, setOrderNumber] = useState('');
   const [loading, setLoading] = useState(false);

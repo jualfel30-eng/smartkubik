@@ -4,10 +4,10 @@ import { useEffect, useState, useRef, type CSSProperties } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { StorefrontConfig } from '@/types';
-import { ShoppingCart, Menu, X, User, Sun, Moon, Mail, Phone, MapPin, Facebook, Instagram, ArrowRight, Star, Sparkles, Zap, Shield } from 'lucide-react';
-import { useCart } from '@/contexts/CartContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { Mail, Phone, MapPin, Facebook, Instagram, ArrowRight, Star, Sparkles, Zap, Shield } from 'lucide-react';
 import { getImageUrl } from '@/lib/utils';
+import { Header } from './PremiumStorefront/components/Header';
+import { Footer } from './PremiumStorefront/components/Footer';
 
 interface PremiumStorefrontProps {
   config: StorefrontConfig;
@@ -100,12 +100,8 @@ function GlassCard({ children, className = '', hover = true }: { children: React
 export default function PremiumStorefront({ config, featuredProducts = [], categories: propCategories = [], domain }: PremiumStorefrontProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const heroRef = useRef<HTMLElement>(null);
-  const { toggleCart } = useCart();
-  const { isAuthenticated, customer, logout } = useAuth();
 
   const primaryColor = config.theme?.primaryColor || '#6366f1';
   const secondaryColor = config.theme?.secondaryColor || '#ec4899';
@@ -145,33 +141,6 @@ export default function PremiumStorefront({ config, featuredProducts = [], categ
     };
   }, []);
 
-  // Close user menu on outside click
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (showUserMenu && !(e.target as HTMLElement).closest('.user-menu-container')) {
-        setShowUserMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [showUserMenu]);
-
-  // Cart count
-  const [cartCount, setCartCount] = useState(0);
-  useEffect(() => {
-    const update = () => {
-      const cart = JSON.parse(localStorage.getItem('cart') || '[]');
-      setCartCount(cart.length);
-    };
-    update();
-    window.addEventListener('cartUpdated', update);
-    window.addEventListener('storage', update);
-    return () => {
-      window.removeEventListener('cartUpdated', update);
-      window.removeEventListener('storage', update);
-    };
-  }, []);
-
   const products = featuredProducts.length > 0 ? featuredProducts : ((config as any).products || []);
   const categories = propCategories.length > 0
     ? ['all', ...propCategories]
@@ -179,12 +148,6 @@ export default function PremiumStorefront({ config, featuredProducts = [], categ
   const filteredProducts = selectedCategory === 'all'
     ? products
     : products.filter((p: any) => p.category === selectedCategory);
-
-  const navigation = [
-    { name: 'Inicio', href: `/${domain}` },
-    { name: 'Productos', href: `/${domain}/productos` },
-    { name: 'Contacto', href: `/${domain}#contacto` },
-  ];
 
   const themeStyle: CSSProperties = {
     '--color-primary': primaryColor,
@@ -202,114 +165,7 @@ export default function PremiumStorefront({ config, featuredProducts = [], categ
       <GrainOverlay />
 
       {/* ═══════════════ HEADER ═══════════════ */}
-      <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isDarkMode ? 'bg-[#0a0a1a]/80 border-b border-white/5' : 'bg-white/80 border-b border-gray-200'} backdrop-blur-xl`}>
-        <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link href={`/${domain}`} className="flex items-center gap-3">
-              {config.theme?.logo ? (
-                <Image src={config.theme.logo} alt={config.seo?.title || ''} width={120} height={40} className="h-10 w-auto" priority unoptimized />
-              ) : (
-                <span className="text-xl font-bold bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-secondary)] bg-clip-text text-transparent">
-                  {config.seo?.title || config.domain}
-                </span>
-              )}
-            </Link>
-
-            <div className="hidden md:flex items-center gap-8">
-              {navigation.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`text-sm font-medium transition-colors ${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}
-                >
-                  {item.name}
-                </Link>
-              ))}
-              <button onClick={toggleTheme} className={`p-2 rounded-lg transition ${isDarkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-600 hover:bg-gray-100'}`}>
-                {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              </button>
-            </div>
-
-            <div className="flex items-center gap-3">
-              {/* User menu - desktop */}
-              <div className="hidden md:block relative">
-                {isAuthenticated ? (
-                  <div className="relative user-menu-container">
-                    <button
-                      onClick={() => setShowUserMenu(!showUserMenu)}
-                      className={`flex items-center gap-2 p-2 rounded-lg transition ${isDarkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-600 hover:bg-gray-100'}`}
-                    >
-                      <User className="h-4 w-4" />
-                      <span className="text-sm hidden lg:inline">{customer?.name || 'Mi cuenta'}</span>
-                    </button>
-                    {showUserMenu && (
-                      <div className={`absolute right-0 mt-2 w-48 rounded-xl overflow-hidden shadow-xl ${isDarkMode ? 'bg-[#1a1a2e] border border-white/10' : 'bg-white border border-gray-200'}`}>
-                        <Link href={`/${domain}/perfil`} className={`block px-4 py-2.5 text-sm ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`} onClick={() => setShowUserMenu(false)}>Mi Perfil</Link>
-                        <Link href={`/${domain}/mis-ordenes`} className={`block px-4 py-2.5 text-sm ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`} onClick={() => setShowUserMenu(false)}>Mis Ordenes</Link>
-                        <button onClick={() => { logout(); setShowUserMenu(false); }} className={`w-full text-left px-4 py-2.5 text-sm ${isDarkMode ? 'text-red-400 hover:bg-white/5' : 'text-red-600 hover:bg-gray-50'}`}>Cerrar Sesion</button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <Link href={`/${domain}/login`} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition ${isDarkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-600 hover:bg-gray-100'}`}>
-                    <User className="h-4 w-4" />
-                    <span className="hidden lg:inline">Iniciar Sesion</span>
-                  </Link>
-                )}
-              </div>
-
-              <button onClick={toggleCart} className="relative p-2">
-                <ShoppingCart className={`h-5 w-5 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`} />
-                {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center" style={{ background: primaryColor }}>
-                    {cartCount}
-                  </span>
-                )}
-              </button>
-
-              <button type="button" className={`md:hidden p-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`} onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-                {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-              </button>
-            </div>
-          </div>
-
-          {/* Mobile navigation */}
-          {mobileMenuOpen && (
-            <div className={`md:hidden py-4 border-t ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`}>
-              <div className="flex flex-col gap-3">
-                {navigation.map((item) => (
-                  <Link key={item.name} href={item.href} className={`text-sm font-medium px-3 py-2 rounded-lg transition ${isDarkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-600 hover:bg-gray-100'}`} onClick={() => setMobileMenuOpen(false)}>
-                    {item.name}
-                  </Link>
-                ))}
-                <div className={`pt-2 border-t ${isDarkMode ? 'border-white/10' : 'border-gray-200'}`}>
-                  {isAuthenticated ? (
-                    <>
-                      <Link href={`/${domain}/perfil`} className={`flex items-center gap-2 px-3 py-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`} onClick={() => setMobileMenuOpen(false)}>
-                        <User className="h-4 w-4" /> Mi Perfil
-                      </Link>
-                      <Link href={`/${domain}/mis-ordenes`} className={`flex items-center gap-2 px-3 py-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`} onClick={() => setMobileMenuOpen(false)}>
-                        <ShoppingCart className="h-4 w-4" /> Mis Ordenes
-                      </Link>
-                      <button onClick={() => { logout(); setMobileMenuOpen(false); }} className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>
-                        <X className="h-4 w-4" /> Cerrar Sesion
-                      </button>
-                    </>
-                  ) : (
-                    <Link href={`/${domain}/login`} className={`flex items-center gap-2 px-3 py-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`} onClick={() => setMobileMenuOpen(false)}>
-                      <User className="h-4 w-4" /> Iniciar Sesion
-                    </Link>
-                  )}
-                </div>
-                <button onClick={() => { toggleTheme(); setMobileMenuOpen(false); }} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${isDarkMode ? 'text-gray-300 hover:bg-white/5' : 'text-gray-600 hover:bg-gray-100'}`}>
-                  {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                  <span>{isDarkMode ? 'Modo claro' : 'Modo oscuro'}</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </nav>
-      </header>
+      <Header config={config} domain={domain || ''} isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />
 
       {/* ═══════════════ HERO SECTION ═══════════════ */}
       <section ref={heroRef} className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
@@ -697,94 +553,7 @@ export default function PremiumStorefront({ config, featuredProducts = [], categ
       )}
 
       {/* ═══════════════ FOOTER ═══════════════ */}
-      <footer className={isDarkMode ? 'bg-[#050510] border-t border-white/5' : 'bg-gray-900 text-gray-300'}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
-            {/* Brand */}
-            <div className="space-y-4">
-              {config.theme?.logo ? (
-                <Image src={config.theme.logo} alt={config.seo?.title || ''} width={120} height={40} className="h-10 w-auto brightness-0 invert" unoptimized />
-              ) : (
-                <span
-                  className="text-xl font-bold bg-clip-text text-transparent"
-                  style={{ backgroundImage: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
-                >
-                  {config.seo?.title || config.domain}
-                </span>
-              )}
-              <p className="text-sm text-gray-400">
-                {config.seo?.description || 'Tu tienda online de confianza'}
-              </p>
-            </div>
-
-            {/* Quick links */}
-            <div>
-              <h4 className="text-white font-semibold mb-4">Enlaces Rapidos</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href={`/${domain}`} className="hover:text-white transition">Inicio</Link></li>
-                <li><Link href={`/${domain}/productos`} className="hover:text-white transition">Productos</Link></li>
-                <li><Link href={`/${domain}#contacto`} className="hover:text-white transition">Contacto</Link></li>
-                <li><Link href={`/${domain}/carrito`} className="hover:text-white transition">Carrito</Link></li>
-              </ul>
-            </div>
-
-            {/* Contact */}
-            <div>
-              <h4 className="text-white font-semibold mb-4">Contacto</h4>
-              <ul className="space-y-3 text-sm text-gray-400">
-                {config.contactInfo?.email && (
-                  <li className="flex items-start gap-2">
-                    <Mail className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <a href={`mailto:${config.contactInfo.email}`} className="hover:text-white transition break-all">{config.contactInfo.email}</a>
-                  </li>
-                )}
-                {config.contactInfo?.phone && (
-                  <li className="flex items-start gap-2">
-                    <Phone className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <a href={`tel:${config.contactInfo.phone}`} className="hover:text-white transition">{config.contactInfo.phone}</a>
-                  </li>
-                )}
-                {config.contactInfo?.address && (
-                  <li className="flex items-start gap-2">
-                    <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                    <span>
-                      {typeof config.contactInfo.address === 'string'
-                        ? config.contactInfo.address
-                        : [config.contactInfo.address.street, config.contactInfo.address.city, config.contactInfo.address.state, config.contactInfo.address.country].filter(Boolean).join(', ')}
-                    </span>
-                  </li>
-                )}
-              </ul>
-            </div>
-
-            {/* Social */}
-            <div>
-              <h4 className="text-white font-semibold mb-4">Siguenos</h4>
-              <div className="flex gap-3">
-                {config.socialMedia?.facebook && (
-                  <a href={config.socialMedia.facebook} target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-800 rounded-xl hover:bg-gray-700 transition">
-                    <Facebook className="h-5 w-5" />
-                  </a>
-                )}
-                {config.socialMedia?.instagram && (
-                  <a href={config.socialMedia.instagram} target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-800 rounded-xl hover:bg-gray-700 transition">
-                    <Instagram className="h-5 w-5" />
-                  </a>
-                )}
-                {config.socialMedia?.whatsapp && (
-                  <a href={`https://wa.me/${config.socialMedia.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="p-2 bg-gray-800 rounded-xl hover:bg-gray-700 transition">
-                    <Phone className="h-5 w-5" />
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-8 border-t border-gray-800 text-center text-sm text-gray-500">
-            <p>&copy; {new Date().getFullYear()} {config.seo?.title || config.domain}. Todos los derechos reservados.</p>
-          </div>
-        </div>
-      </footer>
+      <Footer config={config} domain={domain || ''} isDarkMode={isDarkMode} />
 
       {/* ═══════════════ CSS ANIMATIONS ═══════════════ */}
       <style jsx global>{`

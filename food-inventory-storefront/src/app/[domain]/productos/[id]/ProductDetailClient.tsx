@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { StorefrontConfig, Product } from '@/types';
-import { Header } from '@/templates/ModernEcommerce/components/Header';
-import { Footer } from '@/templates/ModernEcommerce/components/Footer';
+import { getTemplateComponents } from '@/lib/getTemplateComponents';
 import { ProductCard } from '@/templates/ModernEcommerce/components/ProductCard';
 import { formatPrice, getImageUrl } from '@/lib/utils';
 import { ShoppingCart, Minus, Plus, Package, Tag, Leaf } from 'lucide-react';
@@ -22,6 +21,7 @@ export function ProductDetailClient({
   product,
   relatedProducts,
 }: ProductDetailClientProps) {
+  const { Header, Footer } = getTemplateComponents(config.templateType);
   const [quantity, setQuantity] = useState(1);
   const [selectedUnit, setSelectedUnit] = useState<string>('');
   const [addedToCart, setAddedToCart] = useState(false);

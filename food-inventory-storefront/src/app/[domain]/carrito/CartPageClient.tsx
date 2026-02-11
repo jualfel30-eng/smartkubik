@@ -5,8 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { StorefrontConfig, CartItem } from '@/types';
-import { Header } from '@/templates/ModernEcommerce/components/Header';
-import { Footer } from '@/templates/ModernEcommerce/components/Footer';
+import { getTemplateComponents } from '@/lib/getTemplateComponents';
 import { formatPrice, getImageUrl } from '@/lib/utils';
 import { Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
 
@@ -15,6 +14,7 @@ interface CartPageClientProps {
 }
 
 export function CartPageClient({ config }: CartPageClientProps) {
+  const { Header, Footer } = getTemplateComponents(config.templateType);
   const router = useRouter();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
