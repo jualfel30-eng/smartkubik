@@ -13,7 +13,7 @@ export interface StorefrontConfig {
     logo?: string;
     favicon?: string;
   };
-  templateType: 'ecommerce' | 'services';
+  templateType: 'ecommerce' | 'services' | 'premium';
   customCSS?: string;
   language?: string;
   seo: {
