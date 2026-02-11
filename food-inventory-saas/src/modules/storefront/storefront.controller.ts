@@ -253,6 +253,7 @@ export class StorefrontController {
           new MaxFileSizeValidator({ maxSize: 2 * 1024 * 1024 }), // 2MB
           new FileTypeValidator({
             fileType: /image\/(png|jpeg|jpg|svg\+xml|webp)/,
+            skipMagicNumbersValidation: true,
           }),
         ],
       }),
@@ -312,7 +313,8 @@ export class StorefrontController {
         validators: [
           new MaxFileSizeValidator({ maxSize: 500 * 1024 }), // 500KB
           new FileTypeValidator({
-            fileType: /image\/(x-icon|png|vnd\.microsoft\.icon)/,
+            fileType: /image\/(x-icon|png|vnd\.microsoft\.icon|webp|jpeg)/,
+            skipMagicNumbersValidation: true,
           }),
         ],
       }),

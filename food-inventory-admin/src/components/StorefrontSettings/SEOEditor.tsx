@@ -12,7 +12,9 @@ export function SEOEditor({ config, onUpdate, saving }: SEOEditorProps) {
   const [keywordInput, setKeywordInput] = useState('');
 
   const handleSave = async () => {
-    const result = await onUpdate({ seo });
+    // Enviar solo campos válidos del DTO (sin _id de Mongoose)
+    const { title, description, keywords } = seo;
+    const result = await onUpdate({ seo: { title, description, keywords } });
     if (result.success) {
       alert('✅ SEO actualizado correctamente');
     }

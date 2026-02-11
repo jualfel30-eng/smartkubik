@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { StorefrontConfig } from './hooks/useStorefrontConfig';
 import { CheckCircle, XCircle, Loader } from 'lucide-react';
+import { fetchApi } from '../../lib/api';
 
 interface DomainSettingsProps {
   config: StorefrontConfig;
@@ -34,19 +35,7 @@ export function DomainSettings({ config, onUpdate, onDelete, saving }: DomainSet
     debounceTimerRef.current = setTimeout(async () => {
       setCheckingDomain(true);
       try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/v1/admin/storefront/check-domain?domain=${encodeURIComponent(domain)}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          }
-        );
-
-        if (!response.ok) throw new Error('Error al verificar dominio');
-
-        const data = await response.json();
+        const data = await fetchApi(`/admin/storefront/check-domain?domain=${encodeURIComponent(domain)}`);
         setDomainAvailable(data.isAvailable);
       } catch (error) {
         console.error('Error checking domain:', error);
@@ -171,6 +160,7 @@ export function DomainSettings({ config, onUpdate, onDelete, saving }: DomainSet
           >
             <option value="ecommerce">E-commerce</option>
             <option value="services">Servicios</option>
+            <option value="premium">Premium (Maximalist)</option>
           </select>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Elige el tipo de plantilla según tu modelo de negocio

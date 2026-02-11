@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StorefrontConfig } from './hooks/useStorefrontConfig';
 import { Upload } from 'lucide-react';
+import { fetchApi } from '../../lib/api';
 
 interface ThemeEditorProps {
   config: StorefrontConfig;
@@ -14,7 +15,12 @@ export function ThemeEditor({ config, onUpdate, saving }: ThemeEditorProps) {
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
 
   const handleSave = async () => {
-    const result = await onUpdate({ theme });
+    // Enviar solo campos válidos del DTO (sin _id de Mongoose)
+    const { primaryColor, secondaryColor, logo, favicon } = theme;
+    const cleanTheme: any = { primaryColor, secondaryColor };
+    if (logo) cleanTheme.logo = logo;
+    if (favicon) cleanTheme.favicon = favicon;
+    const result = await onUpdate({ theme: cleanTheme });
     if (result.success) {
       alert('✅ Tema actualizado correctamente');
     }
@@ -29,18 +35,10 @@ export function ThemeEditor({ config, onUpdate, saving }: ThemeEditorProps) {
 
     try {
       setUploadingLogo(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/v1/admin/storefront/upload-logo`, {
+      const data = await fetchApi('/admin/storefront/upload-logo', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
+        body: formData,
       });
-
-      if (!response.ok) throw new Error('Error al subir logo');
-
-      const data = await response.json();
       setTheme({ ...theme, logo: data.data.logo });
       alert('✅ Logo subido exitosamente');
     } catch (error: any) {
@@ -59,18 +57,10 @@ export function ThemeEditor({ config, onUpdate, saving }: ThemeEditorProps) {
 
     try {
       setUploadingFavicon(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/v1/admin/storefront/upload-favicon`, {
+      const data = await fetchApi('/admin/storefront/upload-favicon', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
+        body: formData,
       });
-
-      if (!response.ok) throw new Error('Error al subir favicon');
-
-      const data = await response.json();
       setTheme({ ...theme, favicon: data.data.favicon });
       alert('✅ Favicon subido exitosamente');
     } catch (error: any) {

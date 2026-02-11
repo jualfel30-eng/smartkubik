@@ -11,7 +11,12 @@ export function SocialMediaEditor({ config, onUpdate, saving }: SocialMediaEdito
   const [socialMedia, setSocialMedia] = useState(config.socialMedia);
 
   const handleSave = async () => {
-    const result = await onUpdate({ socialMedia });
+    // Limpiar strings vacíos → undefined para que @IsOptional() los ignore en el backend
+    const cleaned: Record<string, string | undefined> = {};
+    for (const [key, value] of Object.entries(socialMedia)) {
+      cleaned[key] = value?.trim() || undefined;
+    }
+    const result = await onUpdate({ socialMedia: cleaned as any });
     if (result.success) {
       alert('✅ Redes sociales actualizadas correctamente');
     }

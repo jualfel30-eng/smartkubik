@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
-import sharp from "sharp";
+import * as sharp from "sharp";
 import * as fs from "fs/promises";
 import * as path from "path";
 import {
@@ -259,6 +259,9 @@ export class StorefrontService {
       }
     }
 
+    // Convertir a objeto plano para que el spread funcione correctamente con subdocumentos Mongoose
+    const existing = existingConfig.toObject();
+
     // Actualizar solo los campos proporcionados
     const updateData: any = {};
 
@@ -271,38 +274,45 @@ export class StorefrontService {
     if (updateDto.isActive !== undefined)
       updateData.isActive = updateDto.isActive;
 
-    // Subdocumentos - merge con valores existentes
+    // Helper: extraer datos planos de subdocumento (sin _id de Mongoose)
+    const stripId = (obj: any) => {
+      if (!obj) return {};
+      const { _id, __v, ...rest } = obj;
+      return rest;
+    };
+
+    // Subdocumentos - merge con valores existentes (usando objeto plano)
     if (updateDto.theme) {
       updateData.theme = {
-        ...existingConfig.theme,
+        ...stripId(existing.theme),
         ...updateDto.theme,
       };
     }
 
     if (updateDto.seo) {
       updateData.seo = {
-        ...existingConfig.seo,
+        ...stripId(existing.seo),
         ...updateDto.seo,
       };
     }
 
     if (updateDto.socialMedia) {
       updateData.socialMedia = {
-        ...existingConfig.socialMedia,
+        ...stripId(existing.socialMedia),
         ...updateDto.socialMedia,
       };
     }
 
     if (updateDto.contactInfo) {
       updateData.contactInfo = {
-        ...existingConfig.contactInfo,
+        ...stripId(existing.contactInfo),
         ...updateDto.contactInfo,
       };
 
       // Merge address si existe
       if (updateDto.contactInfo.address) {
         updateData.contactInfo.address = {
-          ...existingConfig.contactInfo?.address,
+          ...(existing.contactInfo?.address || {}),
           ...updateDto.contactInfo.address,
         };
       }
@@ -310,7 +320,7 @@ export class StorefrontService {
 
     if (updateDto.whatsappIntegration) {
       updateData.whatsappIntegration = {
-        ...existingConfig.whatsappIntegration,
+        ...stripId(existing.whatsappIntegration),
         ...updateDto.whatsappIntegration,
       };
     }

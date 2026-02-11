@@ -72,7 +72,7 @@ export class ContactInfoConfig {
     street: string;
     city: string;
     state: string;
-    zipCode?: string;
+    postalCode?: string;
     country: string;
   };
 }
@@ -135,7 +135,7 @@ export class StorefrontConfig {
 
   @Prop({
     type: String,
-    enum: ["ecommerce", "services"],
+    enum: ["ecommerce", "services", "premium"],
     required: true,
     default: "ecommerce",
   })
