@@ -59,6 +59,8 @@ function InventoryManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [binLocations, setBinLocations] = useState([]);
+  const [itemsToAdd, setItemsToAdd] = useState([]);
+  const [variantSelection, setVariantSelection] = useState(null);
   const [newInventoryItem, setNewInventoryItem] = useState({
     productId: '',
     productName: '',
@@ -157,21 +159,6 @@ function InventoryManagement() {
     return null;
   }, [newInventoryItem.productId, selectedProductDetails]);
 
-  const formatVariantLabel = useCallback((variant) => {
-    if (!variant) {
-      return '';
-    }
-    if (variant.name && variant.name.trim()) {
-      return variant.name;
-    }
-    if (variant.attributes && Object.keys(variant.attributes).length > 0) {
-      return Object.entries(variant.attributes)
-        .map(([key, value]) => `${key}: ${value}`)
-        .join(' · ');
-    }
-    return variant.sku || 'Variante';
-  }, []);
-
   const formatProductCategory = useCallback((category) => {
     if (Array.isArray(category)) {
       const cleaned = category
@@ -192,66 +179,7 @@ function InventoryManagement() {
     const coerced = String(category).trim();
     return coerced || 'N/A';
   }, []);
-  const useVariantInventory = useMemo(() => {
-    if (!selectedProduct) {
-      return false;
-    }
 
-    // BACKWARD COMPATIBILITY: Solo usar variantes si existen y tienen datos válidos
-    // Productos antiguos sin variantes seguirán funcionando normalmente
-    const hasVariants = Array.isArray(selectedProduct.variants) &&
-      selectedProduct.variants.length > 0;
-
-    if (!hasVariants) {
-      console.log('📦 [useVariantInventory] Producto SIN variantes (formato antiguo o sin variantes)');
-      return false;
-    }
-
-    // Verificar que las variantes tengan el formato correcto
-    const hasValidVariants = selectedProduct.variants.some(v => v._id || v.sku);
-
-    if (!hasValidVariants) {
-      console.warn('⚠️ [useVariantInventory] Producto tiene array de variantes pero sin datos válidos');
-      return false;
-    }
-
-    console.log('✅ [useVariantInventory] Producto CON variantes válidas:', selectedProduct.variants.length);
-    return true;
-  }, [selectedProduct]);
-
-  // Determine the step for quantity inputs based on product configuration
-  const quantityStep = useMemo(() => {
-    return selectedProduct?.isSoldByWeight ? 0.001 : 1;
-  }, [selectedProduct]);
-
-  const handleLotChange = (index, field, value) => {
-    const updatedLots = [...newInventoryItem.lots];
-    updatedLots[index][field] = value;
-    setNewInventoryItem({ ...newInventoryItem, lots: updatedLots });
-  };
-
-  const handleVariantQuantityChange = (index, value) => {
-    setVariantQuantities((prev) => {
-      const next = [...prev];
-      if (!next[index]) {
-        return prev;
-      }
-      next[index] = { ...next[index], quantity: value };
-      return next;
-    });
-  };
-
-  const addLot = () => {
-    setNewInventoryItem({
-      ...newInventoryItem,
-      lots: [...newInventoryItem.lots, { lotNumber: '', quantity: 0, expirationDate: '' }]
-    });
-  };
-
-  const removeLot = (index) => {
-    const updatedLots = newInventoryItem.lots.filter((_, i) => i !== index);
-    setNewInventoryItem({ ...newInventoryItem, lots: updatedLots });
-  };
 
   const loadData = useCallback(async ({ page, limit, search } = {}) => {
     try {
@@ -507,213 +435,281 @@ function InventoryManagement() {
     }
   }, []);
 
-  const handleProductSelection = (selectedOption) => {
-    const newProductId = selectedOption ? selectedOption.value : '';
-    const newProductLabel = selectedOption ? selectedOption.label : '';
 
-    setNewInventoryItem((prev) => ({
-      ...prev,
-      productId: newProductId,
-      productName: newProductLabel,
-      totalQuantity: 0,
-      lots: [],
-    }));
-    setSelectedProductDetails(null);
 
-    if (newProductId) {
-      fetchApi(`/products/${newProductId}`)
-        .then((response) => {
-          if (response?.data) {
-            setSelectedProductDetails(response.data);
-          }
-        })
-        .catch((error) => {
-          console.error('Error fetching product detail:', error);
-        });
+  // Helper to normalize IDs for comparison
+  const normalizeId = useCallback((value) => {
+    if (value === undefined || value === null) return null;
+    return value.toString();
+  }, []);
+
+  const formatVariantLabel = useCallback((variant) => {
+    if (!variant) return '';
+    if (variant.name && variant.name.trim()) return variant.name;
+    if (variant.attributes && Object.keys(variant.attributes).length > 0) {
+      return Object.entries(variant.attributes).map(([key, value]) => `${key}: ${value}`).join(' · ');
     }
+    return variant.sku || 'Variante';
+  }, []);
+
+  const upsertInventoryItem = useCallback((product, variant, quantity, costPrice) => {
+    if (!product) return;
+
+    const safeQty = Number(quantity);
+    const resolvedQty = (Number.isFinite(safeQty) && safeQty > 0) ? safeQty : 1;
+    const resolvedCost = Number.isFinite(Number(costPrice)) ? Number(costPrice) : 0;
+
+    const productId = normalizeId(product._id);
+    const variantId = variant ? normalizeId(variant._id) : null;
+
+    setItemsToAdd(prev => {
+      const items = [...prev];
+      const matchIndex = items.findIndex(item =>
+        normalizeId(item.productId) === productId &&
+        normalizeId(item.variantId) === variantId
+      );
+
+      if (matchIndex !== -1) {
+        const existing = items[matchIndex];
+        items[matchIndex] = {
+          ...existing,
+          quantity: Number(existing.quantity) + resolvedQty,
+        };
+      } else {
+        items.push({
+          productId,
+          productName: product.name,
+          productSku: variant?.sku || product.sku,
+          variantId: variantId || undefined,
+          variantName: variant ? formatVariantLabel(variant) : undefined,
+          variantSku: variant?.sku,
+          quantity: resolvedQty,
+          costPrice: resolvedCost,
+          isPerishable: product.isPerishable,
+          lots: product.isPerishable ? [{ lotNumber: '', quantity: resolvedQty, expirationDate: '' }] : [],
+          productObj: product
+        });
+      }
+      return items;
+    });
+  }, [normalizeId, formatVariantLabel]);
+
+  const openVariantSelection = useCallback((product, variants) => {
+    setVariantSelection({
+      product,
+      rows: variants.map(variant => ({
+        variant,
+        quantity: '',
+        cost: variant?.costPrice != null ? variant.costPrice.toString() : '',
+      })),
+    });
+  }, []);
+
+  const closeVariantSelection = useCallback(() => {
+    setVariantSelection(null);
+  }, []);
+
+  const confirmVariantSelection = useCallback(() => {
+    if (!variantSelection) return;
+    const { product, rows } = variantSelection;
+    let hasValidQuantity = false;
+
+    rows.forEach(row => {
+      const quantityValue = Number(row.quantity);
+      if (Number.isFinite(quantityValue) && quantityValue > 0) {
+        hasValidQuantity = true;
+        const costValue = Number(row.cost);
+        upsertInventoryItem(
+          product,
+          row.variant,
+          quantityValue,
+          Number.isFinite(costValue) ? costValue : 0
+        );
+      }
+    });
+
+    if (!hasValidQuantity) {
+      toast.error('Debes ingresar al menos una cantidad mayor a cero.');
+      return;
+    }
+
+    closeVariantSelection();
+    toast.success('Variantes agregadas a la lista.');
+  }, [variantSelection, upsertInventoryItem, closeVariantSelection]);
+
+  const handleProductSelection = (selectedOption) => {
+    if (!selectedOption) return;
+
+    const productId = selectedOption.value;
+    if (!productId) return;
+
+    fetchApi(`/products/${productId}`)
+      .then((response) => {
+        if (!response?.data) return;
+        const product = response.data;
+        const variants = Array.isArray(product.variants)
+          ? product.variants.filter(v => v && v.isActive !== false)
+          : [];
+
+        if (variants.length > 0) {
+          openVariantSelection(product, variants);
+        } else {
+          upsertInventoryItem(product, null, 1, product.averageCost || 0);
+          toast.success('Producto agregado a la lista.');
+        }
+      })
+      .catch((error) => {
+        console.error('Error fetching product details:', error);
+        toast.error('Error al obtener detalles del producto.');
+      });
+  };
+
+  const updateItemInList = (index, field, value) => {
+    setItemsToAdd(prev => {
+      const next = [...prev];
+      if (!next[index]) return prev;
+
+      if (field === 'quantity') {
+        next[index][field] = Number(value);
+        if (next[index].lots && next[index].lots.length === 1) {
+          next[index].lots[0].quantity = Number(value);
+        }
+      } else if (field === 'costPrice') {
+        next[index][field] = Number(value);
+      } else {
+        next[index][field] = value;
+      }
+      return next;
+    });
+  };
+
+  const removeItemFromList = (index) => {
+    setItemsToAdd(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateItemLot = (itemIndex, lotIndex, field, value) => {
+    setItemsToAdd(prev => {
+      const next = [...prev];
+      const item = next[itemIndex];
+      if (!item || !item.lots || !item.lots[lotIndex]) return prev;
+      next[itemIndex].lots[lotIndex][field] = value;
+      return next;
+    });
   };
 
   useEffect(() => {
     if (!isAddDialogOpen) {
-      setVariantQuantities([]);
-      return;
-    }
-    if (!useVariantInventory || !selectedProduct) {
-      setVariantQuantities([]);
-      return;
-    }
-
-    setVariantQuantities((prev) => {
-      const previousById = new Map(prev.map((entry) => [entry.variantId, entry]));
-      const next = (selectedProduct.variants || []).map((variant) => {
-        const existing = previousById.get(variant._id);
-        return {
-          variantId: variant._id,
-          variantSku: variant.sku,
-          name: formatVariantLabel(variant),
-          quantity: existing ? existing.quantity : '',
-          cost: existing ? existing.cost : '',
-        };
+      setItemsToAdd([]);
+      setNewInventoryItem({
+        productId: '',
+        productName: '',
+        totalQuantity: 0,
+        averageCostPrice: 0,
+        lots: [],
+        warehouseId: '',
+        binLocationId: '',
+        receivedBy: '',
+        notes: '',
       });
-      return next;
-    });
-  }, [isAddDialogOpen, useVariantInventory, selectedProduct, formatVariantLabel]);
-
-  useEffect(() => {
-    if (!useVariantInventory) {
-      return;
+      setVariantSelection(null);
+      setProductSearchInput('');
     }
-    const total = variantQuantities.reduce((sum, item) => {
-      const qty = Number(item.quantity);
-      return sum + (Number.isNaN(qty) ? 0 : qty);
-    }, 0);
-    setNewInventoryItem((prev) => {
-      if (prev.totalQuantity === total) {
-        return prev;
-      }
-      return { ...prev, totalQuantity: total };
-    });
-  }, [useVariantInventory, variantQuantities]);
+  }, [isAddDialogOpen]);
 
-  const handleAddItem = async () => {
-    if (!newInventoryItem.productId) {
-      alert('Por favor, selecciona un producto.');
+  const handleSaveBatch = async () => {
+    if (itemsToAdd.length === 0) {
+      toast.error('La lista de inventario está vacía.');
       return;
     }
 
-    if (!selectedProduct) {
-      alert('Producto seleccionado no es válido.');
+    if (multiWarehouseEnabled && !newInventoryItem.warehouseId) {
+      toast.error('Debes seleccionar un Almacén para este lote de inventario.');
       return;
     }
 
-    const selectedProductRef = selectedProduct;
-    const baseCost = Number(newInventoryItem.averageCostPrice);
-
-    console.log('🎯 [handleAddItem] Iniciando creación de inventario');
-    console.log('🎯 [handleAddItem] useVariantInventory:', useVariantInventory);
-    console.log('🎯 [handleAddItem] selectedProduct:', selectedProductRef);
-
-    if (useVariantInventory) {
-      const variantEntries = variantQuantities
-        .map((entry) => ({
-          ...entry,
-          quantity: Number(entry.quantity),
-        }))
-        .filter((entry) => entry.quantity > 0);
-
-      console.log('📝 [handleAddItem] variantEntries:', variantEntries);
-
-      if (variantEntries.length === 0) {
-        alert('Define al menos una cantidad para las variantes.');
+    for (const item of itemsToAdd) {
+      if (item.quantity <= 0) {
+        toast.error(`El producto ${item.productName} tiene cantidad 0.`);
         return;
       }
-
-      try {
-        for (const entry of variantEntries) {
-          const payload = {
-            productId: selectedProductRef._id,
-            productSku: entry.variantSku || `${selectedProductRef.sku}-${entry.variantId}`,
-            productName: entry.name
-              ? `${selectedProductRef.name} - ${entry.name}`
-              : selectedProductRef.name,
-            variantId: entry.variantId,
-            variantSku: entry.variantSku,
-            totalQuantity: entry.quantity,
-            averageCostPrice: Number(entry.cost) || baseCost,
-            receivedBy: newInventoryItem.receivedBy,
-            notes: newInventoryItem.notes,
-          };
-
-          console.log('📤 [handleAddItem] Enviando payload:', payload);
-          const response = await fetchApi('/inventory', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-          });
-          console.log('✅ [handleAddItem] Respuesta del servidor:', response);
+      if (item.isPerishable) {
+        if (!item.lots || item.lots.length === 0 || !item.lots[0].lotNumber || !item.lots[0].expirationDate) {
+          toast.error(`El producto ${item.productName} requiere número de lote y fecha de vencimiento.`);
+          return;
         }
-
-        console.log('🎉 [handleAddItem] Todas las variantes creadas, cerrando diálogo y recargando...');
-        document.dispatchEvent(new CustomEvent('inventory-form-success'));
-        setIsAddDialogOpen(false);
-        setNewInventoryItem({
-          productId: '',
-          totalQuantity: 0,
-          averageCostPrice: 0,
-          lots: [],
-          receivedBy: '',
-          notes: '',
-        });
-        setVariantQuantities([]);
-        setProductSearchInput('');
-
-        // IMPORTANTE: Volver a la primera página para ver el nuevo inventario
-        setCurrentPage(1);
-        // Esperar un momento antes de recargar para dar tiempo al backend
-        await new Promise(resolve => setTimeout(resolve, 500));
-        console.log('🔄 [handleAddItem] Llamando a loadData() en página 1...');
-        await refreshData(1, itemsPerPage, committedSearch);
-        console.log('✅ [handleAddItem] loadData() completado');
-      } catch (err) {
-        console.error('❌ [handleAddItem] Error:', err);
-        alert(`Error: ${err.message}`);
-      }
-      return;
-    }
-
-    const payload = {
-      productId: selectedProductRef._id,
-      productSku: selectedProductRef.sku,
-      productName: selectedProductRef.name,
-      totalQuantity: Number(newInventoryItem.totalQuantity),
-      averageCostPrice: baseCost,
-      receivedBy: newInventoryItem.receivedBy,
-      notes: newInventoryItem.notes,
-      lots: newInventoryItem.lots.map((lot) => ({
-        lotNumber: lot.lotNumber,
-        quantity: Number(lot.quantity),
-        expirationDate: lot.expirationDate ? new Date(lot.expirationDate) : undefined,
-        costPrice: baseCost,
-        receivedDate: new Date(),
-      })),
-    };
-
-    if (!selectedProductRef.isPerishable) {
-      delete payload.lots;
-    }
-
-    // Add warehouse and bin location if multi-warehouse is enabled
-    if (multiWarehouseEnabled && newInventoryItem.warehouseId) {
-      payload.warehouseId = newInventoryItem.warehouseId;
-      if (newInventoryItem.binLocationId) {
-        payload.binLocationId = newInventoryItem.binLocationId;
+        const totalLotQty = item.lots.reduce((sum, lot) => sum + Number(lot.quantity), 0);
+        if (totalLotQty !== item.quantity) {
+          toast.error(`Las cantidades de los lotes no coinciden con el total para ${item.productName}. Total: ${item.quantity}, Lotes: ${totalLotQty}`);
+          return;
+        }
       }
     }
 
-    console.log('📤 [handleAddItem] Enviando payload (producto sin variantes):', payload);
+    setLoading(true); // Re-using global loading
+
+    let successCount = 0;
+    let failCount = 0;
 
     try {
-      const response = await fetchApi('/inventory', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-      console.log('✅ [handleAddItem] Respuesta del servidor:', response);
+      for (const item of itemsToAdd) {
+        const payload = {
+          productId: item.productId,
+          productSku: item.productSku,
+          productName: item.productName,
+          totalQuantity: Number(item.quantity),
+          averageCostPrice: Number(item.costPrice),
+          receivedBy: newInventoryItem.receivedBy,
+          notes: newInventoryItem.notes,
+          warehouseId: newInventoryItem.warehouseId || undefined,
+          binLocationId: newInventoryItem.binLocationId || undefined,
+        };
 
-      document.dispatchEvent(new CustomEvent('inventory-form-success'));
-      setIsAddDialogOpen(false);
-      setNewInventoryItem({ productId: '', totalQuantity: 0, averageCostPrice: 0, lots: [], receivedBy: '', notes: '' });
-      setVariantQuantities([]);
-      setProductSearchInput('');
+        if (item.variantId) {
+          payload.variantId = item.variantId;
+          payload.variantSku = item.variantSku;
+        }
 
-      // IMPORTANTE: Volver a la primera página para ver el nuevo inventario
-      setCurrentPage(1);
-      // Esperar un momento antes de recargar
-      await new Promise(resolve => setTimeout(resolve, 500));
-      console.log('🔄 [handleAddItem] Llamando a loadData() en página 1...');
-      await refreshData(1, itemsPerPage, committedSearch);
-      console.log('✅ [handleAddItem] loadData() completado');
+        if (item.isPerishable) {
+          payload.lots = item.lots.map(lot => ({
+            lotNumber: lot.lotNumber,
+            quantity: Number(lot.quantity),
+            expirationDate: lot.expirationDate ? new Date(lot.expirationDate) : undefined,
+            costPrice: Number(item.costPrice),
+            receivedDate: new Date(),
+          }));
+        }
+
+        console.log('📤 [handleSaveBatch] Sending:', payload);
+
+        try {
+          await fetchApi('/inventory', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+          });
+          successCount++;
+        } catch (err) {
+          console.error(`Error saving item ${item.productName}:`, err);
+          failCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`${successCount} productos agregados correctamente.`);
+        document.dispatchEvent(new CustomEvent('inventory-form-success'));
+        setIsAddDialogOpen(false);
+        setCurrentPage(1);
+        setTimeout(() => refreshData(1, itemsPerPage, committedSearch), 500);
+      }
+
+      if (failCount > 0) {
+        toast.warning(`${failCount} productos fallaron al guardarse.`);
+      }
+
     } catch (err) {
-      console.error('❌ [handleAddItem] Error:', err);
-      alert(`Error: ${err.message}`);
+      console.error('Critical batch error:', err);
+      toast.error('Error procesando el lote.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1311,113 +1307,24 @@ function InventoryManagement() {
             <DialogTrigger asChild>
               <Button id="add-inventory-button" size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white w-full sm:w-auto"><Plus className="h-5 w-5 mr-2" />Agregar Inventario</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
               <DialogHeader>
-                <DialogTitle>Agregar Inventario Inicial</DialogTitle>
-                <DialogDescription>Selecciona un producto y define su stock y costo inicial.</DialogDescription>
+                <DialogTitle>Agregar Inventario</DialogTitle>
+                <DialogDescription>Agrega múltiples productos al inventario en una sola operación.</DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="product">Producto</Label>
-                  <SearchableSelect
-                    asyncSearch={true}
-                    loadOptions={loadProductOptions}
-                    minSearchLength={2}
-                    debounceMs={300}
-                    onSelection={handleProductSelection}
-                    value={
-                      newInventoryItem.productId
-                        ? {
-                          value: newInventoryItem.productId,
-                          label: newInventoryItem.productName || '',
-                        }
-                        : null
-                    }
-                    placeholder={getPlaceholder('search', 'Buscar producto (mín. 2 caracteres)...')}
-                  />
-                </div>
-                {useVariantInventory ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="font-medium">Cantidad por variante</Label>
-                      <span className="text-sm text-muted-foreground">
-                        Total: {variantQuantities.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0)}
-                      </span>
-                    </div>
-                    <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
-                      {variantQuantities.map((variant, index) => (
-                        <div
-                          key={variant.variantId || variant.variantSku || index}
-                          className="grid grid-cols-1 sm:grid-cols-6 gap-2 items-center border rounded-md p-3"
-                        >
-                          <div className="sm:col-span-4">
-                            <p className="text-sm font-medium text-foreground">
-                              {variant.name || variant.variantSku || `Variante ${index + 1}`}
-                            </p>
-                            {variant.variantSku ? (
-                              <p className="text-xs text-muted-foreground">SKU: {variant.variantSku}</p>
-                            ) : null}
-                          </div>
-                          <div className="sm:col-span-2 grid grid-cols-2 gap-2">
-                            <NumberInput
-                              min={0}
-                              step={quantityStep}
-                              value={variant.quantity ?? ''}
-                              onValueChange={(val) => handleVariantQuantityChange(index, val)}
-                              placeholder="Cant."
-                            />
-                            <NumberInput
-                              min={0}
-                              step={0.01}
-                              value={variant.cost ?? ''}
-                              onValueChange={(val) => {
-                                setVariantQuantities((prev) => {
-                                  const next = [...prev];
-                                  if (!next[index]) return prev;
-                                  next[index] = { ...next[index], cost: val };
-                                  return next;
-                                });
-                              }}
-                              placeholder="Costo"
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    {variantQuantities.length === 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        Configura variantes en el catálogo para distribuir el inventario inicial.
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Label htmlFor="totalQuantity">Cantidad Inicial</Label>
-                    <NumberInput
-                      id="totalQuantity"
-                      value={newInventoryItem.totalQuantity ?? ''}
-                      onValueChange={(val) =>
-                        setNewInventoryItem({
-                          ...newInventoryItem,
-                          totalQuantity: val,
-                        })
-                      }
-                      min={0}
-                      step={quantityStep}
-                      placeholder="Cantidad inicial"
-                    />
-                  </div>
-                )}
-                {/* Warehouse and Bin Location selectors - only show when multi-warehouse is enabled */}
-                {multiWarehouseEnabled && (
-                  <div className="grid grid-cols-2 gap-3">
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-6">
+
+                {/* Global Configuration for Batch */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg bg-slate-50 dark:bg-slate-900/50">
+                  {multiWarehouseEnabled && (
                     <div className="space-y-2">
-                      <Label>Almacén</Label>
+                      <Label>Almacén de Destino <span className="text-red-500">*</span></Label>
                       <Select
                         value={newInventoryItem.warehouseId}
                         onValueChange={(v) => setNewInventoryItem({ ...newInventoryItem, warehouseId: v, binLocationId: '' })}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="bg-white dark:bg-slate-950">
                           <SelectValue placeholder="Seleccionar almacén" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1429,106 +1336,235 @@ function InventoryManagement() {
                         </SelectContent>
                       </Select>
                     </div>
-                    {binLocations.filter(b => b.warehouseId === newInventoryItem.warehouseId).length > 0 && (
-                      <div className="space-y-2">
-                        <Label>Ubicación (opcional)</Label>
-                        <Select
-                          value={newInventoryItem.binLocationId}
-                          onValueChange={(v) => setNewInventoryItem({ ...newInventoryItem, binLocationId: v === 'none' ? '' : v })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Sin ubicación" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Sin ubicación</SelectItem>
-                            {binLocations
-                              .filter(b => b.warehouseId === newInventoryItem.warehouseId)
-                              .map((bin) => (
-                                <SelectItem key={bin._id || bin.id} value={bin._id || bin.id}>
-                                  {bin.code} - {bin.zone || 'N/A'}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                  </div>
-                )}
-                {/* Only show average cost when NOT using variant inventory */}
-                {!useVariantInventory && (
+                  )}
+
+                  {multiWarehouseEnabled && newInventoryItem.warehouseId && (
+                    <div className="space-y-2">
+                      <Label>Ubicación Predeterminada</Label>
+                      <Select
+                        value={newInventoryItem.binLocationId}
+                        onValueChange={(v) => setNewInventoryItem({ ...newInventoryItem, binLocationId: v === 'none' ? '' : v })}
+                      >
+                        <SelectTrigger className="bg-white dark:bg-slate-950">
+                          <SelectValue placeholder="Sin ubicación" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sin ubicación</SelectItem>
+                          {binLocations
+                            .filter(b => b.warehouseId === newInventoryItem.warehouseId)
+                            .map((bin) => (
+                              <SelectItem key={bin._id || bin.id} value={bin._id || bin.id}>
+                                {bin.code} - {bin.zone || 'N/A'}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
-                    <Label htmlFor="averageCostPrice">Costo Promedio por Unidad ($)</Label>
-                    <NumberInput
-                      id="averageCostPrice"
-                      value={newInventoryItem.averageCostPrice ?? ''}
-                      onValueChange={(val) => setNewInventoryItem({ ...newInventoryItem, averageCostPrice: val })}
-                      step={0.01}
-                      min={0}
-                      placeholder="Costo promedio"
+                    <Label>Recibido Por</Label>
+                    <Input
+                      placeholder="Nombre del responsable"
+                      value={newInventoryItem.receivedBy}
+                      onChange={(e) => setNewInventoryItem({ ...newInventoryItem, receivedBy: e.target.value })}
+                      className="bg-white dark:bg-slate-950"
                     />
                   </div>
-                )}
-                {selectedProduct && selectedProduct.isPerishable ? (
-                  <div className="space-y-4 border-t pt-4 mt-4">
-                    <h4 className="font-medium">Lotes del Producto Perecedero</h4>
-                    {newInventoryItem.lots.map((lot, index) => (
-                      <div key={index} className="grid grid-cols-4 gap-2 items-center">
-                        <Input
-                          placeholder="Nro. Lote"
-                          value={lot.lotNumber}
-                          onChange={(e) => handleLotChange(index, 'lotNumber', e.target.value)}
-                        />
-                        <NumberInput
-                          placeholder="Cantidad"
-                          value={lot.quantity ?? ''}
-                          onValueChange={(val) => handleLotChange(index, 'quantity', val)}
-                          min={0}
-                          step={quantityStep}
-                        />
-                        <Input
-                          type="date"
-                          placeholder="Vencimiento"
-                          value={lot.expirationDate}
-                          onChange={(e) => handleLotChange(index, 'expirationDate', e.target.value)}
-                        />
-                        <Button variant="ghost" size="sm" onClick={() => removeLot(index)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                    <Button variant="outline" size="sm" onClick={addLot}>
-                      <Plus className="h-4 w-4 mr-2" /> Agregar Lote
-                    </Button>
-                  </div>
-                ) : null}
-                {/* Reception Information */}
-                <div className="space-y-4 border-t pt-4 mt-4">
-                  <h4 className="font-medium">Información de Recepción</h4>
-                  <div className="grid grid-cols-1 gap-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="receivedBy">Recibido por</Label>
-                      <Input
-                        id="receivedBy"
-                        placeholder="Nombre de quien recibe"
-                        value={newInventoryItem.receivedBy}
-                        onChange={(e) => setNewInventoryItem({ ...newInventoryItem, receivedBy: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="notes">Notas</Label>
-                      <Input
-                        id="notes"
-                        placeholder="Observaciones sobre la recepción"
-                        value={newInventoryItem.notes}
-                        onChange={(e) => setNewInventoryItem({ ...newInventoryItem, notes: e.target.value })}
-                      />
-                    </div>
+                  <div className="space-y-2 col-span-1 md:col-span-3">
+                    <Label>Notas del Lote</Label>
+                    <Input
+                      placeholder="Observaciones generales para todos los ítems..."
+                      value={newInventoryItem.notes}
+                      onChange={(e) => setNewInventoryItem({ ...newInventoryItem, notes: e.target.value })}
+                      className="bg-white dark:bg-slate-950"
+                    />
                   </div>
                 </div>
+
+                {/* Product Search */}
+                <div className="space-y-2">
+                  <Label className="text-base font-semibold">Buscar Productos</Label>
+                  <SearchableSelect
+                    asyncSearch={true}
+                    loadOptions={loadProductOptions}
+                    minSearchLength={2}
+                    debounceMs={300}
+                    onSelection={handleProductSelection}
+                    value={null}
+                    placeholder="Escribe para buscar producto por nombre o SKU..."
+                    className="w-full"
+                  />
+                </div>
+
+                {/* Items Table */}
+                <div className="border rounded-md">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-slate-100 dark:bg-slate-800">
+                        <TableHead className="w-[300px]">Producto / Variante</TableHead>
+                        <TableHead className="w-[120px]">Cantidad</TableHead>
+                        <TableHead className="w-[120px]">Costo Unit.</TableHead>
+                        <TableHead className="w-[200px]">Lote / Vencimiento</TableHead>
+                        <TableHead className="text-right">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {itemsToAdd.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                            No haz agregado productos aún. Usa el buscador arriba.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        itemsToAdd.map((item, index) => (
+                          <TableRow key={`${item.productId}-${item.variantId || 'base'}-${index}`}>
+                            <TableCell>
+                              <div className="font-medium">{item.productName}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {item.productSku}
+                                {item.variantName ? ` · ${item.variantName}` : ''}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min="0"
+                                value={item.quantity}
+                                onChange={(e) => updateItemInList(index, 'quantity', e.target.value)}
+                                className="h-8 w-full"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={item.costPrice}
+                                onChange={(e) => updateItemInList(index, 'costPrice', e.target.value)}
+                                className="h-8 w-full"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              {item.isPerishable ? (
+                                <div className="flex flex-col gap-2">
+                                  {/* Use the first lot data for simplicity in main row */}
+                                  <Input
+                                    placeholder="Nro. Lote"
+                                    value={item.lots?.[0]?.lotNumber || ''}
+                                    onChange={(e) => updateItemLot(index, 0, 'lotNumber', e.target.value)}
+                                    className="h-8 w-full"
+                                  />
+                                  <Input
+                                    type="date"
+                                    value={item.lots?.[0]?.expirationDate || ''}
+                                    onChange={(e) => updateItemLot(index, 0, 'expirationDate', e.target.value)}
+                                    className="h-8 w-full"
+                                  />
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button variant="ghost" size="icon" onClick={() => removeItemFromList(index)} className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+              </div>
+
+              <DialogFooter className="p-4 border-t bg-slate-50 dark:bg-slate-900">
+                <div className="flex items-center justify-between w-full">
+                  <div className="text-sm text-muted-foreground">
+                    Total productos: <span className="font-medium text-foreground">{itemsToAdd.length}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
+                    <Button onClick={handleSaveBatch} disabled={itemsToAdd.length === 0 || loading} className="bg-[#FB923C] hover:bg-[#F97316] text-white">
+                      {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Guardar Todo
+                    </Button>
+                  </div>
+                </div>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Variant Selection Dialog */}
+          <Dialog open={!!variantSelection} onOpenChange={(open) => !open && closeVariantSelection()}>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Seleccionar Variantes</DialogTitle>
+                <DialogDescription>
+                  Ingresa la cantidad para cada variante de {variantSelection?.product?.name} que deseas agregar.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="max-h-[60vh] overflow-y-auto py-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Variante</TableHead>
+                      <TableHead className="w-[100px]">Cantidad</TableHead>
+                      <TableHead className="w-[120px]">Costo</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {variantSelection?.rows.map((row, idx) => (
+                      <TableRow key={row.variant._id || idx}>
+                        <TableCell>
+                          <div className="font-medium">{row.variant.name || row.variant.sku}</div>
+                          <div className="text-xs text-muted-foreground">{row.variant.sku}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            value={row.quantity}
+                            onChange={(e) => {
+                              const newVal = e.target.value;
+                              setVariantSelection(prev => {
+                                if (!prev) return prev;
+                                const newRows = [...prev.rows];
+                                newRows[idx] = { ...newRows[idx], quantity: newVal };
+                                return { ...prev, rows: newRows };
+                              });
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={row.cost}
+                            onChange={(e) => {
+                              const newVal = e.target.value;
+                              setVariantSelection(prev => {
+                                if (!prev) return prev;
+                                const newRows = [...prev.rows];
+                                newRows[idx] = { ...newRows[idx], cost: newVal };
+                                return { ...prev, rows: newRows };
+                              });
+                            }}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
-                <Button onClick={handleAddItem}>Agregar a Inventario</Button>
+                <Button variant="outline" onClick={closeVariantSelection}>Cancelar</Button>
+                <Button onClick={confirmVariantSelection}>Agregar Seleccionados</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

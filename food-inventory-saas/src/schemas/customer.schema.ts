@@ -390,6 +390,13 @@ export class Customer {
   @Prop({ type: Boolean, default: false })
   hasStorefrontAccount: boolean; // Whether customer has a storefront account
 
+  // ── Data Import tracking ──
+  @Prop({ type: Types.ObjectId, ref: "ImportJob" })
+  importJobId?: Types.ObjectId;
+
+  @Prop({ type: Date })
+  importedAt?: Date;
+
   // Timestamps (automatically added by Mongoose with timestamps: true)
   createdAt?: Date;
   updatedAt?: Date;

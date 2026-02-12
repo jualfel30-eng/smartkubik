@@ -159,9 +159,37 @@ const BlogPost = () => {
     );
   }
 
-  // Determine CTA positions (simplified for now, can be made dynamic based on content length)
-  const cta25Percent = post.body.length > 4; // If more than 4 blocks, show first CTA
-  const cta50Percent = post.body.length > 8; // If more than 8 blocks, show second CTA
+  // Filter out AI Metadata blocks (Range Filtering)
+  let isAiMetadata = false;
+  const filteredBody = post.body?.filter((block) => {
+    if (block._type === 'block' && block.children) {
+      const text = block.children.map((child) => child.text).join('').toUpperCase();
+
+      // Start of metadata block
+      if (text.includes('AI METADATA') && !text.includes('END AI METADATA')) {
+        console.log('Filtering AI Metadata Start:', text);
+        isAiMetadata = true;
+        return false;
+      }
+
+      // End of metadata block
+      if (text.includes('END AI METADATA')) {
+        console.log('Filtering AI Metadata End:', text);
+        isAiMetadata = false;
+        return false;
+      }
+    }
+
+    // If we are currently inside an AI metadata block, filter it out
+    if (isAiMetadata) {
+      return false;
+    }
+    return true;
+  }) || [];
+
+  // CTA logic based on filtered body
+  const cta25Percent = filteredBody.length > 4;
+  const cta50Percent = filteredBody.length > 8;
 
   return (
     <>
@@ -183,85 +211,85 @@ const BlogPost = () => {
         <div className="grid grid-cols-1 lg:grid-cols-[375px_1fr_300px] gap-8 mt-6">
           {/* Left Sidebar / Table of Contents */}
           <aside className="hidden lg:block sticky top-20 h-[calc(100vh-80px)] overflow-y-auto">
-            <TableOfContents content={post.body} />
+            <TableOfContents content={filteredBody} />
           </aside>
 
-        {/* Main Content Area */}
-        <article className="col-span-1 lg:col-span-1" ref={contentRef}>
-          <div className="mb-8">
-            <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">{post.title}</h1>
-            <div className="flex items-center gap-4 mb-6">
-              {post.authorImage && (
-                <img src={urlFor(post.authorImage).width(60).height(60).url()} alt={post.authorName} className="w-12 h-12 rounded-full object-cover" />
-              )}
-              <div>
-                <p className="font-semibold text-lg">{post.authorName}</p>
-                <p className="text-sm text-muted-foreground">{new Date(post.publishedAt).toLocaleDateString()} • {readingTime} min de lectura</p>
+          {/* Main Content Area */}
+          <article className="col-span-1 lg:col-span-1" ref={contentRef}>
+            <div className="mb-8">
+              <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">{post.title}</h1>
+              <div className="flex items-center gap-4 mb-6">
+                {post.authorImage && (
+                  <img src={urlFor(post.authorImage).width(60).height(60).url()} alt={post.authorName} className="w-12 h-12 rounded-full object-cover" />
+                )}
+                <div>
+                  <p className="font-semibold text-lg">{post.authorName}</p>
+                  <p className="text-sm text-muted-foreground">{new Date(post.publishedAt).toLocaleDateString()} • {readingTime} min de lectura</p>
+                </div>
               </div>
+              {post.mainImage && (
+                <img src={urlFor(post.mainImage).url()} alt={post.title} className="w-full h-auto max-h-[400px] object-cover rounded-lg mb-8" />
+              )}
             </div>
-            {post.mainImage && (
-              <img src={urlFor(post.mainImage).url()} alt={post.title} className="w-full h-auto max-h-[400px] object-cover rounded-lg mb-8" />
-            )}
-          </div>
 
-          <div className="prose dark:prose-invert max-w-none">
-            {post.body.map((block, index) => (
-              <React.Fragment key={block._key || index}>
-                <PortableText value={[block]} components={PortableTextComponents} />
-                {/* In-line CTAs */}
-                {cta25Percent && index === Math.floor(post.body.length * 0.25) && (
-                  <div className="my-8">
-                    <CtaBox
-                      title="Checklist: Organiza tu inventario en 30 días"
-                      description="Descarga gratis nuestra checklist para auditar, clasificar y reordenar tus SKUs como un profesional."
-                      buttonText="Descargar ahora"
-                      href="#"
-                    />
-                  </div>
-                )}
-                {cta50Percent && index === Math.floor(post.body.length * 0.5) && (
-                  <div className="my-8">
-                    <CtaBox
-                      title="Mira Smartkubik en acción"
-                      description="Explora el módulo de inventario con un recorrido de 3 minutos y descubre cómo automatizar tu reposición."
-                      buttonText="Ver demo"
-                      href="#"
-                    />
-                  </div>
-                )}
-              </React.Fragment>
-            ))}
-          </div>
+            <div className="prose dark:prose-invert max-w-none">
+              {filteredBody.map((block, index) => (
+                <React.Fragment key={block._key || index}>
+                  <PortableText value={[block]} components={PortableTextComponents} />
+                  {/* In-line CTAs */}
+                  {cta25Percent && index === Math.floor(filteredBody.length * 0.25) && (
+                    <div className="my-8">
+                      <CtaBox
+                        title="Checklist: Organiza tu inventario en 30 días"
+                        description="Descarga gratis nuestra checklist para auditar, clasificar y reordenar tus SKUs como un profesional."
+                        buttonText="Descargar ahora"
+                        href="#"
+                      />
+                    </div>
+                  )}
+                  {cta50Percent && index === Math.floor(filteredBody.length * 0.5) && (
+                    <div className="my-8">
+                      <CtaBox
+                        title="Mira Smartkubik en acción"
+                        description="Explora el módulo de inventario con un recorrido de 3 minutos y descubre cómo automatizar tu reposición."
+                        buttonText="Ver demo"
+                        href="#"
+                      />
+                    </div>
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
 
-          {/* Final CTA */}
-          <div className="my-12">
-            <CtaBox
-              title="Agenda tu demo de Smartkubik"
-              description="¿Listo para dejar de apagar incendios? Programa una demo personalizada o empieza tu prueba de 14 días."
-              buttonText="Solicitar demo"
-              href="#"
-            />
-          </div>
+            {/* Final CTA */}
+            <div className="my-12">
+              <CtaBox
+                title="Agenda tu demo de Smartkubik"
+                description="¿Listo para dejar de apagar incendios? Programa una demo personalizada o empieza tu prueba de 14 días."
+                buttonText="Solicitar demo"
+                href="#"
+              />
+            </div>
 
-          {/* Author Box */}
-          <div className="my-12">
-            <AuthorBox
-              authorName={post.authorName}
-              authorImage={post.authorImage ? urlFor(post.authorImage).url() : null}
-              authorBio={post.authorBio}
-            />
-          </div>
+            {/* Author Box */}
+            <div className="my-12">
+              <AuthorBox
+                authorName={post.authorName}
+                authorImage={post.authorImage ? urlFor(post.authorImage).url() : null}
+                authorBio={post.authorBio}
+              />
+            </div>
 
-          {/* FAQ Section (if available in post.body, needs custom PortableText rendering or separate data) */}
-          {/* For now, assuming FAQ is part of the body and PortableTextComponents handles it */}
-        </article>
+            {/* FAQ Section (if available in post.body, needs custom PortableText rendering or separate data) */}
+            {/* For now, assuming FAQ is part of the body and PortableTextComponents handles it */}
+          </article>
 
-        {/* Right Sidebar */}
-        <aside className="col-span-1 lg:col-span-1 space-y-8 sticky top-20 h-[calc(100vh-80px)] overflow-y-auto">
-          <NewsletterForm />
-          <ROICalculator />
-          <RelatedPosts currentPostId={post._id} tags={post.tags} />
-        </aside>
+          {/* Right Sidebar */}
+          <aside className="col-span-1 lg:col-span-1 space-y-8 sticky top-20 h-[calc(100vh-80px)] overflow-y-auto">
+            <NewsletterForm />
+            <ROICalculator />
+            <RelatedPosts currentPostId={post._id} tags={post.tags} />
+          </aside>
         </div>
       </div>
     </>

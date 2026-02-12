@@ -179,6 +179,13 @@ export class Supplier {
 
   @Prop({ type: Types.ObjectId, ref: "Customer" })
   customerId?: Types.ObjectId;
+
+  // ── Data Import tracking ──
+  @Prop({ type: Types.ObjectId, ref: "ImportJob" })
+  importJobId?: Types.ObjectId;
+
+  @Prop({ type: Date })
+  importedAt?: Date;
 }
 
 export const SupplierSchema = SchemaFactory.createForClass(Supplier);

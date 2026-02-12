@@ -297,6 +297,13 @@ export class Product {
 
   @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })
   tenantId: Types.ObjectId;
+
+  // ── Data Import tracking ──
+  @Prop({ type: Types.ObjectId, ref: "ImportJob" })
+  importJobId?: Types.ObjectId;
+
+  @Prop({ type: Date })
+  importedAt?: Date;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

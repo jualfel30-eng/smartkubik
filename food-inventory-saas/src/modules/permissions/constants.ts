@@ -97,4 +97,8 @@ export const ALL_PERMISSIONS = [
   // Billing Module
   "billing_create",
   "billing_void",
+  // Data Import Module
+  "data_import_create",
+  "data_import_read",
+  "data_import_delete",
 ];

@@ -79,6 +79,7 @@ import {
   Boxes,
   PackagePlus,
   UserCheck,
+  Upload,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { Toaster as ShadcnToaster } from '@/components/ui/toaster';
@@ -197,6 +198,7 @@ const BillingDocumentDetail = lazy(() => import('@/components/billing/BillingDoc
 const BillingSequencesManager = lazy(() => import('@/components/billing/BillingSequencesManager.jsx'));
 const FulfillmentDashboard = lazy(() => import('@/components/fulfillment/FulfillmentDashboard.jsx').then(module => ({ default: module.FulfillmentDashboard })));
 const CashRegisterPage = lazy(() => import('./pages/CashRegisterPage.jsx'));
+const DataImportPage = lazy(() => import('./components/data-import/DataImportPage.jsx'));
 
 
 // Loading fallback component - RubikLoader is now directly imported (not lazy)
@@ -570,6 +572,7 @@ function TenantLayout() {
     { name: 'Cierre de Caja', href: 'cash-register', icon: Receipt, permission: 'cash_register_read', requiresModule: 'cashRegister' },
     // Facturación Electrónica ahora vive dentro de Contabilidad General
     { name: 'Reportes', href: 'reports', icon: AreaChart, permission: 'reports_read' },
+    { name: 'Importar Datos', href: 'data-import', icon: Upload, permission: 'data_import_read' },
 
     // 4. Calendario
     {
@@ -1196,6 +1199,7 @@ function TenantLayout() {
                   }
                 />
                 <Route path="settings" element={<SettingsPage />} />
+                <Route path="data-import" element={<DataImportPage />} />
                 <Route path="reports" element={<ReportsPage />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>

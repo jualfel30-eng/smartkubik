@@ -2385,4 +2385,113 @@ export const deleteInvestment = (id) => {
   });
 };
 
+// ==================== Data Import API ====================
+
+export const uploadImportFile = (formData) => {
+  return fetchApi('/data-import/upload', {
+    method: 'POST',
+    body: formData,
+  });
+};
+
+export const getImportFieldDefinitions = (entityType) => {
+  return fetchApi(`/data-import/field-definitions/${entityType}`);
+};
+
+export const getImportPresets = (entityType) => {
+  return fetchApi(`/data-import/presets/${entityType}`);
+};
+
+export const downloadImportTemplate = async (entityType, preset) => {
+  const url = preset
+    ? `/data-import/templates/${entityType}/${preset}`
+    : `/data-import/templates/${entityType}`;
+
+  const token = localStorage.getItem('accessToken');
+  const baseUrl = import.meta.env.VITE_API_URL || '';
+  const fullUrl = `${baseUrl}/api/v1${url}`;
+
+  const response = await fetch(fullUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) throw new Error('Error al descargar plantilla');
+
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = downloadUrl;
+  a.download = `plantilla_${entityType}${preset ? `_${preset}` : ''}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+};
+
+export const updateImportMapping = (jobId, columnMapping, options = {}) => {
+  return fetchApi(`/data-import/${jobId}/mapping`, {
+    method: 'PATCH',
+    body: JSON.stringify({ columnMapping, ...options }),
+  });
+};
+
+export const validateImportJob = (jobId) => {
+  return fetchApi(`/data-import/${jobId}/validate`, {
+    method: 'POST',
+  });
+};
+
+export const executeImportJob = (jobId) => {
+  return fetchApi(`/data-import/${jobId}/execute`, {
+    method: 'POST',
+  });
+};
+
+export const getImportJob = (jobId) => {
+  return fetchApi(`/data-import/history/${jobId}`);
+};
+
+export const getImportErrors = (jobId) => {
+  return fetchApi(`/data-import/history/${jobId}/errors`);
+};
+
+export const downloadImportErrors = async (jobId) => {
+  const token = localStorage.getItem('accessToken');
+  const baseUrl = import.meta.env.VITE_API_URL || '';
+  const fullUrl = `${baseUrl}/api/v1/data-import/history/${jobId}/errors?format=xlsx`;
+
+  const response = await fetch(fullUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) throw new Error('Error al descargar reporte de errores');
+
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = downloadUrl;
+  a.download = `errores_importacion_${jobId}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+};
+
+export const getImportHistory = (params = {}) => {
+  const queryString = new URLSearchParams(params).toString();
+  return fetchApi(`/data-import/history${queryString ? `?${queryString}` : ''}`);
+};
+
+export const rollbackImport = (jobId) => {
+  return fetchApi(`/data-import/${jobId}/rollback`, {
+    method: 'DELETE',
+  });
+};
+
+export const deleteImportJob = (jobId) => {
+  return fetchApi(`/data-import/${jobId}`, {
+    method: 'DELETE',
+  });
+};
+
 // ==================== IVA Declaration API ====================
