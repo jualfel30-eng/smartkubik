@@ -1067,7 +1067,7 @@ export class InventoryService {
       nearExpiration,
       expired,
       minAvailable,
-      sortBy = "lastUpdated",
+      sortBy = "updatedAt",
       sortOrder = "desc",
       includeInactive = false,
     } = query;
@@ -1108,7 +1108,7 @@ export class InventoryService {
         filter.$or = [{ productName: regex }, { productSku: regex }];
       }
     }
-    const sortField = sortBy || "lastUpdated";
+    const sortField = sortBy || "updatedAt";
     const sortDirection: SortOrder = sortOrder === "asc" ? "asc" : "desc";
     const sortOptions: Record<string, SortOrder> = {
       [sortField]: sortDirection,

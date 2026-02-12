@@ -403,11 +403,11 @@ export class InventoryQueryDto {
 
   @ApiPropertyOptional({
     description: "Ordenar por",
-    enum: ["productName", "availableQuantity", "lastUpdated"],
+    enum: ["productName", "availableQuantity", "updatedAt"],
   })
   @IsOptional()
-  @IsEnum(["productName", "availableQuantity", "lastUpdated"])
-  sortBy?: string = "lastUpdated";
+  @IsEnum(["productName", "availableQuantity", "updatedAt"])
+  sortBy?: string = "updatedAt";
 
   @ApiPropertyOptional({ description: "Orden", enum: ["asc", "desc"] })
   @IsOptional()
