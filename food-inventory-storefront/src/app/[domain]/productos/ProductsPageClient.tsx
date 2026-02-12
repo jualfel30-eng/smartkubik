@@ -74,7 +74,7 @@ export function ProductsPageClient({
     const params = new URLSearchParams();
 
     const newSearch = updates.search !== undefined ? updates.search : currentSearch;
-    const newCategory = updates.category !== undefined ? updates.category : selectedCategory;
+    const newCategory = updates.category !== undefined ? updates.category : currentCategory;
     const newPage = updates.page || currentPage;
 
     if (newSearch) params.set('search', newSearch);
