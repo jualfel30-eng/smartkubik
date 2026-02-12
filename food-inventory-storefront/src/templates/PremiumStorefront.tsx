@@ -145,12 +145,13 @@ export default function PremiumStorefront({ config, featuredProducts = [], categ
   const categories = propCategories.length > 0
     ? ['all', ...propCategories]
     : (products.length > 0 ? ['all', ...new Set(products.map((p: any) => p.category))] : ['all']);
+
   const filteredProducts = selectedCategory === 'all'
     ? products
     : products.filter((p: any) =>
-        p.category && selectedCategory &&
-        p.category.toLowerCase() === selectedCategory.toLowerCase()
-      );
+      p.category && selectedCategory &&
+      p.category.toLowerCase() === selectedCategory.toLowerCase()
+    );
 
   const themeStyle: CSSProperties = {
     '--color-primary': primaryColor,
@@ -287,12 +288,11 @@ export default function PremiumStorefront({ config, featuredProducts = [], categ
               {(categories as string[]).map((cat: string) => (
                 <button
                   key={cat}
-                  onClick={() => handleCategoryClick(cat)}
-                  className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
-                    selectedCategory === cat
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-300 ${selectedCategory === cat
                       ? 'text-white shadow-lg'
                       : `${isDarkMode ? 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'}`
-                  }`}
+                    }`}
                   style={selectedCategory === cat ? { background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` } : undefined}
                 >
                   {cat === 'all' ? 'Todos' : cat}
