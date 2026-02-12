@@ -149,7 +149,9 @@ export default function PremiumStorefront({ config, featuredProducts = [], categ
   const filteredProducts = selectedCategory === 'all'
     ? products
     : products.filter((p: any) =>
-      p.category && selectedCategory &&
+      p.category &&
+      selectedCategory &&
+      typeof p.category === 'string' &&
       p.category.toLowerCase() === selectedCategory.toLowerCase()
     );
 
