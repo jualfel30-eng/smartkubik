@@ -622,10 +622,11 @@ function InventoryManagement() {
       return;
     }
 
-    if (multiWarehouseEnabled && !newInventoryItem.warehouseId) {
-      toast.error('Debes seleccionar un Almacén para este lote de inventario.');
-      return;
-    }
+    // Validation for warehouse removed as per user request
+    // if (multiWarehouseEnabled && !newInventoryItem.warehouseId) {
+    //   toast.error('Debes seleccionar un Almacén para este lote de inventario.');
+    //   return;
+    // }
 
     for (const item of itemsToAdd) {
       if (item.quantity <= 0) {
@@ -633,10 +634,6 @@ function InventoryManagement() {
         return;
       }
       if (item.isPerishable) {
-        if (!item.lots || item.lots.length === 0 || !item.lots[0].lotNumber || !item.lots[0].expirationDate) {
-          toast.error(`El producto ${item.productName} requiere número de lote y fecha de vencimiento.`);
-          return;
-        }
         const totalLotQty = item.lots.reduce((sum, lot) => sum + Number(lot.quantity), 0);
         if (totalLotQty !== item.quantity) {
           toast.error(`Las cantidades de los lotes no coinciden con el total para ${item.productName}. Total: ${item.quantity}, Lotes: ${totalLotQty}`);
@@ -671,7 +668,7 @@ function InventoryManagement() {
 
         if (item.isPerishable) {
           payload.lots = item.lots.map(lot => ({
-            lotNumber: lot.lotNumber,
+            lotNumber: lot.lotNumber || 'S/L', // Default to S/L if empty
             quantity: Number(lot.quantity),
             expirationDate: lot.expirationDate ? new Date(lot.expirationDate) : undefined,
             costPrice: Number(item.costPrice),
@@ -1319,7 +1316,7 @@ function InventoryManagement() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg bg-slate-50 dark:bg-slate-900/50">
                   {multiWarehouseEnabled && (
                     <div className="space-y-2">
-                      <Label>Almacén de Destino <span className="text-red-500">*</span></Label>
+                      <Label>Almacén de Destino</Label>
                       <Select
                         value={newInventoryItem.warehouseId}
                         onValueChange={(v) => setNewInventoryItem({ ...newInventoryItem, warehouseId: v, binLocationId: '' })}
