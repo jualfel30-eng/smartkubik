@@ -475,7 +475,7 @@ export class ProductsService {
       filter.isActive = isActive;
     }
     if (category) {
-      filter.category = category;
+      filter.category = new RegExp(`^${this.escapeRegExp(category)}$`, "i");
     }
     if (brand) {
       filter.brand = brand;
