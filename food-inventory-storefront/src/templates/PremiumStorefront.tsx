@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, type CSSProperties } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { StorefrontConfig } from '@/types';
 import { Mail, Phone, MapPin, Facebook, Instagram, ArrowRight, Star, Sparkles, Zap, Shield } from 'lucide-react';
 import { getImageUrl } from '@/lib/utils';
@@ -98,6 +99,7 @@ function GlassCard({ children, className = '', hover = true }: { children: React
 }
 
 export default function PremiumStorefront({ config, featuredProducts = [], categories: propCategories = [], domain }: PremiumStorefrontProps) {
+  const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -148,6 +150,14 @@ export default function PremiumStorefront({ config, featuredProducts = [], categ
   const filteredProducts = selectedCategory === 'all'
     ? products
     : products.filter((p: any) => p.category === selectedCategory);
+
+  const handleCategoryClick = (category: string) => {
+    if (category === 'all') {
+      router.push(`/${domain}/productos`);
+    } else {
+      router.push(`/${domain}/productos?category=${encodeURIComponent(category)}`);
+    }
+  };
 
   const themeStyle: CSSProperties = {
     '--color-primary': primaryColor,
@@ -284,7 +294,7 @@ export default function PremiumStorefront({ config, featuredProducts = [], categ
               {(categories as string[]).map((cat: string) => (
                 <button
                   key={cat}
-                  onClick={() => setSelectedCategory(cat)}
+                  onClick={() => handleCategoryClick(cat)}
                   className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
                     selectedCategory === cat
                       ? 'text-white shadow-lg'
