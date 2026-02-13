@@ -18,26 +18,26 @@ export const subscriptionPlans: Record<string, SubscriptionPlan> = {
       maxStorage: 500,
     },
   },
-  starter: {
-    name: "Starter",
+  fundamental: {
+    name: "Fundamental",
     limits: {
-      maxUsers: 3,
+      maxUsers: 1,
       maxProducts: 500,
       maxOrders: 1000,
       maxStorage: 2000,
     },
   },
-  professional: {
-    name: "Professional",
+  crecimiento: {
+    name: "Crecimiento",
     limits: {
-      maxUsers: 8,
+      maxUsers: 5,
       maxProducts: 5000,
       maxOrders: 10000,
       maxStorage: 10000,
     },
   },
-  enterprise: {
-    name: "Enterprise",
+  expansion: {
+    name: "Expansión",
     limits: {
       maxUsers: Infinity,
       maxProducts: Infinity,
@@ -48,5 +48,6 @@ export const subscriptionPlans: Record<string, SubscriptionPlan> = {
 };
 
 export const getPlanLimits = (plan: string): SubscriptionPlan["limits"] => {
-  return subscriptionPlans[plan]?.limits || subscriptionPlans.trial.limits;
+  const key = plan.toLowerCase();
+  return subscriptionPlans[key]?.limits || subscriptionPlans.trial.limits;
 };

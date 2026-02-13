@@ -24,18 +24,18 @@ import {
 // Pricing Configuration
 const PRICING_TIERS = [
     {
-        id: 'starter',
-        name: 'Starter',
-        regularPrice: 49,
+        id: 'fundamental',
+        name: 'Fundamental',
+        regularPrice: 39,
         founderMonthly: 29,
         founderAnnual: 25,
-        discountMonthly: 41, // 41% OFF
-        discountAnnual: 49, // 49% OFF
+        discountMonthly: 26, // 26% OFF
+        discountAnnual: 36, // 36% OFF
         cupos: 15,
         features: [
+            "1 usuario",
             "1 sucursal",
-            "Todos los módulos incluídos",
-            "Integración WhatsApp + Módulo de ventas o reservas",
+            "Todos los módulos básicos incluídos",
             "Web de ventas vinculada al sistema",
             "Analítica y reportes básicos",
             "Backup mensual",
@@ -48,8 +48,8 @@ const PRICING_TIERS = [
         ]
     },
     {
-        id: 'professional',
-        name: 'Professional',
+        id: 'crecimiento',
+        name: 'Crecimiento',
         isPopular: true,
         regularPrice: 99,
         founderMonthly: 59,
@@ -58,11 +58,11 @@ const PRICING_TIERS = [
         discountAnnual: 51, // 51% OFF
         cupos: 45,
         features: [
-            "Todo lo del plan Starter",
+            "Todo lo del plan Fundamental",
             "Todos los módulos + funciones IA avanzadas",
-            "Hasta 8 usuarios",
+            "Hasta 5 usuarios",
             "Hasta 2 sucursales",
-            "Integración WhatsApp + ventas/reservas + IA",
+            "Integración WhatsApp + ventas/reservas",
             "Automatizaciones IA",
             "Agente IA de Análisis predictivo",
             "Mayor personalización de tu web",
@@ -73,8 +73,8 @@ const PRICING_TIERS = [
         notIncluded: []
     },
     {
-        id: 'enterprise',
-        name: 'Enterprise',
+        id: 'expansion',
+        name: 'Expansión',
         regularPrice: 149,
         founderMonthly: 99,
         founderAnnual: 85,
@@ -82,7 +82,7 @@ const PRICING_TIERS = [
         discountAnnual: 43, // 43% OFF
         cupos: 30,
         features: [
-            "Todo lo del plan Professional",
+            "Todo lo del plan Crecimiento",
             "Usuarios Ilimitados",
             "Sucursales Ilimitadas",
             "Soporte dedicado / SLA",
@@ -122,7 +122,7 @@ const VERTICALS = {
 const FAQ_ITEMS = [
     {
         q: "¿Qué pasa después de los 90 cupos?",
-        a: "El programa se cierra definitivamente. Los precios volverán a su tarifa regular ($49/$99/$149) y los beneficios exclusivos como el badge de fundador y el acceso al grupo VIP desaparecerán."
+        a: "El programa se cierra definitivamente. Los precios volverán a su tarifa regular ($39/$99/$149) y los beneficios exclusivos como el badge de fundador y el acceso al grupo VIP desaparecerán."
     },
     {
         q: "¿Puedo cambiar de plan y conservar el descuento?",
@@ -133,8 +133,8 @@ const FAQ_ITEMS = [
         a: "Sí, es vitalicio. Mientras mantengas tu suscripción activa, tu precio nunca subirá, incluso si aumentamos nuestros precios públicos en el futuro."
     },
     {
-        q: "¿Qué sucede si necesito más de 2 sucursales en el plan Professional?",
-        a: "Puedes adquirir 'Add-ons' de sucursal extra a precio preferencial de fundador, o migrar al plan Enterprise que incluye sucursales ilimitadas."
+        q: "¿Qué sucede si necesito más de 2 sucursales en el plan Crecimiento?",
+        a: "Puedes adquirir 'Add-ons' de sucursal extra a precio preferencial de fundador, o migrar al plan Expansión que incluye sucursales ilimitadas."
     }
 ];
 
@@ -294,7 +294,7 @@ const FoundersPage = () => {
                             </motion.h1>
 
                             <motion.p variants={itemVariants} className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto mb-10 font-light leading-relaxed">
-                                Únete a los primeros 90 negocios visionarios y obtén <span className="text-white font-bold">precio bloqueado de por vida</span> con hasta 51% de descuento.
+                                Únete a los primeros 90 negocios visionarios y obtén <span className="text-white font-bold">precio bloqueado de por vida</span> con hasta 51% de descuento y migración incluída.
                             </motion.p>
 
                             {/* Scarcity Bar */}

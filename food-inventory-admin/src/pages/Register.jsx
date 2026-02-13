@@ -75,45 +75,55 @@ const businessVerticals = [
 
 const subscriptionPlans = [
   {
-    id: 'starter',
-    name: 'Starter',
-    price: '$29 / mes',
+    id: 'fundamental',
+    name: 'Fundamental',
+    price: '$39 / mes',
     description: 'Para pequeños negocios que quieren orden.',
     features: [
-      'Hasta 3 usuarios',
+      '1 usuario',
       '1 sucursal',
-      'Módulos de gestión operativa',
-      'Web de ventas vinculada',
+      'Todos los módulos básicos incluídos',
+      'Web de ventas vinculada al sistema',
       'Analítica y reportes básicos',
-      'Soporte vía email',
+      'Backup mensual',
+      'Soporte estandar',
     ],
   },
   {
-    id: 'professional',
-    name: 'Professional',
-    price: '$59 / mes',
+    id: 'crecimiento',
+    name: 'Crecimiento',
+    price: '$99 / mes',
     description: 'Para empresas que crecen rápido.',
     features: [
-      'Todo lo del plan Starter',
-      'Hasta 8 usuarios',
-      '3 sucursales',
-      'WhatsApp nativo + IA',
-      'Analítica predictiva',
+      'Todo lo del plan Fundamental',
+      'Todos los módulos + funciones IA avanzadas',
+      'Hasta 5 usuarios',
+      'Hasta 2 sucursales',
+      'Integración WhatsApp + ventas/reservas',
+      'Automatizaciones IA',
+      'Agente IA de Análisis predictivo',
+      'Mayor personalización de tu web',
+      'Integraciones Full (Gmail/Outlook)',
+      'Backup semanal',
       'Soporte prioritario',
     ],
   },
   {
-    id: 'enterprise',
-    name: 'Enterprise',
-    price: '$99 / mes',
+    id: 'expansion',
+    name: 'Expansión',
+    price: '$149 / mes',
     description: 'Para grandes operaciones y franquicias.',
     features: [
-      'Todo lo del plan Professional',
-      '25+ usuarios',
-      'Sucursales ilimitadas',
+      'Todo lo del plan Crecimiento',
+      'Usuarios Ilimitados',
+      'Sucursales Ilimitadas',
+      'Soporte dedicado / SLA',
+      'Migración gratuita',
       'Asistente IA Ilimitado',
+      'Back up diario',
       'Dominio web propio',
-      'SLA y soporte dedicado',
+      'Acceso prioritario a nuevas funciones',
+      'Web sin publicidad',
     ],
   },
 ];
@@ -193,7 +203,7 @@ const PlanSelectionStep = ({ selectedPlan, onSelectPlan }) => (
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="text-lg font-semibold">{plan.name}</h3>
-                  {plan.id === 'professional' && (
+                  {plan.id === 'crecimiento' && (
                     <Badge className="bg-primary/10 text-primary">Más popular</Badge>
                   )}
                 </div>

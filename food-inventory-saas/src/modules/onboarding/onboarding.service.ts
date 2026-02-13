@@ -25,6 +25,7 @@ import {
 import { SeedingService } from "../seeding/seeding.service";
 import { LoggerSanitizer } from "../../utils/logger-sanitizer.util";
 import { getDefaultModulesForVertical } from "../../config/vertical-features.config";
+import { subscriptionPlans } from "../../config/subscriptions.config";
 import { TokenService } from "../../auth/token.service";
 import { MailService } from "../mail/mail.service";
 import { isTenantConfirmationEnforced } from "../../config/tenant-confirmation";
@@ -74,10 +75,10 @@ export class OnboardingService {
 
     try {
       await session.withTransaction(async () => {
-        // Normalizar el nombre del plan: capitalizar primera letra
+        // Normalizar el nombre del plan usando el config como fuente de verdad
         const requestedPlanId = (dto.subscriptionPlan || "trial").toLowerCase();
-        const planName =
-          requestedPlanId.charAt(0).toUpperCase() + requestedPlanId.slice(1);
+        const configPlan = subscriptionPlans[requestedPlanId];
+        const planName = configPlan?.name || "Trial";
 
         this.logger.log(
           `Requested plan: "${dto.subscriptionPlan}" -> Normalized to: "${planName}"`,

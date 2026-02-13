@@ -119,7 +119,7 @@ export class CreateTenantWithAdminDto {
 
   @ApiProperty({
     description: "Plan de suscripción seleccionado",
-    example: "professional",
+    example: "crecimiento",
   })
   @IsString()
   @IsNotEmpty()

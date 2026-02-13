@@ -137,9 +137,9 @@ const SmartKubikLanding = () => {
     const [billingCycle, setBillingCycle] = useState('annual'); // 'annual' | 'monthly'
 
     const PRICING_TIERS = {
-        starter: { annual: 49, monthlyMarkup: 1.20 }, // +20%
-        pro: { annual: 99, monthlyMarkup: 1.25 },     // +25%
-        enterprise: { annual: 149, monthlyMarkup: 1.20 } // +20%
+        fundamental: { annual: 29, monthlyMarkup: 1.345 }, // $39/mes, $29/anual
+        crecimiento: { annual: 79, monthlyMarkup: 1.253 }, // $99/mes, $79/anual
+        expansion: { annual: 125, monthlyMarkup: 1.192 }   // $149/mes, $125/anual
     };
 
     const getPrice = (tier, forceMonthly = false) => {
@@ -3492,23 +3492,26 @@ const SmartKubikLanding = () => {
                         </div>
 
                         <div className="grid md:grid-cols-3 gap-8 items-stretch max-w-[75%] mx-auto">
-                            {/*  Starter  */}
+                            {/*  Fundamental / Essentials  */}
                             <div className="relative rounded-3xl p-6 mt-8 border border-white/10 hover:border-white/20 backdrop-blur-md flex flex-col bg-[#0A0F1C]/60 transition-all">
                                 <div className="mb-4">
-                                    <h3 className="text-3xl font-bold text-white mb-2">Starter</h3>
+                                    <h3 className="text-3xl font-bold text-white mb-2">
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Fundamental</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Essentials</span>
+                                    </h3>
                                     <div className="flex items-baseline gap-2">
                                         {billingCycle === 'annual' && (
-                                            <span className="text-gray-500 line-through text-base">${getPrice('starter', true)}</span>
+                                            <span className="text-gray-500 line-through text-base">${getPrice('fundamental', true)}</span>
                                         )}
                                         <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400">
-                                            ${getPrice('starter')}
+                                            ${getPrice('fundamental')}
                                         </span>
                                         <span className="text-gray-400 text-xs">/mes</span>
                                     </div>
                                     {billingCycle === 'annual' && (
                                         <div className="mt-2 inline-block px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
-                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ahorras 15% vs Mensual</span>
-                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Save 15% vs Monthly</span>
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ahorras 26% vs Mensual</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Save 26% vs Monthly</span>
                                         </div>
                                     )}
                                 </div>
@@ -3517,9 +3520,9 @@ const SmartKubikLanding = () => {
 
                                 <ul className="space-y-3 mb-6 flex-1">
                                     {[
+                                        { es: "1 usuario", en: "1 user" },
                                         { es: "1 sucursal", en: "1 branch" },
-                                        { es: "Todos los módulos incluídos", en: "All modules included" },
-                                        { es: "Integración WhatsApp + Módulo de ventas o reservas", en: "WhatsApp Integration + Sales/Reservations" },
+                                        { es: "Todos los módulos básicos incluídos", en: "All basic modules included" },
                                         { es: "Web de ventas vinculada al sistema", en: "Linked sales website" },
                                         { es: "Analítica y reportes básicos", en: "Analytics and basic reports" },
                                         { es: "Backup mensual", en: "Monthly backup" },
@@ -3555,7 +3558,7 @@ const SmartKubikLanding = () => {
                                 </Link>
                             </div>
 
-                            {/*  Professional  */}
+                            {/*  Crecimiento / Growth  */}
                             <div
                                 className="relative rounded-3xl pt-12 px-6 pb-6 border border-cyan-500/50 backdrop-blur-md flex flex-col bg-[#0F172A]/80 shadow-2xl shadow-cyan-900/20 z-10 transition-all duration-300">
                                 <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-cyan-500 to-emerald-500 text-white px-4 py-1 rounded-full text-[10px] font-black tracking-wider shadow-lg">
@@ -3564,20 +3567,23 @@ const SmartKubikLanding = () => {
                                 </div>
 
                                 <div className="mb-4">
-                                    <h3 className="text-3xl font-bold text-white mb-2">Professional</h3>
+                                    <h3 className="text-3xl font-bold text-white mb-2">
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Crecimiento</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Growth</span>
+                                    </h3>
                                     <div className="flex items-baseline gap-2">
                                         {billingCycle === 'annual' && (
-                                            <span className="text-gray-500 line-through text-base">${getPrice('pro', true)}</span>
+                                            <span className="text-gray-500 line-through text-base">${getPrice('crecimiento', true)}</span>
                                         )}
                                         <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400">
-                                            ${getPrice('pro')}
+                                            ${getPrice('crecimiento')}
                                         </span>
                                         <span className="text-gray-400 text-xs">/mes</span>
                                     </div>
                                     {billingCycle === 'annual' && (
                                         <div className="mt-2 inline-block px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
-                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ahorras 25% vs Mensual</span>
-                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Save 25% vs Monthly</span>
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ahorras 20% vs Mensual</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Save 20% vs Monthly</span>
                                         </div>
                                     )}
                                 </div>
@@ -3586,11 +3592,11 @@ const SmartKubikLanding = () => {
 
                                 <ul className="space-y-3 mb-6 flex-1">
                                     {[
-                                        { es: "Todo lo del plan Starter", en: "Everything in Starter plan" },
+                                        { es: "Todo lo del plan Fundamental", en: "Everything in Essentials plan" },
                                         { es: "Todos los módulos + funciones IA avanzadas", en: "All modules + advanced AI features" },
-                                        { es: "Hasta 8 usuarios", en: "Up to 8 users" },
+                                        { es: "Hasta 5 usuarios", en: "Up to 5 users" },
                                         { es: "Hasta 2 sucursales", en: "Up to 2 branches" },
-                                        { es: "Integración WhatsApp + ventas/reservas + IA", en: "WhatsApp Integration + Sales/Reservations + AI" },
+                                        { es: "Integración WhatsApp + ventas/reservas", en: "WhatsApp Integration + Sales/Reservations" },
                                         { es: "Automatizaciones IA", en: "AI Automations" },
                                         { es: "Agente IA de Análisis predictivo", en: "Predictive AI Analysis Agent" },
                                         { es: "Mayor personalización de tu web", en: "More web customization" },
@@ -3615,23 +3621,26 @@ const SmartKubikLanding = () => {
                                 </Link>
                             </div>
 
-                            {/*  Enterprise  */}
+                            {/*  Expansión / Expansion  */}
                             <div className="relative rounded-3xl p-6 mt-8 border border-white/10 hover:border-white/20 backdrop-blur-md flex flex-col bg-[#0A0F1C]/60 transition-all">
                                 <div className="mb-4">
-                                    <h3 className="text-3xl font-bold text-white mb-2">Enterprise</h3>
+                                    <h3 className="text-3xl font-bold text-white mb-2">
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Expansión</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Expansion</span>
+                                    </h3>
                                     <div className="flex items-baseline gap-2">
                                         {billingCycle === 'annual' && (
-                                            <span className="text-gray-500 line-through text-lg">${getPrice('enterprise', true)}</span>
+                                            <span className="text-gray-500 line-through text-lg">${getPrice('expansion', true)}</span>
                                         )}
                                         <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400">
-                                            ${getPrice('enterprise')}
+                                            ${getPrice('expansion')}
                                         </span>
                                         <span className="text-gray-400 text-xs">/mes</span>
                                     </div>
                                     {billingCycle === 'annual' && (
                                         <div className="mt-2 inline-block px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
-                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ahorras 20% vs Mensual</span>
-                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Save 20% vs Monthly</span>
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ahorras 16% vs Mensual</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Save 16% vs Monthly</span>
                                         </div>
                                     )}
                                 </div>
@@ -3640,7 +3649,7 @@ const SmartKubikLanding = () => {
 
                                 <ul className="space-y-3 mb-6 flex-1">
                                     {[
-                                        { es: "Todo lo del plan Professional", en: "Everything in Professional" },
+                                        { es: "Todo lo del plan Crecimiento", en: "Everything in Growth" },
                                         { es: "Usuarios Ilimitados", en: "Unlimited Users" },
                                         { es: "Sucursales Ilimitadas", en: "Unlimited Branches" },
                                         { es: "Soporte dedicado / SLA", en: "Dedicated Support / SLA" },
