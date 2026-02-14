@@ -235,6 +235,11 @@ export class CreateCustomerDto {
   @Type(() => CustomerCreditInfoDto)
   creditInfo?: CustomerCreditInfoDto;
 
+  @ApiPropertyOptional({ description: "ID de la lista de precios por defecto para el cliente" })
+  @IsOptional()
+  @IsMongoId()
+  defaultPriceListId?: string;
+
   @ApiPropertyOptional({ description: "Notas del cliente" })
   @IsOptional()
   @IsString()
@@ -281,6 +286,11 @@ export class UpdateCustomerDto {
   @IsOptional()
   @IsString()
   tier?: string;
+
+  @ApiPropertyOptional({ description: "ID de la lista de precios por defecto para el cliente" })
+  @IsOptional()
+  @IsMongoId()
+  defaultPriceListId?: string;
 
   @ApiPropertyOptional({
     description: "Direcciones del cliente",

@@ -13,9 +13,11 @@ import {
   UseInterceptors,
   UploadedFiles,
   BadRequestException,
+  NotFoundException,
 } from "@nestjs/common";
 import { FilesInterceptor } from "@nestjs/platform-express";
 import { ProductsService } from "./products.service";
+import { PriceHistoryService } from "../price-history/price-history.service";
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -35,7 +37,10 @@ import {
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 @Controller("products")
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) { }
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly priceHistoryService: PriceHistoryService,
+  ) { }
 
   private ensureTenantConfirmed(req: any) {
     if (shouldBypassTenantConfirmation()) {
@@ -212,6 +217,95 @@ export class ProductsController {
       success: true,
       data: result,
       message: `Etiqueta escaneada con ${Math.round(result.overallConfidence * 100)}% de confianza`,
+    };
+  }
+
+  @Get(":id/price-history")
+  @Permissions("products:read")
+  async getPriceHistory(
+    @Param("id") id: string,
+    @Query("limit") limit: string,
+    @Request() req,
+  ) {
+    this.ensureTenantConfirmed(req);
+
+    const history = await this.priceHistoryService.getProductPriceHistory(
+      id,
+      req.user.tenantId,
+      limit ? parseInt(limit) : 50,
+    );
+
+    return {
+      success: true,
+      data: history,
+      total: history.length,
+    };
+  }
+
+  @Get(":id/variant/:variantSku/price")
+  @Permissions("products:read")
+  async getVariantPrice(
+    @Param("id") id: string,
+    @Param("variantSku") variantSku: string,
+    @Query("locationId") locationId: string,
+    @Query("quantity") quantity: string,
+    @Request() req,
+  ) {
+    this.ensureTenantConfirmed(req);
+
+    const product = await this.productsService.findOne(id, req.user.tenantId);
+    if (!product) {
+      throw new NotFoundException("Producto no encontrado");
+    }
+
+    const variant = product.variants.find((v) => v.sku === variantSku);
+    if (!variant) {
+      throw new NotFoundException("Variante no encontrada");
+    }
+
+    let finalPrice = variant.basePrice || 0;
+    let priceSource = "base";
+
+    // 1. Check location-based pricing (highest priority)
+    if (locationId && variant.locationPricing && Array.isArray(variant.locationPricing)) {
+      const locationPrice = variant.locationPricing.find(
+        (lp: any) => lp.locationId.toString() === locationId && lp.isActive !== false,
+      );
+      if (locationPrice) {
+        finalPrice = locationPrice.customPrice;
+        priceSource = "location";
+      }
+    }
+
+    // 2. Apply volume discount if applicable
+    if (quantity && variant.volumeDiscounts && Array.isArray(variant.volumeDiscounts)) {
+      const qty = parseInt(quantity);
+      const applicableDiscount = variant.volumeDiscounts
+        .filter((vd: any) => vd.minQuantity <= qty)
+        .sort((a: any, b: any) => b.minQuantity - a.minQuantity)[0];
+
+      if (applicableDiscount) {
+        if (applicableDiscount.fixedPrice !== undefined) {
+          finalPrice = applicableDiscount.fixedPrice;
+          priceSource = "volume_fixed";
+        } else if (applicableDiscount.discountPercentage !== undefined) {
+          finalPrice = finalPrice * (1 - applicableDiscount.discountPercentage / 100);
+          priceSource = "volume_discount";
+        }
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        productId: id,
+        variantSku,
+        basePrice: variant.basePrice,
+        finalPrice: Math.round(finalPrice * 100) / 100,
+        priceSource,
+        locationId: locationId || null,
+        quantity: quantity ? parseInt(quantity) : 1,
+      },
     };
   }
 }

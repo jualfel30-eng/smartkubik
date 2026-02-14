@@ -405,6 +405,20 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   cashRegisterId?: string;
+
+  // ============================================
+  // LISTAS DE PRECIOS
+  // ============================================
+
+  @ApiPropertyOptional({ description: "ID de la lista de precios a aplicar (sobrescribe la lista del cliente si está presente)" })
+  @IsOptional()
+  @IsMongoId()
+  priceListId?: string;
+
+  @ApiPropertyOptional({ description: "Guardar la lista de precios seleccionada en el perfil del cliente", default: false })
+  @IsOptional()
+  @IsBoolean()
+  savePriceListToCustomer?: boolean = false;
 }
 
 export class UpdateOrderDto {

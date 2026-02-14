@@ -137,6 +137,20 @@ export class TenantSettings {
     manualNotes?: string;
   };
 
+  @Prop({
+    type: {
+      minimumMarginPercentage: { type: Number, default: 15 },
+      enforceMinimumMargin: { type: Boolean, default: false },
+      warningThreshold: { type: Number, default: 10 },
+    },
+    _id: false,
+  })
+  pricingPolicies?: {
+    minimumMarginPercentage: number; // Margen mínimo recomendado (%)
+    enforceMinimumMargin: boolean; // Si debe bloquear guardado cuando margen < mínimo
+    warningThreshold: number; // Mostrar warning si margen < este valor (%)
+  };
+
   @Prop({ type: Object })
   shipping?: {
     enabled: boolean;

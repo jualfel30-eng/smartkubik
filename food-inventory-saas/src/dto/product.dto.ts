@@ -21,6 +21,122 @@ import {
   SanitizeStringArray,
 } from "../decorators/sanitize.decorator";
 
+/**
+ * DTO para estrategia de pricing de una variante
+ * Soporta 3 modos:
+ * - manual: Usuario ingresa precio directamente
+ * - markup: Precio = Costo × (1 + Margen%)
+ * - margin: Precio = Costo / (1 - Margen%)
+ */
+export class PricingStrategyDto {
+  @ApiProperty({
+    description: "Modo de cálculo de precio",
+    enum: ["manual", "markup", "margin"],
+    default: "manual",
+    example: "markup",
+  })
+  @IsEnum(["manual", "markup", "margin"])
+  mode: "manual" | "markup" | "margin";
+
+  @ApiPropertyOptional({
+    description: "Porcentaje de margen sobre costo (para modo markup)",
+    example: 30,
+    minimum: 0,
+    maximum: 1000,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1000)
+  markupPercentage?: number;
+
+  @ApiPropertyOptional({
+    description: "Porcentaje de margen de ganancia (para modo margin)",
+    example: 25,
+    minimum: 0,
+    maximum: 99.9,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(99.9)
+  marginPercentage?: number;
+
+  @ApiProperty({
+    description: "Si el precio se calcula automáticamente al cambiar el costo",
+    default: true,
+  })
+  @IsBoolean()
+  autoCalculate: boolean;
+
+  @ApiPropertyOptional({
+    description: "Último precio manual ingresado (histórico)",
+    minimum: 0,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  lastManualPrice?: number;
+
+  @ApiPropertyOptional({
+    description: "Estrategia de redondeo psicológico del precio final",
+    enum: ["none", "0.99", "0.95", "0.90", "round_up", "round_down"],
+    default: "none",
+    example: "0.99",
+  })
+  @IsOptional()
+  @IsEnum(["none", "0.99", "0.95", "0.90", "round_up", "round_down"])
+  psychologicalRounding?: "none" | "0.99" | "0.95" | "0.90" | "round_up" | "round_down";
+}
+
+/**
+ * DTO para pricing basado en ubicación
+ */
+export class LocationPricingDto {
+  @ApiProperty({ description: "ID de la ubicación/sucursal" })
+  @IsMongoId()
+  locationId: string;
+
+  @ApiProperty({ description: "Precio personalizado para esta ubicación", minimum: 0 })
+  @IsNumber()
+  @Min(0)
+  customPrice: number;
+
+  @ApiPropertyOptional({ description: "Si este precio está activo" })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
+  @ApiPropertyOptional({ description: "Notas sobre este precio" })
+  @IsOptional()
+  @IsString()
+  @SanitizeText()
+  notes?: string;
+}
+
+/**
+ * DTO para descuentos por volumen
+ */
+export class VolumeDiscountDto {
+  @ApiProperty({ description: "Cantidad mínima para aplicar este descuento", minimum: 1 })
+  @IsNumber()
+  @Min(1)
+  minQuantity: number;
+
+  @ApiPropertyOptional({ description: "Porcentaje de descuento (0-100)", minimum: 0, maximum: 100 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  discountPercentage?: number;
+
+  @ApiPropertyOptional({ description: "Precio fijo para esta cantidad", minimum: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  fixedPrice?: number;
+}
+
 export class CreateProductVariantDto {
   @ApiProperty({ description: "Nombre de la variante" })
   @IsString()
@@ -50,10 +166,14 @@ export class CreateProductVariantDto {
   @Min(0.01)
   unitSize: number;
 
-  @ApiProperty({ description: "Precio base en VES" })
+  @ApiPropertyOptional({
+    description:
+      "Precio base en VES (puede ser calculado automáticamente según pricingStrategy)",
+  })
+  @IsOptional()
   @IsNumber()
   @Min(0)
-  basePrice: number;
+  basePrice?: number;
 
   @ApiPropertyOptional({ description: "Precio mayorista en VES" })
   @IsOptional()
@@ -65,6 +185,30 @@ export class CreateProductVariantDto {
   @IsNumber()
   @Min(0)
   costPrice: number;
+
+  @ApiPropertyOptional({
+    description: "Estrategia de pricing (manual, markup, margin)",
+    type: PricingStrategyDto,
+  })
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => PricingStrategyDto)
+  pricingStrategy?: PricingStrategyDto;
+
+  @ApiPropertyOptional({ description: "Precios personalizados por ubicación/sucursal", type: [LocationPricingDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => LocationPricingDto)
+  locationPricing?: LocationPricingDto[];
+
+  @ApiPropertyOptional({ description: "Descuentos por volumen/cantidad", type: [VolumeDiscountDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => VolumeDiscountDto)
+  volumeDiscounts?: VolumeDiscountDto[];
 
   @ApiPropertyOptional({ description: "Descripción de la variante" })
   @IsOptional()

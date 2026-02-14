@@ -22,11 +22,15 @@ import { InventoryModule } from "../inventory/inventory.module";
 import { PurchasesModule } from "../purchases/purchases.module";
 import { RolesModule } from "../roles/roles.module";
 import { OpenaiModule } from "../openai/openai.module";
+import { PriceHistoryModule } from "../price-history/price-history.module";
+import { PriceListsModule } from "../price-lists/price-lists.module";
 
 @Module({
   imports: [
     forwardRef(() => AuthModule),
     RolesModule,
+    PriceHistoryModule,
+    PriceListsModule,
     MongooseModule.forFeature([
       { name: Product.name, schema: ProductSchema },
       { name: Tenant.name, schema: TenantSchema },

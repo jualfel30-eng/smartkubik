@@ -57,6 +57,31 @@ export class ProductVariant {
 
   @Prop({ type: Object, default: {} })
   attributes?: Record<string, any>;
+
+  @Prop({ type: Object })
+  pricingStrategy?: {
+    mode: 'manual' | 'markup' | 'margin';
+    markupPercentage?: number;
+    marginPercentage?: number;
+    autoCalculate: boolean;
+    lastManualPrice?: number;
+    psychologicalRounding?: 'none' | '0.99' | '0.95' | '0.90' | 'round_up' | 'round_down';
+  };
+
+  @Prop({ type: [Object], default: [] })
+  locationPricing?: Array<{
+    locationId: Types.ObjectId;
+    customPrice: number;
+    isActive?: boolean;
+    notes?: string;
+  }>;
+
+  @Prop({ type: [Object], default: [] })
+  volumeDiscounts?: Array<{
+    minQuantity: number;
+    discountPercentage?: number;
+    fixedPrice?: number;
+  }>;
 }
 const ProductVariantSchema = SchemaFactory.createForClass(ProductVariant);
 

@@ -48,6 +48,7 @@ import { InventoryMovementsService } from "../inventory/inventory-movements.serv
 import { MovementType } from "../../dto/inventory-movement.dto";
 import { WhatsAppOrderNotificationsService } from "./whatsapp-order-notifications.service";
 import { TablesService } from "../tables/tables.service";
+import { PriceListsService } from "../price-lists/price-lists.service";
 
 @Injectable()
 export class OrdersService {
@@ -80,6 +81,7 @@ export class OrdersService {
     private readonly inventoryMovementsService: InventoryMovementsService,
     private readonly whatsappOrderNotificationsService: WhatsAppOrderNotificationsService,
     private readonly tablesService: TablesService,
+    private readonly priceListsService: PriceListsService,
     private readonly eventEmitter: EventEmitter2,
     @InjectConnection() private readonly connection: Connection,
   ) { }
@@ -293,6 +295,23 @@ export class OrdersService {
       );
     }
 
+    // ======== PRICE LIST LOGIC ========
+    // Determine which price list to use: order override > customer default > none
+    let effectivePriceListId: string | null = null;
+    if (createOrderDto.priceListId) {
+      effectivePriceListId = createOrderDto.priceListId;
+      // If savePriceListToCustomer is true, update customer's default price list
+      if (createOrderDto.savePriceListToCustomer && customer) {
+        await this.customerModel.findByIdAndUpdate(customer._id, {
+          defaultPriceListId: createOrderDto.priceListId,
+        });
+        this.logger.log(`Updated customer ${customer._id} default price list to ${createOrderDto.priceListId}`);
+      }
+    } else if (customer.defaultPriceListId) {
+      effectivePriceListId = customer.defaultPriceListId.toString();
+      this.logger.log(`Using customer's default price list: ${effectivePriceListId}`);
+    }
+
     // Update customer location if provided in the order and customer doesn't have one or it's different
     if (createOrderDto.customerLocation && customer) {
       const shouldUpdateLocation =
@@ -333,9 +352,33 @@ export class OrdersService {
       let conversionFactor = 1;
       let quantityInBaseUnit = itemDto.quantity;
       let selectedUnit: string | undefined;
+      let priceListOverride: number | null = null;
+
+      // ======== PRICE LIST OVERRIDE ========
+      // If we have an effective price list, try to get custom price for this variant
+      if (effectivePriceListId && variant?.sku) {
+        try {
+          const customPrice = await this.priceListsService.getProductPrice(
+            variant.sku,
+            effectivePriceListId,
+            user.tenantId,
+          );
+          if (customPrice !== null && customPrice > 0) {
+            priceListOverride = customPrice;
+            this.logger.log(`Using price list price for ${variant.sku}: ${customPrice}`);
+          }
+        } catch (error) {
+          this.logger.warn(`Could not get price list price for ${variant.sku}: ${error.message}`);
+        }
+      }
 
       // ======== MULTI-UNIT LOGIC / GET ORIGINAL PRICE ========
-      if (
+      if (priceListOverride !== null) {
+        // Price list takes precedence over everything
+        originalUnitPrice = priceListOverride;
+        costPrice = variant?.costPrice ?? 0;
+        selectedUnit = undefined;
+      } else if (
         product.hasMultipleSellingUnits &&
         itemDto.selectedUnit &&
         product.sellingUnits?.length > 0

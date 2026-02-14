@@ -24,7 +24,10 @@ import { CreateProductWithPurchaseDto } from "../../dto/composite.dto";
 import { CreateCustomerDto } from "../../dto/customer.dto";
 import { BulkCreateProductsDto } from "./dto/bulk-create-products.dto";
 import { OpenaiService } from "../openai/openai.service";
+import { PriceHistoryService } from "../price-history/price-history.service";
+import { PriceListsService } from "../price-lists/price-lists.service";
 import * as sharp from "sharp";
+import { calculatePriceWithRounding, validatePricingStrategy } from "../../utils/pricing-strategy.util";
 
 @Injectable()
 export class ProductsService {
@@ -41,6 +44,8 @@ export class ProductsService {
     private readonly purchasesService: PurchasesService,
     @Inject(forwardRef(() => SuppliersService)) private readonly suppliersService: SuppliersService,
     private readonly openaiService: OpenaiService,
+    private readonly priceHistoryService: PriceHistoryService,
+    private readonly priceListsService: PriceListsService,
     @InjectConnection() private readonly connection: Connection,
   ) { }
 
@@ -89,6 +94,56 @@ export class ProductsService {
         `El código de barras ya está asignado al producto ${conflict.name || conflict.sku}.`,
       );
     }
+  }
+
+  /**
+   * Procesa las variantes de un producto para calcular precios automáticamente
+   * según la estrategia de pricing definida (manual, markup, margin)
+   *
+   * @param variants - Array de variantes a procesar
+   * @returns Array de variantes con precios calculados
+   * @private
+   */
+  private processVariantPricing(variants: any[]): any[] {
+    if (!variants || variants.length === 0) {
+      return variants;
+    }
+
+    return variants.map((variant) => {
+      // Si no hay estrategia de pricing, retornar tal cual
+      if (!variant.pricingStrategy) {
+        return variant;
+      }
+
+      // Validar estrategia
+      const validation = validatePricingStrategy(variant.pricingStrategy);
+      if (!validation.valid) {
+        throw new BadRequestException(
+          `Estrategia de pricing inválida: ${validation.error}`,
+        );
+      }
+
+      // Si la estrategia es manual o autoCalculate está desactivado, mantener basePrice
+      if (
+        variant.pricingStrategy.mode === 'manual' ||
+        !variant.pricingStrategy.autoCalculate
+      ) {
+        return variant;
+      }
+
+      // Calcular precio automáticamente (incluye redondeo psicológico si está configurado)
+      const calculatedPrice = calculatePriceWithRounding(
+        variant.costPrice || 0,
+        variant.pricingStrategy,
+        variant.basePrice,
+      );
+
+      // Actualizar basePrice con el precio calculado
+      return {
+        ...variant,
+        basePrice: calculatedPrice,
+      };
+    });
   }
 
   async createWithInitialPurchase(
@@ -333,8 +388,14 @@ export class ProductsService {
       );
     }
 
+    // Process pricing strategies for variants
+    const processedVariants = this.processVariantPricing(
+      createProductDto.variants,
+    );
+
     const productData = {
       ...createProductDto,
+      variants: processedVariants,
       isActive: true, // Explicitly set new products as active
       createdBy: user.id,
       tenantId: new Types.ObjectId(user.tenantId),
@@ -816,7 +877,15 @@ export class ProductsService {
       }
     }
 
-    const updateData = { ...updateProductDto, updatedBy: user.id };
+    // Process pricing strategies for variants if they're being updated
+    let updateData: any = { ...updateProductDto, updatedBy: user.id };
+    if (updateProductDto.variants && updateProductDto.variants.length > 0) {
+      const processedVariants = this.processVariantPricing(
+        updateProductDto.variants,
+      );
+      updateData.variants = processedVariants;
+    }
+
     const updatedProduct = await this.productModel
       .findByIdAndUpdate(id, updateData, { new: true })
       .exec();
@@ -836,6 +905,90 @@ export class ProductsService {
       this.logger.log(
         `Cascaded SKU update from ${productBeforeUpdate.sku} to ${updateProductDto.sku} for product ${id}`,
       );
+    }
+
+    // Track price changes for audit
+    if (updateData.variants && productBeforeUpdate.variants) {
+      for (let i = 0; i < updateData.variants.length; i++) {
+        const newVariant = updateData.variants[i];
+        const oldVariant = productBeforeUpdate.variants[i];
+
+        if (!oldVariant || !newVariant) continue;
+
+        // Check each price field for changes
+        const priceFields: Array<'basePrice' | 'costPrice' | 'wholesalePrice'> = [
+          'basePrice',
+          'costPrice',
+          'wholesalePrice',
+        ];
+
+        for (const field of priceFields) {
+          const oldValue = oldVariant[field];
+          const newValue = newVariant[field];
+
+          // Only track if there's an actual change and both values exist
+          if (
+            newValue !== undefined &&
+            oldValue !== undefined &&
+            newValue !== oldValue &&
+            Math.abs(newValue - oldValue) > 0.001 // Avoid floating point errors
+          ) {
+            try {
+              await this.priceHistoryService.recordPriceChange({
+                productId: id,
+                productSku: productBeforeUpdate.sku,
+                productName: productBeforeUpdate.name,
+                variantSku: oldVariant.sku,
+                variantName: oldVariant.name,
+                tenantId: user.tenantId,
+                field,
+                oldValue,
+                newValue,
+                costPrice: newVariant.costPrice || oldVariant.costPrice || 0,
+                pricingStrategy: newVariant.pricingStrategy,
+                changedBy: user.id,
+                changedByName: user.name || user.email,
+                changeSource: 'manual',
+              });
+            } catch (error) {
+              this.logger.error(
+                `Failed to record price change: ${error.message}`,
+                error.stack,
+              );
+              // Don't fail the update if history recording fails
+            }
+          }
+        }
+      }
+    }
+
+    // Sync custom prices to price lists (Feature 4: Multiple Price Lists)
+    if (updateData.variants) {
+      for (const variant of updateData.variants) {
+        if (variant.customPrices && Array.isArray(variant.customPrices)) {
+          for (const customPrice of variant.customPrices) {
+            try {
+              await this.priceListsService.assignProduct(
+                {
+                  productId: id,
+                  variantSku: variant.sku,
+                  priceListId: customPrice.priceListId,
+                  customPrice: customPrice.customPrice,
+                  notes: customPrice.notes,
+                },
+                user.tenantId,
+                user.id,
+                user.name || user.email,
+              );
+            } catch (error) {
+              this.logger.error(
+                `Failed to sync custom price for variant ${variant.sku}: ${error.message}`,
+                error.stack,
+              );
+            }
+          }
+        }
+      }
     }
 
     if (storageDifference !== 0) {

@@ -245,6 +245,9 @@ export class Customer {
   @Prop({ type: String })
   tier: string;
 
+  @Prop({ type: Types.ObjectId, ref: 'PriceList' })
+  defaultPriceListId?: Types.ObjectId;
+
   @Prop({ type: Number, default: 0 })
   loyaltyScore?: number;
 
@@ -418,6 +421,7 @@ CustomerSchema.index({ "metrics.totalSpent": -1, tenantId: 1 });
 CustomerSchema.index({ assignedTo: 1, tenantId: 1 });
 CustomerSchema.index({ nextFollowUpDate: 1, tenantId: 1 });
 CustomerSchema.index({ "metrics.engagementScore": -1, tenantId: 1 });
+CustomerSchema.index({ defaultPriceListId: 1, tenantId: 1 });
 
 // WhatsApp indexes
 CustomerSchema.index({ whatsappNumber: 1, tenantId: 1 });

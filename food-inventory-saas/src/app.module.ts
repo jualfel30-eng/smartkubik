@@ -125,6 +125,7 @@ import { CashRegisterModule } from "./modules/cash-register/cash-register.module
 import { FixedAssetsModule } from "./modules/fixed-assets/fixed-assets.module";
 import { InvestmentsModule } from "./modules/investments/investments.module";
 import { DataImportModule } from "./modules/data-import/data-import.module";
+import { PriceListsModule } from "./modules/price-lists/price-lists.module";
 
 import { Redis } from "ioredis";
 
@@ -447,6 +448,7 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     AuthModule,
     OnboardingModule,
     ProductsModule,
+    PriceListsModule,
     InventoryModule,
     InventoryMovementsModule,
     ConsumablesModule,
