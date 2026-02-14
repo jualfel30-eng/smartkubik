@@ -77,7 +77,7 @@ body.landing-page-active {
 #landing-page-root .animate-bounce-custom { animation: bounce 3s ease-in-out infinite; }
 #landing-page-root .perspective-container { perspective: 1000px; }
 #landing-page-root .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); }
-#landing-page-root .stack-card { will-change: transform, opacity; transition: transform 0.1s linear, opacity 0.1s linear; }
+#landing-page-root .stack-card { will-change: transform, opacity; }
 #landing-page-root .rotate-y-12 { transform: rotateY(12deg) rotateX(6deg); }
 #landing-page-root .hover-rotate-0:hover { transform: rotateY(0deg) rotateX(0deg) !important; }
 #landing-page-root .animate-pulse-slow { animation: pulse-slow 4s ease-in-out infinite; }

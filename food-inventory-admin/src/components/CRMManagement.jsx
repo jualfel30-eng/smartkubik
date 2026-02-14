@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { useCRM } from '@/hooks/use-crm.js';
 import { useAuth } from '@/hooks/use-auth';
+import { usePriceLists } from '@/hooks/usePriceLists';
 import { LocationPicker } from '@/components/ui/LocationPicker.jsx';
 import EmployeeDetailDrawer from '@/components/payroll/EmployeeDetailDrawer.jsx';
 import { CustomerDetailDialog } from '@/components/CustomerDetailDialog.jsx';
@@ -106,7 +107,8 @@ const initialNewContactState = {
   notes: '',
   taxType: 'V',
   taxId: '',
-  primaryLocation: null
+  primaryLocation: null,
+  defaultPriceListId: ''
 };
 
 function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
@@ -160,6 +162,12 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     updateOpportunityStage,
     deleteOpportunityStage,
   } = useCRM();
+
+  const { priceLists, loadPriceLists } = usePriceLists();
+
+  useEffect(() => {
+    loadPriceLists(true); // Solo listas activas
+  }, [loadPriceLists]);
 
   const initialTabRaw = forceEmployeeTab ? 'employee' : searchParams.get('tab') || 'all';
   const initialTab = hideEmployeeTab && initialTabRaw === 'employee' ? 'all' : initialTabRaw;
@@ -1433,6 +1441,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
       taxId: contact.taxInfo?.taxId || '',
       taxType: contact.taxInfo?.taxType || 'V',
       primaryLocation: contact.primaryLocation || null,
+      defaultPriceListId: contact.defaultPriceListId || '',
     });
     setIsEditDialogOpen(true);
   };
@@ -1455,6 +1464,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
       contacts: contactsPayload,
       notes: newContact.notes,
       primaryLocation: newContact.primaryLocation,
+      defaultPriceListId: newContact.defaultPriceListId || undefined,
     };
 
     const shouldEnsureEmployee = payload.customerType === 'employee';
@@ -1557,6 +1567,13 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     const newLocation = editingFormState.primaryLocation;
     if (JSON.stringify(oldLocation) !== JSON.stringify(newLocation)) {
       changedFields.primaryLocation = newLocation;
+    }
+
+    // Compara defaultPriceListId
+    const oldPriceListId = originalContact.defaultPriceListId || '';
+    const newPriceListId = editingFormState.defaultPriceListId || '';
+    if (oldPriceListId !== newPriceListId) {
+      changedFields.defaultPriceListId = newPriceListId || undefined;
     }
 
     const oldTaxType = originalContact.taxInfo?.taxType || 'V';
@@ -2039,6 +2056,25 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                               value={newContact.primaryLocation}
                               onChange={(location) => setNewContact({ ...newContact, primaryLocation: location })}
                             />
+                          </div>
+                          <div className="col-span-2 space-y-2">
+                            <Label>Lista de Precios (Opcional)</Label>
+                            <Select
+                              value={newContact.defaultPriceListId}
+                              onValueChange={(value) => setNewContact({ ...newContact, defaultPriceListId: value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Sin lista de precios específica (usar precios base)" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">Sin lista específica</SelectItem>
+                                {priceLists.map((pl) => (
+                                  <SelectItem key={pl._id} value={pl._id}>
+                                    {pl.name} ({pl.type === 'wholesale' ? 'Mayorista' : pl.type === 'retail' ? 'Retail' : pl.type})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                           <div className="col-span-2 space-y-2">
                             <Label>Notas</Label>
@@ -2764,6 +2800,25 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                       value={editingFormState.primaryLocation}
                       onChange={(location) => setEditingFormState({ ...editingFormState, primaryLocation: location })}
                     />
+                  </div>
+                  <div className="col-span-2 space-y-2">
+                    <Label>Lista de Precios (Opcional)</Label>
+                    <Select
+                      value={editingFormState.defaultPriceListId || ''}
+                      onValueChange={(value) => setEditingFormState({ ...editingFormState, defaultPriceListId: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sin lista de precios específica (usar precios base)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Sin lista específica</SelectItem>
+                        {priceLists.map((pl) => (
+                          <SelectItem key={pl._id} value={pl._id}>
+                            {pl.name} ({pl.type === 'wholesale' ? 'Mayorista' : pl.type === 'retail' ? 'Retail' : pl.type})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="col-span-2 space-y-2"><Label>Notas</Label><Textarea value={editingFormState.notes} onChange={(e) => setEditingFormState({ ...editingFormState, notes: e.target.value })} /></div>
                 </div>

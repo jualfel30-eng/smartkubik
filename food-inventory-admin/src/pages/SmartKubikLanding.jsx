@@ -488,7 +488,8 @@ const SmartKubikLanding = () => {
         setLanguage(prev => prev === 'es' ? 'en' : 'es');
     };
 
-    // Scroll Stack Animation Logic - Optimized for Mobile/iOS
+    // Scroll Stack Animation Logic - Speed-Clamped for consistent experience across devices
+    // Uses lerp-smoothed progress so mouse wheel users see the same smooth animation as trackpad users
     useEffect(() => {
         let metrics = {
             sectionTop: 0,
@@ -501,6 +502,13 @@ const SmartKubikLanding = () => {
         const cards = document.querySelectorAll('.stack-card');
         const title = document.querySelector('#stack-title');
         const footer = document.querySelector('#stack-footer');
+
+        // Smoothed animation state
+        let targetProgress = 0;      // Raw scroll-derived progress (updates instantly on scroll)
+        let animatedProgress = 0;    // Smoothed value that lerps toward target (used for rendering)
+        let animFrameId = null;      // Current rAF handle
+        let lastFrameTime = 0;       // For frame-rate-independent speed
+        let hasInitialized = false;   // Snap to position on first load (no animation)
 
         const calculateMetrics = () => {
             if (!section) return;
@@ -521,36 +529,26 @@ const SmartKubikLanding = () => {
             metrics.scrollDistance = metrics.sectionHeight - metrics.viewportHeight;
         };
 
-        const handleScroll = () => {
+        // Rendering logic — applies transforms based on a progress value (0 to 1)
+        // All animation curves, thresholds, and visual output are IDENTICAL to the original
+        const renderFrame = (progress) => {
             if (!section || cards.length === 0) return;
-
-            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-
-            // Calculate progress (0 to 1) using CACHED metrics
-            let rawProgress = (scrollTop - metrics.sectionTop) / metrics.scrollDistance;
-            let progress = Math.max(0, Math.min(1, rawProgress));
 
             // Title - KEEP VISIBLE (Pinned) UNTIL EXIT
             // Exit Logic: Mimic Card Stacking Physics
             // Last card settles at ~0.51. We start Title "stacking back" at 0.50.
             let titleDepth = 0;
             if (progress > 0.50) {
-                titleDepth = (progress - 0.50) / 0.10; // Rate of moving back
+                titleDepth = (progress - 0.50) / 0.10;
             }
 
             if (title) {
                 if (titleDepth > 0) {
-                    // Mimic Card Stacking: Scale down + Fade
-                    // Scale: 1 -> 0.8
                     const exitScale = Math.max(0.8, 1 - (titleDepth * 0.05));
-
-                    // Opacity: Aggressive fade matching "depth > 0.2" logic of cards
-                    // We accelerate it slightly to ensure it's gone by the time "Eso es SmartKubik" is fully up
                     let exitOpacity = 1;
                     if (titleDepth > 0.1) {
                         exitOpacity = Math.max(0, 1 - ((titleDepth - 0.1) * 2));
                     }
-
                     title.style.transform = `scale(${exitScale})`;
                     title.style.opacity = exitOpacity.toString();
                 } else {
@@ -563,87 +561,70 @@ const SmartKubikLanding = () => {
             const cardGap = 20;
             const scaleStep = 0.05;
 
-            // Global exit phase for cards - Starts later to clear the stagfe
+            // Global exit phase for cards
             let cardsExitPhase = 0;
             if (progress > 0.55) {
                 cardsExitPhase = (progress - 0.55) / 0.15;
             }
 
             cards.forEach((card, index) => {
-                // Calculate specific trigger points for each card
                 const cardStart = 0.0 + (index * 0.12);
 
                 let cardProgress = (progress - cardStart) / 0.15;
                 cardProgress = Math.max(0, Math.min(1, cardProgress));
 
-                // Entrance: Translate Y from lower down to 0
+                // Entrance: ease-out cubic from 80% below viewport
                 const easeOut = 1 - Math.pow(1 - cardProgress, 3);
-                // Start VERY low (80% of viewport) to be hidden by bottom mask
                 let translateY = (1 - easeOut) * (metrics.viewportHeight * 0.8);
 
                 // Stacking Logic
                 const currentCardFloat = (progress - 0.0) / 0.12;
                 let depth = Math.max(0, currentCardFloat - (index + 1));
 
-                // Apply stacking effects based on depth
                 let stackOffset = -(depth * cardGap);
                 let scale = 1 - (depth * scaleStep);
 
-                // Aggressive Fade & Blur for background cards (readability)
+                // Fade & Blur for background cards
                 let opacity = 1;
                 let blur = 0;
 
                 if (depth > 0) {
-                    // Delay the blur/fade slightly to allow readability as it starts moving back
-                    // Only apply strong effects after depth > 0.2
                     if (depth > 0.2) {
                         const effectDepth = depth - 0.2;
                         opacity = Math.max(0.1, 1 - (effectDepth * 1.5));
                         blur = effectDepth * 10;
                     } else {
-                        // Gentle fade initially w/o blur
                         opacity = 1 - (depth * 0.2);
                     }
                 }
 
-                // Initial entrance opacity (reveal as it comes up from bottom)
+                // Initial entrance opacity
                 if (cardProgress < 1) {
-                    // Combine entrance opacity with stacking opacity
                     opacity = opacity * Math.min(1, easeOut * 2);
                 }
 
                 // SYNCHRONIZED BACKWARDS EXIT
                 if (cardsExitPhase > 0) {
-                    // Scale down further
                     scale = scale * (1 - (cardsExitPhase * 0.2));
-                    // Fade out
                     opacity = opacity * (1 - (cardsExitPhase * 3));
                 }
 
-                // Apply transforms
                 const finalY = translateY + stackOffset;
                 card.style.transform = `translate3d(0, ${finalY}px, 0) scale(${Math.max(0.8, scale)})`;
                 card.style.opacity = Math.max(0, opacity).toString();
-                // We use Filter for blur. Note: 'backdrop-filter' is already on the class, this is standard filter.
                 card.style.filter = `blur(${blur}px)`;
             });
 
-            // Footer Animation - REVERTED to "Static Hold / Docking" (The V4 Original)
+            // Footer Animation - "Static Hold / Docking"
             if (footer) {
-                footer.style.transition = 'none'; // Keep transition disabled for JS control
+                footer.style.transition = 'none';
 
                 if (progress > 0.5) {
-                    // Phase 1: Rise to Center (0.5 to 0.75)
-                    // Phase 2: HOLD (0.75 to 1.0) - The "Docking" Effect
+                    let holdProgress = (progress - 0.5) / 0.25;
+                    holdProgress = Math.min(1, holdProgress);
 
-                    let holdProgress = (progress - 0.5) / 0.25; // Normalizes 0.5->0.75 to 0->1
-                    holdProgress = Math.min(1, holdProgress); // Clamp at 1 (HOLD)
-
-                    // Opacity: 0 to 1 quickly
                     footer.style.opacity = Math.min(1, holdProgress * 4).toString();
 
-                    // TranslateY: Move to -25vh (Center) and STAY THERE
-                    // The "Mask" (Section 4) will rise to meet it.
                     const startY = 20;
                     const holdY = -25;
                     const currentY = startY - ((startY - holdY) * holdProgress);
@@ -656,8 +637,43 @@ const SmartKubikLanding = () => {
             }
         };
 
-        // Use requestAnimationFrame for smoother performance
-        let ticking = false;
+        // Animation loop — smoothly interpolates animatedProgress toward targetProgress
+        // Speed is clamped so cards always animate at a readable pace (~500ms per card)
+        // Frame-rate independent: works consistently at 30/60/120/144fps
+        const animationLoop = (currentTime) => {
+            if (!lastFrameTime) lastFrameTime = currentTime;
+            const dt = Math.min(currentTime - lastFrameTime, 50); // Cap at 50ms (20fps floor)
+            lastFrameTime = currentTime;
+
+            const delta = targetProgress - animatedProgress;
+
+            if (Math.abs(delta) > 0.0005) {
+                // 0.3 progress/sec → one card entrance (0.15 window) takes ~500ms
+                // Trackpad: deltas are naturally small, so clamping rarely activates
+                // Mouse wheel: large jumps get clamped → smooth, deliberate animations
+                const maxSpeedPerSec = 0.3;
+                const maxStep = maxSpeedPerSec * (dt / 1000);
+
+                const step = Math.sign(delta) * Math.min(Math.abs(delta), maxStep);
+                animatedProgress += step;
+
+                renderFrame(animatedProgress);
+                animFrameId = requestAnimationFrame(animationLoop);
+            } else {
+                // Close enough — snap and stop the loop
+                animatedProgress = targetProgress;
+                renderFrame(animatedProgress);
+                animFrameId = null;
+            }
+        };
+
+        // Start the animation loop if not already running
+        const ensureAnimationRunning = () => {
+            if (!animFrameId) {
+                lastFrameTime = 0;
+                animFrameId = requestAnimationFrame(animationLoop);
+            }
+        };
 
         // Smart Pause: Detect when iOS address bar is actively moving
         let isViewportChanging = false;
@@ -665,40 +681,40 @@ const SmartKubikLanding = () => {
         let lastViewportHeight = window.innerHeight;
 
         const checkViewportChange = () => {
-            // Only on mobile
             if (window.innerWidth >= 768) return;
 
             const currentHeight = window.innerHeight;
 
             if (currentHeight !== lastViewportHeight) {
-                // Viewport is changing - pause animation
                 isViewportChanging = true;
                 lastViewportHeight = currentHeight;
 
-                // Clear existing timer
                 if (viewportChangeTimer) clearTimeout(viewportChangeTimer);
 
-                // Resume animation after 150ms of no changes
                 viewportChangeTimer = setTimeout(() => {
                     isViewportChanging = false;
                 }, 150);
             }
         };
 
+        // Scroll handler — only updates targetProgress, animation loop does the rendering
         const onScroll = () => {
-            // Check if viewport is actively changing
             checkViewportChange();
-
-            // Skip animation if viewport is changing
             if (isViewportChanging) return;
 
-            if (!ticking) {
-                window.requestAnimationFrame(() => {
-                    handleScroll();
-                    ticking = false;
-                });
-                ticking = true;
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            const rawProgress = (scrollTop - metrics.sectionTop) / metrics.scrollDistance;
+            targetProgress = Math.max(0, Math.min(1, rawProgress));
+
+            if (!hasInitialized) {
+                // First call: snap directly to scroll position (no animation on page load)
+                animatedProgress = targetProgress;
+                renderFrame(animatedProgress);
+                hasInitialized = true;
+                return;
             }
+
+            ensureAnimationRunning();
         };
 
         // Initial measurement
@@ -717,11 +733,12 @@ const SmartKubikLanding = () => {
         window.addEventListener('scroll', onScroll, { passive: true });
 
         // Initial call to set positions
-        handleScroll();
+        onScroll();
 
         return () => {
             window.removeEventListener('scroll', onScroll);
             window.removeEventListener('resize', onResize);
+            if (animFrameId) cancelAnimationFrame(animFrameId);
             if (viewportChangeTimer) clearTimeout(viewportChangeTimer);
         };
     }, []);

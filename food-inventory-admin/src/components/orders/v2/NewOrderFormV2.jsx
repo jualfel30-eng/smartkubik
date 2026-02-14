@@ -25,6 +25,7 @@ import { OrderProcessingDrawer } from '../OrderProcessingDrawer';
 import { useAuth } from '@/hooks/use-auth.jsx';
 import { useCashRegister } from '@/contexts/CashRegisterContext';
 import { toast } from 'sonner';
+import { usePriceLists } from '@/hooks/usePriceLists';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group.jsx';
 import { BarcodeScannerDialog } from '@/components/BarcodeScannerDialog.jsx';
 import { RecipeCustomizerDialog } from './RecipeCustomizerDialog.jsx';
@@ -57,6 +58,8 @@ const initialOrderState = {
     city: 'Valencia',
     street: '',
   },
+  priceListId: '',
+  savePriceListToCustomer: false,
 };
 
 const formatDecimalString = (value, decimals = 3) => {
@@ -228,6 +231,12 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
   const { tenant, hasPermission } = useAuth();
   const { sessionId, registerId } = useCashRegister();
   const canApplyDiscounts = hasPermission('orders_apply_discounts');
+  const { priceLists, loadPriceLists } = usePriceLists();
+
+  // Load active price lists
+  useEffect(() => {
+    loadPriceLists(true); // Only active lists
+  }, [loadPriceLists]);
 
   // Determine context for draft key
   const draftContext = useMemo(() => {
@@ -824,7 +833,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
           customerPhone: phone,
           customerAddress: address,
           customerLocation: customer.primaryLocation || null,
-          useExistingLocation: !!customer.primaryLocation
+          useExistingLocation: !!customer.primaryLocation,
+          priceListId: customer.defaultPriceListId || '',
         }));
       }
     } else {
@@ -868,7 +878,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
           customerPhone: phone,
           customerAddress: address,
           customerLocation: customer.primaryLocation || null,
-          useExistingLocation: !!customer.primaryLocation
+          useExistingLocation: !!customer.primaryLocation,
+          priceListId: customer.defaultPriceListId || '',
         }));
       }
     } else {
@@ -1647,6 +1658,9 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
       // Cash Register Integration
       cashSessionId: sessionId,
       cashRegisterId: registerId,
+      // Price Lists Integration
+      ...(newOrder.priceListId && { priceListId: newOrder.priceListId }),
+      savePriceListToCustomer: newOrder.savePriceListToCustomer || false,
     };
     try {
       let response;
@@ -2740,6 +2754,46 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                     placeholder="cliente@ejemplo.com"
                   />
                 </div>
+              </div>
+              {/* Price List Selector */}
+              <div className="space-y-3 border rounded-lg p-3 bg-muted/30">
+                <div className="space-y-2">
+                  <Label htmlFor="priceListId" className="text-sm font-medium flex items-center gap-2">
+                    <Tag className="h-4 w-4" />
+                    Lista de Precios
+                  </Label>
+                  <Select
+                    value={newOrder.priceListId || ''}
+                    onValueChange={(value) => handleFieldChange('priceListId', value)}
+                  >
+                    <SelectTrigger id="priceListId">
+                      <SelectValue placeholder="Precio regular (sin lista específica)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Sin lista específica</SelectItem>
+                      {priceLists.map((pl) => (
+                        <SelectItem key={pl._id} value={pl._id}>
+                          {pl.name} - {pl.type === 'wholesale' ? 'Mayorista' : pl.type === 'retail' ? 'Retail' : pl.type === 'promotional' ? 'Promocional' : pl.type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {newOrder.priceListId ? 'Se aplicarán precios personalizados de esta lista' : 'Se usarán los precios base del producto'}
+                  </p>
+                </div>
+                {newOrder.priceListId && newOrder.customerId && (
+                  <div className="flex items-center space-x-2 pt-2 border-t">
+                    <Switch
+                      id="savePriceList"
+                      checked={newOrder.savePriceListToCustomer || false}
+                      onCheckedChange={(checked) => handleFieldChange('savePriceListToCustomer', checked)}
+                    />
+                    <Label htmlFor="savePriceList" className="text-xs cursor-pointer">
+                      Guardar esta lista como predeterminada para {newOrder.customerName}
+                    </Label>
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="customerAddress">Dirección</Label>

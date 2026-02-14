@@ -105,6 +105,7 @@ function InventoryManagement() {
   });
 
   const [isLabelWizardOpen, setIsLabelWizardOpen] = useState(false);
+  const [recentlyAddedItems, setRecentlyAddedItems] = useState([]);
 
   // Estados para transferencias
   const [warehouses, setWarehouses] = useState([]);
@@ -691,7 +692,26 @@ function InventoryManagement() {
       }
 
       if (successCount > 0) {
-        toast.success(`${successCount} productos agregados correctamente.`);
+        // Collect successfully added items for label printing
+        const addedItems = itemsToAdd.map(item => ({
+          productId: item.productId,
+          name: item.productName,
+          sku: item.productSku,
+          brand: item.productObj?.brand,
+          costPrice: item.costPrice,
+          // Add other necessary fields for the label wizard
+        }));
+
+        setRecentlyAddedItems(addedItems);
+
+        toast.success(`${successCount} productos agregados correctamente.`, {
+          action: {
+            label: 'Imprimir Etiquetas',
+            onClick: () => setIsLabelWizardOpen(true)
+          },
+          duration: 8000, // Give user more time to react
+        });
+
         document.dispatchEvent(new CustomEvent('inventory-form-success'));
         setIsAddDialogOpen(false);
         setCurrentPage(1);
@@ -2275,6 +2295,7 @@ function InventoryManagement() {
       <ShelfLabelWizard
         isOpen={isLabelWizardOpen}
         onClose={() => setIsLabelWizardOpen(false)}
+        initialSelectedItems={recentlyAddedItems}
       />
     </div>
   );

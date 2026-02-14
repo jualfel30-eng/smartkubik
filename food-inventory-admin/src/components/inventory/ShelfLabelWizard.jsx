@@ -15,7 +15,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Search, Printer, CheckSquare, Square, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
+import { Search, Printer, CheckSquare, Square, ChevronRight, ChevronLeft, Loader2, Clock } from 'lucide-react';
 import { fetchApi, getTenantSettings } from '../../lib/api';
 import { ShelfLabelSheet } from './ShelfLabelSheet';
 
@@ -24,7 +24,7 @@ const STEP_SELECTION = 1;
 const STEP_CONFIGURATION = 2;
 const STEP_PREVIEW = 3;
 
-export const ShelfLabelWizard = ({ isOpen, onClose }) => {
+export const ShelfLabelWizard = ({ isOpen, onClose, initialSelectedItems = [] }) => {
     const [step, setStep] = useState(STEP_SELECTION);
     const { tenant } = useAuth();
     const { rate: bcvRate, loading: loadingRate } = useExchangeRate();
@@ -47,8 +47,11 @@ export const ShelfLabelWizard = ({ isOpen, onClose }) => {
         category: 'all',
         subcategory: 'all',
         brand: '',
-        supplierId: 'all'
+        supplierId: 'all',
+        sortBy: 'default' // 'default' | 'recent'
     });
+
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
 
     // Config State
     const [config, setConfig] = useState({
@@ -110,11 +113,13 @@ export const ShelfLabelWizard = ({ isOpen, onClose }) => {
     }, [isOpen]);
 
     const loadFilterOptions = async () => {
+        console.log("Loading filter options...");
         try {
             const [catsRes, suppsRes] = await Promise.all([
                 fetchApi('/products/categories/list'),
-                fetchApi('/suppliers')
+                fetchApi('/customers?customerType=supplier')
             ]);
+            console.log("Filter options loaded:", { cats: catsRes, supps: suppsRes });
             setCategories(catsRes.data || []);
             setSuppliers(suppsRes.data || []);
         } catch (e) {
@@ -125,25 +130,48 @@ export const ShelfLabelWizard = ({ isOpen, onClose }) => {
     // Load subcategories when category changes
     useEffect(() => {
         if (filters.category && filters.category !== 'all') {
-            fetchApi(`/products/subcategories/list?category=${filters.category}`)
-                .then(res => setSubcategories(res.data || []))
+            console.log("Fetching subcategories for:", filters.category);
+            fetchApi(`/products/subcategories/list?category=${encodeURIComponent(filters.category)}`)
+                .then(res => {
+                    console.log("Subcategories loaded:", res.data);
+                    setSubcategories(res.data || []);
+                })
                 .catch(console.error);
         } else {
+            console.log("Clearing subcategories");
             setSubcategories([]);
         }
     }, [filters.category]);
 
-    // Reset wizard on open
+    // Reset wizard on open and handle initial items
     useEffect(() => {
         if (isOpen) {
             setStep(STEP_SELECTION);
-            setSelectedItems([]);
             setSearchTerm('');
             setPage(1);
-            setFilters({ category: 'all', subcategory: 'all', brand: '', supplierId: 'all' });
-            // Products will be loaded by the debounce effect on searchTerm/filters
+            setFilters({ category: 'all', subcategory: 'all', brand: '', supplierId: 'all', sortBy: 'default' });
+
+            // Check for initial items being passed (e.g. from Inventory Add)
+            if (initialSelectedItems && initialSelectedItems.length > 0) {
+                // Determine if we should auto-select them
+                // We need to map them to the format expected by selectedItems
+                // If they come from InventoryManagement they might need normalization
+
+                const normalizedItems = initialSelectedItems.map(item => ({
+                    _id: item.productId || item._id, // Handle both inventory item struct and direct product struct
+                    productName: item.productName || item.name,
+                    sku: item.productSku || item.sku,
+                    brand: item.productObj?.brand || item.brand || 'Generico',
+                    price: Number(item.costPrice) || 0, // Fallback, real price logic should be better if possible
+                    // Add other props as needed
+                }));
+
+                setSelectedItems(normalizedItems);
+            } else {
+                setSelectedItems([]);
+            }
         }
-    }, [isOpen]);
+    }, [isOpen]); // Only run when opening the wizard
 
     // Load products with detailed filtering and stock summary
     const loadProducts = async (currentPage, search) => {
@@ -161,7 +189,13 @@ export const ShelfLabelWizard = ({ isOpen, onClose }) => {
             if (filters.brand) queryParams.set('brand', filters.brand);
             if (filters.supplierId && filters.supplierId !== 'all') queryParams.set('supplierId', filters.supplierId);
 
+            // New Sort Option
+            if (filters.sortBy === 'recent') {
+                queryParams.set('sort', '-updatedAt');
+            }
+
             // 1. Fetch Products
+            console.log("Fetching products with query:", queryParams.toString());
             const response = await fetchApi(`/products?${queryParams.toString()}`);
             console.log("ShelfLabelWizard products response:", response);
 
@@ -331,14 +365,11 @@ export const ShelfLabelWizard = ({ isOpen, onClose }) => {
                                 </div>
 
                                 {/* FILTERS POPOVER */}
-                                <Dialog>
+                                <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen}>
                                     <DialogTrigger asChild>
                                         <Button variant="outline" className="gap-2">
                                             <Search className="h-4 w-4" />
                                             Filtros
-                                            {(filters.category !== 'all' || filters.brand || filters.supplierId !== 'all') && (
-                                                <Badge variant="secondary" className="ml-1 h-5 px-1">!</Badge>
-                                            )}
                                         </Button>
                                     </DialogTrigger>
                                     <DialogContent className="sm:max-w-[425px] dark:bg-background">
@@ -394,7 +425,7 @@ export const ShelfLabelWizard = ({ isOpen, onClose }) => {
                                                     <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
                                                     <SelectContent>
                                                         <SelectItem value="all">Todos</SelectItem>
-                                                        {suppliers.map(s => <SelectItem key={s._id} value={s._id}>{s.name || s.supplierName}</SelectItem>)}
+                                                        {Array.isArray(suppliers) && suppliers.map(s => <SelectItem key={s._id} value={String(s._id)}>{s.name || s.supplierName}</SelectItem>)}
                                                     </SelectContent>
                                                 </Select>
                                             </div>
@@ -408,10 +439,18 @@ export const ShelfLabelWizard = ({ isOpen, onClose }) => {
                                     </DialogContent>
                                 </Dialog>
 
-                                <div className="flex gap-2">
-                                    <Button variant="outline" size="sm" onClick={handleSelectAllPage}>+ Pág ({products.length})</Button>
-                                    <Button variant="outline" size="sm" onClick={handleDeselectAll} disabled={selectedItems.length === 0}>Limpiar ({selectedItems.length})</Button>
-                                </div>
+                                <Button
+                                    variant={filters.sortBy === 'recent' ? "secondary" : "outline"}
+                                    size="sm"
+                                    onClick={() => setFilters(prev => ({ ...prev, sortBy: prev.sortBy === 'recent' ? 'default' : 'recent' }))}
+                                    className={filters.sortBy === 'recent' ? "border-primary text-primary bg-primary/10" : ""}
+                                >
+                                    <Clock className="w-4 h-4 mr-1" />
+                                    Recientes
+                                </Button>
+
+                                <Button variant="outline" size="sm" onClick={handleSelectAllPage}>+ Pág ({products.length})</Button>
+                                <Button variant="outline" size="sm" onClick={handleDeselectAll} disabled={selectedItems.length === 0}>Limpiar ({selectedItems.length})</Button>
                             </div>
 
                             {/* Active Filters Display */}
@@ -431,7 +470,7 @@ export const ShelfLabelWizard = ({ isOpen, onClose }) => {
                                     )}
                                     {filters.supplierId !== 'all' && (
                                         <Badge variant="secondary" className="gap-1">
-                                            Prov: {suppliers.find(s => s._id === filters.supplierId)?.name || '...'}
+                                            Prov: {Array.isArray(suppliers) ? (suppliers.find(s => String(s._id) === String(filters.supplierId))?.name || '...') : '...'}
                                             <span className="cursor-pointer ml-1" onClick={() => setFilters(prev => ({ ...prev, supplierId: 'all' }))}>×</span>
                                         </Badge>
                                     )}

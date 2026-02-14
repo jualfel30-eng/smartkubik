@@ -29,6 +29,12 @@ import { BarcodeScannerDialog } from '@/components/BarcodeScannerDialog.jsx';
 import { CONSUMABLE_TYPES, SUPPLY_CATEGORIES } from '@/types/consumables';
 import { TagInput } from '@/components/ui/tag-input.jsx';
 import { ShelfLabelWizard } from './inventory/ShelfLabelWizard';
+import { PricingStrategySelector } from '@/components/PricingStrategySelector.jsx';
+import { ProductPriceListManager } from '@/components/ProductPriceListManager.jsx';
+import { PriceListsManager } from '@/components/PriceListsManager.jsx';
+import { VolumeDiscountsManager } from '@/components/VolumeDiscountsManager.jsx';
+import { LocationPricingManager } from '@/components/LocationPricingManager.jsx';
+import { usePricingCalculator } from '@/hooks/usePricingCalculator';
 import {
   Plus,
   Search,
@@ -147,6 +153,12 @@ const createVariantTemplate = (options = {}) => {
     basePrice: 0,
     wholesalePrice: 0,
     costPrice: 0,
+    pricingStrategy: {
+      mode: 'manual',
+      autoCalculate: false,
+      markupPercentage: 30,
+      marginPercentage: 25,
+    },
     images: [],
     attributes: {},
   };
@@ -2148,6 +2160,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         <Button variant="secondary" onClick={() => setIsLabelWizardOpen(true)}>
           <Printer className="h-4 w-4 mr-2" /> Imprimir Etiquetas
         </Button>
+        <PriceListsManager />
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button id="add-product-button" size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white"><Plus className="h-5 w-5 mr-2" /> Agregar Producto</Button>
@@ -3417,7 +3430,15 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   {/* Precio de Venta solo para mercancía */}
                   {newProduct.productType === 'simple' && showSalesFields && (
                     <div className="space-y-2">
-                      <Label htmlFor="variantBasePrice">Precio de Venta ($)</Label>
+                      <Label htmlFor="variantBasePrice">
+                        Precio de Venta ($)
+                        {newProduct.variant.pricingStrategy?.mode !== 'manual' &&
+                          newProduct.variant.pricingStrategy?.autoCalculate && (
+                            <Badge variant="secondary" className="ml-2 text-xs">
+                              Auto-calculado
+                            </Badge>
+                          )}
+                      </Label>
                       <NumberInput
                         id="variantBasePrice"
                         value={newProduct.variant.basePrice ?? ''}
@@ -3427,6 +3448,10 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                         step={0.01}
                         min={0}
                         placeholder="Precio venta"
+                        disabled={
+                          newProduct.variant.pricingStrategy?.mode !== 'manual' &&
+                          newProduct.variant.pricingStrategy?.autoCalculate
+                        }
                       />
                     </div>
                   )}
@@ -3447,6 +3472,30 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                     </div>
                   )}
                 </div>
+
+                {/* Pricing Strategy Selector - Solo para productos simples con ventas */}
+                {newProduct.productType === 'simple' && showSalesFields && (
+                  <div className="mt-6">
+                    <PricingStrategySelector
+                      strategy={newProduct.variant.pricingStrategy}
+                      costPrice={newProduct.variant.costPrice || 0}
+                      basePrice={newProduct.variant.basePrice || 0}
+                      onStrategyChange={(strategy) =>
+                        setNewProduct({
+                          ...newProduct,
+                          variant: { ...newProduct.variant, pricingStrategy: strategy },
+                        })
+                      }
+                      onPriceChange={(price) =>
+                        setNewProduct({
+                          ...newProduct,
+                          variant: { ...newProduct.variant, basePrice: price },
+                        })
+                      }
+                    />
+                  </div>
+                )}
+
                 {variantAttributes.length > 0 && (
                   <div className="border-t pt-4 mt-4">
                     <h5 className="text-base font-medium mb-4">Atributos de la Variante</h5>
@@ -3580,13 +3629,25 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                           </div>
                           {showSalesFields && (
                             <div className="space-y-2">
-                              <Label>Precio venta ($)</Label>
+                              <Label>
+                                Precio venta ($)
+                                {variant.pricingStrategy?.mode !== 'manual' &&
+                                  variant.pricingStrategy?.autoCalculate && (
+                                    <Badge variant="secondary" className="ml-2 text-xs">
+                                      Auto-calculado
+                                    </Badge>
+                                  )}
+                              </Label>
                               <NumberInput
                                 value={variant.basePrice ?? ''}
                                 onValueChange={(val) => updateAdditionalVariantField(index, 'basePrice', val)}
                                 step={0.01}
                                 min={0}
                                 placeholder="Precio venta"
+                                disabled={
+                                  variant.pricingStrategy?.mode !== 'manual' &&
+                                  variant.pricingStrategy?.autoCalculate
+                                }
                               />
                             </div>
                           )}
@@ -3603,6 +3664,23 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                             </div>
                           )}
                         </div>
+
+                        {/* Pricing Strategy Selector para variante adicional */}
+                        {showSalesFields && (
+                          <div className="mt-4">
+                            <PricingStrategySelector
+                              strategy={variant.pricingStrategy}
+                              costPrice={variant.costPrice || 0}
+                              basePrice={variant.basePrice || 0}
+                              onStrategyChange={(strategy) =>
+                                updateAdditionalVariantField(index, 'pricingStrategy', strategy)
+                              }
+                              onPriceChange={(price) =>
+                                updateAdditionalVariantField(index, 'basePrice', price)
+                              }
+                            />
+                          </div>
+                        )}
                         {variantAttributes.length > 0 && (
                           <div className="border-t pt-4 mt-4">
                             <h6 className="text-sm font-medium mb-3">Atributos específicos</h6>
@@ -5308,12 +5386,24 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Precio venta ($)</Label>
+                          <Label>
+                            Precio venta ($)
+                            {variant.pricingStrategy?.mode !== 'manual' &&
+                              variant.pricingStrategy?.autoCalculate && (
+                                <Badge variant="secondary" className="ml-2 text-xs">
+                                  Auto-calculado
+                                </Badge>
+                              )}
+                          </Label>
                           <Input
                             type="number"
                             value={variant.basePrice ?? ''}
                             onChange={(e) => handleEditVariantFieldChange(index, 'basePrice', e.target.value)}
                             placeholder="0.00"
+                            disabled={
+                              variant.pricingStrategy?.mode !== 'manual' &&
+                              variant.pricingStrategy?.autoCalculate
+                            }
                           />
                         </div>
                         {editingProduct?.pricingRules?.wholesaleEnabled && (
@@ -5328,6 +5418,70 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                           </div>
                         )}
                       </div>
+
+                      {/* Pricing Strategy Selector para edición */}
+                      {showSalesFields && (
+                        <div className="mt-4">
+                          <PricingStrategySelector
+                            strategy={variant.pricingStrategy || {
+                              mode: 'manual',
+                              autoCalculate: false,
+                              markupPercentage: 30,
+                              marginPercentage: 25,
+                            }}
+                            costPrice={variant.costPrice || 0}
+                            basePrice={variant.basePrice || 0}
+                            onStrategyChange={(strategy) =>
+                              handleEditVariantFieldChange(index, 'pricingStrategy', strategy)
+                            }
+                            onPriceChange={(price) =>
+                              handleEditVariantFieldChange(index, 'basePrice', price)
+                            }
+                          />
+                        </div>
+                      )}
+
+                      {/* Price Lists Manager para edición */}
+                      {showSalesFields && editingProduct?._id && variant.sku && (
+                        <div className="mt-4">
+                          <ProductPriceListManager
+                            productId={editingProduct._id}
+                            variantSku={variant.sku}
+                            basePrice={variant.basePrice || 0}
+                            customPrices={variant.customPrices || []}
+                            onChange={(customPrices) =>
+                              handleEditVariantFieldChange(index, 'customPrices', customPrices)
+                            }
+                          />
+                        </div>
+                      )}
+
+                      {/* Volume Discounts Manager para edición */}
+                      {showSalesFields && variant.sku && (
+                        <div className="mt-4">
+                          <VolumeDiscountsManager
+                            basePrice={variant.basePrice || 0}
+                            volumeDiscounts={variant.volumeDiscounts || []}
+                            onChange={(volumeDiscounts) =>
+                              handleEditVariantFieldChange(index, 'volumeDiscounts', volumeDiscounts)
+                            }
+                          />
+                        </div>
+                      )}
+
+                      {/* Location Pricing Manager para edición */}
+                      {showSalesFields && variant.sku && (
+                        <div className="mt-4">
+                          <LocationPricingManager
+                            basePrice={variant.basePrice || 0}
+                            locationPricing={variant.locationPricing || []}
+                            locations={[]}
+                            onChange={(locationPricing) =>
+                              handleEditVariantFieldChange(index, 'locationPricing', locationPricing)
+                            }
+                          />
+                        </div>
+                      )}
 
                       {variantAttributes.length > 0 && (
                         <div className="border-t pt-4 mt-4">
