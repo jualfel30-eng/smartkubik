@@ -623,6 +623,12 @@ export class UpdateTenantSettingsDto {
   @SanitizeString()
   timezone?: string;
 
+  @ApiProperty({ example: "VE" })
+  @IsString()
+  @IsOptional()
+  @SanitizeString()
+  countryCode?: string;
+
   @ApiProperty({ type: OperationalSettingsDto })
   @IsOptional()
   @ValidateNested()

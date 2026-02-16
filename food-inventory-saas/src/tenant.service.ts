@@ -123,6 +123,7 @@ export class TenantService {
     if (updateDto.logo) updatePayload["logo"] = updateDto.logo;
     if (updateDto.website) updatePayload["website"] = updateDto.website;
     if (updateDto.timezone) updatePayload["timezone"] = updateDto.timezone;
+    if (updateDto.countryCode) updatePayload["countryCode"] = updateDto.countryCode;
 
     if (updateDto.contactInfo) {
       const contactInfo = updateDto.contactInfo;
@@ -256,7 +257,7 @@ export class TenantService {
         { new: true, runValidators: true },
       )
       .select(
-        "name contactInfo taxInfo logo website timezone settings aiAssistant verticalProfile",
+        "name contactInfo taxInfo logo website timezone countryCode settings aiAssistant verticalProfile",
       )
       .exec();
 

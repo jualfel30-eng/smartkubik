@@ -22,11 +22,13 @@ import { BillingSettings } from './BillingSettings'; // Importar BillingSettings
 import { PaymentMethodsSettings } from './PaymentMethodsSettings'; // Importar PaymentMethodsSettings
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DEFAULT_VERTICAL_KEY, getVerticalProfile, listVerticalProfiles } from '@/config/verticalProfiles.js';
+import { getAvailableCountries } from '@/country-plugins/registry';
 
 const initialSettings = {
   name: '',
   website: '',
   logo: '',
+  countryCode: 'VE',
   verticalProfile: {
     key: DEFAULT_VERTICAL_KEY,
     overrides: {},
@@ -119,6 +121,7 @@ const SettingsPage = () => {
   const { hasPermission, tenant, updateTenantContext } = useAuth(); // Obtener hasPermission y tenant
   const tenantVerticalKey = tenant?.verticalProfile?.key || DEFAULT_VERTICAL_KEY;
   const verticalOptions = useMemo(() => listVerticalProfiles(), []);
+  const availableCountries = useMemo(() => getAvailableCountries(), []);
   const selectedVerticalProfile = useMemo(
     () => getVerticalProfile(settings.verticalProfile?.key, settings.verticalProfile?.overrides),
     [settings.verticalProfile?.key, settings.verticalProfile?.overrides],
@@ -129,6 +132,7 @@ const SettingsPage = () => {
     const mergedSettings = {
       ...initialSettings,
       ...settingsData,
+      countryCode: settingsData.countryCode || initialSettings.countryCode,
       verticalProfile: {
         key: settingsData.verticalProfile?.key || initialSettings.verticalProfile.key,
         overrides: { ...(settingsData.verticalProfile?.overrides || {}) },
@@ -461,6 +465,31 @@ const SettingsPage = () => {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Guarda la configuración para aplicar cambios en los formularios y validaciones.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>País / Región</CardTitle>
+                  <CardDescription>
+                    Define el país de operación del negocio. Esto determina la moneda, impuestos y métodos de pago disponibles.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Label>País de operación</Label>
+                  <Select value={settings.countryCode} onValueChange={(value) => setSettings(prev => ({ ...prev, countryCode: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona un país" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableCountries.map(c => (
+                        <SelectItem key={c.code} value={c.code}>{c.name} ({c.code})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    El cambio de país aplica al guardar. Recarga la página para que el sistema actualice moneda e impuestos.
                   </p>
                 </CardContent>
               </Card>

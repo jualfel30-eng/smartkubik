@@ -32,9 +32,19 @@ import {
 } from '../ui/table';
 import { toast } from 'sonner';
 import { api } from '../../lib/api';
+import { useCountryPlugin } from '../../country-plugins/CountryPluginContext';
 
 const BillingCreateForm = () => {
   const navigate = useNavigate();
+  const plugin = useCountryPlugin();
+  const primaryCurrency = plugin.currencyEngine.getPrimaryCurrency();
+  const allCurrencies = [primaryCurrency, ...plugin.currencyEngine.getSecondaryCurrencies()];
+  const defaultTax = plugin.taxEngine.getDefaultTaxes()[0];
+  const defaultTaxRate = defaultTax?.rate ?? 16;
+  const defaultTaxType = defaultTax?.type ?? 'IVA';
+  const fiscalIdLabel = plugin.fiscalIdentity.getFieldLabel();
+  const phonePrefix = plugin.localeProvider.getPhonePrefix();
+
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
@@ -52,7 +62,7 @@ const BillingCreateForm = () => {
     items: [],
     notes: '',
     paymentMethod: 'cash',
-    currency: 'VES'
+    currency: primaryCurrency.code
   });
 
   const [newItem, setNewItem] = useState({
@@ -60,7 +70,7 @@ const BillingCreateForm = () => {
     description: '',
     quantity: 1,
     unitPrice: 0,
-    taxRate: 16,
+    taxRate: defaultTaxRate,
     discount: 0
   });
 
@@ -141,7 +151,7 @@ const BillingCreateForm = () => {
       description: '',
       quantity: 1,
       unitPrice: 0,
-      taxRate: 16,
+      taxRate: defaultTaxRate,
       discount: 0
     });
   };
@@ -213,7 +223,7 @@ const BillingCreateForm = () => {
             value: item.discount
           },
           tax: {
-            type: 'IVA',
+            type: defaultTaxType,
             rate: item.taxRate,
             amount: item.tax
           }
@@ -223,8 +233,8 @@ const BillingCreateForm = () => {
           discounts: totals.discounts,
           taxes: [
             {
-              type: 'IVA',
-              rate: 16,
+              type: defaultTaxType,
+              rate: defaultTaxRate,
               amount: totals.taxes,
               base: totals.subtotal - totals.discounts
             }
@@ -278,7 +288,7 @@ const BillingCreateForm = () => {
             value: item.discount
           },
           tax: {
-            type: 'IVA',
+            type: defaultTaxType,
             rate: item.taxRate,
             amount: item.tax
           }
@@ -288,8 +298,8 @@ const BillingCreateForm = () => {
           discounts: totals.discounts,
           taxes: [
             {
-              type: 'IVA',
-              rate: 16,
+              type: defaultTaxType,
+              rate: defaultTaxRate,
               amount: totals.taxes,
               base: totals.subtotal - totals.discounts
             }
@@ -373,8 +383,9 @@ const BillingCreateForm = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="VES">Bolívares (VES)</SelectItem>
-                    <SelectItem value="USD">Dólares (USD)</SelectItem>
+                    {allCurrencies.map(c => (
+                      <SelectItem key={c.code} value={c.code}>{c.name} ({c.code})</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -437,7 +448,7 @@ const BillingCreateForm = () => {
               </div>
 
               <div>
-                <Label>RIF / Cédula *</Label>
+                <Label>{fiscalIdLabel} *</Label>
                 <Input
                   value={formData.customerData.rif}
                   onChange={(e) => setFormData({
@@ -469,7 +480,7 @@ const BillingCreateForm = () => {
                     ...formData,
                     customerData: { ...formData.customerData, phone: e.target.value }
                   })}
-                  placeholder="+58 412 1234567"
+                  placeholder={`${phonePrefix} 412 1234567`}
                 />
               </div>
 
@@ -547,15 +558,14 @@ const BillingCreateForm = () => {
               </div>
 
               <div>
-                <Label>IVA %</Label>
+                <Label>{defaultTaxType} %</Label>
                 <Select value={newItem.taxRate.toString()} onValueChange={(value) => setNewItem({ ...newItem, taxRate: parseFloat(value) })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="0">0%</SelectItem>
-                    <SelectItem value="8">8%</SelectItem>
-                    <SelectItem value="16">16%</SelectItem>
+                    <SelectItem value={defaultTaxRate.toString()}>{defaultTaxRate}%</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -577,7 +587,7 @@ const BillingCreateForm = () => {
                     <TableHead className="text-right">Cantidad</TableHead>
                     <TableHead className="text-right">Precio Unit.</TableHead>
                     <TableHead className="text-right">Subtotal</TableHead>
-                    <TableHead className="text-right">IVA</TableHead>
+                    <TableHead className="text-right">{defaultTaxType}</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
@@ -649,7 +659,7 @@ const BillingCreateForm = () => {
                 </div>
               )}
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">IVA (16%):</span>
+                <span className="text-muted-foreground">{defaultTaxType} ({defaultTaxRate}%):</span>
                 <span>${totals.taxes.toFixed(2)}</span>
               </div>
               <div className="border-t pt-2 mt-2">
