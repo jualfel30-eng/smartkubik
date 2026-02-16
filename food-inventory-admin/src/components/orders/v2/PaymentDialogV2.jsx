@@ -10,10 +10,14 @@ import { fetchApi, registerTipsOnOrder } from '@/lib/api';
 import { X, Plus, Calculator, Wand2, HandCoins } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from "@/components/ui/badge";
+import { useCountryPlugin } from '@/country-plugins/CountryPluginContext';
 
 export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exchangeRate }) {
   const { paymentMethods, paymentMethodsLoading } = useCrmContext();
   const { triggerRefresh } = useAccountingContext();
+  const plugin = useCountryPlugin();
+  const primaryCurrency = plugin.currencyEngine.getPrimaryCurrency();
+  const numberLocale = plugin.localeProvider.getNumberLocale();
 
   const [paymentMode, setPaymentMode] = useState('single');
   const [singlePayment, setSinglePayment] = useState({ method: '', reference: '', bankAccountId: '' });
@@ -155,22 +159,29 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
     return mapping[methodId] || methodId;
   };
 
-  // Check if payment method is in VES
+  // Check if payment method is in primary currency (e.g. VES)
   const isVesMethod = (methodId) => {
-    return methodId && methodId.includes('_ves');
+    const method = plugin.paymentEngine.getAvailableMethods().find(m => m.id === methodId);
+    return method ? method.currency === primaryCurrency.code : false;
   };
 
-  // Check if payment method requires IGTF (3% for USD payments)
+  // Check if payment method requires an additional transaction tax (e.g. IGTF)
   const requiresIgtf = (methodId) => {
-    const igtfMethods = ['efectivo_usd', 'transferencia_usd', 'zelle_usd'];
-    return igtfMethods.includes(methodId);
+    return plugin.paymentEngine.triggersAdditionalTax(methodId);
   };
 
-  // Calculate IGTF amount (3% of base amount)
+  // Calculate additional transaction tax from plugin
   const calculateIgtf = (amount, methodId) => {
     if (!requiresIgtf(methodId)) return 0;
-    return amount * 0.03;
+    const taxes = plugin.taxEngine.getTransactionTaxes({ paymentMethodId: methodId });
+    const rate = (taxes[0]?.rate ?? 3) / 100;
+    return amount * rate;
   };
+
+  const igtfLabel = (() => {
+    const taxes = plugin.taxEngine.getTransactionTaxes({ paymentMethodId: 'efectivo_usd' });
+    return taxes[0] ? `${taxes[0].type} (${taxes[0].rate}%)` : 'IGTF (3%)';
+  })();
 
   // Filter bank accounts by selected payment method
   const filteredBankAccounts = useMemo(() => {
@@ -430,7 +441,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
           <DialogTitle>Registrar Pago</DialogTitle>
           <DialogDescription>
             Orden: {order.orderNumber} | Balance Pendiente: ${remainingAmount.toFixed(2)} USD
-            {remainingAmountVes > 0 && ` / Bs ${remainingAmountVes.toFixed(2)}`}
+            {remainingAmountVes > 0 && ` / ${primaryCurrency.symbol} ${remainingAmountVes.toFixed(2)}`}
           </DialogDescription>
         </DialogHeader>
 
@@ -497,7 +508,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                           <span>${remainingAmount.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-sm text-orange-600">
-                          <span>IGTF (3%):</span>
+                          <span>{igtfLabel}:</span>
                           <span>${calculateIgtf(remainingAmount, singlePayment.method).toFixed(2)}</span>
                         </div>
                         <div className="pt-2 border-t">
@@ -508,7 +519,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                             </span>
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
-                            ≈ Bs {((remainingAmount + calculateIgtf(remainingAmount, singlePayment.method)) * (exchangeRate || 1)).toFixed(2)}
+                            ≈ {primaryCurrency.symbol} {((remainingAmount + calculateIgtf(remainingAmount, singlePayment.method)) * (exchangeRate || 1)).toFixed(2)}
                           </p>
                         </div>
                       </>
@@ -516,7 +527,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                       <>
                         <p className="text-lg font-semibold">
                           {isVesMethod(singlePayment.method)
-                            ? `Bs ${remainingAmountVes.toFixed(2)}`
+                            ? `${primaryCurrency.symbol} ${remainingAmountVes.toFixed(2)}`
                             : `$${remainingAmount.toFixed(2)}`
                           }
                         </p>
@@ -524,7 +535,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                           <p className="text-sm text-muted-foreground mt-1">
                             {isVesMethod(singlePayment.method)
                               ? `≈ $${remainingAmount.toFixed(2)} USD`
-                              : `≈ Bs ${remainingAmountVes.toFixed(2)}`
+                              : `≈ ${primaryCurrency.symbol} ${remainingAmountVes.toFixed(2)}`
                             }
                           </p>
                         )}
@@ -638,7 +649,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
 
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-2">
-                        <Label>{lineIsVes ? 'Monto en Bs' : 'Monto en $'}</Label>
+                        <Label>{lineIsVes ? `Monto en ${primaryCurrency.symbol}` : 'Monto en $'}</Label>
                         <div className="flex gap-2">
                           <Input
                             type="number"
@@ -682,7 +693,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                               {rate > 0 && (
                                 <>
                                   {' '}≈{' '}
-                                  <span className="font-medium text-green-600">Bs {missingVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                  <span className="font-medium text-green-600">{primaryCurrency.symbol} {missingVES.toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </>
                               )}
                             </span>
@@ -696,12 +707,12 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                         )}
                         {!lineIsVes && lineAmount > 0 && (
                           <p className="text-xs text-muted-foreground">
-                            Equivalente: Bs {lineAmountVes.toFixed(2)}
+                            Equivalente: {primaryCurrency.symbol} {lineAmountVes.toFixed(2)}
                           </p>
                         )}
                         {!lineIsVes && lineAmount > 0 && lineIgtf > 0 && (
                           <p className="text-xs text-orange-600">
-                            IGTF (3%): +${lineIgtf.toFixed(2)}
+                            {igtfLabel}: +${lineIgtf.toFixed(2)}
                           </p>
                         )}
                       </div>
@@ -856,7 +867,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                       </p>
                       {exchangeRate > 0 && (
                         <p className="text-xs text-muted-foreground">
-                          ≈ Bs {(calculatedTipAmount * exchangeRate).toFixed(2)}
+                          ≈ {primaryCurrency.symbol} {(calculatedTipAmount * exchangeRate).toFixed(2)}
                         </p>
                       )}
                     </div>
@@ -889,7 +900,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
               </div>
               {mixedPaymentTotals.igtf > 0 && (
                 <div className="flex justify-between text-sm text-orange-600">
-                  <span>+ IGTF (3%):</span>
+                  <span>+ {igtfLabel}:</span>
                   <span>${mixedPaymentTotals.igtf.toFixed(2)}</span>
                 </div>
               )}
@@ -916,8 +927,8 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
               )}
 
               <div className="flex justify-between font-semibold text-sm text-green-600">
-                <span>Equivalente total en Bolívares:</span>
-                <span>Bs {mixedPaymentTotals.totalVES.toFixed(2)}</span>
+                <span>Equivalente total en {primaryCurrency.name}:</span>
+                <span>{primaryCurrency.symbol} {mixedPaymentTotals.totalVES.toFixed(2)}</span>
               </div>
             </div>
           )}

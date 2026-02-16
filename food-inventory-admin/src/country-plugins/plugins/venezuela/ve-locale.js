@@ -1,4 +1,4 @@
-import veStates from '../../../lib/venezuela-data.js';
+import { venezuelaData as veStates } from '../../../lib/venezuela-data.js';
 
 export const veLocaleProvider = {
   getLanguage() {
@@ -14,8 +14,8 @@ export const veLocaleProvider = {
   },
 
   getAdminDivisions() {
-    const data = veStates.venezuelaData || veStates;
-    return (Array.isArray(data) ? data : []).map((state) => ({
+    const data = Array.isArray(veStates) ? veStates : [];
+    return data.map((state) => ({
       code: state.estado,
       name: state.estado,
       subdivisions: state.municipios.map((m) => ({

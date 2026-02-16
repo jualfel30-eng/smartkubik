@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -7,52 +7,31 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { fetchApi } from '@/lib/api';
-
-const BASE_PAYMENT_METHODS = [
-    { id: "efectivo_usd", name: "Efectivo (USD)", igtfApplicable: true },
-    { id: "transferencia_usd", name: "Transferencia (USD)", igtfApplicable: true },
-    { id: "zelle_usd", name: "Zelle (USD)", igtfApplicable: true },
-    { id: "efectivo_ves", name: "Efectivo (VES)", igtfApplicable: false },
-    { id: "transferencia_ves", name: "Transferencia (VES)", igtfApplicable: false },
-    { id: "pago_movil_ves", name: "Pago Móvil (VES)", igtfApplicable: false },
-    { id: "pos_ves", name: "Punto de Venta (VES)", igtfApplicable: false },
-    { id: "tarjeta_ves", name: "Tarjeta (VES)", igtfApplicable: false },
-    { id: "pago_mixto", name: "Pago Mixto", igtfApplicable: false },
-];
-
-const METHOD_FIELDS = {
-    'pago_movil_ves': [
-        { key: 'bank', label: 'Banco', placeholder: 'Ej: Banesco' },
-        { key: 'phoneNumber', label: 'Teléfono', placeholder: 'Ej: 0414-1234567' },
-        { key: 'cid', label: 'Cédula / RIF', placeholder: 'Ej: J-12345678' }
-    ],
-    'zelle_usd': [
-        { key: 'email', label: 'Correo Zelle', placeholder: 'correo@ejemplo.com' },
-        { key: 'accountName', label: 'Nombre del Titular', placeholder: 'Nombre Completo' }
-    ],
-    'transferencia_ves': [
-        { key: 'bank', label: 'Banco', placeholder: 'Ej: Mercantil' },
-        { key: 'accountNumber', label: 'Número de Cuenta', placeholder: '0105...' },
-        { key: 'accountName', label: 'Titular', placeholder: 'Nombre del titular' },
-        { key: 'cid', label: 'Cédula / RIF', placeholder: 'V-123456 / J-123456' },
-        { key: 'email', label: 'Email Confirmación (Opcional)', placeholder: 'pagos@empresa.com' }
-    ],
-    'transferencia_usd': [
-        { key: 'bank', label: 'Banco', placeholder: 'Ej: Banesco Panamá' },
-        { key: 'accountNumber', label: 'Número de Cuenta / IBAN', placeholder: '...' },
-        { key: 'accountName', label: 'Titular', placeholder: 'Nombre del titular' },
-        { key: 'email', label: 'Email Confirmación (Opcional)', placeholder: 'pagos@empresa.com' }
-    ]
-};
+import { useCountryPlugin } from '@/country-plugins/CountryPluginContext';
 
 export function PaymentMethodsSettings() {
+    const plugin = useCountryPlugin();
     const [methods, setMethods] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
+    // Derive base methods and field definitions from the country plugin
+    const basePaymentMethods = useMemo(() => {
+        return plugin.paymentEngine.getAvailableMethods().map(m => ({
+            id: m.id,
+            name: m.name,
+            igtfApplicable: m.igtfApplicable,
+        }));
+    }, [plugin]);
+
+    const getMethodFields = (methodId) => {
+        const fields = plugin.paymentEngine.getMethodFields(methodId);
+        return fields.length > 0 ? fields : null;
+    };
+
     useEffect(() => {
         loadSettings();
-    }, []);
+    }, [basePaymentMethods]);
 
     const loadSettings = async () => {
         try {
@@ -60,10 +39,9 @@ export function PaymentMethodsSettings() {
             const response = await fetchApi('/tenant/settings');
             const tenantSettings = response.data?.settings?.paymentMethods || [];
 
-            // Merge with base methods
-            const merged = BASE_PAYMENT_METHODS.map(base => {
+            // Merge with base methods from plugin
+            const merged = basePaymentMethods.map(base => {
                 const existing = tenantSettings.find(m => m.id === base.id);
-                // Ensure details object exists
                 const defaultDetails = {
                     bank: '', accountNumber: '', accountName: '', cid: '', phoneNumber: '', email: ''
                 };
@@ -128,7 +106,7 @@ export function PaymentMethodsSettings() {
                         enabled: m.enabled,
                         igtfApplicable: m.igtfApplicable,
                         instructions: m.instructions || '',
-                        details: m.details // Send the structured details
+                        details: m.details
                     }))
                 }
             };
@@ -161,7 +139,7 @@ export function PaymentMethodsSettings() {
             <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 gap-4">
                     {methods.map((method) => {
-                        const specificFields = METHOD_FIELDS[method.id];
+                        const specificFields = getMethodFields(method.id);
 
                         return (
                             <div key={method.id} className="flex flex-col border p-4 rounded-lg space-y-4 bg-card hover:bg-accent/5 transition-colors">
@@ -181,7 +159,7 @@ export function PaymentMethodsSettings() {
                                 {method.enabled && (
                                     <div className="animate-in fade-in slide-in-from-top-1 duration-200 space-y-4 pl-1">
 
-                                        {/* Render Specific Fields if defined */}
+                                        {/* Render Specific Fields from plugin */}
                                         {specificFields ? (
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                                 {specificFields.map(field => (
@@ -200,7 +178,7 @@ export function PaymentMethodsSettings() {
                                             </div>
                                         ) : null}
 
-                                        {/* Generic Instructions Field (Always visible as fallback or extra info) */}
+                                        {/* Generic Instructions Field */}
                                         <div className="space-y-1.5">
                                             <Label className="text-xs font-medium text-muted-foreground">
                                                 Instrucciones Adicionales / Notas
