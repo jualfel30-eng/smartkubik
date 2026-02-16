@@ -126,6 +126,7 @@ import { FixedAssetsModule } from "./modules/fixed-assets/fixed-assets.module";
 import { InvestmentsModule } from "./modules/investments/investments.module";
 import { DataImportModule } from "./modules/data-import/data-import.module";
 import { PriceListsModule } from "./modules/price-lists/price-lists.module";
+import { CountryPluginModule } from "./country-plugins/country-plugin.module";
 
 import { Redis } from "ioredis";
 
@@ -444,6 +445,7 @@ let sharedSecondaryRedisConnection: Redis | null = null;
       ]),
     FeatureFlagsGlobalModule,
     FeatureFlagsModule,
+    CountryPluginModule,
     HealthModule,
     AuthModule,
     OnboardingModule,

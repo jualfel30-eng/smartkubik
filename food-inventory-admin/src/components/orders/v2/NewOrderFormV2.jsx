@@ -2763,14 +2763,14 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                     Lista de Precios
                   </Label>
                   <Select
-                    value={newOrder.priceListId || ''}
-                    onValueChange={(value) => handleFieldChange('priceListId', value)}
+                    value={newOrder.priceListId || 'none'}
+                    onValueChange={(value) => handleFieldChange('priceListId', value === 'none' ? '' : value)}
                   >
                     <SelectTrigger id="priceListId">
                       <SelectValue placeholder="Precio regular (sin lista específica)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Sin lista específica</SelectItem>
+                      <SelectItem value="none">Sin lista específica</SelectItem>
                       {priceLists.map((pl) => (
                         <SelectItem key={pl._id} value={pl._id}>
                           {pl.name} - {pl.type === 'wholesale' ? 'Mayorista' : pl.type === 'retail' ? 'Retail' : pl.type === 'promotional' ? 'Promocional' : pl.type}
