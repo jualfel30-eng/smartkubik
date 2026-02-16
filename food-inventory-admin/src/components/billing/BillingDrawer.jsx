@@ -42,11 +42,20 @@ import { api } from '../../lib/api';
 import { useExchangeRate } from '../../hooks/useExchangeRate';
 import InvoiceDeliveryDialog from './InvoiceDeliveryDialog';
 import { useCrmContext } from '../../context/CrmContext';
+import { useCountryPlugin } from '../../country-plugins/CountryPluginContext';
 
 const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
     const navigate = useNavigate();
     const { rate: bcvRate, loading: loadingRate } = useExchangeRate();
     const { paymentMethods, paymentMethodsLoading } = useCrmContext();
+    const plugin = useCountryPlugin();
+    const primaryCurrency = plugin.currencyEngine.getPrimaryCurrency();
+    const hasSecondaryCurrency = plugin.currencyEngine.getSecondaryCurrencies().length > 0;
+    const exchangeRateConfig = plugin.currencyEngine.getExchangeRateConfig();
+    const defaultTaxRate = plugin.taxEngine.getDefaultTaxes()[0]?.rate ?? 16;
+    const defaultTaxType = plugin.taxEngine.getDefaultTaxes()[0]?.type ?? 'IVA';
+    const igtfTax = plugin.taxEngine.getTransactionTaxes({ paymentMethodId: 'efectivo_usd' })[0];
+    const fiscalIdLabel = plugin.fiscalIdentity.getFieldLabel();
     const [loading, setLoading] = useState(false);
     const [customers, setCustomers] = useState([]);
     const [products, setProducts] = useState([]);
@@ -65,7 +74,7 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
         items: [],
         notes: '',
         paymentMethod: '', // Will be set from order or default payment method
-        currency: 'VES',
+        currency: primaryCurrency.code,
         exchangeRate: 1,
         amountBs: 0
     });
@@ -75,7 +84,7 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
         description: '',
         quantity: 1,
         unitPrice: 0,
-        taxRate: 16,
+        taxRate: defaultTaxRate,
         discount: 0
     });
 
@@ -106,11 +115,11 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                 unit: unit,
                 unitPrice: unitPrice,
                 // Fix: Respect the exemption flag from the order item or product
-                taxRate: isExempt ? 0 : 16,
+                taxRate: isExempt ? 0 : defaultTaxRate,
                 discount: 0,
                 subtotal: (item.quantity || 1) * unitPrice,
-                tax: ((item.quantity || 1) * unitPrice * (isExempt ? 0 : 16) / 100),
-                total: ((item.quantity || 1) * unitPrice * (1 + (isExempt ? 0 : 16) / 100))
+                tax: ((item.quantity || 1) * unitPrice * (isExempt ? 0 : defaultTaxRate) / 100),
+                total: ((item.quantity || 1) * unitPrice * (1 + (isExempt ? 0 : defaultTaxRate) / 100))
             };
         });
 
@@ -184,7 +193,7 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
             items,
             notes: `Orden #${orderData.orderNumber}`,
             paymentMethod,
-            currency: 'VES',
+            currency: primaryCurrency.code,
             exchangeRate: bcvRate || orderData.exchangeRate || 1,
             amountBs: orderData.totalAmountVes || (totalAmount * (bcvRate || orderData.exchangeRate || 1))
         });
@@ -338,7 +347,7 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
             description: '',
             quantity: 1,
             unitPrice: 0,
-            taxRate: 16,
+            taxRate: defaultTaxRate,
             discount: 0
         });
     };
@@ -431,7 +440,7 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                         value: item.discount
                     },
                     tax: {
-                        type: 'IVA',
+                        type: defaultTaxType,
                         rate: item.taxRate,
                         amount: item.tax
                     }
@@ -441,14 +450,14 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                     discounts: totals.discounts,
                     taxes: [
                         {
-                            type: 'IVA',
-                            rate: 16,
+                            type: defaultTaxType,
+                            rate: defaultTaxRate,
                             amount: totals.taxes,
                             base: totals.subtotal - totals.discounts
                         },
-                        ...(totals.igtf > 0 ? [{
-                            type: 'IGTF',
-                            rate: 3,
+                        ...(totals.igtf > 0 && igtfTax ? [{
+                            type: igtfTax.type,
+                            rate: igtfTax.rate,
                             amount: totals.igtf,
                             base: totals.subtotal - totals.discounts + totals.taxes
                         }] : [])
@@ -636,7 +645,7 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                                         />
                                     </div>
                                     <div>
-                                        <Label>RIF / Cédula *</Label>
+                                        <Label>{fiscalIdLabel} *</Label>
                                         <Input
                                             value={formData.customerData.rif}
                                             onChange={(e) => setFormData({
@@ -717,7 +726,7 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                                 <input
                                     type="checkbox"
                                     checked={newItem.taxRate === 0}
-                                    onChange={(e) => setNewItem({ ...newItem, taxRate: e.target.checked ? 0 : 16 })}
+                                    onChange={(e) => setNewItem({ ...newItem, taxRate: e.target.checked ? 0 : defaultTaxRate })}
                                     className="h-4 w-4"
                                 />
                             </div>
@@ -741,13 +750,13 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                                 <span>${totals.subtotal.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">IVA (16%):</span>
+                                <span className="text-muted-foreground">{defaultTaxType} ({defaultTaxRate}%):</span>
                                 <span>${totals.taxes.toFixed(2)}</span>
                             </div>
-                            {totals.igtf > 0 && (
+                            {totals.igtf > 0 && igtfTax && (
                                 <div className="flex justify-between text-sm text-orange-600">
                                     <span className="flex items-center gap-1">
-                                        <span>IGTF (3%):</span>
+                                        <span>{igtfTax.type} ({igtfTax.rate}%):</span>
                                         <span className="text-[10px]">De pagos registrados</span>
                                     </span>
                                     <span>${totals.igtf.toFixed(2)}</span>
@@ -758,43 +767,47 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                                 <span>${totals.total.toFixed(2)}</span>
                             </div>
 
-                            {/* Exchange Rate and Bs Amount - Required by SENIAT */}
-                            <div className="grid grid-cols-2 gap-4 pt-3 border-t">
-                                <div>
-                                    <Label className="text-xs text-muted-foreground">
-                                        Tasa de Cambio BCV (Bs/$)
-                                        {loadingRate && <span className="ml-1">(Cargando...)</span>}
-                                    </Label>
-                                    <Input
-                                        type="number"
-                                        step="0.01"
-                                        value={formData.exchangeRate || bcvRate || ''}
-                                        disabled
-                                        className="h-8 text-sm bg-muted"
-                                        title="Tasa oficial del BCV - No modificable por transparencia fiscal"
-                                    />
-                                    <p className="text-[10px] text-muted-foreground mt-1">
-                                        Tasa oficial BCV (no modificable)
-                                    </p>
-                                </div>
-                                <div>
-                                    <Label className="text-xs text-muted-foreground">Total en Bs *</Label>
-                                    <Input
-                                        type="number"
-                                        step="0.01"
-                                        value={(totals.total * (formData.exchangeRate || bcvRate || 1)).toFixed(2)}
-                                        disabled
-                                        className="h-8 text-sm font-bold bg-muted"
-                                    />
-                                    <p className="text-[10px] text-muted-foreground mt-1">
-                                        Calculado automáticamente
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex justify-between font-bold text-lg pt-2">
-                                <span>Total Bs:</span>
-                                <span>Bs {(totals.total * (formData.exchangeRate || bcvRate || 1)).toFixed(2)}</span>
-                            </div>
+                            {/* Exchange Rate and primary currency total — shown only for dual-currency countries */}
+                            {hasSecondaryCurrency && (
+                                <>
+                                    <div className="grid grid-cols-2 gap-4 pt-3 border-t">
+                                        <div>
+                                            <Label className="text-xs text-muted-foreground">
+                                                Tasa {exchangeRateConfig?.source || 'Cambio'} ({primaryCurrency.symbol}/$)
+                                                {loadingRate && <span className="ml-1">(Cargando...)</span>}
+                                            </Label>
+                                            <Input
+                                                type="number"
+                                                step="0.01"
+                                                value={formData.exchangeRate || bcvRate || ''}
+                                                disabled
+                                                className="h-8 text-sm bg-muted"
+                                                title="Tasa oficial — No modificable por transparencia fiscal"
+                                            />
+                                            <p className="text-[10px] text-muted-foreground mt-1">
+                                                Tasa oficial (no modificable)
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <Label className="text-xs text-muted-foreground">Total en {primaryCurrency.symbol} *</Label>
+                                            <Input
+                                                type="number"
+                                                step="0.01"
+                                                value={(totals.total * (formData.exchangeRate || bcvRate || 1)).toFixed(2)}
+                                                disabled
+                                                className="h-8 text-sm font-bold bg-muted"
+                                            />
+                                            <p className="text-[10px] text-muted-foreground mt-1">
+                                                Calculado automáticamente
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between font-bold text-lg pt-2">
+                                        <span>Total {primaryCurrency.symbol}:</span>
+                                        <span>{primaryCurrency.symbol} {(totals.total * (formData.exchangeRate || bcvRate || 1)).toFixed(2)}</span>
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         <div className="flex flex-col gap-2 pt-4">

@@ -15,10 +15,8 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-const defaultCenter = {
-  lat: 10.1807, // Valencia, Carabobo, Venezuela
-  lng: -67.9904,
-};
+// World center as universal fallback
+const WORLD_CENTER = { lat: 20, lng: 0 };
 
 // Component to handle map clicks
 function MapClickHandler({ onLocationSelect }) {
@@ -44,7 +42,10 @@ function MapUpdater({ center }) {
 }
 
 export function LocationPicker({ value, onChange, label = 'Ubicación' }) {
-  const [center, setCenter] = useState(value?.coordinates || defaultCenter);
+  // Use a generic world center — specific coordinates belong in each tenant's stored location
+  const defaultCenter = value?.coordinates || WORLD_CENTER;
+
+  const [center, setCenter] = useState(defaultCenter);
   const [marker, setMarker] = useState(value?.coordinates || null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
