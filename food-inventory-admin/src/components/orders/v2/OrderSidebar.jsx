@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useCountryPlugin } from '@/country-plugins/CountryPluginContext';
 
 /**
  * OrderSidebar - Columna derecha sticky con información del pedido
@@ -46,6 +47,12 @@ export function OrderSidebar({
   canApplyDiscounts,
   handleFieldChange,
 }) {
+  const plugin = useCountryPlugin();
+  const defaultTax = plugin.taxEngine.getDefaultTaxes()[0];
+  const transactionTax = plugin.taxEngine.getTransactionTaxes({ paymentMethodId: 'efectivo_usd' })[0];
+  const ivaLabel = defaultTax ? `${defaultTax.type} (${defaultTax.rate}%):` : 'IVA (16%):';
+  const igtfLabel = transactionTax ? `${transactionTax.type} (${transactionTax.rate}%):` : 'IGTF (3%):';
+
   return (
     <div className="flex flex-col">
       {/* Sección scrolleable */}
@@ -117,7 +124,7 @@ export function OrderSidebar({
             )}
 
             <div className="flex justify-between text-sm">
-              <span>IVA (16%):</span>
+              <span>{ivaLabel}</span>
               <span>${totals.ivaAfterDiscount.toFixed(2)}</span>
             </div>
 
@@ -132,7 +139,7 @@ export function OrderSidebar({
 
             {totals.igtf > 0 && (
               <div className="flex justify-between text-sm">
-                <span>IGTF (3%):</span>
+                <span>{igtfLabel}</span>
                 <span>${totals.igtf.toFixed(2)}</span>
               </div>
             )}

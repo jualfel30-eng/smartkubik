@@ -40,6 +40,7 @@ import { fetchApi } from '@/lib/api.js';
 import { PaymentDialogV2 } from './v2/PaymentDialogV2';
 import BillingDrawer from '../billing/BillingDrawer';
 import { useAuth } from '@/hooks/use-auth.jsx';
+import { useCountryPlugin } from '@/country-plugins/CountryPluginContext';
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
@@ -73,6 +74,12 @@ const FULFILLMENT_TYPES = [
 ];
 
 export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
+  const plugin = useCountryPlugin();
+  const defaultTax = plugin.taxEngine.getDefaultTaxes()[0];
+  const transactionTax = plugin.taxEngine.getTransactionTaxes({ paymentMethodId: 'efectivo_usd' })[0];
+  const ivaLabel = defaultTax ? `${defaultTax.type} (${defaultTax.rate}%):` : 'IVA (16%):';
+  const igtfLabel = transactionTax ? `${transactionTax.type} (${transactionTax.rate}%):` : 'IGTF (3%):';
+
   const [currentStep, setCurrentStep] = useState(1);
   const [fulfillmentType, setFulfillmentType] = useState(order?.fulfillmentType || 'store');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -580,12 +587,12 @@ function Step1SummaryAndPayment({ order, fulfillmentType, onFulfillmentTypeChang
             <span>{formatCurrency(order.subtotal)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">IVA (16%):</span>
+            <span className="text-muted-foreground">{ivaLabel}</span>
             <span>{formatCurrency(order.ivaTotal)}</span>
           </div>
           {order.igtfTotal > 0 && (
             <div className="flex justify-between text-orange-600">
-              <span>IGTF (3%):</span>
+              <span>{igtfLabel}</span>
               <span>{formatCurrency(order.igtfTotal)}</span>
             </div>
           )}

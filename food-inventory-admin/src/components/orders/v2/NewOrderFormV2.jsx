@@ -57,8 +57,12 @@ const formatDecimalString = (value, decimals = 3) => {
 };
 
 import { useMediaQuery } from '@/hooks/use-media-query';
+import { useCountryPlugin } from '@/country-plugins/CountryPluginContext';
 
 export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
+  const plugin = useCountryPlugin();
+  const taxRate = (plugin.taxEngine.getDefaultTaxes()[0]?.rate ?? 16) / 100;
+
   const { crmData: customers } = useCrmContext();
   const [activeTab, setActiveTab] = useState('products');
   const isDesktop = useMediaQuery("(min-width: 1024px)");
@@ -156,7 +160,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
           return sum + (getItemFinalUnitPrice(item) * quantity);
         }, 0);
         const iva = newOrder.items.reduce((sum, item) =>
-          item.ivaApplicable ? sum + (getItemFinalUnitPrice(item) * getItemQuantityValue(item) * 0.16) : sum, 0);
+          item.ivaApplicable ? sum + (getItemFinalUnitPrice(item) * getItemQuantityValue(item) * taxRate) : sum, 0);
         const orderAmount = subtotal + iva;
 
         const payload = {
@@ -1222,7 +1226,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
     const iva = newOrder.items.reduce((sum, item) => {
       if (!item.ivaApplicable) return sum;
       const quantity = getItemQuantityValue(item);
-      return sum + (getItemFinalUnitPrice(item) * quantity * 0.16);
+      return sum + (getItemFinalUnitPrice(item) * quantity * taxRate);
     }, 0);
 
     // Aplicar descuento al IVA también

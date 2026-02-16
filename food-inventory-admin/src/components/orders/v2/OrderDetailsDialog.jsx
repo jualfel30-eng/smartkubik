@@ -23,6 +23,7 @@ import { Printer, Download, Truck, Package, Ship, Users } from 'lucide-react';
 import { fetchApi } from '@/lib/api.js';
 import SplitBillModal from '@/components/restaurant/SplitBillModal.jsx';
 import { useAuth } from '@/hooks/use-auth.jsx';
+import { useCountryPlugin } from '@/country-plugins/CountryPluginContext';
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
@@ -47,6 +48,12 @@ const getDeliveryIcon = (method) => {
 };
 
 export function OrderDetailsDialog({ isOpen, onClose, order, tenantSettings, onUpdate }) {
+  const plugin = useCountryPlugin();
+  const defaultTax = plugin.taxEngine.getDefaultTaxes()[0];
+  const transactionTax = plugin.taxEngine.getTransactionTaxes({ paymentMethodId: 'efectivo_usd' })[0];
+  const ivaLabel = defaultTax ? `${defaultTax.type} (${defaultTax.rate}%):` : 'IVA (16%):';
+  const igtfLabel = transactionTax ? `${transactionTax.type} (${transactionTax.rate}%):` : 'IGTF (3%):';
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSplitModal, setShowSplitModal] = useState(false);
   const [billSplit, setBillSplit] = useState(null);
@@ -231,8 +238,8 @@ export function OrderDetailsDialog({ isOpen, onClose, order, tenantSettings, onU
             <div className="space-y-1 text-sm">
               <div className="flex justify-between"><p>Subtotal:</p> <p className="font-medium">{formatCurrency(order.subtotal)}</p></div>
               <div className="flex justify-between"><p>Costo de Envío:</p> <p className="font-medium">{formatCurrency(order.shippingCost)}</p></div>
-              <div className="flex justify-between"><p>IVA (16%):</p> <p className="font-medium">{formatCurrency(order.ivaTotal)}</p></div>
-              <div className="flex justify-between"><p>IGTF (3%):</p> <p className="font-medium">{formatCurrency(order.igtfTotal)}</p></div>
+              <div className="flex justify-between"><p>{ivaLabel}</p> <p className="font-medium">{formatCurrency(order.ivaTotal)}</p></div>
+              <div className="flex justify-between"><p>{igtfLabel}</p> <p className="font-medium">{formatCurrency(order.igtfTotal)}</p></div>
               <div className="flex justify-between text-base font-bold border-t pt-2"><p>Monto Total:</p> <p>{formatCurrency(order.totalAmount)}</p></div>
               {order.totalAmountVes > 0 && (
                 <div className="flex justify-between text-sm text-green-600">

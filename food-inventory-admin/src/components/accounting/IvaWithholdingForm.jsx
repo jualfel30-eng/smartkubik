@@ -23,8 +23,12 @@ import { Combobox } from '@/components/ui/combobox';
 import { Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { createIvaWithholding, updateIvaWithholding } from '../../lib/api';
+import { useCountryPlugin } from '@/country-plugins/CountryPluginContext';
 
 const IvaWithholdingForm = ({ open, onClose, onSuccess, editingWithholding, suppliers }) => {
+  const plugin = useCountryPlugin();
+  const taxRate = (plugin.taxEngine.getDefaultTaxes()[0]?.rate ?? 16) / 100;
+
   const [formData, setFormData] = useState({
     withholdingDate: new Date().toISOString().split('T')[0],
     supplierId: '',
@@ -70,12 +74,12 @@ const IvaWithholdingForm = ({ open, onClose, onSuccess, editingWithholding, supp
   }, [formData.ivaAmount, formData.withholdingPercentage]);
 
   useEffect(() => {
-    // Auto-calcular IVA desde base imponible (16%)
+    // Auto-calcular IVA desde base imponible
     if (formData.baseAmount > 0) {
-      const iva = formData.baseAmount * 0.16;
+      const iva = formData.baseAmount * taxRate;
       setFormData((prev) => ({ ...prev, ivaAmount: iva }));
     }
-  }, [formData.baseAmount]);
+  }, [formData.baseAmount, taxRate]);
 
   const handleChange = (name, value) => {
     setFormData({ ...formData, [name]: value });
